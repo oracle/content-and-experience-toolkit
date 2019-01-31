@@ -2,9 +2,7 @@
 
 To learn about developing components for Content and Experience Cloud, see the links below:
 
-[Developing Content Layouts Locally with Developer Cloud Service](https://docs.oracle.com/en/cloud/paas/content-cloud/developer/developing-content-layouts-locally-developer-cloud-service.html)
-
-[Developing Custom Components with Developer Cloud Service](https://docs.oracle.com/en/cloud/paas/content-cloud/developer/developing-custom-components-developer-cloud-service.html)
+[Developing for Oracle Content and Experience Cloud](https://docs.oracle.com/en/cloud/paas/content-cloud/developer/develop-sites-toolkit.html)
 
 ## Setup
 
@@ -12,13 +10,13 @@ To learn about developing components for Content and Experience Cloud, see the l
 * Pull the source from the DevCS Project - Git Repository.  Open a terminal window and enter this command:
 
  ```
-	git clone <your_project_url>.git
+	git clone git@github.com:oracle/content-and-experience.git
 ```
 
 * Install the dependencies - In the project root `cec-components`, enter:
 
 ```
-cd cec-components
+cd toolkit/sites/cec-components
 npm install
 ```
 
