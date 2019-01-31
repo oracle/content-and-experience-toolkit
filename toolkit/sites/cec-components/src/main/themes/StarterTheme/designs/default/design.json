@@ -1,0 +1,598 @@
+{
+	"componentStyles": {
+		"scs-image": {
+			"styles": [{
+					"name": "COMP_STYLE_FLAT",
+					"class": "scs-image-default-style"
+					},
+				{
+					"name": "COMP_STYLE_HAIRLINE",
+					"class": "scs-image-style-2"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_SM",
+					"class": "scs-image-style-8"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_LG",
+					"class": "scs-image-style-9"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SOFT",
+					"class": "scs-image-style-10"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SOFT",
+					"class": "scs-image-style-11"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SHARP",
+					"class": "scs-image-style-12"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SHARP",
+					"class": "scs-image-style-13"
+					},
+				{
+					"name": "COMP_STYLE_OUTER_GLOW",
+					"class": "scs-image-style-14"
+					},
+				{
+					"name": "COMP_STYLE_CURL",
+					"class": "scs-image-style-15"
+					},
+				{
+					"name": "COMP_STYLE_POLAROID",
+					"class": "scs-image-style-16"
+					}
+				]
+		},
+		"scs-map": {
+			"styles": [{
+					"name": "COMP_STYLE_FLAT",
+					"class": "scs-map-default-style"
+					},
+				{
+					"name": "COMP_STYLE_HAIRLINE",
+					"class": "scs-map-style-2"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_SM",
+					"class": "scs-map-style-8"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_LG",
+					"class": "scs-map-style-9"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SOFT",
+					"class": "scs-map-style-10"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SOFT",
+					"class": "scs-map-style-11"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SHARP",
+					"class": "scs-map-style-12"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SHARP",
+					"class": "scs-map-style-13"
+					},
+				{
+					"name": "COMP_STYLE_OUTER_GLOW",
+					"class": "scs-map-style-14"
+					}
+				]
+		},
+		"scs-title": {
+			"styles": [{
+					"name": "COMP_STYLE_FLAT",
+					"class": "scs-title-default-style"
+					},
+				{
+					"name": "COMP_STYLE_HIGHLIGHT",
+					"class": "scs-title-style-2"
+					},
+				{
+					"name": "COMP_STYLE_DIVIDER",
+					"class": "scs-title-style-3"
+					}
+				]
+		},
+		"scs-paragraph": {
+			"styles": [{
+					"name": "COMP_STYLE_FLAT",
+					"class": "scs-paragraph-default-style"
+					},
+				{
+					"name": "COMP_STYLE_NOTE",
+					"class": "scs-paragraph-style-2"
+					},
+				{
+					"name": "COMP_STYLE_HIGHLIGHT",
+					"class": "scs-paragraph-style-3"
+					},
+				{
+					"name": "COMP_STYLE_FOOTER_DIVIDER",
+					"class": "scs-paragraph-style-4"
+					},
+				{
+					"name": "COMP_STYLE_FOOTER_FRAME",
+					"class": "scs-paragraph-style-5"
+					},
+				{
+					"name": "COMP_STYLE_FOOTER_BACKGROUND",
+					"class": "scs-paragraph-style-6"
+					}
+				]
+		},
+		"scs-divider": {
+			"styles": [{
+					"name": "COMP_STYLE_LINE",
+					"class": "scs-divider-default-style"
+					},
+				{
+					"name": "COMP_STYLE_CENTER_GRADIENT",
+					"class": "scs-divider-style-2"
+					},
+				{
+					"name": "COMP_STYLE_DOTTED_SM",
+					"class": "scs-divider-style-3"
+					},
+				{
+					"name": "COMP_STYLE_DOTTED_LG",
+					"class": "scs-divider-style-4"
+					}
+				]
+		},
+		"scs-button": {
+			"styles": [{
+					"name": "COMP_STYLE_ALTA_SMALL",
+					"class": "scs-button-default-style"
+					},
+				{
+					"name": "COMP_STYLE_ALTA_LARGE",
+					"class": "scs-button-style-2"
+					},
+				{
+					"name": "COMP_STYLE_SIMPLE",
+					"class": "scs-button-style-3"
+					}
+				]
+		},
+		"scs-cobrowse": {
+			"styles": [{
+					"name": "COMP_STYLE_ALTA_SMALL",
+					"class": "scs-button-default-style"
+					},
+				{
+					"name": "COMP_STYLE_ALTA_LARGE",
+					"class": "scs-button-style-2"
+				    },
+				{
+					"name": "COMP_STYLE_SIMPLE",
+					"class": "scs-button-style-3"
+				    },
+				{
+					"name": "COMP_STYLE_LINK",
+					"class": "scs-cobrowse-style-1"
+					},
+				{
+					"name": "COMP_STYLE_IMAGE_LINK",
+					"class": "scs-cobrowse-style-2"
+					}
+				]
+		},
+		"scs-app": {
+			"styles": [{
+					"name": "COMP_STYLE_FLAT",
+					"class": "scs-app-default-style"
+					},
+				{
+					"name": "COMP_STYLE_HAIRLINE",
+					"class": "scs-app-style-2"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_SM",
+					"class": "scs-app-style-8"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_LG",
+					"class": "scs-app-style-9"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SOFT",
+					"class": "scs-app-style-10"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SOFT",
+					"class": "scs-app-style-11"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SHARP",
+					"class": "scs-app-style-12"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SHARP",
+					"class": "scs-app-style-13"
+					},
+				{
+					"name": "COMP_STYLE_OUTER_GLOW",
+					"class": "scs-app-style-14"
+					}
+				]
+		},
+		"scs-component": {
+			"styles": [{
+					"name": "COMP_STYLE_FLAT",
+					"class": "scs-component-default-style"
+					},
+				{
+					"name": "COMP_STYLE_HAIRLINE",
+					"class": "scs-component-style-2"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_SM",
+					"class": "scs-component-style-8"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_LG",
+					"class": "scs-component-style-9"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SOFT",
+					"class": "scs-component-style-10"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SOFT",
+					"class": "scs-component-style-11"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SHARP",
+					"class": "scs-component-style-12"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SHARP",
+					"class": "scs-component-style-13"
+					},
+				{
+					"name": "COMP_STYLE_OUTER_GLOW",
+					"class": "scs-component-style-14"
+					}
+				]
+		},
+		"scs-componentgroup": {
+			"styles": [
+				{
+					"name": "COMP_STYLE_FLAT",
+					"class": "scs-componentgroup-default-style"
+				},
+				{
+					"name": "COMP_STYLE_HAIRLINE",
+					"class": "scs-componentgroup-style-2"
+				},
+				{
+					"name": "COMP_STYLE_FRAME_SM",
+					"class": "scs-componentgroup-style-8"
+				},
+				{
+					"name": "COMP_STYLE_FRAME_LG",
+					"class": "scs-componentgroup-style-9"
+				},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SOFT",
+					"class": "scs-componentgroup-style-10"
+				},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SOFT",
+					"class": "scs-componentgroup-style-11"
+				},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SHARP",
+					"class": "scs-componentgroup-style-12"
+				},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SHARP",
+					"class": "scs-componentgroup-style-13"
+				},
+				{
+					"name": "COMP_STYLE_OUTER_GLOW",
+					"class": "scs-componentgroup-style-14"
+				}
+			]
+		},
+		"scs-sectionlayout": {
+			"styles": [
+				{
+					"name": "COMP_STYLE_FLAT",
+					"class": "scs-sectionlayout-default-style"
+				},
+				{
+					"name": "COMP_STYLE_HAIRLINE",
+					"class": "scs-sectionlayout-style-2"
+				},
+				{
+					"name": "COMP_STYLE_FRAME_SM",
+					"class": "scs-sectionlayout-style-8"
+				},
+				{
+					"name": "COMP_STYLE_FRAME_LG",
+					"class": "scs-sectionlayout-style-9"
+				},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SOFT",
+					"class": "scs-sectionlayout-style-10"
+				},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SOFT",
+					"class": "scs-sectionlayout-style-11"
+				},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SHARP",
+					"class": "scs-sectionlayout-style-12"
+				},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SHARP",
+					"class": "scs-sectionlayout-style-13"
+				},
+				{
+					"name": "COMP_STYLE_OUTER_GLOW",
+					"class": "scs-sectionlayout-style-14"
+				}
+			]
+		},
+		"scs-spacer": {
+		},
+		"scs-gallery": {
+			"styles": [{
+					"name": "COMP_STYLE_FLAT",
+					"class": "scs-gallery-default-style"
+					},
+				{
+					"name": "COMP_STYLE_HAIRLINE",
+					"class": "scs-gallery-style-2"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_SM",
+					"class": "scs-gallery-style-8"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_LG",
+					"class": "scs-gallery-style-9"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SOFT",
+					"class": "scs-gallery-style-10"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SOFT",
+					"class": "scs-gallery-style-11"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SHARP",
+					"class": "scs-gallery-style-12"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SHARP",
+					"class": "scs-gallery-style-13"
+					},
+				{
+					"name": "COMP_STYLE_OUTER_GLOW",
+					"class": "scs-gallery-style-14"
+					},
+				{
+					"name": "COMP_STYLE_CURL",
+					"class": "scs-gallery-style-15"
+					},
+				{
+					"name": "COMP_STYLE_POLAROID",
+					"class": "scs-gallery-style-16"
+					}
+				]
+		},
+		"scs-youtube": {
+			"styles": [{
+					"name": "COMP_STYLE_FLAT",
+					"class": "scs-youtube-default-style"
+					},
+				{
+					"name": "COMP_STYLE_HAIRLINE",
+					"class": "scs-youtube-style-2"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_SM",
+					"class": "scs-youtube-style-8"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_LG",
+					"class": "scs-youtube-style-9"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SOFT",
+					"class": "scs-youtube-style-10"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SOFT",
+					"class": "scs-youtube-style-11"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SHARP",
+					"class": "scs-youtube-style-12"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SHARP",
+					"class": "scs-youtube-style-13"
+					},
+				{
+					"name": "COMP_STYLE_OUTER_GLOW",
+					"class": "scs-youtube-style-14"
+					}
+				]
+		},
+		"scs-socialbar": {
+			"styles": [{
+					"name": "COMP_STYLE_FLAT",
+					"class": "scs-socialbar-default-style"
+					},
+				{
+					"name": "COMP_STYLE_HAIRLINE",
+					"class": "scs-socialbar-style-2"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_SM",
+					"class": "scs-socialbar-style-8"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_LG",
+					"class": "scs-socialbar-style-9"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SOFT",
+					"class": "scs-socialbar-style-10"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SOFT",
+					"class": "scs-socialbar-style-11"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SHARP",
+					"class": "scs-socialbar-style-12"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SHARP",
+					"class": "scs-socialbar-style-13"
+					},
+				{
+					"name": "COMP_STYLE_OUTER_GLOW",
+					"class": "scs-socialbar-style-14"
+					}
+				]
+		},
+		"scs-document": {
+			"styles": [{
+					"name": "COMP_STYLE_FLAT",
+					"class": "scs-document-default-style"
+					},
+				{
+					"name": "COMP_STYLE_HAIRLINE",
+					"class": "scs-document-style-2"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_SM",
+					"class": "scs-document-style-8"
+					},
+				{
+					"name": "COMP_STYLE_FRAME_LG",
+					"class": "scs-document-style-9"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SOFT",
+					"class": "scs-document-style-10"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SOFT",
+					"class": "scs-document-style-11"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SHARP",
+					"class": "scs-document-style-12"
+					},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SHARP",
+					"class": "scs-document-style-13"
+					},
+				{
+					"name": "COMP_STYLE_OUTER_GLOW",
+					"class": "scs-document-style-14"
+					}
+				]
+		},
+		"news-article": {
+			"styles": [{
+					"name": "News Article 1",
+					"class": "news-article-default-style"
+					},
+			   {
+					"name": "News Article 2",
+					"class": "news-article-style-1"
+					}
+				]
+		},
+		"scs-video": {
+			"styles": [
+				{
+					"name": "COMP_STYLE_FLAT",
+					"class": "scs-video-default-style"
+				},
+				{
+					"name": "COMP_STYLE_HAIRLINE",
+					"class": "scs-video-style-2"
+				},
+				{
+					"name": "COMP_STYLE_FRAME_SM",
+					"class": "scs-video-style-8"
+				},
+				{
+					"name": "COMP_STYLE_FRAME_LG",
+					"class": "scs-video-style-9"
+				},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SOFT",
+					"class": "scs-video-style-10"
+				},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SOFT",
+					"class": "scs-video-style-11"
+				},
+				{
+					"name": "COMP_STYLE_SHADOW_LEFT_SHARP",
+					"class": "scs-video-style-12"
+				},
+				{
+					"name": "COMP_STYLE_SHADOW_RIGHT_SHARP",
+					"class": "scs-video-style-13"
+				}
+			]
+		},
+		"scs-contentlist": {
+			"styles": [
+				{
+					"name": "COMP_STYLE_FLAT",
+					"class": "scs-contentlist-default-style"
+				},
+				{
+					"name": "COMP_STYLE_ROUNDED",
+					"class": "scs-contentlist-style-1"
+				}
+			]
+		}
+	},
+	"componentIcons": {
+		"scs-socialbar": {
+			"icons": [
+				{
+					"name": "COMP_ICON_FACEBOOK",
+					"class": "scs-facebook-icon"
+				},
+				{
+					"name": "COMP_ICON_LINKEDIN",
+					"class": "scs-linkedin-icon"
+				},
+				{
+					"name": "COMP_ICON_TWITTER",
+					"class": "scs-twitter-icon"
+				},
+				{
+					"name": "COMP_ICON_GOOGLEPLUS",
+					"class": "scs-googleplus-icon"
+				},
+				{
+					"name": "COMP_ICON_YOUTUBE",
+					"class": "scs-youtube-icon"
+				}
+			]			
+		}
+	}
+}

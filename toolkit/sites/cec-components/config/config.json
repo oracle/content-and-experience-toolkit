@@ -1,0 +1,21 @@
+{
+    "build":
+    {
+        "libs": ["es6-promise",
+            "@oracle/oraclejet",
+            "requirejs",
+            "requirejs-text",
+            "require-css",            
+            "jquery-ui",
+            "knockout-sortable",
+            "@fortawesome/fontawesome-free",
+            "webcomponents.js",
+            "es6-promise",
+            "hammerjs",
+            "jquery.scrollbar",
+            "knockout",
+            "jquery",
+            "@webcomponents/custom-elements"
+        ]
+    }
+}

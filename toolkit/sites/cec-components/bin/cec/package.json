@@ -1,0 +1,17 @@
+{
+  "name": "cec",
+  "version": "3.5.0",
+  "description": "CLI for cec",
+  "license": "UPL-1.0",
+  "main": "cec.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "cec": "cec.js"
+  },
+  "dependencies": {
+    "yargs": "11.1.0"
+  },
+  "author": "Oracle"
+}

@@ -1,0 +1,84 @@
+{
+  "properties": {
+    "title": "",
+    "pageLayout": "index.html",
+    "pageDescription": "",
+    "keywords": "",
+    "hideFromSearchEngines": false,
+    "header": "",
+    "footer": "",
+    "noIndex": false,
+    "noFollow": false,
+    "noArchive": false,
+    "noSnippet": false
+  },
+  "slots": {
+    "slot-content": {
+      "components": [
+        "40fdc569-bf2f-4cba-9df9-d8d823428892",
+        "99c98c90-b6c8-48e3-87b7-ea8e07dc7669"
+      ],
+      "grid": "<div class=\"scs-row\"><div class=\"scs-col\" style=\"width: 100%;\"><div id=\"40fdc569-bf2f-4cba-9df9-d8d823428892\"><\/div><div id=\"99c98c90-b6c8-48e3-87b7-ea8e07dc7669\"><\/div><\/div><\/div>"
+    }
+  },
+  "componentInstances": {
+    "99c98c90-b6c8-48e3-87b7-ea8e07dc7669": {
+      "type": "scs-paragraph",
+      "id": "scs-paragraph",
+      "data": {
+        "alignment": "fill",
+        "backgroundColor": "",
+        "borderColor": "#808080",
+        "borderRadius": 0,
+        "borderStyle": "none",
+        "borderWidth": 1,
+        "fontColor": "#333333",
+        "fontFamily": "'Helvetica Neue', Helvetica, Arial, sans-serif",
+        "fontSize": 16,
+        "innerHTML": "<div><!-- ko if: visible --><div class=\"scs-paragraph  scs-component scs-paragraph-default-style\" style=\"margin-top:5px;margin-right:5px;margin-bottom:5px;margin-left:5px;\"><div class=\"scs-component-content\" style=\"text-align:left;width:100%;\"><div class=\"scs-paragraph-text\" style=\"\"><div>You can add content to the pages in your default site:<div><div><div><div><ul><li>Sample content to highlight particular components or to provide instruction<\/li><li>Standard content such as company logo and contact information in the banner or footer<span name=\"OracleReview\" id=\"15\" class=\"segment\"><span name=\"OracleReview\" id=\"60\" class=\"segment\"><\/span><\/span><span name=\"OracleReview\" id=\"16\" style=\"background:rgb(255, 255, 153) none repeat scroll 0% 0%\" class=\"segment\"> <\/span><\/li><\/ul><div><p>For more information about adding content to pages, see <a target=\"_blank\" linktype=\"scs-link-webpage\" href=\" http:\/\/www.oracle.com\/pls\/topic\/lookup?ctx=cloud&amp;id=CECSU-GUID-A20EA070-7726-41B2-A809-C5D1F86B5445\">Adding Content to a Page<\/a> in <em>Using Oracle Content and Experience Cloud<\/em>.<\/p><\/div><\/div><\/div><\/div><\/div><\/div><\/div><\/div><\/div><!-- \/ko --><\/div>",
+        "marginBottom": 5,
+        "marginLeft": 5,
+        "marginRight": 5,
+        "marginTop": 5,
+        "placeholderText": "",
+        "styleClass": "",
+        "styleClassName": "",
+        "styleClassTag": "",
+        "toolbarGroups": "",
+        "useStyleClass": "true",
+        "userText": "<div>You can add content to the pages in your default site:<div><div><div><div><ul><li>Sample content to highlight particular components or to provide instruction<\/li><li>Standard content such as company logo and contact information in the banner or footer<span name=\"OracleReview\" id=\"15\" class=\"segment\"><span name=\"OracleReview\" id=\"60\" class=\"segment\"><\/span><\/span><span name=\"OracleReview\" id=\"16\" style=\"background:rgb(255, 255, 153) none repeat scroll 0% 0%\" class=\"segment\"> <\/span><\/li><\/ul><div><p>For more information about adding content to pages, see <a target=\"_blank\" linktype=\"scs-link-webpage\" href=\" http:\/\/www.oracle.com\/pls\/topic\/lookup?ctx=cloud&amp;id=CECSU-GUID-A20EA070-7726-41B2-A809-C5D1F86B5445\">Adding Content to a Page<\/a> in <em>Using Oracle Content and Experience Cloud<\/em>.<\/p><\/div><\/div><\/div><\/div><\/div><\/div>",
+        "visible": true,
+        "width": 400
+      }
+    },
+    "40fdc569-bf2f-4cba-9df9-d8d823428892": {
+      "type": "scs-title",
+      "id": "scs-title",
+      "data": {
+        "alignment": "fill",
+        "backgroundColor": "",
+        "borderColor": "#808080",
+        "borderRadius": 0,
+        "borderStyle": "none",
+        "borderWidth": 1,
+        "fontColor": "#333333",
+        "fontFamily": "'Helvetica Neue', Helvetica, Arial, sans-serif",
+        "fontSize": 24,
+        "innerHTML": "<div><!-- ko if: visible --><div class=\"scs-title  scs-component scs-title-default-style\" style=\"margin-top:5px;margin-right:5px;margin-bottom:5px;margin-left:5px;\"><div class=\"scs-component-content\" style=\"text-align:left;width:100%;\"><div class=\"scs-title-text\" style=\"\"><div>Page Content<\/div><\/div><\/div><\/div><!-- \/ko --><\/div>",
+        "marginBottom": 5,
+        "marginLeft": 5,
+        "marginRight": 5,
+        "marginTop": 5,
+        "placeholderText": "",
+        "styleClass": "",
+        "styleClassName": "",
+        "styleClassTag": "",
+        "toolbarGroups": "",
+        "useStyleClass": "true",
+        "userText": "<div>Page Content<\/div>",
+        "visible": true,
+        "width": 400
+      }
+    }
+  }
+}

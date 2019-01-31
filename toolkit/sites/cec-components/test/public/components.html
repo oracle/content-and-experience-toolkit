@@ -1,0 +1,236 @@
+<!--
+Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+-->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <script type="text/javascript" src="../sitescloud/renderer/app/apps/js/jquery.min.js"></script>
+    <script type="text/javascript" src="../sitescloud/renderer/app/apps/js/knockout.min.js"></script>
+    <link href="css/styles.css" rel="stylesheet">
+    <!-- <link href="https://marketing-oracle.slc14vhx.us.oracle.com:8443/documents/static/gemini/gemini-3e0447035584f1a448d8fddf35c8897a1a7d7269.cache.css" rel="stylesheet"> -->
+</head>
+
+<body>
+    <div class="branding">
+        <div class="brand">
+            <div class="nav">
+                <!-- <button type="button" id="nav-btn" class="menu secondary short osn-clickable" aria-label="Navigation menu" title="Navigation menu"> <span class="icon"></span> </button> -->
+            </div>
+            <a href="/public">
+                <img id="logo" data-bind="click: mainPage" class="brand-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIgAAAARCAMAAAAxDRTrAAAApVBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABU/knhAAAANnRSTlMAzCJq/RDdtKWH+ebvBp9xUdGYd2YbA/JZPjct4djISyUT9urCvZKDMY1DCwKqfl5GGLhjHa4JOWDOAAACmElEQVRIx4WV2XqCMBBGg+JSkEWoiCLiDnW3y//+j9YBIkmT+nFuJBMNZ5LJyEqc2F0aDfvAj6qwb8gsf+Izk7huF748PmfB3hD4LDeMLtNY5QPpXQGb5Ncj42QLKKQzRnShsHyIBX0Am5UYF2PIjB02BN5UjZ5rQcIqWDc8PHU9ExpW/J8IjKhZ0QaxZ00yFmTMOftPZJLiDx/0Ei/0eGrkMXqbrTqc1fGwIZN5JbLvNMw/TOCLcQ7AlMY3PkzKnwT3ZpFv9p+IYwDYxUmzpkNuoTerJk82MJ4o59in2LkUGcjhg9iCOUl0XWC7rsc7wE6U9HWREDA99oIuMJqowcQCMk1kBvTrp8gAluf1CAj4THkYbSKRXR7GKz6BXI+6gKuJZEDKywowiyoJc8b36oe1ipDupvdShCznetQHDFXE2QPD6ul7Chz4xqQOPdDMrV3kHbD6f/iMxKwJfOsic2BRixTvnOsYQF1XP4Dde5ZKSJ80dWwXCaFgyj/aAokukgHjWsS5QOA2LSRmFQGw6VS1GreK6O3AlWdpDU8X+QAu/GjOB3Cs/FzdswXwyb+33tJz5eO2i9yB6aMn4Sj7ZWsVNJkCt6ZGQhMw3fx90khuVoNRjVXtjk+Wq1aR01QkrbOm2cFJiS2BhSOK9WbR+HmABWldqwvOoUSiVGlGughPwcrkgHZyabwWgcfXAjB9JkTYnWxHVFnSTXmDIGB3k3y6kxaRXrlwUEQvTALoUM6yCCtswPp6eh+VRKiZeXohDqHQPyVbyKhV4U2hsOXvFH2kk4ISrKtnyGSicfVf69uQod7vQuFOHWgHCe2uPfKlWMa0dyF5ChFRN7iUl3n0YH+Y1c3k5O1sE5yyvyV9yHD/7NLfgCP3y1/ilaUbUwNDfAAAAABJRU5ErkJggg=="
+                    alt="undefined logo">
+                <span id="brandText">Content and Experience Cloud</span>
+            </a>
+        </div>
+        <div class="clear"></div>
+    </div>
+    <div class="banner">
+        <div>
+            <div id="title" class="text-ellip">Components</div>
+        </div>
+    </div>
+    <!-- breadcrumb -->
+    <div class="breadcrumb">
+        <div>
+            <a href="/public">Developer</a>&nbsp;&gt;&nbsp;Components</div>
+    </div>
+    <!-- filters -->
+    <div class="filter">
+        <span>Components</span>
+        <select id="comptype" name="comptype" data-bind="options: compTypes, optionsText: 'label', value: selectedCompType">
+        </select>
+        <span>Templates</span>
+        <select id="temp" name="temp" data-bind="options: templates, optionsText: 'label', value: selectedTemplate">
+        </select>
+    </div>
+    <div class="container cellView" data-bind="foreach: components">
+        <li id="F669A675C5218774F03E4A8C6B64FA588D4AB28069B4" tabindex="-1" class="containerview-item approw skipTarget component">
+            <div class="containerview-row-content" aria-label="Component AnchorButtons Created Wednesday at 4:39 PM by you" role="group"
+                data-bind="attr: {title: name}, click: $parent.navigate">
+                <div class="thumbSpacer">
+                    <div class="thumbContainer">
+                        <div class="thumbWrapper containerview-openClick ">
+                            <div data-bind="attr: { class: type+'bg containerview-iconx containerview-icon-file-bkg' }">
+                                <img data-bind="attr: { src: 'images/'+type+'.png'}" alt="">
+                            </div>
+                        </div>
+                        <div class="containerview-block containerview-iconarea">
+                            <!-- <div class="containerview-check">
+                                <div>
+                                    <input type="checkbox" title="Select AnchorButtons">
+                                </div>
+                            </div> -->
+                        </div>
+                    </div>
+                </div>
+                <div class="containerview-block containerview-content-area">
+                    <div class="containerview-block containerview-info-area">
+                        <div class="containerview-name" data-bind="text: name, click: $parent.navigate">AnchorButtons
+                            <a href="#" class="block" title="AnchorButtons" aria-label="AnchorButtons" data-bind="text : name, click: $parent.navigate"
+                                class="text_button containerview-openClick">AnchorButtons</a>
+                        </div>
+                        <div class="containerview-status">&nbsp;</div>
+                    </div>
+                    <div data-bind="text: type" class="capsule"></div>
+                    <!--  <div class="containerview-block siterow-status-area">
+                        <div class="containerview-indicator active-status active-status-click" data-active="false" role="button" tabindex="0" title="Not Published" aria-label="Not Published"> <img src="/documents/static/gemini/images/offine_status_32.svg" alt="Not Published" role="presentation">
+                            <div class="status-area-label visuallyhidden">Not Published</div>
+                        </div>
+                    </div> -->
+                </div>
+            </div>
+        </li>
+    </div>
+    <script type="text/javascript">
+        /* global ko, console */
+        var selectedTemp = 'all',
+            selectedType = 'all';
+        var getTemplates = function (self) {
+            var temps = self.templates;
+            $.getJSON("/gettemplates", function (data) {
+                var alltemps = [];
+                alltemps.push({
+                    value: 'all',
+                    label: 'All'
+                });
+                for (var i = 0; i < data.length; i++) {
+                    alltemps.push({
+                        value: data[i].name,
+                        label: data[i].name
+                    });
+                }
+                temps(alltemps);
+            });
+        };
+        var getComponents = function (self, selectedTemp, selectedType) {
+            var comps = self.components;
+
+            $.getJSON('/getcomponents', function (data) {
+                if ((!selectedType || selectedType === 'all') && (!selectedTemp || selectedTemp === 'all')) {
+                    // console.log(data);
+                    comps(data);
+                    return;
+                }
+
+                // filter based on component type
+                var typedcomps = [];
+                if (selectedType && selectedType !== 'all') {
+                    for (var i = 0; i < data.length; i++) {
+                        if (data[i].type === selectedType) {
+                            typedcomps.push(data[i]);
+                        }
+                    }
+                } else {
+                    typedcomps = data;
+                }
+
+                // filter those not in the template if template is specified
+                if (selectedTemp && selectedTemp !== 'all') {
+                    $.getJSON('/gettemplatecomponents/' + selectedTemp, function (tempdata) {
+                        var tempcomps = [];
+                        for (var i = 0; i < tempdata.length; i++) {
+                            for (var j = 0; j < typedcomps.length; j++) {
+                                if (typedcomps[j].name === tempdata[i]) {
+                                    tempcomps.push(typedcomps[j]);
+                                }
+                            }
+                        }
+                        comps(tempcomps);
+                    });
+                } else {
+                    comps(typedcomps);
+                    return;
+                }
+            });
+        };
+        var IndexViewModel = function () {
+            "use strict";
+
+            var self = this;
+
+            // templates
+            self.templates = ko.observableArray([]);
+            self.selectedTemplate = ko.observable();
+            getTemplates(self);
+
+            // component types
+            self.compTypes = ko.observableArray([{
+                    value: 'all',
+                    label: 'All'
+                },
+                {
+                    value: 'component',
+                    label: 'Local components'
+                },
+                {
+                    value: 'sandboxed',
+                    label: 'Local components in iframe'
+                },
+                {
+                    value: 'remote',
+                    label: 'Remote components'
+                },
+                {
+                    value: 'componentgroup',
+                    label: 'Component groups'
+                },
+                {
+                    value: 'contentlayout',
+                    label: 'Content layouts'
+                },
+                {
+                    value: 'sectionlayout',
+                    label: 'Section layouts'
+                },
+                {
+                    value: 'vbcs',
+                    label: 'Visual Builder components'
+                }
+            ]);
+            self.selectedCompType = ko.observable();
+            self.components = ko.observableArray([]);
+
+            self.url = "comp.html";
+
+            self.navigate = function (data) {
+                window.location = '/components/' + data.name;
+            };
+            self.componentsPage = function (data) {
+                window.location = '/test/public/components';
+            };
+            self.mainPage = function () {
+                window.location = '/test';
+            }
+
+			window.sessionStorage.removeItem('currentContentItem');
+			window.sessionStorage.removeItem('currentContentTypes');
+			window.sessionStorage.removeItem('currentComponentTheme');
+            console.log('clear session storage');
+            $.ajax({
+                'type': 'POST',
+                'url': '/clearcontentlayoutitem',
+                'success': function (data) {
+                    console.log('clear app.locals.currentContentItem');
+                },
+                'error': function (xhr, status, err) {
+                    console.log('status=' + status + ' err=' + err);
+                }
+            });
+            
+            self.selectedTemplate.subscribe(function (newValue) {
+                selectedTemp = newValue ? newValue.value : 'all';
+                getComponents(self, selectedTemp, selectedType);
+            });
+            self.selectedCompType.subscribe(function (newValue) {
+                selectedType = newValue ? newValue.value : 'all';
+                getComponents(self, selectedTemp, selectedType);
+            });
+        };
+        ko.applyBindings(new IndexViewModel());
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,20 @@
+<!--
+Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+-->
+<!-- ko if: initialized -->
+<h1 class="title" data-bind="text: title()"></h1>
+<div class="to-do-container">
+		<input class="new" data-bind="event : {keypress: handleKeyPress}, attr : { placeholder: placeholder}">
+	<ul data-bind="foreach: todo">
+		<li>
+			<input id="item" type="checkbox" data-bind="checked: completed">
+			<label for="item" data-bind="text: desc, css : {completed: completed}"></label>
+			<div class="delete" data-bind="click: $root.delete">Delete</div>
+		</li>
+	</ul>
+	<div class="todo-footer" data-bind="visible: hasCompleted()">
+		<div class="deleteCompleted" data-bind="click: deleteCompleted">Delete completed tasks</div>
+	</div>
+</div>
+<!-- /ko -->

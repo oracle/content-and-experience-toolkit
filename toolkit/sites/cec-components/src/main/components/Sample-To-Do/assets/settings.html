@@ -1,0 +1,98 @@
+<!--
+Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<!-- only allow embedding of this iFrame in SCS -->
+	<meta http-equiv="X-Frame-Options" content="sameorigin">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+	<title>Sample Custom Component</title>
+
+    <!-- include sample apps styling -->
+    <link href="/_sitescloud/renderer/app/sdk/css/app-styles.css" rel="stylesheet">
+
+	<!-- include supporting files -->
+    <script type="text/javascript" src="/_sitescloud/renderer/app/apps/js/knockout.min.js"></script>
+    <script type="text/javascript" src="/_sitescloud/renderer/app/apps/js/jquery.min.js"></script>
+     
+    <!-- include the Sites SDK -->
+    <script type="text/javascript" src="/_sitescloud/renderer/app/sdk/js/sites.min.js"></script>
+</head>
+<body data-bind="visible: true" style="display:none; margin:0px; padding:0px;background:transparent;background-image:none;">
+	<!-- ko if: initialized() -->
+	<div class="scs-component-settings">
+		<div style="margin-top:10px">
+			<!-- Width -->
+			<label id="titleLabel" for="title" class="settings-heading" data-bind="text: 'Title'"></label>
+			<input id="title" data-bind="value: title"  placeholder="To-Do" class="settings-text-box">
+		</div>
+		<div style="margin-top:15px">
+			<!-- Width -->
+			<label id="placeholderLabel" for="placeholder" class="settings-heading" data-bind="text: 'New Task Label'"></label>
+			<input id="placeholder" data-bind="value: placeholder"  placeholder="Enter a task" class="settings-text-box">
+		</div>
+	</div>
+	<div data-bind="setSettingsHeight: true"></div>
+	<!-- /ko -->
+	<!-- ko ifnot: initialized() -->
+	<div data-bind="text: 'waiting for initialization to complete'"></div>
+	<!-- /ko -->
+	<script type="text/javascript">
+		/* global SitesSDK, ko */
+		
+		// set the iFrame height when we've fully rendered
+		ko.bindingHandlers.scsCompComponentImpl = {
+			init: function (element, valueAccessor, allBindings, viewModel, bindingContext) {
+				'use strict';
+				var body = document.body,
+					html = document.documentElement;
+			}
+		};
+
+		// define the viewModel object
+		var SettingsViewModel = function () {
+			'use strict';
+			var self = this;
+
+			// create the observables for passing data
+			self.title = ko.observable('To-Do');
+			self.placeholder = ko.observable('Enter a task');
+
+			// create rest of viewModel
+			self.initialized = ko.observable(false);
+			self.saveData = false;
+
+			// Get custom settings
+			SitesSDK.getProperty('customSettingsData', function (data) {
+				//update observable
+				self.title(data.title);
+				self.placeholder(data.placeholder);
+
+				// note that viewModel is initialized and can start saving data
+				self.initialized(true);
+				self.saveData = true;
+			});
+
+
+			// save whenever any updates occur
+			self.save = ko.computed(function () {
+				var saveconfig = {
+					'title': self.title(),
+					'placeholder': self.placeholder()
+				};
+
+				// save data in page
+				if (self.saveData) {
+					SitesSDK.setProperty('customSettingsData', saveconfig);
+				}
+			}, self);
+		};
+
+
+		// apply the bindings
+		ko.applyBindings(new SettingsViewModel());
+	</script>
+</body>

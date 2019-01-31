@@ -1,0 +1,453 @@
+<!--
+Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- only allow embedding of this iFrame in SCS -->
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <title>Content Items</title>
+
+    <!-- include sample apps styling -->
+    <link href="/_sitescloud/renderer/app/sdk/css/content-tile-layout.css" rel="stylesheet">
+    <link href="/_sitescloud/renderer/app/sdk/css/app-styles.css" rel="stylesheet">
+
+    <script type="text/javascript" src="/_sitescloud/renderer/app/apps/js/jquery.min.js"></script>
+    <script type="text/javascript" src="/_sitescloud/renderer/app/apps/js/knockout.min.js"></script>
+    <script type="text/javascript" src="/_sitescloud/renderer/mustache.min.js"></script>
+
+    <!-- include the Sites SDK -->
+    <script type="text/javascript" src="/_sitescloud/renderer/app/sdk/js/sites.min.js"></script>
+</head>
+
+<body data-bind="visible: true" style="display:none; margin:0px; padding:0px;background:transparent;background-image:none;">
+    <div class="scs-component-settings">
+        <div id="tabs" class="scs-component-settings-tabs">
+            <ul>
+                <li id="localtablink" style="width: 50%">
+                    <a data-bind="click: function(data, event) { clickTab('tab-local', data, event) }">Local</a>
+                </li>
+                <li id="remotetablink" style="width: 50%">
+                    <a data-bind="click: function(data, event) { clickTab('tab-remote', data, event) }">Remote</a>
+                </li>
+            </ul>
+        </div>
+
+        <div id="tab-local" class="scs-tab">
+            <div class="no-content" data-bind="visible: noLocalContent">
+                <img class="no-content-img" src="/public/images/nocontent.png">
+                <h3 class="no-content-text">No Content Found in Local Templates</h3>
+            </div>
+            <div id="contentDivLeft" style="float: left; width: 50%;">
+                <ul id="contentlist" class="scs-content-items" data-bind="foreach: itemsLeft">
+                    <li class="scs-tile-layout-item" style="width:220px;" data-bind="click: $parent.selectItem">
+                        <div class="scs-tile-layout-item-container" role="group" style="height: 188px;" data-bind="html: htmldetails"></div>
+                    </li>
+                </ul>
+            </div>
+            <div id="contentDivRight" style="float: right; width: 50%;">
+                <ul id="contentlist2" class="scs-content-items" data-bind="foreach: itemsRight">
+                    <li class="scs-tile-layout-item" style="width:220px;" data-bind="click: $parent.selectItem">
+                        <div class="scs-tile-layout-item-container" role="group" style="height: 188px;" data-bind="html: htmldetails"></div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div id="tab-remote" class="scs-tab">
+            <div class="oj-flex-item oj-sm-9 scs-panelInput">
+                <label for="cnttype" data-bind="text: 'Content Type'" class="settings-label">
+                </label>
+                <select id="cnttype" data-bind="value: contentType, options: contentTypeValues" class="settings-select">
+                </select>
+            </div>
+
+            <div class="no-content" data-bind="visible: noRemoteContent">
+                <img class="no-content-img" src="/public/images/nocontent.png">
+                <h3 class="no-content-text">No Content Found in Remote Server</h3>
+            </div>
+
+            <div id="contentDivLeftR" style="float: left; width: 50%;">
+                <ul id="contentlistR" class="scs-content-items" data-bind="foreach: itemsLeftRemote">
+                    <li class="scs-tile-layout-item" style="width:220px;" data-bind="click: $parent.selectRemoteItem">
+                        <div class="scs-tile-layout-item-container" role="group" style="height: 188px;" data-bind="html: htmldetails"></div>
+                    </li>
+                </ul>
+            </div>
+            <div id="contentDivRightR" style="float: right; width: 50%;">
+                <ul id="contentlist2R" class="scs-content-items" data-bind="foreach: itemsRightRemote">
+                    <li class="scs-tile-layout-item" style="width:220px;" data-bind="click: $parent.selectRemoteItem">
+                        <div class="scs-tile-layout-item-container" role="group" style="height: 188px;" data-bind="html: htmldetails"></div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="text/javascript">
+        /* global ko, console */
+
+        // define the viewModel object
+        var SettingsViewModel = function () {
+            'use strict';
+            var self = this;
+            self.initialized = ko.observable(false);
+
+            self.selectedItemRemote = ko.observable();
+
+            self.noLocalContent = ko.observable(false);
+            self.noRemoteContent = ko.observable(false);
+
+            // create the observables for passing data
+            self.items = ko.observableArray([]);
+            self.itemsLeft = ko.observableArray([]);
+            self.itemsRight = ko.observableArray([]);
+            self.selectedItem = ko.observable();
+
+            self.itemsRemote = ko.observableArray([]);
+            self.itemsLeftRemote = ko.observableArray([]);
+            self.itemsRightRemote = ko.observableArray([]);
+            self.selectedItemRemote = ko.observable();
+
+            var currentContentItem = window.sessionStorage.currentContentItem ? JSON.parse(window.sessionStorage.currentContentItem) :
+                undefined;
+            var isRemote = currentContentItem && currentContentItem.isRemote;
+            var currentContentType = currentContentItem && currentContentItem.type;
+
+            self.tabs = $('.scs-component-settings').find('.scs-tab');
+            var tabLinks = $('.scs-component-settings-tabs');
+            if (!isRemote) {
+                self.currentTab = self.tabs.first();
+                self.currentTab.addClass('scs-selected');
+
+                // Mark the first tab link as selected
+                tabLinks.children('ul').children('li').first().addClass('scs-selected');
+            } else {
+                self.currentTab = self.tabs.next();
+                self.currentTab.addClass('scs-selected');
+
+                // Mark the 2nd tab link as selected
+                tabLinks.children('ul').children('li').next().addClass('scs-selected');
+            }
+
+            self.tileTemplate =
+                '<div class="contentitem-content">' +
+                '<div class="contentitem-preview">' +
+                '<div class="contentitem-frame">' +
+                '<div class="scs-tile-layout-content">' +
+                '{{#itemimage}}' +
+                '<div class="scs-tile-layout-img-container"><img class="scs-tile-layout-img" src="{{itemimage}}" /></div>' +
+                '{{/itemimage}}' +
+                '</div>' +
+                '<ul class="scs-tile-layout">' +
+                '{{#textfields}}' +
+                '<li><p>{{{text}}}</p></li>{{/textfields}}' +
+                '</ul>' +
+                '</div></li>' +
+                '</div>' +
+                '</div>' +
+                '</div>' +
+                '</div>' +
+                '<div class="scs-tile-layout-content-info">' +
+                '<div class="scs-tile-layout-content-name">' +
+                '<span class="scs-tile-layout-content-name-span">{{name}}</span>' +
+                '</div>' +
+                '<div class="scs-tile-layout-content-type-container">' +
+                '<div class="scs-tile-layout-content-type">' +
+                '{{type}}' +
+                '</div>';
+
+            // Set the title for the settings panel
+            parent.document.getElementById('settingsTitle').innerText = 'Content';
+
+            self.prepareItems = function (data, remote) {
+                var results = data;
+                for (var i = 0; i < results.length; i++) {
+                    var item = results[i],
+                        field = remote ? item.data : (item.data.fields ? item.data.fields : item.data.data),
+                        itemimage = '',
+                        textfields = [];
+
+                    for (var key in field) {
+                        var value = field[key];
+                        if (value) {
+                            if (!itemimage && typeof value === 'object' && value['type'] === 'DigitalAsset') {
+                                if (remote) {
+                                    itemimage = '/content/management/api/v1.1/assets/' + value.id +
+                                        '/native';
+                                } else {
+                                    itemimage = '/content/published/api/v1/digital-assets/' + value.id +
+                                        '/thumbnail';
+                                }
+                            }
+                            if (typeof value === 'string') {
+                                textfields[textfields.length] = {
+                                    text: value
+                                }
+                            }
+                        }
+                    }
+
+                    // sort text
+                    var bySize = textfields.slice(0);
+                    bySize.sort(function (a, b) {
+                        var x = a.text.length;
+                        var y = b.text.length;
+                        return x < y ? -1 : x > y ? 1 : 0;
+                    });
+                    textfields = bySize;
+
+                    item['itemimage'] = itemimage;
+                    item['textfields'] = textfields;
+                    item['data'] = {};
+                    item['htmldetails'] = Mustache.to_html(
+                        self.tileTemplate, {
+                            name: item.name,
+                            type: item.type,
+                            itemimage: itemimage,
+                            textfields: textfields
+                        });
+                }
+
+                // sort items by type then by name
+                var byTypeThenName = results.slice(0);
+                byTypeThenName.sort(function (a, b) {
+                    if (a.type === b.type) {
+                        var x = a.name;
+                        var y = b.name;
+                        return x < y ? -1 : x > y ? 1 : 0;
+                    }
+                    return a.type < b.type ? -1 : 1;
+                });
+                results = byTypeThenName;
+
+                return results;
+            };
+
+            self.queryItems = function (cnttype) {
+                var itemsurl = '/content/management/api/v1/items?field:type:equals=' + cnttype +
+                    '&fields=ALL&orderBy=updateddate:des&limit=99';
+                // query content items
+                $.ajax({
+                    'type': 'GET',
+                    'dataType': 'json',
+                    'url': itemsurl,
+                    'success': function (data) {
+                        var items = data && data.items;
+                        console.log('content type = ' + cnttype + ' items = ' + items.length);
+
+                        // prepare for the mustache template
+                        var results = self.prepareItems(items, true);
+
+                        self.itemsRemote(results);
+                        var resultsLeft = [],
+                            resultsRight = [];
+                        if (results.length > 1) {
+                            for (var i = 0; i < results.length; i += 2) {
+                                resultsLeft[resultsLeft.length] = results[i];
+                                if (i < results.length - 1) {
+                                    resultsRight[resultsRight.length] = results[i + 1];
+                                }
+                            }
+                        } else {
+                            resultsLeft = results;
+                        }
+
+                        self.itemsLeftRemote(resultsLeft);
+                        self.itemsRightRemote(resultsRight);
+
+                        self.noRemoteContent(results.length === 0);
+                    },
+                    'error': function (xhr, status, err) {
+                        console.log('status=' + status + ' err=' + err);
+                        self.noRemoteContent(true);
+                    }
+                });
+            };
+            // get content items that use the content layout
+            var url = '/getcontentlayoutitems/_devcs_component_contentlayout_name';
+            // console.log('url=' + url);
+            $.ajax({
+                'type': 'GET',
+                'dataType': 'json',
+                async: false,
+                'url': url,
+                'success': function (data) {
+                    // prepare for the mustache template
+                    var results = self.prepareItems(data, false);
+
+                    self.items(results);
+                    self.noLocalContent(results.length === 0);
+
+                    var resultsLeft = [],
+                        resultsRight = [];
+                    if (results.length > 1) {
+                        for (var i = 0; i < results.length; i += 2) {
+                            resultsLeft[resultsLeft.length] = results[i];
+                            if (i < results.length - 1) {
+                                resultsRight[resultsRight.length] = results[i + 1];
+                            }
+                        }
+                    } else {
+                        resultsLeft = results;
+                    }
+
+                    self.itemsLeft(resultsLeft);
+                    self.itemsRight(resultsRight);
+
+                },
+                'error': function (xhr, status, err) {
+                    console.log('status=' + status + ' err=' + err);
+                    self.noLocalContent(true);
+                }
+            });
+
+            // get content type from server
+            self.contentType = ko.observable();
+            self.contentTypeValues = ko.observableArray([]);
+
+            // get content type from server
+            var contenttypeurl = '/content/management/api/v1/types?limit=999';
+            // console.log('url=' + url);
+            $.ajax({
+                'type': 'GET',
+                'dataType': 'json',
+                async: false,
+                'url': contenttypeurl,
+                'success': function (data) {
+                    var types = [];
+                    if (data && data.items) {
+                        for (var i = 0; i < data.items.length; i++) {
+                            if (data.items[i].name != 'DigitalAsset') {
+                                types.push(
+                                    data.items[i].name
+                                );
+                            }
+                        }
+                        var byName = types.slice(0);
+                        byName.sort(function (a, b) {
+                            var x = a;
+                            var y = b;
+                            return (x < y ? -1 : x > y ? 1 : 0);
+                        });
+                        types = byName;
+                        self.contentTypeValues(types);
+                        self.contentTypeValues.valueHasMutated();
+                    }
+
+                    self.noRemoteContent(types.length === 0);
+
+                },
+                'error': function (xhr, status, err) {
+                    console.log('status=' + status + ' err=' + err);
+                    self.noRemoteContent(true);
+                }
+            });
+            if (currentContentType) {
+                self.contentType(currentContentType);
+                console.log('set current content type: ' + currentContentType);
+                self.queryItems(currentContentType)
+            }
+            console.log('self.contentTypeValues:' + JSON.stringify(self.contentTypeValues()));
+            // console.log(self.items().length);
+            self.initialized(true);
+
+            self.selectItem = function (item) {
+                // console.log('selectItem: ' + JSON.stringify(item));
+                if (item) {
+                    var url = '/setcontentlayoutitem?template=' + item.template + '&id=' + item.id + '&type=' +
+                        item.type;
+                    var types = [];
+                    // collect all types that use this content layout
+                    for (var i = 0; i < self.items().length; i++) {
+                        if (types.length === 0 || types.indexOf(self.items()[i].type) < 0) {
+                            types[types.length] = self.items()[i].type;
+                        }
+                    }
+                    if (types.length > 0) {
+                        url = url + '&types=' + types;
+                    }
+
+                    window.sessionStorage.setItem('currentContentItem', JSON.stringify({
+                        'template': item.template,
+                        'id': item.id,
+                        'name': item.name,
+                        'type': item.type,
+                        'isRemote': false
+                    }));
+                    window.sessionStorage.setItem('currentContentTypes', types);
+
+                    self.selectedItem({
+                        id: item.id,
+                        name: item.name,
+                        type: item.type,
+                        template: item.template,
+                        isRemote: false
+                    });
+                }
+            };
+
+            self.selectRemoteItem = function (item) {
+                console.log('selectRemoteItem: ' + JSON.stringify(item));
+                if (item) {
+                    var url = '/setcontentlayoutitem?id=' + item.id + '&type=' + item.type +
+                        '&isRemote=true&types=' + self.contentTypeValues();
+
+                    window.sessionStorage.setItem('currentContentItem', JSON.stringify({
+                        'template': '',
+                        'id': item.id,
+                        'name': item.name,
+                        'type': item.type,
+                        'isRemote': true
+                    }));
+                    window.sessionStorage.setItem('currentContentTypes', self.contentTypeValues());
+
+                    self.selectedItem({
+                        id: item.id,
+                        name: item.name,
+                        type: item.type,
+                        template: '',
+                        isRemote: true
+                    });
+                }
+            };
+
+            self.contentType.subscribe(function (newValue) {
+                console.log(' *** content type changed: ' + newValue);
+                self.queryItems(newValue);
+            });
+
+            self.clickTab = function (tab, data, event) {
+                var self = this;
+
+                var target = $(event.target).closest('li'); // li tag
+                target.parent().children('.scs-selected').removeClass('scs-selected');
+                target.addClass('scs-selected');
+
+                // Show the content of the selected tab
+                $(self.currentTab).removeClass('scs-selected');
+                self.currentTab = '#' + tab;
+                $(this.currentTab).addClass('scs-selected');
+            };
+
+            self.save = ko.computed(function () {
+
+                var saveconfig = {
+                    'selectItem': self.selectedItem()
+                };
+
+                // save data in page
+
+                SitesSDK.setProperty('customSettingsData', saveconfig);
+
+            }, self);
+        };
+        ko.applyBindings(new SettingsViewModel());
+    </script>
+</body>
+
+</html>

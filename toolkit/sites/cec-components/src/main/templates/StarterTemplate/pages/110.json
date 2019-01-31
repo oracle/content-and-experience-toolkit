@@ -1,0 +1,84 @@
+{
+  "properties": {
+    "title": "",
+    "pageLayout": "index.html",
+    "pageDescription": "",
+    "keywords": "",
+    "hideFromSearchEngines": false,
+    "header": "",
+    "footer": "",
+    "noIndex": false,
+    "noFollow": false,
+    "noArchive": false,
+    "noSnippet": false
+  },
+  "slots": {
+    "slot-content": {
+      "components": [
+        "2dd89d2e-96df-4253-9346-598b4ce286f0",
+        "05aa1f60-c1e5-468e-945a-8ec8fc955da9"
+      ],
+      "grid": "<div class=\"scs-row\"><div class=\"scs-col\" style=\"width: 100%;\"><div id=\"2dd89d2e-96df-4253-9346-598b4ce286f0\"><\/div><div id=\"05aa1f60-c1e5-468e-945a-8ec8fc955da9\"><\/div><\/div><\/div>"
+    }
+  },
+  "componentInstances": {
+    "05aa1f60-c1e5-468e-945a-8ec8fc955da9": {
+      "type": "scs-paragraph",
+      "id": "scs-paragraph",
+      "data": {
+        "alignment": "fill",
+        "backgroundColor": "",
+        "borderColor": "#808080",
+        "borderRadius": 0,
+        "borderStyle": "none",
+        "borderWidth": 1,
+        "fontColor": "#333333",
+        "fontFamily": "'Helvetica Neue', Helvetica, Arial, sans-serif",
+        "fontSize": 16,
+        "innerHTML": "<div><!-- ko if: visible --><div class=\"scs-paragraph  scs-component scs-paragraph-default-style\" style=\"margin-top:5px;margin-right:5px;margin-bottom:5px;margin-left:5px;\"><div class=\"scs-component-content\" style=\"text-align:left;width:100%;\"><div class=\"scs-paragraph-text\" style=\"\"><div><div><p>A theme defines the general look-and-feel of a site and includes the following:<\/p><ul><li><p><span name=\"OracleReview\" id=\"13\" class=\"segment\">Style settings for a site (CSS files)<\/span><\/p><\/li><li><p><span name=\"OracleReview\" id=\"14\" class=\"segment\">Layouts for pages (HTML files)<\/span><\/p><\/li><li><p><span name=\"OracleReview\" id=\"15\" class=\"segment\">Code to construct navigation for the site (JS files)<\/span><\/p><\/li><li><p><span name=\"OracleReview\" id=\"16\" class=\"segment\">Assets for background images or other content that are part of page layouts (images, JS files, and so on)<\/span><\/p><\/li><li><p><span name=\"OracleReview\" id=\"17\" class=\"segment\">A list of basic styles that can be used with the components (<\/span><code><span name=\"OracleReview\" id=\"18\" class=\"segment\">design.css<\/span><\/code><span name=\"OracleReview\" id=\"19\" class=\"segment\"> and <\/span><code><span name=\"OracleReview\" id=\"20\" class=\"segment\">design.json<\/span><\/code><span name=\"OracleReview\" id=\"21\" class=\"segment\"> files)<\/span><\/p><\/li><\/ul><p>For more information about developing themes, see <a linktype=\"scs-link-webpage\" target=\"_blank\" href=\"http:\/\/www.oracle.com\/pls\/topic\/lookup?ctx=cloud&amp;id=CECSD-GUID-41521968-8E06-413A-8845-5C0311AC16E1\">Developing Themes<\/a> in <em>Developing for Oracle Content and Experience Cloud<\/em>.<\/p><\/div><\/div><\/div><\/div><\/div><!-- \/ko --><\/div>",
+        "marginBottom": 5,
+        "marginLeft": 5,
+        "marginRight": 5,
+        "marginTop": 5,
+        "placeholderText": "",
+        "styleClass": "",
+        "styleClassName": "",
+        "styleClassTag": "",
+        "toolbarGroups": "",
+        "useStyleClass": "true",
+        "userText": "<div><div><p>A theme defines the general look-and-feel of a site and includes the following:<\/p><ul><li><p><span name=\"OracleReview\" id=\"13\" class=\"segment\">Style settings for a site (CSS files)<\/span><\/p><\/li><li><p><span name=\"OracleReview\" id=\"14\" class=\"segment\">Layouts for pages (HTML files)<\/span><\/p><\/li><li><p><span name=\"OracleReview\" id=\"15\" class=\"segment\">Code to construct navigation for the site (JS files)<\/span><\/p><\/li><li><p><span name=\"OracleReview\" id=\"16\" class=\"segment\">Assets for background images or other content that are part of page layouts (images, JS files, and so on)<\/span><\/p><\/li><li><p><span name=\"OracleReview\" id=\"17\" class=\"segment\">A list of basic styles that can be used with the components (<\/span><code><span name=\"OracleReview\" id=\"18\" class=\"segment\">design.css<\/span><\/code><span name=\"OracleReview\" id=\"19\" class=\"segment\"> and <\/span><code><span name=\"OracleReview\" id=\"20\" class=\"segment\">design.json<\/span><\/code><span name=\"OracleReview\" id=\"21\" class=\"segment\"> files)<\/span><\/p><\/li><\/ul><p>For more information about developing themes, see <a linktype=\"scs-link-webpage\" target=\"_blank\" href=\"http:\/\/www.oracle.com\/pls\/topic\/lookup?ctx=cloud&amp;id=CECSD-GUID-41521968-8E06-413A-8845-5C0311AC16E1\">Developing Themes<\/a> in <em>Developing for Oracle Content and Experience Cloud<\/em>.<\/p><\/div><\/div>",
+        "visible": true,
+        "width": 400
+      }
+    },
+    "2dd89d2e-96df-4253-9346-598b4ce286f0": {
+      "type": "scs-title",
+      "id": "scs-title",
+      "data": {
+        "alignment": "fill",
+        "backgroundColor": "",
+        "borderColor": "#808080",
+        "borderRadius": 0,
+        "borderStyle": "none",
+        "borderWidth": 1,
+        "fontColor": "#333333",
+        "fontFamily": "'Helvetica Neue', Helvetica, Arial, sans-serif",
+        "fontSize": 24,
+        "innerHTML": "<div><!-- ko if: visible --><div class=\"scs-title  scs-component scs-title-default-style\" style=\"margin-top:5px;margin-right:5px;margin-bottom:5px;margin-left:5px;\"><div class=\"scs-component-content\" style=\"text-align:left;width:100%;\"><div class=\"scs-title-text\" style=\"\"><div>Themes<\/div><\/div><\/div><\/div><!-- \/ko --><\/div>",
+        "marginBottom": 5,
+        "marginLeft": 5,
+        "marginRight": 5,
+        "marginTop": 5,
+        "placeholderText": "",
+        "styleClass": "",
+        "styleClassName": "",
+        "styleClassTag": "",
+        "toolbarGroups": "",
+        "useStyleClass": "true",
+        "userText": "<div>Themes<\/div>",
+        "visible": true,
+        "width": 400
+      }
+    }
+  }
+}

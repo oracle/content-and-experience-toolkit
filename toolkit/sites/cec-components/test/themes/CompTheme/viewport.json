@@ -1,0 +1,11 @@
+{"viewportDimensions": [
+    {"width":375,"height":667, "name": "iPhone 8", "isMobile": true},
+    {"width":414,"height":736, "name": "iPhone 8 Plus", "isMobile": true},
+    {"width":375,"height":812, "name": "iPhone X", "isMobile": true},
+    {"width":360,"height":740, "name": "Galaxy S8, S9", "isMobile": true},
+    {"width":768,"height":1024},
+    {"width":800,"height":1280},
+    {"width":980,"height":1280},
+    {"width":1280,"height":600},
+    {"width":1920,"height":900}
+]}

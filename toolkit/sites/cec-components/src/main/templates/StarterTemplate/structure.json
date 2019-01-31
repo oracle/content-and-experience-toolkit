@@ -1,0 +1,136 @@
+{
+  "pages": [
+    {
+      "id": 10,
+      "name": "Home",
+      "parentId": null,
+      "pageUrl": "index.html",
+      "hideInNavigation": false,
+      "linkUrl": "",
+      "linkTarget": "",
+      "children": [
+        100,
+		105,
+        200
+      ],
+      "overrideUrl": false,
+      "isDetailPage": false
+    },
+    {
+      "id": 100,
+      "name": "Developing Templates",
+      "parentId": 10,
+      "pageUrl": "developing-templates.html",
+      "hideInNavigation": false,
+      "linkUrl": "",
+      "linkTarget": "",
+      "children": [
+        110,
+        120,
+        130,
+        140,
+        150
+      ],
+      "overrideUrl": false,
+      "isDetailPage": false
+    },
+    {
+      "id": 110,
+      "name": "Themes",
+      "parentId": 100,
+      "pageUrl": "developing-templates\/themes.html",
+      "hideInNavigation": false,
+      "linkUrl": "",
+      "linkTarget": "",
+      "children": [
+        
+      ],
+      "overrideUrl": false,
+      "isDetailPage": false
+    },
+    {
+      "id": 120,
+      "name": "Pages",
+      "parentId": 100,
+      "pageUrl": "developing-templates\/pages.html",
+      "hideInNavigation": false,
+      "linkUrl": "",
+      "linkTarget": "",
+      "children": [
+        
+      ],
+      "overrideUrl": false,
+      "isDetailPage": false
+    },
+    {
+      "id": 130,
+      "name": "Navigation",
+      "parentId": 100,
+      "pageUrl": "developing-templates\/navigation.html",
+      "hideInNavigation": false,
+      "linkUrl": "",
+      "linkTarget": "",
+      "children": [
+        
+      ],
+      "overrideUrl": false,
+      "isDetailPage": false
+    },
+    {
+      "id": 140,
+      "name": "Page Content",
+      "parentId": 100,
+      "pageUrl": "developing-templates\/page-content.html",
+      "hideInNavigation": false,
+      "linkUrl": "",
+      "linkTarget": "",
+      "children": [
+        
+      ],
+      "overrideUrl": false,
+      "isDetailPage": false
+    },
+    {
+      "id": 150,
+      "name": "Components",
+      "parentId": 100,
+      "pageUrl": "developing-templates\/components.html",
+      "hideInNavigation": false,
+      "linkUrl": "",
+      "linkTarget": "",
+      "children": [
+        
+      ],
+      "overrideUrl": false,
+      "isDetailPage": false
+    },
+    {
+      "id": 105,
+      "name": "Detail Page",
+      "parentId": 10,
+      "pageUrl": "detail-page.html",
+      "hideInNavigation": true,
+      "linkUrl": "",
+      "linkTarget": "",
+      "children": [
+        
+      ],
+      "overrideUrl": false,
+      "isDetailPage": true
+    },
+    {
+      "id": 200,
+      "name": "Privacy Policy",
+      "parentId": 10,
+      "pageUrl": "privacy-policy.html",
+      "hideInNavigation": false,
+      "linkUrl": "",
+      "linkTarget": "",
+      "children": [
+        
+      ],
+      "overrideUrl": false,
+      "isDetailPage": false
+    }
+  ]
+}
