@@ -1,0 +1,52 @@
+<!--
+Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+-->
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Mocha Tests</title>
+    <link href="../../node_modules/mocha/mocha.css" rel="stylesheet" />
+    <link href="../public/css/styles.css" rel="stylesheet" />
+    <style>
+    #mocha-stats {
+        top: 141px;
+    }
+    </style>
+</head>
+
+<body>
+    <div class="branding">
+        <div class="brand">
+            <div class="nav">
+                <!-- <button type="button" id="nav-btn" class="menu secondary short osn-clickable" aria-label="Navigation menu" title="Navigation menu"> <span class="icon"></span> </button> -->
+            </div><a href="/public"><img id="logo" data-bind="click: mainPage" class="brand-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIgAAAARCAMAAAAxDRTrAAAApVBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABU/knhAAAANnRSTlMAzCJq/RDdtKWH+ebvBp9xUdGYd2YbA/JZPjct4djISyUT9urCvZKDMY1DCwKqfl5GGLhjHa4JOWDOAAACmElEQVRIx4WV2XqCMBBGg+JSkEWoiCLiDnW3y//+j9YBIkmT+nFuJBMNZ5LJyEqc2F0aDfvAj6qwb8gsf+Izk7huF748PmfB3hD4LDeMLtNY5QPpXQGb5Ncj42QLKKQzRnShsHyIBX0Am5UYF2PIjB02BN5UjZ5rQcIqWDc8PHU9ExpW/J8IjKhZ0QaxZ00yFmTMOftPZJLiDx/0Ei/0eGrkMXqbrTqc1fGwIZN5JbLvNMw/TOCLcQ7AlMY3PkzKnwT3ZpFv9p+IYwDYxUmzpkNuoTerJk82MJ4o59in2LkUGcjhg9iCOUl0XWC7rsc7wE6U9HWREDA99oIuMJqowcQCMk1kBvTrp8gAluf1CAj4THkYbSKRXR7GKz6BXI+6gKuJZEDKywowiyoJc8b36oe1ipDupvdShCznetQHDFXE2QPD6ul7Chz4xqQOPdDMrV3kHbD6f/iMxKwJfOsic2BRixTvnOsYQF1XP4Dde5ZKSJ80dWwXCaFgyj/aAokukgHjWsS5QOA2LSRmFQGw6VS1GreK6O3AlWdpDU8X+QAu/GjOB3Cs/FzdswXwyb+33tJz5eO2i9yB6aMn4Sj7ZWsVNJkCt6ZGQhMw3fx90khuVoNRjVXtjk+Wq1aR01QkrbOm2cFJiS2BhSOK9WbR+HmABWldqwvOoUSiVGlGughPwcrkgHZyabwWgcfXAjB9JkTYnWxHVFnSTXmDIGB3k3y6kxaRXrlwUEQvTALoUM6yCCtswPp6eh+VRKiZeXohDqHQPyVbyKhV4U2hsOXvFH2kk4ISrKtnyGSicfVf69uQod7vQuFOHWgHCe2uPfKlWMa0dyF5ChFRN7iUl3n0YH+Y1c3k5O1sE5yyvyV9yHD/7NLfgCP3y1/ilaUbUwNDfAAAAABJRU5ErkJggg==" alt="undefined logo"><span id="brandText">Content and Experience Cloud</span></a></div>
+        <div class="clear"></div>
+    </div>
+    <div class="banner" style="margin-top:3px;">
+        <div>
+            <!-- <img onclick="window.location='/test'" src="../public/images/CECS_w_72.png" /> -->
+            <div class="text-ellip">Unit Test</div>
+        </div>
+        <!-- <a class="unit text-ellip" href="/public/components">Components List</a> -->
+    </div>
+    <!-- breadcrumb -->
+    <div class="breadcrumb">
+        <div><a href="/public">Developer</a>&nbsp;&gt;&nbsp;Unit Tests</div>
+    </div>
+    <div id="mocha"></div>
+    <script src="../sitescloud/renderer/app/apps/js/jquery.min.js"></script>
+    <script src="../../node_modules/mocha/mocha.js"></script>
+    <script>
+    /* globals mocha */
+    mocha.setup({
+        ui: 'bdd',
+        globals: ['fxdriver_id']
+    });
+    </script>
+    <script src="../../node_modules/chai/chai.js"></script>
+    <script type="text/javascript" data-main="test-main" src="../../src/libs/requirejs/require.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,179 @@
+{
+	"base": {
+		"properties": {
+			"title": "",
+			"pageLayout": "index.html",
+			"pageDescription": "",
+			"keywords": "",
+			"hideFromSearchEngines": false,
+			"header": "",
+			"footer": "",
+			"noIndex": false,
+			"noFollow": false,
+			"noArchive": false,
+			"noSnippet": false,
+			"isCobrowseEnabled": false
+		},
+		"slots": {
+			"slot-content": {
+				"components": ["acc07204-2f82-46ab-803a-8281e182cf56"],
+				"grid": "<div class=\"scs-row\"><div style=\"width: 100%;\" class=\"scs-col\"><div id=\"acc07204-2f82-46ab-803a-8281e182cf56\"></div></div></div>"
+			}
+		},
+		"componentInstances": {
+			"acc07204-2f82-46ab-803a-8281e182cf56": {
+				"type": "scs-sectionlayout",
+				"id": "CompSectionLayout",
+				"data": {
+					"components": ["faa62ff3-23d2-4698-8615-4acd58e03af8", "f61d514d-3584-40c2-83f6-434378e1debd", "bba1aa18-b74e-4dcf-8063-11949b76acbd", "bf8798a0-9b21-48ff-b4c6-a07ceb50ff6d", "c81b697f-de43-4b31-93c6-9a50548909a2"]
+				}
+			},
+			"c81b697f-de43-4b31-93c6-9a50548909a2": {
+				"type": "scs-paragraph",
+				"id": "scs-paragraph",
+				"data": {
+					"alignment": "fill",
+					"backgroundColor": "#daa520",
+					"borderColor": "#808080",
+					"borderRadius": 0,
+					"borderStyle": "none",
+					"borderWidth": 1,
+					"fontColor": "#333333",
+					"fontFamily": "'Helvetica Neue', Helvetica, Arial, sans-serif",
+					"fontSize": 16,
+					"innerHTML": "<div><!-- ko if: visible --><div class=\"scs-paragraph  scs-component\" style=\"margin-top:5px;margin-right:5px;margin-bottom:5px;margin-left:5px;\"><div class=\"scs-component-content\" data-bind=\"scsCompSetupLightbox\" style=\"text-align:left;width:100%;\"><div class=\"scs-paragraph-text\" style=\"font-size:16px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;background-color:#daa520;color:#333333;border-radius:0px;\"><div>Paragraph 5: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</div></div></div></div><!-- /ko --></div>",
+					"marginBottom": 5,
+					"marginLeft": 5,
+					"marginRight": 5,
+					"marginTop": 5,
+					"placeholderText": "",
+					"styleClass": "",
+					"styleClassName": "",
+					"styleClassTag": "",
+					"toolbarGroups": "",
+					"useStyleClass": "false",
+					"userText": "<div>Paragraph 5: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</div>",
+					"visible": true,
+					"width": 400
+				}
+			},
+			"faa62ff3-23d2-4698-8615-4acd58e03af8": {
+				"type": "scs-paragraph",
+				"id": "scs-paragraph",
+				"data": {
+					"alignment": "fill",
+					"backgroundColor": "#afeeee",
+					"borderColor": "#808080",
+					"borderRadius": 0,
+					"borderStyle": "none",
+					"borderWidth": 1,
+					"fontColor": "#333333",
+					"fontFamily": "'Helvetica Neue', Helvetica, Arial, sans-serif",
+					"fontSize": 16,
+					"innerHTML": "<div><!-- ko if: visible --><div class=\"scs-paragraph  scs-component\" style=\"margin-top:5px;margin-right:5px;margin-bottom:5px;margin-left:5px;\"><div class=\"scs-component-content\" data-bind=\"scsCompSetupLightbox\" style=\"text-align:left;width:100%;\"><div class=\"scs-paragraph-text\" style=\"font-size:16px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;background-color:#afeeee;color:#333333;border-radius:0px;\"><div>Paragraph 1: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</div></div></div></div><!-- /ko --></div>",
+					"marginBottom": 5,
+					"marginLeft": 5,
+					"marginRight": 5,
+					"marginTop": 5,
+					"placeholderText": "",
+					"styleClass": "",
+					"styleClassName": "",
+					"styleClassTag": "",
+					"toolbarGroups": "",
+					"useStyleClass": "false",
+					"userText": "<div>Paragraph 1: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</div>",
+					"visible": true,
+					"width": 400
+				}
+			},
+			"f61d514d-3584-40c2-83f6-434378e1debd": {
+				"type": "scs-paragraph",
+				"id": "scs-paragraph",
+				"data": {
+					"alignment": "fill",
+					"backgroundColor": "#dda0dd",
+					"borderColor": "#808080",
+					"borderRadius": 0,
+					"borderStyle": "none",
+					"borderWidth": 1,
+					"fontColor": "#333333",
+					"fontFamily": "'Helvetica Neue', Helvetica, Arial, sans-serif",
+					"fontSize": 16,
+					"innerHTML": "<div><!-- ko if: visible --><div class=\"scs-paragraph  scs-component\" style=\"margin-top:5px;margin-right:5px;margin-bottom:5px;margin-left:5px;\"><div class=\"scs-component-content\" data-bind=\"scsCompSetupLightbox\" style=\"text-align:left;width:100%;\"><div class=\"scs-paragraph-text\" style=\"font-size:16px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;background-color:#dda0dd;color:#333333;border-radius:0px;\"><div>Paragraph 2: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</div></div></div></div><!-- /ko --></div>",
+					"marginBottom": 5,
+					"marginLeft": 5,
+					"marginRight": 5,
+					"marginTop": 5,
+					"placeholderText": "",
+					"styleClass": "",
+					"styleClassName": "",
+					"styleClassTag": "",
+					"toolbarGroups": "",
+					"useStyleClass": "false",
+					"userText": "<div>Paragraph 2: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</div>",
+					"visible": true,
+					"width": 400
+				}
+			},
+			"bf8798a0-9b21-48ff-b4c6-a07ceb50ff6d": {
+				"type": "scs-paragraph",
+				"id": "scs-paragraph",
+				"data": {
+					"alignment": "fill",
+					"backgroundColor": "#a9a9a9",
+					"borderColor": "#808080",
+					"borderRadius": 0,
+					"borderStyle": "none",
+					"borderWidth": 1,
+					"fontColor": "#333333",
+					"fontFamily": "'Helvetica Neue', Helvetica, Arial, sans-serif",
+					"fontSize": 16,
+					"innerHTML": "<div><!-- ko if: visible --><div class=\"scs-paragraph  scs-component\" style=\"margin-top:5px;margin-right:5px;margin-bottom:5px;margin-left:5px;\"><div class=\"scs-component-content\" data-bind=\"scsCompSetupLightbox\" style=\"text-align:left;width:100%;\"><div class=\"scs-paragraph-text\" style=\"font-size:16px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;background-color:#a9a9a9;color:#333333;border-radius:0px;\"><div>Paragraph 4: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</div></div></div></div><!-- /ko --></div>",
+					"marginBottom": 5,
+					"marginLeft": 5,
+					"marginRight": 5,
+					"marginTop": 5,
+					"placeholderText": "",
+					"styleClass": "",
+					"styleClassName": "",
+					"styleClassTag": "",
+					"toolbarGroups": "",
+					"useStyleClass": "false",
+					"userText": "<div>Paragraph 4: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</div>",
+					"visible": true,
+					"width": 400
+				}
+			},
+			"bba1aa18-b74e-4dcf-8063-11949b76acbd": {
+				"type": "scs-paragraph",
+				"id": "scs-paragraph",
+				"data": {
+					"alignment": "fill",
+					"backgroundColor": "#ffa07a",
+					"borderColor": "#808080",
+					"borderRadius": 0,
+					"borderStyle": "none",
+					"borderWidth": 1,
+					"fontColor": "#333333",
+					"fontFamily": "'Helvetica Neue', Helvetica, Arial, sans-serif",
+					"fontSize": 16,
+					"innerHTML": "<div><!-- ko if: visible --><div class=\"scs-paragraph  scs-component\" style=\"margin-top:5px;margin-right:5px;margin-bottom:5px;margin-left:5px;\"><div class=\"scs-component-content\" data-bind=\"scsCompSetupLightbox\" style=\"text-align:left;width:100%;\"><div class=\"scs-paragraph-text\" style=\"font-size:16px;font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;background-color:#ffa07a;color:#333333;border-radius:0px;\"><div>Paragraph 3: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</div></div></div></div><!-- /ko --></div>",
+					"marginBottom": 5,
+					"marginLeft": 5,
+					"marginRight": 5,
+					"marginTop": 5,
+					"placeholderText": "",
+					"styleClass": "",
+					"styleClassName": "",
+					"styleClassTag": "",
+					"toolbarGroups": "",
+					"useStyleClass": "false",
+					"userText": "<div>Paragraph 3: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</div>",
+					"visible": true,
+					"width": 400
+				}
+			}
+		}
+	},
+	"variants": {}
+}

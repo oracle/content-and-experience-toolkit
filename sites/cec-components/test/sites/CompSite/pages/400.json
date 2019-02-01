@@ -1,0 +1,72 @@
+{
+    "base": {
+        "properties": {
+            "title": "",
+            "pageLayout": "index.html",
+            "pageDescription": "",
+            "keywords": "",
+            "hideFromSearchEngines": false,
+            "header": "",
+            "footer": "",
+            "noIndex": false,
+            "noFollow": false,
+            "noArchive": false,
+            "noSnippet": false,
+            "isCobrowseEnabled": false
+        },
+        "slots": {
+            "slot-content": {
+                "components": ["bf1e1130-a647-4d41-9e4b-562b1ab63dd1"],
+                "grid": "<div class=\"scs-row\"><div style=\"width: 100%;\" class=\"scs-col\"><div id=\"bf1e1130-a647-4d41-9e4b-562b1ab63dd1\"></div></div></div>"
+            }
+        },
+        "componentInstances": {
+            "bf1e1130-a647-4d41-9e4b-562b1ab63dd1": {
+                "type": "scs-component",
+                "id": "devcsCaaSLayout",
+                "data": {
+                    "actions": "",
+                    "alignment": "fill",
+                    "assets": "",
+                    "borderColor": "#808080",
+                    "borderRadius": 0,
+                    "borderStyle": "none",
+                    "borderWidth": 1,
+                    "componentId": "",
+                    "componentName": "",
+                    "componentFactory": "",
+                    "componentLayout": "",
+                    "contentId": "",
+                    "contentLayoutCategory": "",
+                    "contentPlaceholder": false,
+                    "contentTypes": [],
+                    "contentViewing": "published",
+                    "customRenderComplete": false,
+                    "customSettingsData": "",
+                    "componentConfig": "",
+                    "description": "",
+                    "detailPageId": "",
+                    "height": "",
+                    "initialized": true,
+                    "isCaaSLayout": true,
+                    "linkType": "scs-link-action",
+                    "marginBottom": 5,
+                    "marginLeft": 5,
+                    "marginRight": 5,
+                    "marginTop": 5,
+                    "nestedComponents": [],
+                    "styleClass": "",
+                    "styleClassName": "",
+                    "seeded": true,
+                    "useStyleClass": "true",
+                    "visible": true,
+                    "visibleNestedComponents": [],
+                    "width": 0,
+                    "contentIds": [],
+                    "contentViewings": ["published"]
+                }
+            }
+        }
+    },
+    "variants": {}
+}

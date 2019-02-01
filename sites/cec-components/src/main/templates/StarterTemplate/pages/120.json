@@ -1,0 +1,84 @@
+{
+  "properties": {
+    "title": "",
+    "pageLayout": "index.html",
+    "pageDescription": "",
+    "keywords": "",
+    "hideFromSearchEngines": false,
+    "header": "",
+    "footer": "",
+    "noIndex": false,
+    "noFollow": false,
+    "noArchive": false,
+    "noSnippet": false
+  },
+  "slots": {
+    "slot-content": {
+      "components": [
+        "8f7fadc1-8613-4106-aaa8-ddcbd4a171b5",
+        "0770ab3b-8e9b-4534-bba8-8c94e412fed3"
+      ],
+      "grid": "<div class=\"scs-row\"><div class=\"scs-col\" style=\"width: 100%;\"><div id=\"8f7fadc1-8613-4106-aaa8-ddcbd4a171b5\"><\/div><\/div><\/div><div class=\"scs-row\"><div class=\"scs-col\" style=\"width: 100%;\"><div id=\"0770ab3b-8e9b-4534-bba8-8c94e412fed3\"><\/div><\/div><\/div>"
+    }
+  },
+  "componentInstances": {
+    "0770ab3b-8e9b-4534-bba8-8c94e412fed3": {
+      "type": "scs-paragraph",
+      "id": "scs-paragraph",
+      "data": {
+        "alignment": "fill",
+        "backgroundColor": "",
+        "borderColor": "#808080",
+        "borderRadius": 0,
+        "borderStyle": "none",
+        "borderWidth": 1,
+        "fontColor": "#333333",
+        "fontFamily": "'Helvetica Neue', Helvetica, Arial, sans-serif",
+        "fontSize": 16,
+        "innerHTML": "<div><!-- ko if: visible --><div class=\"scs-paragraph  scs-component scs-paragraph-default-style\" style=\"margin-top:5px;margin-right:5px;margin-bottom:5px;margin-left:5px;\"><div class=\"scs-component-content\" style=\"text-align:left;width:100%;\"><div class=\"scs-paragraph-text\" style=\"\"><div>Your template can have a default site with pages you provide:<\/div><ul><li>Sample pages help your user get started with layout and content<\/li><li>Standard pages provide required content, such as a privacy policy page<\/li><\/ul><div>&nbsp;<\/div><div><p><span name=\"OracleReview\" id=\"51\" class=\"segment\">There is always a top page in the hierarchy, the &ldquo;home&rdquo; page for your site, beneath which all other pages are listed.<\/span><span name=\"OracleReview\" class=\"segment\"> To work with pages, click <strong>Edit<\/strong> and then click the Pages icon. You can add pages, change page settings, and drag and drop a page to change the order or nest the page under another page<\/span><span name=\"OracleReview\" id=\"53\" class=\"segment\">.<\/span><span name=\"OracleReview\" id=\"54\" class=\"segment\"><\/span><\/p><p><span name=\"OracleReview\" class=\"segment\">Changing the order of pages also changes the order in which they are listed in the navigation menu.<\/span><\/p><p>For more information about adding pages, see <a target=\"_blank\" linktype=\"scs-link-webpage\" href=\" http:\/\/www.oracle.com\/pls\/topic\/lookup?ctx=cloud&amp;id=CECSU-GUID-C5C48305-53CA-4879-9BA5-5DCC28FBEFE9\">Working with Pages<\/a> in <em>Using Oracle Content and Experience Cloud<\/em>.<\/p><\/div><\/div><\/div><\/div><!-- \/ko --><\/div>",
+        "marginBottom": 5,
+        "marginLeft": 5,
+        "marginRight": 5,
+        "marginTop": 5,
+        "placeholderText": "",
+        "styleClass": "",
+        "styleClassName": "",
+        "styleClassTag": "",
+        "toolbarGroups": "",
+        "useStyleClass": "true",
+        "userText": "<div>Your template can have a default site with pages you provide:<\/div><ul><li>Sample pages help your user get started with layout and content<\/li><li>Standard pages provide required content, such as a privacy policy page<\/li><\/ul><div>&nbsp;<\/div><div><p><span name=\"OracleReview\" id=\"51\" class=\"segment\">There is always a top page in the hierarchy, the &ldquo;home&rdquo; page for your site, beneath which all other pages are listed.<\/span><span name=\"OracleReview\" class=\"segment\"> To work with pages, click <strong>Edit<\/strong> and then click the Pages icon. You can add pages, change page settings, and drag and drop a page to change the order or nest the page under another page<\/span><span name=\"OracleReview\" id=\"53\" class=\"segment\">.<\/span><span name=\"OracleReview\" id=\"54\" class=\"segment\"><\/span><\/p><p><span name=\"OracleReview\" class=\"segment\">Changing the order of pages also changes the order in which they are listed in the navigation menu.<\/span><\/p><p>For more information about adding pages, see <a target=\"_blank\" linktype=\"scs-link-webpage\" href=\" http:\/\/www.oracle.com\/pls\/topic\/lookup?ctx=cloud&amp;id=CECSU-GUID-C5C48305-53CA-4879-9BA5-5DCC28FBEFE9\">Working with Pages<\/a> in <em>Using Oracle Content and Experience Cloud<\/em>.<\/p><\/div>",
+        "visible": true,
+        "width": 400
+      }
+    },
+    "8f7fadc1-8613-4106-aaa8-ddcbd4a171b5": {
+      "type": "scs-title",
+      "id": "scs-title",
+      "data": {
+        "alignment": "fill",
+        "backgroundColor": "",
+        "borderColor": "#808080",
+        "borderRadius": 0,
+        "borderStyle": "none",
+        "borderWidth": 1,
+        "fontColor": "#333333",
+        "fontFamily": "'Helvetica Neue', Helvetica, Arial, sans-serif",
+        "fontSize": 24,
+        "innerHTML": "<div><!-- ko if: visible --><div class=\"scs-title  scs-component scs-title-default-style\" style=\"margin-top:5px;margin-right:5px;margin-bottom:5px;margin-left:5px;\"><div class=\"scs-component-content\" style=\"text-align:left;width:100%;\"><div class=\"scs-title-text\" style=\"\"><div>Pages<\/div><\/div><\/div><\/div><!-- \/ko --><\/div>",
+        "marginBottom": 5,
+        "marginLeft": 5,
+        "marginRight": 5,
+        "marginTop": 5,
+        "placeholderText": "",
+        "styleClass": "",
+        "styleClassName": "",
+        "styleClassTag": "",
+        "toolbarGroups": "",
+        "useStyleClass": "true",
+        "userText": "<div>Pages<\/div>",
+        "visible": true,
+        "width": 400
+      }
+    }
+  }
+}

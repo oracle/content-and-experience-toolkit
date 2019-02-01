@@ -1,0 +1,33 @@
+{
+	"base": {
+		"properties": {
+			"title": null,
+			"pageLayout": "index.html",
+			"pageDescription": null,
+			"keywords": null,
+			"hideFromSearchEngines": false,
+			"header": "",
+			"footer": "",
+			"noIndex": false,
+			"noFollow": false,
+			"noArchive": false,
+			"noSnippet": false,
+			"isCobrowseEnabled": false
+		},
+		"slots": {
+			"slot-content": {
+				"components": ["f8d5bb65-0c53-423d-aee5-4c70bc00c729"],
+				"grid": "<div class=\"scs-row\"><div class=\"scs-col\" style=\"width: 100%;\"><div id=\"f8d5bb65-0c53-423d-aee5-4c70bc00c729\"></div></div></div>"
+			}
+		},
+		"componentInstances": {
+			"f8d5bb65-0c53-423d-aee5-4c70bc00c729": {
+				"type": "scs-componentgroup",
+				"id": "scs-componentgroup",
+				"data": {
+				}
+			}
+		}
+	},
+	"variants": {}
+}
