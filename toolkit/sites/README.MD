@@ -7,7 +7,7 @@ To learn about developing components for Content and Experience Cloud, see the l
 ## Setup
 
 * Make sure `node` and `npm` are in your `PATH`.  Use NodeJS 8.0.0 or later.
-* Pull the source from the DevCS Project - Git Repository.  Open a terminal window and enter this command:
+* Pull the source from the - Git Repository.  Open a terminal window and enter this command:
 
  ```
 	git clone git@github.com:oracle/content-and-experience.git
