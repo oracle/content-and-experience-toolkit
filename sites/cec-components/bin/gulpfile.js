@@ -9,6 +9,7 @@ var gulp = require('gulp'),
 	serverUtils = require('../test/server/serverUtils.js'),
 	contentlayoutlib = require('./contentlayout.js'),
 	templatelib = require('./template.js'),
+	sitelib = require('./site.js'),
 	decompress = require('decompress'),
 	extract = require('extract-zip'),
 	os = require('os'),
@@ -488,14 +489,17 @@ gulp.task('dist', function (done) {
 
 	if (argv.component) {
 
-		console.log(`Copying ${argv.component} component `);
-		// Copy the components to the build folder
-		return gulp.src(`${componentsSrcDir}/${argv.component}/**`)
-			.pipe(gulp.dest(`${componentsBuildDir}/${argv.component}`))
-			.on('end', done);
-	} else {
-		done();
+		var components = argv.component.split(',');
+		for (var i = 0; i < components.length; i++) {
+			if (fs.existsSync(componentsSrcDir + '/' + components[i])) {
+				console.log(` - copying ${components[i]} component `);
+				// Copy the components to the build folder
+				fse.copySync(path.join(componentsSrcDir, components[i]), path.join(componentsBuildDir, components[i]));
+			}
+		}
 	}
+
+	done();
 });
 
 /**
@@ -538,10 +542,15 @@ gulp.task('optimize', function (done) {
 	'use strict';
 
 	if (argv.component) {
-		optimizeComponent(argv.component);
-		done();
+		var components = argv.component.split(',');
+		for (var i = 0; i < components.length; i++) {
+			if (fs.existsSync(path.join(componentsSrcDir, components[i]))) {
+				console.log(` - optimizing component ${components[i]}`);
+				optimizeComponent(components[i]);
+			}
+		}
 	}
-
+	done();
 });
 
 /**
@@ -559,12 +568,21 @@ gulp.task('deploy-all', function (cb) {
 gulp.task('create-component-zip', function (done) {
 	'use strict';
 
-	return gulp.src(`${componentsBuildDir}/${argv.component}/**/*`, {
-			base: componentsBuildDir
-		})
-		.pipe(zip(`${argv.component}.zip`))
-		.pipe(gulp.dest('../dist/'))
-		.on('end', done);
+	var components = argv.component.split(',');
+	var tasks = components.map(function (comp) {
+		if (fs.existsSync(path.join(componentsSrcDir, comp))) {
+			return gulp.src(`${componentsBuildDir}/${comp}/**/*`, {
+					base: componentsBuildDir
+				})
+				.pipe(zip(`${comp}.zip`))
+				.pipe(gulp.dest('../dist/'))
+				.on('end', function () {
+					console.log(` - created zip file ${comp}.zip`);
+					done();
+				});
+		}
+	});
+	return tasks;
 });
 
 /**
@@ -578,18 +596,24 @@ gulp.task('export-component', function (done) {
 		done();
 		return;
 	} else {
-
-		if (!fs.existsSync(componentsSrcDir + '/' + argv.component)) {
-			console.error(`Error: Component ${argv.component} doesn't exist`);
-			done();
-			return;
+		var components = argv.component.split(',');
+		var validCompNum = 0;
+		for (var i = 0; i < components.length; i++) {
+			if (!fs.existsSync(path.join(componentsSrcDir, components[i]))) {
+				console.error(`Error: Component ${components[i]} doesn't exist`);
+			} else {
+				validCompNum += 1;
+			}
 		}
 
-		var exportSeries = gulp.series('dist', 'optimize', 'create-component-zip');
-		exportSeries(function () {
-			console.log(`Created zip file at ${projectDir}/dist/${argv.component}.zip`);
+		if (validCompNum > 0) {
+			var exportSeries = gulp.series('dist', 'optimize', 'create-component-zip');
+			exportSeries(function () {
+				done();
+			});
+		} else {
 			done();
-		});
+		}
 	}
 });
 
@@ -612,19 +636,38 @@ gulp.task('deploy-component', function (done) {
 		return;
 	}
 
-	if (!fs.existsSync(componentsSrcDir + '/' + argv.component)) {
-		console.error(`Error: Component ${argv.component} doesn't exist`);
+	var publish = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
+
+	var folder = argv.folder && argv.folder.toString();
+	if (folder === '/') {
+		folder = '';
+	} else if (folder && !serverUtils.replaceAll(folder, '/', '')) {
+		console.log('ERROR: invalid folder');
 		done();
 		return;
 	}
 
+	// Support a list of components
+	var components = argv.component.split(',');
+	var allComps = [];
+
+	for (var i = 0; i < components.length; i++) {
+		if (!fs.existsSync(path.join(componentsSrcDir, components[i]))) {
+			console.error(`Error: Component ${components[i]} doesn't exist`);
+		} else {
+			allComps.push(components[i]);
+		}
+	}
+	if (allComps.length === 0) {
+		done();
+		return;
+	}
+
+	// Remove invalid component
+	argv.component = allComps.join();
+
 	var exportTask = gulp.series('export-component');
 	exportTask(function () {
-
-		var name = argv.component;
-		var zipfile = path.join(projectDir, "dist", name) + ".zip";
-
-		console.log(' - deploy component ' + name);
 
 		if (server.env === 'pod_ec') {
 			var loginPromise = serverUtils.loginToPODServer(server);
@@ -636,20 +679,19 @@ gulp.task('deploy-component', function (done) {
 					return;
 				}
 
-				var importPromise = serverUtils.importToPODServer(server, 'component', zipfile);
+				var imports = [];
+				for (var i = 0; i < allComps.length; i++) {
+					var name = allComps[i];
+					var zipfile = path.join(projectDir, "dist", name) + ".zip";
+					imports.push({
+						name: name,
+						zipfile: zipfile
+					});
+				}
+
+				var importPromise = serverUtils.importToPODServer(server, 'component', folder, imports, publish);
 				importPromise.then(function (importResult) {
-					// console.log(importResult);
-					if (importResult && importResult.LocalData) {
-						if (importResult.LocalData.StatusCode !== '0') {
-							console.log(' - failed to import: ' + importResult.LocalData.StatusMessage);
-						} else if (importResult.LocalData.ImportConflicts) {
-							console.log(' - failed to import: the component already exists and you do not have privilege to override it');
-						} else {
-							console.log(' - component ' + name + ' imported');
-						}
-					} else {
-						console.log(' - failed to import');
-					}
+					// result is processed in the API
 					done();
 					process.exit(0);
 				});
@@ -670,32 +712,76 @@ gulp.task('deploy-component', function (done) {
 					return;
 				}
 
-				// upload the zip file
-				var uploadPromise = serverUtils.uploadFileToServer(request, server, zipfile);
+				var importsPromise = [];
+				for (var i = 0; i < allComps.length; i++) {
+					var name = allComps[i];
+					var zipfile = path.join(projectDir, "dist", name) + ".zip";
 
-				uploadPromise.then(function (result) {
-					var fileId = result && result.LocalData && result.LocalData.fFileGUID;
-					var idcToken = result && result.LocalData && result.LocalData.idcToken;
-					// console.log(' - file id ' + fileId + ' idcToken ' + idcToken);
-
-					// import
-					var importPromise = serverUtils.importComponentToServer(request, server, fileId, idcToken);
-					importPromise.then(function (importResult) {
-						// console.log(importResult);
-						if (importResult.err) {
-							console.log(' - failed to import: ' + importResult.err);
-						} else if (importResult.LocalData && importResult.LocalData.StatusCode !== '0') {
-							console.log(' - failed to import: ' + importResult.LocalData.StatusMessage);
-						} else {
-							console.log(' - component ' + name + ' imported');
-						}
-						done();
-					});
+					importsPromise[i] = _deployOneComponentToDevServer(request, server, folder, zipfile, name, publish);
+				}
+				Promise.all(importsPromise).then(function (values) {
+					// All done
+					done();
 				});
-			});
-		}
-	});
+
+			}); // login 
+		} // dev server case
+	}); // export
 });
+
+var _deployOneComponentToDevServer = function (request, server, folder, zipfile, name, publish) {
+	var deployOneCompPromise = new Promise(function (resolve, reject) {
+		// upload the zip file
+		var uploadPromise = serverUtils.uploadFileToServer(request, server, folder, zipfile);
+
+		uploadPromise.then(function (result) {
+			if (result.err) {
+				return resolve({});
+			}
+
+			var fileId = result && result.LocalData && result.LocalData.fFileGUID;
+			var idcToken = result && result.LocalData && result.LocalData.idcToken;
+			// console.log(' - name ' + name + ' file id ' + fileId + ' idcToken ' + idcToken);
+
+			// import
+			var importPromise = serverUtils.importComponentToServer(request, server, fileId, idcToken);
+			importPromise.then(function (importResult) {
+				// console.log(JSON.stringify(importResult));
+				if (importResult.err) {
+					console.log(' - failed to import: ' + importResult.err);
+					return resolve({});
+				} else {
+					if (!importResult.LocalData || importResult.LocalData.StatusCode !== '0') {
+						console.log(' - failed to import: ' + importResult.LocalData ? importResult.LocalData.StatusMessage : '');
+						return resolve({});
+					}
+
+					console.log(' - component ' + name + ' imported');
+					var compFolderId = serverUtils.getComponentAttribute(importResult, 'fFolderGUID');
+					if (publish && compFolderId) {
+						// publish the component
+						var publishPromise = serverUtils.publishComponentOnServer(request, server, compFolderId, idcToken);
+						publishPromise.then(function (publishResult) {
+							// console.log(publishResult);
+							if (publishResult.err) {
+								console.log(' - failed to publish: ' + publishResult.err);
+							} else if (!publishResult.LocalData || publishResult.LocalData.StatusCode !== '0') {
+								console.log(' - failed to publish: ' + publishResult.LocalData ? publishResult.LocalData.StatusMessage : '');
+							} else {
+								console.log(' - component ' + name + ' published/republished');
+							}
+							return resolve({});
+						});
+					} else {
+						return resolve({});
+					}
+				}
+			}); // import
+		}); // upload
+	});
+
+	return deployOneCompPromise;
+};
 
 /**
  * Copy the configured libraries from node_modules into library folder
@@ -775,6 +861,16 @@ gulp.task('list', function (done) {
 	}
 
 	done();
+});
+
+/**
+ * Index site
+ * Create content items with the keywords on site page and import the items to the server
+ */
+gulp.task('index-site', function (done) {
+	'use strict';
+
+	sitelib.indexSite(argv, done);
 });
 
 /**

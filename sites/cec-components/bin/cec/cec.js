@@ -4,6 +4,7 @@
  * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
+
 /* jshint esversion: 6 */
 
 const path = require('path');
@@ -54,7 +55,7 @@ var getComponentSources = function () {
 };
 
 var getTemplateSources = function () {
-	const seededTemplateSources = ['CafeSupremoLite', 'JETStarterTemplate', 'NewProductLaunch', 'StarterTemplate'];
+	const seededTemplateSources = ['CafeSupremoLite', 'JETStarterTemplate', 'StarterTemplate'];
 
 	let existingTemplateSources = fs.readdirSync(path.join('.', 'data', 'templates'));
 	existingTemplateSources = existingTemplateSources.filter((item) => /\.zip$/.test(item)).map((zip) => zip.replace('.zip', ''));
@@ -146,15 +147,20 @@ const exportComponent = {
 };
 
 const deployComponent = {
-	command: 'deploy-component <name>',
+	command: 'deploy-component <names>',
 	usage: {
-		'short': 'Deploys the component <name> to the Content and Experience Cloud server.',
+		'short': 'Deploys the components <names> to the Content and Experience Cloud server.',
 		'long': (function () {
-			let desc = 'Deploys the component <name> to the Content and Experience Cloud server. This uses the server specified in $HOME/gradle.properties file.';
+			let desc = 'Deploys the components <names> to the Content and Experience Cloud server. This uses the server specified in $HOME/gradle.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
 			return desc;
 		})()
 	},
-	example: ['cec deploy-component Sample-To-Do', 'Deploys the component Sample-To-Do.']
+	example: [
+		['cec deploy-component Sample-To-Do', 'Deploys the component Sample-To-Do.'],
+		['cec deploy-component Sample-To-Do -p', 'Deploys and publishes the component Sample-To-Do.'],
+		['cec deploy-component Sample-To-Do,Sample-To-Do2', 'Deploys component Sample-To-Do and Sample-To-Do2.'],
+		['cec deploy-component Sample-To-Do -f Import/Components', 'Uploads file Sample-To-Do.zip to folder Import/Components and imports the component Sample-To-Do.'],
+	]
 };
 
 const deployAllComponents = {
@@ -225,11 +231,15 @@ const deployTemplate = {
 	usage: {
 		'short': 'Deploys the template <name> to the Content and Experience Cloud server.',
 		'long': (function () {
-			let desc = 'Deploys the template <name> to the Content and Experience Cloud server. This uses the server specified in $HOME/gradle.properties file.';
+			let desc = 'Deploys the template <name> to the Content and Experience Cloud server. This uses the server specified in $HOME/gradle.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
 			return desc;
 		})()
 	},
-	example: ['cec deploy-template StarterTemplate', 'Deploys the template StarterTemplate.']
+	example: [
+		['cec deploy-template StarterTemplate', 'Deploys the template StarterTemplate.'],
+		['cec deploy-template StarterTemplate -f Import/Templates', 'Uploads file StarterTemplate.zip to folder Import/Templates and imports the template StarterTemplate.'],
+		['cec deploy-template StarterTemplate -o', 'Optimizes and deploys the template StarterTemplate.']
+	]
 };
 
 const describeTemplate = {
@@ -322,7 +332,7 @@ const removeComponentFromTheme = {
 const listResources = {
 	command: 'list',
 	usage: {
-		'short': 'List local resources',
+		'short': 'List local resources.',
 		'long': (function () {
 			let desc = 'List local resources such components and templates. Optionally specify -t <type> to list specific type of resources. ' +
 				os.EOL + os.EOL + 'Valid values for <type> are: ' + os.EOL +
@@ -338,6 +348,21 @@ const listResources = {
 	]
 };
 
+const indexSite = {
+	command: 'index-site <site>',
+	usage: {
+		'short': 'Index the page content of site <site> on CEC server.',
+		'long': (function () {
+			let desc = 'Create content item for each page with all text on the page. If the page index content item already exists for a page, updated it with latest text on the page. Specify -c <contenttype> to set the page index content type. Optionally specify -p to publish the page index items after creation or update.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec index-site Site1 -c PageIndex'],
+		['cec index-site Site1 -c PageIndex -p']
+	]
+};
+
 /*********************
  * Setup yargs
  **********************/
@@ -348,11 +373,11 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 		(yargs) => {
 			yargs.option('from', {
 					alias: 'f',
-					description: '<source> Source to create from',
+					description: '<from> Source to create from',
 				})
 				.check((argv) => {
 					if (argv.from && !getComponentSources().includes(argv.from)) {
-						throw new Error(`${argv.source} is a not a valid value for <source>`);
+						throw new Error(`${argv.from} is a not a valid value for <source>`);
 					} else {
 						return true;
 					}
@@ -425,7 +450,18 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 		})
 	.command(deployComponent.command, deployComponent.usage.short,
 		(yargs) => {
-			yargs.example(...deployComponent.example)
+			yargs.option('folder', {
+					alias: 'f',
+					description: '<folder> Folder to upload the component zip file'
+				})
+				.option('publish', {
+					alias: 'p',
+					description: 'Publish the component'
+				})
+				.example(...deployComponent.example[0])
+				.example(...deployComponent.example[1])
+				.example(...deployComponent.example[2])
+				.example(...deployComponent.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -491,11 +527,17 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 		})
 	.command(deployTemplate.command, deployTemplate.usage.short,
 		(yargs) => {
-			yargs.option('optimize', {
+			yargs.option('folder', {
+					alias: 'f',
+					description: '<folder> Folder to upload the template zip file'
+				})
+				.option('optimize', {
 					alias: 'o',
 					description: 'Optimize the template'
 				})
-				.example(...deployTemplate.example)
+				.example(...deployTemplate.example[0])
+				.example(...deployTemplate.example[1])
+				.example(...deployTemplate.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -615,6 +657,30 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${listResources.command}\n\n${listResources.usage.long}`);
 		})
+	.command(indexSite.command, indexSite.usage.short,
+		(yargs) => {
+			yargs.option('contenttype', {
+					alias: 'c',
+					description: '<contenttype> page index content type'
+				})
+				.option('publish', {
+					alias: 'p',
+					description: 'publish page index items'
+				})
+				.check((argv) => {
+					if (!argv.contenttype) {
+						throw new Error('Please specify page index content type');
+					} else {
+						return true;
+					}
+				})
+				.example(...indexSite.example[0])
+				.example(...indexSite.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${indexSite.command}\n\n${indexSite.usage.long}`);
+		})
 	.help('help')
 	.alias('help', 'h')
 	.version()
@@ -691,7 +757,13 @@ switch (argv._[0]) {
 		break;
 
 	case 'deploy-component':
-		let deployComponentArgs = ['run', '-s', argv._[0], argv.name];
+		let deployComponentArgs = ['run', '-s', argv._[0], '--', '--component', argv.names];
+		if (argv.publish) {
+			deployComponentArgs.push(...['--publish', argv.publish]);
+		}
+		if (argv.folder && typeof argv.folder !== 'boolean') {
+			deployComponentArgs.push(...['--folder', argv.folder]);
+		}
 		spawnCmd = childProcess.spawnSync(npmCmd, deployComponentArgs, {
 			cwd,
 			stdio: 'inherit'
@@ -749,6 +821,9 @@ switch (argv._[0]) {
 
 	case 'deploy-template':
 		let deployTemplateArgs = ['run', '-s', argv._[0], '--', '--template', argv.name];
+		if (argv.folder && typeof argv.folder !== 'boolean') {
+			deployTemplateArgs.push(...['--folder', argv.folder]);
+		}
 		if (argv.optimize) {
 			deployTemplateArgs.push(...['--minify', argv.optimize]);
 		}
@@ -841,6 +916,20 @@ switch (argv._[0]) {
 	case 'list':
 		let listArgs = ['run', '-s', argv._[0], '--', '--resourcetype', typeof argv.type === 'string' ? argv.type : 'all'];
 		spawnCmd = childProcess.spawnSync(npmCmd, listArgs, {
+			cwd,
+			stdio: 'inherit'
+		});
+		break;
+
+	case 'index-site':
+		let indexSiteArgs = ['run', '-s', argv._[0], '--',
+			'--site', argv.site,
+			'--contenttype', argv.contenttype
+		];
+		if (argv.publish) {
+			indexSiteArgs.push(...['--publish', argv.publish]);
+		}
+		spawnCmd = childProcess.spawnSync(npmCmd, indexSiteArgs, {
 			cwd,
 			stdio: 'inherit'
 		});

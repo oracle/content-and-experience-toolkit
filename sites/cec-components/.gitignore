@@ -1,0 +1,14 @@
+###
+# Files/patterns which shouldn't be source-controlled
+###
+
+/.idea/
+/.gradle/
+/build/
+/node-*/**
+/node_modules/**
+/src/main/components/Local_*
+/npm-debug.log
+/src/dist/
+/src/libs/*
+/bin/cec/node_modules/**

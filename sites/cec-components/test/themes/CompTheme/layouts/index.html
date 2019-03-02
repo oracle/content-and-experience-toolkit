@@ -191,6 +191,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 								viewModel = comp && comp.viewModel,
 								compname = comp && comp.params && comp.params.componentName,
 								sectionLayoutImpl = comp && comp.sectionLayoutImpl;
+
 							if (compname && compname === 'devcsCaaSLayout') {
 
 								var selectItem = data.eventPayload.propertyValue['selectItem'],
@@ -213,6 +214,12 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 									onsole.log('content layout settings change but select item is null');
 								}
 
+							} else if (viewModel) {
+								viewModel.publishPropertyChange(
+									data.eventPayload.propertyName,
+									data.eventPayload.propertyValue);
+								console.log('component settings change: {' + data.eventPayload.propertyName + ', ' +
+									JSON.stringify(data.eventPayload.propertyValue) + '}');
 							} else if (sectionLayoutImpl) {
 								var newCustomSettings = data.eventPayload.propertyValue;
 								if (sectionLayoutImpl.logic && sectionLayoutImpl.logic.sectionLayoutData) {
@@ -226,12 +233,6 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 										', ' + JSON.stringify(data.eventPayload.propertyValue) + '}');
 								}
 
-							} else if (viewModel) {
-								viewModel.publishPropertyChange(
-									data.eventPayload.propertyName,
-									data.eventPayload.propertyValue);
-								console.log('component settings change: {' + data.eventPayload.propertyName + ', ' +
-									JSON.stringify(data.eventPayload.propertyValue) + '}');
 							} else {
 								console.log('Sites responded with: no callback - unable to get component viewModel');
 							}

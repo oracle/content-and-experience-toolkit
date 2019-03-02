@@ -28,8 +28,9 @@
     "add-component-to-theme": "gulp --silent --gulpfile bin/gulpfile.js add-theme-component ",
     "remove-component-from-theme": "gulp --silent --gulpfile bin/gulpfile.js remove-theme-component ",
     "deployAll": "gulp --silent --gulpfile bin/gulpfile.js deploy-all",
-    "deploy-component": "gulp --silent --gulpfile bin/gulpfile.js deploy-component --component",
+    "deploy-component": "gulp --silent --gulpfile bin/gulpfile.js deploy-component ",
     "list": "gulp --silent --gulpfile bin/gulpfile.js list ",
+    "index-site": "gulp  --silent --gulpfile bin/gulpfile.js index-site ",
     "gulp": "gulp --silent --gulpfile",
     "finish-upgrade": "gulp  --gulpfile bin/upgrade.js",
     "install-cec": "npm install -g bin/cec"

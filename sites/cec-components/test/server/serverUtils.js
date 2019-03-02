@@ -18,7 +18,7 @@ var express = require('express'),
 	uuid4 = require('uuid/v4'),
 	puppeteer = require('puppeteer'),
 	btoa = require('btoa'),
-	FormData = require('form-data'),
+	url = require('url'),
 	Client = require('node-rest-client').Client;
 
 var projectDir = path.join(__dirname, "../.."),
@@ -105,6 +105,9 @@ module.exports.endsWith = (str, end) => {
  * Utility replace all occurrences of a string
  */
 module.exports.replaceAll = (str, search, replacement) => {
+	return _replaceAll(str, search, replacement);
+};
+var _replaceAll = function (str, search, replacement) {
 	var re = new RegExp(search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
 	return str.replace(re, replacement || '');
 };
@@ -138,13 +141,15 @@ var _fixHeaders = function (origResponse, response) {
 };
 
 module.exports.getURLParameters = function (queryString) {
+	return _getURLParameters(queryString);
+};
+var _getURLParameters = function (queryString) {
 	var params = {};
-
 	if (!queryString || queryString.indexOf('=') < 0) {
 		console.log(' queryString ' + queryString + ' is empty or not valid');
 		return params;
 	}
-	parts = queryString.split('&');
+	var parts = queryString.split('&');
 	for (var i = 0; i < parts.length; i++) {
 		var nameval = parts[i].split('='),
 			name = nameval[0],
@@ -532,7 +537,7 @@ module.exports.getContentTypesFromServer = function (callback) {
 		user: server.username,
 		password: server.password
 	});
-	var url = server.url + '/content/management/api/v1/types?limit=9999';
+	var url = server.url + '/content/management/api/v1.1/types?limit=9999';
 	client.get(url, function (data, response) {
 		var types = [];
 		if (response && response.statusCode === 200) {
@@ -543,8 +548,37 @@ module.exports.getContentTypesFromServer = function (callback) {
 		}
 		callback(types);
 	});
-
 };
+
+/**
+ * Get content type from server
+ */
+module.exports.getContentTypeFromServer = function (server, typename) {
+	var contentTypePromise = new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			resolve({
+				err: 'no server'
+			});
+		}
+		var client = new Client({
+			user: server.username,
+			password: server.password
+		});
+		var url = server.url + '/content/management/api/v1.1/types/' + typename;
+		client.get(url, function (data, response) {
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				// console.log('status=' + response.statusCode);
+				resolve({
+					err: 'type ' + typename + ' does not exist'
+				});
+			}
+		});
+	});
+	return contentTypePromise;
+};
+
 
 /**
  * Get all fields of a content types from server
@@ -725,14 +759,23 @@ module.exports.getThemeComponents = function (themeName) {
 	return comps;
 };
 
+
 /**
  * Upload a local file to the personal folder on the server
  * @param {*} filePath 
  */
-module.exports.uploadFileToServer = function (request, server, filePath) {
+module.exports.uploadFileToServer = function (request, server, folderPath, filePath) {
 	"use strict";
 
 	var fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+
+	var folder = folderPath;
+	if (folder && folder.charAt(0) === '/') {
+		folder = folder.substring(1);
+	}
+	if (folder && folder.charAt(folder.length - 1) === '/') {
+		folder = folder.substring(0, folder.length - 1);
+	}
 
 	var uploadPromise = new Promise(function (resolve, reject) {
 
@@ -753,7 +796,9 @@ module.exports.uploadFileToServer = function (request, server, filePath) {
 			if (err) {
 				console.log('ERROR: Failed to get user id ');
 				console.log(err);
-				return resolve({});
+				return resolve({
+					err: 'err'
+				});
 			}
 			if (response && response.statusCode === 200) {
 				var data = JSON.parse(body);
@@ -762,19 +807,52 @@ module.exports.uploadFileToServer = function (request, server, filePath) {
 				var folderId = 'F:USER:' + dUser;
 				// console.log(' - folder id: ' + folderId + ' idcToken: ' + idcToken);
 
-				// check if the file exists 
-				var filesUrl = server.url + '/documents/web?IdcService=FLD_BROWSE&itemType=File&IsJson=1&items=fFolderGUID:' + folderId;
-				options.url = filesUrl;
-				var fileId;
-				request.get(options, function (err, response, body) {
-					if (err) {
-						console.log('ERROR: Failed to get personal files');
-						console.log(err);
-						return resolve({});
+				var queryFolderPromise = _queryFolderId(request, server, server.url, folder);
+				queryFolderPromise.then(function (result) {
+					if (result.err) {
+						return resolve({
+							err: 'err'
+						});
 					}
-					if (response && response.statusCode === 200) {
-						var data = JSON.parse(body);
-						fileId = _getFileId(data, fileName);
+					folderId = result.folderId || folderId;
+
+					// check if the file exists 
+					var filesUrl = server.url + '/documents/web?IdcService=FLD_BROWSE&itemType=File&IsJson=1&item=fFolderGUID:' + folderId;
+
+					options.url = filesUrl;
+					var fileId;
+					request.get(options, function (err, response, body) {
+						if (err) {
+							console.log('ERROR: Failed to get personal files');
+							console.log(err);
+							return resolve({
+								err: 'err'
+							});
+						}
+
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {}
+
+						if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+							console.log('ERROR: Failed to get personal files ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+							return resolve({
+								err: 'err'
+							});
+						}
+
+						var dRoleName = data.LocalData.dRoleName;
+						if (dRoleName !== 'owner' && dRoleName !== 'manager' && dRoleName !== 'contributor') {
+							console.log('ERROR: no permission to upload to ' + (folder ? 'folder ' + folder : 'home folder'));
+							return resolve({
+								err: 'err'
+							});
+						}
+
+						fileId = _getFileIdFromResultSets(data, fileName);
+						var folderId = _getFolderIdFromFolderInfo(data) || ('F:USER:' + dUser);
+						// console.log('folder: ' + (folder ? folder : 'home') + ' id: ' + folderId);
 
 						// now upload the file
 						var uploadUrl = server.url + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
@@ -794,32 +872,57 @@ module.exports.uploadFileToServer = function (request, server, filePath) {
 							if (err) {
 								console.log('ERROR: Failed to upload');
 								console.log(err);
-								return resolve({});
+								return resolve({
+									err: 'err'
+								});
 							}
 							if (response && response.statusCode === 200) {
 								var data = JSON.parse(body);
 								var version = data && data.LocalData && data.LocalData.dRevLabel;
-								console.log(' - file ' + fileName + ' uploaded, version ' + version);
+								console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + version);
 								return resolve(data);
 							} else {
 								console.log(' - failed to upload: ' + response.statusCode);
-								return resolve({});
+								return resolve({
+									err: 'err'
+								});
 							}
-						});
-
-					} else {
-						console.log('ERROR: Failed to get personal files status=' + response.statusCode);
-						return resolve({});
-					}
-				});
-			} else {
-				console.log('ERROR: Failed to get user id status=' + response.statusCode);
-				return resolve({});
+						}); // checkin request
+					}); // query file id
+				}); // query folder id
 			}
-		});
+		}); // get user id
 	});
 	return uploadPromise;
 	//});
+};
+
+
+/**
+ * Get the attribute of a component
+ * @param data the result from API SCS_BROWSE_APPS or SCS_ACTIVATE_COMPONENT
+ * @param fieldName
+ */
+module.exports.getComponentAttribute = function (data, fieldName) {
+	return _getComponentAttribute(data, fieldName);
+};
+var _getComponentAttribute = function (data, fieldName) {
+	var compAttr;
+	var appInfo = data && data.ResultSets && data.ResultSets.AppInfo;
+	if (appInfo && appInfo.rows.length > 0) {
+		var fieldIdx = -1;
+		var fields = appInfo.fields;
+		for (var i = 0; i < fields.length; i++) {
+			if (fields[i].name === fieldName) {
+				fieldIdx = i;
+				break;
+			}
+		}
+		if (fieldIdx >= 0 && fieldIdx < appInfo.rows[0].length) {
+			compAttr = appInfo.rows[0][fieldIdx];
+		}
+	}
+	return compAttr;
 };
 
 /**
@@ -835,7 +938,7 @@ module.exports.importTemplateToServer = function (request, server, fileId, idcTo
 		var data = {
 			'item': 'fFileGUID:' + fileId,
 			'idcToken': idcToken,
-			'useBackgroundThread': false,
+			'useBackgroundThread': true,
 			'ThemeConflictResolution': 'overwrite',
 			'TemplateConflictResolution': 'overwrite',
 			'DefaultComponentConflictResolution': true
@@ -851,8 +954,21 @@ module.exports.importTemplateToServer = function (request, server, fileId, idcTo
 				});
 			}
 
-			var data = JSON.parse(body);
-			return resolve(data);
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				// console.log('ERROR: Failed to import template ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				return resolve(data);
+			}
+
+			var jobId = data.LocalData.JobID;
+			var importStatusPromise = _getTemplateImportStatus(request, server.url, jobId);
+			importStatusPromise.then(function (statusResult) {
+				resolve(statusResult);
+			});
 		});
 	});
 
@@ -860,7 +976,7 @@ module.exports.importTemplateToServer = function (request, server, fileId, idcTo
 };
 
 /**
- * Import a template with the zip file
+ * Import a component with the zip on the dev server
  * @param fileId
  * @param idcToken
  */
@@ -887,11 +1003,43 @@ module.exports.importComponentToServer = function (request, server, fileId, idcT
 
 			var data = JSON.parse(body);
 			return resolve(data);
-
 		});
 	});
 
 	return importPromise;
+};
+
+/**
+ * Publish a component on the dev server
+ * @param fileId
+ * @param idcToken
+ */
+module.exports.publishComponentOnServer = function (request, server, componentFolderGUID, idcToken) {
+	"use strict";
+
+	var publishPromise = new Promise(function (resolve, reject) {
+		var publishUrl = server.url + '/documents/web?IdcService=SCS_ACTIVATE_COMPONENT';
+		var data = {
+			'item': 'fFolderGUID:' + componentFolderGUID,
+			'idcToken': idcToken
+		};
+		var postData = {
+			'form': data
+		};
+
+		request.post(publishUrl, postData, function (err, response, body) {
+			if (err) {
+				return resolve({
+					'err': err
+				});
+			}
+
+			var data = JSON.parse(body);
+			return resolve(data);
+		});
+	});
+
+	return publishPromise;
 };
 
 module.exports.loginToDevServer = function (server, request) {
@@ -972,7 +1120,7 @@ module.exports.loginToPODServer = function (server) {
 
 				try {
 					await page.waitForSelector('#content-wrapper', {
-						timeout: 8000
+						timeout: 12000
 					});
 				} catch (err) {
 					// will continue, in headleass mode, after login redirect does not occur
@@ -995,7 +1143,7 @@ module.exports.loginToPODServer = function (server) {
 
 				await browser.close();
 
-				if (!token) {
+				if (!token || token.toLowerCase().indexOf('error') >= 0) {
 					console.log('ERROR: failed to get the OAuth token');
 					return resolve({
 						'status': false
@@ -1023,28 +1171,36 @@ module.exports.loginToPODServer = function (server) {
 	return loginPromise;
 };
 
+
 /**
  * Upload a local file to the personal folder on the server
  * @param server the server info
  * @param type template or component
  * @param filePath 
  */
-module.exports.importToPODServer = function (server, type, filePath) {
+module.exports.importToPODServer = function (server, type, folder, imports, publishComponent) {
 	"use strict";
 
-	var fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
-
 	var importPromise = new Promise(function (resolve, reject) {
-		var fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+		var filePath;
+		var fileName;
+		var objectName;
 		var dUser = '';
 		var idcToken;
 		var fileId = '';
 		var importedFileId;
+		var importedCompFolderId;
 
 		var express = require('express');
 		var app = express();
 		var request = require('request');
 		request = request.defaults({
+			headers: {
+				connection: 'keep-alive'
+			},
+			pool: {
+				maxSockets: 50
+			},
 			jar: true,
 			proxy: null
 		});
@@ -1052,39 +1208,40 @@ module.exports.importToPODServer = function (server, type, filePath) {
 		var port = '8181';
 		var localhost = 'http://localhost:' + port;
 
-		app.get('/documents/web', function (req, res) {
-			if (req.url.indexOf('SCS_GET_TENANT_CONFIG') > 0) {
-				var folderUrl = server.url + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-				var options = {
-					url: folderUrl,
-					'auth': {
-						bearer: server.oauthtoken
-					}
-				};
+		var params, url;
 
-				request(options).on('response', function (response) {
+		app.get('/documents/web', function (req, res) {
+			// console.log('GET: ' + req.url);
+			var url = server.url + req.url;
+			var options = {
+				url: url,
+				'auth': {
+					bearer: server.oauthtoken
+				}
+			};
+
+			request(options).on('response', function (response) {
 					// fix headers for cross-domain and capitalization issues
 					_fixHeaders(response, res);
-				}).pipe(res);
-			} else if (req.url.indexOf('FLD_BROWSE') > 0) {
-				var folderId = 'F:USER:' + dUser;
-				var filesUrl = server.url + '/documents/web?IdcService=FLD_BROWSE&itemType=File&IsJson=1&items=fFolderGUID:' + folderId;
-				var options = {
-					url: filesUrl,
-					'auth': {
-						bearer: server.oauthtoken
-					}
-				};
-				request(options).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					_fixHeaders(response, res);
-				}).pipe(res);
-			}
+				})
+				.on('error', function (err) {
+					console.log(err);
+					res.write({
+						err: err
+					});
+					res.end();
+				})
+				.pipe(res);
 		});
 		app.post('/documents/web', function (req, res) {
+			// console.log('POST: ' + req.url);
 			if (req.url.indexOf('CHECKIN_UNIVERSAL') > 0) {
+				var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+				fileId = params.fileId;
+				filePath = params.filePath;
+				fileName = params.fileName;
+				var folderId = params.folderId;
 				var uploadUrl = server.url + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
-				var folderId = 'F:USER:' + dUser;
 				var formData = {
 					'parent': 'fFolderGUID:' + folderId,
 					'idcToken': idcToken,
@@ -1103,16 +1260,23 @@ module.exports.importToPODServer = function (server, type, filePath) {
 					'formData': formData
 				};
 				request(postData).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					_fixHeaders(response, res);
-				}).pipe(res);
+						// fix headers for cross-domain and capitalization issues
+						_fixHeaders(response, res);
+					})
+					.pipe(res)
+					.on('finish', function (err) {
+						// console.log(' - upload finished: '+filePath);
+						res.end();
+					});
 
 			} else if (req.url.indexOf('SCS_IMPORT_TEMPLATE_PACKAGE') > 0) {
+				var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+				importedFileId = params.importedFileId;
 				var importUrl = server.url + '/documents/web?IdcService=SCS_IMPORT_TEMPLATE_PACKAGE';
 				var data = {
 					'item': 'fFileGUID:' + importedFileId,
 					'idcToken': idcToken,
-					'useBackgroundThread': false,
+					'useBackgroundThread': true,
 					'ThemeConflictResolution': 'overwrite',
 					'TemplateConflictResolution': 'overwrite',
 					'DefaultComponentConflictResolution': true
@@ -1126,11 +1290,24 @@ module.exports.importToPODServer = function (server, type, filePath) {
 					'form': data
 				};
 				request(postData).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					_fixHeaders(response, res);
-				}).pipe(res);
+						// fix headers for cross-domain and capitalization issues
+						_fixHeaders(response, res);
+					})
+					.on('error', function (err) {
+						res.write({
+							err: err
+						});
+						res.end();
+					})
+					.pipe(res)
+					.on('finish', function (err) {
+						// console.log(' - template import finished');
+						res.end();
+					});
 
 			} else if (req.url.indexOf('SCS_IMPORT_COMPONENT') > 0) {
+				var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+				importedFileId = params.importedFileId;
 				var importCompUrl = server.url + '/documents/web?IdcService=SCS_IMPORT_COMPONENT';
 				var data = {
 					'item': 'fFileGUID:' + importedFileId,
@@ -1146,13 +1323,55 @@ module.exports.importToPODServer = function (server, type, filePath) {
 					'form': data
 				};
 				request(postData).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					_fixHeaders(response, res);
-				}).pipe(res);
+						// fix headers for cross-domain and capitalization issues
+						_fixHeaders(response, res);
+					})
+					.on('error', function (err) {
+						res.write({
+							err: err
+						});
+						res.end();
+					})
+					.pipe(res)
+					.on('finish', function (err) {
+						// console.log(' - component import finished');
+						res.end();
+					});
+			} else if (req.url.indexOf('SCS_ACTIVATE_COMPONENT') > 0) {
+				var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+				importedCompFolderId = params.importedCompFolderId;
+				var publishCompUrl = server.url + '/documents/web?IdcService=SCS_ACTIVATE_COMPONENT';
+				var data = {
+					'item': 'fFolderGUID:' + importedCompFolderId,
+					'idcToken': idcToken
+				};
+				var postData = {
+					method: 'POST',
+					url: publishCompUrl,
+					'auth': {
+						bearer: server.oauthtoken
+					},
+					'form': data
+				};
+				request(postData).on('response', function (response) {
+						// fix headers for cross-domain and capitalization issues
+						_fixHeaders(response, res);
+					})
+					.on('error', function (err) {
+						res.write({
+							err: err
+						});
+						res.end();
+					})
+					.pipe(res)
+					.on('finish', function (err) {
+						// console.log(' - component publish finished');
+						res.end();
+					});
 			}
 		});
-
-		app.listen(port, function () {
+		var socketNum = 0;
+		var localServer = app.listen(port, function () {
 			// console.log(' - start ' + localhost + ' for import...');
 			console.log(' - establishing user session');
 			var total = 0;
@@ -1161,7 +1380,11 @@ module.exports.importToPODServer = function (server, type, filePath) {
 				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
 
 				request.get(url, function (err, response, body) {
-					var data = JSON.parse(body);
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {}
+
 					dUser = data && data.LocalData && data.LocalData.dUser;
 					idcToken = data && data.LocalData && data.LocalData.idcToken;
 					if (dUser && dUser !== 'anonymous' && idcToken) {
@@ -1179,73 +1402,366 @@ module.exports.importToPODServer = function (server, type, filePath) {
 			}, 6000);
 
 			var _import = function () {
-				var url = localhost + '/documents/web?IdcService=FLD_BROWSE';
-				request.get(url, function (err, response, body) {
-					if (err) {
-						console.log('ERROR: Failed to get personal files ');
-						console.log(err);
-						return resolve({});
-					}
-					if (response && response.statusCode === 200) {
-						// upload the file
-						var data = JSON.parse(body);
-						fileId = _getFileId(data, fileName);
-						url = localhost + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
-						request.post(url, function (err, response, body) {
-							if (err) {
-								console.log('ERROR: Failed to upload');
-								console.log(err);
-								return resolve({});
-							}
-							if (response && response.statusCode === 200) {
-								var data = JSON.parse(body);
-								var version = data && data.LocalData && data.LocalData.dRevLabel;
-								console.log(' - file ' + fileName + ' uploaded, version ' + version);
-								importedFileId = data && data.LocalData && data.LocalData.fFileGUID;
-
-								// import
-								if (importedFileId) {
-									if (type === 'template') {
-										url = localhost + '/documents/web?IdcService=SCS_IMPORT_TEMPLATE_PACKAGE';
-									} else {
-										url = localhost + '/documents/web?IdcService=SCS_IMPORT_COMPONENT';
-									}
-									request.post(url, function (err, response, body) {
-										if (err) {
-											console.log(' - failed to import: ' + err);
-											return resolve({});
-										}
-										var data = JSON.parse(body);
-										return resolve(data);
-									});
-								} else {
-									console.log('ERROR: Failed to upload');
-									return resolve({});
-								}
-							} else {
-								console.log(' - failed to upload: ' + response && response.statusCode);
-								return resolve({});
-							}
+				var queryFolderPromise = _queryFolderId(request, server, localhost, folder);
+				queryFolderPromise.then(function (result) {
+					if (result.err) {
+						return resolve({
+							err: 'err'
 						});
-					} else {
-						console.log('ERROR: Failed to get personal files status=' + response && response.statusCode);
-						return resolve({});
 					}
-				});
-			};
+					var folderId = result.folderId || ('F:USER:' + dUser);
+
+					var url = localhost + '/documents/web?IdcService=FLD_BROWSE&itemType=File&item=fFolderGUID:' + folderId;
+
+					request.get(url, function (err, response, body) {
+						if (err) {
+							console.log('ERROR: Failed to get personal files ');
+							console.log(err);
+							return resolve({});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {}
+
+						if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+							console.log('ERROR: Failed to get personal files ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+							return resolve({
+								err: 'err'
+							});
+						}
+
+						var dRoleName = data.LocalData.dRoleName;
+						if (dRoleName !== 'owner' && dRoleName !== 'manager' && dRoleName !== 'contributor') {
+							console.log('ERROR: no permission to upload to ' + (folder ? 'folder ' + folder : 'home folder'));
+							return resolve({
+								err: 'err'
+							});
+						}
+
+						// upload the file
+						var importsPromise = [];
+						var folderId = _getFolderIdFromFolderInfo(data) || ('F:USER:' + dUser);
+						// console.log('folder: ' + (folder ? folder : 'home') + ' id: ' + folderId);
+
+						for (var i = 0; i < imports.length; i++) {
+							fileId = _getFileIdFromResultSets(data, fileName);
+							filePath = imports[i].zipfile;
+							objectName = imports[i].name;
+							fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+							fileId = _getFileIdFromResultSets(data, fileName);
+							// console.log('fileName: ' + fileName + ' fileId: ' + fileId);
+
+							importsPromise[i] = _importOneObjectToPodServer(localhost, request, type, objectName, folder, folderId, fileId, filePath, publishComponent);
+						}
+
+						// Execute parallelly
+						Promise.all(importsPromise).then(function (values) {
+							// All done
+							resolve({});
+						});
+					}); // query file
+				}); // query folder
+			}; // _import
 		});
+		localServer.setTimeout(0);
+
 	});
 
 	return importPromise;
 };
 
+var _timeUsed = function (start, end) {
+	var timeDiff = end - start; //in ms
+	// strip the ms
+	timeDiff /= 1000;
+
+	// get seconds 
+	var seconds = Math.round(timeDiff);
+	return seconds.toString() + 's';
+};
+
+var _importOneObjectToPodServer = function (localhost, request, type, name, folder, folderId, fileId, filePath, publishComponent) {
+	var importOnePromise = new Promise(function (resolve, reject) {
+		var startTime;
+
+		// Upload the zip file first
+		var fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+		var url = localhost + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
+		url += '&folderId=' + folderId + '&fileId=' + fileId + '&filePath=' + filePath + '&fileName=' + fileName;
+		startTime = new Date();
+		request.post(url, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to upload ' + filePath);
+				console.log(err);
+				return resolve({});
+			}
+			if (response && response.statusCode === 200) {
+				var data = JSON.parse(body);
+				var version = data && data.LocalData && data.LocalData.dRevLabel;
+				var uploadedFileName = data && data.LocalData && data.LocalData.dOriginalName;
+				console.log(' - file ' + uploadedFileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + version + ' (' + _timeUsed(startTime, new Date()) + ')');
+				var importedFileId = data && data.LocalData && data.LocalData.fFileGUID;
+
+				// import
+				if (importedFileId) {
+					if (type === 'template') {
+						url = localhost + '/documents/web?IdcService=SCS_IMPORT_TEMPLATE_PACKAGE';
+					} else {
+						url = localhost + '/documents/web?IdcService=SCS_IMPORT_COMPONENT';
+					}
+					url += '&importedFileId=' + importedFileId;
+					startTime = new Date();
+					request.post(url, function (err, response, body) {
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {}
+						if (!data || data.err || !data.LocalData || data.LocalData.StatusCode !== '0') {
+							console.log(' - failed to import  ' + (data && data.LocalData ? ('- ' + data.LocalData.StatusMessage) : err));
+							return resolve({});
+						}
+
+						if (type === 'template') {
+							var jobId = data.LocalData.JobID;
+							var importTempStatusPromise = _getTemplateImportStatus(request, localhost, jobId);
+							importTempStatusPromise.then(function (data) {
+								if (data && data.LocalData) {
+									if (data.LocalData.StatusCode !== '0') {
+										console.log(' - failed to import ' + name + ': ' + importResult.LocalData.StatusMessage);
+									} else if (data.LocalData.ImportConflicts) {
+										console.log(data.LocalData);
+										console.log(' - failed to import ' + name + ': the template already exists and you do not have privilege to override it');
+									} else {
+										console.log(' - template ' + name + ' imported (' + _timeUsed(startTime, new Date()) + ')');
+									}
+								}
+								return resolve({});
+							});
+						} else {
+							console.log(' - finished import component');
+							//
+							// Process import component result
+							//
+							if (data && data.LocalData) {
+								if (data.LocalData.StatusCode !== '0') {
+									console.log(' - failed to import ' + name + ': ' + data.LocalData.StatusMessage);
+									return resolve({});
+								} else if (data.LocalData.ImportConflicts) {
+									console.log(' - failed to import ' + name + ': the component already exists and you do not have privilege to override it');
+									return resolve({});
+								} else {
+									console.log(' - component ' + name + ' imported (' + _timeUsed(startTime, new Date()) + ')');
+									var importedCompFolderId = _getComponentAttribute(data, 'fFolderGUID');
+
+									if (publishComponent && importedCompFolderId) {
+										// publish the imported component
+										url = localhost + '/documents/web?IdcService=SCS_ACTIVATE_COMPONENT';
+										url += '&importedCompFolderId=' + importedCompFolderId;
+										startTime = new Date();
+										request.post(url, function (err, response, body) {
+											if (err) {
+												console.log(' - failed to publish ' + name + ': ' + err);
+												return resolve({});
+											}
+											if (response.statusCode !== 200) {
+												console.log(' - failed to publish ' + name + ': status code ' + response.statusCode + ' ' + response.statusMessage);
+												return resolve({});
+											}
+											var publishResult = JSON.parse(body);
+											if (publishResult.err) {
+												console.log(' - failed to import ' + name + ': ' + err);
+												return resolve({});
+											}
+											if (publishResult.LocalData && publishResult.LocalData.StatusCode !== '0') {
+												console.log(' - failed to publish: ' + publishResult.LocalData.StatusMessage);
+											} else {
+												console.log(' - component ' + name + ' published (' + _timeUsed(startTime, new Date()) + ')');
+											}
+											return resolve({});
+										});
+									} else {
+										return resolve({});
+									}
+								}
+							} else {
+								console.log(' - failed to import ' + name);
+								return resolve({});
+							}
+						}
+					});
+				} else {
+					console.log('ERROR: Failed to upload ' + filePath);
+					return resolve({});
+				}
+			} else {
+				console.log(' - failed to upload ' + filePath + ': ' + response && response.statusCode);
+				return resolve({});
+			}
+		});
+	});
+
+	return importOnePromise;
+};
+
 /**
- * Private 
+ * Use API FLD_BROWSE to get child folders
+ * @param {*} request 
+ * @param {*} server 
+ * @param {*} host 
+ * @param {*} folerId 
+ */
+function _browseFolder(request, server, host, folderId, folderName) {
+	var foldersPromise = new Promise(function (resolve, reject) {
+		var url = host + '/documents/web?IdcService=FLD_BROWSE&itemType=Folder&item=fFolderGUID:' + folderId;
+		var options = {
+			url: url
+		};
+		if (server.env === 'pod_ec') {
+			options['auth'] = {
+				bearer: server.oauthtoken
+			};
+		}
+
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: failed to query folder ' + folderName);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: failed to query folder ' + folderName);
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			resolve(data);
+
+		});
+	});
+	return foldersPromise;
+}
+
+/**
+ * Get the id of the last folder in the folder path folder1/folder2/.../folder[n]
+ * @param {*} request 
+ * @param {*} server 
+ * @param {*} host 
+ * @param {*} folderPath 
+ */
+var _queryFolderId = function (request, server, host, folderPath) {
+	var folderIdPromise = new Promise(function (resolve, reject) {
+		if (!folderPath) {
+			return resolve({
+				folderId: ''
+			});
+		}
+
+		var folderNames = folderPath.split('/');
+
+		// First query user personal folder home
+		var url = host + '/documents/web?IdcService=FLD_BROWSE_PERSONAL&itemType=Folder';
+		var options = {
+			url: url
+		};
+		if (server.env === 'pod_ec') {
+			options['auth'] = {
+				bearer: server.oauthtoken
+			};
+		}
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: failed to query home folder');
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: failed to query home folder');
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			// The top folder
+			var folderId = _getFolderIdFromResultSets(data, folderNames[0]);
+
+			if (!folderId) {
+				console.log('ERROR: folder ' + folderNames[0] + ' does not exist');
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			if (folderNames.length === 1) {
+				return resolve({
+					folderId: folderId
+				});
+			}
+
+			var folderName = folderNames[0];
+
+			// Varify and get sub folders 
+			/* jshint ignore:start */
+			async function _querysubFolders(request, server, host, parentFolderId, folderNames) {
+				var id = parentFolderId,
+					name = folderNames[0];
+				// console.log('Folder: ' + folderNames[0] + ' id: ' + parentFolderId);
+				for (var i = 1; i < folderNames.length; i++) {
+					var result = await _browseFolder(request, server, host, id, name);
+					if (result.err) {
+						return ({
+							err: 'err'
+						});
+					}
+					id = _getFolderIdFromResultSets(result, folderNames[i]);
+					if (!id) {
+						console.log('ERROR: folder ' + folderNames[i] + ' does not exist');
+						return ({
+							err: 'err'
+						});
+					}
+					// console.log('Folder: ' + folderNames[i] + ' id: ' + id);
+					name = folderNames[i];
+				}
+				return ({
+					folderId: id
+				});
+			};
+			_querysubFolders(request, server, host, folderId, folderNames).then((result) => {
+				if (result.err) {
+					return resolve({
+						err: 'err'
+					});
+				}
+				return resolve(result);
+			});
+			/* jshint ignore:end */
+
+		});
+
+	});
+	return folderIdPromise;
+};
+
+/** 
  * Get the file id with the file name
  * @param data the JSON result from FLD_BROWSER
  * @param fileName the file name to match
  */
-var _getFileId = function (data, fileName) {
+var _getFileIdFromResultSets = function (data, fileName) {
 	var fileId = '';
 	if (data && data.LocalData && data.LocalData.TotalChildFilesCount > 0) {
 		var files = data.ResultSets && data.ResultSets.ChildFiles;
@@ -1270,4 +1786,163 @@ var _getFileId = function (data, fileName) {
 		}
 	}
 	return fileId;
+};
+
+/** 
+ * Get the folder id from FolderInfo
+ * @param data the JSON result from FLD_BROWSER
+ */
+var _getFolderIdFromFolderInfo = function (data) {
+	var folderId = '';
+	if (data && data.ResultSets && data.ResultSets.FolderInfo) {
+		var folderInfo = data.ResultSets.FolderInfo;
+		for (var i = 0; i < folderInfo.fields.length; i++) {
+			if (folderInfo.fields[i].name === 'fFolderGUID') {
+				folderId = folderInfo.rows[0][i];
+				break;
+			}
+		}
+	}
+	return folderId;
+};
+
+/**
+ * Get the id of a folder in the browse result with a specific name
+ * @param {*} data the JSON result from FLD_BROWSER
+ * @param {*} folderName 
+ */
+var _getFolderIdFromResultSets = function (data, folderName) {
+	var result;
+
+	var folders = data && data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.rows;
+	if (!folders || folders.length === 0) {
+		return result;
+	}
+	var fields = data.ResultSets.ChildFolders.fields;
+	var fFolderGUIDIdx, fFolderNameIdx;
+	var i;
+	for (i = 0; i < fields.length; i++) {
+		if (fields[i].name === 'fFolderName') {
+			fFolderNameIdx = i;
+		} else if (fields[i].name === 'fFolderGUID') {
+			fFolderGUIDIdx = i;
+		}
+	}
+
+	var folderId;
+	for (i = 0; i < folders.length; i++) {
+		if (folders[i][fFolderNameIdx] === folderName) {
+			folderId = folders[i][fFolderGUIDIdx];
+			break;
+		}
+	}
+
+	return folderId;
+};
+
+var _sleep = function (delay) {
+	var start = new Date().getTime();
+	while (true) {
+		if (new Date().getTime() >= start + delay) {
+			break;
+		}
+	}
+};
+/**
+ * 
+ * @param {*} jobId 
+ */
+var _getTemplateImportStatus = function (request, host, jobId) {
+	var importStatusPromise = new Promise(function (resolve, reject) {
+		var gap = 5000;
+		var limit = 50;
+		var trials = [];
+		for (var i = 0; i < limit; i++) {
+			if (limit > 22) {
+				gap = 7000;
+			}
+			trials.push({
+				request: request,
+				host: host,
+				jobId: jobId,
+				index: i + 1,
+				delay: gap
+			});
+		}
+
+		var initialTask = _getBackgroundServiceStatus(request, host, jobId);
+
+		trials.reduce(function (jobStatusPromise, nextParam) {
+			return jobStatusPromise.then(function (result) {
+				// console.log(result);
+				if (!result || result.err) {
+
+				} else if (result.status === 'COMPLETE' || result.status === 'FAILED') {
+					return resolve({
+						status: result.status,
+						LocalData: result.LocalData
+					});
+				} else {
+					var trail = '';
+					for (var i = 0; i < nextParam.index; i++) {
+						trail += '.';
+					}
+					var msg = result.status === 'PROCESSING' ? (result.status + ' percentage: ' + result.percentage) : (result.status + ' ' + trail);
+					console.log(' - importing: ' + msg);
+
+					_sleep(nextParam.delay);
+					return _getBackgroundServiceStatus(nextParam.request, nextParam.host, nextParam.jobId);
+				}
+			});
+		}, initialTask);
+	});
+	return importStatusPromise;
+};
+
+var _getBackgroundServiceStatus = function (request, host, jobId) {
+	var statusPromise = new Promise(function (resolve, reject) {
+		var url = host + '/documents/web?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_STATUS&JobID=' + jobId;
+		request.get(url, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get job status ');
+				console.log(err);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get job status ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var status;
+			var percentage;
+			var jobInfo = data.ResultSets && data.ResultSets.JobInfo;
+			if (jobInfo) {
+				var statusIdx, percentageIdx;
+				for (var i = 0; i < jobInfo.fields.length; i++) {
+					if (jobInfo.fields[i].name === 'JobStatus') {
+						statusIdx = i;
+					} else if (jobInfo.fields[i].name === 'JobPercentage') {
+						percentageIdx = i;
+					}
+				}
+				status = statusIdx ? jobInfo.rows[0][statusIdx] : '';
+				percentage = percentageIdx ? jobInfo.rows[0][percentageIdx] : '';
+			}
+			return resolve({
+				'status': status,
+				'percentage': percentage,
+				'LocalData': data.LocalData
+			});
+		});
+	});
+	return statusPromise;
 };

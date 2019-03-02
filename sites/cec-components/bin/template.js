@@ -338,6 +338,15 @@ module.exports.deployTemplate = function (argv, done) {
 		return;
 	}
 
+	var folder = argv.folder && argv.folder.toString();
+	if (folder === '/') {
+		folder = '';
+	} else if (folder && !serverUtils.replaceAll(folder, '/', '')) {
+		console.log('ERROR: invalid folder');
+		done();
+		return;
+	}
+
 	var zipfile = _exportTemplate(name, optimize);
 
 	// wait the zip file created
@@ -348,8 +357,7 @@ module.exports.deployTemplate = function (argv, done) {
 			console.log(' - template exported to ' + zipfile);
 			clearInterval(inter);
 			// import the template to the server
-			_importTemplate(server, name, zipfile);
-			done();
+			_importTemplate(server, name, folder, zipfile, done);
 			return;
 		}
 		total += 1;
@@ -1019,7 +1027,7 @@ var _exportTemplate = function (name, optimize) {
  * Private
  * Import a template
  */
-var _importTemplate = function (server, name, zipfile) {
+var _importTemplate = function (server, name, folder, zipfile, done) {
 	console.log(' - deploy template ' + argv.template);
 
 	var request = require('request');
@@ -1034,21 +1042,19 @@ var _importTemplate = function (server, name, zipfile) {
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
+				done();
 				return;
 			}
 
-			var importPromise = serverUtils.importToPODServer(server, 'template', zipfile);
+			var imports = [{
+				name: name,
+				zipfile: zipfile
+
+			}];
+			var importPromise = serverUtils.importToPODServer(server, 'template', folder, imports);
 			importPromise.then(function (importResult) {
-				// console.log(importResult);
-				if (importResult && importResult.LocalData) {
-					if (importResult.LocalData.StatusCode !== '0') {
-						console.log(' - failed to import: ' + importResult.LocalData.StatusMessage);
-					} else if (importResult.LocalData.ImportConflicts) {
-						console.log(' - failed to import: the template already exists and you do not have privilege to override it');
-					} else {
-						console.log(' - template ' + name + ' imported');
-					}
-				}
+				// The result processed in the API
+				done();
 				process.exit(0);
 			});
 		});
@@ -1058,13 +1064,19 @@ var _importTemplate = function (server, name, zipfile) {
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
+				done();
 				return;
 			}
 
 			// upload the zip file
-			var uploadPromise = serverUtils.uploadFileToServer(request, server, zipfile);
+			var uploadPromise = serverUtils.uploadFileToServer(request, server, folder, zipfile);
 
 			uploadPromise.then(function (result) {
+				if (result.err) {
+					done();
+					return;
+				}
+
 				var fileId = result && result.LocalData && result.LocalData.fFileGUID;
 				var idcToken = result && result.LocalData && result.LocalData.idcToken;
 				// console.log(' - file id ' + fileId + ' idcToken ' + idcToken);
@@ -1083,6 +1095,7 @@ var _importTemplate = function (server, name, zipfile) {
 						} else {
 							console.log(' - template ' + name + ' imported');
 						}
+						done();
 					});
 				}
 			});

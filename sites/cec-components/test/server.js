@@ -25,6 +25,7 @@ var express = require('express'),
 	appsRouter = require('./server/appsRouter.js'),
 	templatesRouter = require('./server/templatesRouter.js'),
 	componentsRouter = require('./server/componentsRouter.js'),
+	proxyRouter = require('./server/proxyRouter.js'),
 	serverUtils = require('./server/serverUtils.js');
 
 var projectDir = path.join(__dirname, ".."),
@@ -38,7 +39,7 @@ var port = 8085;
 
 // read remote CEC server config from ~/.gradle/gradle.properties
 var server = serverUtils.getConfiguredServer();
-// console.log('Configured server=' + JSON.stringify(server));
+//console.log('Configured server=' + JSON.stringify(server));
 
 // Store these in the app locals to be shared by routers
 app.locals.server = server;
@@ -189,6 +190,8 @@ app.use('/renderer/app/sdk', express.static(testDir + '/sitescloud/renderer/app/
 app.use('/renderer/app/apps', appsRouter);
 app.use('/renderer/app/js', appsRouter);
 
+// All proxy requests are handled by proxyRouter
+app.use('/pxysvc', proxyRouter);
 
 app.get('/getcomponents', function (req, res) {
 	"use strict";

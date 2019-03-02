@@ -308,12 +308,12 @@ router.get('/*', (req, res) => {
 						if (fieldName && fieldValue) {
 							var itemfieldvalue = data[fieldName];
 							if (itemfieldvalue && itemfieldvalue === fieldValue) {
-								if (!defaultValue || itemfieldvalue.indexOf(defaultValue) >= 0) {
+								if (!defaultValue || itemfieldvalue.toLowerCase().indexOf(defaultValue.toLowerCase()) >= 0) {
 									items[items.length] = itemjson;
 								}
 							}
 						} else {
-							if (!defaultValue || JSON.stringify(itemjson).indexOf(defaultValue) >= 0) {
+							if (!defaultValue || JSON.stringify(itemjson).toLowerCase().indexOf(defaultValue.toLowerCase()) >= 0) {
 								items[items.length] = itemjson;
 							}
 						}
@@ -375,9 +375,14 @@ router.get('/*', (req, res) => {
 		//
 		// handle item 
 		// 
-		var id = cntPath.substring(cntPath.lastIndexOf('/') + 1),
-			ids = [id],
+		var id = cntPath.substring(cntPath.indexOf('/items/') + 7),
+			ids = [],
 			isBulk = false;
+
+		if (id.indexOf('/') > 0) {
+			id = id.substring(0, id.indexOf('/'));
+		}
+		ids.push(id);
 
 		if (id === 'bulk') {
 			// get id from url parameters
@@ -386,8 +391,14 @@ router.get('/*', (req, res) => {
 			isBulk = true;
 		}
 
-		var items = [],
-			total = 0;
+		var language = '';
+		var langQuery = '/variations/language/';
+		if (cntPath.indexOf(langQuery) > 0) {
+			language = cntPath.substring(cntPath.indexOf(langQuery) + langQuery.length);
+		}
+		// console.log('language=' + language);
+
+		var items = [];
 		for (var i = 0; i < ids.length; i++) {
 			// find the item type from metadata.json
 			var itemType = getItemTypeFromMetadata(contentdir, ids[i])
@@ -395,17 +406,82 @@ router.get('/*', (req, res) => {
 			if (itemType) {
 				var itemfile = path.join(contentdir, 'ContentItems', itemType, ids[i] + '.json');
 				if (fs.existsSync(itemfile)) {
-					items[total] = JSON.parse(fs.readFileSync(itemfile));
-					total = total + 1;
+					var itemjson = JSON.parse(fs.readFileSync(itemfile));
+					// console.log('item: ' + itemjson.name + ' ' + itemjson.language);
+					if (!language || language === itemjson.language || itemjson.translatable === false) {
+						if (language === itemjson.language) {
+							console.log(' - found item language matched');
+						} else if (itemjson.translatable === false) {
+							console.log(' - non-translatable item');
+						}
+						items.push(itemjson);
+					} else if (language) {
+						// check the item's variation file
+						var found = false;
+						var variationfile = path.join(contentdir, 'ContentItems', 'VariationSets', ids[i] + '.json');
+						var itemHasVariationFile = false;
+						if (fs.existsSync(variationfile)) {
+							itemHasVariationFile = true;
+							var variationjson = JSON.parse(fs.readFileSync(variationfile));
+							if (variationjson && variationjson.length > 0) {
+								for (var k = 0; k < variationjson.length; k++) {
+									for (var j = 0; j < variationjson[k].items.length; j++) {
+										var vitem = variationjson[k].items[j];
+										if (vitem.id !== itemjson.id && vitem.varType === 'language' && vitem.value === language) {
+											console.log(' - found item in ' + language + '(direct variation set) id: ' + vitem.id);
+											var variationitemfile = path.join(contentdir, 'ContentItems', itemType, vitem.id + '.json');
+											if (fs.existsSync(variationitemfile)) {
+												items.push(JSON.parse(fs.readFileSync(variationitemfile)));
+												found = true;
+												break;
+											}
+										}
+									} // go through the list in variation set file
+								}
+							}
+						} // item has variation
+
+						// check the variation file the item is in
+						if (!found && !itemHasVariationFile) {
+							var files = fs.readdirSync(path.join(contentdir, 'ContentItems', 'VariationSets'));
+							var vitemId = '';
+							for (var i = 0; i < files.length; i++) {
+								var variationfile = path.join(contentdir, 'ContentItems', 'VariationSets', files[i]);
+								var variationjson = JSON.parse(fs.readFileSync(variationfile));
+								var itemInVariation = false;
+								for (var k = 0; k < variationjson.length; k++) {
+									for (var j = 0; j < variationjson[k].items.length; j++) {
+										var vitem = variationjson[k].items[j];
+										if (vitem.id === itemjson.id) {
+											itemInVariation = true;
+										}
+										if (vitem.id !== itemjson.id && vitem.varType === 'language' && vitem.value === language) {
+											vitemId = vitem.id;
+										}
+									}
+								}
+								if (itemInVariation && vitemId) {
+									break;
+								}
+							}
+							if (vitemId) {
+								console.log(' - found item in ' + language + '(cross variation set) id: ' + vitemId);
+								var variationitemfile = path.join(contentdir, 'ContentItems', itemType, vitemId + '.json');
+								if (fs.existsSync(variationitemfile)) {
+									items.push(JSON.parse(fs.readFileSync(variationitemfile)));
+								}
+							}
+						}
+					}
 				} else {
-					console.log(' - item file ' + itemfiles + ' does not exist');
+					console.log(' - item file ' + itemfile + ' does not exist');
 				}
 			} else {
 				console.log(' - item type not found for ' + ids[i]);
 			}
 		}
 		//console.log(items);
-		if (total > 0) {
+		if (items.length > 0) {
 			var results = {};
 			if (isBulk) {
 				var items2 = {};

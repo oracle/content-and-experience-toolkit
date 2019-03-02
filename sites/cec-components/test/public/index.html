@@ -70,7 +70,27 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                 </div>
             </div>
         </li>
-        
+        <!-- <div id="unittests" class="block" data-bind="text : 'Unit Tests', click: unitTestsPage"></div> -->
+                <li id="F21D28920CA25E8146AB7391C2DB3E7D25FC2F39A423" tabindex="-1" class="containerview-item themerow skipTarget" data-bind="click: unitTestsPage">
+            <div class="containerview-row-content" aria-label="Theme QAMinimalTheme Created yesterday at 7:52 PM by you" role="group">
+                <div class="scs-progress-bar ui-progressbar ui-corner-all ui-widget ui-widget-content" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <div class="ui-progressbar-value ui-corner-left ui-widget-header" style="display: none; width: 0%;"></div>
+                </div>
+                <div class="thumbSpacer">
+                    <div class="thumbContainer">
+                        <div class="thumbWrapper containerview-openClick ">
+                            <div class="containerview-iconx containerview-icon-file-bkg"> <img src="images/unittests.png" alt="" style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; width: 100%;"> </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="containerview-block containerview-content-area">
+                    <div class="containerview-block containerview-info-area">
+                        <div id="unittests" class="containerview-name" data-bind="text : 'Unit Tests', click: unitTestsPage"> <a href="#" title="Open QAMinimalTheme" aria-label="Open QAMinimalTheme" class="block" data-bind="text : 'Unit Tests', click: unitTestsPage">Unit Tests</a> </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </li>
     </div>
     <script type="text/javascript">
     /* global ko, console */
@@ -83,7 +103,9 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
         this.templatesPage = function(data) {
             window.location = '/public/templates';
         };
-        
+        this.unitTestsPage = function(data) {
+            window.location = '/unit';
+        };
         this.mainPage = function() {
             window.location = '/';
         }
