@@ -865,10 +865,10 @@ var _timeUsed = function (start, end) {
 	return seconds.toString() + 's';
 };
 
-var _createPageIndexItem = function (request, localhost, repositoryId, contenttype, pageIndexDataIndex) {
+var _createPageIndexItem = function (request, localhost, defaultLanguage, repositoryId, contenttype, pageIndexDataIndex) {
 	var createPageIndexPromise = new Promise(function (resolve, reject) {
 		var url = localhost + '/content/management/api/v1.1/items?dataIndex=' + pageIndexDataIndex;
-		url = url + '&repositoryId=' + repositoryId + '&contenttype=' + contenttype;
+		url = url + '&repositoryId=' + repositoryId + '&contenttype=' + contenttype + '&defaultLanguage=' + defaultLanguage;
 		var pageName = _pageIndexToCreate[pageIndexDataIndex].pagename;
 		var startTime = new Date();
 		request.post(url, function (err, response, body) {
@@ -1022,7 +1022,7 @@ var _indexSiteOnServer = function (request, localhost, siteInfo, siteChannelId, 
 
 			for (var i = 0; i < _pageIndexToCreate.length; i++) {
 				createNewPageIndexPromise.push(
-					_createPageIndexItem(request, localhost, siteInfo.repositoryId, contenttype, i)
+					_createPageIndexItem(request, localhost, siteInfo.defaultLanguage, siteInfo.repositoryId, contenttype, i)
 				);
 			}
 
@@ -1178,7 +1178,7 @@ var _publishPageIndexItems = function (request, localhost, channelId, done) {
 
 var _indexSite = function (server, request, localhost, site, contenttype, publish, done) {
 
-	var siteInfo, siteChannelId, siteChannelToken, siteRepositoryId;
+	var siteInfo, defaultLanguage, siteChannelId, siteChannelToken, siteRepositoryId;
 	var repository;
 	var siteStructure, pages, pageData = [];
 	var pageContent = [];
@@ -1193,10 +1193,11 @@ var _indexSite = function (server, request, localhost, site, contenttype, publis
 			return;
 		}
 		siteInfo = result.base.properties;
+		defaultLanguage = siteInfo.defaultLanguage;
 		siteRepositoryId = siteInfo.repositoryId;
 		siteChannelId = siteInfo.channelId;
 		siteChannelToken = _getSiteChannelToken(siteInfo);
-		console.log(' - query site ' + site + ', token: ' + siteChannelToken);
+		console.log(' - site: ' + site + ', default language: ' + defaultLanguage + ', channel token: ' + siteChannelToken);
 
 		//
 		// Get repository 
@@ -1499,6 +1500,7 @@ module.exports.indexSite = function (argv, done) {
 		app.post('/content/management/api/v1.1/items', function (req, res) {
 			// console.log('POST: ' + req.url);
 			var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+			var defaultLanguage = params.defaultLanguage;
 			var repositoryId = params.repositoryId;
 			var contenttype = params.contenttype;
 			var dataIndex = params.dataIndex;
@@ -1511,7 +1513,7 @@ module.exports.indexSite = function (argv, done) {
 					name: itemName,
 					description: itemDesc,
 					type: contenttype,
-					language: 'en-US',
+					language: defaultLanguage,
 					translatable: true,
 					repositoryId: repositoryId,
 					fields: indexData
