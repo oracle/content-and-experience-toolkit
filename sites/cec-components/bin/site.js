@@ -128,8 +128,8 @@ var _validatePageIndexFields = function (done, contenttype, result) {
 		console.log('ERROR: content type ' + contenttype + ' has no field');
 		_indexSiteEnd(done);
 	}
-	// Require fields: site, pageid, pagename, pageurl, pagedescription, keywords
-	var site, pageid, pagename, pageurl, pagedescription, keywords;
+	// Require fields: site, pageid, pagename, pageurl, pagetitle, pagedescription, keywords
+	var site, pageid, pagename, pageurl, pagetitle, pagedescription, keywords;
 	for (var i = 0; i < fields.length; i++) {
 		if (fields[i].name === 'site') {
 			site = true;
@@ -153,6 +153,12 @@ var _validatePageIndexFields = function (done, contenttype, result) {
 			pageurl = true;
 			if (fields[i].datatype !== 'text') {
 				console.log('ERROR: field pageurl should be text');
+				_indexSiteEnd(done);
+			}
+		} else if (fields[i].name === 'pagetitle') {
+			pagetitle = true;
+			if (fields[i].datatype !== 'text') {
+				console.log('ERROR: field pagetitle should be text');
 				_indexSiteEnd(done);
 			}
 		} else if (fields[i].name === 'pagedescription') {
@@ -187,6 +193,10 @@ var _validatePageIndexFields = function (done, contenttype, result) {
 	}
 	if (!pageurl) {
 		console.log('ERROR: field pageurl is missing from type ' + contenttype);
+		_indexSiteEnd(done);
+	}
+	if (!pagetitle) {
+		console.log('ERROR: field pagetitle is missing from type ' + contenttype);
 		_indexSiteEnd(done);
 	}
 	if (!pagedescription) {
@@ -618,7 +628,9 @@ var _getTitleText = function (comp) {
 };
 
 var _getInlineTextText = function (comp) {
-	return (comp && comp.data && comp.data.userText ? comp.data.innerHTML : '');
+	var str = (comp && comp.data && comp.data.userText ? comp.data.innerHTML : '');
+	console.log('inline text: ' + str);
+	return str;
 };
 
 var _getButtonText = function (comp, sep) {
@@ -735,11 +747,12 @@ var _generatePageIndex = function (site, pages, pageData, pageContent, typeTextF
 	var sep = ' ';
 	for (var i = 0; i < pageData.length; i++) {
 		var pageId = pageData[i].id;
-		var pageTitle = pageData[i].data.properties.title;
-		var pageDescription = pageData[i].data.properties.description || ' ';
+		var pageTitle = pageData[i].data.properties.title || ' ';
+		var pageDescription = pageData[i].data.properties.pageDescription || ' ';
 		var pageStructure = getPageStructure(pageId);
 		var pageName = pageStructure ? pageStructure.name : '';
 		var pageUrl = pageStructure ? pageStructure.pageUrl : '';
+		// console.log('page title=' + pageTitle + ' description=' + pageDescription);
 
 		var componentInstances = pageData[i].data.componentInstances;
 		var compKeywords = [];
@@ -807,6 +820,7 @@ var _generatePageIndex = function (site, pages, pageData, pageContent, typeTextF
 			pageid: pageId,
 			pagename: pageName,
 			pageurl: pageUrl,
+			pagetitle: pageTitle,
 			pagedescription: pageDescription,
 			keywords: keywords
 		});
@@ -1285,11 +1299,12 @@ var _indexSite = function (server, request, localhost, site, contenttype, publis
 							// Get all content types on the pages
 							//
 							var contentTypes = _getPageContentTypes(pageData);
-							// console.log(contentTypes);
+							var usedContentTypes = [];
 							var contentTypesPromise = [];
 							if (contentTypes.length > 0) {
 								for (var i = 0; i < contentTypes.length; i++) {
 									if (contentTypes[i] !== contenttype) {
+										usedContentTypes.push(contentTypes[i]);
 										contentTypesPromise.push(serverUtils.getContentTypeFromServer(server, contentTypes[i]));
 									}
 								}
@@ -1297,7 +1312,7 @@ var _indexSite = function (server, request, localhost, site, contenttype, publis
 
 							if (contentTypesPromise.length > 0) {
 								Promise.all(contentTypesPromise).then(function (values) {
-									console.log(' - query content types used in the site');
+									console.log(' - content types used in the site: ' + usedContentTypes);
 									contentTypes = values;
 									// console.log(contentTypes);
 

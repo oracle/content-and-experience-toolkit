@@ -31,6 +31,7 @@
     "deploy-component": "gulp --silent --gulpfile bin/gulpfile.js deploy-component ",
     "list": "gulp --silent --gulpfile bin/gulpfile.js list ",
     "index-site": "gulp  --silent --gulpfile bin/gulpfile.js index-site ",
+    "create-site-map": "gulp --silent --gulpfile bin/gulpfile.js create-site-map ",
     "gulp": "gulp --silent --gulpfile",
     "finish-upgrade": "gulp  --gulpfile bin/upgrade.js",
     "install-cec": "npm install -g bin/cec"
@@ -68,7 +69,6 @@
     "mocha": "5.2.0",
     "node-rest-client": "3.1.0",
     "@oracle/oraclejet": "6.0.1",
-    "os": "0.1.1",
     "process": "0.11.10",
     "ps-node": "0.1.6",
     "puppeteer": "1.7.0",

@@ -10,15 +10,13 @@ var gulp = require('gulp'),
 	contentlayoutlib = require('./contentlayout.js'),
 	templatelib = require('./template.js'),
 	sitelib = require('./site.js'),
+	siteMaplib = require('./siteMap.js'),
 	decompress = require('decompress'),
-	extract = require('extract-zip'),
-	os = require('os'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	path = require('path'),
 	childProcess = require('child_process'),
 	argv = require('yargs').argv,
-	replace = require('gulp-replace'),
 	config = require('../config/config.json'),
 	zip = require('gulp-zip');
 
@@ -26,11 +24,7 @@ var projectDir = path.join(__dirname, ".."),
 	componentsDataDir = path.join(projectDir, 'data', 'components'),
 	componentsSrcDir = path.join(projectDir, 'src', 'main', 'components'),
 	componentsBuildDir = path.join(projectDir, 'src', 'build', 'components'),
-	templatesDataDir = path.join(projectDir, 'data', 'templates'),
-	templatesSrcDir = path.join(projectDir, 'src', 'main', 'templates'),
-	templatesBuildDir = path.join(projectDir, 'src', 'build', 'templates'),
-	themesSrcDir = path.join(projectDir, 'src', 'main', 'themes'),
-	themesBuildDir = path.join(projectDir, 'src', 'build', 'themes');
+	templatesSrcDir = path.join(projectDir, 'src', 'main', 'templates');
 
 /**
  * Private
@@ -871,6 +865,16 @@ gulp.task('index-site', function (done) {
 	'use strict';
 
 	sitelib.indexSite(argv, done);
+});
+
+/**
+ * Create site map
+ * Create XML site map for a site and upload it to the server
+ */
+gulp.task('create-site-map', function (done) {
+	'use strict';
+
+	siteMaplib.createSiteMap(argv, done);
 });
 
 /**

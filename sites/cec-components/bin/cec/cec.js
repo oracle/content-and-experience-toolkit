@@ -69,6 +69,11 @@ var getTemplateSources = function () {
 	return validTemplateSources;
 };
 
+var getSiteMapChangefreqValues = function () {
+	const values = ['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never'];
+	return values;
+};
+
 /*********************
  * Command definitions
  **********************/
@@ -360,6 +365,23 @@ const indexSite = {
 	example: [
 		['cec index-site Site1 -c PageIndex'],
 		['cec index-site Site1 -c PageIndex -p']
+	]
+};
+
+const createSiteMap = {
+	command: 'create-site-map <site>',
+	usage: {
+		'short': 'Create a site map for site <site> on CEC server.',
+		'long': (function () {
+			let desc = 'Create a site map for site on CEC server. Optionally specify -p to upload the site map to CEC server after creation. Optionally specify -c <changefreq> to define how frequently the page is likely to change. Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
+			return getSiteMapChangefreqValues().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec create-site-map Site1 -u http://www.example.com/site1'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -f sitemap.xml'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -p'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -c weekly -p']
 	]
 };
 
@@ -681,6 +703,41 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${indexSite.command}\n\n${indexSite.usage.long}`);
 		})
+	.command(createSiteMap.command, createSiteMap.usage.short,
+		(yargs) => {
+			yargs.option('url', {
+					alias: 'u',
+					description: '<url> Site URL',
+					demandOption: true
+				})
+				.option('changefreq', {
+					alias: 'c',
+					description: 'How frequently the page is likely to change.'
+				})
+				.option('file', {
+					alias: 'f',
+					description: 'Name of the generated site map file'
+				})
+				.option('publish', {
+					alias: 'p',
+					description: 'Upload the site map to CEC server after creation'
+				})
+				.check((argv) => {
+					if (!argv.url) {
+						throw new Error('Please specify site URL');
+					} else {
+						return true;
+					}
+				})
+				.example(...createSiteMap.example[0])
+				.example(...createSiteMap.example[1])
+				.example(...createSiteMap.example[2])
+				.example(...createSiteMap.example[3])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createSiteMap.command}\n\n${createSiteMap.usage.long}`);
+		})
 	.help('help')
 	.alias('help', 'h')
 	.version()
@@ -930,6 +987,26 @@ switch (argv._[0]) {
 			indexSiteArgs.push(...['--publish', argv.publish]);
 		}
 		spawnCmd = childProcess.spawnSync(npmCmd, indexSiteArgs, {
+			cwd,
+			stdio: 'inherit'
+		});
+		break;
+
+	case 'create-site-map':
+		let createSiteMapArgs = ['run', '-s', argv._[0], '--',
+			'--site', argv.site,
+			'--url', argv.url
+		];
+		if (argv.changefreq) {
+			createSiteMapArgs.push(...['--changefreq', argv.changefreq]);
+		}
+		if (argv.file) {
+			createSiteMapArgs.push(...['--file', argv.file]);
+		}
+		if (argv.publish) {
+			createSiteMapArgs.push(...['--publish', argv.publish]);
+		}
+		spawnCmd = childProcess.spawnSync(npmCmd, createSiteMapArgs, {
 			cwd,
 			stdio: 'inherit'
 		});
