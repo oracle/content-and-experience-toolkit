@@ -195,7 +195,7 @@ var _getPageData = function (request, localhost, site, pageIds) {
 var _getPageDataPromise = function (request, localhost, site, pages) {
 
 	var pageIdList = [];
-	var limit = 50;
+	var limit = 2;
 	var pageIds = '';
 	for (var i = 0; i < pages.length; i++) {
 		if (pageIds) {
