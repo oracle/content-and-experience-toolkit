@@ -265,27 +265,29 @@ module.exports.getChannelsFromServer = function (server) {
 					Promise.all(channelPromises).then(function (values) {
 						for (var i = 0; i < values.length; i++) {
 							var channel = values[i];
-							var token;
-							var tokens = channel.channelTokens;
-							if (tokens && tokens.length === 1) {
-								token = tokens[0].token;
-							} else if (tokens && tokens.length > 0) {
-								for (var j = 0; j < tokens.length; j++) {
-									if (tokens[j].name === 'defaultToken') {
-										token = tokens[j].token;
-										break;
+							if (channel && channel.channelTokens) {
+								var token;
+								var tokens = channel.channelTokens;
+								if (tokens && tokens.length === 1) {
+									token = tokens[0].token;
+								} else if (tokens && tokens.length > 0) {
+									for (var j = 0; j < tokens.length; j++) {
+										if (tokens[j].name === 'defaultToken') {
+											token = tokens[j].token;
+											break;
+										}
+									}
+									if (!token) {
+										token = tokens[0].channelToken;
 									}
 								}
-								if (!token) {
-									token = tokens[0].channelToken;
-								}
-							}
 
-							channels.push({
-								'id': channel.id,
-								'name': channel.name,
-								'token': token
-							});
+								channels.push({
+									'id': channel.id,
+									'name': channel.name,
+									'token': token
+								});
+							}
 						}
 
 						return resolve({
@@ -321,7 +323,7 @@ var _getChannelDetailsFromServer = function (server, channelId) {
 			if (response && response.statusCode === 200 && data) {
 				return resolve(data);
 			} else {
-				console.log('status=' + response && response.statusCode);
+				// console.log(' - ' + (data ? (data.detail || data.title) : 'failed to get channel: id=' + channelId));
 				return resolve({});
 			}
 		});
