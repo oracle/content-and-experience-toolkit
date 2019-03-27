@@ -1,6 +1,6 @@
 {
 	"name": "cecss-cli",
-	"version": "1.0.0",
+	"version": "19.2.1c",
 	"description": "Content and Experience Cloud starter sites build system",
 	"main": "index.js",
 	"directories": {},
