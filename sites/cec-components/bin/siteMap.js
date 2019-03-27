@@ -16,8 +16,23 @@ var projectDir = path.join(__dirname, "..");
 /**
  * Global variable used by the node server
  */
-var _CSRFToken = '';
-var _itemIds = [];
+/**
+ * Global variable used by the node server
+ */
+
+var _SiteInfo;
+var _siteChannelToken;
+var _requiredLangs = [],
+	_optionalLangs = [];
+var _validLocales = [];
+var _languages = [];
+var _hasDetailPage = false;
+var _defaultDetailPage;
+var _masterSiteStructure;
+var _masterPageData = [];
+var _contentTypesOnPages = [];
+var _pageContentIds = [];
+var _detailPages = [];
 
 //
 // Private functions
@@ -28,38 +43,12 @@ var _cmdEnd = function (done) {
 	process.exit(0);
 };
 
-var _getCSRFToken = function (server, request) {
-	var csrfTokenPromise = new Promise(function (resolve, reject) {
-		var tokenUrl = server.url + '/content/management/api/v1.1/token';
-		var auth = {
-			user: server.username,
-			password: server.password
-		};
-		var options = {
-			url: tokenUrl,
-			'auth': auth
-		};
-		request.get(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get CSRF token');
-				console.log(err);
-				return resolve({});
-			}
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
-				return resolve(data);
-			} else {
-				console.log('ERROR: Failed to get CSRF token, status=' + response.statusCode);
-				return resolve({});
-			}
-		});
-	});
-	return csrfTokenPromise;
-};
-
-var _getSiteInfoFile = function (request, localhost, site) {
+var _getSiteInfoFile = function (request, localhost, site, locale, isMaster) {
 	var siteInfoFilePromise = new Promise(function (resolve, reject) {
 		var url = localhost + '/documents/web?IdcService=SCS_GET_SITE_INFO_FILE&siteId=' + site + '&IsJson=1';
+		if (locale && !isMaster) {
+			url = url + '&locale=' + locale;
+		}
 		request.get(url, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get site info');
@@ -67,6 +56,16 @@ var _getSiteInfoFile = function (request, localhost, site) {
 				return resolve({
 					'err': err
 				});
+			}
+			if (response && response.statusCode !== 200) {
+				if (isMaster) {
+					console.log('ERROR: Failed to get site info');
+					return resolve({
+						'err': response.statusCode
+					});
+				} else {
+
+				}
 			}
 			try {
 				var data = JSON.parse(body);
@@ -76,21 +75,24 @@ var _getSiteInfoFile = function (request, localhost, site) {
 						'err': 'error'
 					});
 				}
-				// LocalData exists only when there is error
 				if (data.LocalData && data.LocalData.StatusCode === '-32') {
 					console.log('ERROR: site ' + site + ' does not exist');
 					return resolve({
 						'err': 'site does not exist'
 					});
 				}
-				if (data.LocalData && data.LocalData.StatusCode !== '0') {
-					console.log('ERROR: Failed to get site info ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				if (response && response.statusCode !== 200) {
+					if (isMaster) {
+						console.log('ERROR: Failed to get site info');
+					}
 					return resolve({
-						err: 'err'
+						'err': response.statusCode
 					});
 				}
-
-				resolve(data);
+				resolve({
+					'locale': locale || 'master',
+					'data': data
+				});
 			} catch (error) {
 				console.log('ERROR: Failed to get site info');
 				return resolve({
@@ -102,9 +104,12 @@ var _getSiteInfoFile = function (request, localhost, site) {
 	return siteInfoFilePromise;
 };
 
-var _getSiteStructure = function (request, localhost, site) {
+var _getSiteStructure = function (request, localhost, site, locale, isMaster) {
 	var siteStructurePromise = new Promise(function (resolve, reject) {
 		var url = localhost + '/documents/web?IdcService=SCS_GET_STRUCTURE&siteId=' + site + '&IsJson=1';
+		if (locale && !isMaster) {
+			url = url + '&locale=' + locale;
+		}
 		request.get(url, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get site structure');
@@ -145,6 +150,72 @@ var _getSiteStructure = function (request, localhost, site) {
 		});
 	});
 	return siteStructurePromise;
+};
+
+var _getLocalizationPolicy = function (request, localhost, policyId) {
+	var policyPromise = new Promise(function (resolve, reject) {
+		var url = localhost + '/content/management/api/v1.1/policy/' + policyId;
+		request.get(url, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get policy with id ' + policyId);
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			if (response && response.statusCode === 200) {
+				var data = JSON.parse(body);
+				resolve(data);
+			} else {
+				console.log('ERROR: Failed to get policy with id ' + policyId);
+				console.log(response ? response.statusCode + response.statusMessage : '');
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+	return policyPromise;
+};
+
+var _getDefaultDetailPageId = function () {
+	var getFirstDetailPage = function (page, childFunction) {
+		var childPage,
+			pageOption = 'isDetailPage',
+			firstDetailPage = '';
+
+		// Look for the first page marked as detailPage in the site hierarchy.
+		if (page !== null) {
+			if (page[pageOption]) {
+				return page.id.toString();
+			}
+
+			// handle any child pages
+			if (page.children && page.children.length > 0) {
+				// Once a detail page is found, break out of the loop.
+				page.children.some(function (child) {
+					firstDetailPage = getFirstDetailPage(childFunction(child), childFunction);
+					return firstDetailPage !== '';
+				});
+			}
+		}
+		return firstDetailPage;
+	};
+
+	var root;
+	var pages = _masterSiteStructure.base && _masterSiteStructure.base.pages;
+	for (var i = 0; i < pages.length; i++) {
+		if (!pages[i].parentId) {
+			root = pages[i];
+		}
+	}
+	return getFirstDetailPage(root, function (child) {
+		for (var i = 0; i < pages.length; i++) {
+			if (pages[i].id === child) {
+				return pages[i];
+			}
+		}
+	});
 };
 
 /**
@@ -192,16 +263,16 @@ var _getPageData = function (request, localhost, site, pageIds) {
  * @param {*} localhost 
  * @param {*} pages the data from SCS_GET_STRUCTURE
  */
-var _getPageDataPromise = function (request, localhost, site, pages) {
+var _getPageDataPromise = function (request, localhost, site, pages, locale, isMaster) {
 
 	var pageIdList = [];
-	var limit = 2;
+	var limit = 20;
 	var pageIds = '';
 	for (var i = 0; i < pages.length; i++) {
 		if (pageIds) {
 			pageIds += ',';
 		}
-		pageIds += pages[i].id.toString();
+		pageIds += (locale && !isMaster ? locale + '_' + pages[i].id.toString() : pages[i].id.toString());
 		if (i >= limit && (i % limit === 0)) {
 			// another batch
 			pageIdList.push(pageIds);
@@ -228,9 +299,9 @@ var _getPageContentTypes = function (pageData) {
 	for (var i = 0; i < pageData.length; i++) {
 		var pageId = pageData[i].id;
 		var componentInstances = pageData[i].data.componentInstances || {};
-
 		Object.keys(componentInstances).forEach(key => {
 			var data = componentInstances[key].data;
+
 			if (data && data.contentTypes && data.contentTypes.length > 0) {
 				for (var j = 0; j < data.contentTypes.length; j++) {
 					if (!pageContentTypes.includes(data.contentTypes[j])) {
@@ -244,6 +315,42 @@ var _getPageContentTypes = function (pageData) {
 };
 
 /**
+ * Get content types for the detail page
+ * @param {*} pageData 
+ */
+var _getDetailPageContentTypes = function (pageData) {
+
+	for (var i = 0; i < pageData.length; i++) {
+		var pageId = pageData[i].id;
+		var detailPageIdx = undefined;
+		for (var j = 0; j < _detailPages.length; j++) {
+			if (pageId === _detailPages[j].page.id.toString()) {
+				detailPageIdx = j;
+				break;
+			}
+		}
+
+		if (detailPageIdx >= 0) {
+			var pageContentTypes = [];
+			var componentInstances = pageData[i].data.componentInstances || {};
+
+			Object.keys(componentInstances).forEach(key => {
+				var data = componentInstances[key].data;
+				if (data && data.contentPlaceholder && data.contentTypes && data.contentTypes.length > 0) {
+					for (var j = 0; j < data.contentTypes.length; j++) {
+						if (!pageContentTypes.includes(data.contentTypes[j])) {
+							pageContentTypes.push(data.contentTypes[j]);
+						}
+					}
+				}
+			});
+			_detailPages[detailPageIdx]['contentTypes'] = pageContentTypes;
+		}
+	}
+};
+
+
+/**
  * Get the id of all content item on the pages
  * @param {*} pageData 
  */
@@ -253,18 +360,50 @@ var _getPageContentItemIds = function (pageData) {
 		var pageId = pageData[i].id;
 		var componentInstances = pageData[i].data.componentInstances || {};
 
-		var itemIds = [];
+		// find out all detail page used
+		var detailPages = [];
 		Object.keys(componentInstances).forEach(key => {
 			var data = componentInstances[key].data;
 			if (data && data.contentIds && data.contentIds.length > 0) {
-				itemIds = itemIds.concat(data.contentIds);
+				if (data.detailPageId && !detailPages.includes(data.detailPageId)) {
+					detailPages.push(data.detailPageId);
+				}
 			}
 		});
 
-		pageContentIds.push({
-			id: pageId,
-			contentIds: itemIds
+		var itemIds = [];
+		// all items without specific detail page
+		Object.keys(componentInstances).forEach(key => {
+			var data = componentInstances[key].data;
+			if (data && !data.detailPageId && data.contentIds && data.contentIds.length > 0) {
+				itemIds = itemIds.concat(data.contentIds);
+			}
 		});
+		if (itemIds.length > 0) {
+			pageContentIds.push({
+				id: pageId,
+				detailPageId: '',
+				contentIds: itemIds
+			});
+		}
+
+		for (var j = 0; j < detailPages.length; j++) {
+			var itemIds = [];
+			// all items with a specific detail page
+			Object.keys(componentInstances).forEach(key => {
+				var data = componentInstances[key].data;
+				if (data && data.detailPageId && data.detailPageId === detailPages[j] && data.contentIds && data.contentIds.length > 0) {
+					itemIds = itemIds.concat(data.contentIds);
+				}
+			});
+			if (itemIds.length > 0) {
+				pageContentIds.push({
+					id: pageId,
+					detailPageId: detailPages[j],
+					contentIds: itemIds
+				});
+			}
+		}
 	}
 
 	return pageContentIds;
@@ -311,7 +450,7 @@ var _getRepository = function (request, localhost, repositoryId) {
 	return repositoryPromise;
 };
 
-var _getContentListQueryString = function (type, limit, offset, orderBy) {
+var _getContentListQueryString = function (type, limit, offset, orderBy, locale) {
 	var str = 'fields=ALL';
 	var q = '';
 	if (orderBy) {
@@ -327,10 +466,11 @@ var _getContentListQueryString = function (type, limit, offset, orderBy) {
 		str = str + '&offset=' + offset;
 	}
 	if (type) {
-		if (q) {
-			q = q + ' and ';
+		if (locale) {
+			q = 'type eq "' + type + '" and (language eq "' + locale + '" or translatable eq "false")';
+		} else {
+			q = 'type eq "' + type + '"';
 		}
-		q = q + '(type eq "' + type + '")';
 	}
 	if (q) {
 		str = str + '&q=(' + q + ')';
@@ -342,7 +482,7 @@ var _getContentListQueryString = function (type, limit, offset, orderBy) {
  * set the query string for all content list items on the page
  * @param {*} pageData 
  */
-var _getPageContentListQuery = function (pageData) {
+var _getPageContentListQuery = function (pageData, locale) {
 	var pageContentListQueries = [];
 	for (var i = 0; i < pageData.length; i++) {
 		var pageId = pageData[i].id;
@@ -356,11 +496,12 @@ var _getPageContentListQuery = function (pageData) {
 				var offset = data.firstItem;
 				var limit = data.maxResults;
 				var orderBy = data.sortOrder;
-				var str = _getContentListQueryString(type, limit, offset, orderBy);
+				var str = _getContentListQueryString(type, limit, offset, orderBy, locale);
 				pageContentListQueries.push({
 					pageId: pageId,
 					type: type,
-					queryString: str
+					queryString: str,
+					detailPageId: data.detailPageId
 				});
 			}
 		});
@@ -368,53 +509,41 @@ var _getPageContentListQuery = function (pageData) {
 	return pageContentListQueries;
 };
 
-var _getPageContent = function (request, localhost, channelToken, q, pageId, queryType) {
+var _getPageContent = function (request, localhost, channelToken, locale, q, pageId, detailPageId, queryType) {
 	var pageContentPromise = new Promise(function (resolve, reject) {
 		var url = localhost + '/content/published/api/v1.1/items';
 		if (queryType === 'item') {
-			if (q.indexOf(' or ') > 0) {
-				url = url + '?q=' + q + '&channelToken=' + channelToken;
-			} else {
-				// only one id
-				var id = q.replace('(id eq "', '').replace('")', '');
-				url = url + '/' + id + '?channelToken=' + channelToken;
-			}
+			url = url + '?q=' + q + '&channelToken=' + channelToken;
 		} else {
 			// content list query
 			url = url + '?' + q + '&channelToken=' + channelToken;
 		}
 		request.get(url, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get content: url: ' + url);
+				console.log('ERROR: Failed to get content: url: ' + url.replace(localhost, ''));
 				console.log(err);
-				return resolve({
-					'err': err
-				});
+				return resolve({});
 			}
 			if (!response || response.statusCode !== 200) {
-				console.log('ERROR: Failed to get content: status: ' + (response ? response.statusCode : '') + ' url: ' + url);
-				return resolve({
-					'err': (response ? response.statusCode : 'error')
-				});
+				// console.log('ERROR: Failed to get content: status: ' + (response ? response.statusCode : '') + ' url: ' + url.replace(localhost, ''));
+				return resolve({});
 			}
 			try {
 				var data = JSON.parse(body);
 				if (!data) {
-					console.log('ERROR: Failed to get content: url: ' + url);
-					return resolve({
-						'err': 'error'
-					});
+					console.log('ERROR: Failed to get content: url: ' + url.replace(localhost, ''));
+					return resolve({});
 				}
 				// handle both 1 item or multiple items
 				resolve({
+					locale: locale,
 					pageId: pageId,
+					detailPageId: detailPageId,
 					data: data.items ? data.items : [data]
 				});
 			} catch (error) {
 				console.log('ERROR: Failed to get page data');
-				return resolve({
-					'err': 'error'
-				});
+				return resolve({});
 			}
 		});
 	});
@@ -422,7 +551,7 @@ var _getPageContent = function (request, localhost, channelToken, q, pageId, que
 
 };
 
-var _getPageContentPromise = function (request, localhost, server, channelToken, pageContentIds, pageContentListQueries) {
+var _getPageContentPromise = function (request, localhost, server, channelToken, pageContentIds, pageContentListQueries, locale) {
 	var promises = [];
 	var limit = 30;
 	var num = 0;
@@ -430,6 +559,7 @@ var _getPageContentPromise = function (request, localhost, server, channelToken,
 	// Content items queries
 	for (var i = 0; i < pageContentIds.length; i++) {
 		var pageId = pageContentIds[i].id;
+		var detailPageId = pageContentIds[i].detailPageId;
 		q = '';
 		for (var j = 0; j < pageContentIds[i].contentIds.length; j++) {
 			if (q) {
@@ -439,8 +569,13 @@ var _getPageContentPromise = function (request, localhost, server, channelToken,
 
 			num += 1;
 			if (num >= limit && (num % limit === 0)) {
-				q = '(' + q + ')';
-				promises.push(_getPageContent(request, localhost, channelToken, q, pageId, 'item'));
+				if (locale) {
+					q = '((' + q + ') and (language eq "' + locale + '"))';
+				} else {
+					q = '(' + q + ')';
+				}
+
+				promises.push(_getPageContent(request, localhost, channelToken, locale, q, pageId, detailPageId, 'item'));
 
 				// another batch
 				q = '';
@@ -448,14 +583,19 @@ var _getPageContentPromise = function (request, localhost, server, channelToken,
 		}
 
 		if (q) {
-			q = '(' + q + ')';
-			promises.push(_getPageContent(request, localhost, channelToken, q, pageId, 'item'));
+			if (locale) {
+				q = '((' + q + ') and (language eq "' + locale + '"))';
+			} else {
+				q = '(' + q + ')';
+			}
+			promises.push(_getPageContent(request, localhost, channelToken, locale, q, pageId, detailPageId, 'item'));
 		}
 	}
 
 	// Content list queries
 	for (var i = 0; i < pageContentListQueries.length; i++) {
-		promises.push(_getPageContent(request, localhost, channelToken, pageContentListQueries[i].queryString, pageContentListQueries[i].pageId, 'list'));
+		promises.push(_getPageContent(request, localhost, channelToken, locale,
+			pageContentListQueries[i].queryString, pageContentListQueries[i].pageId, pageContentListQueries[i].detailPageId, 'list'));
 	}
 
 	return promises;
@@ -471,13 +611,25 @@ var _getLastmod = function (isodate) {
 	return lastmod;
 };
 
+var _getPage = function (pageid) {
+	var pages = _masterSiteStructure.base && _masterSiteStructure.base.pages || [];
+	var page;
+	for (var i = 0; i < pages.length; i++) {
+		if (pages[i].id && pages[i].id.toString() === pageid) {
+			page = pages[i];
+			break;
+		}
+	}
+	return page;
+};
+
 /**
  * Generate site map XML file
  * 
  * @param {*} siteInfo 
  * @param {*} pages 
  */
-var _generateSiteMapXML = function (siteUrl, siteInfo, pages, pageFiles, items, changefreq, siteMapFile) {
+var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq, siteMapFile) {
 
 	var prefix = siteUrl;
 	if (prefix.substring(prefix.length - 1) === '/') {
@@ -487,17 +639,18 @@ var _generateSiteMapXML = function (siteUrl, siteInfo, pages, pageFiles, items, 
 	var detailPageUrl;
 	var urls = [];
 	var months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+	//
 	// page urls
+	//
 	var pagePriority = [];
 	for (var i = 0; i < pages.length; i++) {
-		// get the first detail page
-		if (!detailPageUrl && pages[i].isDetailPage) {
-			detailPageUrl = pages[i].pageUrl;
-		}
 
 		if (!pages[i].isDetailPage) {
+
+			var includeLocale = pages[i].locale && pages[i].locale !== _SiteInfo.defaultLanguage;
+
 			// find out last modified date
-			var fileName = pages[i].id.toString() + '.json';
+			var fileName = (includeLocale ? (pages[i].locale + '_') : '') + pages[i].id.toString() + '.json';
 			var lastmod;
 			for (var j = 0; j < pageFiles.length; j++) {
 				if (fileName === pageFiles[j].name) {
@@ -514,7 +667,7 @@ var _generateSiteMapXML = function (siteUrl, siteInfo, pages, pageFiles, items, 
 
 			// console.log('page: ' + pages[i].id + ' url: ' + pages[i].pageUrl + ' priority: ' + priority + ' lastmod: ' + lastmod);
 			urls.push({
-				loc: prefix + '/' + pages[i].pageUrl,
+				loc: prefix + '/' + (includeLocale ? (pages[i].locale + '/') : '') + pages[i].pageUrl,
 				lastmod: lastmod,
 				priority: priority
 			});
@@ -523,14 +676,17 @@ var _generateSiteMapXML = function (siteUrl, siteInfo, pages, pageFiles, items, 
 				id: pages[i].id.toString(),
 				priority: priority
 			});
+
 		}
 	}
 
+	//
 	// detail page urls for items
-	if (detailPageUrl) {
-		var detailPagePrefix = detailPageUrl.replace('.html', '');
-
+	//
+	if (_hasDetailPage) {
+		var addedUrls = [];
 		for (var i = 0; i < items.length; i++) {
+
 			// get page's priority
 			var pageId = items[i].pageId;
 			var itemPriority;
@@ -541,22 +697,49 @@ var _generateSiteMapXML = function (siteUrl, siteInfo, pages, pageFiles, items, 
 				}
 			}
 
-			var pageItems = items[i].data;
+			var detailPageUrl;
+			var detailPage = _getPage(items[i].detailPageId) || _defaultDetailPage;
+			var detailPageUrl = detailPage.pageUrl;
+
+			var pageItems = items[i].data || [];
 			for (var j = 0; j < pageItems.length; j++) {
 				var item = pageItems[j];
-				// trailing / is required
-				var url = prefix + '/' + detailPagePrefix + '/' + item.type + '/' + item.id + '/';
-				var lastmod = _getLastmod(item.updatedDate.value);
 
-				// console.log('item: ' + item.name + ' page: ' + pageId + ' priority: ' + itemPriority + ' lastmod: ' + lastmod);
-				urls.push({
-					loc: url,
-					lastmod: lastmod,
-					priority: itemPriority
-				});
-			}
-		}
-	}
+				// verify if the detail page allows the content type
+				var detailPageAllowed = false;
+				for (var k = 0; k < _detailPages.length; k++) {
+					if (_detailPages[k].page.id.toString() === detailPage.id.toString() &&
+						(_detailPages[k].contentTypes.length === 0 || _detailPages[k].contentTypes.includes(item.type))) {
+						detailPageAllowed = true;
+						break;
+					}
+				}
+				
+ 				if (detailPageAllowed && detailPageUrl) {
+					var detailPagePrefix = detailPageUrl.replace('.html', '');
+					var itemlanguage = item.language || items[i].locale;
+					var locale = itemlanguage && itemlanguage !== _SiteInfo.defaultLanguage ? (itemlanguage + '/') : '';
+					// trailing / is required
+					var url = prefix + '/' + locale + detailPagePrefix + '/' + item.type + '/' + item.id + '/';
+					var lastmod = _getLastmod(item.updatedDate.value);
+
+					// no duplicate url
+					if (!addedUrls.includes(url)) {
+						// console.log('item: ' + item.name + ' page: ' + pageId + ' priority: ' + itemPriority + ' lastmod: ' + lastmod);
+						urls.push({
+							loc: url,
+							lastmod: lastmod,
+							priority: itemPriority || 'monthly'
+						});
+
+						addedUrls.push(url);
+					}
+				} // has detail for the item
+
+			} // all items on the page
+		} // all items
+	} // has detail page
+
 
 	var buf = '<?xml version="1.0" encoding="UTF-8"?>' + os.EOL +
 		'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + os.EOL;
@@ -815,7 +998,7 @@ function _getChildFiles(request, localhost, folderId) {
 	return filesPromise;
 }
 
-var _getSitePageFiles = function (request, localhost, site) {
+var _getSitePageFiles = function (request, localhost, site, locale, isMaster) {
 	var pagesPromise = new Promise(function (resolve, reject) {
 		var siteFolderPromise = _getSiteFolder(request, localhost, site);
 		siteFolderPromise.then(function (result) {
@@ -853,7 +1036,7 @@ var _getSitePageFiles = function (request, localhost, site) {
 var _checkinFile = function (request, localhost, idcToken, folderName, folderId, filePath, fileName, fileId) {
 	var checkinPromise = new Promise(function (resolve, reject) {
 		var url = localhost + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
-		url += '&folderId=' + folderId + '&fileId=' + fileId + '&filePath=' + filePath + '&fileName=' + fileName;
+		url += '&folderId=' + folderId + '&fileId=' + fileId + '&filePath=' + filePath + '&fileName=' + fileName + '&idcToken=' + idcToken;
 
 		request.post(url, function (err, response, body) {
 			if (err) {
@@ -948,77 +1131,244 @@ var _uploadSiteMapToServer = function (request, localhost, site, localFilePath) 
 	return uploadPromise;
 };
 
-/**
- * Main entry
- * 
- */
-var _createSiteMap = function (server, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, done) {
-	var siteInfo, defaultLanguage, siteChannelId, siteChannelToken, siteRepositoryId;
-	var repository;
-	var siteStructure, pages, pageData = [];
-	var pageContent = [];
-	var pageIndex;
+var _prepareData = function (server, request, localhost, site, languages) {
+	var dataPromise = new Promise(function (resolve, reject) {
 
-	//
-	// Get site info
-	//
-	var siteInfoPromise = _getSiteInfoFile(request, localhost, site);
-	siteInfoPromise.then(function (result) {
-		if (result.err) {
-			_cmdEnd(done);
-			return;
-		}
-
-		siteInfo = result.base.properties;
-		defaultLanguage = siteInfo.defaultLanguage;
-		siteRepositoryId = siteInfo.repositoryId;
-		siteChannelId = siteInfo.channelId;
-		siteChannelToken = _getSiteChannelToken(siteInfo);
-		console.log(' - site: ' + site + ', default language: ' + defaultLanguage + ', channel token: ' + siteChannelToken);
+		var siteInfo, defaultLanguage, siteChannelToken, siteRepositoryId;
+		var siteStructure, pages, pageData = [];
 
 		//
-		// Get repository 
-		// 
-		var repositoryPromise = _getRepository(request, localhost, siteRepositoryId);
-		repositoryPromise.then(function (result) {
-			if (result.err) {
-				_cmdEnd(done);
-				return;
-			}
-			repository = result;
-			console.log(' - query site repository');
-
-
-			// 
-			// Get site structure
-			//
-			var siteStructurePromise = _getSiteStructure(request, localhost, site);
-			siteStructurePromise.then(function (result) {
+		// Get site info
+		//
+		var siteInfoPromise = _getSiteInfoFile(request, localhost, site);
+		siteInfoPromise
+			.then(function (result) {
 				if (result.err) {
-					_cmdEnd(done);
-					return;
+					return resolve(result);
+				}
+
+				siteInfo = result.data.base.properties;
+				_SiteInfo = siteInfo;
+				defaultLanguage = siteInfo.defaultLanguage;
+				siteRepositoryId = siteInfo.repositoryId;
+				siteChannelId = siteInfo.channelId;
+				_siteChannelToken = _getSiteChannelToken(siteInfo);
+				console.log(' - site: ' + site + ', default language: ' + defaultLanguage + ', channel token: ' + _siteChannelToken + ', localizationPolicy: ' + siteInfo.localizationPolicy);
+
+				//
+				// Get Localization policy
+				//
+				var policyPromise = [];
+				if (siteInfo.localizationPolicy) {
+					policyPromise.push(_getLocalizationPolicy(request, localhost, siteInfo.localizationPolicy));
+				}
+				return Promise.all(policyPromise);
+			})
+			.then(function (result) {
+				if (result.err) {
+					return resolve(result);
+				}
+
+				var policy = result && result[0] || {};
+				console.log(' - site localization policy: ' + policy.name);
+				_requiredLangs = policy.requiredValues || [];
+				_optionalLangs = policy.optionalValues || [];
+
+				var locales = [];
+
+				for (var i = 0; i < _requiredLangs.length; i++) {
+					if (_requiredLangs[i] !== _SiteInfo.defaultLanguage) {
+						locales.push(_requiredLangs[i]);
+					}
+				}
+				for (var i = 0; i < _optionalLangs.length; i++) {
+					if (_optionalLangs[i] !== _SiteInfo.defaultLanguage) {
+						locales.push(_optionalLangs[i]);
+					}
+				}
+				// console.log(locales);
+
+				//
+				// verify the site has the translation
+				//
+				var siteinfoPromises = [];
+				for (var i = 0; i < locales.length; i++) {
+					siteinfoPromises[i] = _getSiteInfoFile(request, localhost, site, locales[i], false);
+				}
+
+				return Promise.all(siteinfoPromises);
+			})
+			.then(function (values) {
+				_validLocales = [];
+
+				for (var i = 0; i < values.length; i++) {
+					if (values[i].locale) {
+						_validLocales.push(values[i].locale);
+					}
+				}
+				// console.log('valid site languages: ' + _validLocales + ' param languages: ' + languages);
+
+				//
+				// validate languages parameter
+				//
+				for (var i = 0; i < languages.length; i++) {
+					if (languages[i] !== _SiteInfo.defaultLanguage && !_validLocales.includes(languages[i])) {
+						console.log('ERROR: site does not have translation for ' + languages[i]);
+						return resolve({
+							err: 'err'
+						});
+					}
+				}
+				if (languages.length > 0) {
+					// use this param
+					_languages = languages;
+				} else {
+					_languages = _validLocales;
+				}
+				if (_languages.length > 0) {
+					console.log(' - site translation: ' + _languages);
+				}
+
+				return _getRepository(request, localhost, siteRepositoryId);
+			})
+			.then(function (result) {
+				//
+				// Get repository 
+				// 
+				if (result.err) {
+					return resolve(result);
+				}
+				repository = result;
+				console.log(' - query site repository');
+
+				return _getSiteStructure(request, localhost, site);
+			})
+			.then(function (result) {
+				// 
+				// Get site structure
+				//
+				if (result.err) {
+					return resolve(result);
 				}
 				siteStructure = result;
+				_masterSiteStructure = siteStructure;
 				console.log(' - query site structure');
 				pages = siteStructure && siteStructure.base && siteStructure.base.pages;
 				if (!pages || pages.length === 0) {
 					console.log('ERROR: no page found');
-					_cmdEnd(done);
+					return resolve({
+						err: 'err'
+					});
+				}
+				// find the detail pages
+				_hasDetailPage = false;
+				for (var i = 0; i < pages.length; i++) {
+					if (pages[i].isDetailPage) {
+						_hasDetailPage = true;
+						_detailPages.push({
+							page: pages[i]
+						});
+					}
+				}
+				if (_hasDetailPage) {
+					var detailpageid = _getDefaultDetailPageId();
+					_defaultDetailPage = _getPage(detailpageid);
+					console.log(' - default detail page: ' + _defaultDetailPage.name);
 				}
 
-				var sitePageFilesPromise = _getSitePageFiles(request, localhost, site);
-				sitePageFilesPromise.then(function (result) {
-					var pageFiles = result.files || [];
-					if (!pageFiles || pageFiles.length === 0) {
-						console.log('WARNING: failed to get page files');
-					}
+				var pageDataPromises = [];
+				if (_hasDetailPage) {
+					pageDataPromises = _getPageDataPromise(request, localhost, site, pages);
+				}
+				return Promise.all(pageDataPromises);
+			})
+			.then(function (values) {
+				console.log(' - query page data');
+				for (var i = 0; i < values.length; i++) {
+					var obj = values[i];
+					Object.keys(obj).forEach(key => {
+						var value = obj[key];
+						pageData.push({
+							id: key,
+							data: value && value.base
+						});
+					});
+				}
+				_masterPageData = pageData;
 
+				//
+				// Get all content types on the pages
+				//
+				var contentTypes = _getPageContentTypes(pageData);
+				var contentTypeNames = [];
+				var contentTypesPromise = [];
+				if (contentTypes.length > 0) {
+					for (var i = 0; i < contentTypes.length; i++) {
+						contentTypeNames.push(contentTypes[i]);
+						contentTypesPromise.push(serverUtils.getContentTypeFromServer(server, contentTypes[i]));
+					}
+				}
+
+				//
+				// Get content types on the detail pages
+				//
+				_getDetailPageContentTypes(pageData);
+				// console.log(_detailPages);
+
+				if (contentTypesPromise.length > 0) {
+					Promise.all(contentTypesPromise).then(function (values) {
+						console.log(' - content types used in the site: ' + contentTypeNames);
+						_contentTypesOnPages = values;
+						// console.log(_contentTypesOnPages);
+
+						//
+						// Get content ids on the pages
+						//
+						_pageContentIds = _getPageContentItemIds(pageData);
+						// console.log(_pageContentIds);
+
+						return resolve({});
+
+					});
+				} else {
+					return resolve({});
+				}
+			});
+	});
+	return dataPromise;
+};
+
+var _getSiteDataWithLocale = function (server, request, localhost, site, locale, isMaster) {
+	var sitePromise = new Promise(function (resolve, reject) {
+		var pages = [];
+		var items = [];
+		var pageFiles = [];
+		var pageData = [];
+
+		var siteStructurePromise = _getSiteStructure(request, localhost, site, locale, isMaster);
+		siteStructurePromise.then(function (result) {
+			if (result.err) {
+				return resolve(result);
+			}
+			console.log(' - query site structure ' + (locale ? ('(' + locale + ')') : ''));
+
+			var siteStructure = result;
+			pages = siteStructure && siteStructure.base && siteStructure.base.pages;
+
+			var sitePageFilesPromise = _getSitePageFiles(request, localhost, site, locale, isMaster);
+			sitePageFilesPromise.then(function (result) {
+				pageFiles = result.files || [];
+				if (!pageFiles || pageFiles.length === 0) {
+					console.log('WARNING: failed to get page files');
+				}
+
+				if (_hasDetailPage && _contentTypesOnPages.length > 0) {
 					//
 					// Get page data for all pages
 					//
-					var pageDataPromise = _getPageDataPromise(request, localhost, site, pages);
+					var pageDataPromise = _getPageDataPromise(request, localhost, site, pages, locale, isMaster);
 					Promise.all(pageDataPromise).then(function (values) {
-						console.log(' - query page data');
+						console.log(' - query page data (' + locale + ')');
 						for (var i = 0; i < values.length; i++) {
 							var obj = values[i];
 							Object.keys(obj).forEach(key => {
@@ -1031,86 +1381,144 @@ var _createSiteMap = function (server, request, localhost, site, siteUrl, change
 						}
 
 						//
-						// Get all content types on the pages
+						// Get content list queries on the pages
 						//
-						var contentTypes = _getPageContentTypes(pageData);
-						var usedContentTypes = [];
-						var contentTypesPromise = [];
-						if (contentTypes.length > 0) {
-							for (var i = 0; i < contentTypes.length; i++) {
-								contentTypesPromise.push(serverUtils.getContentTypeFromServer(server, contentTypes[i]));
-							}
-						}
+						var pageContentListQueries = _getPageContentListQuery(_masterPageData, locale);
+						// console.log(pageContentListQueries);
 
-						if (contentTypesPromise.length > 0) {
-							Promise.all(contentTypesPromise).then(function (values) {
-								console.log(' - content types used in the site: ' + contentTypes);
-								contentTypes = values;
-								// console.log(contentTypes);
+						//
+						// Get content items on the pages
+						//
+						var pageContentPromise = _getPageContentPromise(request, localhost, server, _siteChannelToken, _pageContentIds, pageContentListQueries, locale);
+						Promise.all(pageContentPromise).then(function (values) {
+							console.log(' - query content on the pages (' + locale + ')');
 
-								//
-								// Get content ids on the pages
-								//
-								var pageContentIds = _getPageContentItemIds(pageData);
-								// console.log(pageContentIds);
-
-								//
-								// Get content list queries on the pages
-								//
-								var pageContentListQueries = _getPageContentListQuery(pageData);
-								// console.log(pageContentListQueries);
-
-								//
-								// Get content items on the pages
-								//
-								var pageContentPromise = _getPageContentPromise(request, localhost, server, siteChannelToken, pageContentIds, pageContentListQueries);
-								if (pageContentPromise && pageContentPromise.length > 0) {
-									Promise.all(pageContentPromise).then(function (values) {
-										console.log(' - query content on the pages');
-										var items = [];
-										for (var i = 0; i < values.length; i++) {
-											items = items.concat(values[i]);
-										}
-										_generateSiteMapXML(siteUrl, siteInfo, pages, pageFiles, items, changefreq, siteMapFile);
-										if (publish) {
-											// Upload site map to the server
-											var uploadPromise = _uploadSiteMapToServer(request, localhost, site, siteMapFile);
-											uploadPromise.then(function (result) {
-												console.log(' - site map published');
-												_cmdEnd(done);
-											});
-										} else {
-											_cmdEnd(done);
-										}
-									});
-								}
-							});
-						} else {
-							// No content on the pages
-							console.log(' - no content on the pages');
 							var items = [];
-							_generateSiteMapXML(siteUrl, siteInfo, pages, pageFiles, items, changefreq, siteMapFile);
-							if (publish) {
-								// Upload site map to the server
-								var uploadPromise = _uploadSiteMapToServer(request, localhost, site, siteMapFile);
-								uploadPromise.then(function (result) {
-									console.log(' - site map published');
-									_cmdEnd(done);
-								});
-							} else {
-								_cmdEnd(done);
+							for (var i = 0; i < values.length; i++) {
+								items = items.concat(values[i]);
 							}
+
+							return resolve({
+								locale: locale,
+								pageFiles: pageFiles,
+								pages: pages,
+								items: items
+							});
+						});
+					});
+
+				} else {
+					if (isMaster) {
+						if (!_hasDetailPage) {
+							console.log(' - no detail page');
+						} else if (_contentTypesOnPages.length === 0) {
+							console.log(' - no content on the pages');
 						}
+					}
+					// no detail page nor content
+					return resolve({
+						locale: locale,
+						pageFiles: pageFiles,
+						pages: pages,
+						items: items
+					});
+				}
 
-					}); // page data
+			}); // page files
 
-				}); // site page files
+		}); // site structure
+	});
+	return sitePromise;
+};
 
-			}); // site structure
 
-		}); // repository
+/**
+ * Main entry
+ * 
+ */
+var _createSiteMap = function (server, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, languages, done) {
 
-	}); // site info
+	//
+	// get site info and other metadata
+	// 
+	var dataPromise = _prepareData(server, request, localhost, site, languages, done);
+	dataPromise.then(function (result) {
+		if (result.err) {
+			_cmdEnd(done);
+			return;
+		}
+
+		var isMaster = true;
+		var siteDataPromises = [];
+		siteDataPromises.push(_getSiteDataWithLocale(server, request, localhost, site, _SiteInfo.defaultLanguage, isMaster));
+		for (var i = 0; i < _languages.length; i++) {
+			if (_languages[i] !== _SiteInfo.defaultLanguage) {
+				siteDataPromises.push(_getSiteDataWithLocale(server, request, localhost, site, _languages[i], false));
+			}
+		}
+
+		Promise.all(siteDataPromises).then(function (values) {
+			// console.log(values);
+			var masterPages = [];
+			var allPages = [];
+			var allPageFiles = [];
+			var allItems = [];
+			for (var i = 0; i < values.length; i++) {
+				if (values[i].locale === _SiteInfo.defaultLanguage) {
+					masterPages = values[i].pages;
+					break;
+				}
+			}
+			for (var i = 0; i < values.length; i++) {
+				if (values[i].pages && values[i].pages.length > 0) {
+					for (var j = 0; j < values[i].pages.length; j++) {
+						values[i].pages[j]['locale'] = values[i].locale;
+					}
+					allPages = allPages.concat(values[i].pages);
+				}
+			}
+
+			for (var i = 0; i < allPages.length; i++) {
+				var page = allPages[i];
+				if (!page.pageUrl) {
+					for (var j = 0; j < masterPages.length; j++) {
+						if (page.id === masterPages[j].id) {
+							page.pageUrl = masterPages[j].pageUrl;
+							page.isDetailPage = masterPages[j].isDetailPage;
+							break;
+						}
+					}
+				}
+			}
+
+			for (var i = 0; i < values.length; i++) {
+				if (values[i].pageFiles && values[i].pageFiles.length > 0) {
+					allPageFiles = allPageFiles.concat(values[i].pageFiles);
+				}
+				if (values[i].items && values[i].items.length > 0) {
+					allItems = allItems.concat(values[i].items);
+				}
+			}
+
+			//
+			// create site map
+			//
+			_generateSiteMapXML(siteUrl, allPages, allPageFiles, allItems, changefreq, siteMapFile);
+
+			if (publish) {
+				// Upload site map to the server
+				var uploadPromise = _uploadSiteMapToServer(request, localhost, site, siteMapFile);
+				uploadPromise.then(function (result) {
+					console.log(' - site map published');
+					_cmdEnd(done);
+				});
+			} else {
+				_cmdEnd(done);
+			}
+		});
+
+	}); // prepare data 
+
 };
 
 /////////////////////////////////////////////////////////////////////
@@ -1176,6 +1584,8 @@ module.exports.createSiteMap = function (argv, done) {
 
 	var publish = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
 
+	var languages = argv.languages ? argv.languages.split(',') : [];
+
 	var request = require('request');
 	request = request.defaults({
 		headers: {
@@ -1240,7 +1650,8 @@ module.exports.createSiteMap = function (argv, done) {
 				var fileId = params.fileId,
 					filePath = params.filePath,
 					fileName = params.fileName,
-					folderId = params.folderId;
+					folderId = params.folderId,
+					idcToken = params.idcToken;
 				var uploadUrl = server.url + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
 				var formData = {
 					'parent': 'fFolderGUID:' + folderId,
@@ -1251,6 +1662,7 @@ module.exports.createSiteMap = function (argv, done) {
 				if (fileId && fileId !== 'undefined') {
 					formData['item'] = 'fFileGUID:' + fileId;
 				}
+
 				var postData = {
 					method: 'POST',
 					url: uploadUrl,
@@ -1277,41 +1689,7 @@ module.exports.createSiteMap = function (argv, done) {
 		});
 
 		var localServer = app.listen(port, function () {
-			var total = 0;
-			var inter = setInterval(function () {
-				// console.log(' - getting login user: ' + total);
-				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-				request.get(url, function (err, response, body) {
-					var data = JSON.parse(body);
-					dUser = data && data.LocalData && data.LocalData.dUser;
-					idcToken = data && data.LocalData && data.LocalData.idcToken;
-					if (dUser && dUser !== 'anonymous' && idcToken) {
-						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-						clearInterval(inter);
-						console.log(' - establish user session');
-						var csrfTokenPromise = _getCSRFToken(server, request);
-						csrfTokenPromise.then(function (result) {
-							var csrfToken = result && result.token;
-							if (!csrfToken) {
-								console.log('ERROR: Failed to get CSRF token');
-								_cmdEnd(done);
-							}
-							console.log(' - get CSRF token');
-							_CSRFToken = csrfToken;
-
-							_createSiteMap(server, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, done);
-						});
-					}
-					total += 1;
-					if (total >= 10) {
-						clearInterval(inter);
-						console.log('ERROR: disconnect from the server, try again');
-						_cmdEnd(done);
-					}
-				});
-			}, 6000);
-
+			_createSiteMap(server, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, languages, done);
 		});
 
 	}); // login

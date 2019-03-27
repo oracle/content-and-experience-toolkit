@@ -336,6 +336,22 @@ var _getTemplateComponents = function (templateName) {
 		}
 	}
 
+	var summaryfile = path.join(tempSrcDir, 'assets', 'contenttemplate', 'summary.json');
+	if (fs.existsSync(summaryfile)) {
+		var summaryjson = JSON.parse(fs.readFileSync(summaryfile));
+		var mappings = summaryjson.categoryLayoutMappings || [];
+		for(var i = 0; i < mappings.length; i++) {
+			var catelist = mappings[i].categoryList;
+			console.log(mappings[i].type);
+			for (var j = 0; j < catelist.length; j++) {
+				var layout = catelist[j].layoutName;
+				if (layout && comps.indexOf(layout) < 0) {
+					comps[comps.length] = layout;
+				}
+			}
+		}
+	}
+
 	comps.sort();
 
 	// console.log('getTemplateComponents: template=' + templateName + ' components=' + JSON.stringify(comps));
@@ -1840,6 +1856,9 @@ var _getFolderIdFromResultSets = function (data, folderName) {
 	return folderId;
 };
 
+module.exports.sleep = function (delay) {
+	_sleep(delay);
+};
 var _sleep = function (delay) {
 	var start = new Date().getTime();
 	while (true) {

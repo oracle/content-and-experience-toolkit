@@ -381,7 +381,27 @@ const createSiteMap = {
 		['cec create-site-map Site1 -u http://www.example.com/site1'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -f sitemap.xml'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -p'],
-		['cec create-site-map Site1 -u http://www.example.com/site1 -c weekly -p']
+		['cec create-site-map Site1 -u http://www.example.com/site1 -c weekly -p'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT']
+	]
+};
+
+const listServerTranslationJobs = {
+	command: 'list-server-translation-jobs',
+	usage: {
+		'short': 'List translation jobs on the server.',
+		'long': (function () {
+			let desc = 'List translation jobs for both assets and sites. Optionally specify -t <type> to list specific type of translation jobs. ' +
+				os.EOL + os.EOL + 'Valid values for <type> are: ' + os.EOL +
+				'  assets' + os.EOL +
+				'  sites' + os.EOL;
+			return desc;
+		})()
+	},
+	example: [
+		['cec list-server-translation-jobs'],
+		['cec list-server-translation-jobs -t assets'],
+		['cec list-server-translation-jobs --type sites']
 	]
 };
 
@@ -718,6 +738,10 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 					alias: 'f',
 					description: 'Name of the generated site map file'
 				})
+				.option('languages', {
+					alias: 'l',
+					description: '<languages> The comma separated list of languages used to create the site map'
+				})
 				.option('publish', {
 					alias: 'p',
 					description: 'Upload the site map to CEC server after creation'
@@ -733,10 +757,25 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.example(...createSiteMap.example[1])
 				.example(...createSiteMap.example[2])
 				.example(...createSiteMap.example[3])
+				.example(...createSiteMap.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${createSiteMap.command}\n\n${createSiteMap.usage.long}`);
+		})
+	.command(listServerTranslationJobs.command, listServerTranslationJobs.usage.short,
+		(yargs) => {
+			yargs.option('type', {
+					alias: 't',
+					description: '<type> translation job type: assets | sites'
+				})
+				.example(...listServerTranslationJobs.example[0])
+				.example(...listServerTranslationJobs.example[1])
+				.example(...listServerTranslationJobs.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${listServerTranslationJobs.command}\n\n${listServerTranslationJobs.usage.long}`);
 		})
 	.help('help')
 	.alias('help', 'h')
@@ -1006,9 +1045,21 @@ switch (argv._[0]) {
 		if (argv.publish) {
 			createSiteMapArgs.push(...['--publish', argv.publish]);
 		}
+		if (argv.languages) {
+			createSiteMapArgs.push(...['--languages', argv.languages]);
+		}
 		spawnCmd = childProcess.spawnSync(npmCmd, createSiteMapArgs, {
 			cwd,
 			stdio: 'inherit'
 		});
 		break;
+
+	case 'list-server-translation-jobs':
+		let listServerTranslationJobsArgs = ['run', '-s', argv._[0], '--', '--type', typeof argv.type === 'string' ? argv.type : ''];
+		spawnCmd = childProcess.spawnSync(npmCmd, listServerTranslationJobsArgs, {
+			cwd,
+			stdio: 'inherit'
+		});
+		break;
+
 }

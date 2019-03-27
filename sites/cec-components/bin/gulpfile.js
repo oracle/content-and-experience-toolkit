@@ -11,6 +11,7 @@ var gulp = require('gulp'),
 	templatelib = require('./template.js'),
 	sitelib = require('./site.js'),
 	siteMaplib = require('./siteMap.js'),
+	translationlib = require('./translation.js'),
 	decompress = require('decompress'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
@@ -875,6 +876,15 @@ gulp.task('create-site-map', function (done) {
 	'use strict';
 
 	siteMaplib.createSiteMap(argv, done);
+});
+
+/**
+ * List translation jobs on the server
+ */
+gulp.task('list-server-translation-jobs', function (done) {
+	'use strict';
+
+	translationlib.listServerTranslationJobs(argv, done);
 });
 
 /**
