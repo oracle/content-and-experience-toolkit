@@ -1,6 +1,6 @@
 {
 	"name": "cec-components",
-	"version": "19.2.1c",
+	"version": "19.2.1d",
 	"license": "UPL-1.0",
 	"description": "Content and Experience Cloud custom components build system",
 	"main": "index.js",
