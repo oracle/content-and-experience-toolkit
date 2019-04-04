@@ -378,12 +378,13 @@ const createSiteMap = {
 	usage: {
 		'short': 'Create a site map for site <site> on CEC server.',
 		'long': (function () {
-			let desc = 'Create a site map for site on CEC server. Optionally specify -p to upload the site map to CEC server after creation. Optionally specify -c <changefreq> to define how frequently the page is likely to change. Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
+			let desc = 'Create a site map for site on CEC server. Optionally specify -p to upload the site map to CEC server after creation. Optionally specify -c <changefreq> to define how frequently the page is likely to change. Optionally specify -t <toppagepriority> as the priority for the top level pages. Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
 			return getSiteMapChangefreqValues().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
 		['cec create-site-map Site1 -u http://www.example.com/site1'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -t 0.9'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -f sitemap.xml'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -p'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -c weekly -p'],
@@ -798,9 +799,15 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 					alias: 'p',
 					description: 'Upload the site map to CEC server after creation'
 				})
+				.option('toppagepriority', {
+					alias: 't',
+					description: 'Priority for the top level pages, a decimal number between 0 and 1'
+				})
 				.check((argv) => {
 					if (!argv.url) {
 						throw new Error('Please specify site URL');
+					} else if (argv.toppagepriority !== undefined && (argv.toppagepriority <= 0 || argv.toppagepriority >= 1)) {
+						throw new Error('Value for toppagepriority should be greater than 0 and less than 1');
 					} else {
 						return true;
 					}
@@ -810,6 +817,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.example(...createSiteMap.example[2])
 				.example(...createSiteMap.example[3])
 				.example(...createSiteMap.example[4])
+				.example(...createSiteMap.example[5])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -1165,6 +1173,9 @@ switch (argv._[0]) {
 		}
 		if (argv.languages) {
 			createSiteMapArgs.push(...['--languages', argv.languages]);
+		}
+		if (argv.toppagepriority) {
+			createSiteMapArgs.push(...['--toppagepriority', argv.toppagepriority]);
 		}
 		spawnCmd = childProcess.spawnSync(npmCmd, createSiteMapArgs, {
 			cwd,

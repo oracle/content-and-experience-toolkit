@@ -647,7 +647,7 @@ var _getMasterPageData = function (pageid) {
  * @param {*} siteInfo 
  * @param {*} pages 
  */
-var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq, siteMapFile) {
+var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq, toppagepriority, siteMapFile) {
 
 	var prefix = siteUrl;
 	if (prefix.substring(prefix.length - 1) === '/') {
@@ -661,6 +661,7 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 	// page urls
 	//
 	var pagePriority = [];
+	
 	for (var i = 0; i < pages.length; i++) {
 		var pageId = pages[i].id;
 		var masterPageData = _getMasterPageData(pageId);
@@ -680,10 +681,16 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 				}
 			}
 			// calculate priority
-			var priority = 1;
-			var levels = pages[i].pageUrl.split('/');
-			for (var j = 1; j < levels.length; j++) {
-				priority = priority / 2;
+			var priority;
+			if (!pages[i].parentId) {
+				// root always is 1
+				priority = 1;
+			} else {
+				priority = toppagepriority || 1;
+				var levels = pages[i].pageUrl.split('/');
+				for (var j = 1; j < levels.length; j++) {
+					priority = priority / 2;
+				}
 			}
 
 			// console.log('page: ' + pages[i].id + ' url: ' + pages[i].pageUrl + ' priority: ' + priority + ' lastmod: ' + lastmod);
@@ -692,7 +699,7 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 				lastmod: lastmod,
 				priority: priority
 			});
-
+			
 			pagePriority.push({
 				id: pages[i].id.toString(),
 				priority: priority
@@ -700,7 +707,7 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 
 		}
 	}
-
+	
 	//
 	// detail page urls for items
 	//
@@ -735,8 +742,8 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 						break;
 					}
 				}
-				
- 				if (detailPageAllowed && detailPageUrl) {
+
+				if (detailPageAllowed && detailPageUrl) {
 					var detailPagePrefix = detailPageUrl.replace('.html', '');
 					var itemlanguage = item.language || items[i].locale;
 					var locale = itemlanguage && itemlanguage !== _SiteInfo.defaultLanguage ? (itemlanguage + '/') : '';
@@ -750,7 +757,7 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 						urls.push({
 							loc: url,
 							lastmod: lastmod,
-							priority: itemPriority || 'monthly'
+							priority: itemPriority
 						});
 
 						addedUrls.push(url);
@@ -1457,7 +1464,7 @@ var _getSiteDataWithLocale = function (server, request, localhost, site, locale,
  * Main entry
  * 
  */
-var _createSiteMap = function (server, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, languages, done) {
+var _createSiteMap = function (server, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, languages, toppagepriority, done) {
 
 	//
 	// get site info and other metadata
@@ -1524,7 +1531,7 @@ var _createSiteMap = function (server, request, localhost, site, siteUrl, change
 			//
 			// create site map
 			//
-			_generateSiteMapXML(siteUrl, allPages, allPageFiles, allItems, changefreq, siteMapFile);
+			_generateSiteMapXML(siteUrl, allPages, allPageFiles, allItems, changefreq, toppagepriority, siteMapFile);
 
 			if (publish) {
 				// Upload site map to the server
@@ -1606,6 +1613,8 @@ module.exports.createSiteMap = function (argv, done) {
 	var publish = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
 
 	var languages = argv.languages ? argv.languages.split(',') : [];
+
+	var toppagepriority = argv.toppagepriority;
 
 	var request = require('request');
 	request = request.defaults({
@@ -1710,7 +1719,7 @@ module.exports.createSiteMap = function (argv, done) {
 		});
 
 		var localServer = app.listen(port, function () {
-			_createSiteMap(server, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, languages, done);
+			_createSiteMap(server, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, languages, toppagepriority, done);
 		});
 
 	}); // login

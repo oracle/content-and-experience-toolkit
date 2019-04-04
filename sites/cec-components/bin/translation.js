@@ -809,7 +809,7 @@ var _getSiteGUID = function (request, localhost, site) {
 				}
 			}
 			var siteGUID;
-			for(var i = 0; i < sites.length; i++) {
+			for (var i = 0; i < sites.length; i++) {
 				if (sites[i]['fFolderName'] === site) {
 					siteGUID = sites[i]['fFolderGUID'];
 					break;
@@ -1003,11 +1003,16 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 				}
 				targetLanguages = langArr;
 			} else {
-				for(var i = 0; i < allLangs.length; i++) {
+				for (var i = 0; i < allLangs.length; i++) {
 					if (allLangs[i] !== siteInfo.defaultLanguage) {
 						targetLanguages.push(allLangs[i]);
 					}
 				}
+			}
+			if (targetLanguages.length === 0) {
+				console.log('ERROR: no target language');
+				_cmdEnd(done);
+				return;
 			}
 			console.log(' - target languages: ' + targetLanguages);
 			_execCreateTranslationJob(server, request, localhost, idcToken, name, siteInfo, targetLanguages, exportType, done);
@@ -1464,7 +1469,7 @@ module.exports.createTranslationJob = function (argv, done) {
 					var data;
 					try {
 						data = JSON.parse(body);
-					} catch(err) {}
+					} catch (err) {}
 
 					dUser = data && data.LocalData && data.LocalData.dUser;
 					idcToken = data && data.LocalData && data.LocalData.idcToken;
