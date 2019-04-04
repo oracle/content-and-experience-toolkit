@@ -1,6 +1,6 @@
 {
 	"name": "cec-components",
-	"version": "19.2.1d",
+	"version": "19.2.1e",
 	"license": "UPL-1.0",
 	"description": "Content and Experience Cloud custom components build system",
 	"main": "index.js",
@@ -32,7 +32,10 @@
 		"list": "gulp --silent --gulpfile bin/gulpfile.js list ",
 		"index-site": "gulp  --silent --gulpfile bin/gulpfile.js index-site ",
 		"create-site-map": "gulp --silent --gulpfile bin/gulpfile.js create-site-map ",
-		"list-server-translation-jobs": "gulp --silent --gulpfile bin/gulpfile.js list-server-translation-jobs ",
+		"list-translation-jobs": "gulp --silent --gulpfile bin/gulpfile.js list-translation-jobs ",
+		"download-translation-job": "gulp --silent --gulpfile bin/gulpfile.js download-translation-job ",
+		"import-translation-job": "gulp --silent --gulpfile bin/gulpfile.js import-translation-job ",
+		"create-translation-job": "gulp --silent --gulpfile bin/gulpfile.js create-translation-job ",
 		"gulp": "gulp --silent --gulpfile",
 		"finish-upgrade": "gulp  --gulpfile bin/upgrade.js",
 		"install-cec": "npm install -g bin/cec"

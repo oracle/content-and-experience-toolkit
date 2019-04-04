@@ -1074,6 +1074,7 @@ var _importTemplate = function (server, name, folder, zipfile, done) {
 			uploadPromise.then(function (result) {
 				if (result.err) {
 					done();
+					process.exit(0);
 					return;
 				}
 
@@ -1096,6 +1097,7 @@ var _importTemplate = function (server, name, folder, zipfile, done) {
 							console.log(' - template ' + name + ' imported');
 						}
 						done();
+						process.exit(0);
 					});
 				}
 			});

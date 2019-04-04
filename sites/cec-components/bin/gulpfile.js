@@ -717,6 +717,7 @@ gulp.task('deploy-component', function (done) {
 				Promise.all(importsPromise).then(function (values) {
 					// All done
 					done();
+					process.exit(0);
 				});
 
 			}); // login 
@@ -881,10 +882,37 @@ gulp.task('create-site-map', function (done) {
 /**
  * List translation jobs on the server
  */
-gulp.task('list-server-translation-jobs', function (done) {
+gulp.task('list-translation-jobs', function (done) {
 	'use strict';
 
 	translationlib.listServerTranslationJobs(argv, done);
+});
+
+/**
+ * Download a translation job from the server
+ */
+gulp.task('download-translation-job', function (done) {
+	'use strict';
+
+	translationlib.downloadServerTranslationJob(argv, done);
+});
+
+/**
+ * Import a translation job to the server
+ */
+gulp.task('import-translation-job', function (done) {
+	'use strict';
+
+	translationlib.importTranslationJob(argv, done);
+});
+
+/**
+ * Create a translation job on the server
+ */
+gulp.task('create-translation-job', function (done) {
+	'use strict';
+
+	translationlib.createTranslationJob(argv, done);
 });
 
 /**

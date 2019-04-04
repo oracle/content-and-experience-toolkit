@@ -624,6 +624,24 @@ var _getPage = function (pageid) {
 };
 
 /**
+ * 
+ * @param {*} pageid <locale>_<page id>
+ */
+var _getMasterPageData = function (pageid) {
+	var id = pageid.toString();
+	if (id.indexOf('_') > 0) {
+		id = id.substring(id.lastIndexOf('_') + 1);
+	}
+	var pagedata;
+	for (var i = 0; i < _masterPageData.length; i++) {
+		if (id === _masterPageData[i].id) {
+			pagedata = _masterPageData[i].data;
+		}
+	}
+	return pagedata;
+};
+
+/**
  * Generate site map XML file
  * 
  * @param {*} siteInfo 
@@ -644,8 +662,11 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 	//
 	var pagePriority = [];
 	for (var i = 0; i < pages.length; i++) {
-
-		if (!pages[i].isDetailPage) {
+		var pageId = pages[i].id;
+		var masterPageData = _getMasterPageData(pageId);
+		var properties = masterPageData && masterPageData.properties;
+		var noIndex = properties && properties.noIndex;
+		if (!pages[i].isDetailPage && !noIndex) {
 
 			var includeLocale = pages[i].locale && pages[i].locale !== _SiteInfo.defaultLanguage;
 

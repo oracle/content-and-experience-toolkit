@@ -340,9 +340,8 @@ var _getTemplateComponents = function (templateName) {
 	if (fs.existsSync(summaryfile)) {
 		var summaryjson = JSON.parse(fs.readFileSync(summaryfile));
 		var mappings = summaryjson.categoryLayoutMappings || [];
-		for(var i = 0; i < mappings.length; i++) {
+		for (var i = 0; i < mappings.length; i++) {
 			var catelist = mappings[i].categoryList;
-			console.log(mappings[i].type);
 			for (var j = 0; j < catelist.length; j++) {
 				var layout = catelist[j].layoutName;
 				if (layout && comps.indexOf(layout) < 0) {
@@ -621,6 +620,27 @@ module.exports.getContentTypeFieldsFromServer = function (typename, callback) {
 	});
 };
 
+module.exports.getCaasCSRFToken = function (server) {
+	var csrfTokenPromise = new Promise(function (resolve, reject) {
+		var client = new Client({
+			user: server.username,
+			password: server.password
+		});
+		var url = server.url + '/content/management/api/v1.1/token';
+		client.get(url, function (data, response) {
+			if (response && response.statusCode === 200) {
+				return resolve(data);
+			} else {
+				console.log('ERROR: Failed to get CSRF token, status=' + response.statusCode);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+	return csrfTokenPromise;
+};
+
 /**
  * Check if node server is up
  */
@@ -795,122 +815,182 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 
 	var uploadPromise = new Promise(function (resolve, reject) {
 
-		// get the personal folder id
-		var folderUrl = server.url + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-		var options = {
-			url: folderUrl
-		};
-		if (server.env === 'pod_ec') {
-			options['auth'] = {
-				bearer: server.oauthtoken
-			};
-		}
 		var dUser = '';
 		var idcToken;
 
-		request.get(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get user id ');
-				console.log(err);
-				return resolve({
-					err: 'err'
-				});
+		var express = require('express');
+		var app = express();
+
+		var port = '9393';
+		var localhost = 'http://localhost:' + port;
+
+		app.get('/documents/web', function (req, res) {
+			// console.log('GET: ' + req.url);
+			var url = server.url + req.url;
+			var options = {
+				url: url,
+				'auth': {
+					bearer: server.oauthtoken
+				}
+			};
+
+			request(options).on('response', function (response) {
+					// fix headers for cross-domain and capitalization issues
+					_fixHeaders(response, res);
+				})
+				.on('error', function (err) {
+					console.log(err);
+					res.write({
+						err: err
+					});
+					res.end();
+				})
+				.pipe(res);
+		});
+		app.post('/documents/web', function (req, res) {
+			// console.log('POST: ' + req.url);
+			if (req.url.indexOf('CHECKIN_UNIVERSAL') > 0) {
+				var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+				var fileId = params.fileId;
+				var filePath = params.filePath;
+				var fileName = params.fileName;
+				var folderId = params.folderId;
+				var uploadUrl = server.url + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
+				var formData = {
+					'parent': 'fFolderGUID:' + folderId,
+					'idcToken': idcToken,
+					'primaryFile': fs.createReadStream(filePath),
+					'filename': fileName
+				};
+				if (fileId && fileId !== 'undefined') {
+					formData['item'] = 'fFileGUID:' + fileId;
+				}
+				var postData = {
+					method: 'POST',
+					url: uploadUrl,
+					'auth': {
+						bearer: server.oauthtoken
+					},
+					'formData': formData
+				};
+				request(postData).on('response', function (response) {
+						// fix headers for cross-domain and capitalization issues
+						_fixHeaders(response, res);
+					})
+					.pipe(res)
+					.on('finish', function (err) {
+						// console.log(' - upload finished: '+filePath);
+						res.end();
+					});
+
 			}
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
-				dUser = data && data.LocalData && data.LocalData.dUser;
-				idcToken = data && data.LocalData && data.LocalData.idcToken;
-				var folderId = 'F:USER:' + dUser;
-				// console.log(' - folder id: ' + folderId + ' idcToken: ' + idcToken);
+		});
 
-				var queryFolderPromise = _queryFolderId(request, server, server.url, folder);
-				queryFolderPromise.then(function (result) {
-					if (result.err) {
-						return resolve({
-							err: 'err'
-						});
-					}
-					folderId = result.folderId || folderId;
+		var localServer = app.listen(port, function () {
+			// get the personal folder id
+			var folderUrl = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
+			var options = {
+				url: folderUrl
+			};
+			if (server.env === 'pod_ec') {
+				options['auth'] = {
+					bearer: server.oauthtoken
+				};
+			}
 
-					// check if the file exists 
-					var filesUrl = server.url + '/documents/web?IdcService=FLD_BROWSE&itemType=File&IsJson=1&item=fFolderGUID:' + folderId;
+			request.get(options, function (err, response, body) {
+				if (err) {
+					console.log('ERROR: Failed to get user id ');
+					console.log(err);
+					return resolve({
+						err: 'err'
+					});
+				}
+				if (response && response.statusCode === 200) {
+					var data = JSON.parse(body);
+					dUser = data && data.LocalData && data.LocalData.dUser;
+					idcToken = data && data.LocalData && data.LocalData.idcToken;
+					var folderId = 'F:USER:' + dUser;
+					// console.log(' - folder id: ' + folderId + ' idcToken: ' + idcToken);
 
-					options.url = filesUrl;
-					var fileId;
-					request.get(options, function (err, response, body) {
-						if (err) {
-							console.log('ERROR: Failed to get personal files');
-							console.log(err);
+					var queryFolderPromise = _queryFolderId(request, server, localhost, folder);
+					queryFolderPromise.then(function (result) {
+						if (result.err) {
 							return resolve({
 								err: 'err'
 							});
 						}
+						folderId = result.folderId || folderId;
 
-						var data;
-						try {
-							data = JSON.parse(body);
-						} catch (e) {}
+						// check if the file exists 
+						var filesUrl = localhost + '/documents/web?IdcService=FLD_BROWSE&itemType=File&IsJson=1&item=fFolderGUID:' + folderId;
 
-						if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-							console.log('ERROR: Failed to get personal files ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-							return resolve({
-								err: 'err'
-							});
-						}
-
-						var dRoleName = data.LocalData.dRoleName;
-						if (dRoleName !== 'owner' && dRoleName !== 'manager' && dRoleName !== 'contributor') {
-							console.log('ERROR: no permission to upload to ' + (folder ? 'folder ' + folder : 'home folder'));
-							return resolve({
-								err: 'err'
-							});
-						}
-
-						fileId = _getFileIdFromResultSets(data, fileName);
-						var folderId = _getFolderIdFromFolderInfo(data) || ('F:USER:' + dUser);
-						// console.log('folder: ' + (folder ? folder : 'home') + ' id: ' + folderId);
-
-						// now upload the file
-						var uploadUrl = server.url + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
-						var formData = {
-							'parent': 'fFolderGUID:' + folderId,
-							'idcToken': idcToken,
-							'primaryFile': fs.createReadStream(filePath),
-							'filename': fileName
-						};
-						if (fileId && fileId !== 'undefined') {
-							formData['item'] = 'fFileGUID:' + fileId;
-						}
-						var postData = {
-							'formData': formData
-						};
-						request.post(uploadUrl, postData, function (err, response, body) {
+						options.url = filesUrl;
+						var fileId;
+						request.get(options, function (err, response, body) {
 							if (err) {
-								console.log('ERROR: Failed to upload');
+								console.log('ERROR: Failed to get personal files');
 								console.log(err);
 								return resolve({
 									err: 'err'
 								});
 							}
-							if (response && response.statusCode === 200) {
-								var data = JSON.parse(body);
-								var version = data && data.LocalData && data.LocalData.dRevLabel;
-								console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + version);
-								return resolve(data);
-							} else {
-								console.log(' - failed to upload: ' + response.statusCode);
+
+							var data;
+							try {
+								data = JSON.parse(body);
+							} catch (e) {}
+
+							if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+								console.log('ERROR: Failed to get personal files ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 								return resolve({
 									err: 'err'
 								});
 							}
-						}); // checkin request
-					}); // query file id
-				}); // query folder id
-			}
-		}); // get user id
+
+							var dRoleName = data.LocalData.dRoleName;
+							if (dRoleName !== 'owner' && dRoleName !== 'manager' && dRoleName !== 'contributor') {
+								console.log('ERROR: no permission to upload to ' + (folder ? 'folder ' + folder : 'home folder'));
+								return resolve({
+									err: 'err'
+								});
+							}
+
+							fileId = _getFileIdFromResultSets(data, fileName);
+							var folderId = _getFolderIdFromFolderInfo(data) || ('F:USER:' + dUser);
+							// console.log('folder: ' + (folder ? folder : 'home') + ' id: ' + folderId);
+
+							// now upload the file
+							var uploadUrl = localhost + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
+							uploadUrl += '&folderId=' + folderId + '&fileId=' + fileId + '&filePath=' + filePath + '&fileName=' + fileName;
+
+							request.post(uploadUrl, function (err, response, body) {
+								if (err) {
+									console.log('ERROR: Failed to upload');
+									console.log(err);
+									return resolve({
+										err: 'err'
+									});
+								}
+								if (response && response.statusCode === 200) {
+									var data = JSON.parse(body);
+									var version = data && data.LocalData && data.LocalData.dRevLabel;
+									console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + version);
+									return resolve(data);
+								} else {
+									console.log(' - failed to upload: ' + response.statusCode);
+									return resolve({
+										err: 'err'
+									});
+								}
+							}); // checkin request
+						}); // query file id
+					}); // query folder id
+				}
+			}); // get user id
+		}); // local server
 	});
 	return uploadPromise;
-	//});
 };
 
 
@@ -1174,8 +1254,10 @@ module.exports.loginToPODServer = function (server) {
 
 			} catch (err) {
 				console.log('ERROR: failed to connect to the server');
-				// console.log(err);
-				await browser.close();
+				console.log(err);
+				if (browser) {
+					await browser.close();
+				}
 				return resolve({
 					'status': false
 				});

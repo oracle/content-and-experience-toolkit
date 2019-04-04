@@ -562,7 +562,7 @@ if (!app.locals.serverURL) {
 			},
 			onfailure: function (error, resp) {
 				console.log('Login to server failed - unexpected response from server');
-				process.exit(-1);
+				process.exit(0);
 			}
 		});
 }

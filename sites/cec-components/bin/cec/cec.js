@@ -74,6 +74,11 @@ var getSiteMapChangefreqValues = function () {
 	return values;
 };
 
+var getTranslationJobExportTypes = function () {
+	const values = ['siteAll', 'siteItems', 'siteAssets'];
+	return values;
+};
+
 /*********************
  * Command definitions
  **********************/
@@ -386,8 +391,24 @@ const createSiteMap = {
 	]
 };
 
+const createTranslationJob = {
+	command: 'create-translation-job <name>',
+	usage: {
+		'short': 'Create a translation job for a site on CEC server.',
+		'long': (function () {
+			let desc = 'Create a translation job for a site on CEC server. Specify -l <languages> to set the target languages, use "all" to select all languages from the translation policy. Optionally specify -t <type> to set the content type. The valid values for <type> are:\n\n';
+			return getTranslationJobExportTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec create-translation-job job1 -s Site1 -l all'],
+		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT'],
+		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT, -t siteItems']
+	]
+};
+
 const listServerTranslationJobs = {
-	command: 'list-server-translation-jobs',
+	command: 'list-translation-jobs',
 	usage: {
 		'short': 'List translation jobs on the server.',
 		'long': (function () {
@@ -399,9 +420,40 @@ const listServerTranslationJobs = {
 		})()
 	},
 	example: [
-		['cec list-server-translation-jobs'],
-		['cec list-server-translation-jobs -t assets'],
-		['cec list-server-translation-jobs --type sites']
+		['cec list-translation-jobs'],
+		['cec list-translation-jobs -t assets'],
+		['cec list-translation-jobs --type sites']
+	]
+};
+
+const downloadServerTranslationJob = {
+	command: 'download-translation-job <name>',
+	usage: {
+		'short': 'Download translation job from the server.',
+		'long': (function () {
+			let desc = 'Download translation job from the server. Optionally specify -o <output> to specify the directory to save the translation zip file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec download-translation-job Assets-ru'],
+		['cec download-translation-job Assets-ru -o ~/Downloads']
+	]
+};
+
+const importTranslationJob = {
+	command: 'import-translation-job <file>',
+	usage: {
+		'short': 'Import translation job to the server.',
+		'long': (function () {
+			let desc = 'Upload translation zip file <file> to the server, validate and then injest the translations. Optionally specify -v to validate only. Optionally specify -f <folder> to set the folder to upload the translation zip file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec import-translation-job Assets-ru.zip', 'File will be uploaded to the Home folder.'],
+		['cec import-translation-job ~/Downloads/Assets-ru.zip -f Import/TranslationJobs', 'File will be uploaded to folder Import/TranslationJobs.'],
+		['cec import-translation-job Assets-ru.zip -v', 'Validate the translation job without import.']
 	]
 };
 
@@ -763,6 +815,41 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${createSiteMap.command}\n\n${createSiteMap.usage.long}`);
 		})
+	.command(createTranslationJob.command, createTranslationJob.usage.short,
+		(yargs) => {
+			yargs.option('site', {
+					alias: 's',
+					description: '<site> Site',
+					demandOption: true
+				})
+				.option('languages', {
+					alias: 'l',
+					description: '<languages> The comma separated list of languages used to create the translation job',
+					demandOption: true
+				})
+				.option('type', {
+					alias: 't',
+					description: 'The type of translation job contents'
+				})
+				.check((argv) => {
+					if (!argv.site) {
+						throw new Error('Please specify site');
+					} else if (!argv.languages) {
+						throw new Error('Please specify languages');
+					} else if (argv.type && !getTranslationJobExportTypes().includes(argv.type)) {
+						throw new Error(`${argv.type} is a not a valid value for <type>`);
+					} else {
+						return true;
+					}
+				})
+				.example(...createTranslationJob.example[0])
+				.example(...createTranslationJob.example[1])
+				.example(...createTranslationJob.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createTranslationJob.command}\n\n${createTranslationJob.usage.long}`);
+		})
 	.command(listServerTranslationJobs.command, listServerTranslationJobs.usage.short,
 		(yargs) => {
 			yargs.option('type', {
@@ -776,6 +863,37 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${listServerTranslationJobs.command}\n\n${listServerTranslationJobs.usage.long}`);
+		})
+	.command(downloadServerTranslationJob.command, downloadServerTranslationJob.usage.short,
+		(yargs) => {
+			yargs.option('output', {
+					alias: 'o',
+					description: '<output> The directory to save the translation zip file'
+				})
+				.example(...downloadServerTranslationJob.example[0])
+				.example(...downloadServerTranslationJob.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${downloadServerTranslationJob.command}\n\n${downloadServerTranslationJob.usage.long}`);
+		})
+	.command(importTranslationJob.command, importTranslationJob.usage.short,
+		(yargs) => {
+			yargs.option('folder', {
+					alias: 'f',
+					description: '<folder> Folder to upload the translation zip file'
+				})
+				.option('validateonly', {
+					alias: 'v',
+					description: 'Validate translation job without import.'
+				})
+				.example(...importTranslationJob.example[0])
+				.example(...importTranslationJob.example[1])
+				.example(...importTranslationJob.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${importTranslationJob.command}\n\n${importTranslationJob.usage.long}`);
 		})
 	.help('help')
 	.alias('help', 'h')
@@ -1054,7 +1172,23 @@ switch (argv._[0]) {
 		});
 		break;
 
-	case 'list-server-translation-jobs':
+	case 'create-translation-job':
+		let createTranslationJobArgs = ['run', '-s', argv._[0], '--',
+			'--name', argv.name,
+			'--site', argv.site,
+			'--languages', argv.languages
+		];
+		if (argv.type) {
+			createTranslationJobArgs.push(...['--type', argv.type]);
+		}
+
+		spawnCmd = childProcess.spawnSync(npmCmd, createTranslationJobArgs, {
+			cwd,
+			stdio: 'inherit'
+		});
+		break;
+
+	case 'list-translation-jobs':
 		let listServerTranslationJobsArgs = ['run', '-s', argv._[0], '--', '--type', typeof argv.type === 'string' ? argv.type : ''];
 		spawnCmd = childProcess.spawnSync(npmCmd, listServerTranslationJobsArgs, {
 			cwd,
@@ -1062,4 +1196,29 @@ switch (argv._[0]) {
 		});
 		break;
 
+	case 'download-translation-job':
+		let downloadServerTranslationJobArgs = ['run', '-s', argv._[0], '--', '--name', argv.name];
+		if (argv.output) {
+			downloadServerTranslationJobArgs.push(...['--output', argv.output]);
+		}
+		spawnCmd = childProcess.spawnSync(npmCmd, downloadServerTranslationJobArgs, {
+			cwd,
+			stdio: 'inherit'
+		});
+		break;
+
+	case 'import-translation-job':
+		let importTranslationJobArgs = ['run', '-s', argv._[0], '--', '--file', argv.file];
+
+		if (argv.folder && typeof argv.folder !== 'boolean') {
+			importTranslationJobArgs.push(...['--folder', argv.folder]);
+		}
+		if (argv.validateonly) {
+			importTranslationJobArgs.push(...['--validateonly', argv.validateonly]);
+		}
+		spawnCmd = childProcess.spawnSync(npmCmd, importTranslationJobArgs, {
+			cwd,
+			stdio: 'inherit'
+		});
+		break;
 }
