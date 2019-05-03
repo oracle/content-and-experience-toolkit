@@ -1,0 +1,3636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Oracle Help Center : Class: SampleFilePersistenceStore</title>
+
+    <script src="./scripts/prettify/prettify.js"> </script>
+    <script src="./scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  
+    <script src="./scripts/jquery-1.11.0.min.js"></script>
+    <link href="./styles/jsdoc-default.css" rel="stylesheet">
+
+<script>
+$.ajax({
+    url:'./styles/jsdoc-default.css',
+    type:'HEAD',
+    error: function()
+    {
+        $('<link href="./styles/jsdoc-default.css" rel="stylesheet">').appendTo("head");
+        //file not exists
+    },
+    success: function()
+    {
+    }
+});
+</script>
+<script>
+jQuery.getScript("./scripts/jsdoc-main.min.js")
+    .done(function() {
+    })
+    .fail(function() {
+        jQuery.getScript("./scripts/jsdoc-main.min.js")
+    });
+</script>
+<script>
+jQuery.getScript("./scripts/bootstrap.min.js")
+    .done(function() {
+    })
+    .fail(function() {  
+});
+</script>
+ <link type="text/css" rel="stylesheet" href="./styles/glyphicons.css">
+
+</head>
+
+<body>
+         <noscript>
+            <div>JavaScript must be enabled to correctly display this content</div>
+        </noscript>
+<!-- skipto -->
+<a href="#main" class="accessibility-top skipto">Skip to main content</a> 
+
+<!-- header -->
+<header id="ohc-header">
+<div class="oracle-logo"><a href="docs.oracle.com"><img src="img/oracle-doc-logo.png" alt="Oracle Help Center Logo"  width="236" height="22" style="max-width: none;" ></a></div> 
+</header>
+
+<!-- product -->
+    <h1>Class: SampleFilePersistenceStore</h1>
+
+<div id="container"><div id="leftpanel" aria-hidden="true"></div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="MockServer.html">MockServer</a></li><li><a href="MockTranslationProvider.html">MockTranslationProvider</a></li><li><a href="PersistenceStoreInterface.html">PersistenceStoreInterface</a></li><li><a href="SampleBasicAuth.html">SampleBasicAuth</a></li><li><a href="SampleConnector.html">SampleConnector</a></li><li><a href="SampleConnectorRouter.html">SampleConnectorRouter</a></li><li><a href="SampleFileDownloader.html">SampleFileDownloader</a></li><li><a href="SampleFileImporter.html">SampleFileImporter</a></li><li><a href="SampleFilePersistenceStore.html">SampleFilePersistenceStore</a></li><li><a href="SampleFileTranslator.html">SampleFileTranslator</a></li><li><a href="SampleJobManager.html">SampleJobManager</a></li><li><a href="TranslationFilter.html">TranslationFilter</a></li><li><a href="TranslationProviderInterface.html">TranslationProviderInterface</a></li></ul>
+</nav>
+
+
+<div id="main">
+
+   <h1 class="page-title">Class: SampleFilePersistenceStore</h1>
+  <section>
+        <article>
+
+    
+
+
+
+
+<section>
+
+<!--TOC-->
+<article>
+<header>
+<h2 class="page-title">QuickNav</h2>
+</header>
+<div class="quick-nav-section">
+<h3 class="subsection-title">Methods</h3>
+
+<ul><li><a href="#SampleFilePersistenceStore#addTranslationFile"><span class="type-signature"></span>addTranslationFile<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise}</span></a></li><li><a href="#SampleFilePersistenceStore#createFileMetadata"><span class="type-signature"></span>createFileMetadata<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="PersistenceApi.html#.fileMetadata">PersistenceApi.fileMetadata</a>>}</span></a></li><li><a href="#SampleFilePersistenceStore#createJob"><span class="type-signature"></span>createJob<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>>}</span></a></li><li><a href="#SampleFilePersistenceStore#createTranslationRepository"><span class="type-signature"></span>createTranslationRepository<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise}</span></a></li><li><a href="#SampleFilePersistenceStore#createTranslationZip"><span class="type-signature"></span>createTranslationZip<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>>}</span></a></li><li><a href="#SampleFilePersistenceStore#deleteJob"><span class="type-signature"></span>deleteJob<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise}</span></a></li><li><a href="#SampleFilePersistenceStore#exportTranslationZip"><span class="type-signature"></span>exportTranslationZip<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="PersistenceApi.html#.ZipFileStream">PersistenceApi.ZipFileStream</a>>}</span></a></li><li><a href="#SampleFilePersistenceStore#getAllJobs"><span class="type-signature"></span>getAllJobs<span class="signature">()</span><span class="type-signature"> &rarr; {Promise.&lt;Array.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>>>}</span></a></li><li><a href="#SampleFilePersistenceStore#getFileMetadata"><span class="type-signature"></span>getFileMetadata<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="PersistenceApi.html#.fileMetadata">PersistenceApi.fileMetadata</a>>}</span></a></li><li><a href="#SampleFilePersistenceStore#getJob"><span class="type-signature"></span>getJob<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>>}</span></a></li><li><a href="#SampleFilePersistenceStore#getSourceFile"><span class="type-signature"></span>getSourceFile<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;string>}</span></a></li><li><a href="#SampleFilePersistenceStore#getSourceJobJSON"><span class="type-signature"></span>getSourceJobJSON<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="SampleJobManager.html#.JobDetails">SampleJobManager.JobDetails</a>>}</span></a></li><li><a href="#SampleFilePersistenceStore#importSourceZip"><span class="type-signature"></span>importSourceZip<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise}</span></a></li><li><a href="#SampleFilePersistenceStore#updateFileMetadata"><span class="type-signature"></span>updateFileMetadata<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="PersistenceApi.html#.fileMetadata">PersistenceApi.fileMetadata</a>>}</span></a></li><li><a href="#SampleFilePersistenceStore#updateJob"><span class="type-signature"></span>updateJob<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>>}</span></a></li></ul>
+</div>
+</article>
+<!--/TOC-->
+
+<!--header-->
+    
+        <h2>SampleFilePersistenceStore</h2>
+        
+    
+<!--/header-->
+
+<article>
+    <div class="container-overview">
+    
+        
+
+    
+
+    <h4 class="name" id="SampleFilePersistenceStore"><span class="type-signature"></span>new SampleFilePersistenceStore<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Manage persistence of the job during the jobs lifecycle. <br/>
+This module is responsible for saving the state of the job and managing the state during startup/shutdown & failover. <br/>
+<ul>
+  <li>Specifically, it needs to: 
+    <ul>
+      <li>Keep track of all the jobs.</li>
+      <li>For each job: 
+        <ul>
+          <li>Store metadata about the job and mapping it to the project in the Language Service Provider.</li>
+          <li>Store/Unpack the zip file provided by the OCE translation job.</li>
+          <li>Store metadata about each file in the zip mapping the file to the entry in the Language Service Provider.</li>
+          <li>Store all the translations for each of the files as they become available.</li>
+          <li>Create a final zip of all the translated files in the format required for ingestion into the OCE translation jobs.</li>
+          <li>On job delete, remove all artifacts associated with the job.</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
+This is a sample implementation that uses the filesystem as the persistence store.  The structure on the filesystem is: 
+<ul>
+  <li>"connector-data" Folder for all the connector data.
+    <ul>
+      <li>"translation-jobs" Folder for all the translation jobs created. 
+        <ul>
+          <li>"translation-jobs" Folder for all the translation jobs created. 
+          <ul>
+            <li> {job1} Random identifier generated for each job creation
+              <ul>
+                <li> "translation-source" Folder containing all the source files for the job</li>
+                <li> "translation-target" Folder containing all the combined translated files for the job</li>
+              </ul>
+            </li>
+            <li> {job2} Random identifier generated for each job creation</li>
+            <li> ...</li>
+          </ul>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    </div>
+
+    
+        <h3 class="subsection-title">Extends</h3>
+
+        
+
+
+    <ul>
+        <li><a href="PersistenceStoreInterface.html">PersistenceStoreInterface</a></li>
+    </ul>
+
+
+    
+
+    
+
+    
+
+     
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
+
+        
+            <a name="SampleFilePersistenceStore#addTranslationFile"></a>
+            
+
+    
+
+    <h4 class="name" id="addTranslationFile"><span class="type-signature"></span>addTranslationFile<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Add a translated file to the translation repository
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>args</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JavaScript object containing the "addTranslationFile" parameters.
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier of the job.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>locale</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The locale of the translation for this file.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>fileType</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'site'</span>
+|
+
+<span class="param-type">'assets'</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Type of file to fetch - whether it's an assets file or a site resource.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>filePath</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Name of the file on thefilesystem to return.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>fileContent</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Translated content for the file.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>fileName</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Descriptive name if failed to write the file contents.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#addTranslationFile">PersistenceStoreInterface#addTranslationFile</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A Promise that is resolved when the file has been saved to the translation repository.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="SampleFilePersistenceStore#createFileMetadata"></a>
+            
+
+    
+
+    <h4 class="name" id="createFileMetadata"><span class="type-signature"></span>createFileMetadata<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="PersistenceApi.html#.fileMetadata">PersistenceApi.fileMetadata</a>>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Create the metadata to be held for a file being translated.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>args</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JavaScript object containing the "createFileMetadata" parameters.
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier of the job.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>fileType</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'site'</span>
+|
+
+<span class="param-type">'assets'</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Type of file to fetch - whether it's an assets file or a site resource.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>file</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="SampleJobManager.html#.file">SampleJobManager.file</a></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Details about the file in the persistence store.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#createFileMetadata">PersistenceStoreInterface#createFileMetadata</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A Promise that is resolved with a details on the metadata for the file
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;<a href="PersistenceApi.html#.fileMetadata">PersistenceApi.fileMetadata</a>></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="SampleFilePersistenceStore#createJob"></a>
+            
+
+    
+
+    <h4 class="name" id="createJob"><span class="type-signature"></span>createJob<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Create a translation job<br/>
+Create an entry for this translation job in the persistence store.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>args</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JavaScript object containing the "createJob" parameters.
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobName</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Name of the OCE translation job.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>workflowId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Language Service Provider workflow identifier to use to translate this job.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>authToken</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Language Service Provider Authorization header to use to communicate with the LSP.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#createJob">PersistenceStoreInterface#createJob</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    The metadata created and stored for this job.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="SampleFilePersistenceStore#createTranslationRepository"></a>
+            
+
+    
+
+    <h4 class="name" id="createTranslationRepository"><span class="type-signature"></span>createTranslationRepository<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Create a repository to hold all the translated files.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>args</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JavaScript object containing the "createTranslationRepository" parameters.
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier of the job.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#createTranslationRepository">PersistenceStoreInterface#createTranslationRepository</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A Promise that is resolved when the repository has been setup to receive translations.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="SampleFilePersistenceStore#createTranslationZip"></a>
+            
+
+    
+
+    <h4 class="name" id="createTranslationZip"><span class="type-signature"></span>createTranslationZip<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Create the export zip file for the translated files.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>args</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JavaScript object containing the "createTranslationZip" parameters.
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier of the job.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#createTranslationZip">PersistenceStoreInterface#createTranslationZip</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A Promise that is resolved with the updated job meatadata containing the "translatedZipFile" property for the created zip file.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="SampleFilePersistenceStore#deleteJob"></a>
+            
+
+    
+
+    <h4 class="name" id="deleteJob"><span class="type-signature"></span>deleteJob<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Delete all persistence data related to the provided job identifier.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>args</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JavaScript object containing the "deleteJob" parameters.
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier of the job to be deleted.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#deleteJob">PersistenceStoreInterface#deleteJob</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A Promise that is resolved when the job has been deleted.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="SampleFilePersistenceStore#exportTranslationZip"></a>
+            
+
+    
+
+    <h4 class="name" id="exportTranslationZip"><span class="type-signature"></span>exportTranslationZip<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="PersistenceApi.html#.ZipFileStream">PersistenceApi.ZipFileStream</a>>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Export the translated zip file
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>args</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JavaScript object containing the "exportTranslationZip" parameters.
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier of the job.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#exportTranslationZip">PersistenceStoreInterface#exportTranslationZip</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A Promise that is resolved with a zip file stream that can be returned in an HTTPS repsonse.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;<a href="PersistenceApi.html#.ZipFileStream">PersistenceApi.ZipFileStream</a>></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="SampleFilePersistenceStore#getAllJobs"></a>
+            
+
+    
+
+    <h4 class="name" id="getAllJobs"><span class="type-signature"></span>getAllJobs<span class="signature">()</span><span class="type-signature"> &rarr; {Promise.&lt;Array.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>>>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Get all the jobs currently tracked by the <a href="PersistenceApi.html">PersistenceApi</a><br/>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#getAllJobs">PersistenceStoreInterface#getAllJobs</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A Promise that returns an array of the metadata for each of the translation jobs.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;Array.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>>></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="SampleFilePersistenceStore#getFileMetadata"></a>
+            
+
+    
+
+    <h4 class="name" id="getFileMetadata"><span class="type-signature"></span>getFileMetadata<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="PersistenceApi.html#.fileMetadata">PersistenceApi.fileMetadata</a>>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Get the meta-data for a file being translated.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>args</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JavaScript object containing the "getFileMetadata" parameters.
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier of the job.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>fileType</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'site'</span>
+|
+
+<span class="param-type">'assets'</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Type of file to fetch - whether it's an assets file or a site resource.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>file</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="SampleJobManager.html#.file">SampleJobManager.file</a></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Details about the file in the persistence store.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#getFileMetadata">PersistenceStoreInterface#getFileMetadata</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A Promise that is resolved with a details on the metadata for the file
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;<a href="PersistenceApi.html#.fileMetadata">PersistenceApi.fileMetadata</a>></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="SampleFilePersistenceStore#getJob"></a>
+            
+
+    
+
+    <h4 class="name" id="getJob"><span class="type-signature"></span>getJob<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Get a translation job.<br/>
+Retrieve the job metadata from the persistence store for this job.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>args</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JavaScript object containing the "getJob" parameters.
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier for the job in the persistence store.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#getJob">PersistenceStoreInterface#getJob</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    The metadata created and stored for this job.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="SampleFilePersistenceStore#getSourceFile"></a>
+            
+
+    
+
+    <h4 class="name" id="getSourceFile"><span class="type-signature"></span>getSourceFile<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;string>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Get the requested source file from the job.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>args</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JavaScript object containing the "getSourceFile" parameters.
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier of the job.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>fileType</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'site'</span>
+|
+
+<span class="param-type">'assets'</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Type of file to fetch - whether it's an assets file or a site resource.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>filePath</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Name of the file on thefilesystem to return.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>file</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="SampleJobManager.html#.file">SampleJobManager.file</a></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Details about the file to return from the persistence store.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#getSourceFile">PersistenceStoreInterface#getSourceFile</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A Promise that is resolved with the file content.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;string></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="SampleFilePersistenceStore#getSourceJobJSON"></a>
+            
+
+    
+
+    <h4 class="name" id="getSourceJobJSON"><span class="type-signature"></span>getSourceJobJSON<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="SampleJobManager.html#.JobDetails">SampleJobManager.JobDetails</a>>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Get the source job.json files that are in the zip file.<br/>
+The job can be either: 
+<ul>
+  <li> "assets" job type, which has a structure of: 
+    <ul>
+      <li>job.json
+      <li>root
+    </ul>
+  </li>
+  <li> "site" job type, which has a structure of: 
+    <ul>
+      <li>assets
+        <ul>
+          <li>job.json</li>
+          <li>root</li>
+        </ul>
+      </li>
+      <li> site
+        <ul>
+          <li>job.json</li>
+          <li>root</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>args</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JavaScript object containing the "getSourceJobJSON" parameters.
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier of the job to retrieve the job.json information.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#getSourceJobJSON">PersistenceStoreInterface#getSourceJobJSON</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A Promise that is resolved with the combined job.json files.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;<a href="SampleJobManager.html#.JobDetails">SampleJobManager.JobDetails</a>></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="SampleFilePersistenceStore#importSourceZip"></a>
+            
+
+    
+
+    <h4 class="name" id="importSourceZip"><span class="type-signature"></span>importSourceZip<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Import the source zip file and expand it into the "translation-source" folder in the persistence store.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>args</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JavaScript object containing the "importSourceZip" parameters.
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier of the job to be deleted.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>zipFile</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">stream</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The contents of the zip file to write to the filesystem</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#importSourceZip">PersistenceStoreInterface#importSourceZip</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A Promise that is resolved when the zip file has been written to the filesystem and expanded.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="SampleFilePersistenceStore#updateFileMetadata"></a>
+            
+
+    
+
+    <h4 class="name" id="updateFileMetadata"><span class="type-signature"></span>updateFileMetadata<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="PersistenceApi.html#.fileMetadata">PersistenceApi.fileMetadata</a>>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Update the metadata for a file being translated.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>args</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">object</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JavaScript object containing the "updateFileMetadata" parameters.
+                <h6>Properties</h6>
+                
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>jobId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier of the job.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>fileType</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">'site'</span>
+|
+
+<span class="param-type">'assets'</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Type of file to fetch - whether it's an assets file or a site resource.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>file</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="SampleJobManager.html#.file">SampleJobManager.file</a></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Details about the file in the persistence store.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+            </td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#updateFileMetadata">PersistenceStoreInterface#updateFileMetadata</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A Promise that is resolved with a details on the metadata for the file
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;<a href="PersistenceApi.html#.fileMetadata">PersistenceApi.fileMetadata</a>></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="SampleFilePersistenceStore#updateJob"></a>
+            
+
+    
+
+    <h4 class="name" id="updateJob"><span class="type-signature"></span>updateJob<span class="signature">(args)</span><span class="type-signature"> &rarr; {Promise.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Update a translation job.<br/>
+Update the translation job with new metadata about the jobs state.<br/>
+Note: This currently supports only updating the following properties in the metadata: 
+<ul>
+  <li>status<li>
+  <li>statusMessage<li>
+  <li>translatedZipFile<li>
+  <li>progress<li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>args</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JavaScript object containing the metadata to update for this job.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-overrides">Overrides:</dt>
+    <dd class="tag-overrides"><ul class="dummy"><li>
+        <a href="PersistenceStoreInterface.html#updateJob">PersistenceStoreInterface#updateJob</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    The updated metadata stored for this job.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;<a href="SampleJobManager.html#.JobConfig">SampleJobManager.JobConfig</a>></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+     
+       </article>
+    </section>
+
+</div>
+</div>
+
+
+<div class="footer-container clearboth" >
+    <div style="max-width: 994px; padding:10px 0 0 17px;">
+        <footer class="footer-list">
+            <ul>
+                <li> <a href="http://www.oracle.com/corporate/index.html" target="_blank">About Oracle</a> </li>
+                <li> <a href="http://www.oracle.com/us/corporate/contact/index.html" target="_blank">Contact Us</a> </li>
+                <li> <a href="http://www.oracle.com/us/legal/index.html" target="_blank">Legal Notices</a> </li>
+                <li> <a href="http://www.oracle.com/us/legal/terms/index.html" target="_blank">Terms of Use</a> </li>
+                <li> <a href="http://www.oracle.com/us/legal/privacy/index.html" target="_blank">Your Privacy Rights</a> </li>
+            </ul>
+    </footer>
+    <span style="display:block;" class="copyright">Copyright &copy;  2017, Oracle and/or its affiliates. All rights reserved. </span>
+    </div>
+</div>
+
+<link type="text/css" rel="stylesheet" href="./styles/prettify-tomorrow.css">
+
+
+
+
+
+<script> prettyPrint(); </script>
+<script src="./scripts/linenumber.js"> </script>
+</body>
+</html>

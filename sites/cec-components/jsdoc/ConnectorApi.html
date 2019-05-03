@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Oracle Help Center : Class: ConnectorApi</title>
+
+    <script src="./scripts/prettify/prettify.js"> </script>
+    <script src="./scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  
+    <script src="./scripts/jquery-1.11.0.min.js"></script>
+    <link href="./styles/jsdoc-default.css" rel="stylesheet">
+
+<script>
+$.ajax({
+    url:'./styles/jsdoc-default.css',
+    type:'HEAD',
+    error: function()
+    {
+        $('<link href="./styles/jsdoc-default.css" rel="stylesheet">').appendTo("head");
+        //file not exists
+    },
+    success: function()
+    {
+    }
+});
+</script>
+<script>
+jQuery.getScript("./scripts/jsdoc-main.min.js")
+    .done(function() {
+    })
+    .fail(function() {
+        jQuery.getScript("./scripts/jsdoc-main.min.js")
+    });
+</script>
+<script>
+jQuery.getScript("./scripts/bootstrap.min.js")
+    .done(function() {
+    })
+    .fail(function() {  
+});
+</script>
+ <link type="text/css" rel="stylesheet" href="./styles/glyphicons.css">
+
+</head>
+
+<body>
+         <noscript>
+            <div>JavaScript must be enabled to correctly display this content</div>
+        </noscript>
+<!-- skipto -->
+<a href="#main" class="accessibility-top skipto">Skip to main content</a> 
+
+<!-- header -->
+<header id="ohc-header">
+<div class="oracle-logo"><a href="docs.oracle.com"><img src="img/oracle-doc-logo.png" alt="Oracle Help Center Logo"  width="236" height="22" style="max-width: none;" ></a></div> 
+</header>
+
+<!-- product -->
+    <h1>Class: ConnectorApi</h1>
+
+<div id="container"><div id="leftpanel" aria-hidden="true"></div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Classes</h3><ul><li><a href="ConnectorApi.html">ConnectorApi</a></li><li><a href="FilterApi.html">FilterApi</a></li><li><a href="PersistenceApi.html">PersistenceApi</a></li><li><a href="SampleBasicAuth.html">SampleBasicAuth</a></li><li><a href="SampleConnector.html">SampleConnector</a></li><li><a href="SampleConnectorRouter.html">SampleConnectorRouter</a></li><li><a href="SampleFileDownloader.html">SampleFileDownloader</a></li><li><a href="SampleFileImporter.html">SampleFileImporter</a></li><li><a href="SampleFileTranslator.html">SampleFileTranslator</a></li><li><a href="SampleJobManager.html">SampleJobManager</a></li></ul>
+</nav>
+
+
+<div id="main">
+
+   <h1 class="page-title">Class: ConnectorApi</h1>
+  <section>
+        <article>
+
+    
+
+
+
+
+<section>
+
+<!--TOC-->
+<article>
+<header>
+<h2 class="page-title">QuickNav</h2>
+</header>
+<div class="quick-nav-section">
+<h3 class="subsection-title">Methods</h3>
+
+<ul><li><a href="#ConnectorApi#addDocument"><span class="type-signature"></span>addDocument<span class="signature">(projectId, authToken, name, content, sourceLocale)</span><span class="type-signature"> &rarr; {Promise.&lt;object>}</span></a></li><li><a href="#ConnectorApi#addProject"><span class="type-signature"></span>addProject<span class="signature">(authToken, communityId, workflowId, projectName)</span><span class="type-signature"> &rarr; {Promise.&lt;string>}</span></a></li><li><a href="#ConnectorApi#addTranslation"><span class="type-signature"></span>addTranslation<span class="signature">(authToken, projectId, id, locale)</span><span class="type-signature"> &rarr; {Promise.&lt;object>}</span></a></li><li><a href="#ConnectorApi#getCommunity"><span class="type-signature"></span>getCommunity<span class="signature">(authToken)</span><span class="type-signature"> &rarr; {Promise.&lt;object>}</span></a></li><li><a href="#ConnectorApi#getDocument"><span class="type-signature"></span>getDocument<span class="signature">(authToken, id)</span><span class="type-signature"> &rarr; {Promise.&lt;string>}</span></a></li><li><a href="#ConnectorApi#getDocumentTranslationStatus"><span class="type-signature"></span>getDocumentTranslationStatus<span class="signature">(authToken, id, locale)</span><span class="type-signature"> &rarr; {Promise.&lt;object>}</span></a></li><li><a href="#ConnectorApi#getDocumentTranslationStatuses"><span class="type-signature"></span>getDocumentTranslationStatuses<span class="signature">(authToken, id)</span><span class="type-signature"> &rarr; {Promise.&lt;object>}</span></a></li><li><a href="#ConnectorApi#getProjectStatus"><span class="type-signature"></span>getProjectStatus<span class="signature">(authToken, id)</span><span class="type-signature"> &rarr; {Promise.&lt;string>}</span></a></li><li><a href="#ConnectorApi#getTranslation"><span class="type-signature"></span>getTranslation<span class="signature">(authToken, id, locale)</span><span class="type-signature"> &rarr; {Promise.&lt;string>}</span></a></li></ul>
+</div>
+</article>
+<!--/TOC-->
+
+<!--header-->
+    
+        <h2>ConnectorApi</h2>
+        
+    
+<!--/header-->
+
+<article>
+    <div class="container-overview">
+    
+        
+
+    
+
+    <h4 class="name" id="ConnectorApi"><span class="type-signature"></span>new ConnectorApi<span class="signature">()</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    Connector's interface to the Language Service Provider.</br>
+Handles all the required GET/POST/DELETE requests.
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    </div>
+
+    
+
+    
+
+    
+
+     
+
+    
+
+    
+
+    
+        <h3 class="subsection-title">Methods</h3>
+
+        
+            <a name="ConnectorApi#addDocument"></a>
+            
+
+    
+
+    <h4 class="name" id="addDocument"><span class="type-signature"></span>addDocument<span class="signature">(projectId, authToken, name, content, sourceLocale)</span><span class="type-signature"> &rarr; {Promise.&lt;object>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Import a document into the Language Service Provider.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>projectId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier of the project that will include the document.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>authToken</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Authorization header tokent ot include in the request.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>name</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Name of the document.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>content</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">JSON content of the document.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>sourceLocale</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The source locale for the document.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    The response from the Language Service Provider.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;object></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="ConnectorApi#addProject"></a>
+            
+
+    
+
+    <h4 class="name" id="addProject"><span class="type-signature"></span>addProject<span class="signature">(authToken, communityId, workflowId, projectName)</span><span class="type-signature"> &rarr; {Promise.&lt;string>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Create a new project in the Language Service Provider.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>authToken</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Authorization header tokent ot include in the request.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>communityId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Community identifier that should contain the project.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>workflowId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier of the Language Service Provider workflow to use to translate any documents.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>projectName</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Name of project to create.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    The Language Service Provider string id for the created project.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;string></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="ConnectorApi#addTranslation"></a>
+            
+
+    
+
+    <h4 class="name" id="addTranslation"><span class="type-signature"></span>addTranslation<span class="signature">(authToken, projectId, id, locale)</span><span class="type-signature"> &rarr; {Promise.&lt;object>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Request the document be translated into the given locale.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>authToken</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Authorization header tokent ot include in the request.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>projectId</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Identifier of the project that will include the document.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>id</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Language Service Provider identifier for the document.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>locale</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Name of the locale to check.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    The Language Service Provider POST "/:id/translation" response.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;object></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="ConnectorApi#getCommunity"></a>
+            
+
+    
+
+    <h4 class="name" id="getCommunity"><span class="type-signature"></span>getCommunity<span class="signature">(authToken)</span><span class="type-signature"> &rarr; {Promise.&lt;object>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Get the details about the community for this user.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>authToken</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Authorization header tokent ot include in the request.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    The Language Service Provider GET "/community" response.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;object></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="ConnectorApi#getDocument"></a>
+            
+
+    
+
+    <h4 class="name" id="getDocument"><span class="type-signature"></span>getDocument<span class="signature">(authToken, id)</span><span class="type-signature"> &rarr; {Promise.&lt;string>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Get the document identied by the Language service provider Id
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>authToken</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Authorization header tokent ot include in the request.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>id</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Language Service Provider identifier for the document.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    The content of the document.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;string></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="ConnectorApi#getDocumentTranslationStatus"></a>
+            
+
+    
+
+    <h4 class="name" id="getDocumentTranslationStatus"><span class="type-signature"></span>getDocumentTranslationStatus<span class="signature">(authToken, id, locale)</span><span class="type-signature"> &rarr; {Promise.&lt;object>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Get the status of the specified locale of the document in the Language Service Provider.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>authToken</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Authorization header tokent ot include in the request.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>id</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Language Service Provider identifier for the document.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>locale</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Name of the locale to check.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    The Language Service Provider GET "/:id/translation" response specific for the requested locale.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;object></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="ConnectorApi#getDocumentTranslationStatuses"></a>
+            
+
+    
+
+    <h4 class="name" id="getDocumentTranslationStatuses"><span class="type-signature"></span>getDocumentTranslationStatuses<span class="signature">(authToken, id)</span><span class="type-signature"> &rarr; {Promise.&lt;object>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Get the statuses of all the locales of the document in the Language Service Provider.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>authToken</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Authorization header tokent ot include in the request.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>id</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Language Service Provider identifier for the document.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    The Language Service Provider GET "/:id/translation" response.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;object></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="ConnectorApi#getProjectStatus"></a>
+            
+
+    
+
+    <h4 class="name" id="getProjectStatus"><span class="type-signature"></span>getProjectStatus<span class="signature">(authToken, id)</span><span class="type-signature"> &rarr; {Promise.&lt;string>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Get the percent complete of the project.<br/>
+This represents the percentage complete of the translations for all the documents in the project.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>authToken</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Authorization header tokent ot include in the request.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>id</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Language Service Provider identifier for the document.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    The Language Service Provider GET "/:id/status" response.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;string></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            <a name="ConnectorApi#getTranslation"></a>
+            
+
+    
+
+    <h4 class="name" id="getTranslation"><span class="type-signature"></span>getTranslation<span class="signature">(authToken, id, locale)</span><span class="type-signature"> &rarr; {Promise.&lt;string>}</span></h4>
+
+    
+
+
+
+<div class="description">
+    Get the tranlation of the document for the given locale.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>authToken</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Authorization header tokent ot include in the request.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>id</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Language Service Provider identifier for the document.</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>locale</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">string</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Name of the locale to check.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    The Language Service Provider GET "/:id/translation/:locale" response.
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Promise.&lt;string></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+    
+
+    
+
+    
+</article>
+
+</section>
+
+
+
+
+     
+       </article>
+    </section>
+
+</div>
+</div>
+
+
+<div class="footer-container clearboth" >
+    <div style="max-width: 994px; padding:10px 0 0 17px;">
+        <footer class="footer-list">
+            <ul>
+                <li> <a href="http://www.oracle.com/corporate/index.html" target="_blank">About Oracle</a> </li>
+                <li> <a href="http://www.oracle.com/us/corporate/contact/index.html" target="_blank">Contact Us</a> </li>
+                <li> <a href="http://www.oracle.com/us/legal/index.html" target="_blank">Legal Notices</a> </li>
+                <li> <a href="http://www.oracle.com/us/legal/terms/index.html" target="_blank">Terms of Use</a> </li>
+                <li> <a href="http://www.oracle.com/us/legal/privacy/index.html" target="_blank">Your Privacy Rights</a> </li>
+            </ul>
+    </footer>
+    <span style="display:block;" class="copyright">Copyright &copy;  2017, Oracle and/or its affiliates. All rights reserved. </span>
+    </div>
+</div>
+
+<link type="text/css" rel="stylesheet" href="./styles/prettify-tomorrow.css">
+
+
+
+
+
+<script> prettyPrint(); </script>
+<script src="./scripts/linenumber.js"> </script>
+</body>
+</html>

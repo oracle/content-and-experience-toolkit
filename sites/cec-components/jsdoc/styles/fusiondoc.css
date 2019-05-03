@@ -1,0 +1,547 @@
+/* CSS Document 
+Copyright 2014-2015, Oracle and/or its affiliates. All rights reserved.
+Author: Jordan Douglas 
+Version: 2015.July.24 
+*/
+
+body {
+	font-family: "Helvetica Neue", Helvetica, 'Open Sans', arial, sans-serif;
+	color: #4f4f4f;
+	font-size: 15px;
+	font-weight: normal;
+	line-height: 1.5em;
+}
+.fusiondoc {
+	font-family: "Helvetica Neue", Helvetica, Arial, sas-serif;
+}
+article {
+	padding: 20px;
+}
+article, article p, .fusiondoc p {
+	line-height: 1.4;
+	margin-top: .4em;
+	margin-bottom: .4em;
+	padding-top: .4em;
+	padding-bottom: .4em;
+}
+article hr, .fusiondoc hr {
+	height: 1px;
+	border: 0;
+	background-color: #d6dfe6;
+	color: #d6dfe6;
+}
+/* h1,h2,h3,h4,h5,h6 */
+
+
+.chapter-number, .letterstyle h1 .secnum, h1.appendix .secnum, h1.chapter .secnum, h1.refentry .secnum, h1.part .secnum, .IND h1 .secnum {
+	font-size: 42px;
+	font-weight: 500;
+	color: #999;
+	border: none;
+	margin-top: 0.3em;
+	margin-bottom: 0.7em;
+}
+article h1, .chapter_name, .fusiondoc h1 {
+	font-size: 36px !important;
+	font-weight: 500 !important;
+	color: #272727;
+/*	display: inline; Removed for get started obe*/
+	line-height: 1.3;
+	margin: .8em 0 15px 0;
+}
+article h2, .fusiondoc h2 {
+	font-size: 30px !important;
+	font-weight: 500;
+	color: #1D5AAB;
+	line-height: 1.3;
+	margin: .8em 0 10px 0
+}
+article h3, .fusiondoc h3 {
+	font-size: 24px !important;
+	font-weight: 500;
+	color: #252525;
+	line-height: 1.3;
+	margin: .9em 0 8px 0;
+}
+article h4, .fusiondoc h4 {
+	font-size: 18px !important;
+	font-weight: bold;
+	color: #252525;
+	line-height: 1.3;
+	margin: .1em 0 6px 0;
+}
+article h5, .fusiondoc h5 {
+	font-size: 16px !important;
+	font-weight: bold;
+	color: #252525;
+	line-height: 1.3;
+	margin: 1em 0 4px 0;
+}
+article h6, .fusiondoc h6 {
+	font-size: 14px;
+	font-weight: bold;
+	color: #252525;
+	line-height: 1.3;
+	margin: 15px 0 4px 0;
+}
+article h1 .title, .fusiondoc h1 .title, article h2 .title, .fusiondoc h2 .title, article h3 .title, .fusiondoc h3 .title, article h4 .title, .fusiondoc h4 .title, article h5 .title, .fusiondoc h5 .title, article h6 .title, .fusiondoc h6 .title {
+	float: none !important;
+}
+/* LINKS */
+
+article a:active, .fusiondoc a:active, article a:link, .fusiondoc a:link {
+	color: #0060b1;
+	text-decoration: none;
+}
+article a:hover {
+	text-decoration: underline;
+}
+article a:visited {
+	color: #145c93;
+	text-decoration: none;
+}
+/* alt font styles */
+
+strong, b {
+	font-weight: bold;
+}
+small {
+	font-size: 12px;
+}
+sub, sup {
+	font-size: 75%;
+	color: #666;
+	line-height: 0;
+	position: relative;
+	vertical-align: baseline;
+}
+sup {
+	top: -0.5em;
+}
+sub {
+	bottom: -0.25em;
+}
+blockquote {
+	margin: 15px 0 15px 40px !important;
+	padding: 12px 0 12px 15px !important;
+	border-left: 3px solid #ccc;
+}
+article caption, .fusiondoc caption {
+	text-align: center;
+	font-weight: bold;
+	width: auto;
+	padding-top: 12px;
+	font-size: 12px;
+}
+
+/* Use <code> for inline code that can wrap and <pre><code> for block code that must not wrap. */
+
+code, samp, tt, systemoutput {
+	font-family: "menlo", "monaco", "Courier New", Courier, mono, serif;
+	font-size: 13px;
+	color: #000;
+	line-height: 1.615;
+	/* padding left/right removed for dps-3504 */
+	padding: 3px 0;
+}
+pre {
+	font-family: "menlo", "monaco", "Courier New", Courier, mono, serif;
+	font-size: 13px;
+	color: #222;
+	line-height: 1.615;
+	background-color: whitesmoke;
+	border: 1px solid #d9d9e2;
+	border-radius: 3px;
+	padding: 10px;
+	word-wrap: normal !important;
+	white-space: pre !important;
+	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+}
+kbd, userinput {
+	font-family: "menlo", "monaco", "Courier New", Courier, mono, serif;
+	font-size: 13px;
+	color: #222;
+	line-height: 1.615;
+	background-color: #eee;
+	border: 1px solid #d9d9e2;
+	border-radius: 3px;
+	word-wrap: normal !important;
+	white-space: pre !important;
+	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+	box-shadow: none;
+}
+/* bullet list Styles */
+
+article ol, article ul, .fusiondoc ol, .fusiondoc ul {
+	margin-left: .4em;
+	padding-left: 1em;
+	margin-top: .4em;/*padding-top: .4em;
+	padding-bottom: .4em;*/
+}
+article li, .fusiondoc li {
+	/*list-style: none;*/
+	margin-top: .4em;
+	margin-bottom: .4em;
+}
+.list-inline ul {
+	padding-top: 1em;
+}
+article .list-inline li, .fusiondoc .list-inline li {
+	display: inline-block;
+	padding-right: 10px;
+	margin-left: 20px;
+}
+/*<p> inside <li>*/
+article li > p, .fusiondoc li > p {
+	margin: 0;
+	padding: 0;
+}
+dl {
+	padding-left: 10px;
+}
+dt {
+	font-weight: 500;
+	color: #1D5AAB;
+	padding-bottom: 8px;
+	padding-top: 8px;
+}
+dd {
+}
+/*table styles*/
+
+article table, .fusiondoc table {
+	margin-top: 10px;
+	margin-bottom: 15px;
+	border-collapse: collapse;
+	max-width: 100%;
+}
+article th, .fusiondoc th {
+	background: #3F3F3F;
+	font-weight: bold;
+	color: #FFF;
+	text-align: left;
+	padding: 5px 6px;
+}
+article tr, .fusiondoc tr {
+	vertical-align: top;
+	padding: 8px 6px 8px 6px;
+	border-bottom: 1px solid #3F3F3F;
+}
+article tr:last-child, .fusiondoc tr:last-child {
+	border-bottom: 2px solid #3F3F3F;
+}
+article td, .fusiondoc td {
+	padding: 5px 6px;
+	text-align: left;
+	word-wrap: break-word;
+}
+article img, .fusiondoc img {
+	max-width: 100%;
+	height: auto;
+}
+table.table-border {
+	border-collapse: collapse;
+	border-top: 1px solid #ccc;
+	border-left: 1px solid #ccc;
+}
+table.table-border th {
+	padding: 0.5ex 0.25em;
+	color: black;
+	background-color: #f7f7ea;
+	border-right: 1px solid #ccc;
+	border-bottom: 1px solid #ccc;
+}
+table.table-border td {
+	padding: 0.5ex 0.25em;
+	border-right: 1px solid #ccc;
+	border-bottom: 1px solid #ccc;
+}
+/*Info Boxs */ 
+.infobox-restrict, .infobox-caution, .infobox-warn, .infobox-note, .infobox-tip, .infobox-important {
+	padding: 5px 10px;
+	margin: 10px 0;
+	background-repeat: no-repeat;
+}
+.notep1 {
+	font-size: 18px;
+}
+/*Info Box Restriction RED*/
+.infobox-restrict {
+	border-left: 3px solid #D34349;
+	background: #FEF5F6;
+}
+.infobox-restrict .notep1 {
+	color: #D34349;
+	font-size: 18px;
+}
+/*Info Box Caution Yellow*/
+.infobox-caution {
+	border-left: 3px solid #D6A042;
+	background: #FEFBF3;
+}
+.infobox-caution .notep1 {
+	color: #D6A042;
+}
+/*Info Box Warning Yellow*/
+.infobox-warn {
+	border-left: 3px solid #D6A042;
+	background: #FEFBF3;
+}
+.infobox-warn .notep1 {
+	color: #D6A042;
+}
+/*Info Box Note BLUE*/
+.infobox-note {
+	border-left: 3px solid #1C59AA;
+	background: #EFF6FE;
+}
+.infobox-note .notep1 {
+	color: #1C59AA;
+}
+/*Info Box Tip GREEN*/
+.infobox-tip {
+	border-left: 3px solid #218041;
+	background: #EFFFF4;
+}
+.infobox-tip .notep1 {
+	color: #218041;
+}
+/*Info Box Important PURPLE*/
+.infobox-important {
+	border-left: 3px solid #7c2482;
+	background: #fdf5ff;
+}
+.infobox-important .notep1 {
+	color: #7c2482;
+}
+/*end UX styles*/
+
+
+/* image styles*/
+a img {
+	border-style: none;
+}
+/* misc */
+span.gui-object, span.gui-object-action {
+	font-weight: bold;
+}
+span.gui-object-title {
+}
+p.horizontal-rule {
+	width: 100%;
+	border: solid #cc9;
+	border-width: 0px 0px 1px 0px;
+	margin-bottom: 4ex;
+}
+div.zz-skip-header {
+	display: none;
+}
+td.zz-nav-header-cell {
+	text-align: left;
+	/*	font-size: 95%;*/
+	width: 99%;
+	color: black;
+	background: inherit;
+	font-weight: normal;
+	vertical-align: top;
+	margin-top: 0ex;
+	padding-top: 0ex;
+}
+div.zz-skip-header {
+	display: none;
+}
+a.zz-nav-button-link {
+	font-size: 90%;
+}
+div.zz-nav-footer-menu {
+	width: 100%;
+	text-align: center;
+	margin-top: 2ex;
+	margin-bottom: 4ex;
+}
+p.zz-legal-notice, a.zz-legal-notice-link {
+	font-size: 85%;/* display: none; */  /* Uncomment to hide legal notice */
+}
+/*************************************/
+/*  Begin DARB Formats               */
+/*************************************/
+
+dt, .subhead, .bold, .codeinlinebold, .syntaxinlinebold, .term, .glossterm, .seghead, .glossaryterm, .keyword, .msg, .msgexplankw, .msgactionkw, .notep1, .xreftitlebold {
+	font-weight: bold;
+}
+.italic, .codeinlineitalic, .syntaxinlineitalic, .variable, .xreftitleitalic {
+	font-style: italic;
+}
+.bolditalic, .codeinlineboldital, .syntaxinlineboldital, .titleinfigure, .titleinexample, .titleintable, .titleinequation, .xreftitleboldital {
+	font-weight: bold;
+	font-style: italic;
+}
+.bridgehead, .titleinrefsubsect {
+	font-weight: bold;
+}
+.subhead1 {
+	display: block;
+	font-size: 130%;
+	font-weight: bold;
+	padding-top: 10px;
+}
+.subhead2 {
+	display: block;
+	font-size: 110%;
+	font-weight: bold;
+	padding-top: 10px;
+}
+.subhead3 {
+	display: block;
+	font-weight: bold;
+	padding-top: 10px;
+}
+.underline {
+	text-decoration: underline;
+}
+.superscript {
+	vertical-align: super;
+}
+.subscript {
+	vertical-align: sub;
+}
+.listofeft {
+	border: none;
+}
+.betadraft {
+	color: #f00;
+	background: inherit;
+}
+.betadraftsubtitle {
+	text-align: center;
+	font-weight: bold;
+	color: #f00;
+	background: inherit;
+}
+.comment {
+	color: #080;
+	background: inherit;
+	font-weight: bold;
+}
+.copyrightlogo {
+	text-align: center;
+	font-size: 85%;
+}
+.tocsubheader {
+	list-style-type: none;
+}
+table.icons td {
+	padding-left: 6px;
+	padding-right: 6px;
+}
+.l1ix dd, dd dl.l2ix, dd dl.l3ix {
+	margin-top: 0ex;
+	margin-bottom: 0ex;
+}
+p.notep1 {
+	margin-top: 0px;
+	margin-bottom: 0px;
+}
+.uicontrol {
+	font-weight: bold;
+}
+.r_parameter_group_title {
+	font-weight: bold;
+	font-size: 16px;
+}
+
+
+ 
+
+/*****************************/
+/*  Responsive               */
+/*****************************/
+
+
+@media only screen and (min-width: 480px) {
+article {
+	padding: 10px;
+}
+.infobox-restrict {
+	background: #FEF5F6 url("../img/icon-restrict-16.png") no-repeat 7px 20px;
+}
+.infobox-caution {
+	background: #FEFBF3 url("../img/icon-caution-16.png") no-repeat 7px 20px;
+}
+.infobox-warn {
+	background: #FEFBF3 url("../img/icon-warning-16.png") no-repeat 7px 20px;
+}
+.infobox-note {
+	background: #EFF6FE url("../img/icon-note-16.png") no-repeat 7px 20px;
+}
+.infobox-tip {
+	background: #EFFFF4 url("../img/icon-tip-16.png") no-repeat 7px 20px;
+}
+.infobox-important {
+	background: #fdf5ff url("../img/icon-important-16.png") no-repeat 7px 20px;
+}
+.infobox-restrict, .infobox-caution, .infobox-warn, .infobox-note, .infobox-tip, .infobox-important {
+	padding: 15px 25px 10px 35px;
+}
+}
+
+ @media only screen and (min-width: 768px) {
+article {
+	padding: 20px;
+}
+/*margin for lists*/
+article ol, article ul, .fusiondoc ol, .fusiondoc ul {
+	margin-left: .4em;
+}
+/*margin for lists in tables*/
+article td ol, article td ul, .fusiondoc td ol, .fusiondoc td ul {
+	margin-left: .4em;
+	padding-top: .4em;
+	padding-bottom: .4em;
+}
+article li, .fusiondoc li {
+	margin-top: .4em;
+	margin-bottom: .4em;
+}
+dl {
+	padding-left: 40px;
+}
+
+
+
+}
+ @media only screen and (min-width: 1140px) {
+article {
+	padding: 20px 20px 40px 40px;
+}
+}
+.spec-css {
+	display: none;
+	font-family: "menlo", "monaco", "Courier New", Courier, mono, serif;
+	color: #000;
+	background-color: #F6FEF5;
+	border: 1px solid #BFD3BA;
+	border-radius: 5px;
+	padding: 10px;
+	word-wrap: normal !important;
+	overflow: auto;
+	margin: 10px 0;
+}
+.spec-usage {
+	display: none;
+	font-family: "menlo", "monaco", "Courier New", Courier, mono, serif;
+	color: #000;
+	line-height: 1.615;
+	background-color: #FBFCFD;
+	border: 1px solid #B5C5E6;
+	border-radius: 5px;
+	padding: 10px;
+	word-wrap: normal !important;
+	overflow: auto;
+	margin: 10px 0;
+}
+.spec-usage, .spec-usage p, .spec-css, .spec-css p {
+	font-size: 11px;
+}
