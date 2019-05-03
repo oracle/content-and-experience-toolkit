@@ -1,0 +1,30 @@
+{
+	"name": "cec-sites-toolkit-source",
+	"version": "19.2.1",
+	"license": "UPL-1.0",
+	"description": "Content and Experience Cloud Toolkit Development",
+	"main": "index.js",
+	"directories": {
+	},
+	"scripts": {
+	},
+	"repository": {
+		"type": "git",
+		"url": ""
+	},
+	"keywords": [
+		"SCS"
+	],
+	"author": "Oracle",
+	"engines": {
+		"node": "8.9.4"
+	},
+	"dependencies": {
+		"chai": "4.1.2",
+		"fs-extra": "6.0.1",
+		"gulp": "4.0.0",
+		"gulp-replace": "1.0.0",
+		"mocha": "5.2.0",
+		"requirejs": "2.3.6"
+	}
+}

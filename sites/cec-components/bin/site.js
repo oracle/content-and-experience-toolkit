@@ -5,12 +5,8 @@
 /* global console, __dirname, process, module, Buffer, console */
 /* jshint esversion: 6 */
 
-var path = require('path'),
-	he = require('he'),
+var he = require('he'),
 	serverUtils = require('../test/server/serverUtils.js');
-
-var projectDir = path.join(__dirname, "..");
-
 
 //
 // Private functions
@@ -262,6 +258,33 @@ var _getRepository = function (request, localhost, repositoryId) {
 		});
 	});
 	return repositoryPromise;
+};
+
+var _getChannelInfo = function (request, localhost, channelId) {
+	var channelPromise = new Promise(function (resolve, reject) {
+		var url = localhost + '/content/management/api/v1.1/channels/' + channelId;
+		url = url + '?includeAdditionalData=true&fields=all';
+		request.get(url, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get channel with id ' + channelId);
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			if (response && response.statusCode === 200) {
+				var data = JSON.parse(body);
+				resolve(data);
+			} else {
+				console.log('ERROR: Failed to get channel with id ' + policyId);
+				console.log(response ? response.statusCode + response.statusMessage : '');
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+	return channelPromise;
 };
 
 var _getLocalizationPolicy = function (request, localhost, policyId) {
@@ -1707,7 +1730,8 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 		siteInfoPromise
 			.then(function (result) {
 				if (result.err) {
-					return resolve(result);
+					_indexSiteEnd(done);
+					return;
 				}
 				siteInfo = result.data.base.properties;
 				_SiteInfo = siteInfo;
@@ -1715,21 +1739,50 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 				localizationPolicy = siteInfo.localizationPolicy;
 				siteRepositoryId = siteInfo.repositoryId;
 				_siteChannelToken = _getSiteChannelToken(siteInfo);
-				console.log(' - site: ' + site + ', default language: ' + defaultLanguage + ', channel token: ' + _siteChannelToken);
+				
+				if (!siteInfo.isEnterprise) {
+					console.log('ERROR: site ' + site + ' is not an enterprise site');
+					_indexSiteEnd(done);
+					return;
+				}
 
+				console.log(' - site: ' + site + ', default language: ' + defaultLanguage + ', channel token: ' + _siteChannelToken);
+				
+				//
+				// Get channel
+				//
+				var channelPromises = [];
+				if (siteInfo.channelId) {
+					channelPromises.push(_getChannelInfo(request, localhost, siteInfo.channelId));
+				}
+				return Promise.all(channelPromises);
+			})
+			.then(function (result) {
+				if (result.err) {
+					_indexSiteEnd(done);
+					return;
+				}
+				console.log(' - query channel');
+				var policyId = result && result.length > 0 ? result[0].localizationPolicy : undefined;
 				//
 				// Get Localization policy
 				//
-				return _getLocalizationPolicy(request, localhost, localizationPolicy);
+				var policyPromise = [];
+				if (policyId) {
+					policyPromise.push(_getLocalizationPolicy(request, localhost, policyId));
+				}
+				return Promise.all(policyPromise);
+				
 			})
 			.then(function (result) {
 				//
 				// Get Localization policy
 				//
 				if (result.err) {
-					return resolve(result);
+					_indexSiteEnd(done);
+					return;
 				}
-				var policy = result;
+				var policy = result && result[0] || {};
 				console.log(' - site localization policy: ' + policy.name);
 				_requiredLangs = policy.requiredValues;
 				_optionalLangs = policy.optionalValues;
@@ -2122,9 +2175,11 @@ var _getCSRFToken = function (server, request) {
 module.exports.indexSite = function (argv, done) {
 	'use strict';
 
-	var server = serverUtils.getConfiguredServer();
+	var projectDir = argv.projectDir;
+
+	var server = serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured');
+		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
 		return;
 	}
@@ -2490,7 +2545,10 @@ module.exports.indexSite = function (argv, done) {
 		});
 
 
-		var localServer = app.listen(port, function () {
+		var localServer = app.listen(0, function () {
+			port = localServer.address().port;
+			localhost = 'http://localhost:' + port;
+			
 			var total = 0;
 			var inter = setInterval(function () {
 				// console.log(' - getting login user: ' + total);

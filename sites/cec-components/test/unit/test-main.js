@@ -4,27 +4,31 @@
  */
 /* global requirejs, console, mocha */
 
-requirejs.config({
-	'baseUrl': '.',
+$.getJSON('/getsrcfolder', function (data) {
+	'use strict';
 
-	paths: {
-		'sitesMockAPI': '../public/js/sites.mock',
-		'sitesMockData': '../public/js/sites.data',
-		'jquery': '../sitescloud/renderer/app/apps/js/jquery.min',
-		'knockout': '../sitescloud/renderer/app/apps/js/knockout.min',
-		'text': '../../src/libs/requirejs-text/text',
-		'css': '../../src/libs/require-css/css.min',
-		'components': '../../src/main/components'
-	},
-	config: {}
+	var srcfolder = data.srcfolder;
+	var libfolder = srcfolder === 'src' ? 'libs' : 'src/libs';
+
+	requirejs.config({
+		'baseUrl': '.',
+
+		paths: {
+			'sitesMockAPI': '../public/js/sites.mock',
+			'sitesMockData': '../public/js/sites.data',
+			'jquery': '../sitescloud/renderer/app/apps/js/jquery.min',
+			'knockout': '../sitescloud/renderer/app/apps/js/knockout.min',
+			'text': '../../' + libfolder + '/requirejs-text/text',
+			'css': '../../' + libfolder + '/require-css/css.min',
+			'components': '../../' + srcfolder + '/components'
+		},
+		config: {}
+	});
+
+	requirejs(['Sample-To-Do-Test'], function () {
+		mocha.checkLeaks();
+		mocha.globals(['jQuery']);
+		mocha.run();
+	});
+
 });
-
-
-requirejs(['Sample-To-Do-Test'], function() {
-	"use strict";
-	mocha.checkLeaks();
-	mocha.globals(['jQuery']);
-	mocha.run();
-});
-
-

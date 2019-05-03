@@ -152,6 +152,33 @@ var _getSiteStructure = function (request, localhost, site, locale, isMaster) {
 	return siteStructurePromise;
 };
 
+var _getChannelInfo = function (request, localhost, channelId) {
+	var channelPromise = new Promise(function (resolve, reject) {
+		var url = localhost + '/content/management/api/v1.1/channels/' + channelId;
+		url = url + '?includeAdditionalData=true&fields=all';
+		request.get(url, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get channel with id ' + channelId);
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			if (response && response.statusCode === 200) {
+				var data = JSON.parse(body);
+				resolve(data);
+			} else {
+				console.log('ERROR: Failed to get channel with id ' + policyId);
+				console.log(response ? response.statusCode + response.statusMessage : '');
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+	return channelPromise;
+};
+
 var _getLocalizationPolicy = function (request, localhost, policyId) {
 	var policyPromise = new Promise(function (resolve, reject) {
 		var url = localhost + '/content/management/api/v1.1/policy/' + policyId;
@@ -661,7 +688,7 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 	// page urls
 	//
 	var pagePriority = [];
-	
+
 	for (var i = 0; i < pages.length; i++) {
 		var pageId = pages[i].id;
 		var masterPageData = _getMasterPageData(pageId);
@@ -693,13 +720,13 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 				}
 			}
 
-			// console.log('page: ' + pages[i].id + ' url: ' + pages[i].pageUrl + ' priority: ' + priority + ' lastmod: ' + lastmod);
+			// console.log('page: ' + pages[i].id + ' parent: ' + pages[i].parentId + ' url: ' + pages[i].pageUrl + ' priority: ' + priority + ' lastmod: ' + lastmod);
 			urls.push({
 				loc: prefix + '/' + (includeLocale ? (pages[i].locale + '/') : '') + pages[i].pageUrl,
 				lastmod: lastmod,
 				priority: priority
 			});
-			
+
 			pagePriority.push({
 				id: pages[i].id.toString(),
 				priority: priority
@@ -707,7 +734,7 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 
 		}
 	}
-	
+
 	//
 	// detail page urls for items
 	//
@@ -1181,14 +1208,29 @@ var _prepareData = function (server, request, localhost, site, languages) {
 				siteRepositoryId = siteInfo.repositoryId;
 				siteChannelId = siteInfo.channelId;
 				_siteChannelToken = _getSiteChannelToken(siteInfo);
-				console.log(' - site: ' + site + ', default language: ' + defaultLanguage + ', channel token: ' + _siteChannelToken + ', localizationPolicy: ' + siteInfo.localizationPolicy);
+				console.log(' - site: ' + site + ', default language: ' + defaultLanguage + ', channel: ' + siteInfo.channelId);
 
+				//
+				// get channel
+				//
+				var channelPromises = [];
+				if (siteInfo.channelId) {
+					channelPromises.push(_getChannelInfo(request, localhost, siteInfo.channelId));
+				}
+				return Promise.all(channelPromises);
+			})
+			.then(function (result) {
+				if (result.err) {
+					return resolve(result);
+				}
+				console.log(' - query site channel');
+				var policyId = result && result.length > 0 ? result[0].localizationPolicy : undefined;
 				//
 				// Get Localization policy
 				//
 				var policyPromise = [];
-				if (siteInfo.localizationPolicy) {
-					policyPromise.push(_getLocalizationPolicy(request, localhost, siteInfo.localizationPolicy));
+				if (policyId) {
+					policyPromise.push(_getLocalizationPolicy(request, localhost, policyId));
 				}
 				return Promise.all(policyPromise);
 			})
@@ -1513,6 +1555,7 @@ var _createSiteMap = function (server, request, localhost, site, siteUrl, change
 						if (page.id === masterPages[j].id) {
 							page.pageUrl = masterPages[j].pageUrl;
 							page.isDetailPage = masterPages[j].isDetailPage;
+							page.parentId = masterPages[j].parentId;
 							break;
 						}
 					}
@@ -1559,9 +1602,11 @@ var _createSiteMap = function (server, request, localhost, site, siteUrl, change
 module.exports.createSiteMap = function (argv, done) {
 	'use strict';
 
-	var server = serverUtils.getConfiguredServer();
+	projectDir = argv.projectDir || projectDir;
+
+	var server = serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured');
+		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
 		return;
 	}
@@ -1718,8 +1763,16 @@ module.exports.createSiteMap = function (argv, done) {
 			}
 		});
 
-		var localServer = app.listen(port, function () {
+		var localServer = app.listen(0, function () {
+			port = localServer.address().port;
+			localhost = 'http://localhost:' + port;
+
+			// console.log('localhost: ' + localhost);
 			_createSiteMap(server, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, languages, toppagepriority, done);
+		});
+		localServer.on('error', function (e) {
+			console.log('ERROR: ');
+			console.log(e);
 		});
 
 	}); // login

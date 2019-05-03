@@ -10,15 +10,53 @@
  */
 
 var path = require('path'),
+	gulp = require('gulp'),
+	btoa = require('btoa'),
 	extract = require('extract-zip'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
+	os = require('os'),
+	childProcess = require('child_process'),
 	sprintf = require('sprintf-js').sprintf,
+	zip = require('gulp-zip'),
 	serverUtils = require('../test/server/serverUtils.js');
+
 var Client = require('node-rest-client').Client;
 
-var projectDir = path.join(__dirname, '..'),
-	transBuildDir = path.join(projectDir, 'src', 'build', 'translations');
+var cecDir = path.join(__dirname, ".."),
+	connectorsDataDir = path.join(cecDir, 'data', 'connectors');
+
+var projectDir,
+	transSrcDir,
+	connectionsSrcDir,
+	connectorsSrcDir,
+	transBuildDir;
+
+const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
+
+/**
+ * Verify the source structure before proceed the command
+ * @param {*} done 
+ */
+var verifyRun = function (argv) {
+	projectDir = argv.projectDir || projectDir;
+	if (!serverUtils.isProjectCreated(projectDir)) {
+		console.log('ERROR: no source folder available, please run cec install first');
+		return false;
+	}
+
+	var config = serverUtils.getConfiguration(projectDir);
+	var srcfolder = config.srcfolder || 'src/main';
+
+	// reset source folders
+	transSrcDir = path.join(projectDir, srcfolder, 'translationJobs');
+	connectorsSrcDir = path.join(projectDir, srcfolder, 'connectors');
+	connectionsSrcDir = path.join(projectDir, srcfolder, 'connections');
+
+	transBuildDir = path.join(projectDir, 'build', 'translationJobs');
+
+	return true;
+}
 
 /**
  * Global variables 
@@ -267,6 +305,9 @@ var _getJobData = function (job) {
 	return data;
 };
 
+/**
+ * Unused
+ */
 var _validateTranslationJob = function (request, server, translationJobType, job, file) {
 	var validatePromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/translationJobs';
@@ -280,7 +321,7 @@ var _validateTranslationJob = function (request, server, translationJobType, job
 				validationMode: 'validateOnly'
 			}
 		};
-		// console.log(formData);
+		console.log(formData);
 		var formDataStr = JSON.stringify(formData);
 		var auth = {
 			user: server.username,
@@ -328,7 +369,10 @@ var _validateTranslationJob = function (request, server, translationJobType, job
 	return validatePromise;
 };
 
-var _importTranslationJob = function (request, server, translationJobType, job, file) {
+//
+// Unused
+//
+var _deployTranslationJob = function (request, server, translationJobType, job, file) {
 	var importPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/translationJobs';
 		var formData = {
@@ -390,10 +434,60 @@ var _importTranslationJob = function (request, server, translationJobType, job, 
 	return importPromise;
 };
 
-var _importTranslationJobSCS = function (request, server, idcToken, job, file) {
+var _validateTranslationJobSCS = function (request, server, idcToken, jobName, file) {
 	var importPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/documents/web?IdcService=SCS_IMPORT_SITE_TRANS';
-		url = url + '&jobName=' + job.jobName;
+		url = url + '&jobName=' + jobName;
+		url = url + '&fFileGUID=' + (file.LocalData && file.LocalData.fFileGUID);
+		url = url + '&validationMode=validateOnly&useBackgroundThread=1';
+		url = url + '&idcToken=' + idcToken;
+
+		var isPod = server.env === 'pod_ec';
+		var auth = isPod ? {
+			bearer: server.oauthtoken
+		} : {
+			user: server.username,
+			password: server.password
+		};
+
+		var params = {
+			method: 'GET',
+			url: url,
+			auth: auth,
+		};
+
+		request(params, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: Failed to submit import translation job (validate) ' + job.jobName);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to submit import translation job (validate) ' + job.jobName + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			return resolve(data);
+
+		});
+	});
+	return importPromise;
+};
+
+var _deployTranslationJobSCS = function (request, server, idcToken, jobName, file) {
+	var importPromise = new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/web?IdcService=SCS_IMPORT_SITE_TRANS';
+		url = url + '&jobName=' + jobName;
 		url = url + '&fFileGUID=' + (file.LocalData && file.LocalData.fFileGUID);
 		url = url + '&validationMode=validateAndImport&useBackgroundThread=1';
 		url = url + '&idcToken=' + idcToken;
@@ -488,159 +582,124 @@ var _getImportValidateStatusSCS = function (server, request, idcToken, jobId) {
 				var attr = fields[i].name;
 				status[attr] = rows[0][i];
 			}
-
 			return resolve(status);
 		});
 	});
 	return statusPromise;
 };
 
-var _getImportValidateStatus = function (server, request, statusUrl) {
+var _getJobReponseDataSCS = function (server, request, idcToken, jobId) {
 	var statusPromise = new Promise(function (resolve, reject) {
-		var auth = {
+		var url = server.url + '/documents/web?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_RESPONSE_DATA';
+		url = url + '&JobID=' + jobId;
+		url = url + '&idcToken=' + idcToken;
+
+		var isPod = server.env === 'pod_ec';
+		var auth = isPod ? {
+			bearer: server.oauthtoken
+		} : {
 			user: server.username,
 			password: server.password
 		};
+
 		var params = {
 			method: 'GET',
-			url: statusUrl,
+			url: url,
 			auth: auth,
 		};
 
 		request(params, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get validation status ' + err);
+				console.log('ERROR: Failed to get import translation job response data');
+				console.log(error);
 				resolve({
 					err: 'err'
 				});
 			}
-			if (response && response.statusCode === 200) {
-				var data;
-				try {
-					data = JSON.parse(body);
-				} catch (error) {};
-				resolve(data);
-			} else {
-				console.log('ERROR: failed to get validation status ' + response.statusCode);
-				resolve({
-					err: 'err'
-				});
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			var result = {};
+			if (data && data.LocalData) {
+				result['LocalData'] = data.LocalData;
+				result['valid'] = data.LocalData.valid;
+				result['sourceLanguage'] = data.LocalData.sourceLanguage;
+				result['targetedLanguages'] = data.LocalData.targetedLanguages;
+				result['SiteValidation'] = data.LocalData.SiteValidation;
+				result['AssetValidation'] = data.LocalData.AssetValidation;
+
+				var fields = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.fields || [];
+				var rows = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.rows || [];
+
+				for (var i = 0; i < fields.length; i++) {
+					var attr = fields[i].name;
+					result[attr] = rows[0][i];
+				}
 			}
+			return resolve(result);
 		});
 	});
 	return statusPromise;
 };
 
+
 var _displayValidationResult = function (result, jobType, tempDir) {
-	if (!result || !result.body || !result.body.validation) {
+	if (!result || !result.JobID) {
 		console.log(' - no validation result found');
 		return;
 	}
-	var validation = result.body.validation;
 	// console.log(result);
-	if (validation.valid) {
-		console.log(' - translation job ' + result.body.jobName + ' is valid');
-		var format = '%-40s %-40s';
-		console.log(sprintf(format, 'Language', 'Import Status'));
-		for (var i = 0; i < validation.languagesReturnedComplete.length; i++) {
-			var lang = validation.languagesReturnedComplete[i];
-			console.log(sprintf(format, lang, 'Will be imported'));
-		}
 
-		var items = validation.itemsToBeImported;
-		var byName = items.slice(0);
-		byName.sort(function (a, b) {
-			var x = a.name;
-			var y = b.name;
-			return (x < y ? -1 : x > y ? 1 : 0);
-		});
-		items = byName;
-		console.log('');
-		console.log(sprintf(format, 'Asset', 'Import Status'));
-		for (var i = 0; i < items.length; i++) {
-			var item = items[i];
-			console.log(sprintf(format, item.name, 'Will be imported'));
+	console.log('Site: ' + result.SiteId);
+	console.log('valid: ' + result.valid);
+	console.log('sourceLanguage: ' + result.sourceLanguage);
+	console.log('targetedLanguages: ' + result.targetedLanguages);
+	console.log('Assets: ');
+	var ident = '  ';
+	var format = '  %-30s  %-s';
+	if (result.AssetValidation) {
+		var assetV = JSON.parse(result.AssetValidation);
+		console.log(sprintf(format, 'languagesReturnedComplete: ', (assetV.languagesReturnedComplete || '')));
+		console.log(sprintf(format, 'languagesNotReturned: ', (assetV.languagesNotReturned || '')));
+		console.log(sprintf(format, 'languagesReturnedIncomplete: ', (assetV.languagesReturnedIncomplete || '')));
+		var itemNames = [];
+		for (var i = 0; i < assetV.itemsToBeImported.length; i++) {
+			itemNames[i] = assetV.itemsToBeImported[i].name;
 		}
-		if (jobType === 'sites') {
-			var files = fs.readdirSync(path.join(tempDir, 'site'));
-			var siteStructure;
-			for (var i = 0; i < files.length; i++) {
-				if (fs.existsSync(path.join(tempDir, 'site', files[i], 'structure.json'))) {
-					var structurestr = fs.readFileSync(path.join(tempDir, 'site', files[i], 'structure.json'));
-					siteStructure = JSON.parse(structurestr);
-				}
-				if (siteStructure && siteStructure.pages.length > 0) {
-					break;
-				}
-			}
-
-			var pages = siteStructure && siteStructure.pages || [];
-			// sort by name
-			var byName = pages.slice(0);
-			byName.sort(function (a, b) {
-				var x = a.name;
-				var y = b.name;
-				return (x < y ? -1 : x > y ? 1 : 0);
-			});
-			pages = byName;
-
-			console.log('');
-			console.log(sprintf(format, 'Page', 'Import Status'));
-			for (var i = 0; i < pages.length; i++) {
-				var page = pages[i];
-				console.log(sprintf(format, page.name + ' ' + page.id + '.json', 'Will be imported'));
-			}
-			console.log(sprintf(format, 'siteinfo.json', 'Will be imported'));
-			console.log(sprintf(format, 'structure.json', 'Will be imported'));
+		console.log(sprintf(format, 'itemsToBeImported: ', itemNames));
+	}
+	console.log('Site Content: ');
+	if (result.SiteValidation) {
+		var siteV = JSON.parse(result.SiteValidation);
+		console.log(sprintf(format, 'languagesReturnedComplete: ', siteV.languagesReturnedComplete));
+		console.log(sprintf(format, 'languagesNotReturned: ', siteV.languagesNotReturned));
+		console.log(sprintf(format, 'languagesReturnedIncomplete: ', siteV.languagesReturnedIncomplete));
+		console.log(sprintf(format, 'translationsMissed: ', siteV.translationsMissed));
+		console.log(sprintf(format, 'translationsCorrupted: ', siteV.translationsCorrupted));
+		console.log(sprintf(format, 'translationsInvalidEncoding: ', siteV.translationsInvalidEncoding));
+		var pageNames = [];
+		for (var i = 0; i < siteV.itemsToBeImported.length; i++) {
+			pageNames[i] = siteV.itemsToBeImported[i].name;
 		}
-	} else {
-		// console.log(validation);
-		var _getItemNames = function (items) {
-			var names = [];
-			for (var j = 0; j < items.length; j++) {
-				names.push(items[j].name);
-			}
-
-			return '[' + names.join(', ') + ']';
-		}
-		var _displayTranslationResult = function (name) {
-			if (!validation.hasOwnProperty(name)) {
-				return;
-			}
-			var values = validation[name];
-			if (values.length === 0) {
-				console.log((' ' + name + ':'), validation[name]);
-			} else {
-				console.log(' ' + name + ':');
-				for (var i = 0; i < values.length; i++) {
-					console.log('   language: ' + values[i].language + '  items: ' + _getItemNames(values[i].items));
-				}
-			}
-		};
-		console.log(' - translation job ' + result.body.jobName + ' is NOT valid:');
-		console.log(' languagesNotReturned:', validation.languagesNotReturned);
-		console.log(' languagesReturnedComplete:', validation.languagesReturnedComplete);
-		console.log(' languagesReturnedIncomplete:', validation.languagesReturnedIncomplete);
-		_displayTranslationResult('translationsMissed');
-		_displayTranslationResult('translationsCorrupted');
-		_displayTranslationResult('translationsInvalidEncoding');
-		console.log(' nonTranslatableItems: ' + _getItemNames(validation.nonTranslatableItems));
-		console.log(' deletedMasterItems: ' + _getItemNames(validation.deletedMasterItems));
-		console.log(' itemsToBeImported: ' + _getItemNames(validation.itemsToBeImported));
+		console.log(sprintf(format, 'itemsToBeImported: ', pageNames));
 	}
 };
 
-var _execImportTranslationJob = function (server, request, validateonly, folder, filePath, job, jobType, tempDir, done) {
+var _execdeployTranslationJob = function (server, request, validateonly, folder, filePath, jobName, jobType, tempDir, done) {
 
-	var tokenPromise = serverUtils.getCaasCSRFToken(server);
-	tokenPromise.then(function (result) {
-			_CSRFToken = result && result.token;
-
+	var idcToken;
+	var tokenPromise = _getIdcToken(request, server);
+	tokenPromise
+		.then(function (result) {
+			idcToken = result.idcToken;
 			return serverUtils.uploadFileToServer(request, server, folder, filePath);
 		})
 		.then(function (result) {
 			if (result.err) {
-				done();
+				_cmdEnd(done);
 				return;
 			}
 			var file = result;
@@ -648,34 +707,36 @@ var _execImportTranslationJob = function (server, request, validateonly, folder,
 				//
 				// validate
 				//
-				var validatePromise = _validateTranslationJob(request, server, jobType, job, file);
+				var validatePromise = _validateTranslationJobSCS(request, server, idcToken, jobName, file);
 				validatePromise.then(function (result) {
 					if (result.err) {
 						_cmdEnd(done);
 					}
-					var statusUrl = result.statusUrl;
-					if (!statusUrl) {
-						console.log('ERROR: failed to get validate status');
-						_cmdEnd(done);
-					}
-					// console.log(statusUrl);
+					var jobId = result.LocalData.JobID;
 
 					// wait validate to finish
 					var inter = setInterval(function () {
-						var jobPromise = _getImportValidateStatus(server, request, statusUrl);
+						var jobPromise = _getImportValidateStatusSCS(server, request, idcToken, jobId);
 						jobPromise.then(function (data) {
-							if (!data || data.error || data.progress === 'failed') {
+							if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
 								clearInterval(inter);
-								console.log('ERROR: validation failed: ' + (data && data.error && data.error.detail || data && data.status));
-								_cmdEnd(done);
+								// try to get error message
+								var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
+								jobDataPromise.then(function (data) {
+									console.log('ERROR: validation failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
+									_cmdEnd(done);
+								});
 							}
-							if (data.completed) {
+							if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
 								clearInterval(inter);
-								// console.log(' - validation ' + job.jobName + ' finished');
-								_displayValidationResult(data.result, jobType, tempDir);
-								_cmdEnd(done);
+								console.log(' - validate ' + jobName + ' finished');
+								var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
+								jobDataPromise.then(function (data) {
+									_displayValidationResult(data, jobType, tempDir);
+									_cmdEnd(done);
+								});
 							} else {
-								console.log(' - validating: percentage ' + data.completedPercentage);
+								console.log(' - validating: percentage ' + data.JobPercentage);
 							}
 						});
 					}, 5000);
@@ -685,16 +746,8 @@ var _execImportTranslationJob = function (server, request, validateonly, folder,
 				//
 				// Import
 				//
-				var tokenPromise = _getIdcToken(request, server);
-				tokenPromise.then(function (result) {
-					if (result.err) {
-						_cmdEnd(done);
-					}
-					var idcToken = result.idcToken;
-
-					var importPromise = _importTranslationJobSCS(request, server, idcToken, job, file);
-					return importPromise;
-				}).then(function (result) {
+				var importPromise = _deployTranslationJobSCS(request, server, idcToken, jobName, file);
+				importPromise.then(function (result) {
 					if (result.err) {
 						_cmdEnd(done);
 					}
@@ -708,12 +761,16 @@ var _execImportTranslationJob = function (server, request, validateonly, folder,
 						jobPromise.then(function (data) {
 							if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
 								clearInterval(inter);
-								console.log('ERROR: import failed: ' + (data && data.JobMessage));
-								_cmdEnd(done);
+								// try to get error message
+								var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
+								jobDataPromise.then(function (data) {
+									console.log('ERROR: import failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
+									_cmdEnd(done);
+								});
 							}
 							if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
 								clearInterval(inter);
-								console.log(' - import ' + job.jobName + ' finished');
+								console.log(' - import ' + jobName + ' finished');
 								_cmdEnd(done);
 
 							} else {
@@ -823,6 +880,33 @@ var _getSiteGUID = function (request, localhost, site) {
 	return sitesPromise;
 };
 
+var _getChannelInfo = function (request, localhost, channelId) {
+	var channelPromise = new Promise(function (resolve, reject) {
+		var url = localhost + '/content/management/api/v1.1/channels/' + channelId;
+		url = url + '?includeAdditionalData=true&fields=all';
+		request.get(url, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get channel with id ' + channelId);
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			if (response && response.statusCode === 200) {
+				var data = JSON.parse(body);
+				resolve(data);
+			} else {
+				console.log('ERROR: Failed to get channel with id ' + policyId);
+				console.log(response ? response.statusCode + response.statusMessage : '');
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+	return channelPromise;
+};
+
 var _getLocalizationPolicy = function (request, localhost, policyId) {
 	var policyPromise = new Promise(function (resolve, reject) {
 		var url = localhost + '/content/management/api/v1.1/policy/' + policyId;
@@ -868,17 +952,20 @@ var _exportTranslationJobSCS = function (request, localhost, idcToken, jobName, 
 				});
 			}
 
-			if (response && (response.statusCode === 200 || response.statusCode === 202)) {
-				var data = JSON.parse(body);
-				console.log(' - create translation job submitted');
-				resolve(data);
-			} else {
-				console.log('ERROR: Failed to create translation job');
-				console.log(response ? response.statusCode + response.statusMessage : '');
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: failed to create translation job ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 				return resolve({
 					err: 'err'
 				});
 			}
+
+			console.log(' - create translation job submitted');
+			resolve(data);
 		});
 	});
 	return exportPromise;
@@ -918,7 +1005,7 @@ var _execCreateTranslationJob = function (server, request, localhost, idcToken, 
 var _createTranslationJob = function (server, request, localhost, idcToken, site, name, langs, exportType, done) {
 	// console.log('site: ' + site + ' job name: ' + name + ' languages: ' + langs + ' export type: ' + exportType);
 	var allLangs = [];
-	var siteInfo;
+	var siteInfo, policyId;
 
 	// verify the name
 	var jobPromises = [_getTranslationJobs(server, 'assets'), _getTranslationJobs(server, 'sites')];
@@ -953,7 +1040,18 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 				return;
 			}
 			siteInfo = result.data.base.properties;
+			if (!siteInfo.isEnterprise) {
+				console.log('ERROR: site ' + site + ' is not an enterprise site');
+				_cmdEnd(done);
+				return;
+			}
 			var defaultLanguage = siteInfo.defaultLanguage;
+
+			if (!defaultLanguage) {
+				console.log('ERROR: site ' + site + ' has no default language, make it translatable first.');
+				_cmdEnd(done);
+				return;
+			}
 			console.log(' - site: ' + site + ', default language: ' + defaultLanguage);
 
 			return _getSiteGUID(request, localhost, site);
@@ -968,14 +1066,27 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 			}
 			siteInfo.siteGUID = result.siteGUID;
 
-			return _getLocalizationPolicy(request, localhost, siteInfo.localizationPolicy);
+			return _getChannelInfo(request, localhost, siteInfo.channelId);
+		})
+		.then(function (result) {
+			//
+			// get channel
+			//
+			if (result.err) {
+				_cmdEnd(done);
+				return;
+			}
+			console.log(' - query channel');
+			var policyId = result.localizationPolicy;
+			return _getLocalizationPolicy(request, localhost, policyId);
 		})
 		.then(function (result) {
 			//
 			// Get Localization policy
 			//
 			if (result.err) {
-				return resolve(result);
+				_cmdEnd(done);
+				return;
 			}
 			var policy = result;
 			console.log(' - site localization policy: ' + policy.name);
@@ -1021,20 +1132,322 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 
 };
 
-///////////////////////////////////////////////////////////////////////////////////
-//
-// Tasks
-//
+var _createConnectorJob = function (request, translationconnector, jobName) {
+	var jobPromise = new Promise(function (resolve, reject) {
+		var url = translationconnector.url + '/connector/rest/api/v1/job';
+
+		var formData = {
+			'name': jobName
+		};
+
+		var basicAuth = 'Basic ' + btoa(translationconnector.user + ':' + translationconnector.password);
+		var headers = {};
+		headers['Authorization'] = basicAuth;
+		for (var i = 0; i < translationconnector.fields.length; i++) {
+			headers[translationconnector.fields[i].name] = translationconnector.fields[i].value;
+			formData[translationconnector.fields[i].name] = translationconnector.fields[i].value;
+		}
+
+		request({
+				method: 'POST',
+				url: url,
+				headers: headers,
+				form: formData
+			},
+			function (error, response, body) {
+				if (error) {
+					console.log('ERROR: failed to create job on the connector: ' + error);
+					return resolve({
+						err: 'err'
+					});
+				}
+
+				if (response.statusCode != 200) {
+					console.log('ERROR: failed to create job on the connector: ' + response.statusMessage);
+					return resolve({
+						err: 'err'
+					});
+				}
+
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (err) {}
+
+				if (!data || !data.properties) {
+					console.log('ERROR: failed to create job on the connector: no data returned');
+					return resolve({
+						err: 'err'
+					});
+				}
+				return resolve(data);
+			}
+		);
+	});
+	return jobPromise;
+};
+
+var _sendFileToConnector = function (request, translationconnector, jobId, filePath) {
+	var filePromise = new Promise(function (resolve, reject) {
+		var url = translationconnector.url + '/connector/rest/api/v1/job/' + jobId + '/translate';
+
+		var basicAuth = 'Basic ' + btoa(translationconnector.user + ':' + translationconnector.password);
+		var headers = {};
+		headers['Authorization'] = basicAuth;
+		headers['Content-type'] = 'application/octet-stream';
+		for (var i = 0; i < translationconnector.fields.length; i++) {
+			headers[translationconnector.fields[i].name] = translationconnector.fields[i].value;
+		}
+
+		request({
+				method: 'POST',
+				url: url,
+				headers: headers,
+				body: fs.readFileSync(filePath)
+			},
+			function (error, response, body) {
+				if (error) {
+					console.log('ERROR: failed to send zip to the job: ' + error);
+					return resolve({
+						err: 'err'
+					});
+				}
+
+				if (response.statusCode != 200) {
+					console.log('ERROR: failed to send zip to the job: ' + response.statusMessage);
+					return resolve({
+						err: 'err'
+					});
+				}
+
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (err) {}
+
+				return resolve(data);
+			});
+	});
+
+	return filePromise;
+};
+
+var _getJobFromConnector = function (request, translationconnector, jobId, jobName) {
+	var jobPromise = new Promise(function (resolve, reject) {
+		var url = translationconnector.url + '/connector/rest/api/v1/job/' + jobId;
+		var basicAuth = 'Basic ' + btoa(translationconnector.user + ':' + translationconnector.password);
+		var headers = {};
+		headers['Authorization'] = basicAuth;
+		for (var i = 0; i < translationconnector.fields.length; i++) {
+			headers[translationconnector.fields[i].name] = translationconnector.fields[i].value;
+		}
+
+		var options = {
+			url: url,
+			headers: headers
+		};
+
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get job ' + jobName + ' from connector: ' + err);
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var data = {};
+			try {
+				data = JSON.parse(body);
+			} catch (err) {}
+
+			if (!response || response.statusCode !== 200) {
+				console.log('ERROR: Failed to get job ' + jobName + ' from connector: ' + (data && data.message));
+				return resolve({
+					err: 'err'
+				});
+			}
+			return resolve(data);
+		});
+	});
+	return jobPromise;
+};
+
+var _getTranslationFromConnector = function (request, translationconnector, jobId, targetFile) {
+	var transPromise = new Promise(function (resolve, reject) {
+		var url = translationconnector.url + '/connector/rest/api/v1/job/' + jobId + '/translation';
+
+		var basicAuth = 'Basic ' + btoa(translationconnector.user + ':' + translationconnector.password);
+		var headers = {};
+		headers['Authorization'] = basicAuth;
+		for (var i = 0; i < translationconnector.fields.length; i++) {
+			headers[translationconnector.fields[i].name] = translationconnector.fields[i].value;
+		}
+
+		var options = {
+			url: url,
+			headers: headers
+		};
+
+		request.get(options, function (err, response, body) {
+				if (err) {
+					console.log('ERROR: Failed to get translation from connector:');
+					console.log(err);
+					return resolve({
+						err: 'err'
+					});
+				}
+
+				if (!response || response.statusCode !== 200) {
+					console.log('ERROR: Failed to get translation from connector: ' + response.errorMessage);
+					return resolve({
+						'err': 'err'
+					});
+				}
+
+				return resolve(body);
+			})
+			.on('error', function (err) {
+				console.log('ERROR: Failed to get translation from connector:');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			})
+			.pipe(fs.createWriteStream(targetFile))
+			.on('close', function () {
+				console.log(' - translation saved to ' + targetFile);
+			});
+	});
+	return transPromise;
+};
+
+
+/**
+ * Validate translation job file
+ * @param {*} file 
+ */
+var _validateTranslationJobZip = function (file) {
+	var validatePromise = new Promise(function (resolve, reject) {
+		var name = file;
+		if (name.indexOf('/') >= 0) {
+			name = name.substring(name.lastIndexOf('/') + 1);
+		}
+
+		if (name.indexOf('.') > 0) {
+			name = name.substring(0, name.indexOf('.'));
+		}
+		var tempDir = path.join(transBuildDir, name);
+		if (fs.existsSync(tempDir)) {
+			// remove the folder
+			fse.removeSync(tempDir);
+		}
+
+		extract(file, {
+			dir: tempDir
+		}, function (err) {
+			if (err) {
+				console.log(err);
+				return resolve({
+					filename: name,
+					site: undefined,
+					assets: undefined
+				});
+			}
+
+			var sitejob, assetsjob;
+			if (fs.existsSync(path.join(tempDir, 'site', 'job.json'))) {
+				var jobstr = fs.readFileSync(path.join(tempDir, 'site', 'job.json'));
+				sitejob = JSON.parse(jobstr);
+			}
+			if (fs.existsSync(path.join(tempDir, 'assets', 'job.json'))) {
+				var jobstr = fs.readFileSync(path.join(tempDir, 'assets', 'job.json'));
+				assetsjob = JSON.parse(jobstr);
+			}
+			if (assetsjob === undefined && fs.existsSync(path.join(tempDir, 'job.json'))) {
+				var jobstr = fs.readFileSync(path.join(tempDir, 'job.json'));
+				assetsjob = JSON.parse(jobstr);
+			}
+
+			var job = {
+				filename: name,
+				site: sitejob,
+				assets: assetsjob
+			};
+
+			return resolve(job);
+		});
+	});
+	return validatePromise;
+};
+
+var _importJob = function (jobPath, actionType) {
+	var importPromise = new Promise(function (resolve, reject) {
+
+		if (!path.isAbsolute(jobPath)) {
+			jobPath = path.join(projectDir, jobPath);
+		}
+		jobPath = path.resolve(jobPath);
+
+		if (!fs.existsSync(jobPath)) {
+			console.log('ERROR: file ' + jobPath + ' does not exist');
+			return resolve({
+				err: 'err'
+			});
+		}
+
+		var validatePromise = _validateTranslationJobZip(jobPath);
+		validatePromise.then(function (result) {
+			if (!result.site && !result.assets) {
+				console.log('ERROR: file ' + jobPath + ' is not a valid translation job file');
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			console.log(' - validate translation file');
+			var job = result.site || result.assets;
+			var jobName = job.jobName || job.filename;
+
+			var jobSrcPath = path.join(transSrcDir, jobName);
+
+			extract(jobPath, {
+				dir: jobSrcPath
+			}, function (err) {
+				if (err) {
+					if (actionType && actionType === 'ingest') {
+						console.log('ERROR: failed to ingest translation job ' + jobPath);
+					} else {
+						console.log('ERROR: failed to import translation job ' + jobPath);
+					}
+					console.log(err);
+					return resolve({
+						err: 'err'
+					});
+				}
+
+				if (actionType && actionType === 'ingest') {
+					console.log(' - translation job ingested to ' + jobSrcPath);
+				} else {
+					console.log(' - translation job imported to ' + jobSrcPath);
+				}
+				resolve({});
+			});
+		});
+	});
+	return importPromise;
+};
 
 /**
  * list translation jobs on the server
  */
-module.exports.listServerTranslationJobs = function (argv, done) {
+var _listServerTranslationJobs = function (argv, done) {
 	'use strict';
 
-	var server = serverUtils.getConfiguredServer();
+	projectDir = argv.projectDir || projectDir;
+
+	var server = serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured');
+		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
 		return;
 	}
@@ -1106,14 +1519,110 @@ module.exports.listServerTranslationJobs = function (argv, done) {
 		});
 };
 
+var _getconnectorServerInfo = function (connectorServer, user, password) {
+	var serverInfoPromise = new Promise(function (resolve, reject) {
+		var request = _getRequest();
+		var url = connectorServer + '/connector/rest/api/v1/server'
+		request.get(url, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: failed to query translation connector: ' + err);
+				return resolve({
+					err: 'err'
+				});
+			}
+			if (response && response.statusCode === 200) {
+				var data = JSON.parse(body);
+				var fields = data && data.fields || [];
+				resolve({
+					fields: fields
+				});
+			} else {
+				console.log('ERROR: failed to query translation connector: ' + response.statusCode);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+	return serverInfoPromise;
+};
+
+var _getJobType = function (jobName) {
+	var jobDir = path.join(transSrcDir, jobName);
+	var jobType;
+	if (fs.existsSync(path.join(jobDir, 'site', 'job.json'))) {
+		jobType = 'sites';
+	} else if (fs.existsSync(path.join(jobDir, 'job.json'))) {
+		jobType = 'assets';
+	} else if (fs.existsSync(path.join(jobDir, 'assets', 'job.json'))) {
+		jobType = 'sites';
+	}
+	return jobType;
+};
+
+/**
+ * Ge the connection and jobID from the translation job
+ * @param {*} jobName 
+ */
+var _getJobConnectionInfo = function (jobName) {
+	var connectionpath = path.join(transSrcDir, jobName, 'connectionjob.json');
+	var str = fs.existsSync(connectionpath) ? fs.readFileSync(connectionpath) : undefined;
+	var jobconnectionjson = str ? JSON.parse(str) : undefined;
+	return jobconnectionjson;
+};
+
+/**
+ * Get connection config from connection.json
+ * @param {*} name connection name
+ */
+var _getConnectionInfo = function (connection) {
+	if (!connection) {
+		return undefined;
+	}
+	var connectionfile = path.join(connectionsSrcDir, connection, 'connection.json');
+	if (!fs.existsSync(connectionfile)) {
+		console.log('ERROR: connection ' + connection + ' does not exist');
+		return;
+	}
+	var connectionstr = fs.readFileSync(connectionfile).toString();
+	var connectionjson = connectionstr ? JSON.parse(connectionstr) : undefined;
+	return connectionjson;
+};
+
+var _getRequest = function () {
+	var request = require('request');
+	request = request.defaults({
+		headers: {
+			connection: 'keep-alive'
+		},
+		pool: {
+			maxSockets: 50
+		},
+		jar: true,
+		proxy: null
+	});
+	return request;
+};
+
+///////////////////////////////////////////////////////////////////////////////////
+//
+// Tasks
+//
 
 /**
  * Download a translation job from the server
  */
-module.exports.downloadServerTranslationJob = function (argv, done) {
-	var server = serverUtils.getConfiguredServer();
+module.exports.downloadTranslationJob = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var server = serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured');
+		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
 		return;
 	}
@@ -1126,16 +1635,11 @@ module.exports.downloadServerTranslationJob = function (argv, done) {
 		return;
 	}
 
-	var output = argv.output;
-	if (output && !path.isAbsolute(output)) {
-		output = path.join('..', output);
+	// download the zip to dist 
+	var destdir = path.join(projectDir, 'dist');
+	if (!fs.existsSync(destdir)) {
+		fs.mkdirSync(destdir);
 	}
-	if (output && !fs.existsSync(path.resolve(output))) {
-		console.log('ERROR: invalid output folder');
-		done();
-		return;
-	}
-	var destdir = output ? path.resolve(output) : projectDir;
 
 	// verify the name
 	var jobPromises = [_getTranslationJobs(server, 'assets'), _getTranslationJobs(server, 'sites')];
@@ -1191,11 +1695,21 @@ module.exports.downloadServerTranslationJob = function (argv, done) {
 						if (!result.err) {
 							console.log(' - update the translation job status to INPROGRESS');
 						}
-						done();
+
+						// import into local
+						var importPromise = _importJob(filePath);
+						importPromise.then(function (result) {
+							done();
+						})
 					});
 			} else {
 				// no need to change status
-				done();
+
+				// import into local
+				var importPromise = _importJob(filePath);
+				importPromise.then(function (result) {
+					done();
+				})
 			}
 		}); // job zip downloaded
 
@@ -1203,125 +1717,93 @@ module.exports.downloadServerTranslationJob = function (argv, done) {
 };
 
 /**
- * Import a translation job to the server
+ * Upload a translation job to the server
  */
-module.exports.importTranslationJob = function (argv, done) {
-	var server = serverUtils.getConfiguredServer();
+module.exports.uploadTranslationJob = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var server = serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured');
+		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
 		return;
 	}
 
 	var validateonly = typeof argv.validateonly === 'string' && argv.validateonly.toLowerCase() === 'true';
 
-	if (!argv.file || typeof argv.file !== 'string') {
-		console.error('Usage: npm run import-translation-job -- --file <translation zip file>');
+	var name = argv.name;
+
+	// verify the job exists
+	var jobs = fs.existsSync(transSrcDir) ? fs.readdirSync(transSrcDir) : [];
+	var jobExist = false;
+	for (var i = 0; i < jobs.length; i++) {
+		if (name === jobs[i]) {
+			jobExist = true;
+			break;
+		}
+	}
+	if (!jobExist) {
+		console.error('ERROR: translation job ' + name + ' does not exist');
 		done();
 		return;
 	}
 
-	var filePath = argv.file;
-	if (!path.isAbsolute(filePath)) {
-		filePath = path.join(projectDir, filePath);
-	}
-	filePath = path.resolve(filePath);
-
-	if (!fs.existsSync(filePath)) {
-		console.log('ERROR: file ' + filePath + ' does not exist');
+	// folder path on the server
+	var folder = argv.folder && argv.folder.toString();
+	if (folder === '/') {
+		folder = '';
+	} else if (folder && !serverUtils.replaceAll(folder, '/', '')) {
+		console.log('ERROR: invalid folder');
 		done();
 		return;
 	}
 
-	// 
-	// make sure the zip is a valid translation job file
-	//
-	var name = filePath;
-	if (name.indexOf('/') >= 0) {
-		name = name.substring(name.lastIndexOf('/') + 1);
-	}
-	if (name.indexOf('.') > 0) {
-		name = name.substring(0, name.indexOf('.'));
-	}
-	var tempDir = path.join(transBuildDir, name);
-	if (fs.existsSync(tempDir)) {
-		// remove the folder
-		fse.removeSync(tempDir);
-	}
+	var jobSrcPath = path.join(transSrcDir, name);
+	var connectionjobfile = path.join(jobSrcPath, 'connectionjob.json');
+	// zip the job first
+	gulp.src([jobSrcPath + '/**', '!' + connectionjobfile])
+		.pipe(zip(name + '.zip'))
+		.pipe(gulp.dest(path.join(projectDir, 'dist')))
+		.on('end', function () {
+			var zippath = path.join(projectDir, 'dist', name + '.zip');
+			console.log(' - created translation job zip file ' + zippath);
 
-	extract(filePath, {
-		dir: tempDir
-	}, function (err) {
-		if (err) {
-			console.log(err);
-		}
-		var job, jobType;
-		if (fs.existsSync(path.join(tempDir, 'site', 'job.json'))) {
-			jobType = 'sites';
-			var jobstr = fs.readFileSync(path.join(tempDir, 'site', 'job.json'));
-			job = JSON.parse(jobstr);
-		} else if (fs.existsSync(path.join(tempDir, 'job.json'))) {
-			jobType = 'assets';
-			var jobstr = fs.readFileSync(path.join(tempDir, 'job.json'));
-			job = JSON.parse(jobstr);
-		} else if (fs.existsSync(path.join(tempDir, 'assets', 'job.json'))) {
-			jobType = 'sites';
-			var jobstr = fs.readFileSync(path.join(tempDir, 'assets', 'job.json'));
-			job = JSON.parse(jobstr);
-		}
+			var request = _getRequest();
 
-		if (!job || !job.jobName || !job.jobId) {
-			console.log('ERROR: file ' + filePath + ' is not a valid translation job file');
-			done()
-			return;
-		}
-		// console.log(job);
+			var isPod = server.env === 'pod_ec';
+			var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+			loginPromise.then(function (result) {
+				if (!result.status) {
+					console.log(' - failed to connect to the server');
+					done();
+					return;
+				}
 
-		// folder path on the server
-		var folder = argv.folder && argv.folder.toString();
-		if (folder === '/') {
-			folder = '';
-		} else if (folder && !serverUtils.replaceAll(folder, '/', '')) {
-			console.log('ERROR: invalid folder');
-			done();
-			return;
-		}
+				var tempDir = path.join(transBuildDir, name);
+				var jobType = _getJobType(name);
+				// console.log(' - job: ' + name + ' type: ' + jobType + ' zip: ' + zippath);
+				_execdeployTranslationJob(server, request, validateonly, folder, zippath, name, jobType, tempDir, done);
 
-		var request = require('request');
-		request = request.defaults({
-			headers: {
-				connection: 'keep-alive'
-			},
-			pool: {
-				maxSockets: 50
-			},
-			jar: true,
-			proxy: null
+			}); // login to server
 		});
-
-		var isPod = server.env === 'pod_ec';
-		var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
-		loginPromise.then(function (result) {
-			if (!result.status) {
-				console.log(' - failed to connect to the server');
-				done();
-				return;
-			}
-
-			_execImportTranslationJob(server, request, validateonly, folder, filePath, job, jobType, tempDir, done);
-
-		}); // login to server
-
-	}); // open zip file
 };
 
 /**
  * Create a translation job on the server
  */
 module.exports.createTranslationJob = function (argv, done) {
-	var server = serverUtils.getConfiguredServer();
+	'use strict';
+
+	projectDir = argv.projectDir || projectDir;
+
+	var server = serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured');
+		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
 		return;
 	}
@@ -1350,17 +1832,7 @@ module.exports.createTranslationJob = function (argv, done) {
 
 	var exportType = argv.type || 'siteAll';
 
-	var request = require('request');
-	request = request.defaults({
-		headers: {
-			connection: 'keep-alive'
-		},
-		pool: {
-			maxSockets: 50
-		},
-		jar: true,
-		proxy: null
-	});
+	var request = _getRequest();
 
 	var isPod = server.env === 'pod_ec';
 	var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
@@ -1459,7 +1931,10 @@ module.exports.createTranslationJob = function (argv, done) {
 			}
 		});
 
-		var localServer = app.listen(port, function () {
+		var localServer = app.listen(0, function () {
+			port = localServer.address().port;
+			localhost = 'http://localhost:' + port;
+
 			var total = 0;
 			var inter = setInterval(function () {
 				// console.log(' - getting login user: ' + total);
@@ -1490,4 +1965,469 @@ module.exports.createTranslationJob = function (argv, done) {
 
 		});
 	});
+};
+
+/**
+ * list local translation jobs
+ */
+module.exports.listTranslationJobs = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var server = typeof argv.server === 'string' && argv.server.toLowerCase() === 'true';
+	if (server) {
+		_listServerTranslationJobs(argv, done);
+		return;
+	}
+
+	//
+	// local translation jobs
+	//
+
+	var jobNames = fs.existsSync(transSrcDir) ? fs.readdirSync(transSrcDir) : [];
+	if (jobNames.length === 0) {
+		console.log(' - no translation job available');
+		done();
+		return;
+	}
+
+	var jobs = [];
+	for (var i = 0; i < jobNames.length; i++) {
+		var jobpath = path.join(transSrcDir, jobNames[i]);
+		var jobjson;
+		if (fs.existsSync(path.join(jobpath, 'site', 'job.json'))) {
+			var jobstr = fs.readFileSync(path.join(jobpath, 'site', 'job.json'));
+			jobjson = JSON.parse(jobstr);
+		}
+		if (jobjson === undefined && fs.existsSync(path.join(jobpath, 'assets', 'job.json'))) {
+			var jobstr = fs.readFileSync(path.join(jobpath, 'assets', 'job.json'));
+			jobjson = JSON.parse(jobstr);
+		}
+		if (jobjson === undefined && fs.existsSync(path.join(jobpath, 'job.json'))) {
+			var jobstr = fs.readFileSync(path.join(jobpath, 'job.json'));
+			jobjson = JSON.parse(jobstr);
+		}
+		if (jobjson) {
+			jobs.push(jobjson);
+		}
+	}
+	if (jobs.length === 0) {
+		console.log(' - no valid translation job available');
+		done();
+		return;
+	}
+
+	// check jobs sent the connector
+	var connectJobPromises = [];
+
+	var request = _getRequest();
+	for (var i = 0; i < jobs.length; i++) {
+		var jobConnectionInfo = _getJobConnectionInfo(jobs[i].jobName);
+		if (jobConnectionInfo && jobConnectionInfo.connection && jobConnectionInfo.jobId) {
+			jobs[i]['connectionJobStatus'] = jobConnectionInfo.status;
+			jobs[i]['connectionJobId'] = jobConnectionInfo.jobId;
+			if (jobConnectionInfo.status !== 'INGESTED') {
+				var connectionjson = _getConnectionInfo(jobConnectionInfo.connection);
+				connectJobPromises.push(_getJobFromConnector(request, connectionjson, jobConnectionInfo.jobId, jobs[i].jobName));
+			}
+		}
+	}
+
+	Promise.all(connectJobPromises).then(function (result) {
+		// console.log(result);
+		var format = '%-40s %-16s %-15s %-40s';
+		console.log('Local translation jobs:');
+		console.log(sprintf(format, 'Name', 'Status', 'Source Language', 'Target Languages'));
+		for (var i = 0; i < jobs.length; i++) {
+			var connectionJobStatus = jobs[i]['connectionJobStatus'];
+			var connectionJobId = jobs[i]['connectionJobId'];
+			if (connectionJobId && result && result.length > 0) {
+				for (var j = 0; j < result.length; j++) {
+					if (result[j].properties && result[j].properties.id === connectionJobId) {
+						connectionJobStatus = result[j].properties.status;
+						break;
+					}
+				}
+			}
+			var status = 'DOWNLOADED';
+			if (connectionJobStatus) {
+				status = connectionJobStatus === 'INGESTED' ? 'TRANSLATED' : (connectionJobStatus === 'TRANSLATED' ? 'READY TO INGEST' : 'INPROGRESS');
+			}
+			console.log(sprintf(format, jobs[i].jobName, status, jobs[i].sourceLanguage, jobs[i].targetLanguages));
+		}
+
+		done();
+	});
+};
+
+
+/**
+ * Submit translation job to translation connector
+ */
+module.exports.submitTranslationJob = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+
+	// verify the job exists
+	var jobs = fs.existsSync(transSrcDir) ? fs.readdirSync(transSrcDir) : [];
+	var jobExist = false;
+	for (var i = 0; i < jobs.length; i++) {
+		if (name === jobs[i]) {
+			jobExist = true;
+			break;
+		}
+	}
+	if (!jobExist) {
+		console.error('ERROR: translation job ' + name + ' does not exist');
+		done();
+		return;
+	}
+
+	var connection = argv.connection;
+
+	// verify the connection
+	var connectionjson = _getConnectionInfo(connection);
+	if (!connectionjson) {
+		done();
+		return;
+	}
+	
+	var jobSrcPath = path.join(transSrcDir, name);
+
+	// zip the job first
+	gulp.src(jobSrcPath + '/**')
+		.pipe(zip(name + '.zip'))
+		.pipe(gulp.dest(path.join(projectDir, 'dist')))
+		.on('end', function () {
+			var zippath = path.join(projectDir, 'dist', name + '.zip');
+			console.log(' - created translation job zip file ' + zippath);
+
+			var request = _getRequest();
+
+			// 
+			// create connector job
+			//
+			var jobPromise = _createConnectorJob(request, connectionjson, name);
+			var jobId, projectId;
+			jobPromise
+				.then(function (result) {
+					if (result.err) {
+						done();
+						return;
+					}
+					jobId = result.properties.id;
+					projectId = result.properties.projectId;
+					console.log(' - create translation job on the connector: ' + jobId);
+					return _sendFileToConnector(request, connectionjson, jobId, zippath);
+
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						done();
+						return;
+					}
+					console.log(' - send file ' + zippath + ' to the connector');
+
+					// save the job id to download the translation later
+					var jobjson = {
+						connection: connection,
+						jobId: jobId,
+						status: ''
+					};
+					var connectionJobJsonPath = path.join(transSrcDir, name, 'connectionjob.json');
+					fs.writeFileSync(connectionJobJsonPath, JSON.stringify(jobjson));
+					done();
+				});
+		});
+};
+
+/**
+ * ingest translated job from translation connector
+ */
+module.exports.ingestTranslationJob = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+
+	// verify the job exists
+	var jobs = fs.existsSync(transSrcDir) ? fs.readdirSync(transSrcDir) : [];
+	var jobExist = false;
+	for (var i = 0; i < jobs.length; i++) {
+		if (name === jobs[i]) {
+			jobExist = true;
+			break;
+		}
+	}
+	if (!jobExist) {
+		console.error('ERROR: translation job ' + name + ' does not exist');
+		done();
+		return;
+	}
+
+	var jobConnectionInfo = _getJobConnectionInfo(name);
+	if (!jobConnectionInfo || !jobConnectionInfo.jobId) {
+		console.log('ERROR: job ' + name + ' has not been submmitted to translation connector yet');
+		done();
+		return;
+	}
+	if (!jobConnectionInfo.connection) {
+		console.log('ERROR: no connection found for job ' + name);
+		done();
+		return;
+	}
+
+	var connection = jobConnectionInfo.connection;
+	console.log(' - use connection ' + connection);
+
+	// get connection
+	var connectionjson = _getConnectionInfo(connection);
+	if (!connectionjson) {
+		done();
+		return;
+	}
+
+	var connectionJobId = jobConnectionInfo.jobId;
+
+	console.log(' - query translation connection to get job status');
+	var request = _getRequest();
+	var connectionJobPromise = _getJobFromConnector(request, connectionjson, connectionJobId, name);
+	connectionJobPromise.then(function (result) {
+		if (result.err || !result.properties) {
+			done();
+			return;
+		}
+
+		if (result.properties.status !== 'TRANSLATED') {
+			console.log(' - translation is still in progress, try later');
+			done();
+			return;
+		}
+
+		console.log(' - get translation');
+		var targetFileName = name + '-translated.zip';
+		var target = path.join(projectDir, 'dist', targetFileName);
+		var getTransPromise = _getTranslationFromConnector(request, connectionjson, connectionJobId, target);
+		getTransPromise.then(function (result) {
+			if (result.err) {
+				done();
+				return;
+			}
+
+			// import into local
+			var importPromise = _importJob(target, 'ingest');
+			importPromise.then(function (result) {
+				if (result.err) {
+					done();
+					return;
+				}
+
+				// save the status
+				jobConnectionInfo.status = 'INGESTED';
+
+				var connectionJobJsonPath = path.join(transSrcDir, name, 'connectionjob.json');
+				fs.writeFileSync(connectionJobJsonPath, JSON.stringify(jobConnectionInfo));
+				done();
+			});
+		});
+	});
+
+};
+
+/**
+ * Register translation connector and save to cec.properties
+ */
+module.exports.registerTranslationConnector = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+
+	var connectorName = argv.connector;
+	// verify the connector
+	var connectors = serverUtils.getTranslationConnectors(projectDir);
+	var validConnector = false;
+	for (var i = 0; i < connectors.length; i++) {
+		if (connectorName === connectors[i].name) {
+			validConnector = true;
+			break;
+		}
+	}
+	if (!validConnector) {
+		console.log('ERROR: connector ' + connectorName + ' does not exist');
+		done();
+		return;
+	}
+
+	var connectorServer = argv.server;
+	// remove traling /
+	if (connectorServer.length > 1 && connectorServer.substring(connectorServer.length - 1) === '/') {
+		connectorServer = connectorServer.substring(0, connectorServer.length - 1);
+	}
+	var user = argv.user;
+	var password = argv.password;
+	var serverInfoPromise = _getconnectorServerInfo(connectorServer, user, password);
+	var fields = argv.fields ? argv.fields.split(',') : [];
+	serverInfoPromise.then(function (result) {
+		if (result.err) {
+			done();
+			return;
+		}
+		var serverfields = result.fields;
+		var requirefFiels = [];
+		for (var i = 0; i < serverfields.length; i++) {
+			if (serverfields[i].ID !== 'ProxyHost' && serverfields[i].ID !== 'ProxyPort' && serverfields[i].ID !== 'ProxyScheme') {
+				requirefFiels.push(serverfields[i].ID);
+			}
+		}
+		// console.log(' - required fields: ' + requirefFiels + ' fields: ' + fields);
+		var missingFields = [];
+		var fieldValues = [];
+		for (var i = 0; i < requirefFiels.length; i++) {
+			var fieldValue = undefined;
+			for (var j = 0; j < fields.length; j++) {
+				var vals = fields[j].split(':');
+				if (vals.length === 2 && vals[0] === requirefFiels[i]) {
+					fieldValue = vals[1];
+					break;
+				}
+			}
+			if (fieldValue == undefined) {
+				missingFields.push(requirefFiels[i]);
+			} else {
+				fieldValues.push({
+					name: requirefFiels[i],
+					value: fieldValue
+				});
+			}
+		}
+		if (missingFields.length > 0) {
+			console.log('ERROR: missing required fields ' + missingFields);
+			done();
+			return;
+		}
+
+		// create the connection file
+		if (!fs.existsSync(connectionsSrcDir)) {
+			fs.mkdirSync(connectionsSrcDir);
+		}
+		var connectionpath = path.join(connectionsSrcDir, name);
+		if (!fs.existsSync(connectionpath)) {
+			fs.mkdirSync(connectionpath);
+		}
+		var connectionfile = path.join(connectionpath, 'connection.json');
+		var connectionConfig = {
+			connector: connectorName,
+			url: connectorServer,
+			user: user,
+			password: password,
+			fields: fieldValues
+		};
+
+		fs.writeFileSync(connectionfile, JSON.stringify(connectionConfig));
+		console.log(' - translation connection registered in ' + connectionfile);
+		done();
+	});
+};
+
+module.exports.createTranslationConnector = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+
+	var connectors = fs.existsSync(connectorsSrcDir) ? fs.readdirSync(connectorsSrcDir) : [];
+	var connectorExist = false;
+	for (var i = 0; i < connectors.length; i++) {
+		if (name === connectors[i]) {
+			connectorExist = true;
+			break;
+		}
+	}
+	if (connectorExist) {
+		console.error('ERROR: connector ' + name + ' already exists. Please specify a different name.');
+		done();
+		return;
+	}
+
+	var connectorZip = path.join(connectorsDataDir, 'translation-connector.zip');
+	var connectorSrcPath = path.join(connectorsSrcDir, name);
+	extract(connectorZip, {
+		dir: connectorSrcPath
+	}, function (err) {
+		if (err) {
+			console.log('ERROR: failed to unzip ' + connectorZip);
+			console.log(err);
+			done();
+		}
+
+		console.log(` - translation connector ${name} created at ${connectorSrcPath}`);
+
+		console.log(' - install connector');
+		var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', connectorSrcPath], {
+			projectDir,
+			stdio: 'inherit'
+		});
+
+		console.log('Start the connector: cec start-translation-connector ' + name + ' [-p <port>]');
+		done();
+	});
+};
+
+module.exports.startTranslationConnector = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+
+	var connectors = fs.existsSync(connectorsSrcDir) ? fs.readdirSync(connectorsSrcDir) : [];
+	var connectorExist = false;
+	for (var i = 0; i < connectors.length; i++) {
+		if (name === connectors[i]) {
+			connectorExist = true;
+			break;
+		}
+	}
+	if (!connectorExist) {
+		console.error('ERROR: connector ' + name + ' does not exist.');
+		done();
+		return;
+	}
+
+	var port = argv.port || '8084';
+	process.env['CECLSP_PORT'] = port;
+
+	var connectPath = path.join(connectorsSrcDir, name);
+	var args = ['start', '--prefix', connectPath];
+	var spawnCmd = childProcess.spawnSync(npmCmd, args, {
+		projectDir,
+		stdio: 'inherit'
+	});
+	done();
 };

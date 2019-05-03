@@ -9,10 +9,7 @@
  */
 var express = require('express'),
 	serverUtils = require('./serverUtils.js'),
-	fs = require('fs'),
-	FormData = require('form-data'),
-	router = express.Router(),
-	url = require('url');
+	router = express.Router();
 
 router.get('/*', (req, res) => {
 	let location, app = req.app,

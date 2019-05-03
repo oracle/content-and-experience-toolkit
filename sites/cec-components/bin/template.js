@@ -10,31 +10,59 @@
  */
 var gulp = require('gulp'),
 	serverUtils = require('../test/server/serverUtils.js'),
-	decompress = require('decompress'),
 	extract = require('extract-zip'),
-	os = require('os'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	path = require('path'),
 	argv = require('yargs').argv,
-	replace = require('gulp-replace'),
 	zip = require('gulp-zip');
 
-var projectDir = path.join(__dirname, ".."),
-	componentsSrcDir = path.join(projectDir, 'src', 'main', 'components'),
-	templatesDataDir = path.join(projectDir, 'data', 'templates'),
-	templatesSrcDir = path.join(projectDir, 'src', 'main', 'templates'),
-	templatesBuildDir = path.join(projectDir, 'src', 'build', 'templates'),
-	themesSrcDir = path.join(projectDir, 'src', 'main', 'themes'),
-	themesBuildDir = path.join(projectDir, 'src', 'build', 'themes');
+var cecDir = path.join(__dirname, ".."),
+	templatesDataDir = path.join(cecDir, 'data', 'templates');
+
+var projectDir,
+	componentsSrcDir,
+	templatesSrcDir,
+	themesSrcDir,
+	templatesBuildDir;
 
 var templateBuildContentDirBase = '',
 	templateBuildContentDirName = '',
 	templateName = '';
 
+/**
+ * Verify the source structure before proceed the command
+ * @param {*} done 
+ */
+var verifyRun = function (argv) {
+	projectDir = argv.projectDir || projectDir;
+	if (!serverUtils.isProjectCreated(projectDir)) {
+		console.log('ERROR: no source folder available, please run cec install first');
+		return false;
+	}
+
+	var config = serverUtils.getConfiguration(projectDir);
+	var srcfolder = config.srcfolder || 'src/main';
+
+	// reset source folders
+	componentsSrcDir = path.join(projectDir, srcfolder, 'components');
+	templatesSrcDir = path.join(projectDir, srcfolder, 'templates');
+	themesSrcDir = path.join(projectDir, srcfolder, 'themes');
+
+	var buildfolder = srcfolder === 'src/main' ? 'src/build' : 'build';
+	templatesBuildDir = path.join(projectDir, buildfolder, 'templates');
+
+	return true;
+}
+
 module.exports.createTemplate = function (argv, done) {
 	'use strict';
 
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+	
 	var srcTempName = argv.source,
 		tempName = argv.name,
 		template = '',
@@ -91,6 +119,11 @@ module.exports.createTemplate = function (argv, done) {
 module.exports.importTemplate = function (argv, done) {
 	'use strict';
 
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
 	if (typeof argv.path !== 'string') {
 		console.error('ERROR: please specify the template zip file');
 		done();
@@ -98,7 +131,7 @@ module.exports.importTemplate = function (argv, done) {
 	}
 	var tempPath = argv.path;
 	if (!path.isAbsolute(tempPath)) {
-		tempPath = path.join('..', tempPath);
+		tempPath = path.join(projectDir, tempPath);
 	}
 	tempPath = path.resolve(tempPath);
 
@@ -115,6 +148,11 @@ module.exports.importTemplate = function (argv, done) {
 
 module.exports.exportTemplate = function (argv, done) {
 	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
 
 	if (typeof argv.template !== 'string') {
 		console.error('ERROR: please run as npm run export-template -- --template <template> [--minify <true|false>]');
@@ -187,6 +225,11 @@ gulp.task('create-template-export-zip', function (done) {
 
 module.exports.copyTemplate = function (argv, done) {
 	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
 
 	var srcTempName = argv.source,
 		tempName = argv.name,
@@ -271,7 +314,7 @@ module.exports.copyTemplate = function (argv, done) {
 	fse.copySync(path.join(templatesSrcDir, srcTempName), path.join(templatesSrcDir, tempName));
 
 	// update itemGUID for the new template
-	serverUtils.updateItemFolderJson('template', tempName, 'siteName', tempName);
+	serverUtils.updateItemFolderJson(projectDir, 'template', tempName, 'siteName', tempName);
 
 	// update the content dir if exists
 	var contentdir = path.join(templatesSrcDir, tempName, 'assets', 'contenttemplate', 'Content Template of ' + srcTempName);
@@ -286,7 +329,7 @@ module.exports.copyTemplate = function (argv, done) {
 	fse.copySync(path.join(themesSrcDir, srcThemeName), path.join(themesSrcDir, themeName));
 
 	// update itemGUID for the new theme
-	serverUtils.updateItemFolderJson('theme', themeName, 'themeName', themeName);
+	serverUtils.updateItemFolderJson(projectDir, 'theme', themeName, 'themeName', themeName);
 
 	// update the siteName and themeName in siteinfo.json for the new template
 	siteinfofile = path.join(templatesSrcDir, tempName, 'siteinfo.json');
@@ -307,10 +350,15 @@ module.exports.copyTemplate = function (argv, done) {
 
 module.exports.deployTemplate = function (argv, done) {
 	'use strict';
+	
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
 
-	var server = serverUtils.getConfiguredServer();
+	var server = serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured');
+		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
 		return;
 	}
@@ -371,6 +419,11 @@ module.exports.deployTemplate = function (argv, done) {
 module.exports.describeTemplate = function (argv, done) {
 	'use strict';
 
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
 	if (typeof argv.template !== 'string') {
 		console.error('ERROR: please specify template');
 		done();
@@ -409,7 +462,7 @@ module.exports.describeTemplate = function (argv, done) {
 	console.log('Theme: ' + themeName);
 
 	// custom components
-	var comps = serverUtils.getTemplateComponents(name);
+	var comps = serverUtils.getTemplateComponents(projectDir, name);
 	console.log('Components: ');
 	if (comps) {
 		comps.forEach(function (name) {
@@ -421,14 +474,14 @@ module.exports.describeTemplate = function (argv, done) {
 
 	// theme components
 	console.log('Theme components:');
-	var themeComps = serverUtils.getThemeComponents(themeName);
+	var themeComps = serverUtils.getThemeComponents(projectDir, themeName);
 	themeComps.forEach(function (comp) {
 		console.log('    ' + comp.id);
 	});
 
 	// Content types
 	console.log('Content types:');
-	var alltypes = serverUtils.getContentTypes();
+	var alltypes = serverUtils.getContentTypes(projectDir);
 	for (var i = 0; i < alltypes.length; i++) {
 		if (name === alltypes[i].template) {
 			console.log('    ' + alltypes[i].type.name);
@@ -514,6 +567,11 @@ module.exports.describeTemplate = function (argv, done) {
 
 module.exports.addThemeComponent = function (argv, done) {
 	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
 
 	var component = argv.component,
 		category = argv.category || '',
@@ -625,6 +683,11 @@ module.exports.addThemeComponent = function (argv, done) {
 module.exports.removeThemeComponent = function (argv, done) {
 	'use strict';
 
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+	
 	var component = argv.component,
 		theme = argv.theme;
 
@@ -945,10 +1008,10 @@ var _exportTemplate = function (name, optimize) {
 	}
 
 	// get all custom components used by the template
-	var comps = serverUtils.getTemplateComponents(name);
+	var comps = serverUtils.getTemplateComponents(projectDir, name);
 
 	// get the theme components
-	var themeComps = serverUtils.getThemeComponents(themeName);
+	var themeComps = serverUtils.getThemeComponents(projectDir, themeName);
 	themeComps.forEach(function (comp) {
 		if (!comps.includes(comp.id)) {
 			comps[comps.length] = comp.id;

@@ -17,20 +17,46 @@ var express = require('express'),
 	decompress = require('decompress'),
 	serverUtils = require('../test/server/serverUtils.js');
 
-var projectDir = path.join(__dirname, ".."),
-	componentsDataDir = path.join(projectDir, 'data', 'components'),
-	componentsSrcDir = path.join(projectDir, 'src', 'main', 'components'),
-	componentsBuildDir = path.join(projectDir, 'src', 'build', 'components'),
-	templatesSrcDir = path.join(projectDir, 'src', 'main', 'templates');
+var cecDir = path.join(__dirname, ".."),
+	componentsDataDir = path.join(cecDir, 'data', 'components');
 
+var projectDir,
+	componentsSrcDir,
+	templatesSrcDir;
+
+/**
+ * Verify the source structure before proceed the command
+ * @param {*} done 
+ */
+var verifyRun = function (argv) {
+	projectDir = argv.projectDir || projectDir;
+	if (!serverUtils.isProjectCreated(projectDir)) {
+		console.log('ERROR: no source folder available, please run cec install first');
+		return false;
+	}
+
+	var config = serverUtils.getConfiguration(projectDir);
+	var srcfolder = config.srcfolder || 'src/main';
+
+	// set source folders
+	componentsSrcDir = path.join(projectDir, srcfolder, 'components');
+	templatesSrcDir = path.join(projectDir, srcfolder, 'templates');
+
+	return true;
+}
 
 /**
  * List all content types on the server
  */
-module.exports.listServerContentTypes = function (done) {
+module.exports.listServerContentTypes = function (argv, done) {
 	'use strict';
 
-	serverUtils.getContentTypesFromServer(function (types) {
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	serverUtils.getContentTypesFromServer(projectDir, function (types) {
 		// console.log(types);
 		if (types && types.length > 0) {
 			var byName = types.slice(0);
@@ -57,6 +83,13 @@ module.exports.listServerContentTypes = function (done) {
  * Unzip the zip file of the seeded content layout and place into the /src
  */
 module.exports.createContentLayout = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
 	var contenttypename = argv.contenttype,
 		layoutname = argv.name,
 		templatename = argv.template,
@@ -96,7 +129,7 @@ module.exports.createContentLayout = function (argv, done) {
 
 	if (templatename && templatename !== undefined) {
 		// verify the template
-		var templates = serverUtils.getTemplates(),
+		var templates = serverUtils.getTemplates(projectDir),
 			foundtemplate = false;
 		for (var i = 0; i < templates.length; i++) {
 			if (templates[i].name === templatename) {
@@ -114,7 +147,7 @@ module.exports.createContentLayout = function (argv, done) {
 	if (useserver) {
 
 		// verify the content type
-		serverUtils.getContentTypesFromServer(function (types) {
+		serverUtils.getContentTypesFromServer(projectDir, function (types) {
 			var foundtype = false,
 				contenttype;
 			for (var i = 0; i < types.length; i++) {
@@ -126,12 +159,14 @@ module.exports.createContentLayout = function (argv, done) {
 			}
 			if (!foundtype) {
 				console.error('ERROR: invalid content type ' + contenttypename);
+				done();
 				return;
 			}
 
-			serverUtils.getContentTypeFieldsFromServer(contenttypename, function (typefields) {
+			serverUtils.getContentTypeFieldsFromServer(projectDir, contenttypename, function (typefields) {
 				if (!typefields || typefields.length === 0) {
 					console.error('ERROR: content type ' + contenttypename + ' does not have any field');
+					done();
 					return;
 				}
 				var fields = [],
@@ -143,6 +178,7 @@ module.exports.createContentLayout = function (argv, done) {
 				}
 				if (fields.length === 0) {
 					console.error('ERROR: content type ' + contenttypename + ' does not have any field');
+					done();
 					return;
 				}
 
@@ -153,14 +189,16 @@ module.exports.createContentLayout = function (argv, done) {
 
 	} else {
 		// verify the content type
-		var contenttype = serverUtils.getContentType(contenttypename, templatename);
+		var contenttype = serverUtils.getContentType(projectDir, contenttypename, templatename);
 		// console.log(JSON.stringify(contenttype));
 		if (!contenttype || !contenttype.id) {
 			console.error('ERROR: invalid content type ' + contenttypename);
+			done();
 			return;
 		}
 		if (!contenttype.fields || contenttype.fields.length === 0) {
 			console.error('ERROR: content type ' + contenttypename + ' does not have any field');
+			done();
 			return;
 		}
 
@@ -172,6 +210,13 @@ module.exports.createContentLayout = function (argv, done) {
  * Add content layout mapping to a template
  */
 module.exports.addContentLayoutMapping = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
 	var contenttypename = argv.contenttype,
 		layoutname = argv.contentlayout,
 		layoutstyle = argv.layoutstyle || 'Default',
@@ -204,7 +249,7 @@ module.exports.addContentLayoutMapping = function (argv, done) {
 	}
 
 	// verify the content layout
-	var components = serverUtils.getComponents(),
+	var components = serverUtils.getComponents(projectDir),
 		foundlayout = false;
 	for (var i = 0; i < components.length; i++) {
 		if (components[i].name === layoutname && components[i].type === 'contentlayout') {
@@ -219,7 +264,7 @@ module.exports.addContentLayoutMapping = function (argv, done) {
 	}
 
 	// verify the template
-	var templates = serverUtils.getTemplates(),
+	var templates = serverUtils.getTemplates(projectDir),
 		foundtemplate = false;
 	for (var i = 0; i < templates.length; i++) {
 		if (templates[i].name === templatename) {
@@ -234,7 +279,7 @@ module.exports.addContentLayoutMapping = function (argv, done) {
 	}
 
 	// verify the content type
-	var contenttype = serverUtils.getContentType(contenttypename, templatename);
+	var contenttype = serverUtils.getContentType(projectDir, contenttypename, templatename);
 	if (!contenttype || !contenttype.id) {
 		console.error('ERROR: invalid content type ' + contenttypename);
 		done();
@@ -329,6 +374,11 @@ module.exports.addContentLayoutMapping = function (argv, done) {
 module.exports.removeContnetLayoutMapping = function (argv, done) {
 	'use strict';
 
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
 	var templatename = argv.template,
 		layoutname = argv.contentlayout,
 		layoutstyle = argv.layoutstyle,
@@ -357,7 +407,7 @@ module.exports.removeContnetLayoutMapping = function (argv, done) {
 	}
 
 	// verify the template
-	var templates = serverUtils.getTemplates(),
+	var templates = serverUtils.getTemplates(projectDir),
 		foundtemplate = false;
 	for (var i = 0; i < templates.length; i++) {
 		if (templates[i].name === templatename) {
@@ -373,7 +423,7 @@ module.exports.removeContnetLayoutMapping = function (argv, done) {
 
 	if (layoutname) {
 		// verify the content layout
-		var components = serverUtils.getComponents(),
+		var components = serverUtils.getComponents(projectDir),
 			foundlayout = false;
 		for (var i = 0; i < components.length; i++) {
 			if (components[i].name === layoutname && components[i].type === 'contentlayout') {
@@ -500,7 +550,7 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 		strip: 1
 	}).then(() => {
 		// update itemGUID
-		serverUtils.updateItemFolderJson('component', layoutname);
+		serverUtils.updateItemFolderJson(projectDir, 'component', layoutname);
 
 		// update design.css
 		var designfile = path.join(componentDir, 'assets', 'design.css'),
@@ -535,7 +585,7 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 					fieldname = '.';
 				}
 
-				if (editor && editor === 'rich-text-editor') {
+				if (editor && (editor === 'rich-text-editor' || editor === 'markdown-editor')) {
 					fieldstr = fieldstr + '<li><p>{{{' + fieldname + '}}}</p></li>' + os.EOL;
 				} else {
 					fieldstr = fieldstr + '<li><p>{{' + fieldname + '}}</p></li>' + os.EOL;
@@ -689,6 +739,10 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 				if (editor && editor === 'rich-text-editor') {
 					tmpstr = tmpstr + os.EOL + ident;
 					tmpstr = tmpstr + 'data["' + field.name + '"] = contentClient.expandMacros(data["' + field.name + '"]);';
+					tmpstr = tmpstr + os.EOL;
+				} else if (editor && editor === 'markdown-editor') {
+					tmpstr = tmpstr + os.EOL + ident;
+					tmpstr = tmpstr + 'data["' + field.name + '"] = parseMarkdown(contentClient.expandMacros(data["' + field.name + '"]));';
 					tmpstr = tmpstr + os.EOL;
 				}
 			}

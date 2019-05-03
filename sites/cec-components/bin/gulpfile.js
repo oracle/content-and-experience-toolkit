@@ -6,7 +6,7 @@
 /* jshint esversion: 6 */
 
 var gulp = require('gulp'),
-	serverUtils = require('../test/server/serverUtils.js'),
+	os = require('os'),
 	contentlayoutlib = require('./contentlayout.js'),
 	templatelib = require('./template.js'),
 	sitelib = require('./site.js'),
@@ -19,44 +19,28 @@ var gulp = require('gulp'),
 	childProcess = require('child_process'),
 	argv = require('yargs').argv,
 	config = require('../config/config.json'),
+	semver = require('semver'),
+	sprintf = require('sprintf-js').sprintf,
 	zip = require('gulp-zip');
 
-var projectDir = path.join(__dirname, ".."),
-	componentsDataDir = path.join(projectDir, 'data', 'components'),
-	componentsSrcDir = path.join(projectDir, 'src', 'main', 'components'),
-	componentsBuildDir = path.join(projectDir, 'src', 'build', 'components'),
-	templatesSrcDir = path.join(projectDir, 'src', 'main', 'templates');
+var serverUtils = require('../test/server/serverUtils.js');
 
-/**
- * Private
- * Execute Gradle tasks via shell.
- * @param taskNames Array of gradle task names. Avoid tasks that might invoke gulp.
- * @param cb        Callback function of gulp task.
- */
-var execGradle = function (taskNames, cb) {
-	"use strict";
+var cecDir = path.join(__dirname, ".."),
+	configDataDir = path.join(cecDir, 'data', 'config'),
+	componentsDataDir = path.join(cecDir, 'data', 'components');
 
-	var gradle = 'gradle';
+var projectDir,
+	buildDir,
+	componentsSrcDir,
+	componentsBuildDir,
+	connectionsSrcDir,
+	connectorsSrcDir,
+	transSrcDir,
+	templatesSrcDir;
 
-	// Use Gradle Wrapper if found
-	if (fs.existsSync(path.join(projectDir, 'gradlew'))) {
-		gradle = path.join(projectDir, (/^win/.test(process.platform)) ? 'gradlew.bat' : './gradlew');
-	}
-	console.log(fs.existsSync(gradle));
-	// Invoke Gradle
-	var cmd = childProcess.spawn(gradle,
-		Array.isArray(taskNames) ? taskNames : [taskNames], {
-			cwd: projectDir,
-			stdio: 'inherit'
-		},
-		function (code) {
-			if (cb) {
-				cb(code);
-			}
-		});
+// console.log('cecDir: ' + cecDir);
 
-	console.log('Executing: ' + cmd.spawnargs.join(' '));
-};
+const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
 
 /**
  * Private
@@ -85,7 +69,6 @@ var optimizeComponent = function (componentName) {
 	let compGulpFile = path.join(componentsSrcDir, componentName, 'gulpfile.js');
 	if (fs.existsSync(compGulpFile)) {
 		// Run 'gulp' under the components directory
-		const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
 		var compBuild = childProcess.spawnSync(npmCmd, ['run', 'gulp', compGulpFile], {
 			stdio: 'inherit'
 		});
@@ -197,14 +180,158 @@ var replaceAll = function (str, search, replacement) {
 	return str.replace(re, replacement);
 };
 
+/**
+ * Verify the source structure before proceed the command
+ * @param {*} done 
+ */
+var verifyRun = function () {
+	projectDir = argv.projectDir || projectDir;
+	if (!serverUtils.isProjectCreated(projectDir)) {
+		console.log('Please run cec install first');
+		return false;
+	}
+
+	var config = serverUtils.getConfiguration(projectDir);
+	var srcfolder = config.srcfolder || 'src/main';
+
+	// set source folders
+	componentsSrcDir = path.join(projectDir, srcfolder, 'components');
+	templatesSrcDir = path.join(projectDir, srcfolder, 'templates');
+	connectorsSrcDir = path.join(projectDir, srcfolder, 'connectors');
+	connectionsSrcDir = path.join(projectDir, srcfolder, 'connections');
+	transSrcDir = path.join(projectDir, srcfolder, 'translationJobs');
+
+	var buildfolder = srcfolder === 'src/main' ? 'src/build' : 'build';
+	buildDir = path.join(projectDir, buildfolder);
+	componentsBuildDir = path.join(buildDir, 'components');
+
+	return true;
+}
 
 /******************************* gulp tasks *******************************/
+
+/**
+ * 
+ */
+gulp.task('install-src', function (done) {
+	'use strict';
+
+	projectDir = argv.projectDir || projectDir;
+
+	// existing setup
+	var currserver = serverUtils.getConfiguredServer();
+
+	// create the config file
+	var configPath = path.join(projectDir, 'cec.properties');
+	var newConfig = false;
+	if (!fs.existsSync(configPath)) {
+		fse.copySync(path.join(configDataDir, 'cec.properties'), configPath);
+		newConfig = true;
+	}
+
+	// create the default package.json
+	if (!fs.existsSync(path.join(projectDir, 'package.json'))) {
+		fse.copySync(path.join(configDataDir, 'src-package.json'), path.join(projectDir, 'package.json'));
+	}
+
+	// create symlink to libs
+	try {
+		fse.ensureSymlinkSync(path.join(cecDir, 'src', 'libs'), path.join(projectDir, 'libs'));
+	} catch (err) {
+		console.error('ERROR: ' + err);
+	}
+
+	// read the config file 
+	var config = serverUtils.getConfiguration(projectDir);
+	var srcFolder = path.join(projectDir, config.srcfolder);
+
+	// set up src folders
+	if (!fs.existsSync(srcFolder)) {
+		fs.mkdirSync(srcFolder);
+	}
+
+	if (!fs.existsSync(path.join(srcFolder, 'components'))) {
+		fs.mkdirSync(path.join(srcFolder, 'components'));
+	}
+	if (!fs.existsSync(path.join(srcFolder, 'templates'))) {
+		fs.mkdirSync(path.join(srcFolder, 'templates'));
+	}
+	if (!fs.existsSync(path.join(srcFolder, 'themes'))) {
+		fs.mkdirSync(path.join(srcFolder, 'themes'));
+	}
+
+	// ./dist/
+	if (!fs.existsSync(path.join(projectDir, 'dist'))) {
+		fs.mkdirSync(path.join(projectDir, 'dist'));
+	}
+
+	// set the server in config with existing settings
+	if (newConfig && currserver.url) {
+		// console.log(' - set CEC server with ' + currserver.fileloc);
+		var configstr = fs.readFileSync(configPath).toString();
+		configstr = configstr.replace('cec_url=', 'cec_url=' + currserver.url);
+		configstr = configstr.replace('cec_username=', 'cec_username=' + currserver.username);
+		configstr = configstr.replace('cec_password=', 'cec_password=' + currserver.password);
+		configstr = configstr.replace('cec_env=', 'cec_env=' + currserver.env);
+		fs.writeFileSync(configPath, configstr);
+	}
+
+	console.log('Project set up, config CEC server in ' + configPath);
+
+	// install dependencies
+	console.log('Install dependencies from package.json:');
+	var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', projectDir], {
+		projectDir,
+		stdio: 'inherit'
+	});
+
+	var seedArgs = ['run', 'create-component', '--prefix', cecDir,
+		'--',
+		'--projectDir', projectDir,
+		'--name', 'Sample-To-Do',
+		'--source', 'Sample-To-Do'
+	];
+	var seedCmd = childProcess.spawnSync(npmCmd, seedArgs, {
+		projectDir,
+		stdio: 'inherit'
+	});
+
+	done();
+});
+
+
+gulp.task('develop', function (done) {
+	'use strict';
+
+	if (!verifyRun()) {
+		done();
+		return;
+	}
+
+	var port = argv.port || '8085';
+	process.env['CEC_TOOLKIT_PORT'] = port;
+	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
+
+	var args = ['run', 'start', '--prefix', cecDir];
+	var spawnCmd = childProcess.spawnSync(npmCmd, args, {
+		projectDir,
+		stdio: 'inherit'
+	});
+	done();
+});
+
 /**
  * Create component
  * Unzip the zip file of the seeded component and place into the /src
  */
 gulp.task('create-component', function (done) {
 	'use strict';
+
+	if (!verifyRun()) {
+		done();
+		return;
+	}
+
 	var srcCompName = argv.source,
 		compName = argv.name,
 		comp = '',
@@ -263,6 +390,11 @@ gulp.task('create-component', function (done) {
  */
 gulp.task('copy-component', function (done) {
 	'use strict';
+	if (!verifyRun()) {
+		done();
+		return;
+	}
+
 	var srcCompName = argv.source,
 		compName = argv.name,
 		comp = '',
@@ -315,7 +447,7 @@ gulp.task('copy-component', function (done) {
 	fse.copySync(path.join(componentsSrcDir, srcCompName), path.join(componentsSrcDir, compName));
 
 	// update itemGUID
-	if (serverUtils.updateItemFolderJson('component', compName)) {
+	if (serverUtils.updateItemFolderJson(projectDir, 'component', compName)) {
 		console.log(' *** component is ready to test: http://localhost:8085/components/' + compName);
 		done();
 	}
@@ -327,6 +459,11 @@ gulp.task('copy-component', function (done) {
  */
 gulp.task('import-component', function (done) {
 	'use strict';
+	if (!verifyRun()) {
+		done();
+		return;
+	}
+
 	if (typeof argv.path !== 'string') {
 		console.error('ERROR: please specify the component zip file');
 		done();
@@ -334,7 +471,7 @@ gulp.task('import-component', function (done) {
 	}
 	var compPath = argv.path;
 	if (!path.isAbsolute(compPath)) {
-		compPath = path.join('..', compPath);
+		compPath = path.join(projectDir, compPath);
 	}
 	compPath = path.resolve(compPath);
 
@@ -356,7 +493,7 @@ gulp.task('import-component', function (done) {
 gulp.task('list-server-content-types', function (done) {
 	'use strict';
 
-	contentlayoutlib.listServerContentTypes(done);
+	contentlayoutlib.listServerContentTypes(argv, done);
 });
 
 /**
@@ -471,16 +608,22 @@ gulp.task('dist-all', function () {
 	fse.removeSync('../src/build');
 
 	// Copy the components to the build folder
+
 	return gulp.src('../src/main/components/**')
 		.pipe(gulp.dest('../src/build/components'));
 });
+
 
 /**
  * Copy one component source to build folder, optimize if needed.
  */
 gulp.task('dist', function (done) {
 	'use strict';
-	fse.removeSync('../src/build');
+
+	if (fs.existsSync(buildDir)) {
+		// console.log(' - clean up folder ' + buildDir);
+		fse.removeSync(buildDir);
+	}
 
 	if (argv.component) {
 
@@ -563,6 +706,7 @@ gulp.task('deploy-all', function (cb) {
 gulp.task('create-component-zip', function (done) {
 	'use strict';
 
+	var destDir = path.join(projectDir, 'dist');
 	var components = argv.component.split(',');
 	var tasks = components.map(function (comp) {
 		if (fs.existsSync(path.join(componentsSrcDir, comp))) {
@@ -570,9 +714,10 @@ gulp.task('create-component-zip', function (done) {
 					base: componentsBuildDir
 				})
 				.pipe(zip(`${comp}.zip`))
-				.pipe(gulp.dest('../dist/'))
+				.pipe(gulp.dest(destDir))
 				.on('end', function () {
-					console.log(` - created zip file ${comp}.zip`);
+					var zippath = path.join(destDir, comp + '.zip');
+					console.log(' - created zip file ' + zippath);
 					done();
 				});
 		}
@@ -585,6 +730,11 @@ gulp.task('create-component-zip', function (done) {
  */
 gulp.task('export-component', function (done) {
 	'use strict';
+
+	if (!verifyRun()) {
+		done();
+		return;
+	}
 
 	if (!argv.component || typeof argv.component !== 'string') {
 		console.error('Usage: npm run export-component <componentName>');
@@ -617,10 +767,14 @@ gulp.task('export-component', function (done) {
  */
 gulp.task('deploy-component', function (done) {
 	'use strict';
+	if (!verifyRun()) {
+		done();
+		return;
+	}
 
-	var server = serverUtils.getConfiguredServer();
+	var server = serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured');
+		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
 		return;
 	}
@@ -821,6 +975,11 @@ gulp.task('copy-libs', function (done) {
 gulp.task('list', function (done) {
 	'use strict';
 
+	if (!verifyRun()) {
+		done();
+		return;
+	}
+
 	var typeName = typeof argv.resourcetype !== 'string' ? 'all' : argv.resourcetype,
 		listComponents = !typeName || typeName === 'all' || typeName.toLowerCase() === 'components',
 		listTemplates = !typeName || typeName === 'all' || typeName.toLowerCase() === 'templates';
@@ -856,6 +1015,36 @@ gulp.task('list', function (done) {
 		}
 	}
 
+	console.log('Translation connectors:');
+	var connectorNames = fs.existsSync(connectorsSrcDir) ? fs.readdirSync(connectorsSrcDir) : [];
+	if (connectorNames) {
+		connectorNames.forEach(function (name) {
+			if (fs.existsSync(path.join(connectorsSrcDir, name, 'package.json'))) {
+				console.log('    ' + name);
+			}
+		});
+	}
+
+	console.log('Translation connections:');
+	var connectionNames = fs.existsSync(connectionsSrcDir) ? fs.readdirSync(connectionsSrcDir) : [];
+	if (connectionNames) {
+		connectionNames.forEach(function (name) {
+			if (fs.existsSync(path.join(connectionsSrcDir, name, 'connection.json'))) {
+				console.log('    ' + name);
+			}
+		});
+	}
+
+	console.log('Translation jobs:');
+	var jobNames = fs.existsSync(transSrcDir) ? fs.readdirSync(transSrcDir) : [];
+	if (jobNames) {
+		jobNames.forEach(function (name) {
+			if (fs.existsSync(path.join(transSrcDir, name, 'site')) || fs.existsSync(path.join(transSrcDir, name, 'job.json'))) {
+				console.log('    ' + name);
+			}
+		});
+	}
+
 	done();
 });
 
@@ -879,14 +1068,6 @@ gulp.task('create-site-map', function (done) {
 	siteMaplib.createSiteMap(argv, done);
 });
 
-/**
- * List translation jobs on the server
- */
-gulp.task('list-translation-jobs', function (done) {
-	'use strict';
-
-	translationlib.listServerTranslationJobs(argv, done);
-});
 
 /**
  * Download a translation job from the server
@@ -894,16 +1075,25 @@ gulp.task('list-translation-jobs', function (done) {
 gulp.task('download-translation-job', function (done) {
 	'use strict';
 
-	translationlib.downloadServerTranslationJob(argv, done);
+	translationlib.downloadTranslationJob(argv, done);
 });
 
 /**
  * Import a translation job to the server
  */
-gulp.task('import-translation-job', function (done) {
+gulp.task('upload-translation-job', function (done) {
 	'use strict';
 
-	translationlib.importTranslationJob(argv, done);
+	translationlib.uploadTranslationJob(argv, done);
+});
+
+/**
+ * List local or server translation jobs
+ */
+gulp.task('list-translation-jobs', function (done) {
+	'use strict';
+
+	translationlib.listTranslationJobs(argv, done);
 });
 
 /**
@@ -913,6 +1103,165 @@ gulp.task('create-translation-job', function (done) {
 	'use strict';
 
 	translationlib.createTranslationJob(argv, done);
+});
+
+/**
+ * Submit translation job to LSP server
+ */
+gulp.task('submit-translation-job', function (done) {
+	'use strict';
+
+	translationlib.submitTranslationJob(argv, done);
+});
+
+/**
+ * Ingest translatedjob 
+ */
+gulp.task('ingest-translation-job', function (done) {
+	'use strict';
+
+	translationlib.ingestTranslationJob(argv, done);
+});
+
+
+/**
+ * Register translation connector
+ */
+gulp.task('register-translation-connector', function (done) {
+	'use strict';
+
+	translationlib.registerTranslationConnector(argv, done);
+});
+
+/**
+ * Create translation connector
+ */
+gulp.task('create-translation-connector', function (done) {
+	'use strict';
+
+	translationlib.createTranslationConnector(argv, done);
+});
+
+/**
+ * Start translation connector
+ */
+gulp.task('start-translation-connector', function (done) {
+	'use strict';
+
+	translationlib.startTranslationConnector(argv, done);
+});
+
+gulp.task('check-version', function (done) {
+	'use strict';
+
+	// check if the message already shown 
+	var msgFile = path.join(os.tmpdir(), 'cec_sitestoolkit_message');
+	if (fs.existsSync(msgFile)) {
+		var statInfo = fs.statSync(msgFile);
+		var lastModifiedTime = statInfo.mtimeMs;
+		var currTime = (new Date()).getTime();
+		var oneDay = 1000 * 60 * 60 * 24;
+		var diffDays = Math.round((currTime - lastModifiedTime) / oneDay);
+		// console.log(' - file ' + msgFile + ' last updated on ' + statInfo.mtime + ' days passed: ' + diffDays);
+		// warn every 30 days :-)
+		if (diffDays < 30) {
+			return;
+		}
+	}
+
+	projectDir = argv.projectDir || projectDir;
+
+	var server = serverUtils.getConfiguredServer(projectDir);
+	if (!server.url || !server.username || !server.password) {
+		// console.log(' - no server is configured in ' + server.fileloc);
+		return;
+	}
+
+	var Client = require('node-rest-client').Client;
+	var client = new Client({
+		user: server.username,
+		password: server.password
+	});
+
+	var isPod = server.env === 'pod_ec';
+	var url = server.url + (isPod ? '/content' : '/osn/social/api/v1/connections');
+	client.get(url, function (data, response) {
+		if (!response || response.statusCode !== 200) {
+			console.log('ERROR: failed to query CEC version: ' + (response && response.statusMessage));
+			return;
+		}
+		var cecVersion, cecVersion2;
+		if (isPod) {
+			cecVersion = data ? data.toString() : '';
+			if (!cecVersion) {
+				console.log('ERROR: no value returned for CEC version');
+				return;
+			}
+
+			if (cecVersion.indexOf('Revision:') >= 0) {
+				cecVersion = cecVersion.substring(cecVersion.indexOf('Revision:') + 'Revision:'.length);
+			}
+			cecVersion = cecVersion.trim();
+
+			if (cecVersion.indexOf('/') > 0) {
+				cecVersion = cecVersion.substring(0, cecVersion.indexOf('/'));
+			}
+
+			var arr = cecVersion.split('.');
+			var versionstr = arr.length >= 2 ? arr[1] : '';
+
+			// the version is a string such as 1922ec
+			if (versionstr && versionstr.length >= 3) {
+				cecVersion2 = versionstr.charAt(0) + versionstr.charAt(1) + '.' + versionstr.charAt(2);
+				cecVersion = cecVersion2;
+				if (versionstr.length > 3) {
+					cecVersion = cecVersion + '.' + versionstr.charAt(3);
+				}
+			}
+		} else {
+			cecVersion = data && data.version;
+			if (!cecVersion) {
+				console.log('ERROR: no value returned for CEC version');
+				return;
+			}
+			var arr = cecVersion.split('.');
+			cecVersion2 = arr.length >= 2 ? arr[0] + '.' + arr[1] : (arr.length > 0 ? arr[0] : '');
+		}
+		// console.log(' CEC server: ' + server.url + '  version: ' + cecVersion + ' version2: ' + cecVersion2);
+
+		// get the toolkit version
+		var packagejsonpath = path.join(cecDir, 'package.json');
+		var toolkitVersion;
+		if (fs.existsSync(packagejsonpath)) {
+			var str = fs.readFileSync(packagejsonpath);
+			var packagejson = JSON.parse(str);
+			toolkitVersion = packagejson && packagejson.version;
+		}
+
+		if (!toolkitVersion) {
+			return;
+			console.log('ERROR: version found in ' + packagejsonpath);
+		}
+		arr = toolkitVersion.split('.');
+		var toolkitVersion2 = arr.length >= 2 ? arr[0] + '.' + arr[1] : (arr.length > 0 ? arr[0] : '');
+		// console.log('toolkit version ' + packagejsonpath + ' version: ' + toolkitVersion + ' version2: ' + toolkitVersion2);
+
+		if (cecVersion2 && toolkitVersion2 && semver.gt(semver.coerce(cecVersion2), semver.coerce(toolkitVersion2))) {
+			var format = '%-1s %-50s  %-s';
+			var sep = '*';
+			console.log('');
+			console.log('*******************************************************');
+			console.log(sprintf(format, sep, 'A newer version of Sites Toolkit CLI is available.', sep));
+			console.log(sprintf(format, sep, 'You are using ' + toolkitVersion + '. The latest is ' + cecVersion + '.', sep));
+			console.log(sprintf(format, sep, 'Your current version will be deprecated soon.', sep));
+			console.log('*******************************************************');
+
+			// create the message file
+			fs.writeFileSync(msgFile, 'CEC version: ' + cecVersion + ', toolkit version: ' + toolkitVersion + ', need upgrade.');
+		}
+
+		done();
+	});
 });
 
 /**

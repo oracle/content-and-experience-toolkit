@@ -1,0 +1,372 @@
+<!--
+Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+-->
+<html>
+
+<head>
+	<script type="text/javascript" src="../sitescloud/renderer/app/apps/js/jquery.min.js"></script>
+	<script type="text/javascript" src="../sitescloud/renderer/app/apps/js/knockout.min.js"></script>
+	<link href="../public/css/styles.css" rel="stylesheet">
+</head>
+
+<body>
+	<div class="branding">
+		<div class="brand">
+			<div class="nav">
+				<!-- <button type="button" id="nav-btn" class="menu secondary short osn-clickable" aria-label="Navigation menu" title="Navigation menu"> <span class="icon"></span> </button> -->
+			</div><a href="/public"><img id="logo" data-bind="click: mainPage" class="brand-logo"
+					src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIgAAAARCAMAAAAxDRTrAAAApVBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABU/knhAAAANnRSTlMAzCJq/RDdtKWH+ebvBp9xUdGYd2YbA/JZPjct4djISyUT9urCvZKDMY1DCwKqfl5GGLhjHa4JOWDOAAACmElEQVRIx4WV2XqCMBBGg+JSkEWoiCLiDnW3y//+j9YBIkmT+nFuJBMNZ5LJyEqc2F0aDfvAj6qwb8gsf+Izk7huF748PmfB3hD4LDeMLtNY5QPpXQGb5Ncj42QLKKQzRnShsHyIBX0Am5UYF2PIjB02BN5UjZ5rQcIqWDc8PHU9ExpW/J8IjKhZ0QaxZ00yFmTMOftPZJLiDx/0Ei/0eGrkMXqbrTqc1fGwIZN5JbLvNMw/TOCLcQ7AlMY3PkzKnwT3ZpFv9p+IYwDYxUmzpkNuoTerJk82MJ4o59in2LkUGcjhg9iCOUl0XWC7rsc7wE6U9HWREDA99oIuMJqowcQCMk1kBvTrp8gAluf1CAj4THkYbSKRXR7GKz6BXI+6gKuJZEDKywowiyoJc8b36oe1ipDupvdShCznetQHDFXE2QPD6ul7Chz4xqQOPdDMrV3kHbD6f/iMxKwJfOsic2BRixTvnOsYQF1XP4Dde5ZKSJ80dWwXCaFgyj/aAokukgHjWsS5QOA2LSRmFQGw6VS1GreK6O3AlWdpDU8X+QAu/GjOB3Cs/FzdswXwyb+33tJz5eO2i9yB6aMn4Sj7ZWsVNJkCt6ZGQhMw3fx90khuVoNRjVXtjk+Wq1aR01QkrbOm2cFJiS2BhSOK9WbR+HmABWldqwvOoUSiVGlGughPwcrkgHZyabwWgcfXAjB9JkTYnWxHVFnSTXmDIGB3k3y6kxaRXrlwUEQvTALoUM6yCCtswPp6eh+VRKiZeXohDqHQPyVbyKhV4U2hsOXvFH2kk4ISrKtnyGSicfVf69uQod7vQuFOHWgHCe2uPfKlWMa0dyF5ChFRN7iUl3n0YH+Y1c3k5O1sE5yyvyV9yHD/7NLfgCP3y1/ilaUbUwNDfAAAAABJRU5ErkJggg=="
+					alt="undefined logo"><span id="brandText">Content and Experience Cloud</span></a>
+		</div>
+		<div class="clear"></div>
+	</div>
+	<div class="banner" style="margin-top:3px;">
+		<div>
+			<div class="text-ellip" data-bind="text: connectionName"></div>
+		</div>
+	</div>
+	<div class="breadcrumb">
+		<div>
+			<a href="/public">Developer</a>&nbsp;&gt;&nbsp;
+			<a href="/public/translationconnections.html">Translation Connections</a>&nbsp;&gt;&nbsp;<span
+				data-bind="text: connectionName"></span>
+		</div>
+	</div>
+	<div id="testconnector" class="connectorcontainer">
+		<div class="connectorapi">
+			<ul class="connectorapilist">
+				<li>
+					<a href="#" id="getServer" data-bind="click: getServerConfig">Get Server Config</a>
+				</li>
+				<li>
+					<a href="#" id="createJob" data-bind="click: createJob">Create a Job</a>
+				</li>
+				<li>
+					<a href="#" id="sendZip" data-bind="click: sendZip">Send a zipfile to the job </a>
+				</li>
+				<li>
+					<a href="#" id="getJob" data-bind="click: getJob">Get the details on the job</a>
+				</li>
+				<li>
+					<a href="#" id="getTranslation" data-bind="click: getTranslation">Get the translated job zip</a>
+				</li>
+				<li>
+					<a href="#" id="deleteJob" data-bind="click: deleteJob">Delete the job</a>
+				</li>
+			</ul>
+		</div>
+
+		<div class="connectorresult">
+			<div id="requeststatus">
+				<div>
+					<div style="float: left"><span>Status: </span> </div>
+					<div style="float: left; margin-left: 10px;">
+						<span data-bind="text: requestStatus, css: statusCSS"></span>
+						<div data-bind="text: statusMessage"></div>
+					</div>
+				</div>
+				<div style="clear:both;"></div>
+			</div>
+			<div id="requestoptions" style="margin-top: 20px;">
+				<div>Request: </div>
+				<div id="requestoptionsjson"></div>
+			</div>
+			<div id="requestresponse" style="margin-top: 20px;">
+				<div>Response: </div>
+				<div id="requestresponsejson"></div>
+			</div>
+		</div>
+	</div>
+	<script>
+		/* global ko, console */
+		var TestViewModel = function () {
+			'use strict';
+
+			var self = this;
+
+			self.connectionName = ko.observable();
+
+			self.jobId = ko.observable();
+
+			self.requestStatus = ko.observable();
+			self.statusMessage = ko.observable();
+			self.statusCSS = ko.observable();
+			self.requestResponse = ko.observable();
+			self.enableGetJob = ko.observable(false);
+
+			var url = window.location.href;
+			if (url.charAt(url.length - 1) === '#') {
+				url = url.substring(0, url.length - 1);
+			}
+			var connectionName = url.substring(url.lastIndexOf('/') + 1);
+			console.log('testing: connection: ' + connectionName);
+			self.connectionName(connectionName);
+
+			var connectorDownMsg = 'Failed to call the translation connector. Please ensure the connector is running.';
+
+			$('#requeststatus').hide();
+			$('#requestoptions').hide();
+			$('#requestresponse').hide();
+
+			$('#sendZip').addClass('disabledAPI');
+			$('#getJob').addClass('disabledAPI');
+			$('#getTranslation').addClass('disabledAPI');
+			$('#deleteJob').addClass('disabledAPI');
+
+			var currAPIElementId;
+			var selectedAPI = function (elemenetId) {
+				if (currAPIElementId) {
+					$(currAPIElementId).removeClass('selectedAPI');
+				}
+				$(elemenetId).removeClass().addClass('selectedAPI');
+				currAPIElementId = elemenetId;
+			};
+
+			var fileSent = false;
+
+			var displayResult = function (options, resmsg) {
+				$('#requeststatus').show();
+
+				$('#requestoptionsjson').empty();
+				$('#requestoptionsjson').append(
+					$('<pre>').text(JSON.stringify(options, null, '  '))
+				);
+				$('#requestoptions').show();
+
+				$('#requestresponsejson').empty();
+				$('#requestresponsejson').append(
+					$('<pre>').text(resmsg)
+				);
+				$('#requestresponse').show();
+			};
+
+			this.getServerConfig = function (data) {
+				selectedAPI('#getServer');
+				var url = '/connector/rest/api/v1/server?connection=' + connectionName;
+				console.log('getServerConfig: ' + url);
+				$.get(url, function (resultstr) {
+					var result;
+					var options = {},
+						data = {};
+					try {
+						result = JSON.parse(resultstr);
+						options = result.options;
+						data = result.data;
+					} catch (e) {};
+
+					self.statusMessage('');
+					if (!result || result.err) {
+						self.requestStatus('x');
+						self.statusCSS('statusFail');
+						if (data && JSON.stringify(data).indexOf('ECONNREFUSED') >= 0) {
+							self.statusMessage(connectorDownMsg);
+						}
+					} else {
+						self.requestStatus('√');
+						self.statusCSS('statusSuccess');
+					}
+					var msg = data ? JSON.stringify(data, null, '  ') : '';
+					displayResult(options, msg)
+				});
+			};
+
+			this.createJob = function (data) {
+				selectedAPI('#createJob');
+				var url = '/connector/rest/api/v1/job?connection=' + connectionName;
+				url = url + '&jobName=testConnectorJob';
+				console.log('createJob: ' + url);
+				$.post(url, function (resultstr) {
+					var result;
+					var options = {},
+						data = {};
+					try {
+						result = JSON.parse(resultstr);
+						options = result.options;
+						data = result.data;
+					} catch (e) {};
+
+					self.statusMessage('');
+					if (!result || result.err) {
+						self.requestStatus('x');
+						self.statusCSS('statusFail');
+						if (data && JSON.stringify(data).indexOf('ECONNREFUSED') >= 0) {
+							self.statusMessage(connectorDownMsg);
+						} 
+					} else {
+						self.requestStatus('√');
+						self.statusCSS('statusSuccess');
+
+						self.jobId(data && data.properties.id);
+
+						// enable other APIs
+						$('#sendZip').removeClass();
+						$('#getJob').removeClass();
+						$('#deleteJob').removeClass();
+					}
+					var msg = data ? JSON.stringify(data, null, '  ') : '';
+					displayResult(options, msg);
+				});
+			};
+
+			this.getJob = function (data) {
+				if (!self.jobId()) {
+					return;
+				}
+				selectedAPI('#getJob');
+				var url = '/connector/rest/api/v1/job/' + self.jobId() + '?connection=' + connectionName;
+				console.log('getJob: ' + url);
+				$.get(url, function (resultstr) {
+					var result;
+					var options = {},
+						data = {};
+					try {
+						result = JSON.parse(resultstr);
+						options = result.options;
+						data = result.data;
+					} catch (e) {};
+
+					self.statusMessage('');
+					if (!result || result.err) {
+						self.requestStatus('x');
+						self.statusCSS('statusFail');
+						if (data && JSON.stringify(data).indexOf('ECONNREFUSED') >= 0) {
+							self.statusMessage(connectorDownMsg);
+						}
+					} else {
+						self.requestStatus('√');
+						self.statusCSS('statusSuccess');
+					}
+					var msg = data ? JSON.stringify(data, null, '  ') : '';
+					displayResult(options, msg)
+				});
+			};
+
+			this.sendZip = function (data) {
+				if (!self.jobId()) {
+					return;
+				}
+				selectedAPI('#sendZip');
+				var url = '/connector/rest/api/v1/job/' + self.jobId() + '/translate?connection=' + connectionName;
+				console.log('sendZip: ' + url);
+				$.post(url, function (resultstr) {
+					var result;
+					var options = {},
+						data = {};
+					try {
+						result = JSON.parse(resultstr);
+						options = result.options;
+						data = result.data;
+					} catch (e) {};
+
+					self.statusMessage('');
+					if (!result || result.err) {
+						self.requestStatus('x');
+						self.statusCSS('statusFail');
+						if (data && JSON.stringify(data).indexOf('ECONNREFUSED') >= 0) {
+							self.statusMessage(connectorDownMsg);
+						}
+					} else {
+						self.requestStatus('√');
+						self.statusCSS('statusSuccess');
+
+						fileSent = true;
+						// enable get translation
+						$('#getTranslation').removeClass();
+					}
+					var msg = data ? JSON.stringify(data, null, '  ') : '';
+					displayResult(options, msg);
+				});
+			};
+
+			this.getTranslation = function (data) {
+				if (!self.jobId() || !fileSent) {
+					return;
+				}
+				selectedAPI('#getTranslation');
+				var url = '/connector/rest/api/v1/job/' + self.jobId() + '/translation?connection=' + connectionName;
+				console.log('getTranslation: ' + url);
+				$.get(url, function (resultstr) {
+					var result;
+					var options = {},
+						data = {};
+					try {
+						result = JSON.parse(resultstr);
+						options = result.options;
+						data = result.data;
+					} catch (e) {};
+
+					self.statusMessage('');
+					if (!result || result.err) {
+						self.requestStatus('x');
+						self.statusCSS('statusFail');
+						if (data && JSON.stringify(data).indexOf('ECONNREFUSED') >= 0) {
+							self.statusMessage(connectorDownMsg);
+						}
+					} else {
+						self.requestStatus('√');
+						self.statusCSS('statusSuccess');
+					}
+					var msg = data ? JSON.stringify(data, null, '  ') : '';
+					displayResult(options, msg)
+				});
+			};
+
+			this.deleteJob = function (data) {
+				if (!self.jobId()) {
+					return;
+				}
+				selectedAPI('#deleteJob');
+				var url = '/connector/rest/api/v1/job/' + self.jobId() + '?connection=' + connectionName;
+				console.log('deleteJob: ' + url);
+				$.ajax({
+					url: url,
+					type: 'DELETE',
+					success: function (resultstr) {
+						var result;
+						var options = {},
+							data = {};
+						try {
+							result = JSON.parse(resultstr);
+							options = result.options;
+							data = result.data;
+						} catch (e) {};
+
+						var deleted = true;
+						self.statusMessage('');
+						if (!result || result.err) {
+							deleted = false;
+							self.requestStatus('x');
+							self.statusCSS('statusFail');
+							if (data && JSON.stringify(data).indexOf('ECONNREFUSED') >= 0) {
+								self.statusMessage(connectorDownMsg);
+							}
+						} else {
+							self.requestStatus('√');
+							self.statusCSS('statusSuccess');
+						}
+						var msg = data ? JSON.stringify(data, null, '  ') : '';
+						displayResult(options, msg)
+
+						if (deleted) {
+							self.jobId('');
+							fileSent = false;
+							$('#sendZip').addClass('disabledAPI');
+							$('#getJob').addClass('disabledAPI');
+							$('#getTranslation').addClass('disabledAPI');
+							$('#deleteJob').addClass('disabledAPI');
+						}
+					}
+				});
+			};
+
+			self.mainPage = function () {
+				window.location = '/';
+			}
+		};
+		ko.applyBindings(new TestViewModel());
+	</script>
+
+</body>
+
+</html>

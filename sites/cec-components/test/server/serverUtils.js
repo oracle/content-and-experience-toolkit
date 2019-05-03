@@ -21,60 +21,127 @@ var express = require('express'),
 	url = require('url'),
 	Client = require('node-rest-client').Client;
 
-var projectDir = path.join(__dirname, "../.."),
-	componentsDir = path.join(projectDir, 'src', 'main', 'components'),
-	templatesDir = path.join(projectDir, 'src', 'main', 'templates'),
-	themesDir = path.join(projectDir, 'src', 'main', 'themes');
+var componentsDir,
+	connectionsDir,
+	connectorsDir,
+	templatesDir,
+	themesDir;
 
+var _setupSourceDir = function (projectDir) {
+	if (projectDir) {
+		var config = _getConfiguredServer(projectDir);
+		var srcfolder = config.srcfolder || 'src/main';
+
+		componentsDir = path.join(projectDir, srcfolder, 'components');
+		connectionsDir = path.join(projectDir, srcfolder, 'connections');
+		connectorsDir = path.join(projectDir, srcfolder, 'connectors');
+		templatesDir = path.join(projectDir, srcfolder, 'templates');
+		themesDir = path.join(projectDir, srcfolder, 'themes');
+	}
+};
+
+/**
+ * Get server and credentials from cec.properties
+ */
+module.exports.getConfiguration = function (currPath) {
+	return _getConfiguredServer(currPath);
+};
 
 /**
  * Get server and credentials from gradle properties
  */
-module.exports.getConfiguredServer = function () {
-	return _getConfiguredServer();
+module.exports.getConfiguredServer = function (currPath) {
+	return _getConfiguredServer(currPath);
 };
-var _getConfiguredServer = function () {
-	var configFile = process.env.CEC_PROPERTIES || path.join(os.homedir(), '.gradle', 'gradle.properties');
+var _getConfiguredServer = function (currPath) {
+	var configFile;
+	if (currPath && fs.existsSync(path.join(currPath, 'cec.properties'))) {
+		configFile = path.join(currPath, 'cec.properties');
+	} else {
+		configFile = process.env.CEC_PROPERTIES || path.join(os.homedir(), '.gradle', 'gradle.properties');
+	}
 	// console.log('CEC configure file: ' + configFile);
 	var server = {
+		fileloc: configFile,
+		fileexist: false,
 		url: '',
 		username: '',
 		password: '',
 		oauthtoken: '',
-		env: ''
+		env: '',
+		srcfolder: '',
+		translationconnector: undefined
 	};
-	try {
-		var cecurl,
-			username,
-			password,
-			env;
-		fs.readFileSync(configFile).toString().split('\n').forEach(function (line) {
-			if (line.indexOf('cec_url=') === 0) {
-				cecurl = line.substring('cec_url='.length);
-				cecurl = cecurl.replace(/(\r\n|\n|\r)/gm, '').trim();
-			} else if (line.indexOf('cec_username=') === 0) {
-				username = line.substring('cec_username='.length);
-				username = username.replace(/(\r\n|\n|\r)/gm, '').trim();
-			} else if (line.indexOf('cec_password=') === 0) {
-				password = line.substring('cec_password='.length);
-				password = password.replace(/(\r\n|\n|\r)/gm, '').trim();
-			} else if (line.indexOf('cec_env=') === 0) {
-				env = line.substring('cec_env='.length);
-				env = env.replace(/(\r\n|\n|\r)/gm, '').trim();
+	if (fs.existsSync(configFile)) {
+		server.fileexist = true;
+		try {
+			var cecurl,
+				username,
+				password,
+				env,
+				srcfolder,
+				translationconnector;
+			fs.readFileSync(configFile).toString().split('\n').forEach(function (line) {
+				if (line.indexOf('cec_url=') === 0) {
+					cecurl = line.substring('cec_url='.length);
+					cecurl = cecurl.replace(/(\r\n|\n|\r)/gm, '').trim();
+				} else if (line.indexOf('cec_username=') === 0) {
+					username = line.substring('cec_username='.length);
+					username = username.replace(/(\r\n|\n|\r)/gm, '').trim();
+				} else if (line.indexOf('cec_password=') === 0) {
+					password = line.substring('cec_password='.length);
+					password = password.replace(/(\r\n|\n|\r)/gm, '').trim();
+				} else if (line.indexOf('cec_env=') === 0) {
+					env = line.substring('cec_env='.length);
+					env = env.replace(/(\r\n|\n|\r)/gm, '').trim();
+				} else if (line.indexOf('cec_source_folder=') === 0) {
+					srcfolder = line.substring('cec_source_folder='.length);
+					srcfolder = srcfolder.replace(/(\r\n|\n|\r)/gm, '').trim();
+				} else if (line.indexOf('cec_translationconnector=') === 0) {
+					translationconnector = line.substring('cec_translationconnector='.length);
+					translationconnector = translationconnector.replace(/(\r\n|\n|\r)/gm, '').trim();
+				}
+			});
+			if (cecurl && username && password) {
+				server.url = cecurl;
+				server.username = username;
+				server.password = password;
+				server.env = env || 'pod_ec';
+				server.oauthtoken = '';
 			}
-		});
-		if (cecurl && username && password) {
-			server.url = cecurl;
-			server.username = username;
-			server.password = password;
-			server.env = env || 'pod_ec';
-			server.oauthtoken = '';
+			server.srcfolder = srcfolder;
+			server.translationconnector = translationconnector ? JSON.parse(translationconnector) : undefined;
+
+			// console.log('configured server=' + JSON.stringify(server));
+		} catch (e) {
+			console.log('Failed to read config: ' + e);
 		}
-		// console.log('configured server=' + JSON.stringify(server));
-	} catch (e) {
-		console.log('Failed to read config: ' + e);
 	}
 	return server;
+};
+
+module.exports.isProjectCreated = function (currPath) {
+	if (!fs.existsSync(currPath)) {
+		console.log('ERROR: folder ' + currPath + ' does not exist');
+		return false;
+	}
+
+	// backward support
+	var srcfolder = 'src/main';
+
+	var configFile = path.join(currPath, 'cec.properties');
+	if (fs.existsSync(path.join(currPath, 'cec.properties'))) {
+		var config = _getConfiguredServer(currPath);
+		srcfolder = config.srcfolder || srcfolder;
+	}
+
+	var srcPath = path.join(currPath, srcfolder);
+	if (!fs.existsSync(srcPath)) {
+		console.log('ERROR: source folder does not exist');
+		return false;
+	}
+
+	return true;
 };
 
 /**
@@ -165,8 +232,11 @@ var _getURLParameters = function (queryString) {
  * @param type type of the item (template, theme, component)
  * @param name name of the item
  */
-module.exports.updateItemFolderJson = function (type, name, propName, propValue) {
+module.exports.updateItemFolderJson = function (projectDir, type, name, propName, propValue) {
 	"use strict";
+
+	_setupSourceDir(projectDir);
+
 	if (type !== 'template' && type !== 'theme' && type !== 'component') {
 		console.log('updateItemFolderJson: invalid type ' + type);
 		return false;
@@ -201,10 +271,13 @@ module.exports.updateItemFolderJson = function (type, name, propName, propValue)
 /**
  * Get components in componentsDir.
  */
-module.exports.getComponents = function () {
+module.exports.getComponents = function (projectDir) {
 	"use strict";
+
+	_setupSourceDir(projectDir);
+
 	var components = [],
-		items = fs.readdirSync(componentsDir);
+		items = fs.existsSync(componentsDir) ?  fs.readdirSync(componentsDir) : [];
 	if (items) {
 		items.forEach(function (name) {
 			var folderpath = path.join(componentsDir, "/", name, "_folder.json");
@@ -231,7 +304,9 @@ module.exports.getComponents = function () {
  * Get all templates that use this component
  * @param compName
  */
-module.exports.getComponentTemplates = function (compName) {
+module.exports.getComponentTemplates = function (projectDir, compName) {
+	_setupSourceDir(projectDir);
+
 	var temps = [],
 		compSrcDir = path.join(componentsDir, compName);
 
@@ -257,13 +332,15 @@ module.exports.getComponentTemplates = function (compName) {
 /**
  * Get templates in templatesDir.
  */
-module.exports.getTemplates = function () {
+module.exports.getTemplates = function (projectDir) {
+	_setupSourceDir(projectDir);
+
 	return _getTemplates();
 };
 var _getTemplates = function () {
 	"use strict";
 	var templates = [];
-	var items = fs.readdirSync(templatesDir);
+	var items = fs.existsSync(templatesDir) ? fs.readdirSync(templatesDir) : [];
 	if (items) {
 		items.forEach(function (name) {
 			if (fs.existsSync(templatesDir + "/" + name + "/_folder.json")) {
@@ -284,7 +361,9 @@ var _getTemplates = function () {
  * Get all custom components used by a template
  * @param templateName
  */
-module.exports.getTemplateComponents = function (templateName) {
+module.exports.getTemplateComponents = function (projectDir, templateName) {
+	_setupSourceDir(projectDir);
+
 	return _getTemplateComponents(templateName);
 }
 var _getTemplateComponents = function (templateName) {
@@ -361,7 +440,9 @@ var _getTemplateComponents = function (templateName) {
  * Get the icon of a template (_folder_icon.png or _folder_icon.jpg)
  * @param templateName
  */
-module.exports.getTemplateIcon = function (templateName) {
+module.exports.getTemplateIcon = function (projectDir, templateName) {
+	_setupSourceDir(projectDir);
+
 	return _getTemplateIcon(templateName);
 }
 
@@ -394,7 +475,9 @@ var _getTemplateIcon = function (templateName) {
  * Get all content items (across templates) that use this content layout 
  * @param layoutName
  */
-module.exports.getContentLayoutItems = function (layoutName) {
+module.exports.getContentLayoutItems = function (projectDir, layoutName) {
+	_setupSourceDir(projectDir);
+
 	var items = [],
 		layoutSrcDir = path.join(componentsDir, layoutName);
 
@@ -492,7 +575,9 @@ module.exports.getContentLayoutItems = function (layoutName) {
 /**
  * Get all content types (across templates)
  */
-module.exports.getContentTypes = function () {
+module.exports.getContentTypes = function (projectDir) {
+	_setupSourceDir(projectDir);
+
 	return _getContentTypes();
 };
 var _getContentTypes = function () {
@@ -524,7 +609,9 @@ var _getContentTypes = function () {
  * @param typeName the content type name
  * @param templateName the template name, if not specified, return the first type with the name
  */
-module.exports.getContentType = function (typeName, templateName) {
+module.exports.getContentType = function (projectDir, typeName, templateName) {
+	_setupSourceDir(projectDir);
+
 	var contenttype = {},
 		alltypes = _getContentTypes()
 
@@ -542,8 +629,8 @@ module.exports.getContentType = function (typeName, templateName) {
 /**
  * Get content types from server
  */
-module.exports.getContentTypesFromServer = function (callback) {
-	var server = _getConfiguredServer();
+module.exports.getContentTypesFromServer = function (currPath, callback) {
+	var server = _getConfiguredServer(currPath);
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured');
 		return;
@@ -598,8 +685,8 @@ module.exports.getContentTypeFromServer = function (server, typename) {
 /**
  * Get all fields of a content types from server
  */
-module.exports.getContentTypeFieldsFromServer = function (typename, callback) {
-	var server = _getConfiguredServer();
+module.exports.getContentTypeFieldsFromServer = function (currPath, typename, callback) {
+	var server = _getConfiguredServer(currPath);
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured');
 		return;
@@ -639,6 +726,58 @@ module.exports.getCaasCSRFToken = function (server) {
 		});
 	});
 	return csrfTokenPromise;
+};
+
+/**
+ * Get translation connectors in src/connectors/
+ */
+module.exports.getTranslationConnectors = function (projectDir) {
+	"use strict";
+
+	_setupSourceDir(projectDir);
+
+	var connectors = [],
+		items = fs.existsSync(connectorsDir) ?  fs.readdirSync(connectorsDir) : [];
+	if (items) {
+		items.forEach(function (name) {
+			if (fs.existsSync(path.join(connectorsDir, name, 'package.json'))) {
+				connectors.push({
+					name: name
+				});
+			}
+		});
+	}
+
+	/*
+	if (connectors.length === 0) {
+		console.error("No translation connectors found in " + connectorsDir);
+	}
+	*/
+
+	return connectors;
+};
+
+/**
+ * Get translation connections in src/connections/
+ */
+module.exports.getTranslationConnections = function (projectDir) {
+	"use strict";
+
+	_setupSourceDir(projectDir);
+
+	var connections = [],
+		items = fs.existsSync(connectionsDir) ?  fs.readdirSync(connectionsDir) : [];
+	if (items) {
+		items.forEach(function (name) {
+			if (fs.existsSync(path.join(connectionsDir, name, 'connection.json'))) {
+				connections.push({
+					name: name
+				});
+			}
+		});
+	}
+	
+	return connections;
 };
 
 /**
@@ -683,7 +822,7 @@ module.exports.getDocumentRendition = function (app, doc, callback) {
 
 	var client = new Client(),
 		docname = doc.name,
-		resturl = 'http://localhost:8085/documents/api/1.2/folders/search/items?fulltext=' + encodeURIComponent(docname);
+		resturl = 'http://localhost:' + app.locals.port + '/documents/api/1.2/folders/search/items?fulltext=' + encodeURIComponent(docname);
 	// console.log(' -- get document id ');
 
 	client.get(resturl, function (data, response) {
@@ -708,7 +847,7 @@ module.exports.getDocumentRendition = function (app, doc, callback) {
 
 				// check of the rendition exists
 				var page = 'page1';
-				resturl = 'http://localhost:8085/documents/api/1.2/files/' + doc.id + '/data/rendition?rendition=' + page;
+				resturl = 'http://localhost:' + app.locals.port + '/documents/api/1.2/files/' + doc.id + '/data/rendition?rendition=' + page;
 				// console.log(' -- get document rendition');
 				client.get(resturl, function (data, response) {
 					if (response && response.statusCode === 200) {
@@ -718,7 +857,7 @@ module.exports.getDocumentRendition = function (app, doc, callback) {
 					} else {
 						console.log(' -- no rendition for ' + docname + '/' + page + ' yet. Creating...');
 						// create redition
-						resturl = 'http://localhost:8085/documents/api/1.2/files/' + doc.id + '/pages';
+						resturl = 'http://localhost:' + app.locals.port + '/documents/api/1.2/files/' + doc.id + '/pages';
 						var args = {
 							data: {
 								IsJson: 1
@@ -763,7 +902,9 @@ module.exports.getDocumentRendition = function (app, doc, callback) {
  * Get custom components associated with a theme
  * @param {*} themeName 
  */
-module.exports.getThemeComponents = function (themeName) {
+module.exports.getThemeComponents = function (projectDir, themeName) {
+	_setupSourceDir(projectDir);
+
 	var componentsjsonfile = path.join(themesDir, themeName, 'components.json'),
 		themeComps = [],
 		comps = [];
@@ -789,7 +930,7 @@ module.exports.getThemeComponents = function (themeName) {
 			}
 		});
 	} else {
-		console.log(' - file ' + componentsjsonfile + ' does not exist');
+		// console.log(' - file ' + componentsjsonfile + ' does not exist');
 	}
 	// console.log(comps);
 	return comps;
@@ -886,7 +1027,11 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 			}
 		});
 
-		var localServer = app.listen(port, function () {
+		var localServer = app.listen(0, function () {
+			port = localServer.address().port;
+			localhost = 'http://localhost:' + port;
+			// console.log(' - listening on port: '  + port);
+
 			// get the personal folder id
 			var folderUrl = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
 			var options = {
@@ -976,7 +1121,10 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 									var data = JSON.parse(body);
 									var version = data && data.LocalData && data.LocalData.dRevLabel;
 									console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + version);
-									return resolve(data);
+									localServer.close(function () {
+										// console.log(' - close local server: ' + port);
+										return resolve(data);
+									});
 								} else {
 									console.log(' - failed to upload: ' + response.statusCode);
 									return resolve({
@@ -1469,7 +1617,9 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 			}
 		});
 		var socketNum = 0;
-		var localServer = app.listen(port, function () {
+		var localServer = app.listen(0, function () {
+			port = localServer.address().port;
+			localhost = 'http://localhost:' + port;
 			// console.log(' - start ' + localhost + ' for import...');
 			console.log(' - establishing user session');
 			var total = 0;

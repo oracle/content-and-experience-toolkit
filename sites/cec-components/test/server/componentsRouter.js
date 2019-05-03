@@ -16,18 +16,29 @@ var express = require('express'),
 	url = require('url'),
 	uuid4 = require('uuid/v4');
 
-var projectDir = path.resolve(__dirname).replace(path.join('test', 'server'), ''),
-	defaultTemplatesDir = projectDir + '/src/main/templates',
-	defaultThemesDir = projectDir + '/src/main/themes',
-	defaultComponentsDir = projectDir + '/src/main/components',
-	defaultTestDir = projectDir + '/test',
-	defaultLibsDir = projectDir + '/src/libs';
+var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), ''),
+	defaultTestDir = cecDir + '/test',
+	defaultLibsDir = cecDir + '/src/libs',
+	compSiteDir = path.resolve(cecDir + '/test/sites/CompSite'),
+	compThemeDir = path.resolve(cecDir + '/test/themes/CompTheme');
 
-var templatesDir = path.resolve(argv.templatesDir || defaultTemplatesDir),
-	themesDir = path.resolve(argv.themesDir || defaultThemesDir),
-	componentsDir = path.resolve(argv.componentsDir || defaultComponentsDir),
-	compSiteDir = path.resolve(projectDir + '/test/sites/CompSite'),
-	compThemeDir = path.resolve(projectDir + '/test/themes/CompTheme');
+var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
+
+console.log('componentRouter: cecDir: ' + cecDir + ' projectDir: ' + projectDir);
+
+var templatesDir,
+	themesDir,
+	componentsDir;
+
+var _setupSourceDir = function (config) {
+	if (config) {
+		var srcfolder = config.srcfolder || 'src/main';
+
+		templatesDir = path.join(projectDir, srcfolder, 'templates');
+		themesDir = path.join(projectDir, srcfolder, 'themes');
+		componentsDir = path.join(projectDir, srcfolder, 'components');
+	}
+};
 
 //
 // Get requests
@@ -35,6 +46,8 @@ var templatesDir = path.resolve(argv.templatesDir || defaultTemplatesDir),
 router.get('/*', (req, res) => {
 	let app = req.app,
 		request = app.locals.request;
+
+	_setupSourceDir(app.locals.server);
 
 	var filePathSuffix = req.path.replace(/\/components\//, '').replace(/\/$/, ''),
 		filePath = '',
@@ -109,7 +122,7 @@ router.get('/*', (req, res) => {
 			temp = app.locals.currentContentItem.template;
 
 		if (!temp) {
-			var comptemps = serverUtils.getComponentTemplates(compName);
+			var comptemps = serverUtils.getComponentTemplates(projectDir, compName);
 			temp = comptemps.length > 0 ? comptemps[0] : '';
 		}
 
@@ -120,9 +133,9 @@ router.get('/*', (req, res) => {
 		if (fs.existsSync(mappingfile)) {
 			console.log(' - use mapping from : ' + mappingfile);
 			mappings = JSON.parse(fs.readFileSync(mappingfile));
-			for(var i = 0; i < mappings.length; i++) {
+			for (var i = 0; i < mappings.length; i++) {
 				if (mappings[i].type === type) {
-					for(var j = 0; j < mappings[i].categoryList.length; j++) {
+					for (var j = 0; j < mappings[i].categoryList.length; j++) {
 						if (mappings[i].categoryList[j].categoryName === 'Default') {
 							mappings[i].categoryList[j].layoutName = compName;
 							console.log(' - set layout to ' + compName + ' for type ' + type);
@@ -395,7 +408,7 @@ router.get('/*', (req, res) => {
 			// Theme designs
 			var themes = fs.readdirSync(themesDir),
 				themedesigns = '<select id="themedesign" class="themedesign-select" onchange="selectTheme()"><option value="none">None</option>';
-			for(var i = 0; i < themes.length; i++) {
+			for (var i = 0; i < themes.length; i++) {
 				if (fs.existsSync(path.join(themesDir, themes[i], '_folder.json'))) {
 					themedesigns = themedesigns + '<option value="' + themes[i] + '">' + themes[i] + '</option>';
 				} else {
@@ -418,7 +431,7 @@ router.get('/*', (req, res) => {
 		} else if (filePath.indexOf('structure.json') > 0) {
 			// add connections
 			var vbcsconn = '';
-			request('http://localhost:8085/getvbcsconnection', {
+			request('http://localhost:' + app.locals.port + '/getvbcsconnection', {
 				isJson: true
 			}, function (err, response, body) {
 				if (response && response.statusCode === 200) {

@@ -12,25 +12,63 @@ const childProcess = require('child_process');
 const fs = require('fs');
 const yargs = require('yargs');
 const os = require('os');
+const sprintf = require('sprintf-js').sprintf;
+const {
+	getInstalledPathSync
+} = require('get-installed-path');
+
 /**************************
  * Current directory check
  **************************/
 
 const cwd = path.resolve('./');
-//console.log("Current working directory is: " + cwd);
-if (cwd.split(path.sep).pop() !== 'cec-components') {
-	// check package.json
-	var isCEC = false,
-		packageFile = path.join(cwd, 'package.json');
-	if (fs.existsSync(packageFile)) {
-		var packageJSON = JSON.parse(fs.readFileSync(packageFile));
-		isCEC = (packageJSON && packageJSON.name === 'cec-components');
+// console.log("Current working directory is: " + cwd);
+
+var _getProjectRoot = function () {
+	var projectRoot = cwd;
+	var isCEC = false;
+	while (true) {
+		var packageFile = path.join(projectRoot, 'package.json');
+		if (fs.existsSync(packageFile)) {
+			var packageJSON = JSON.parse(fs.readFileSync(packageFile));
+			if (packageJSON && (packageJSON.name === 'cec-components' || packageJSON.name === 'cec-sites-toolkit-source')) {
+				isCEC = true;
+				break;
+			}
+		}
+		if (projectRoot.indexOf('/') < 0) {
+			break;
+		}
+		// go 1 level up
+		projectRoot = projectRoot.substring(0, projectRoot.lastIndexOf('/'));
 	}
-	if (!isCEC) {
-		console.log(`${cwd} is not a Content and Experience Cloud project. Run this command from the cec-components directory.`);
-		return;
+	return (isCEC ? projectRoot : '');
+};
+
+var _verifyCECProject = function () {
+	var projectRoot = _getProjectRoot();
+	// console.log('projectRoot: ' + projectRoot);
+	if (projectRoot) {
+		if (projectRoot !== cwd) {
+			console.log(`${cwd} is not a Content and Experience Cloud project. Run this command from ${projectRoot}`);
+			return false;
+		} else {
+			return true;
+		}
+	} else {
+		console.log(`${cwd} is not a Content and Experience Cloud project. Run command cec install to set up first.`);
+		return false;
 	}
-}
+};
+
+// verify if the current dir is a valid CEC
+
+const cecRoot = getInstalledPathSync('cec');
+const cecRootReal = fs.realpathSync(cecRoot);
+//console.log('cecRoot: ' + cecRoot + ' => ' + cecRootReal);
+
+const appRoot = path.join(cecRootReal, '../..');
+// console.log('cec Root: ' + appRoot);
 
 /**************************
  * Private helper functions 
@@ -42,7 +80,7 @@ var getComponentSources = function () {
 		'Sample-Text-With-Image', 'Sample-To-Do'
 	];
 
-	let existingComponentSources = fs.readdirSync(path.join('.', 'data', 'components'));
+	let existingComponentSources = fs.readdirSync(path.join(appRoot, 'data', 'components'));
 	existingComponentSources = existingComponentSources.filter((item) => /\.zip$/.test(item)).map((zip) => zip.replace('.zip', ''));
 	let validComponentSources = [...seededComponentSources];
 	existingComponentSources.forEach((source) => {
@@ -57,7 +95,7 @@ var getComponentSources = function () {
 var getTemplateSources = function () {
 	const seededTemplateSources = ['CafeSupremoLite', 'JETStarterTemplate', 'StarterTemplate'];
 
-	let existingTemplateSources = fs.readdirSync(path.join('.', 'data', 'templates'));
+	let existingTemplateSources = fs.readdirSync(path.join(appRoot, 'data', 'templates'));
 	existingTemplateSources = existingTemplateSources.filter((item) => /\.zip$/.test(item)).map((zip) => zip.replace('.zip', ''));
 	let validTemplateSources = [...seededTemplateSources];
 	existingTemplateSources.forEach((source) => {
@@ -85,6 +123,8 @@ var getTranslationJobExportTypes = function () {
 
 const createComponent = {
 	command: 'create-component <name>',
+	alias: 'cc',
+	name: 'create-component',
 	usage: {
 		'short': 'Creates the component <name>.',
 		'long': (function () {
@@ -101,6 +141,8 @@ const createComponent = {
 
 const copyComponent = {
 	command: 'copy-component <source> [<destination>]',
+	alias: 'cpc',
+	name: 'copy-component',
 	usage: {
 		'short': 'Copies an existing component named <source> to <destination>.',
 		'long': (function () {
@@ -113,8 +155,10 @@ const copyComponent = {
 
 const createContentLayout = {
 	command: 'create-contentlayout <name>',
+	alias: 'ccl',
+	name: 'create-contentlayout',
 	usage: {
-		'short': 'Creates a content layout based on a content type from a local template or from CEC server.',
+		'short': 'Creates a content layout based on a content type.',
 		'long': (function () {
 			let desc = 'Creates a content layout based on a content type from a local template or from CEC server. By default, an "overview" content layout is created. Optionally specify -s <style> to create in a different style. ' +
 				os.EOL + os.EOL + 'Valid values for <style> are: ' + os.EOL +
@@ -134,6 +178,8 @@ const createContentLayout = {
 
 const importComponent = {
 	command: 'import-component <zip>',
+	alias: 'ic',
+	name: 'import-component',
 	usage: {
 		'short': 'Imports a component from <zip>.',
 		'long': (function () {
@@ -146,10 +192,12 @@ const importComponent = {
 
 const exportComponent = {
 	command: 'export-component <name>',
+	alias: 'ec',
+	name: 'export-component',
 	usage: {
 		'short': 'Exports the component <name> as a zip file.',
 		'long': (function () {
-			let desc = 'Exports the component <name> as a zip file and provides the location of the zip file.';
+			let desc = 'Exports the component <name> as a zip file.';
 			return desc;
 		})()
 	},
@@ -158,6 +206,8 @@ const exportComponent = {
 
 const deployComponent = {
 	command: 'deploy-component <names>',
+	alias: 'dc',
+	name: 'deploy-component',
 	usage: {
 		'short': 'Deploys the components <names> to the Content and Experience Cloud server.',
 		'long': (function () {
@@ -173,20 +223,11 @@ const deployComponent = {
 	]
 };
 
-const deployAllComponents = {
-	command: 'deployAll',
-	usage: {
-		'short': 'Deploys all components to the Content and Experience Cloud server.',
-		'long': (function () {
-			let desc = 'Deploys all components to the Content and Experience Cloud server. This uses the server specified in $HOME/gradle.properties file.';
-			return desc;
-		})()
-	},
-	example: ['cec deployAll', 'Deploys all components to the Content and Experience Cloud server.']
-};
 
 const createTemplate = {
 	command: 'create-template <name>',
+	alias: 'ct',
+	name: 'create-template',
 	usage: {
 		'short': 'Creates the template <name>.',
 		'long': (function () {
@@ -202,6 +243,8 @@ const createTemplate = {
 
 const copyTemplate = {
 	command: 'copy-template <source> [<destination>]',
+	alias: 'cpt',
+	name: 'copy-template',
 	usage: {
 		'short': 'Copies an existing template named <source> to <destination>.',
 		'long': (function () {
@@ -214,6 +257,8 @@ const copyTemplate = {
 
 const importTemplate = {
 	command: 'import-template <zip>',
+	alias: 'it',
+	name: 'import-template',
 	usage: {
 		'short': 'Imports a template from <zip>.',
 		'long': (function () {
@@ -226,6 +271,8 @@ const importTemplate = {
 
 const exportTemplate = {
 	command: 'export-template <name>',
+	alias: 'et',
+	name: 'export-template',
 	usage: {
 		'short': 'Exports the template <name> as a zip file.',
 		'long': (function () {
@@ -236,8 +283,11 @@ const exportTemplate = {
 	example: ['cec export-template Temp1', 'Exports the template Temp1.']
 };
 
+
 const deployTemplate = {
 	command: 'deploy-template <name>',
+	alias: 'dt',
+	name: 'deploy-template',
 	usage: {
 		'short': 'Deploys the template <name> to the Content and Experience Cloud server.',
 		'long': (function () {
@@ -254,6 +304,8 @@ const deployTemplate = {
 
 const describeTemplate = {
 	command: 'describe-template <name>',
+	alias: 'dst',
+	name: 'describe-template',
 	usage: {
 		'short': 'Describes the template <name> package.',
 		'long': (function () {
@@ -266,10 +318,12 @@ const describeTemplate = {
 
 const listServerContentTypes = {
 	command: 'list-server-content-types',
+	alias: 'lsct',
+	name: 'list-server-content-types',
 	usage: {
-		'short': 'List all content types from server.',
+		'short': 'Lists all content types from server.',
 		'long': (function () {
-			let desc = 'List all content types from server.';
+			let desc = 'Lists all content types from server.';
 			return desc;
 		})()
 	},
@@ -278,6 +332,8 @@ const listServerContentTypes = {
 
 const addContentLayoutMapping = {
 	command: 'add-contentlayout-mapping <contentlayout>',
+	alias: 'aclm',
+	name: 'add-contentlayout-mapping',
 	usage: {
 		'short': 'Creates content type and content layout mapping for local template.',
 		'long': (function () {
@@ -296,26 +352,29 @@ const addContentLayoutMapping = {
 
 const removeContentLayoutMapping = {
 	command: 'remove-contentlayout-mapping <contentlayout>',
+	alias: 'rclm',
+	name: 'remove-contentlayout-mapping',
 	usage: {
-		'short': 'Remove a content layout mapping from a local template.',
+		'short': 'Removes a content layout mapping from a local template.',
 		'long': (function () {
-			let desc = 'Remove a content layout mapping from a local template. By default, all mappings for the content layout are removed. Optionally specify -s <layoutstyle> to name the mapping and -m to indicate the mobile mapping.';
+			let desc = 'Removes a content layout mapping from a local template. By default, all mappings for the content layout are removed. Optionally specify -s <layoutstyle> to name the mapping and -m to indicate the mobile mapping.';
 			return desc;
 		})()
 	},
 	example: [
 		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -t BlogTemplate'],
-		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -t BlogTemplate -m'],
-		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -c Blog-Post -t BlogTemplate -s Details']
+		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -t BlogTemplate -m']
 	]
 };
 
 const addComponentToTheme = {
 	command: 'add-component-to-theme <component>',
+	alias: 'actt',
+	name: 'add-component-to-theme',
 	usage: {
-		'short': 'Add a component to a theme.',
+		'short': 'Adds a component to a theme.',
 		'long': (function () {
-			let desc = 'Add a component to a theme. Optionally specify -c <category> to set the component category.';
+			let desc = 'Adds a component to a theme. Optionally specify -c <category> to set the component category.';
 			return desc;
 		})()
 	},
@@ -327,10 +386,12 @@ const addComponentToTheme = {
 
 const removeComponentFromTheme = {
 	command: 'remove-component-from-theme <component>',
+	alias: 'rcft',
+	name: 'remove-component-from-theme',
 	usage: {
-		'short': 'Remove a component from a theme.',
+		'short': 'Removes a component from a theme.',
 		'long': (function () {
-			let desc = 'Remove a component from a theme.';
+			let desc = 'Removes a component from a theme.';
 			return desc;
 		})()
 	},
@@ -341,10 +402,12 @@ const removeComponentFromTheme = {
 
 const listResources = {
 	command: 'list',
+	alias: 'l',
+	name: 'list',
 	usage: {
-		'short': 'List local resources.',
+		'short': 'Lists local resources.',
 		'long': (function () {
-			let desc = 'List local resources such components and templates. Optionally specify -t <type> to list specific type of resources. ' +
+			let desc = 'Lists local resources such components and templates. Optionally specify -t <type> to list specific type of resources. ' +
 				os.EOL + os.EOL + 'Valid values for <type> are: ' + os.EOL +
 				'  components' + os.EOL +
 				'  templates' + os.EOL;
@@ -360,10 +423,12 @@ const listResources = {
 
 const indexSite = {
 	command: 'index-site <site>',
+	alias: 'is',
+	name: 'index-site',
 	usage: {
 		'short': 'Index the page content of site <site> on CEC server.',
 		'long': (function () {
-			let desc = 'Create content item for each page with all text on the page. If the page index content item already exists for a page, updated it with latest text on the page. Specify -c <contenttype> to set the page index content type. Optionally specify -p to publish the page index items after creation or update.';
+			let desc = 'Creates content item for each page with all text on the page. If the page index content item already exists for a page, updated it with latest text on the page. Specify -c <contenttype> to set the page index content type. Optionally specify -p to publish the page index items after creation or update.';
 			return desc;
 		})()
 	},
@@ -375,10 +440,12 @@ const indexSite = {
 
 const createSiteMap = {
 	command: 'create-site-map <site>',
+	alias: 'csm',
+	name: 'create-site-map',
 	usage: {
-		'short': 'Create a site map for site <site> on CEC server.',
+		'short': 'Creates a site map for site <site> on CEC server.',
 		'long': (function () {
-			let desc = 'Create a site map for site on CEC server. Optionally specify -p to upload the site map to CEC server after creation. Optionally specify -c <changefreq> to define how frequently the page is likely to change. Optionally specify -t <toppagepriority> as the priority for the top level pages. Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
+			let desc = 'Creates a site map for site on CEC server. Optionally specify -p to upload the site map to CEC server after creation. Optionally specify -c <changefreq> to define how frequently the page is likely to change. Optionally specify -t <toppagepriority> as the priority for the top level pages. Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
 			return getSiteMapChangefreqValues().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -392,12 +459,31 @@ const createSiteMap = {
 	]
 };
 
+const listTranslationJobs = {
+	command: 'list-translation-jobs',
+	alias: 'ltj',
+	name: 'list-translation-jobs',
+	usage: {
+		'short': 'Lists translation jobs.',
+		'long': (function () {
+			let desc = 'Lists translation jobs from local or from CEC server.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec list-translation-jobs'],
+		['cec list-translation-jobs -s']
+	]
+};
+
 const createTranslationJob = {
 	command: 'create-translation-job <name>',
+	alias: 'ctj',
+	name: 'create-translation-job',
 	usage: {
-		'short': 'Create a translation job for a site on CEC server.',
+		'short': 'Creates a translation job <name> for a site on CEC server.',
 		'long': (function () {
-			let desc = 'Create a translation job for a site on CEC server. Specify -l <languages> to set the target languages, use "all" to select all languages from the translation policy. Optionally specify -t <type> to set the content type. The valid values for <type> are:\n\n';
+			let desc = 'Creates a translation job <name> for a site on CEC server. Specify -l <languages> to set the target languages, use "all" to select all languages from the translation policy. Optionally specify -t <type> to set the content type. The valid values for <type> are:\n\n';
 			return getTranslationJobExportTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -408,63 +494,226 @@ const createTranslationJob = {
 	]
 };
 
-const listServerTranslationJobs = {
-	command: 'list-translation-jobs',
-	usage: {
-		'short': 'List translation jobs on the server.',
-		'long': (function () {
-			let desc = 'List translation jobs for both assets and sites. Optionally specify -t <type> to list specific type of translation jobs. ' +
-				os.EOL + os.EOL + 'Valid values for <type> are: ' + os.EOL +
-				'  assets' + os.EOL +
-				'  sites' + os.EOL;
-			return desc;
-		})()
-	},
-	example: [
-		['cec list-translation-jobs'],
-		['cec list-translation-jobs -t assets'],
-		['cec list-translation-jobs --type sites']
-	]
-};
-
-const downloadServerTranslationJob = {
+const downloadTranslationJob = {
 	command: 'download-translation-job <name>',
+	alias: 'dtj',
+	name: 'download-translation-job',
 	usage: {
-		'short': 'Download translation job from the server.',
+		'short': 'Downloads translation job <name> from CEC server.',
 		'long': (function () {
-			let desc = 'Download translation job from the server. Optionally specify -o <output> to specify the directory to save the translation zip file. ';
+			let desc = 'Downloads translation job <name> from CEC server.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec download-translation-job Assets-ru'],
-		['cec download-translation-job Assets-ru -o ~/Downloads']
+		['cec download-translation-job Site1Job']
 	]
 };
 
-const importTranslationJob = {
-	command: 'import-translation-job <file>',
+const uploadTranslationJob = {
+	command: 'upload-translation-job <name>',
+	alias: 'utj',
+	name: 'upload-translation-job',
 	usage: {
-		'short': 'Import translation job to the server.',
+		'short': 'Uploads translation job <name> to CEC server.',
 		'long': (function () {
-			let desc = 'Upload translation zip file <file> to the server, validate and then injest the translations. Optionally specify -v to validate only. Optionally specify -f <folder> to set the folder to upload the translation zip file. ';
+			let desc = 'Uploads translation <name> to CEC server, validate and then ingest the translations. Optionally specify -v to validate only. Optionally specify -f <folder> to set the folder to upload the translation zip file. ';
 			return desc;
 		})()
 	},
 	example: [
-		['cec import-translation-job Assets-ru.zip', 'File will be uploaded to the Home folder.'],
-		['cec import-translation-job ~/Downloads/Assets-ru.zip -f Import/TranslationJobs', 'File will be uploaded to folder Import/TranslationJobs.'],
-		['cec import-translation-job Assets-ru.zip -v', 'Validate the translation job without import.']
+		['cec upload-translation-job Site1Job', 'File will be uploaded to the Home folder.'],
+		['cec upload-translation-job Site1Job -f Import/TranslationJobs', 'File will be uploaded to folder Import/TranslationJobs.'],
+		['cec upload-translation-job Site1Job -v', 'Validate the translation job without import.']
+	]
+};
+
+const submitTranslationJob = {
+	command: 'submit-translation-job <name>',
+	alias: 'stj',
+	name: 'submit-translation-job',
+	usage: {
+		'short': 'Submits translation job <name> to translation connection <connection>.',
+		'long': (function () {
+			let desc = 'Submits translation job <name> to translation connection <connection>.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec submit-translation-job Site1Job1 -c connector1-auto']
+	]
+};
+
+const ingestTranslationJob = {
+	command: 'ingest-translation-job <name>',
+	alias: 'itj',
+	name: 'ingest-translation-job',
+	usage: {
+		'short': 'Gets translated job <name> from translation connection and ingest.',
+		'long': (function () {
+			let desc = 'Gets translated job <name> from translation connection and ingest.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec ingest-translation-job Site1Job1']
+	]
+};
+
+const createTranslationConnector = {
+	command: 'create-translation-connector <name>',
+	alias: 'ctc',
+	name: 'create-translation-connector',
+	usage: {
+		'short': 'Creates translation connector <name>.',
+		'long': (function () {
+			let desc = 'Creates translation connector <name>.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-translation-connector connector1']
+	]
+};
+
+const startTranslationConnector = {
+	command: 'start-translation-connector <name>',
+	alias: 'stc',
+	name: 'start-translation-connector',
+	usage: {
+		'short': 'Starts translation connector <name>.',
+		'long': (function () {
+			let desc = 'Starts translation connector <name>. Optionally specify -p <port> to set the port, default port is 8084.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec start-translation-connector connector1'],
+		['cec start-translation-connector connector1 -p 7777']
+	]
+};
+
+const registerTranslationConnector = {
+	command: 'register-translation-connector <name>',
+	alias: 'rtc',
+	name: 'register-translation-connector',
+	usage: {
+		'short': 'Registers a translation connector.',
+		'long': (function () {
+			let desc = 'Registers a translation connector. Specify -c <connector> for the connector. Specify -s <server> for the connector server URL. Specify -u <username> and -p <password> for connecting to the server. Specify -f <fields> for custom fields.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec register-translation-connector connector1-auto -c connector1 -s http://localhost:8084 -u admin -p Welcome1 -f "BearerToken:Bearer token1,WorkflowId:machine-workflow-id"']
+	]
+};
+
+
+const install = {
+	command: 'install',
+	alias: 'i',
+	name: 'install',
+	usage: {
+		'short': 'Creates source tree.',
+		'long': (function () {
+			let desc = 'Creates source tree.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec install']
+	]
+};
+
+const develop = {
+	command: 'develop',
+	alias: 'd',
+	name: 'develop',
+	usage: {
+		'short': 'Starts a test server.',
+		'long': (function () {
+			let desc = 'Starts a test server in the current folder. Optionally specify -p <port> to set the port, default port is 8085.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec develop'],
+		['cec develop -p 7878']
 	]
 };
 
 /*********************
  * Setup yargs
  **********************/
+const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
 
+var _checkVersion = function () {
+	var checkVersionArgs = ['run', '-s', 'check-version', '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+	var checkVersion = childProcess.spawnSync(npmCmd, checkVersionArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+};
 
-const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command> -h\' to get the detailed help for the command.')
-	.command(createComponent.command, createComponent.usage.short,
+var _format = '  cec %-46s  %-75s  [alias: %4s]';
+var _getCmdHelp = function (cmd) {
+	return sprintf(_format, cmd.command, cmd.usage.short, cmd.alias);
+};
+
+var _usage = 'Usage: cec <command> [options] ' + os.EOL + os.EOL +
+	'Run \cec <command> -h\' to get the detailed help for the command.' + os.EOL + os.EOL +
+	'Commands:' + os.EOL;
+_usage = _usage + os.EOL + 'Components' + os.EOL +
+	_getCmdHelp(createComponent) + os.EOL +
+	_getCmdHelp(copyComponent) + os.EOL +
+	_getCmdHelp(importComponent) + os.EOL +
+	_getCmdHelp(exportComponent) + os.EOL +
+	_getCmdHelp(deployComponent) + os.EOL;
+
+_usage = _usage + os.EOL + 'Templates' + os.EOL +
+	_getCmdHelp(createTemplate) + os.EOL +
+	_getCmdHelp(copyTemplate) + os.EOL +
+	_getCmdHelp(importTemplate) + os.EOL +
+	_getCmdHelp(exportTemplate) + os.EOL +
+	_getCmdHelp(deployTemplate) + os.EOL +
+	_getCmdHelp(describeTemplate) + os.EOL;
+
+_usage = _usage + os.EOL + 'Themes' + os.EOL +
+	_getCmdHelp(addComponentToTheme) + os.EOL +
+	_getCmdHelp(removeComponentFromTheme) + os.EOL;
+
+_usage = _usage + os.EOL + 'Sites' + os.EOL +
+	_getCmdHelp(indexSite) + os.EOL +
+	_getCmdHelp(createSiteMap) + os.EOL;
+
+_usage = _usage + os.EOL + 'Content' + os.EOL +
+	_getCmdHelp(createContentLayout) + os.EOL +
+	_getCmdHelp(addContentLayoutMapping) + os.EOL +
+	_getCmdHelp(removeContentLayoutMapping) + os.EOL +
+	_getCmdHelp(listServerContentTypes) + os.EOL;
+
+_usage = _usage + os.EOL + 'Translation' + os.EOL +
+	_getCmdHelp(listTranslationJobs) + os.EOL +
+	_getCmdHelp(createTranslationJob) + os.EOL +
+	_getCmdHelp(downloadTranslationJob) + os.EOL +
+	_getCmdHelp(submitTranslationJob) + os.EOL +
+	_getCmdHelp(ingestTranslationJob) + os.EOL +
+	_getCmdHelp(uploadTranslationJob) + os.EOL +
+	_getCmdHelp(createTranslationConnector) + os.EOL +
+	_getCmdHelp(startTranslationConnector) + os.EOL +
+	_getCmdHelp(registerTranslationConnector) + os.EOL;
+
+_usage = _usage + os.EOL + 'Local Environment' + os.EOL +
+	_getCmdHelp(listResources) + os.EOL +
+	_getCmdHelp(install) + os.EOL +
+	_getCmdHelp(develop);
+
+const argv = yargs.usage(_usage)
+	.command([createComponent.command, createComponent.alias], false,
 		(yargs) => {
 			yargs.option('from', {
 					alias: 'f',
@@ -484,7 +733,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${createComponent.command}\n\n${createComponent.usage.long}`);
 		})
-	.command(createContentLayout.command, createContentLayout.usage.short,
+	.command([createContentLayout.command, createContentLayout.alias], false,
 		(yargs) => {
 			yargs.option('contenttype', {
 					alias: 'c',
@@ -519,7 +768,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${createContentLayout.command}\n\n${createContentLayout.usage.long}`);
 		})
-	.command(copyComponent.command, copyComponent.usage.short,
+	.command([copyComponent.command, copyComponent.alias], false,
 		(yargs) => {
 			yargs.example(...copyComponent.example)
 				.help('help')
@@ -527,7 +776,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${copyComponent.command}\n\n${copyComponent.usage.long}`);
 		})
-	.command(importComponent.command, importComponent.usage.short,
+	.command([importComponent.command, importComponent.alias], false,
 		(yargs) => {
 			yargs.example(...importComponent.example)
 				.help('help')
@@ -535,7 +784,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${importComponent.command}\n\n${importComponent.usage.long}`);
 		})
-	.command(exportComponent.command, exportComponent.usage.short,
+	.command([exportComponent.command, exportComponent.alias], false,
 		(yargs) => {
 			yargs.example(...exportComponent.example)
 				.help('help')
@@ -543,7 +792,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${exportComponent.command}\n\n${exportComponent.usage.long}`);
 		})
-	.command(deployComponent.command, deployComponent.usage.short,
+	.command([deployComponent.command, deployComponent.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
 					alias: 'f',
@@ -562,17 +811,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${deployComponent.command}\n\n${deployComponent.usage.long}`);
 		})
-	/*
-	.command(deployAllComponents.command, deployAllComponents.usage.short,
-		(yargs) => {
-			yargs.example(...deployAllComponents.example)
-				.help('help')
-				.alias('help', 'h')
-				.version(false)
-				.usage(`Usage: cec ${deployAllComponents.command}\n\n${deployAllComponents.usage.long}`);
-		})
-		*/
-	.command(createTemplate.command, createTemplate.usage.short,
+	.command([createTemplate.command, createTemplate.alias], false,
 		(yargs) => {
 			yargs.option('from', {
 					alias: 'f',
@@ -592,7 +831,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${createTemplate.command}\n\n${createTemplate.usage.long}`);
 		})
-	.command(copyTemplate.command, copyTemplate.usage.short,
+	.command([copyTemplate.command, copyTemplate.alias], false,
 		(yargs) => {
 			yargs.example(...copyTemplate.example)
 				.help('help')
@@ -600,7 +839,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${copyTemplate.command}\n\n${copyTemplate.usage.long}`);
 		})
-	.command(importTemplate.command, importTemplate.usage.short,
+	.command([importTemplate.command, importTemplate.alias], false,
 		(yargs) => {
 			yargs.example(...importTemplate.example)
 				.help('help')
@@ -608,7 +847,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${importTemplate.command}\n\n${importTemplate.usage.long}`);
 		})
-	.command(exportTemplate.command, exportTemplate.usage.short,
+	.command([exportTemplate.command, exportTemplate.alias], false,
 		(yargs) => {
 			yargs.option('optimize', {
 					alias: 'o',
@@ -620,7 +859,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${exportTemplate.command}\n\n${exportTemplate.usage.long}`);
 		})
-	.command(deployTemplate.command, deployTemplate.usage.short,
+	.command([deployTemplate.command, deployTemplate.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
 					alias: 'f',
@@ -638,7 +877,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${deployTemplate.command}\n\n${deployTemplate.usage.long}`);
 		})
-	.command(describeTemplate.command, describeTemplate.usage.short,
+	.command([describeTemplate.command, describeTemplate.alias], false,
 		(yargs) => {
 			yargs.example(...describeTemplate.example)
 				.help('help')
@@ -646,7 +885,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${describeTemplate.command}\n\n${describeTemplate.usage.long}`);
 		})
-	.command(listServerContentTypes.command, listServerContentTypes.usage.short,
+	.command([listServerContentTypes.command, listServerContentTypes.alias], false,
 		(yargs) => {
 			yargs.example(...listServerContentTypes.example)
 				.help('help')
@@ -654,7 +893,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${listServerContentTypes.command}\n\n${listServerContentTypes.usage.long}`);
 		})
-	.command(addContentLayoutMapping.command, addContentLayoutMapping.usage.short,
+	.command([addContentLayoutMapping.command, addContentLayoutMapping.alias], false,
 		(yargs) => {
 			yargs.option('contenttype', {
 					alias: 'c',
@@ -684,7 +923,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${addContentLayoutMapping.command}\n\n${addContentLayoutMapping.usage.long}`);
 		})
-	.command(removeContentLayoutMapping.command, removeContentLayoutMapping.usage.short,
+	.command([removeContentLayoutMapping.command, removeContentLayoutMapping.alias], false,
 		(yargs) => {
 			yargs.option('template', {
 					alias: 't',
@@ -701,13 +940,12 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				})
 				.example(...removeContentLayoutMapping.example[0])
 				.example(...removeContentLayoutMapping.example[1])
-				.example(...removeContentLayoutMapping.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${removeContentLayoutMapping.command}\n\n${removeContentLayoutMapping.usage.long}`);
 		})
-	.command(addComponentToTheme.command, addComponentToTheme.usage.short,
+	.command([addComponentToTheme.command, addComponentToTheme.alias], false,
 		(yargs) => {
 			yargs.option('theme', {
 					alias: 't',
@@ -725,7 +963,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${addComponentToTheme.command}\n\n${addComponentToTheme.usage.long}`);
 		})
-	.command(removeComponentFromTheme.command, removeComponentFromTheme.usage.short,
+	.command([removeComponentFromTheme.command, removeComponentFromTheme.alias], false,
 		(yargs) => {
 			yargs.option('theme', {
 					alias: 't',
@@ -738,7 +976,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${removeComponentFromTheme.command}\n\n${removeComponentFromTheme.usage.long}`);
 		})
-	.command(listResources.command, listResources.usage.short,
+	.command([listResources.command, listResources.alias], false,
 		(yargs) => {
 			yargs.option('type', {
 					alias: 't',
@@ -752,7 +990,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${listResources.command}\n\n${listResources.usage.long}`);
 		})
-	.command(indexSite.command, indexSite.usage.short,
+	.command([indexSite.command, indexSite.alias], false,
 		(yargs) => {
 			yargs.option('contenttype', {
 					alias: 'c',
@@ -776,7 +1014,7 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${indexSite.command}\n\n${indexSite.usage.long}`);
 		})
-	.command(createSiteMap.command, createSiteMap.usage.short,
+	.command([createSiteMap.command, createSiteMap.alias], false,
 		(yargs) => {
 			yargs.option('url', {
 					alias: 'u',
@@ -823,7 +1061,20 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${createSiteMap.command}\n\n${createSiteMap.usage.long}`);
 		})
-	.command(createTranslationJob.command, createTranslationJob.usage.short,
+	.command([listTranslationJobs.command, listTranslationJobs.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'flag to indicate the translation jobs from server',
+				})
+				.example(...listTranslationJobs.example[0])
+				.example(...listTranslationJobs.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${listTranslationJobs.command}\n\n${listTranslationJobs.usage.long}`);
+		})
+	.command([createTranslationJob.command, createTranslationJob.alias], false,
 		(yargs) => {
 			yargs.option('site', {
 					alias: 's',
@@ -858,34 +1109,43 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 				.version(false)
 				.usage(`Usage: cec ${createTranslationJob.command}\n\n${createTranslationJob.usage.long}`);
 		})
-	.command(listServerTranslationJobs.command, listServerTranslationJobs.usage.short,
+	.command([downloadTranslationJob.command, downloadTranslationJob.alias], false,
 		(yargs) => {
-			yargs.option('type', {
-					alias: 't',
-					description: '<type> translation job type: assets | sites'
-				})
-				.example(...listServerTranslationJobs.example[0])
-				.example(...listServerTranslationJobs.example[1])
-				.example(...listServerTranslationJobs.example[2])
+			yargs.example(...downloadTranslationJob.example[0])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
-				.usage(`Usage: cec ${listServerTranslationJobs.command}\n\n${listServerTranslationJobs.usage.long}`);
+				.usage(`Usage: cec ${downloadTranslationJob.command}\n\n${downloadTranslationJob.usage.long}`);
 		})
-	.command(downloadServerTranslationJob.command, downloadServerTranslationJob.usage.short,
+	.command([submitTranslationJob.command, submitTranslationJob.alias], false,
 		(yargs) => {
-			yargs.option('output', {
-					alias: 'o',
-					description: '<output> The directory to save the translation zip file'
+			yargs.option('connection', {
+					alias: 'c',
+					description: '<connection> Connection',
+					demandOption: true
 				})
-				.example(...downloadServerTranslationJob.example[0])
-				.example(...downloadServerTranslationJob.example[1])
+				.check((argv) => {
+					if (!argv.connection) {
+						throw new Error('Please specify connection');
+					} else {
+						return true;
+					}
+				})
+				.example(...submitTranslationJob.example[0])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
-				.usage(`Usage: cec ${downloadServerTranslationJob.command}\n\n${downloadServerTranslationJob.usage.long}`);
+				.usage(`Usage: cec ${submitTranslationJob.command}\n\n${submitTranslationJob.usage.long}`);
 		})
-	.command(importTranslationJob.command, importTranslationJob.usage.short,
+	.command([ingestTranslationJob.command, ingestTranslationJob.alias], false,
+		(yargs) => {
+			yargs.example(...ingestTranslationJob.example[0])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${ingestTranslationJob.command}\n\n${ingestTranslationJob.usage.long}`);
+		})
+	.command([uploadTranslationJob.command, uploadTranslationJob.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
 					alias: 'f',
@@ -895,341 +1155,588 @@ const argv = yargs.usage('Usage: cec <command> [options] \n\nRun \'cec <command>
 					alias: 'v',
 					description: 'Validate translation job without import.'
 				})
-				.example(...importTranslationJob.example[0])
-				.example(...importTranslationJob.example[1])
-				.example(...importTranslationJob.example[2])
+				.example(...uploadTranslationJob.example[0])
+				.example(...uploadTranslationJob.example[1])
+				.example(...uploadTranslationJob.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
-				.usage(`Usage: cec ${importTranslationJob.command}\n\n${importTranslationJob.usage.long}`);
+				.usage(`Usage: cec ${uploadTranslationJob.command}\n\n${uploadTranslationJob.usage.long}`);
+		})
+	.command([createTranslationConnector.command, createTranslationConnector.alias], false,
+		(yargs) => {
+			yargs.example(...createTranslationConnector.example[0])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createTranslationConnector.command}\n\n${createTranslationConnector.usage.long}`);
+		})
+	.command([startTranslationConnector.command, startTranslationConnector.alias], false,
+		(yargs) => {
+			yargs.option('port', {
+					alias: 'p',
+					description: 'Set <port>. Defaults to 8084.'
+				})
+				.example(...startTranslationConnector.example[0])
+				.example(...startTranslationConnector.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${startTranslationConnector.command}\n\n${startTranslationConnector.usage.long}`);
+		})
+	.command([registerTranslationConnector.command, registerTranslationConnector.alias], false,
+		(yargs) => {
+			yargs
+				.option('connector', {
+					alias: 'c',
+					description: '<connector> Connector name',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> Server URL',
+					demandOption: true
+				})
+				.option('user', {
+					alias: 'u',
+					description: '<user> User name',
+					demandOption: true
+				})
+				.option('password', {
+					alias: 'p',
+					description: '<password> password',
+					demandOption: true
+				})
+				.option('fields', {
+					alias: 'f',
+					description: '<fields> translation connector custom fields'
+				})
+				.check((argv) => {
+					if (!argv.connector) {
+						throw new Error('Please specify connector');
+					} else if (!argv.server) {
+						throw new Error('Please specify server URL');
+					} else if (!argv.user) {
+						throw new Error('Please specify username');
+					} else if (!argv.password) {
+						throw new Error('Please specify password');
+					} else
+						return true;
+				})
+				.example(...registerTranslationConnector.example[0])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${registerTranslationConnector.command}\n\n${registerTranslationConnector.usage.long}`);
+		})
+	.command([install.command, install.alias], false,
+		(yargs) => {
+			yargs.example(...install.example[0])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${install.command}\n\n${install.usage.long}`);
+		})
+	.command([develop.command, develop.alias], false,
+		(yargs) => {
+			yargs.option('port', {
+					alias: 'p',
+					description: 'Set <port>. Defaults to 8085.'
+				})
+				.example(...develop.example[0])
+				.example(...develop.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${develop.command}\n\n${develop.usage.long}`);
 		})
 	.help('help')
 	.alias('help', 'h')
 	.version()
 	.alias('version', 'v')
-	.demandCommand(1, 'You need at least one command')
 	.strict()
 	.wrap(yargs.terminalWidth())
 	.argv;
 
+if (!argv._[0]) {
+	// prints to stdout
+	yargs.showHelp('log');
+	return;
+}
+
+// _checkVersion();
 
 /*********************
  * Command execution
  **********************/
 //console.log(argv);
 
-const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
 var spawnCmd;
 
-switch (argv._[0]) {
-	case 'create-component':
-		let createComponentArgs = ['run', '-s', argv._[0], '--', '--source', argv.from ? argv.from : 'local'];
-		createComponentArgs.push(...['--name', argv.name]);
-		spawnCmd = childProcess.spawnSync(npmCmd, createComponentArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'create-contentlayout':
-		let createContentLayoutArgs = ['run', '-s', argv._[0], '--',
-			'--name', argv.name,
-			'--contenttype', argv.contenttype,
-			'--style', argv.style ? argv.style : 'overview'
-		];
-		if (argv.template) {
-			createContentLayoutArgs.push(...['--template', argv.template]);
-		} else if (argv.server) {
-			createContentLayoutArgs.push(...['--server']);
-		}
-
-		spawnCmd = childProcess.spawnSync(npmCmd, createContentLayoutArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'copy-component':
-		let copyComponentArgs = ['run', '-s', argv._[0], '--', '--source', argv.source];
-		if (argv.destination) {
-			copyComponentArgs.push(...['--name', argv.destination]);
-		} else {
-			copyComponentArgs.push(...['--name', argv.source + '_' + Math.floor(Math.random() * 1000000)]);
-		}
-		spawnCmd = childProcess.spawnSync(npmCmd, copyComponentArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'import-component':
-		let importComponentArgs = ['run', '-s', argv._[0], argv.zip];
-		spawnCmd = childProcess.spawnSync(npmCmd, importComponentArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'export-component':
-		let exportComponentArgs = ['run', '-s', argv._[0], argv.name];
-		spawnCmd = childProcess.spawnSync(npmCmd, exportComponentArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'deploy-component':
-		let deployComponentArgs = ['run', '-s', argv._[0], '--', '--component', argv.names];
-		if (argv.publish) {
-			deployComponentArgs.push(...['--publish', argv.publish]);
-		}
-		if (argv.folder && typeof argv.folder !== 'boolean') {
-			deployComponentArgs.push(...['--folder', argv.folder]);
-		}
-		spawnCmd = childProcess.spawnSync(npmCmd, deployComponentArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'deployAll':
-		let deployAllComponentArgs = ['run', '-s', argv._[0]];
-		spawnCmd = childProcess.spawnSync(npmCmd, deployAllComponentArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'create-template':
-		let createTemplateArgs = ['run', '-s', argv._[0], '--', '--source', argv.from ? argv.from : 'StarterTemplate'];
-		createTemplateArgs.push(...['--name', argv.name]);
-		spawnCmd = childProcess.spawnSync(npmCmd, createTemplateArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'copy-template':
-		let copyTemplateArgs = ['run', '-s', argv._[0], '--', '--source', argv.source];
-		if (argv.destination) {
-			copyTemplateArgs.push(...['--name', argv.destination]);
-		} else {
-			copyTemplateArgs.push(...['--name', argv.source + '_' + Math.floor(Math.random() * 1000000)]);
-		}
-		spawnCmd = childProcess.spawnSync(npmCmd, copyTemplateArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'import-template':
-		let importTemplateArgs = ['run', '-s', argv._[0], argv.zip];
-		spawnCmd = childProcess.spawnSync(npmCmd, importTemplateArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'export-template':
-		let exportTemplateArgs = ['run', '-s', argv._[0], '--', '--template', argv.name];
-		if (argv.optimize) {
-			exportTemplateArgs.push(...['--minify', argv.optimize]);
-		}
-		spawnCmd = childProcess.spawnSync(npmCmd, exportTemplateArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'deploy-template':
-		let deployTemplateArgs = ['run', '-s', argv._[0], '--', '--template', argv.name];
-		if (argv.folder && typeof argv.folder !== 'boolean') {
-			deployTemplateArgs.push(...['--folder', argv.folder]);
-		}
-		if (argv.optimize) {
-			deployTemplateArgs.push(...['--minify', argv.optimize]);
-		}
-		spawnCmd = childProcess.spawnSync(npmCmd, deployTemplateArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'describe-template':
-		let describeTemplateArgs = ['run', '-s', argv._[0], argv.name];
-		spawnCmd = childProcess.spawnSync(npmCmd, describeTemplateArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'add-contentlayout-mapping':
-		let addContentLayoutMappingArgs = ['run', '-s', argv._[0], '--',
-			'--contentlayout', argv.contentlayout,
-			'--contenttype', argv.contenttype,
-			'--template', argv.template
-		];
-		if (argv.layoutstyle) {
-			addContentLayoutMappingArgs.push(...['--layoutstyle', argv.layoutstyle]);
-		}
-		if (argv.mobile) {
-			addContentLayoutMappingArgs.push(...['--mobile', argv.mobile]);
-		}
-
-		spawnCmd = childProcess.spawnSync(npmCmd, addContentLayoutMappingArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'remove-contentlayout-mapping':
-		let removeContentLayoutMappingArgs = ['run', '-s', argv._[0], '--',
-			'--contentlayout', argv.contentlayout,
-			'--template', argv.template
-		];
-		if (argv.layoutstyle) {
-			removeContentLayoutMappingArgs.push(...['--layoutstyle', argv.layoutstyle]);
-		}
-		if (argv.mobile) {
-			removeContentLayoutMappingArgs.push(...['--mobile', argv.mobile]);
-		}
-
-		spawnCmd = childProcess.spawnSync(npmCmd, removeContentLayoutMappingArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'add-component-to-theme':
-		let addComponentToThemeArgs = ['run', '-s', argv._[0], '--',
-			'--component', argv.component,
-			'--theme', argv.theme
-		];
-		if (argv.category) {
-			addComponentToThemeArgs.push(...['--category', argv.category]);
-		}
-
-		spawnCmd = childProcess.spawnSync(npmCmd, addComponentToThemeArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'remove-component-from-theme':
-		let removeComponentFromThemeArgs = ['run', '-s', argv._[0], '--',
-			'--component', argv.component,
-			'--theme', argv.theme
-		];
-
-		spawnCmd = childProcess.spawnSync(npmCmd, removeComponentFromThemeArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'list-server-content-types':
-		let listServerContentTypesArgs = ['run', '-s', argv._[0]];
-		spawnCmd = childProcess.spawnSync(npmCmd, listServerContentTypesArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'list':
-		let listArgs = ['run', '-s', argv._[0], '--', '--resourcetype', typeof argv.type === 'string' ? argv.type : 'all'];
-		spawnCmd = childProcess.spawnSync(npmCmd, listArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'index-site':
-		let indexSiteArgs = ['run', '-s', argv._[0], '--',
-			'--site', argv.site,
-			'--contenttype', argv.contenttype
-		];
-		if (argv.publish) {
-			indexSiteArgs.push(...['--publish', argv.publish]);
-		}
-		spawnCmd = childProcess.spawnSync(npmCmd, indexSiteArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'create-site-map':
-		let createSiteMapArgs = ['run', '-s', argv._[0], '--',
-			'--site', argv.site,
-			'--url', argv.url
-		];
-		if (argv.changefreq) {
-			createSiteMapArgs.push(...['--changefreq', argv.changefreq]);
-		}
-		if (argv.file) {
-			createSiteMapArgs.push(...['--file', argv.file]);
-		}
-		if (argv.publish) {
-			createSiteMapArgs.push(...['--publish', argv.publish]);
-		}
-		if (argv.languages) {
-			createSiteMapArgs.push(...['--languages', argv.languages]);
-		}
-		if (argv.toppagepriority) {
-			createSiteMapArgs.push(...['--toppagepriority', argv.toppagepriority]);
-		}
-		spawnCmd = childProcess.spawnSync(npmCmd, createSiteMapArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'create-translation-job':
-		let createTranslationJobArgs = ['run', '-s', argv._[0], '--',
-			'--name', argv.name,
-			'--site', argv.site,
-			'--languages', argv.languages
-		];
-		if (argv.type) {
-			createTranslationJobArgs.push(...['--type', argv.type]);
-		}
-
-		spawnCmd = childProcess.spawnSync(npmCmd, createTranslationJobArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'list-translation-jobs':
-		let listServerTranslationJobsArgs = ['run', '-s', argv._[0], '--', '--type', typeof argv.type === 'string' ? argv.type : ''];
-		spawnCmd = childProcess.spawnSync(npmCmd, listServerTranslationJobsArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'download-translation-job':
-		let downloadServerTranslationJobArgs = ['run', '-s', argv._[0], '--', '--name', argv.name];
-		if (argv.output) {
-			downloadServerTranslationJobArgs.push(...['--output', argv.output]);
-		}
-		spawnCmd = childProcess.spawnSync(npmCmd, downloadServerTranslationJobArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
-
-	case 'import-translation-job':
-		let importTranslationJobArgs = ['run', '-s', argv._[0], '--', '--file', argv.file];
-
-		if (argv.folder && typeof argv.folder !== 'boolean') {
-			importTranslationJobArgs.push(...['--folder', argv.folder]);
-		}
-		if (argv.validateonly) {
-			importTranslationJobArgs.push(...['--validateonly', argv.validateonly]);
-		}
-		spawnCmd = childProcess.spawnSync(npmCmd, importTranslationJobArgs, {
-			cwd,
-			stdio: 'inherit'
-		});
-		break;
+if (argv._[0] === 'install' || argv._[0] === 'i') {
+	var projectRoot = _getProjectRoot();
+	if (projectRoot && projectRoot !== cwd) {
+		console.log(`A Content and Experience Cloud project already installed at ${projectRoot}`);
+		return;
+	}
+	let installArgs = ['run', '-s', 'install-src', '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+	spawnCmd = childProcess.spawnSync(npmCmd, installArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+	return;
 }
+
+if (!_verifyCECProject()) {
+	return;
+}
+
+// console.log(argv);
+
+if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
+	let createComponentArgs = ['run', '-s', createComponent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--source', argv.from ? argv.from : 'local'
+	];
+	createComponentArgs.push(...['--name', argv.name]);
+	spawnCmd = childProcess.spawnSync(npmCmd, createComponentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createContentLayout.name || argv._[0] === createContentLayout.alias) {
+	let createContentLayoutArgs = ['run', '-s', createContentLayout.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--contenttype', argv.contenttype,
+		'--style', argv.style ? argv.style : 'overview'
+	];
+	if (argv.template) {
+		createContentLayoutArgs.push(...['--template', argv.template]);
+	} else if (argv.server) {
+		createContentLayoutArgs.push(...['--server']);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, createContentLayoutArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === copyComponent.name || argv._[0] === copyComponent.alias) {
+	let copyComponentArgs = ['run', '-s', copyComponent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--source', argv.source
+	];
+	if (argv.destination) {
+		copyComponentArgs.push(...['--name', argv.destination]);
+	} else {
+		copyComponentArgs.push(...['--name', argv.source + '_' + Math.floor(Math.random() * 1000000)]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, copyComponentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === importComponent.name || argv._[0] === importComponent.alias) {
+	let importComponentArgs = ['run', '-s', importComponent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--path', argv.zip
+	];
+	spawnCmd = childProcess.spawnSync(npmCmd, importComponentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === exportComponent.name || argv._[0] === exportComponent.alias) {
+	let exportComponentArgs = ['run', '-s', exportComponent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--component', argv.name
+	];
+	spawnCmd = childProcess.spawnSync(npmCmd, exportComponentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === deployComponent.name || argv._[0] === deployComponent.alias) {
+	let deployComponentArgs = ['run', '-s', deployComponent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--component', argv.names
+	];
+	if (argv.publish) {
+		deployComponentArgs.push(...['--publish', argv.publish]);
+	}
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		deployComponentArgs.push(...['--folder', argv.folder]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, deployComponentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createTemplate.name || argv._[0] === createTemplate.alias) {
+
+	let createTemplateArgs = ['run', '-s', createTemplate.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--source', argv.from ? argv.from : 'StarterTemplate'
+	];
+	createTemplateArgs.push(...['--name', argv.name]);
+	spawnCmd = childProcess.spawnSync(npmCmd, createTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === copyTemplate.name || argv._[0] === copyTemplate.alias) {
+	let copyTemplateArgs = ['run', '-s', copyTemplate.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--source', argv.source
+	];
+	if (argv.destination) {
+		copyTemplateArgs.push(...['--name', argv.destination]);
+	} else {
+		copyTemplateArgs.push(...['--name', argv.source + '_' + Math.floor(Math.random() * 1000000)]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, copyTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === importTemplate.name || argv._[0] === importTemplate.alias) {
+	let importTemplateArgs = ['run', '-s', importTemplate.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--path', argv.zip
+	];
+	spawnCmd = childProcess.spawnSync(npmCmd, importTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === exportTemplate.name || argv._[0] === exportTemplate.alias) {
+	let exportTemplateArgs = ['run', '-s', exportTemplate.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--template', argv.name
+	];
+	if (argv.optimize) {
+		exportTemplateArgs.push(...['--minify', argv.optimize]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, exportTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === deployTemplate.name || argv._[0] === deployTemplate.alias) {
+	let deployTemplateArgs = ['run', '-s', deployTemplate.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--template', argv.name
+	];
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		deployTemplateArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.optimize) {
+		deployTemplateArgs.push(...['--minify', argv.optimize]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, deployTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeTemplate.name || argv._[0] === describeTemplate.alias) {
+	let describeTemplateArgs = ['run', '-s', describeTemplate.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--template', argv.name
+	];
+	spawnCmd = childProcess.spawnSync(npmCmd, describeTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === addContentLayoutMapping.name || argv._[0] === addContentLayoutMapping.alias) {
+	let addContentLayoutMappingArgs = ['run', '-s', addContentLayoutMapping.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--contentlayout', argv.contentlayout,
+		'--contenttype', argv.contenttype,
+		'--template', argv.template
+	];
+	if (argv.layoutstyle) {
+		addContentLayoutMappingArgs.push(...['--layoutstyle', argv.layoutstyle]);
+	}
+	if (argv.mobile) {
+		addContentLayoutMappingArgs.push(...['--mobile', argv.mobile]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, addContentLayoutMappingArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === removeContentLayoutMapping.name || argv._[0] === removeContentLayoutMapping.alias) {
+	let removeContentLayoutMappingArgs = ['run', '-s', removeContentLayoutMapping.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--contentlayout', argv.contentlayout,
+		'--template', argv.template
+	];
+	if (argv.layoutstyle) {
+		removeContentLayoutMappingArgs.push(...['--layoutstyle', argv.layoutstyle]);
+	}
+	if (argv.mobile) {
+		removeContentLayoutMappingArgs.push(...['--mobile', argv.mobile]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, removeContentLayoutMappingArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === addComponentToTheme.name || argv._[0] === addComponentToTheme.alias) {
+	let addComponentToThemeArgs = ['run', '-s', addComponentToTheme.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--component', argv.component,
+		'--theme', argv.theme
+	];
+	if (argv.category) {
+		addComponentToThemeArgs.push(...['--category', argv.category]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, addComponentToThemeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === removeComponentFromTheme.name || argv._[0] === removeComponentFromTheme.alias) {
+	let removeComponentFromThemeArgs = ['run', '-s', removeComponentFromTheme.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--component', argv.component,
+		'--theme', argv.theme
+	];
+
+	spawnCmd = childProcess.spawnSync(npmCmd, removeComponentFromThemeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === listServerContentTypes.name || argv._[0] === listServerContentTypes.alias) {
+	let listServerContentTypesArgs = ['run', '-s', listServerContentTypes.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+	spawnCmd = childProcess.spawnSync(npmCmd, listServerContentTypesArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === listResources.name || argv._[0] === listResources.alias) {
+	let listArgs = ['run', '-s', listResources.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--resourcetype', typeof argv.type === 'string' ? argv.type : 'all'
+	];
+	spawnCmd = childProcess.spawnSync(npmCmd, listArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === indexSite.name || argv._[0] === indexSite.alias) {
+	let indexSiteArgs = ['run', '-s', indexSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--site', argv.site,
+		'--contenttype', argv.contenttype
+	];
+	if (argv.publish) {
+		indexSiteArgs.push(...['--publish', argv.publish]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, indexSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createSiteMap.name || argv._[0] === createSiteMap.alias) {
+	let createSiteMapArgs = ['run', '-s', createSiteMap.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--site', argv.site,
+		'--url', argv.url
+	];
+	if (argv.changefreq) {
+		createSiteMapArgs.push(...['--changefreq', argv.changefreq]);
+	}
+	if (argv.file) {
+		createSiteMapArgs.push(...['--file', argv.file]);
+	}
+	if (argv.publish) {
+		createSiteMapArgs.push(...['--publish', argv.publish]);
+	}
+	if (argv.languages) {
+		createSiteMapArgs.push(...['--languages', argv.languages]);
+	}
+	if (argv.toppagepriority) {
+		createSiteMapArgs.push(...['--toppagepriority', argv.toppagepriority]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createSiteMapArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createTranslationJob.name || argv._[0] === createTranslationJob.alias) {
+	let createTranslationJobArgs = ['run', '-s', createTranslationJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--site', argv.site,
+		'--languages', argv.languages
+	];
+	if (argv.type) {
+		createTranslationJobArgs.push(...['--type', argv.type]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, createTranslationJobArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === downloadTranslationJob.name || argv._[0] === downloadTranslationJob.alias) {
+	let downloadTranslationJobArgs = ['run', '-s', downloadTranslationJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+
+	spawnCmd = childProcess.spawnSync(npmCmd, downloadTranslationJobArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === uploadTranslationJob.name || argv._[0] === uploadTranslationJob.alias) {
+	let uploadTranslationJobArgs = ['run', '-s', uploadTranslationJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		uploadTranslationJobArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.validateonly) {
+		uploadTranslationJobArgs.push(...['--validateonly', argv.validateonly]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, uploadTranslationJobArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === listTranslationJobs.name || argv._[0] === listTranslationJobs.alias) {
+	let listTranslationJobsArgs = ['run', '-s', listTranslationJobs.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+	if (argv.server) {
+		listTranslationJobsArgs.push(...['--server'], argv.server);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, listTranslationJobsArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === submitTranslationJob.name || argv._[0] === submitTranslationJob.alias) {
+	let submitTranslationJobArgs = ['run', '-s', submitTranslationJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--connection', argv.connection
+	];
+
+	spawnCmd = childProcess.spawnSync(npmCmd, submitTranslationJobArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === ingestTranslationJob.name || argv._[0] === ingestTranslationJob.alias) {
+	let ingestTranslationJobArgs = ['run', '-s', ingestTranslationJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+
+	spawnCmd = childProcess.spawnSync(npmCmd, ingestTranslationJobArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === registerTranslationConnector.name || argv._[0] === registerTranslationConnector.alias) {
+	let registerTranslationConnectorArgs = ['run', '-s', registerTranslationConnector.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--connector', argv.connector,
+		'--server', argv.server,
+		'--user', argv.user,
+		'--password', argv.password
+	];
+	if (argv.fields) {
+		registerTranslationConnectorArgs.push(...['--fields'], argv.fields);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, registerTranslationConnectorArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createTranslationConnector.name || argv._[0] === createTranslationConnector.alias) {
+	let createTranslationConnectorArgs = ['run', '-s', createTranslationConnector.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+
+	spawnCmd = childProcess.spawnSync(npmCmd, createTranslationConnectorArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === startTranslationConnector.name || argv._[0] === startTranslationConnector.alias) {
+	let startTranslationConnectorArgs = ['run', '-s', startTranslationConnector.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.port) {
+		startTranslationConnectorArgs.push(...['--port', argv.port]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, startTranslationConnectorArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === develop.name || argv._[0] === develop.alias) {
+	let developArgs = ['run', '-s', develop.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+	if (argv.port) {
+		developArgs.push(...['--port', argv.port]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, developArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+}
+
+// see if need to show deprecation warning
+_checkVersion();

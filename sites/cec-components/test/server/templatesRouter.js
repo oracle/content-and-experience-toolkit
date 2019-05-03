@@ -11,18 +11,26 @@ var express = require('express'),
 	serverUtils = require('./serverUtils.js'),
 	router = express.Router(),
 	fs = require('fs'),
-	argv = require('yargs').argv,
-	path = require('path'),
-	url = require('url');
+	path = require('path');
 
-var projectDir = path.resolve(__dirname).replace(path.join('test', 'server'), ''),
-	defaultTemplatesDir = projectDir + '/src/main/templates',
-	defaultThemesDir = projectDir + '/src/main/themes',
-	defaultTestDir = projectDir + '/test',
-	defaultLibsDir = projectDir + '/src/libs';
+var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), ''),
+	defaultTestDir = cecDir + '/test',
+	defaultLibsDir = cecDir + '/src/libs';
+var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
 
-var templatesDir = path.resolve(argv.templatesDir || defaultTemplatesDir),
-	themesDir = path.resolve(argv.themesDir || defaultThemesDir);
+// console.log('templateRouter: cecDir: ' + cecDir + ' projectDir: ' + projectDir);
+
+var templatesDir,
+	themesDir;
+
+var _setupSourceDir = function (config) {
+	if (config) {
+		var srcfolder = config.srcfolder || 'src/main';
+
+		templatesDir = path.join(projectDir, srcfolder, 'templates');
+		themesDir = path.join(projectDir, srcfolder, 'themes');
+	}
+};
 
 //
 // Get requests
@@ -30,6 +38,8 @@ var templatesDir = path.resolve(argv.templatesDir || defaultTemplatesDir),
 router.get('/*', (req, res) => {
 	let app = req.app,
 		request = app.locals.request;
+
+	_setupSourceDir(app.locals.server);
 
 	var filePathSuffix = req.path.replace(/\/templates\//, '').replace(/\/$/, ''),
 		filePath = '',
@@ -81,7 +91,7 @@ router.get('/*', (req, res) => {
 		} else {
 			console.log('File ' + filePath + ' does not exist, get from server');
 			// get from server
-			request('http://localhost:8085/getcontentlayoutmappings', {
+			request('http://localhost:' + app.locals.port + '/getcontentlayoutmappings', {
 				isJson: true
 			}, function (err, response, body) {
 				var mappings = [];
@@ -163,7 +173,7 @@ router.get('/*', (req, res) => {
 			}
 		} else if (filePath.indexOf('structure.json') > 0) {
 			var vbcsconn = '';
-			request('http://localhost:8085/getvbcsconnection', {
+			request('http://localhost:' + app.locals.port + '/getvbcsconnection', {
 				isJson: true
 			}, function (err, response, body) {
 				if (response && response.statusCode === 200) {

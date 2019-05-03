@@ -15,13 +15,17 @@ var express = require('express'),
 	path = require('path'),
 	url = require('url');
 
-var projectDir = path.resolve(__dirname).replace(path.join('test', 'server'), ''),
-	defaultTemplatesDir = projectDir + '/src/main/templates',
-	defaultTestDir = projectDir + '/test',
-	defaultLibsDir = projectDir + '/src/libs';
+var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), '');
+var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
+var defaultTemplatesDir;
 
-var templatesDir = path.resolve(argv.templatesDir || defaultTemplatesDir);
+var _setupSourceDir = function (config) {
+	if (config) {
+		var srcfolder = config.srcfolder || 'src/main';
 
+		defaultTemplatesDir = path.join(projectDir, srcfolder, 'templates');
+	}
+};
 //
 // Get requests
 //
@@ -31,6 +35,8 @@ router.get('/*', (req, res) => {
 		requestUrl = req.originalUrl,
 		cntPath = req.path,
 		cntURL = url.parse(req.url);
+
+	_setupSourceDir(app.locals.server);
 
 	console.log('*** Content: ' + req.url);
 
@@ -98,7 +104,7 @@ router.get('/*', (req, res) => {
 				console.log(' - the digit asset does not belong to any template');
 			}
 		} else if (comp) {
-			var comptemps = serverUtils.getComponentTemplates(comp);
+			var comptemps = serverUtils.getComponentTemplates(projectDir, comp);
 			if (comptemps.length > 0) {
 				temp = comptemps[0];
 			}

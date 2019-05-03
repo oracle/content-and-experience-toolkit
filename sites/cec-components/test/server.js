@@ -26,22 +26,32 @@ var express = require('express'),
 	templatesRouter = require('./server/templatesRouter.js'),
 	componentsRouter = require('./server/componentsRouter.js'),
 	proxyRouter = require('./server/proxyRouter.js'),
+	connectorRouter = require('./server/connectorRouter.js'),
 	serverUtils = require('./server/serverUtils.js');
 
-var projectDir = path.join(__dirname, ".."),
-	testDir = __dirname,
-	componentsDir = path.join(projectDir, 'src', 'main', 'components'),
-	templatesDir = path.join(projectDir, 'src', 'main', 'templates'),
-	themesDir = path.join(projectDir, 'src', 'main', 'themes'),
-	libsDir = path.join(projectDir, 'src', 'libs');
+var cecDir = path.join(__dirname, ".."),
+	libsDir = path.join(cecDir, 'src', 'libs'),
+	testDir = path.join(cecDir, 'test');
 
-var port = 8085;
+var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
 
-// read remote CEC server config from ~/.gradle/gradle.properties
-var server = serverUtils.getConfiguredServer();
-//console.log('Configured server=' + JSON.stringify(server));
+var config = serverUtils.getConfiguration(projectDir);
+var srcfolder = config.srcfolder || 'src/main';
+var componentsDir = path.join(projectDir, srcfolder, 'components'),
+	themesDir = path.join(projectDir, srcfolder, 'themes');
+
+var port = process.env.CEC_TOOLKIT_PORT || 8085;
+
+// console.log('cecDir: ' + cecDir + ' projectDir: ' + projectDir + ' port: ' + port);
+
+// read remote CEC server config 
+var server = serverUtils.getConfiguredServer(projectDir);
+// console.log('Configured server=' + JSON.stringify(server));
+console.log('Use config file: ' + server.fileloc);
 
 // Store these in the app locals to be shared by routers
+app.locals.projectDir = projectDir;
+app.locals.port = port;
 app.locals.server = server;
 app.locals.serverURL = app.locals.server.url;
 app.locals.connectToServer = false;
@@ -87,7 +97,7 @@ app.use(function (req, res, next) {
 	if (app.locals.serverURL && remote) {
 		// check if the session still authenticated
 		// console.log('*** check if authenticated... path=' + reqpath);
-		request('http://localhost:8085/isAuthenticated', {
+		request('http://localhost:' + port + '/isAuthenticated', {
 			isJson: true
 		}, function (err, response, body) {
 			if (response && response.statusCode === 200) {
@@ -104,7 +114,7 @@ app.use(function (req, res, next) {
 								var total = 0;
 								var inter = setInterval(function () {
 									// console.log(' - getting login user: ' + total);
-									var url = 'http://localhost:8085/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
+									var url = 'http://localhost:' + port + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
 									request.get(url, function (err, response, body) {
 										var data = JSON.parse(body);
 										var dUser = data && data.LocalData && data.LocalData.dUser;
@@ -193,9 +203,23 @@ app.use('/renderer/app/js', appsRouter);
 // All proxy requests are handled by proxyRouter
 app.use('/pxysvc', proxyRouter);
 
+// all /connector request are handled by connectorRouter
+app.get('/connector*', connectorRouter);
+app.post('/connector*', connectorRouter);
+app.delete('/connector*', connectorRouter);
+
+app.get('/getsrcfolder', function (req, res) {
+	"use strict";
+	var srcfolder = app.locals.server.srcfolder ? app.locals.server.srcfolder : 'src/main';
+	var result = {
+		srcfolder: srcfolder
+	};
+	res.write(JSON.stringify(result));
+	res.end();
+});
 app.get('/getcomponents', function (req, res) {
 	"use strict";
-	res.write(JSON.stringify(serverUtils.getComponents()));
+	res.write(JSON.stringify(serverUtils.getComponents(projectDir)));
 	res.end();
 });
 app.get('/getcomponenttemplates*', function (req, res) {
@@ -210,13 +234,13 @@ app.get('/getcomponenttemplates*', function (req, res) {
 		return;
 	}
 	compname = compname.substring(1);
-	res.write(JSON.stringify(serverUtils.getComponentTemplates(compname)));
+	res.write(JSON.stringify(serverUtils.getComponentTemplates(projectDir, compname)));
 	res.end();
 });
 app.get('/gettemplates', function (req, res) {
 	"use strict";
 
-	res.write(JSON.stringify(serverUtils.getTemplates()));
+	res.write(JSON.stringify(serverUtils.getTemplates(projectDir)));
 	res.end();
 });
 app.get('/gettemplatecomponents*', function (req, res) {
@@ -231,7 +255,7 @@ app.get('/gettemplatecomponents*', function (req, res) {
 		return;
 	}
 	tempname = tempname.substring(1);
-	res.write(JSON.stringify(serverUtils.getTemplateComponents(tempname)));
+	res.write(JSON.stringify(serverUtils.getTemplateComponents(projectDir, tempname)));
 	res.end();
 });
 app.get('/gettemplateicon*', function (req, res) {
@@ -246,7 +270,7 @@ app.get('/gettemplateicon*', function (req, res) {
 		return;
 	}
 	tempname = tempname.substring(1);
-	res.write(serverUtils.getTemplateIcon(tempname));
+	res.write(serverUtils.getTemplateIcon(projectDir, tempname));
 	res.end();
 });
 
@@ -262,7 +286,7 @@ app.get('/getcontentlayoutitems*', function (req, res) {
 		return;
 	}
 	layoutname = layoutname.substring(1);
-	res.write(JSON.stringify(serverUtils.getContentLayoutItems(layoutname)));
+	res.write(JSON.stringify(serverUtils.getContentLayoutItems(projectDir, layoutname)));
 	res.end();
 });
 
@@ -310,6 +334,12 @@ app.post('/clearcontentlayoutitem', function (req, res) {
 
 	res.end();
 	return;
+});
+
+app.get('/gettranslationconnections', function (req, res) {
+	"use strict";
+	res.write(JSON.stringify(serverUtils.getTranslationConnections(projectDir)));
+	res.end();
 });
 
 app.get('/isAuthenticated', function (req, res) {
@@ -511,6 +541,38 @@ app.get('/public/templates', function (req, res) {
 	};
 	res.redirect('/public/templates.html');
 });
+app.get('/public/translationconnections', function (req, res) {
+	"use strict";
+	app.locals.currentTemplate = '';
+	app.locals.currentContentItem = {
+		template: '',
+		type: '',
+		id: '',
+		isRemote: false
+	};
+	res.redirect('/public/translationconnections.html');
+});
+
+app.get('/translationconnections*', function (req, res) {
+	"use strict";
+	
+	var connectionName = req.path.replace('/translationconnections', '');
+	if (!connectionName || connectionName.indexOf('/') < 0) {
+		// no connector name specified
+		console.log('translationconnections: invalid connector name: ' + connectionName);
+		res.writeHead(200, {});
+		res.end();
+		return;
+	}
+	connectionName = connectionName.substring(1);
+	console.log('+++ Connection: ' + connectionName);
+
+	var testpage = path.join(testDir, 'public', 'testconnector.html');
+	console.log(' - filePath=' + testpage);
+	
+	res.sendFile(testpage);
+});
+
 app.get('/test', function (req, res) {
 	"use strict";
 	res.redirect('/public');
@@ -535,11 +597,11 @@ process.on('uncaughtException', function (err) {
 
 if (!app.locals.serverURL) {
 	// start the server without remote server
-	app.listen(8085, function () {
+	app.listen(port, function () {
 		"use strict";
 		console.log('NodeJS running...:');
-		console.log('Components UI demo page: http://localhost:8085');
-		console.log('Components Unit test page: http://localhost:8085/unit');
+		console.log('Components UI demo page: http://localhost:' + port);
+		console.log('Components Unit test page: http://localhost:' + port + '/unit');
 	});
 } else {
 	// open a user session using the given credentials
@@ -550,18 +612,19 @@ if (!app.locals.serverURL) {
 			onsuccess: function () {
 				app.locals.connectToServer = true;
 				var wait = server.env === 'pod_ec' ? 15000 : 1000;
-				app.listen(8085, function () {
+				app.listen(port, function () {
 					"use strict";
 					setTimeout(function () {
 						console.log('Server is listening on port: ' + port);
 						console.log('NodeJS running...:');
-						console.log('Components UI demo page: http://localhost:8085');
-						console.log('Components Unit test page: http://localhost:8085/unit');
+						console.log('Components UI demo page: http://localhost:' + port);
+						console.log('Components Unit test page: http://localhost:' + port + '/unit');
 					}, wait);
 				});
 			},
 			onfailure: function (error, resp) {
 				console.log('Login to server failed - unexpected response from server');
+				console.log(error);
 				process.exit(0);
 			}
 		});

@@ -10,12 +10,8 @@
 var express = require('express'),
 	serverUtils = require('./serverUtils.js'),
 	router = express.Router(),
-	fs = require('fs'),
-	argv = require('yargs').argv,
-	path = require('path'),
-	url = require('url');
+	path = require('path');
 
-var projectDir = path.resolve(__dirname).replace(path.join('test', 'server'), '');
 
 router.get('/*', (req, res) => {
 	let location, app = req.app,
