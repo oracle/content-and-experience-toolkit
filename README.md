@@ -18,7 +18,7 @@ Templates and resources for development platforms.
 - `cec submit-translation-job` -- Submit a local translation job to a translation management system for translation.  Use `cec list-translation-jobs` to see the progress of the translation.
 - `cec ingest-translation-job` -- Bring a completed translation from a translation management system back to the local translation job.
 - `cec upload-translation-job` -- Upload a completed, or partially completed translation job back to the server.
-- `cec create-translation-connector` -- Create a new sample translation connector for communicating to a translation management system to automation translation.  The sample provides a sample translation, prepending language to strings that should be translated.
+- `cec create-translation-connector` -- Create a new sample translation connector for communicating to a translation management system to automate translation.  The sample provides a sample translation, prepending language to strings that should be translated.
 - `cec start-translation-connector` -- Start a local translation connector on a given port to handle translation submissions from `cec submit-translation-job`.
 - `cec register-translation-connector` -- Register running translation connectors started with `cec start-translation-connector`, so they be used with `cec submit-translation-job`.
 
