@@ -7,6 +7,7 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 # New in Release 19.2.2
 **Added**
+- Aliases for all `cec` commands.  E.g. `cec ltj` for `cec list-translation-jobs'.
 - `cec install` -- Independent source creation, with own cec.properties, and npm install allows multiple source trees of CEC resources, and build step to load your own dependencies using npm via package.json unique to the source tree.
 - `cec develop` -- Independently start a test server for your source tree on chosen port.
 
