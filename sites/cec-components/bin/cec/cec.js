@@ -63,7 +63,7 @@ var _verifyCECProject = function () {
 
 // verify if the current dir is a valid CEC
 
-const cecRoot = getInstalledPathSync('cec');
+const cecRoot = __dirname;
 const cecRootReal = fs.realpathSync(cecRoot);
 //console.log('cecRoot: ' + cecRoot + ' => ' + cecRootReal);
 
