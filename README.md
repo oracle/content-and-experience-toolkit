@@ -9,8 +9,8 @@ Templates and resources for development platforms.
 # New in Release 19.2.2b
 **Added**
 
+- Support for non global install of cec.
 ```
-support for non global install of cec.
 cd cec-components
 npm install
 npm install bin/cec
