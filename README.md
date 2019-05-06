@@ -5,6 +5,22 @@ Templates and resources for development platforms.
 [sites](sites/) – Work with tools to create, test, and package your own site templates, themes, components and content layouts.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
+
+# New in Release 19.2.2b
+**Added**
+
+```
+support for non global install of cec.
+cd cec-components
+npm install
+npm install bin/cec
+
+#add to your PATH E.g:
+$export PATH=~/Dev/github/content-and-experience-toolkit/sites/cec-components/node_modules/.bin:$PATH
+#or do it relatively:
+export PATH=$PATH:./node_modules/.bin
+```
+
 # New in Release 19.2.2
 **Added**
 - Aliases for all `cec` commands.  E.g. `cec ltj` for `cec list-translation-jobs`.
