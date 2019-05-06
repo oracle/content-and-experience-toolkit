@@ -16,7 +16,7 @@ npm install
 npm install bin/cec
 
 #add to your PATH E.g:
-$export PATH=~/Dev/github/content-and-experience-toolkit/sites/cec-components/node_modules/.bin:$PATH
+export PATH=~/Dev/github/content-and-experience-toolkit/sites/cec-components/node_modules/.bin:$PATH
 #or do it relatively:
 export PATH=$PATH:./node_modules/.bin
 ```
