@@ -6,6 +6,10 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.2.2c
+**Added**
+- additional help for `cec -h install`.
+
 # New in Release 19.2.2b
 **Added**
 
