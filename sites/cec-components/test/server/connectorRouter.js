@@ -20,9 +20,9 @@ var connectionsSrcDir, connectorsSrcDir;
 
 var _setupSourceDir = function (config) {
 	if (config) {
-		var srcfolder = config.srcfolder || 'src/main';
-		connectionsSrcDir = path.join(projectDir, srcfolder, 'connections');
-		connectorsSrcDir = path.join(projectDir, srcfolder, 'connectors');
+		var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
+		connectionsSrcDir = path.join(srcfolder, 'connections');
+		connectorsSrcDir = path.join(srcfolder, 'connectors');
 	}
 };
 
@@ -72,6 +72,7 @@ router.get('/*', (req, res) => {
 	console.log(' - call connector: ' + connector.url + apiUrl);
 
 	var options = {
+		method: 'GET',
 		url: url,
 		headers: headers
 	};

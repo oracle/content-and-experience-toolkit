@@ -24,19 +24,22 @@ var express = require('express'),
 var componentsDir,
 	connectionsDir,
 	connectorsDir,
+	serversDir,
 	templatesDir,
-	themesDir;
+	themesDir,
+	loginReported = false; // only report logging in once
 
 var _setupSourceDir = function (projectDir) {
 	if (projectDir) {
 		var config = _getConfiguredServer(projectDir);
-		var srcfolder = config.srcfolder || 'src/main';
+		var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
 
-		componentsDir = path.join(projectDir, srcfolder, 'components');
-		connectionsDir = path.join(projectDir, srcfolder, 'connections');
-		connectorsDir = path.join(projectDir, srcfolder, 'connectors');
-		templatesDir = path.join(projectDir, srcfolder, 'templates');
-		themesDir = path.join(projectDir, srcfolder, 'themes');
+		componentsDir = path.join(srcfolder, 'components');
+		connectionsDir = path.join(srcfolder, 'connections');
+		connectorsDir = path.join(srcfolder, 'connectors');
+		serversDir = path.join(srcfolder, 'servers');
+		templatesDir = path.join(srcfolder, 'templates');
+		themesDir = path.join(srcfolder, 'themes');
 	}
 };
 
@@ -69,8 +72,11 @@ var _getConfiguredServer = function (currPath) {
 		password: '',
 		oauthtoken: '',
 		env: '',
-		srcfolder: '',
-		translationconnector: undefined
+		idcs_url: '',
+		client_id: '',
+		client_secret: '',
+		scope: '',
+		srcfolder: ''
 	};
 	if (fs.existsSync(configFile)) {
 		server.fileexist = true;
@@ -79,8 +85,12 @@ var _getConfiguredServer = function (currPath) {
 				username,
 				password,
 				env,
-				srcfolder,
-				translationconnector;
+				idcs_url,
+				client_id,
+				client_secret,
+				scope,
+				srcfolder;
+
 			fs.readFileSync(configFile).toString().split('\n').forEach(function (line) {
 				if (line.indexOf('cec_url=') === 0) {
 					cecurl = line.substring('cec_url='.length);
@@ -97,9 +107,18 @@ var _getConfiguredServer = function (currPath) {
 				} else if (line.indexOf('cec_source_folder=') === 0) {
 					srcfolder = line.substring('cec_source_folder='.length);
 					srcfolder = srcfolder.replace(/(\r\n|\n|\r)/gm, '').trim();
-				} else if (line.indexOf('cec_translationconnector=') === 0) {
-					translationconnector = line.substring('cec_translationconnector='.length);
-					translationconnector = translationconnector.replace(/(\r\n|\n|\r)/gm, '').trim();
+				} else if (line.indexOf('cec_idcs_url=') === 0) {
+					idcs_url = line.substring('cec_idcs_url='.length);
+					idcs_url = idcs_url.replace(/(\r\n|\n|\r)/gm, '').trim();
+				} else if (line.indexOf('cec_client_id=') === 0) {
+					client_id = line.substring('cec_client_id='.length);
+					client_id = client_id.replace(/(\r\n|\n|\r)/gm, '').trim();
+				} else if (line.indexOf('cec_client_secret=') === 0) {
+					client_secret = line.substring('cec_client_secret='.length);
+					client_secret = client_secret.replace(/(\r\n|\n|\r)/gm, '').trim();
+				} else if (line.indexOf('cec_scope=') === 0) {
+					scope = line.substring('cec_scope='.length);
+					scope = scope.replace(/(\r\n|\n|\r)/gm, '').trim();
 				}
 			});
 			if (cecurl && username && password) {
@@ -108,9 +127,12 @@ var _getConfiguredServer = function (currPath) {
 				server.password = password;
 				server.env = env || 'pod_ec';
 				server.oauthtoken = '';
+				server.idcs_url = idcs_url;
+				server.client_id = client_id;
+				server.client_secret = client_secret;
+				server.scope = scope;
 			}
 			server.srcfolder = srcfolder;
-			server.translationconnector = translationconnector ? JSON.parse(translationconnector) : undefined;
 
 			// console.log('configured server=' + JSON.stringify(server));
 		} catch (e) {
@@ -118,30 +140,6 @@ var _getConfiguredServer = function (currPath) {
 		}
 	}
 	return server;
-};
-
-module.exports.isProjectCreated = function (currPath) {
-	if (!fs.existsSync(currPath)) {
-		console.log('ERROR: folder ' + currPath + ' does not exist');
-		return false;
-	}
-
-	// backward support
-	var srcfolder = 'src/main';
-
-	var configFile = path.join(currPath, 'cec.properties');
-	if (fs.existsSync(path.join(currPath, 'cec.properties'))) {
-		var config = _getConfiguredServer(currPath);
-		srcfolder = config.srcfolder || srcfolder;
-	}
-
-	var srcPath = path.join(currPath, srcfolder);
-	if (!fs.existsSync(srcPath)) {
-		console.log('ERROR: source folder does not exist');
-		return false;
-	}
-
-	return true;
 };
 
 /**
@@ -269,6 +267,54 @@ module.exports.updateItemFolderJson = function (projectDir, type, name, propName
 };
 
 /**
+ * Get a server in serversDir.
+ */
+module.exports.getRegisteredServer = function (projectDir, name) {
+	"use strict";
+
+	return _getRegisteredServer(projectDir, name);
+};
+var _getRegisteredServer = function (projectDir, name) {
+	"use strict";
+
+	_setupSourceDir(projectDir);
+
+	var server = {};
+	var serverpath = path.join(serversDir, name, "server.json");
+	if (fs.existsSync(serverpath)) {
+		var serverstr = fs.readFileSync(serverpath).toString(),
+			serverjson = JSON.parse(serverstr);
+		server = serverjson;
+		server['fileloc'] = serverpath;
+		server['fileexist'] = true;
+	}
+	// console.log(server);
+	return server;
+};
+
+/**
+ * get request 
+ */
+module.exports.getRequest = function (projectDir) {
+	"use strict";
+	return _getRequest();
+};
+var _getRequest = function () {
+	var request = require('request');
+	request = request.defaults({
+		headers: {
+			connection: 'keep-alive'
+		},
+		pool: {
+			maxSockets: 50
+		},
+		jar: true,
+		proxy: null
+	});
+	return request;
+};
+
+/**
  * Get components in componentsDir.
  */
 module.exports.getComponents = function (projectDir) {
@@ -277,7 +323,7 @@ module.exports.getComponents = function (projectDir) {
 	_setupSourceDir(projectDir);
 
 	var components = [],
-		items = fs.existsSync(componentsDir) ?  fs.readdirSync(componentsDir) : [];
+		items = fs.existsSync(componentsDir) ? fs.readdirSync(componentsDir) : [];
 	if (items) {
 		items.forEach(function (name) {
 			var folderpath = path.join(componentsDir, "/", name, "_folder.json");
@@ -629,27 +675,33 @@ module.exports.getContentType = function (projectDir, typeName, templateName) {
 /**
  * Get content types from server
  */
-module.exports.getContentTypesFromServer = function (currPath, callback) {
-	var server = _getConfiguredServer(currPath);
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured');
-		return;
-	}
-	var client = new Client({
-		user: server.username,
-		password: server.password
-	});
-	var url = server.url + '/content/management/api/v1.1/types?limit=9999';
-	client.get(url, function (data, response) {
-		var types = [];
-		if (response && response.statusCode === 200) {
-			types = data && data.items;
-		} else {
-			// console.log('status=' + response.statusCode + ' err=' + err);
-			console.log('ERROR: failed to query content types');
+module.exports.getContentTypesFromServer = function (server) {
+	var contentTypesPromise = new Promise(function (resolve, reject) {
+		if (!server || !server.url || !server.username || !server.password) {
+			return console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
 		}
-		callback(types);
+
+		var client = new Client({
+			user: server.username,
+			password: server.password
+		});
+		var url = server.url + '/content/management/api/v1.1/types?limit=9999';
+		client.get(url, function (data, response) {
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				// console.log('status=' + response.statusCode + ' err=' + err);
+				console.log('ERROR: failed to query content types');
+				resolve({
+					err: 'failed to query content types: ' + response.statusCode
+				});
+			}
+		});
 	});
+	return contentTypesPromise;
 };
 
 /**
@@ -737,7 +789,7 @@ module.exports.getTranslationConnectors = function (projectDir) {
 	_setupSourceDir(projectDir);
 
 	var connectors = [],
-		items = fs.existsSync(connectorsDir) ?  fs.readdirSync(connectorsDir) : [];
+		items = fs.existsSync(connectorsDir) ? fs.readdirSync(connectorsDir) : [];
 	if (items) {
 		items.forEach(function (name) {
 			if (fs.existsSync(path.join(connectorsDir, name, 'package.json'))) {
@@ -766,7 +818,7 @@ module.exports.getTranslationConnections = function (projectDir) {
 	_setupSourceDir(projectDir);
 
 	var connections = [],
-		items = fs.existsSync(connectionsDir) ?  fs.readdirSync(connectionsDir) : [];
+		items = fs.existsSync(connectionsDir) ? fs.readdirSync(connectionsDir) : [];
 	if (items) {
 		items.forEach(function (name) {
 			if (fs.existsSync(path.join(connectionsDir, name, 'connection.json'))) {
@@ -776,8 +828,413 @@ module.exports.getTranslationConnections = function (projectDir) {
 			}
 		});
 	}
-	
+
 	return connections;
+};
+
+/**
+ * Get OAuth token from IDCS
+ */
+module.exports.getOAuthTokenFromIDCS = function (request, server) {
+	return _getOAuthTokenFromIDCS(request, server);
+};
+
+var _getOAuthTokenFromIDCS = function (request, server) {
+	var tokenPromise = new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			return resolve({
+				err: 'no server'
+			});
+		}
+
+		if (!server.idcs_url) {
+			console.log('ERROR: no IDCS url is found');
+			return resolve({
+				err: 'no IDCS url'
+			});
+		}
+		if (!server.client_id) {
+			console.log('ERROR: no client id is found');
+			return resolve({
+				err: 'no client id'
+			});
+		}
+		if (!server.client_secret) {
+			console.log('ERROR: no client secret is found');
+			return resolve({
+				err: 'no client secret'
+			});
+		}
+		if (!server.scope) {
+			console.log('ERROR: no scope is found');
+			return resolve({
+				err: 'no scope'
+			});
+		}
+
+		var url = server.idcs_url + '/oauth2/v1/token';
+		var auth = {
+			user: server.client_id,
+			password: server.client_secret
+		};
+
+		var formData = new URLSearchParams();
+		formData.append('grant_type', 'password');
+		formData.append('username', server.username);
+		formData.append('password', server.password);
+		formData.append('scope', server.scope);
+
+		var postData = {
+			method: 'POST',
+			url: url,
+			auth: auth,
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded;'
+			},
+			body: formData.toString(),
+			json: true
+		};
+
+		request(postData, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get OAuth token');
+				console.log(err);
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (error) {
+				data = body;
+			};
+
+			if (!data || response.statusCode !== 200) {
+				var msg = data ? (data.error + ':' + data.error_description) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: Failed to get OAuth token - ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			} else {
+				return resolve({
+					oauthtoken: data.token_type + ' ' + data.access_token
+				});
+			}
+		});
+	});
+	return tokenPromise;
+};
+
+/**
+ * Get template from server
+ */
+module.exports.getTemplateFromServer = function (request, server, templateName) {
+	var templatePromise = new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env === 'pod_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var url = server.url + '/sites/management/api/v1/templates?expand=localizationPolicy&expansionErrors=ignore';
+
+		var options = {
+			url: url
+		};
+		if (server.env === 'pod_ec') {
+			options.headers = {
+				Authorization: server.oauthtoken
+			};
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+
+		request(options, function (error, response, body) {
+			var result = {};
+
+			if (error) {
+				console.log('ERROR: failed to get template:');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+			if (response && response.statusCode === 200) {
+				var data = JSON.parse(body);
+				var items = data && data.items;
+				// console.log(items);
+				var template;
+				for (var i = 0; i < items.length; i++) {
+					if (items[i].name.toLowerCase() === templateName.toLowerCase()) {
+						template = items[i];
+					}
+				}
+				resolve({
+					data: template
+				});
+			} else {
+				console.log('ERROR: failed to get template: ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: (response ? (response.statusMessage || response.statusCode) : 'err')
+				});
+			}
+
+		});
+	});
+	return templatePromise;
+};
+
+/**
+ * Get site from server
+ */
+module.exports.getSiteFromServer = function (request, server, siteName) {
+	var sitePromise = new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env === 'pod_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var url = server.url + '/sites/management/api/v1/sites';
+		var options = {
+			url: url
+		};
+		if (server.env === 'pod_ec') {
+			options.headers = {
+				Authorization: server.oauthtoken
+			};
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+
+		request(options, function (error, response, body) {
+			var result = {};
+
+			if (error) {
+				console.log('ERROR: failed to get site:');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+			if (response && response.statusCode === 200) {
+				var data = JSON.parse(body);
+				var items = data && data.items;
+				// console.log(items);
+				var site;
+				for (var i = 0; i < items.length; i++) {
+					if (items[i].name.toLowerCase() === siteName.toLowerCase()) {
+						site = items[i];
+					}
+				}
+				resolve({
+					data: site
+				});
+			} else {
+				console.log('ERROR: failed to get site: ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: (response ? (response.statusMessage || response.statusCode) : 'err')
+				});
+			}
+
+		});
+	});
+	return sitePromise;
+};
+
+/**
+ * Get repository from server
+ */
+module.exports.getRepositoryFromServer = function (request, server, repositoryName) {
+	var repositoryPromise = new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+
+		var auth = {
+			user: server.username,
+			password: server.password
+		};
+
+		var url = server.url + '/content/management/api/v1.1/repositories?fields=all&includeAdditionalData=true';
+
+		var options = {
+			url: url,
+			auth: auth
+		};
+		request(options, function (error, response, body) {
+			var result = {};
+
+			if (error) {
+				console.log('ERROR: failed to get repository:');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+			if (response && response.statusCode === 200) {
+				var data = JSON.parse(body);
+				var items = data && data.items;
+				// console.log(items);
+				var repository;
+				for (var i = 0; i < items.length; i++) {
+					if (items[i].name.toLowerCase() === repositoryName.toLowerCase()) {
+						repository = items[i];
+					}
+				}
+				resolve({
+					data: repository
+				});
+			} else {
+				console.log('ERROR: failed to get repository: ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: (response ? (response.statusMessage || response.statusCode) : 'err')
+				});
+			}
+
+		});
+	});
+	return repositoryPromise;
+};
+
+module.exports.getRepositoryCollections = function (request, server, repositoryId) {
+	var collectionPromise = new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+
+		var auth = {
+			user: server.username,
+			password: server.password
+		};
+
+		var url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections';
+
+		var options = {
+			url: url,
+			auth: auth
+		};
+		request(options, function (error, response, body) {
+			var result = {};
+
+			if (error) {
+				console.log('ERROR: failed to get repository collections:');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+			if (response && response.statusCode === 200) {
+				var data = JSON.parse(body);
+				var items = data && data.items;
+				// console.log(items);
+
+				resolve({
+					data: items
+				});
+			} else {
+				console.log('ERROR: failed to get repository collections: ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: (response ? (response.statusMessage || response.statusCode) : 'err')
+				});
+			}
+
+		});
+	});
+	return collectionPromise;
+};
+
+
+/**
+ * Get localization policy from server
+ */
+module.exports.getLocalizationPolicyFromServer = function (request, server, policyIdentifier, identifierType) {
+	var policyPromise = new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+
+		var auth = {
+			user: server.username,
+			password: server.password
+		};
+
+		var url = server.url + '/content/management/api/v1.1/policy';
+
+		var options = {
+			url: url,
+			auth: auth
+		};
+		request(options, function (error, response, body) {
+
+			if (error) {
+				console.log('ERROR: failed to get localization policy:');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+			if (response && response.statusCode === 200) {
+				var data = JSON.parse(body);
+				var items = data && data.items;
+				var policy;
+				for (var i = 0; i < items.length; i++) {
+					if (identifierType && identifierType === 'id') {
+						if (items[i].id === policyIdentifier) {
+							policy = items[i];
+						}
+					} else {
+						if (items[i].name === policyIdentifier) {
+							policy = items[i];
+							break;
+						}
+					}
+				}
+				resolve({
+					data: policy
+				});
+			} else {
+				console.log('ERROR: failed to get localization policy: ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: (response ? (response.statusMessage || response.statusCode) : 'err')
+				});
+			}
+
+		});
+	});
+	return policyPromise;
 };
 
 /**
@@ -965,14 +1422,20 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 		var port = '9393';
 		var localhost = 'http://localhost:' + port;
 
+		var isPod = server.env === 'pod_ec';
+		var auth = isPod ? {
+			bearer: server.oauthtoken
+		} : {
+			user: server.username,
+			password: server.password
+		};
+
 		app.get('/documents/web', function (req, res) {
 			// console.log('GET: ' + req.url);
 			var url = server.url + req.url;
 			var options = {
 				url: url,
-				'auth': {
-					bearer: server.oauthtoken
-				}
+				'auth': auth
 			};
 
 			request(options).on('response', function (response) {
@@ -1009,9 +1472,7 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 				var postData = {
 					method: 'POST',
 					url: uploadUrl,
-					'auth': {
-						bearer: server.oauthtoken
-					},
+					'auth': auth,
 					'formData': formData
 				};
 				request(postData).on('response', function (response) {
@@ -1286,7 +1747,7 @@ module.exports.publishComponentOnServer = function (request, server, componentFo
 	return publishPromise;
 };
 
-module.exports.loginToDevServer = function (server, request) {
+var _loginToDevServer = function (server, request) {
 	var loginPromise = new Promise(function (resolve, reject) {
 		// open user session
 		request.post(server.url + '/cs/login/j_security_check', {
@@ -1314,7 +1775,10 @@ module.exports.loginToDevServer = function (server, request) {
 						});
 					}
 
-					console.log(' - Logged in to remote server: ' + server.url);
+					if (!loginReported) {
+						console.log(' - Logged in to remote server: ' + server.url);
+						loginReported = true;
+					}
 					return resolve({
 						'status': true
 					});
@@ -1328,8 +1792,9 @@ module.exports.loginToDevServer = function (server, request) {
 	});
 	return loginPromise;
 };
+module.exports.loginToDevServer = _loginToDevServer;
 
-module.exports.loginToPODServer = function (server) {
+var _loginToPODServer = function (server) {
 	var loginPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/documents',
 			usernameid = '#idcs-signin-basic-signin-form-username',
@@ -1416,6 +1881,7 @@ module.exports.loginToPODServer = function (server) {
 	});
 	return loginPromise;
 };
+module.exports.loginToPODServer = _loginToPODServer;
 
 
 /**
@@ -1904,15 +2370,14 @@ function _browseFolder(request, server, host, folderId, folderName) {
  * @param {*} host 
  * @param {*} folderPath 
  */
+module.exports.queryFolderId = function (request, server, host, folderPath) {
+	return _queryFolderId(request, server, host, folderPath);
+};
+
 var _queryFolderId = function (request, server, host, folderPath) {
 	var folderIdPromise = new Promise(function (resolve, reject) {
-		if (!folderPath) {
-			return resolve({
-				folderId: ''
-			});
-		}
 
-		var folderNames = folderPath.split('/');
+		var folderNames = folderPath ? folderPath.split('/') : [];
 
 		// First query user personal folder home
 		var url = host + '/documents/web?IdcService=FLD_BROWSE_PERSONAL&itemType=Folder';
@@ -1940,6 +2405,13 @@ var _queryFolderId = function (request, server, host, folderPath) {
 				console.log('ERROR: failed to query home folder');
 				return resolve({
 					err: 'err'
+				});
+			}
+
+			if (!folderPath) {
+				// the personal home folder GUID
+				return resolve({
+					folderId: data.LocalData.OwnerFolderGUID
 				});
 			}
 
@@ -2088,6 +2560,158 @@ var _getFolderIdFromResultSets = function (data, folderName) {
 	return folderId;
 };
 
+var _getRequest = function () {
+	var request = require('request');
+	request = request.defaults({
+		headers: {
+			connection: 'keep-alive'
+		},
+		pool: {
+			maxSockets: 50
+		},
+		jar: true,
+		proxy: null
+	});
+	return request;
+};
+var _getSiteInfo = function (server, site, done) {
+	var sitesPromise = new Promise(function (resolve, reject) {
+		'use strict';
+
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			done();
+			return;
+		}
+
+		var request = _getRequest();
+
+		var isPod = server.env === 'pod_ec';
+		var loginPromise = isPod ? _loginToPODServer(server) : _loginToDevServer(server, request);
+		loginPromise.then(function (result) {
+			var auth = isPod ? {
+				bearer: server.oauthtoken
+			} : {
+				user: server.username,
+				password: server.password
+			};
+
+
+			var options = {
+				url: server.url + '/documents/web?IdcService=SCS_GET_SITE_INFO_FILE&siteId=' + site + '&IsJson=1',
+				auth: auth
+			};
+			request.get(options, function (err, response, body) {
+				if (err) {
+					console.log('ERROR: Failed to get site Id');
+					console.log(err);
+					return resolve({
+						'err': err
+					});
+				}
+				var data = body;
+				if (typeof data === 'string') {
+					try {
+						data = JSON.parse(body);
+					} catch (e) {}
+				}
+
+				var siteInfo = data && (data.properties || data.base.properties);
+				if (!siteInfo) {
+					console.log('ERROR: Failed to get site info for - ' + site);
+					return resolve({
+						err: 'err'
+					});
+				}
+
+				// get the site info 
+				return resolve({
+					siteInfo: siteInfo
+				});
+			});
+		});
+	});
+	return sitesPromise;
+};
+module.exports.getSiteInfo = function (currPath, site, registeredServerName, done) {
+	var server = registeredServerName ? _getRegisteredServer(currPath, registeredServerName) : _getConfiguredServer(currPath);
+	return _getSiteInfo(server, site, done);
+};
+var _getSiteGUID = function (server, site, done) {
+	var sitesPromise = new Promise(function (resolve, reject) {
+		'use strict';
+
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			done();
+			return;
+		}
+
+		var request = _getRequest();
+
+		var isPod = server.env === 'pod_ec';
+		var loginPromise = isPod ? _loginToPODServer(server) : _loginToDevServer(server, request);
+		loginPromise.then(function (result) {
+			var auth = isPod ? {
+				bearer: server.oauthtoken
+			} : {
+				user: server.username,
+				password: server.password
+			};
+
+
+			var options = {
+				url: server.url + '/documents/web?IdcService=SCS_BROWSE_SITES',
+				auth: auth
+			};
+			request.get(options, function (err, response, body) {
+				if (err) {
+					console.log('ERROR: Failed to get site Id');
+					console.log(err);
+					return resolve({
+						'err': err
+					});
+				}
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (e) {}
+
+				if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+					console.log('ERROR: Failed to get site Id ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+					return resolve({
+						err: 'err'
+					});
+				}
+
+				// JSONify the results
+				var sites = {};
+				var fields = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.fields || [];
+				var rows = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.rows;
+				rows.forEach(function (siteRows) {
+					var nxtSite = {};
+					siteRows.forEach(function (value, index) {
+						nxtSite[fields[index].name] = value;
+					});
+					sites[nxtSite.fFolderName] = nxtSite;
+				});
+
+				// get the requested site
+				var siteDetails = sites[site];
+				return resolve({
+					siteGUID: siteDetails && siteDetails.fFolderGUID,
+					siteDetails: siteDetails
+				});
+			});
+		});
+	});
+	return sitesPromise;
+};
+module.exports.getSiteFolder = function (currPath, site, registeredServerName, done) {
+	var server = registeredServerName ? _getRegisteredServer(currPath, registeredServerName) : _getConfiguredServer(currPath);
+	return _getSiteGUID(server, site, done);
+};
+
 module.exports.sleep = function (delay) {
 	_sleep(delay);
 };
@@ -2196,4 +2820,217 @@ var _getBackgroundServiceStatus = function (request, host, jobId) {
 		});
 	});
 	return statusPromise;
+};
+
+/**
+ * @param server the server object
+ */
+module.exports.getBackgroundServiceJobStatus = function (server, request, idcToken, jobId) {
+	var statusPromise = new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/web?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_STATUS';
+		url = url + '&JobID=' + jobId;
+		url = url + '&idcToken=' + idcToken;
+
+		var isPod = server.env === 'pod_ec';
+		var auth = isPod ? {
+			bearer: server.oauthtoken
+		} : {
+			user: server.username,
+			password: server.password
+		};
+
+		var params = {
+			method: 'GET',
+			url: url,
+			auth: auth,
+		};
+
+		request(params, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: Failed to get job status');
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get job status' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.fields || [];
+			var rows = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.rows || [];
+
+			var status = {};
+			if (rows && rows.length > 0) {
+				for (var i = 0; i < fields.length; i++) {
+					var attr = fields[i].name;
+					status[attr] = rows[0][i];
+				}
+			}
+			return resolve(status);
+		});
+	});
+	return statusPromise;
+};
+
+/**
+ * @param server the server object
+ */
+module.exports.getBackgroundServiceJobData = function (server, request, idcToken, jobId) {
+	var statusPromise = new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/web?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_RESPONSE_DATA';
+		url = url + '&JobID=' + jobId;
+		url = url + '&idcToken=' + idcToken;
+
+		var isPod = server.env === 'pod_ec';
+		var auth = isPod ? {
+			bearer: server.oauthtoken
+		} : {
+			user: server.username,
+			password: server.password
+		};
+
+		var params = {
+			method: 'GET',
+			url: url,
+			auth: auth,
+		};
+
+		request(params, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: Failed to get job response data');
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			var result = {};
+			if (data && data.LocalData) {
+
+				var fields = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.fields || [];
+				var rows = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.rows || [];
+
+				if (rows && rows.length > 0) {
+					for (var i = 0; i < fields.length; i++) {
+						var attr = fields[i].name;
+						result[attr] = rows[0][i];
+					}
+				}
+			}
+			return resolve(result);
+		});
+	});
+	return statusPromise;
+};
+
+/**
+ * Get sites or templates from server using IdcService
+ */
+module.exports.browseSitesOnServer = function (request, server, fApplication) {
+	var sitePromise = new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env === 'pod_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var isPod = server.env === 'pod_ec';
+		var auth = isPod ? {
+			bearer: server.oauthtoken
+		} : {
+			user: server.username,
+			password: server.password
+		};
+
+		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_SITES';
+		if (fApplication) {
+			url = url + '&fApplication=' + fApplication;
+		}
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth,
+		};
+
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get sites/templates');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get sites/templates' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.fields || [];
+			var rows = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.rows;
+			var sites = []
+			for (var j = 0; j < rows.length; j++) {
+				sites.push({});
+			}
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				for (var j = 0; j < rows.length; j++) {
+					sites[j][attr] = rows[j][i];
+				}
+			}
+			// add metadata
+			var mFields = data.ResultSets && data.ResultSets.dSiteMetaCollection && data.ResultSets.dSiteMetaCollection.fields || [];
+			var mRows = data.ResultSets && data.ResultSets.dSiteMetaCollection && data.ResultSets.dSiteMetaCollection.rows || [];
+			var siteMetadata = [];
+			for (var j = 0; j < mRows.length; j++) {
+				siteMetadata.push({});
+			}
+			for (var i = 0; i < mFields.length; i++) {
+				var attr = mFields[i].name;
+				for (var j = 0; j < mRows.length; j++) {
+					siteMetadata[j][attr] = mRows[j][i];
+				}
+			}
+			for (var i = 0; i < sites.length; i++) {
+				for (var j = 0; j < siteMetadata.length; j++) {
+					if (sites[i].fFolderGUID === siteMetadata[j].dIdentifier) {
+						Object.assign(sites[i], siteMetadata[j]);
+						break;
+					}
+				}
+			}
+			resolve({
+				data: sites
+			});
+		});
+	});
+	return sitePromise;
 };

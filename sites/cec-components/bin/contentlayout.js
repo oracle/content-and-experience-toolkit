@@ -22,6 +22,7 @@ var cecDir = path.join(__dirname, ".."),
 
 var projectDir,
 	componentsSrcDir,
+	serversSrcDir,
 	templatesSrcDir;
 
 /**
@@ -29,18 +30,15 @@ var projectDir,
  * @param {*} done 
  */
 var verifyRun = function (argv) {
-	projectDir = argv.projectDir || projectDir;
-	if (!serverUtils.isProjectCreated(projectDir)) {
-		console.log('ERROR: no source folder available, please run cec install first');
-		return false;
-	}
+	projectDir = argv.projectDir;
 
 	var config = serverUtils.getConfiguration(projectDir);
-	var srcfolder = config.srcfolder || 'src/main';
+	var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
 
 	// set source folders
-	componentsSrcDir = path.join(projectDir, srcfolder, 'components');
-	templatesSrcDir = path.join(projectDir, srcfolder, 'templates');
+	componentsSrcDir = path.join(srcfolder, 'components');
+	serversSrcDir = path.join(srcfolder, 'servers');
+	templatesSrcDir = path.join(srcfolder, 'templates');
 
 	return true;
 }
@@ -56,8 +54,26 @@ module.exports.listServerContentTypes = function (argv, done) {
 		return;
 	}
 
-	serverUtils.getContentTypesFromServer(projectDir, function (types) {
-		// console.log(types);
+	var serverName = argv.server;
+	if (serverName) {
+		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
+		if (!fs.existsSync(serverpath)) {
+			console.log('ERROR: server ' + serverName + ' does not exist');
+			_cmdEnd(done);
+		}
+	}
+
+	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+	if (!server.url || !server.username || !server.password) {
+		console.log('ERROR: no server is configured in ' + server.fileloc);
+		_cmdEnd(done);
+	}
+	console.log(' - server: ' + server.url);
+
+	var typesPromise = serverUtils.getContentTypesFromServer(server);
+	typesPromise.then(function (result) {
+		var types = result && result.items;
+		var typeFound = false;
 		if (types && types.length > 0) {
 			var byName = types.slice(0);
 			byName.sort(function (a, b) {
@@ -66,14 +82,18 @@ module.exports.listServerContentTypes = function (argv, done) {
 				return (x < y ? -1 : x > y ? 1 : 0);
 			});
 			types = byName;
+			var typeFound = false;
 			for (var i = 0; i < types.length; i++) {
 				if (types[i].name !== 'DigitalAsset') {
 					console.log(' ' + types[i].name);
+					typeFound = true;
 				}
 			}
-		} else {
+		} 
+		if (!typeFound) {
 			console.log(' - no content type on the server')
 		}
+
 		done();
 	});
 };
@@ -90,11 +110,34 @@ module.exports.createContentLayout = function (argv, done) {
 		return;
 	}
 
+	var useserver = argv.server ? true : false;
+	var serverName;
+	var server;
+	if (useserver) {
+		serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
+		if (serverName) {
+			var serverpath = path.join(serversSrcDir, serverName, 'server.json');
+			if (!fs.existsSync(serverpath)) {
+				console.log('ERROR: server ' + serverName + ' does not exist');
+				done();
+				return;
+			}
+		}
+
+		server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured in ' + server.fileloc);
+			done();
+			return;
+		}
+
+		console.log(' - server: ' + server.url);
+	}
+
 	var contenttypename = argv.contenttype,
 		layoutname = argv.name,
 		templatename = argv.template,
 		layoutstyle = (argv.style || 'overview').toLowerCase(),
-		useserver = argv.server || false,
 		seededComponents = fs.readdirSync(componentsDataDir);
 
 	if (!contenttypename && !layoutname) {
@@ -147,7 +190,9 @@ module.exports.createContentLayout = function (argv, done) {
 	if (useserver) {
 
 		// verify the content type
-		serverUtils.getContentTypesFromServer(projectDir, function (types) {
+		var typesPromise = serverUtils.getContentTypesFromServer(server);
+		typesPromise.then(function (result) {
+			var types = result && result.items || [];
 			var foundtype = false,
 				contenttype;
 			for (var i = 0; i < types.length; i++) {

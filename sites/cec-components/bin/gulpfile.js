@@ -8,8 +8,11 @@
 var gulp = require('gulp'),
 	os = require('os'),
 	contentlayoutlib = require('./contentlayout.js'),
+	contentlib = require('./content.js'),
 	templatelib = require('./template.js'),
 	sitelib = require('./site.js'),
+	siteUpdateLib = require('./siteUpdate.js'),
+	siteIndexlib = require('./siteIndex.js'),
 	siteMaplib = require('./siteMap.js'),
 	translationlib = require('./translation.js'),
 	decompress = require('decompress'),
@@ -35,6 +38,8 @@ var projectDir,
 	componentsBuildDir,
 	connectionsSrcDir,
 	connectorsSrcDir,
+	contentSrcDir,
+	serversSrcDir,
 	transSrcDir,
 	templatesSrcDir;
 
@@ -185,28 +190,25 @@ var replaceAll = function (str, search, replacement) {
  * @param {*} done 
  */
 var verifyRun = function () {
-	projectDir = argv.projectDir || projectDir;
-	if (!serverUtils.isProjectCreated(projectDir)) {
-		console.log('Please run cec install first');
-		return false;
-	}
+	projectDir = argv.projectDir;
 
 	var config = serverUtils.getConfiguration(projectDir);
-	var srcfolder = config.srcfolder || 'src/main';
+	var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
 
 	// set source folders
-	componentsSrcDir = path.join(projectDir, srcfolder, 'components');
-	templatesSrcDir = path.join(projectDir, srcfolder, 'templates');
-	connectorsSrcDir = path.join(projectDir, srcfolder, 'connectors');
-	connectionsSrcDir = path.join(projectDir, srcfolder, 'connections');
-	transSrcDir = path.join(projectDir, srcfolder, 'translationJobs');
+	componentsSrcDir = path.join(srcfolder, 'components');
+	templatesSrcDir = path.join(srcfolder, 'templates');
+	connectorsSrcDir = path.join(srcfolder, 'connectors');
+	connectionsSrcDir = path.join(srcfolder, 'connections');
+	contentSrcDir = path.join(srcfolder, 'content');
+	transSrcDir = path.join(srcfolder, 'translationJobs');
+	serversSrcDir = path.join(srcfolder, 'servers');
 
-	var buildfolder = srcfolder === 'src/main' ? 'src/build' : 'build';
-	buildDir = path.join(projectDir, buildfolder);
+	buildDir = config.srcfolder ? path.join(projectDir, 'build') : path.join(projectDir, 'src', 'build');
 	componentsBuildDir = path.join(buildDir, 'components');
 
 	return true;
-}
+};
 
 /******************************* gulp tasks *******************************/
 
@@ -535,6 +537,15 @@ gulp.task('create-template', function (done) {
 });
 
 /**
+ * Create template from a site
+ */
+gulp.task('create-template-from-site', function (done) {
+	'use strict';
+
+	templatelib.createTemplateFromSite(argv, done);
+});
+
+/**
  * Copy template
  * copy a template and its scheme and place into the /src
  */
@@ -574,12 +585,66 @@ gulp.task('deploy-template', function (done) {
 });
 
 /**
+ * upload template
+ */
+gulp.task('upload-template', function (done) {
+	'use strict';
+
+	templatelib.deployTemplate(argv, done);
+});
+
+/**
  * describe template
  */
 gulp.task('describe-template', function (done) {
 	'use strict';
 
 	templatelib.describeTemplate(argv, done);
+});
+
+/**
+ * download template from server
+ */
+gulp.task('download-template', function (done) {
+	'use strict';
+
+	templatelib.downloadTemplate(argv, done);
+});
+
+/**
+ * delete template on server
+ */
+gulp.task('delete-template', function (done) {
+	'use strict';
+
+	templatelib.deleteTemplate(argv, done);
+});
+
+/**
+ * download content from server
+ */
+gulp.task('download-content', function (done) {
+	'use strict';
+
+	contentlib.downloadContent(argv, done);
+});
+
+/**
+ * upload content to server
+ */
+gulp.task('upload-content', function (done) {
+	'use strict';
+
+	contentlib.uploadContent(argv, done);
+});
+
+/**
+ * Control content (publish, unpublish, remove) on server
+ */
+gulp.task('control-content', function (done) {
+	'use strict';
+
+	contentlib.controlContent(argv, done);
 });
 
 /**
@@ -772,7 +837,17 @@ gulp.task('deploy-component', function (done) {
 		return;
 	}
 
-	var server = serverUtils.getConfiguredServer(projectDir);
+	var serverName = argv.server;
+	if (serverName) {
+		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
+		if (!fs.existsSync(serverpath)) {
+			console.log('ERROR: server ' + serverName + ' does not exist');
+			done();
+			return;
+		}
+	}
+
+	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
@@ -990,6 +1065,23 @@ gulp.task('list', function (done) {
 		done();
 		return;
 	}
+
+	// 
+	// Servers
+	//
+	console.log('Servers:');
+	var serverNames = fs.existsSync(serversSrcDir) ? fs.readdirSync(serversSrcDir) : [];
+	if (serverNames) {
+		var format = '    %-20s %-s';
+		serverNames.forEach(function (name) {
+			if (fs.existsSync(path.join(serversSrcDir, name, 'server.json'))) {
+				var serverinfo = fs.readFileSync(path.join(serversSrcDir, name, 'server.json'));
+				var serverinfojson = JSON.parse(serverinfo);
+				console.log(sprintf(format, name, serverinfojson.url));
+			}
+		});
+	}
+
 	// console.log('list components: ' + listComponents + ' list templates: ' + listTemplates);
 	if (listComponents) {
 		console.log('Components: ');
@@ -1013,6 +1105,19 @@ gulp.task('list', function (done) {
 				}
 			});
 		}
+	}
+
+	//
+	// Content
+	//
+	console.log('Content:');
+	var contentNames = fs.existsSync(contentSrcDir) ? fs.readdirSync(contentSrcDir) : [];
+	if (contentNames) {
+		contentNames.forEach(function (name) {
+			if (fs.existsSync(path.join(contentSrcDir, name, 'contentexport'))) {
+				console.log('    ' + name);
+			}
+		});
 	}
 
 	console.log('Translation connectors:');
@@ -1049,13 +1154,41 @@ gulp.task('list', function (done) {
 });
 
 /**
+ * Create enterprise site
+ */
+gulp.task('create-site', function (done) {
+	'use strict';
+
+	sitelib.createSite(argv, done);
+});
+
+/**
+ * Control site
+ */
+gulp.task('control-site', function (done) {
+	'use strict';
+
+	sitelib.controlSite(argv, done);
+});
+
+
+/**
+ * update site
+ */
+gulp.task('update-site', function (done) {
+	'use strict';
+
+	siteUpdateLib.updateSite(argv, done);
+});
+
+/**
  * Index site
  * Create content items with the keywords on site page and import the items to the server
  */
 gulp.task('index-site', function (done) {
 	'use strict';
 
-	sitelib.indexSite(argv, done);
+	siteIndexlib.indexSite(argv, done);
 });
 
 /**
@@ -1182,7 +1315,7 @@ gulp.task('check-version', function (done) {
 		user: server.username,
 		password: server.password
 	});
-
+	
 	var isPod = server.env === 'pod_ec';
 	var url = server.url + (isPod ? '/content' : '/osn/social/api/v1/connections');
 	client.get(url, function (data, response) {
@@ -1239,8 +1372,8 @@ gulp.task('check-version', function (done) {
 		}
 
 		if (!toolkitVersion) {
+			//console.log('ERROR: version found in ' + packagejsonpath);
 			return;
-			console.log('ERROR: version found in ' + packagejsonpath);
 		}
 		arr = toolkitVersion.split('.');
 		var toolkitVersion2 = arr.length >= 2 ? arr[0] + '.' + arr[1] : (arr.length > 0 ? arr[0] : '');
@@ -1262,6 +1395,53 @@ gulp.task('check-version', function (done) {
 
 		done();
 	});
+});
+
+/**
+ * Register server
+ */
+gulp.task('register-server', function (done) {
+	'use strict';
+
+	if (!verifyRun()) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+	var endpoint = argv.endpoint;
+	var user = argv.user;
+	var password = argv.password;
+	var type = argv.type || 'pod_ec';
+	var idcs_url = argv.idcsurl;
+	var client_id = argv.clientid;
+	var client_secret = argv.clientsecret;
+	var scope = argv.scope;
+
+	if (!fs.existsSync(serversSrcDir)) {
+		fs.mkdirSync(serversSrcDir);
+	}
+
+	var serverPath = path.join(serversSrcDir, name);
+	if (!fs.existsSync(serverPath)) {
+		fs.mkdirSync(serverPath);
+	}
+	var serverFile = path.join(serverPath, 'server.json');
+	// Use the same fields as serverUtils.getConfiguredServer
+	var serverjson = {
+		name: name,
+		url: endpoint,
+		username: user,
+		password: password,
+		env: type,
+		idcs_url: idcs_url,
+		client_id: client_id,
+		client_secret: client_secret,
+		scope: scope
+	}
+	fs.writeFileSync(serverFile, JSON.stringify(serverjson));
+	console.log(' - server registered in ' + serverFile);
+	done();
 });
 
 /**

@@ -25,10 +25,10 @@ var templatesDir,
 
 var _setupSourceDir = function (config) {
 	if (config) {
-		var srcfolder = config.srcfolder || 'src/main';
+		var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
 
-		templatesDir = path.join(projectDir, srcfolder, 'templates');
-		themesDir = path.join(projectDir, srcfolder, 'themes');
+		templatesDir = path.join(srcfolder, 'templates');
+		themesDir = path.join(srcfolder, 'themes');
 	}
 };
 

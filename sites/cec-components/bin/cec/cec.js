@@ -13,9 +13,7 @@ const fs = require('fs');
 const yargs = require('yargs');
 const os = require('os');
 const sprintf = require('sprintf-js').sprintf;
-const {
-	getInstalledPathSync
-} = require('get-installed-path');
+
 
 /**************************
  * Current directory check
@@ -117,6 +115,16 @@ var getTranslationJobExportTypes = function () {
 	return values;
 };
 
+var getSiteActions = function () {
+	const actions = ['publish', 'unpublish', 'bring-online', 'take-offline'];
+	return actions;
+};
+
+var getContentActions = function () {
+	const actions = ['publish', 'unpublish', 'remove'];
+	return actions;
+};
+
 /*********************
  * Command definitions
  **********************/
@@ -170,8 +178,8 @@ const createContentLayout = {
 	example: [
 		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -t BlogTemplate'],
 		['cec create-contentlayout Blog-Post-Detail-Layout -c Blog-Post -t BlogTemplate -s detail'],
-		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -r'],
-		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -r -s detail']
+		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -r', 'Use content type Blog-Post from the server specified in $HOME/gradle.properties file'],
+		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -r UAT -s detail', 'Use content type Blog-Post from the registered server UAT']
 	]
 };
 
@@ -211,12 +219,13 @@ const deployComponent = {
 	usage: {
 		'short': 'Deploys the components <names> to the Content and Experience Cloud server.',
 		'long': (function () {
-			let desc = 'Deploys the components <names> to the Content and Experience Cloud server. This uses the server specified in $HOME/gradle.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
+			let desc = 'Deploys the components <names> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec deploy-component Sample-To-Do', 'Deploys the component Sample-To-Do.'],
+		['cec deploy-component Sample-To-Do', 'Deploys the component Sample-To-Do to the server specified in $HOME/gradle.properties.'],
+		['cec deploy-component Sample-To-Do -s UAT', 'Deploys the component Sample-To-Do to the registered server UAT.'],
 		['cec deploy-component Sample-To-Do -p', 'Deploys and publishes the component Sample-To-Do.'],
 		['cec deploy-component Sample-To-Do,Sample-To-Do2', 'Deploys component Sample-To-Do and Sample-To-Do2.'],
 		['cec deploy-component Sample-To-Do -f Import/Components', 'Uploads file Sample-To-Do.zip to folder Import/Components and imports the component Sample-To-Do.'],
@@ -291,14 +300,36 @@ const deployTemplate = {
 	usage: {
 		'short': 'Deploys the template <name> to the Content and Experience Cloud server.',
 		'long': (function () {
-			let desc = 'Deploys the template <name> to the Content and Experience Cloud server. This uses the server specified in $HOME/gradle.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
+			let desc = 'Deploys the template <name> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
 			return desc;
 		})()
 	},
 	example: [
 		['cec deploy-template StarterTemplate', 'Deploys the template StarterTemplate.'],
+		['cec deploy-template StarterTemplate -s UAT', 'Deploys the template StarterTemplate to the registered server UAT.'],
 		['cec deploy-template StarterTemplate -f Import/Templates', 'Uploads file StarterTemplate.zip to folder Import/Templates and imports the template StarterTemplate.'],
-		['cec deploy-template StarterTemplate -o', 'Optimizes and deploys the template StarterTemplate.']
+		['cec deploy-template StarterTemplate -o', 'Optimizes and deploys the template StarterTemplate.'],
+		['cec upload-template StarterTemplate -x', 'Exclude the "Content Template" from the template upload. "Content Template" upload can be managed independently.']
+	]
+};
+
+const uploadTemplate = {
+	command: 'upload-template <name>',
+	alias: 'ut',
+	name: 'upload-template',
+	usage: {
+		'short': 'Uploads the template <name> to the Content and Experience Cloud server.',
+		'long': (function () {
+			let desc = 'Uploads the template <name> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec upload-template StarterTemplate', 'Uploads the template StarterTemplate.'],
+		['cec upload-template StarterTemplate -s UAT', 'Uploads the template StarterTemplate to the registered server UAT.'],
+		['cec upload-template StarterTemplate -f Import/Templates', 'Uploads file StarterTemplate.zip to folder Import/Templates and imports the template StarterTemplate.'],
+		['cec upload-template StarterTemplate -o', 'Optimizes and uploads the template StarterTemplate.'],
+		['cec upload-template StarterTemplate -x', 'Exclude the "Content Template" from the template upload. "Content Template" upload can be managed independently.']
 	]
 };
 
@@ -316,6 +347,59 @@ const describeTemplate = {
 	example: ['cec describe-template StarterTemplate', 'Describes the template StarterTemplate package']
 };
 
+const createTemplateFromSite = {
+	command: 'create-template-from-site <name>',
+	alias: 'ctfs',
+	name: 'create-template-from-site',
+	usage: {
+		'short': 'Creates the template <name> from site <site> on the CEC server.',
+		'long': (function () {
+			let desc = 'Creates the template <name> from site <site> on the Content and Experience Cloud server. Specify the server with -r <server> or use the one specified in $HOME/gradle.properties file. Optionally specify <includeunpublishedassets> to include unpublished content items and digital assets in your template.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-template-from-site BlogTemplate -s BlogSite'],
+		['cec create-template-from-site BlogTemplate -s BlogSite -r UAT'],
+		['cec create-template-from-site BlogTemplate -s BlogSite -i -r UAT']
+	]
+};
+
+const downloadTemplate = {
+	command: 'download-template <name>',
+	alias: 'dlt',
+	name: 'download-template',
+	usage: {
+		'short': 'Downloads the template <name> from the Content and Experience Cloud server.',
+		'long': (function () {
+			let desc = 'Downloads the template <name> from the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec download-template BlogTemplate'],
+		['cec download-template BlogTemplate -s UAT']
+	]
+};
+
+const deleteTemplate = {
+	command: 'delete-template <name>',
+	alias: '',
+	name: 'delete-template',
+	usage: {
+		'short': 'Deletes the template <name> on the Content and Experience Cloud server.',
+		'long': (function () {
+			let desc = 'Deletes the template <name> on the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -p to permanently delete the template.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec delete-template BlogTemplate'],
+		['cec delete-template BlogTemplate -p'],
+		['cec delete-template BlogTemplate -s UAT']
+	]
+};
+
 const listServerContentTypes = {
 	command: 'list-server-content-types',
 	alias: 'lsct',
@@ -327,7 +411,10 @@ const listServerContentTypes = {
 			return desc;
 		})()
 	},
-	example: ['cec list-server-content-types']
+	example: [
+		['cec list-server-content-types'],
+		['cec list-server-content-types -s UAT'],
+	]
 };
 
 const addContentLayoutMapping = {
@@ -364,6 +451,62 @@ const removeContentLayoutMapping = {
 	example: [
 		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -t BlogTemplate'],
 		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -t BlogTemplate -m']
+	]
+};
+
+const downloadContent = {
+	command: 'download-content <channel>',
+	alias: 'dlc',
+	name: 'download-content',
+	usage: {
+		'short': 'Downloads content in channel <channel> from CEC server.',
+		'long': (function () {
+			let desc = 'Downloads content in channel <channel> from CEC server. By default all assets are downloaded, optionally specify -p to download only published assets. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec download-content Site1Channel', 'Donwload all assets in channel Site1Channel'],
+		['cec download-content Site1Channel -p', 'Donwload published assets in channel Site1Channel'],
+		['cec download-content Site1Channel -s UAT']
+	]
+};
+
+const uploadContent = {
+	command: 'upload-content <name>',
+	alias: 'uc',
+	name: 'upload-content',
+	usage: {
+		'short': 'Uploads local content to a repository on CEC server.',
+		'long': (function () {
+			let desc = 'Uploads local content from channel <name> or template <name> to repository <repository> on CEC server. Specify -c <channel> to add the template content to channel. Optionally specify specify -l <collection> to add the content to collection. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec upload-content Site1Channel -r Repo1', 'Upload content to repository Repo1 and add to channel Site1Channel'],
+		['cec upload-content Site1Channel -r Repo1 -l Site1Collection', 'Upload content to repository Repo1 and add to collection Site1Collection and channel Site1Channel'],
+		['cec upload-content Site1Channel -r Repo1 -s UAT', 'Upload content to repository Repo1 on server UAT and add to channel Site1Channel'],
+		['cec upload-content Template1 -t -r Repo1 -c channel1', 'Upload content from template Template1 to repository Repo1 and add to channel channel1']
+	]
+};
+
+const controlContent = {
+	command: 'control-content <action>',
+	alias: 'ctlc',
+	name: 'control-content',
+	usage: {
+		'short': 'Performs action <action> on channel items on CEC server.',
+		'long': (function () {
+			let desc = 'Performs action <action> on channel items on CEC server. Specify the channel with -c <channel>. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. The valid actions are\n\n';
+			return getContentActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec control-content publish -c Channel1', 'Publish all items in channel Channel1 on the server specified in $HOME/gradle.properties file'],
+		['cec control-content publish -c Channel1 -s UAT', 'Publish all items in channel Channel1 on the registered server UAT'],
+		['cec control-content unpublish -c Channel1 -s UAT', 'Unpublish all items in channel Channel1 on the registered server UAT'],
+		['cec control-content remove -c Channel1 -s UAT', 'Remove all items in channel Channel1 on the registered server UAT']
 	]
 };
 
@@ -421,6 +564,78 @@ const listResources = {
 	]
 };
 
+const createSite = {
+	command: 'create-site <name>',
+	alias: 'cs',
+	name: 'create-site',
+	usage: {
+		'short': 'Creates Enterprise Site <name>.',
+		'long': (function () {
+			let desc = 'Create Enterprise Site on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-site Site1 -t StandardTemplate', 'Creates a standard site'],
+		['cec create-site Site1 -t Template1 -r Repository1 -l LocalizationPolicy1 -d en-US', 'Creates an enterprise site with localization policy LocalizationPolicy1'],
+		['cec create-site Site1 -t Template1 -r Repository1 -d en-US', 'Creates an enterprise site and uses the localization policy in Template1'],
+		['cec create-site Site1 -t Template1 -r Repository1 -d en-US -s UAT', 'Creates an enterprise site on server UAT']
+	]
+};
+
+const controlSite = {
+	command: 'control-site <action>',
+	alias: 'cts',
+	name: 'control-site',
+	usage: {
+		'short': 'Performs action <action> on site.',
+		'long': (function () {
+			let desc = 'Perform <action> on site on CEC server. Specify the site with -s <site>. Specify the server with -r <server> or use the one specified in $HOME/gradle.properties file. The valid actions are\n\n';
+			return getSiteActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec control-site publish -s Site1', 'Publish site Site1 on the server specified in $HOME/gradle.properties file'],
+		['cec control-site publish -s Site1 -r UAT', 'Publish site Site1 on the registered server UAT'],
+		['cec control-site unpublish -s Site1 -r UAT', 'Unpublish site Site1 on the registered server UAT'],
+		['cec control-site bring-online -s Site1 -r UAT', 'Bring site Site1 online on the registered server UAT'],
+		['cec control-site take-offline -s Site1 -r UAT', 'Take site Site1 offline on the registered server UAT']
+	]
+};
+
+const validateSite = {
+	command: 'validate-site <name>',
+	alias: 'vs',
+	name: 'control-site',
+	usage: {
+		'short': 'Validates site <name>.',
+		'long': (function () {
+			let desc = 'Validates site <name> on site on CEC server before publish or view publishing failure. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec validate-site Site1', 'Validate site Site1 on the server specified in $HOME/gradle.properties file'],
+		['cec validate-site Site1 -s UAT', 'Validate site Site1 on the registered server UAT']
+	]
+};
+
+const updateSite = {
+	command: 'update-site <name>',
+	alias: 'us',
+	name: 'update-site',
+	usage: {
+		'short': 'Update Enterprise Site <name>.',
+		'long': (function () {
+			let desc = 'Update Enterprise Site on CEC server using the content from the template. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec update-site Site1 -t Template1', 'Updates a site using the content from the template']
+	]
+};
+
 const indexSite = {
 	command: 'index-site <site>',
 	alias: 'is',
@@ -428,13 +643,14 @@ const indexSite = {
 	usage: {
 		'short': 'Index the page content of site <site> on CEC server.',
 		'long': (function () {
-			let desc = 'Creates content item for each page with all text on the page. If the page index content item already exists for a page, updated it with latest text on the page. Specify -c <contenttype> to set the page index content type. Optionally specify -p to publish the page index items after creation or update.';
+			let desc = 'Creates content item for each page with all text on the page. If the page index content item already exists for a page, updated it with latest text on the page. Specify -c <contenttype> to set the page index content type. Optionally specify -p to publish the page index items after creation or update. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
 			return desc;
 		})()
 	},
 	example: [
 		['cec index-site Site1 -c PageIndex'],
-		['cec index-site Site1 -c PageIndex -p']
+		['cec index-site Site1 -c PageIndex -p'],
+		['cec index-site Site1 -c PageIndex -s UAT']
 	]
 };
 
@@ -445,12 +661,13 @@ const createSiteMap = {
 	usage: {
 		'short': 'Creates a site map for site <site> on CEC server.',
 		'long': (function () {
-			let desc = 'Creates a site map for site on CEC server. Optionally specify -p to upload the site map to CEC server after creation. Optionally specify -c <changefreq> to define how frequently the page is likely to change. Optionally specify -t <toppagepriority> as the priority for the top level pages. Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
+			let desc = 'Creates a site map for site on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -p to upload the site map to CEC server after creation. Optionally specify -c <changefreq> to define how frequently the page is likely to change. Optionally specify -t <toppagepriority> as the priority for the top level pages. Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
 			return getSiteMapChangefreqValues().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
 		['cec create-site-map Site1 -u http://www.example.com/site1'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -s UAT'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -t 0.9'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -f sitemap.xml'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -p'],
@@ -471,8 +688,9 @@ const listTranslationJobs = {
 		})()
 	},
 	example: [
-		['cec list-translation-jobs'],
-		['cec list-translation-jobs -s']
+		['cec list-translation-jobs', 'Lists local translation jobs'],
+		['cec list-translation-jobs -s', 'Lists translation jobs on the server specified in $HOME/gradle.properties file'],
+		['cec list-translation-jobs -s UAT', 'Lists translation jobs on the registered server UAT']
 	]
 };
 
@@ -483,12 +701,13 @@ const createTranslationJob = {
 	usage: {
 		'short': 'Creates a translation job <name> for a site on CEC server.',
 		'long': (function () {
-			let desc = 'Creates a translation job <name> for a site on CEC server. Specify -l <languages> to set the target languages, use "all" to select all languages from the translation policy. Optionally specify -t <type> to set the content type. The valid values for <type> are:\n\n';
+			let desc = 'Creates a translation job <name> for a site on CEC server. Specify the server with -r <server> or use the one specified in $HOME/gradle.properties file. Specify -l <languages> to set the target languages, use "all" to select all languages from the translation policy. Optionally specify -t <type> to set the content type. The valid values for <type> are:\n\n';
 			return getTranslationJobExportTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
 		['cec create-translation-job job1 -s Site1 -l all'],
+		['cec create-translation-job job1 -s Site1 -l all -r UAT'],
 		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT'],
 		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT, -t siteItems']
 	]
@@ -501,12 +720,13 @@ const downloadTranslationJob = {
 	usage: {
 		'short': 'Downloads translation job <name> from CEC server.',
 		'long': (function () {
-			let desc = 'Downloads translation job <name> from CEC server.';
+			let desc = 'Downloads translation job <name> from CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec download-translation-job Site1Job']
+		['cec download-translation-job Site1Job'],
+		['cec download-translation-job Site1Job -s UAT']
 	]
 };
 
@@ -517,12 +737,13 @@ const uploadTranslationJob = {
 	usage: {
 		'short': 'Uploads translation job <name> to CEC server.',
 		'long': (function () {
-			let desc = 'Uploads translation <name> to CEC server, validate and then ingest the translations. Optionally specify -v to validate only. Optionally specify -f <folder> to set the folder to upload the translation zip file. ';
+			let desc = 'Uploads translation <name> to CEC server, validate and then ingest the translations. Optionally specify -v to validate only. Optionally specify -f <folder> to set the folder to upload the translation zip file. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
 			return desc;
 		})()
 	},
 	example: [
 		['cec upload-translation-job Site1Job', 'File will be uploaded to the Home folder.'],
+		['cec upload-translation-job Site1Job -s UAT', 'File will be uploaded to the Home folder on registered server UAT'],
 		['cec upload-translation-job Site1Job -f Import/TranslationJobs', 'File will be uploaded to folder Import/TranslationJobs.'],
 		['cec upload-translation-job Site1Job -v', 'Validate the translation job without import.']
 	]
@@ -600,7 +821,7 @@ const registerTranslationConnector = {
 	usage: {
 		'short': 'Registers a translation connector.',
 		'long': (function () {
-			let desc = 'Registers a translation connector. Specify -c <connector> for the connector. Specify -s <server> for the connector server URL. Specify -u <username> and -p <password> for connecting to the server. Specify -f <fields> for custom fields.';
+			let desc = 'Registers a translation connector. Specify -c <connector> for the connector. Specify -s <server> for the connector server URL. Specify -u <user> and -p <password> for connecting to the server. Specify -f <fields> for custom fields.';
 			return desc;
 		})()
 	},
@@ -609,6 +830,24 @@ const registerTranslationConnector = {
 	]
 };
 
+const registerServer = {
+	command: 'register-server <name>',
+	alias: 'rs',
+	name: 'register-server',
+	usage: {
+		'short': 'Registers a CEC server.',
+		'long': (function () {
+			let desc = 'Registers a CEC server. Specify -e <endpoint> for the server URL. Specify -u <user> and -p <password> for connecting to the server. Optionally specify -t <type> to set the server type, The valid values for <type> are:\n\n pod_ec\n dev_ec\n\nand the default value is pod_ec.';
+			// desc = desc + os.EOL + os.EOL + 'For pod_ec server, option <idcsurl>, <clientid>, <clientsecret> and <scope> are required. ';
+			return desc;
+		})()
+	},
+	example: [
+		// ['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -i http://idcs1.com -c clientid -s clientsecret -o https://primary-audience-and-scope', 'The server is a tenant on Oracle Public cloud'],
+		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1', 'The server is a tenant on Oracle Public cloud'],
+		['cec register-server server1 -e http://server1.git.oraclecorp.com.com -u user1 -p Welcome1 -t dev_ec', 'The server is a standalone development instance'],
+	]
+};
 
 const install = {
 	command: 'install',
@@ -617,7 +856,11 @@ const install = {
 	usage: {
 		'short': 'Creates source tree.',
 		'long': (function () {
-			let desc = 'Creates source tree.';
+			let desc = 'Creates an initial source tree in the current directory.' + os.EOL + os.EOL +
+				'With cec install, your source can be in a separate directory to the cec command install files, ' +
+				'and you no longer need your source to be within a cec-components directory.' + os.EOL + os.EOL +
+				'Use cec develop to start a dev/test server for your source.  ' +
+				'Different ports can be used for the server, to enable multiple source trees to exist.';
 			return desc;
 		})()
 	},
@@ -676,10 +919,13 @@ _usage = _usage + os.EOL + 'Components' + os.EOL +
 
 _usage = _usage + os.EOL + 'Templates' + os.EOL +
 	_getCmdHelp(createTemplate) + os.EOL +
+	_getCmdHelp(createTemplateFromSite) + os.EOL +
+	_getCmdHelp(downloadTemplate) + os.EOL +
 	_getCmdHelp(copyTemplate) + os.EOL +
 	_getCmdHelp(importTemplate) + os.EOL +
 	_getCmdHelp(exportTemplate) + os.EOL +
-	_getCmdHelp(deployTemplate) + os.EOL +
+	_getCmdHelp(uploadTemplate) + os.EOL +
+	_getCmdHelp(deleteTemplate) + os.EOL +
 	_getCmdHelp(describeTemplate) + os.EOL;
 
 _usage = _usage + os.EOL + 'Themes' + os.EOL +
@@ -687,6 +933,9 @@ _usage = _usage + os.EOL + 'Themes' + os.EOL +
 	_getCmdHelp(removeComponentFromTheme) + os.EOL;
 
 _usage = _usage + os.EOL + 'Sites' + os.EOL +
+	_getCmdHelp(createSite) + os.EOL +
+	_getCmdHelp(updateSite) + os.EOL +
+	_getCmdHelp(controlSite) + os.EOL +
 	_getCmdHelp(indexSite) + os.EOL +
 	_getCmdHelp(createSiteMap) + os.EOL;
 
@@ -694,7 +943,10 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
 	_getCmdHelp(addContentLayoutMapping) + os.EOL +
 	_getCmdHelp(removeContentLayoutMapping) + os.EOL +
-	_getCmdHelp(listServerContentTypes) + os.EOL;
+	_getCmdHelp(listServerContentTypes) + os.EOL +
+	_getCmdHelp(downloadContent) + os.EOL +
+	_getCmdHelp(uploadContent) + os.EOL +
+	_getCmdHelp(controlContent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(listTranslationJobs) + os.EOL +
@@ -708,6 +960,7 @@ _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(registerTranslationConnector) + os.EOL;
 
 _usage = _usage + os.EOL + 'Local Environment' + os.EOL +
+	_getCmdHelp(registerServer) + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
 	_getCmdHelp(install) + os.EOL +
 	_getCmdHelp(develop);
@@ -746,7 +999,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: 'flag to indicate the content type is from server',
+					description: 'The registered CEC server'
 				})
 				.option('style', {
 					alias: 's',
@@ -802,10 +1055,15 @@ const argv = yargs.usage(_usage)
 					alias: 'p',
 					description: 'Publish the component'
 				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
 				.example(...deployComponent.example[0])
 				.example(...deployComponent.example[1])
 				.example(...deployComponent.example[2])
 				.example(...deployComponent.example[3])
+				.example(...deployComponent.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -830,6 +1088,29 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${createTemplate.command}\n\n${createTemplate.usage.long}`);
+		})
+	.command([createTemplateFromSite.command, createTemplateFromSite.alias], false,
+		(yargs) => {
+			yargs.option('site', {
+					alias: 's',
+					description: '<site> Site to create from',
+					demandOption: true
+				})
+				.option('includeunpublishedassets', {
+					alias: 'i',
+					description: 'flag to indicate to include unpublished content items and digital assets in your template'
+				})
+				.option('server', {
+					alias: 'r',
+					description: '<server> The registered CEC server'
+				})
+				.example(...createTemplateFromSite.example[0])
+				.example(...createTemplateFromSite.example[1])
+				.example(...createTemplateFromSite.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createTemplateFromSite.command}\n\n${createTemplateFromSite.usage.long}`);
 		})
 	.command([copyTemplate.command, copyTemplate.alias], false,
 		(yargs) => {
@@ -859,23 +1140,92 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${exportTemplate.command}\n\n${exportTemplate.usage.long}`);
 		})
+	.command([downloadTemplate.command, downloadTemplate.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...downloadTemplate.example[0])
+				.example(...downloadTemplate.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${downloadTemplate.command}\n\n${downloadTemplate.usage.long}`);
+		})
+	.command([deleteTemplate.command, deleteTemplate.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.option('permanent', {
+					alias: 'p',
+					description: 'flag to indicate to permanently delete the template'
+				})
+				.example(...deleteTemplate.example[0])
+				.example(...deleteTemplate.example[1])
+				.example(...deleteTemplate.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${deleteTemplate.command}\n\n${deleteTemplate.usage.long}`);
+		})
 	.command([deployTemplate.command, deployTemplate.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
 					alias: 'f',
 					description: '<folder> Folder to upload the template zip file'
 				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
 				.option('optimize', {
 					alias: 'o',
 					description: 'Optimize the template'
 				})
+				.option('excludecontenttemplate', {
+					alias: 'x',
+					description: 'Exclude content template'
+				})
 				.example(...deployTemplate.example[0])
 				.example(...deployTemplate.example[1])
 				.example(...deployTemplate.example[2])
+				.example(...deployTemplate.example[3])
+				.example(...deployTemplate.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${deployTemplate.command}\n\n${deployTemplate.usage.long}`);
+		})
+	.command([uploadTemplate.command, uploadTemplate.alias], false,
+		(yargs) => {
+			yargs.option('folder', {
+					alias: 'f',
+					description: '<folder> Folder to upload the template zip file'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.option('optimize', {
+					alias: 'o',
+					description: 'Optimize the template'
+				})
+				.option('excludecontenttemplate', {
+					alias: 'x',
+					description: 'Exclude content template'
+				})
+				.example(...uploadTemplate.example[0])
+				.example(...uploadTemplate.example[1])
+				.example(...uploadTemplate.example[2])
+				.example(...uploadTemplate.example[3])
+				.example(...uploadTemplate.example[4])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${uploadTemplate.command}\n\n${uploadTemplate.usage.long}`);
 		})
 	.command([describeTemplate.command, describeTemplate.alias], false,
 		(yargs) => {
@@ -887,7 +1237,12 @@ const argv = yargs.usage(_usage)
 		})
 	.command([listServerContentTypes.command, listServerContentTypes.alias], false,
 		(yargs) => {
-			yargs.example(...listServerContentTypes.example)
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...listServerContentTypes.example[0])
+				.example(...listServerContentTypes.example[1])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -945,6 +1300,91 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${removeContentLayoutMapping.command}\n\n${removeContentLayoutMapping.usage.long}`);
 		})
+	.command([downloadContent.command, downloadContent.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.option('publishedassets', {
+					alias: 'p',
+					description: 'flag to indicate published assets only'
+				})
+				.example(...downloadContent.example[0])
+				.example(...downloadContent.example[1])
+				.example(...downloadContent.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${downloadContent.command}\n\n${downloadContent.usage.long}`);
+		})
+	.command([uploadContent.command, uploadContent.alias], false,
+		(yargs) => {
+			yargs.option('repository', {
+					alias: 'r',
+					description: '<repository> The repository for the types and items',
+					demandOption: true
+				})
+				.option('template', {
+					alias: 't',
+					description: 'Flag to indicate the content is from template'
+				})
+				.option('channel', {
+					alias: 'c',
+					description: '<channel> The channel to add the content'
+				})
+				.option('collection', {
+					alias: 'l',
+					description: '<collection> The collection to add the content'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.check((argv) => {
+					if (argv.template && !argv.channel) {
+						throw new Error('Please specify channel to add template content');
+					} else {
+						return true;
+					}
+				})
+				.example(...uploadContent.example[0])
+				.example(...uploadContent.example[1])
+				.example(...uploadContent.example[2])
+				.example(...uploadContent.example[3])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${uploadContent.command}\n\n${uploadContent.usage.long}`);
+		})
+	.command([controlContent.command, controlContent.alias], false,
+		(yargs) => {
+			yargs
+				.check((argv) => {
+					if (argv.action && !getContentActions().includes(argv.action)) {
+						throw new Error(`${argv.action} is a not a valid value for <action>`);
+					} else {
+						return true;
+					}
+				})
+				.option('channel', {
+					alias: 'c',
+					description: '<channel> Channel',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...controlContent.example[0])
+				.example(...controlContent.example[1])
+				.example(...controlContent.example[2])
+				.example(...controlContent.example[3])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${controlContent.command}\n\n${controlContent.usage.long}`);
+		})
 	.command([addComponentToTheme.command, addComponentToTheme.alias], false,
 		(yargs) => {
 			yargs.option('theme', {
@@ -990,6 +1430,92 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${listResources.command}\n\n${listResources.usage.long}`);
 		})
+	.command([createSite.command, createSite.alias], false,
+		(yargs) => {
+			yargs.option('template', {
+					alias: 't',
+					description: '<template> Template',
+					demandOption: true
+				})
+				.option('repository', {
+					alias: 'r',
+					description: '<repository> Repository, required for enterprise site'
+				})
+				.option('localizationPolicy', {
+					alias: 'l',
+					description: '<localizationPolicy> Localization policy'
+				})
+				.option('defaultLanguage', {
+					alias: 'd',
+					description: '<defaultLanguage> Default language, required for enterprise site'
+				})
+				.option('description', {
+					alias: 'p',
+					description: '<description> Site description'
+				})
+				.option('sitePrefix', {
+					alias: 'x',
+					description: '<sitePrefix> Site Prefix'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...createSite.example[0])
+				.example(...createSite.example[1])
+				.example(...createSite.example[2])
+				.example(...createSite.example[3])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createSite.command}\n\n${createSite.usage.long}`);
+		})
+	.command([controlSite.command, controlSite.alias], false,
+		(yargs) => {
+			yargs
+				.check((argv) => {
+					if (argv.action && !getSiteActions().includes(argv.action)) {
+						throw new Error(`${argv.action} is a not a valid value for <action>`);
+					} else {
+						return true;
+					}
+				})
+				.option('site', {
+					alias: 's',
+					description: '<site> Site',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 'r',
+					description: '<server> The registered CEC server'
+				})
+				.example(...controlSite.example[0])
+				.example(...controlSite.example[1])
+				.example(...controlSite.example[2])
+				.example(...controlSite.example[3])
+				.example(...controlSite.example[4])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${controlSite.command}\n\n${controlSite.usage.long}`);
+		})
+	.command([updateSite.command, updateSite.alias], false,
+		(yargs) => {
+			yargs.option('template', {
+					alias: 't',
+					description: '<template> Template',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...updateSite.example[0])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${updateSite.command}\n\n${updateSite.usage.long}`);
+		})
 	.command([indexSite.command, indexSite.alias], false,
 		(yargs) => {
 			yargs.option('contenttype', {
@@ -1000,6 +1526,10 @@ const argv = yargs.usage(_usage)
 					alias: 'p',
 					description: 'publish page index items'
 				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
 				.check((argv) => {
 					if (!argv.contenttype) {
 						throw new Error('Please specify page index content type');
@@ -1009,6 +1539,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...indexSite.example[0])
 				.example(...indexSite.example[1])
+				.example(...indexSite.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -1041,6 +1572,10 @@ const argv = yargs.usage(_usage)
 					alias: 't',
 					description: 'Priority for the top level pages, a decimal number between 0 and 1'
 				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
 				.check((argv) => {
 					if (!argv.url) {
 						throw new Error('Please specify site URL');
@@ -1056,6 +1591,7 @@ const argv = yargs.usage(_usage)
 				.example(...createSiteMap.example[3])
 				.example(...createSiteMap.example[4])
 				.example(...createSiteMap.example[5])
+				.example(...createSiteMap.example[6])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -1065,10 +1601,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'flag to indicate the translation jobs from server',
+					description: 'The registered CEC server'
 				})
 				.example(...listTranslationJobs.example[0])
 				.example(...listTranslationJobs.example[1])
+				.example(...listTranslationJobs.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -1090,12 +1627,12 @@ const argv = yargs.usage(_usage)
 					alias: 't',
 					description: 'The type of translation job contents'
 				})
+				.option('server', {
+					alias: 'r',
+					description: 'The registered CEC server'
+				})
 				.check((argv) => {
-					if (!argv.site) {
-						throw new Error('Please specify site');
-					} else if (!argv.languages) {
-						throw new Error('Please specify languages');
-					} else if (argv.type && !getTranslationJobExportTypes().includes(argv.type)) {
+					if (argv.type && !getTranslationJobExportTypes().includes(argv.type)) {
 						throw new Error(`${argv.type} is a not a valid value for <type>`);
 					} else {
 						return true;
@@ -1104,6 +1641,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTranslationJob.example[0])
 				.example(...createTranslationJob.example[1])
 				.example(...createTranslationJob.example[2])
+				.example(...createTranslationJob.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -1111,7 +1649,12 @@ const argv = yargs.usage(_usage)
 		})
 	.command([downloadTranslationJob.command, downloadTranslationJob.alias], false,
 		(yargs) => {
-			yargs.example(...downloadTranslationJob.example[0])
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.example(...downloadTranslationJob.example[0])
+				.example(...downloadTranslationJob.example[1])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -1155,9 +1698,14 @@ const argv = yargs.usage(_usage)
 					alias: 'v',
 					description: 'Validate translation job without import.'
 				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
 				.example(...uploadTranslationJob.example[0])
 				.example(...uploadTranslationJob.example[1])
 				.example(...uploadTranslationJob.example[2])
+				.example(...uploadTranslationJob.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -1217,7 +1765,7 @@ const argv = yargs.usage(_usage)
 					} else if (!argv.server) {
 						throw new Error('Please specify server URL');
 					} else if (!argv.user) {
-						throw new Error('Please specify username');
+						throw new Error('Please specify user name');
 					} else if (!argv.password) {
 						throw new Error('Please specify password');
 					} else
@@ -1228,6 +1776,73 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${registerTranslationConnector.command}\n\n${registerTranslationConnector.usage.long}`);
+		})
+	.command([registerServer.command, registerServer.alias], false,
+		(yargs) => {
+			yargs
+				.option('endpoint', {
+					alias: 'e',
+					description: '<endpoint> Server endpoint',
+					demandOption: true
+				})
+				.option('user', {
+					alias: 'u',
+					description: '<user> User name',
+					demandOption: true
+				})
+				.option('password', {
+					alias: 'p',
+					description: '<password> Password',
+					demandOption: true
+				})
+				.option('type', {
+					alias: 't',
+					description: '<type> Server type'
+				})
+				/*
+				.option('idcsurl', {
+					alias: 'i',
+					description: '<idcsurl> Oracle Identity Cloud Service Instance URL'
+				})
+				.option('clientid', {
+					alias: 'c',
+					description: '<clientid> Client ID'
+				})
+				.option('clientsecret', {
+					alias: 's',
+					description: '<clientsecret> Client secret'
+				})
+				.option('scope', {
+					alias: 'o',
+					description: '<clientsecret> Scope'
+				})
+				*/
+				.check((argv) => {
+					if (argv.type && argv.type !== 'pod_ec' && argv.type !== 'dev_ec') {
+						throw new Error(`${argv.type} is a not a valid value for <type>`);
+						/*
+					} else if (!argv.type || argv.type === 'pod_ec') {
+						if (!argv.idcsurl) {
+							throw new Error('Please specify Oracle Identity Cloud Service Instance URL <idcsurl>');
+						} else if (!argv.clientid) {
+							throw new Error('Please specify client id <clientid>');
+						} else if (!argv.clientsecret) {
+							throw new Error('Please specify client secret <clientsecret>');
+						} else if (!argv.scope) {
+							throw new Error('Please specify scope <scope>');
+						} else {
+							return true;
+						}
+						*/
+					} else
+						return true;
+				})
+				.example(...registerServer.example[0])
+				.example(...registerServer.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${registerServer.command}\n\n${registerServer.usage.long}`);
 		})
 	.command([install.command, install.alias], false,
 		(yargs) => {
@@ -1318,8 +1933,10 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	];
 	if (argv.template) {
 		createContentLayoutArgs.push(...['--template', argv.template]);
-	} else if (argv.server) {
-		createContentLayoutArgs.push(...['--server']);
+	}
+	if (argv.server) {
+		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		createContentLayoutArgs.push(...['--server'], serverVal);
 	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, createContentLayoutArgs, {
@@ -1376,6 +1993,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.folder && typeof argv.folder !== 'boolean') {
 		deployComponentArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		deployComponentArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, deployComponentArgs, {
 		cwd,
@@ -1442,13 +2062,93 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--template', argv.name
 	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		deployTemplateArgs.push(...['--server', argv.server]);
+	}
 	if (argv.folder && typeof argv.folder !== 'boolean') {
 		deployTemplateArgs.push(...['--folder', argv.folder]);
 	}
 	if (argv.optimize) {
 		deployTemplateArgs.push(...['--minify', argv.optimize]);
 	}
+	if (argv.excludecontenttemplate) {
+		uploadTemplateArgs.push(...['--excludecontenttemplate', argv.excludecontenttemplate]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, deployTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === uploadTemplate.name || argv._[0] === uploadTemplate.alias) {
+	let uploadTemplateArgs = ['run', '-s', uploadTemplate.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--template', argv.name
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		uploadTemplateArgs.push(...['--server', argv.server]);
+	}
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		uploadTemplateArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.optimize) {
+		uploadTemplateArgs.push(...['--minify', argv.optimize]);
+	}
+	if (argv.excludecontenttemplate) {
+		uploadTemplateArgs.push(...['--excludecontenttemplate', argv.excludecontenttemplate]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, uploadTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createTemplateFromSite.name || argv._[0] === createTemplateFromSite.alias) {
+	let createTemplateFromSiteArgs = ['run', '-s', createTemplateFromSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--site', argv.site
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createTemplateFromSiteArgs.push(...['--server', argv.server]);
+	}
+	if (argv.includeunpublishedassets) {
+		createTemplateFromSiteArgs.push(...['--includeunpublishedassets', argv.includeunpublishedassets]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createTemplateFromSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === downloadTemplate.name || argv._[0] === downloadTemplate.alias) {
+	let downloadTemplateArgs = ['run', '-s', downloadTemplate.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		downloadTemplateArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, downloadTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === deleteTemplate.name) {
+	let deleteTemplateArgs = ['run', '-s', deleteTemplate.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		deleteTemplateArgs.push(...['--server', argv.server]);
+	}
+	if (argv.permanent) {
+		deleteTemplateArgs.push(...['--permanent', argv.permanent]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, deleteTemplateArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -1503,6 +2203,62 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === downloadContent.name || argv._[0] === downloadContent.alias) {
+	let downloadContentArgs = ['run', '-s', downloadContent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--channel', argv.channel
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		downloadContentArgs.push(...['--server', argv.server]);
+	}
+	if (argv.publishedassets) {
+		downloadContentArgs.push(...['--publishedassets', argv.publishedassets]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, downloadContentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === uploadContent.name || argv._[0] === uploadContent.alias) {
+	let uploadContentArgs = ['run', '-s', uploadContent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--repository', argv.repository
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		uploadContentArgs.push(...['--server', argv.server]);
+	}
+	if (argv.channel) {
+		uploadContentArgs.push(...['--channel', argv.channel]);
+	}
+	if (argv.collection) {
+		uploadContentArgs.push(...['--collection', argv.collection]);
+	}
+	if (argv.template) {
+		uploadContentArgs.push(...['--template', argv.template]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, uploadContentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === controlContent.name || argv._[0] === controlContent.alias) {
+	let controlContentArgs = ['run', '-s', controlContent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--action', argv.action,
+		'--channel', argv.channel
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		controlContentArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, controlContentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === addComponentToTheme.name || argv._[0] === addComponentToTheme.alias) {
 	let addComponentToThemeArgs = ['run', '-s', addComponentToTheme.name, '--prefix', appRoot,
 		'--',
@@ -1537,6 +2293,10 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--',
 		'--projectDir', cwd
 	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		listServerContentTypesArgs.push(...['--server', argv.server]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, listServerContentTypesArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -1553,6 +2313,66 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === createSite.name || argv._[0] === createSite.alias) {
+	let createSiteArgs = ['run', '-s', createSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--template', argv.template
+	];
+	if (argv.repository) {
+		createSiteArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.localizationPolicy) {
+		createSiteArgs.push(...['--localizationPolicy', argv.localizationPolicy]);
+	}
+	if (argv.defaultLanguage) {
+		createSiteArgs.push(...['--defaultLanguage', argv.defaultLanguage]);
+	}
+	if (argv.description) {
+		createSiteArgs.push(...['--description', argv.description]);
+	}
+	if (argv.sitePrefix) {
+		createSiteArgs.push(...['--sitePrefix', argv.sitePrefix]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createSiteArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === controlSite.name || argv._[0] === controlSite.alias) {
+	let controlSiteArgs = ['run', '-s', controlSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--action', argv.action,
+		'--site', argv.site
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		controlSiteArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, controlSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === updateSite.name || argv._[0] === updateSite.alias) {
+	let updateSiteArgs = ['run', '-s', updateSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--template', argv.template
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		updateSiteArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, updateSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === indexSite.name || argv._[0] === indexSite.alias) {
 	let indexSiteArgs = ['run', '-s', indexSite.name, '--prefix', appRoot,
 		'--',
@@ -1562,6 +2382,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	];
 	if (argv.publish) {
 		indexSiteArgs.push(...['--publish', argv.publish]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		indexSiteArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, indexSiteArgs, {
 		cwd,
@@ -1590,6 +2413,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.toppagepriority) {
 		createSiteMapArgs.push(...['--toppagepriority', argv.toppagepriority]);
 	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createSiteMapArgs.push(...['--server', argv.server]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createSiteMapArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -1606,7 +2432,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.type) {
 		createTranslationJobArgs.push(...['--type', argv.type]);
 	}
-
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createTranslationJobArgs.push(...['--server', argv.server]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createTranslationJobArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -1618,7 +2446,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--name', argv.name
 	];
-
+	if (argv.server && typeof argv.server !== 'boolean') {
+		downloadTranslationJobArgs.push(...['--server', argv.server]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, downloadTranslationJobArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -1637,6 +2467,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.validateonly) {
 		uploadTranslationJobArgs.push(...['--validateonly', argv.validateonly]);
 	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		uploadTranslationJobArgs.push(...['--server', argv.server]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, uploadTranslationJobArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -1648,7 +2481,8 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd
 	];
 	if (argv.server) {
-		listTranslationJobsArgs.push(...['--server'], argv.server);
+		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		listTranslationJobsArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, listTranslationJobsArgs, {
 		cwd,
@@ -1720,6 +2554,35 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		startTranslationConnectorArgs.push(...['--port', argv.port]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, startTranslationConnectorArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === registerServer.name || argv._[0] === registerServer.alias) {
+	let registerServerArgs = ['run', '-s', registerServer.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--endpoint', argv.endpoint,
+		'--user', argv.user,
+		'--password', argv.password
+	];
+	if (argv.type) {
+		registerServerArgs.push(...['--type'], argv.type);
+	}
+	if (argv.idcsurl) {
+		registerServerArgs.push(...['--idcsurl'], argv.idcsurl);
+	}
+	if (argv.clientid) {
+		registerServerArgs.push(...['--clientid'], argv.clientid);
+	}
+	if (argv.clientsecret) {
+		registerServerArgs.push(...['--clientsecret'], argv.clientsecret);
+	}
+	if (argv.scope) {
+		registerServerArgs.push(...['--scope'], argv.scope);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, registerServerArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

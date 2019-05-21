@@ -11,7 +11,8 @@ var path = require('path'),
 	url = require('url'),
 	serverUtils = require('../test/server/serverUtils.js');
 
-var projectDir = path.join(__dirname, "..");
+var projectDir,
+	serversSrcDir;
 
 /**
  * Global variable used by the node server
@@ -37,6 +38,18 @@ var _detailPages = [];
 //
 // Private functions
 //
+
+var verifyRun = function (argv) {
+	projectDir = argv.projectDir;
+
+	var config = serverUtils.getConfiguration(projectDir);
+	var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
+
+	// reset source folders
+	serversSrcDir = path.join(srcfolder, 'servers');
+
+	return true;
+}
 
 var _cmdEnd = function (done) {
 	done();
@@ -1171,11 +1184,15 @@ var _uploadSiteMapToServer = function (request, localhost, site, localFilePath) 
 								}); // get file from seo
 
 							} else {
-								return resolve(result);
+								return resolve({
+									err: 'err'
+								});
 							}
 						}) // seo
 					} else {
-						return resolve(result);
+						return resolve({
+							err: 'err'
+						});
 					}
 				}); // settings 
 			} else {
@@ -1580,7 +1597,9 @@ var _createSiteMap = function (server, request, localhost, site, siteUrl, change
 				// Upload site map to the server
 				var uploadPromise = _uploadSiteMapToServer(request, localhost, site, siteMapFile);
 				uploadPromise.then(function (result) {
-					console.log(' - site map published');
+					if (!result.err) {
+						console.log(' - site map published');
+					}
 					_cmdEnd(done);
 				});
 			} else {
@@ -1602,9 +1621,22 @@ var _createSiteMap = function (server, request, localhost, site, siteUrl, change
 module.exports.createSiteMap = function (argv, done) {
 	'use strict';
 
-	projectDir = argv.projectDir || projectDir;
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
 
-	var server = serverUtils.getConfiguredServer(projectDir);
+	var serverName = argv.server;
+	if (serverName) {
+		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
+		if (!fs.existsSync(serverpath)) {
+			console.log('ERROR: server ' + serverName + ' does not exist');
+			done();
+			return;
+		}
+	}
+
+	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
@@ -1691,6 +1723,13 @@ module.exports.createSiteMap = function (argv, done) {
 		var dUser = '';
 		var idcToken;
 
+		var auth = isPod ? {
+			bearer: server.oauthtoken
+		} : {
+			user: server.username,
+			password: server.password
+		};
+
 		app.get('/*', function (req, res) {
 			// console.log('GET: ' + req.url);
 			if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
@@ -1699,12 +1738,7 @@ module.exports.createSiteMap = function (argv, done) {
 				var options = {
 					url: url,
 				};
-				var auth = isPod ? {
-					bearer: server.oauthtoken
-				} : {
-					user: server.username,
-					password: server.password
-				};
+
 				options['auth'] = auth;
 
 				request(options).on('response', function (response) {
@@ -1741,9 +1775,7 @@ module.exports.createSiteMap = function (argv, done) {
 				var postData = {
 					method: 'POST',
 					url: uploadUrl,
-					'auth': {
-						bearer: server.oauthtoken
-					},
+					'auth': auth,
 					'formData': formData
 				};
 

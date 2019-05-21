@@ -367,6 +367,20 @@ margin-right: 0px;*/
 	left: 0;
 	overflow: hidden;
 }
+.containerview-icon-file-bkg-image {
+	background-image: url('../images/empty.png');
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: 100%;
+}
+.containerview-icon-file-img {
+	padding-top: 15px; 
+	top: 0px; 
+	left: 0px; 
+	right: 0px; 
+	bottom: 0px; 
+	width: 70px;
+}
 
 .containerview-content-area {
 	height: 100px;

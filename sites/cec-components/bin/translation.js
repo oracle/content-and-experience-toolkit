@@ -30,6 +30,7 @@ var projectDir,
 	transSrcDir,
 	connectionsSrcDir,
 	connectorsSrcDir,
+	serversSrcDir,
 	transBuildDir;
 
 const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
@@ -39,19 +40,16 @@ const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
  * @param {*} done 
  */
 var verifyRun = function (argv) {
-	projectDir = argv.projectDir || projectDir;
-	if (!serverUtils.isProjectCreated(projectDir)) {
-		console.log('ERROR: no source folder available, please run cec install first');
-		return false;
-	}
+	projectDir = argv.projectDir;
 
 	var config = serverUtils.getConfiguration(projectDir);
-	var srcfolder = config.srcfolder || 'src/main';
+	var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
 
 	// reset source folders
-	transSrcDir = path.join(projectDir, srcfolder, 'translationJobs');
-	connectorsSrcDir = path.join(projectDir, srcfolder, 'connectors');
-	connectionsSrcDir = path.join(projectDir, srcfolder, 'connections');
+	transSrcDir = path.join(srcfolder, 'translationJobs');
+	connectorsSrcDir = path.join(srcfolder, 'connectors');
+	connectionsSrcDir = path.join(srcfolder, 'connections');
+	serversSrcDir = path.join(srcfolder, 'servers');
 
 	transBuildDir = path.join(projectDir, 'build', 'translationJobs');
 
@@ -1445,12 +1443,24 @@ var _listServerTranslationJobs = function (argv, done) {
 
 	projectDir = argv.projectDir || projectDir;
 
-	var server = serverUtils.getConfiguredServer(projectDir);
+	var serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
+	if (serverName) {
+		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
+		if (!fs.existsSync(serverpath)) {
+			console.log('ERROR: server ' + serverName + ' does not exist');
+			done();
+			return;
+		}
+	}
+
+	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
 		return;
 	}
+
+	console.log('Server: ' + server.url);
 	var type = argv.type;
 	if (type && type !== 'sites' && type !== 'assets') {
 		console.log('ERROR: invalid job type ' + type);
@@ -1469,8 +1479,10 @@ var _listServerTranslationJobs = function (argv, done) {
 		.then(function (values) {
 			var jobDetailPromises = [];
 			for (var i = 0; i < values.length; i++) {
-				for (var j = 0; j < values[i].jobs.length; j++) {
-					jobDetailPromises.push(_getTranslationJob(server, values[i].jobs[j].id));
+				if (values[i] && values[i].jobs) {
+					for (var j = 0; j < values[i].jobs.length; j++) {
+						jobDetailPromises.push(_getTranslationJob(server, values[i].jobs[j].id));
+					}
 				}
 			}
 
@@ -1620,7 +1632,17 @@ module.exports.downloadTranslationJob = function (argv, done) {
 		return;
 	}
 
-	var server = serverUtils.getConfiguredServer(projectDir);
+	var serverName = argv.server;
+	if (serverName) {
+		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
+		if (!fs.existsSync(serverpath)) {
+			console.log('ERROR: server ' + serverName + ' does not exist');
+			done();
+			return;
+		}
+	}
+
+	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
@@ -1727,7 +1749,17 @@ module.exports.uploadTranslationJob = function (argv, done) {
 		return;
 	}
 
-	var server = serverUtils.getConfiguredServer(projectDir);
+	var serverName = argv.server;
+	if (serverName) {
+		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
+		if (!fs.existsSync(serverpath)) {
+			console.log('ERROR: server ' + serverName + ' does not exist');
+			done();
+			return;
+		}
+	}
+
+	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
@@ -1799,9 +1831,22 @@ module.exports.uploadTranslationJob = function (argv, done) {
 module.exports.createTranslationJob = function (argv, done) {
 	'use strict';
 
-	projectDir = argv.projectDir || projectDir;
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
 
-	var server = serverUtils.getConfiguredServer(projectDir);
+	var serverName = argv.server;
+	if (serverName) {
+		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
+		if (!fs.existsSync(serverpath)) {
+			console.log('ERROR: server ' + serverName + ' does not exist');
+			done();
+			return;
+		}
+	}
+
+	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
@@ -1978,8 +2023,7 @@ module.exports.listTranslationJobs = function (argv, done) {
 		return;
 	}
 
-	var server = typeof argv.server === 'string' && argv.server.toLowerCase() === 'true';
-	if (server) {
+	if (argv.server) {
 		_listServerTranslationJobs(argv, done);
 		return;
 	}
@@ -1990,7 +2034,7 @@ module.exports.listTranslationJobs = function (argv, done) {
 
 	var jobNames = fs.existsSync(transSrcDir) ? fs.readdirSync(transSrcDir) : [];
 	if (jobNames.length === 0) {
-		console.log(' - no translation job available');
+		console.log(' - no local translation job available');
 		done();
 		return;
 	}
@@ -2101,7 +2145,7 @@ module.exports.submitTranslationJob = function (argv, done) {
 		done();
 		return;
 	}
-	
+
 	var jobSrcPath = path.join(transSrcDir, name);
 
 	// zip the job first

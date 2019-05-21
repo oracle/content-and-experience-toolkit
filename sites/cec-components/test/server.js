@@ -36,9 +36,9 @@ var cecDir = path.join(__dirname, ".."),
 var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
 
 var config = serverUtils.getConfiguration(projectDir);
-var srcfolder = config.srcfolder || 'src/main';
-var componentsDir = path.join(projectDir, srcfolder, 'components'),
-	themesDir = path.join(projectDir, srcfolder, 'themes');
+var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
+var componentsDir = path.join(srcfolder, 'components'),
+	themesDir = path.join(srcfolder, 'themes');
 
 var port = process.env.CEC_TOOLKIT_PORT || 8085;
 
