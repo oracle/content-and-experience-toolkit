@@ -31,9 +31,6 @@ Templates and resources for development platforms.
 **Deprecated**
 - `cec deploy-template` -- it will still work, but is hidden from command usage.  Use `cec upload-template` instead.
 
-**Updated**
-- `export CEC_PROPERTIES=locationof/cec.properties` -- env var allows cec.properties file to exist outside of your source, and can be shared amongst projects.  Make sure `cec_source_folder` is set appropriately.  E.g: `cec_source_folder=src` or `cec_source_folder=src/main` depending on where your source is relative to the root of the project.
-
 # New in Release 19.2.2c
 **Added**
 - additional help for `cec -h install`.
