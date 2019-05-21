@@ -7,7 +7,7 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 # New in Release 19.2.2d
-# The theme for this release is lifecycle.
+**The theme for this release is lifecycle.**
 
 **Added**
 - `cec register-server` -- register named CEC servers, and use with cec commands with `--server NAME` to target a `cec` operation to that server -- e.g. `cec create-site newsite -t template ... --server UAT`
