@@ -6,6 +6,34 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.2.2d
+# The theme for this release is lifecycle.
+
+**Added**
+- `cec register-server` -- register named CEC servers, and use with cec commands with `--server NAME` to target a `cec` operation to that server -- e.g. `cec create-site newsite -t template ... --server UAT`
+
+**Added**
+- `cec create-template-from-site` -- create a template from a site on a CEC server
+- `cec download-template` -- download a template from a CEC server to local file system
+- `cec upload-template` -- upload a template to a CEC server
+- `cec delete-template` -- delete a template on a CEC server
+
+**Added**
+- `cec create-site` -- create an enterprise site on a CEC server
+- `cec update-site` -- experimental, update a site on a CEC server from a template on local file system.
+- `cec control-site` -- publish, unpublish, bring online, take offline a site on a CEC server
+
+**Added**
+- `cec download-content` -- download assets of a channel from a CEC server to local file system
+- `cec upload-content` -- upload channel assets from local file system to CEC server, and optionally publish
+- `cec control-content` -- publish, unpublish, remove content from a channel on a CEC server
+
+**Deprecated**
+- `cec deploy-template` -- it will still work, but is hidden from command usage.  Use `cec upload-template` instead.
+
+**Updated**
+- `export CEC_PROPERTIES=locationof/cec.properties` -- env var allows cec.properties file to exist outside of your source, and can be shared amongst projects.  Make sure `cec_source_folder` is set appropriately.  E.g: `cec_source_folder=src` or `cec_source_folder=src/main` depending on where your source is relative to the root of the project.
+
 # New in Release 19.2.2c
 **Added**
 - additional help for `cec -h install`.
