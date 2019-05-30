@@ -9,7 +9,7 @@ Templates and resources for development platforms.
 # New in Release 19.2.2f
 
 **Updated**
-- `cecss create-site` - in your site template zip, include a dependencies.json file to add tech dependencies for created sites.
+- `cecss create-site` - in your site template zip, include a dependencies.json file at the top level to add tech dependencies for created sites.
 
 Example: `dependencies.json`:
 
