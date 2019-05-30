@@ -125,6 +125,16 @@ var getContentActions = function () {
 	return actions;
 };
 
+var getComponentActions = function () {
+	const actions = ['publish'];
+	return actions;
+};
+
+var getThemeActions = function () {
+	const actions = ['publish'];
+	return actions;
+};
+
 /*********************
  * Command definitions
  **********************/
@@ -212,12 +222,30 @@ const exportComponent = {
 	example: ['cec export-component Sample-To-Do', 'Exports the component Sample-To-Do.']
 };
 
+const downloadComponent = {
+	command: 'download-component <names>',
+	alias: 'dlcp',
+	name: 'download-component',
+	usage: {
+		'short': 'Downloads the components <names> from the CEC server.',
+		'long': (function () {
+			let desc = 'Downloads the components <names> from the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec download-component Sample-To-Do'],
+		['cec download-component Sample-To-Do,Sample-To-Do2'],
+		['cec download-component Sample-To-Do -s UAT']
+	]
+};
+
 const deployComponent = {
 	command: 'deploy-component <names>',
 	alias: 'dc',
 	name: 'deploy-component',
 	usage: {
-		'short': 'Deploys the components <names> to the Content and Experience Cloud server.',
+		'short': 'Deploys the components <names> to the CEC server.',
 		'long': (function () {
 			let desc = 'Deploys the components <names> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
 			return desc;
@@ -231,7 +259,43 @@ const deployComponent = {
 		['cec deploy-component Sample-To-Do -f Import/Components', 'Uploads file Sample-To-Do.zip to folder Import/Components and imports the component Sample-To-Do.'],
 	]
 };
+const uploadComponent = {
+	command: 'upload-component <names>',
+	alias: 'ucp',
+	name: 'upload-component',
+	usage: {
+		'short': 'Uploads the components <names> to the CEC server.',
+		'long': (function () {
+			let desc = 'Uploads the components <names> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec upload-component Sample-To-Do', 'Uploads the component Sample-To-Do to the server specified in $HOME/gradle.properties.'],
+		['cec upload-component Sample-To-Do -s UAT', 'Uploads the component Sample-To-Do to the registered server UAT.'],
+		['cec upload-component Sample-To-Do -p', 'Uploads and publishes the component Sample-To-Do.'],
+		['cec upload-component Sample-To-Do,Sample-To-Do2', 'Uploads component Sample-To-Do and Sample-To-Do2.'],
+		['cec upload-component Sample-To-Do -f Import/Components', 'Uploads file Sample-To-Do.zip to folder Import/Components and imports the component Sample-To-Do.'],
+	]
+};
 
+const controlComponent = {
+	command: 'control-component <action>',
+	alias: 'ctcp',
+	name: 'control-component',
+	usage: {
+		'short': 'Performs action <action> on components on CEC server.',
+		'long': (function () {
+			let desc = 'Perform <action> on components on CEC server. Specify the components with -c <components>. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. The valid actions are\n\n';
+			return getComponentActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec control-component publish -c Comp1', 'Publish component Comp1 on the server specified in $HOME/gradle.properties file'],
+		['cec control-component publish -c Comp1 -s UAT', 'Publish component Comp1 on the registered server UAT'],
+		['cec control-component publish -c Comp1,Comp2 -s UAT', 'Publish component Comp1 and Comp2 on the registered server UAT']
+	]
+};
 
 const createTemplate = {
 	command: 'create-template <name>',
@@ -298,7 +362,7 @@ const deployTemplate = {
 	alias: 'dt',
 	name: 'deploy-template',
 	usage: {
-		'short': 'Deploys the template <name> to the Content and Experience Cloud server.',
+		'short': 'Deploys the template <name> to the CEC server.',
 		'long': (function () {
 			let desc = 'Deploys the template <name> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
 			return desc;
@@ -318,7 +382,7 @@ const uploadTemplate = {
 	alias: 'ut',
 	name: 'upload-template',
 	usage: {
-		'short': 'Uploads the template <name> to the Content and Experience Cloud server.',
+		'short': 'Uploads the template <name> to the CEC server.',
 		'long': (function () {
 			let desc = 'Uploads the template <name> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
 			return desc;
@@ -370,7 +434,7 @@ const downloadTemplate = {
 	alias: 'dlt',
 	name: 'download-template',
 	usage: {
-		'short': 'Downloads the template <name> from the Content and Experience Cloud server.',
+		'short': 'Downloads the template <name> from the CEC server.',
 		'long': (function () {
 			let desc = 'Downloads the template <name> from the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
 			return desc;
@@ -387,7 +451,7 @@ const deleteTemplate = {
 	alias: '',
 	name: 'delete-template',
 	usage: {
-		'short': 'Deletes the template <name> on the Content and Experience Cloud server.',
+		'short': 'Deletes the template <name> on the CEC server.',
 		'long': (function () {
 			let desc = 'Deletes the template <name> on the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -p to permanently delete the template.';
 			return desc;
@@ -484,7 +548,8 @@ const uploadContent = {
 		})()
 	},
 	example: [
-		['cec upload-content Site1Channel -r Repo1', 'Upload content to repository Repo1 and add to channel Site1Channel'],
+		['cec upload-content Site1Channel -r Repo1', 'Upload content to repository Repo1, creating new items, and add to channel Site1Channel'],
+		['cec upload-content Site1Channel -r Repo1 -u', 'Upload content to repository Repo1, updating existing content to create new versions, and add to channel Site1Channel'],
 		['cec upload-content Site1Channel -r Repo1 -l Site1Collection', 'Upload content to repository Repo1 and add to collection Site1Collection and channel Site1Channel'],
 		['cec upload-content Site1Channel -r Repo1 -s UAT', 'Upload content to repository Repo1 on server UAT and add to channel Site1Channel'],
 		['cec upload-content Template1 -t -r Repo1 -c channel1', 'Upload content from template Template1 to repository Repo1 and add to channel channel1']
@@ -493,7 +558,7 @@ const uploadContent = {
 
 const controlContent = {
 	command: 'control-content <action>',
-	alias: 'ctlc',
+	alias: 'ctct',
 	name: 'control-content',
 	usage: {
 		'short': 'Performs action <action> on channel items on CEC server.',
@@ -543,6 +608,23 @@ const removeComponentFromTheme = {
 	]
 };
 
+const controlTheme = {
+	command: 'control-theme <action>',
+	alias: 'ctt',
+	name: 'control-theme',
+	usage: {
+		'short': 'Performs action <action> on theme on CEC server.',
+		'long': (function () {
+			let desc = 'Perform <action> on theme on CEC server. Specify the theme with -t <theme>. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. The valid actions are\n\n';
+			return getThemeActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec control-theme publish -c Theme1', 'Publish theme Theme1 on the server specified in $HOME/gradle.properties file'],
+		['cec control-theme publish -c Theme1 -s UAT', 'Publish theme Theme1 on the registered server UAT']
+	]
+};
+
 const listResources = {
 	command: 'list',
 	alias: 'l',
@@ -588,7 +670,7 @@ const controlSite = {
 	alias: 'cts',
 	name: 'control-site',
 	usage: {
-		'short': 'Performs action <action> on site.',
+		'short': 'Performs action <action> on site on CEC server.',
 		'long': (function () {
 			let desc = 'Perform <action> on site on CEC server. Specify the site with -s <site>. Specify the server with -r <server> or use the one specified in $HOME/gradle.properties file. The valid actions are\n\n';
 			return getSiteActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
@@ -606,11 +688,11 @@ const controlSite = {
 const validateSite = {
 	command: 'validate-site <name>',
 	alias: 'vs',
-	name: 'control-site',
+	name: 'validate-site',
 	usage: {
 		'short': 'Validates site <name>.',
 		'long': (function () {
-			let desc = 'Validates site <name> on site on CEC server before publish or view publishing failure. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			let desc = 'Validates site <name> on CEC server before publish or view publishing failure. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
 			return desc;
 		})()
 	},
@@ -635,6 +717,7 @@ const updateSite = {
 		['cec update-site Site1 -t Template1', 'Updates a site using the content from the template']
 	]
 };
+
 
 const indexSite = {
 	command: 'index-site <site>',
@@ -673,6 +756,23 @@ const createSiteMap = {
 		['cec create-site-map Site1 -u http://www.example.com/site1 -p'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -c weekly -p'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT']
+	]
+};
+
+const createRSSFeed = {
+	command: 'create-rss-feed <site>',
+	alias: 'crf',
+	name: 'create-rss-feed',
+	usage: {
+		'short': 'Creates RSS feed for site <site> on CEC server.',
+		'long': (function () {
+			let desc = 'Creates RSS feed for site <site> on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -p to upload the RSS feed to CEC server after creation.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-rss-feed Site1 -u http://www.example.com/site1 -q \'type eq "BlogType"\' -l 10 -o name:asc -x ~/Files/RSSTemplate.xml -t "Blog RSS"'],
+		['cec create-rss-feed Site1 -u http://www.example.com/site1 -q \'type eq "BlogType"\' -l 10 -o name:asc -x ~/Files/RSSTemplate.xml -i fr-FR -t "Blog RSS"']
 	]
 };
 
@@ -826,7 +926,7 @@ const registerTranslationConnector = {
 		})()
 	},
 	example: [
-		['cec register-translation-connector connector1-auto -c connector1 -s http://localhost:8084 -u admin -p Welcome1 -f "BearerToken:Bearer token1,WorkflowId:machine-workflow-id"']
+		['cec register-translation-connector connector1-auto -c connector1 -s http://localhost:8084/connector/rest/api -u admin -p Welcome1 -f "BearerToken:Bearer token1,WorkflowId:machine-workflow-id"']
 	]
 };
 
@@ -902,7 +1002,7 @@ var _checkVersion = function () {
 	});
 };
 
-var _format = '  cec %-46s  %-75s  [alias: %4s]';
+var _format = '  cec %-45s  %-70s  [alias: %4s]';
 var _getCmdHelp = function (cmd) {
 	return sprintf(_format, cmd.command, cmd.usage.short, cmd.alias);
 };
@@ -915,7 +1015,9 @@ _usage = _usage + os.EOL + 'Components' + os.EOL +
 	_getCmdHelp(copyComponent) + os.EOL +
 	_getCmdHelp(importComponent) + os.EOL +
 	_getCmdHelp(exportComponent) + os.EOL +
-	_getCmdHelp(deployComponent) + os.EOL;
+	_getCmdHelp(downloadComponent) + os.EOL +
+	_getCmdHelp(uploadComponent) + os.EOL +
+	_getCmdHelp(controlComponent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Templates' + os.EOL +
 	_getCmdHelp(createTemplate) + os.EOL +
@@ -930,14 +1032,17 @@ _usage = _usage + os.EOL + 'Templates' + os.EOL +
 
 _usage = _usage + os.EOL + 'Themes' + os.EOL +
 	_getCmdHelp(addComponentToTheme) + os.EOL +
-	_getCmdHelp(removeComponentFromTheme) + os.EOL;
+	_getCmdHelp(removeComponentFromTheme) + os.EOL +
+	_getCmdHelp(controlTheme) + os.EOL;
 
 _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(createSite) + os.EOL +
 	_getCmdHelp(updateSite) + os.EOL +
+	_getCmdHelp(validateSite) + os.EOL +
 	_getCmdHelp(controlSite) + os.EOL +
 	_getCmdHelp(indexSite) + os.EOL +
-	_getCmdHelp(createSiteMap) + os.EOL;
+	_getCmdHelp(createSiteMap) + os.EOL +
+	_getCmdHelp(createRSSFeed) + os.EOL;
 
 _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
@@ -1045,6 +1150,20 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${exportComponent.command}\n\n${exportComponent.usage.long}`);
 		})
+	.command([downloadComponent.command, downloadComponent.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...downloadComponent.example[0])
+				.example(...downloadComponent.example[1])
+				.example(...downloadComponent.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${downloadComponent.command}\n\n${downloadComponent.usage.long}`);
+		})
 	.command([deployComponent.command, deployComponent.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
@@ -1068,6 +1187,57 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${deployComponent.command}\n\n${deployComponent.usage.long}`);
+		})
+	.command([uploadComponent.command, uploadComponent.alias], false,
+		(yargs) => {
+			yargs.option('folder', {
+					alias: 'f',
+					description: '<folder> Folder to upload the component zip file'
+				})
+				.option('publish', {
+					alias: 'p',
+					description: 'Publish the component'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...uploadComponent.example[0])
+				.example(...uploadComponent.example[1])
+				.example(...uploadComponent.example[2])
+				.example(...uploadComponent.example[3])
+				.example(...uploadComponent.example[4])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${uploadComponent.command}\n\n${uploadComponent.usage.long}`);
+		})
+	.command([controlComponent.command, controlComponent.alias], false,
+		(yargs) => {
+			yargs
+				.check((argv) => {
+					if (argv.action && !getComponentActions().includes(argv.action)) {
+						throw new Error(`${argv.action} is a not a valid value for <action>`);
+					} else {
+						return true;
+					}
+				})
+				.option('components', {
+					alias: 'c',
+					description: '<components> The comma separated list of components',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...controlComponent.example[0])
+				.example(...controlComponent.example[1])
+				.example(...controlComponent.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${controlComponent.command}\n\n${controlComponent.usage.long}`);
 		})
 	.command([createTemplate.command, createTemplate.alias], false,
 		(yargs) => {
@@ -1341,6 +1511,10 @@ const argv = yargs.usage(_usage)
 					alias: 's',
 					description: '<server> The registered CEC server'
 				})
+				.option('update', {
+					alias: 'u',
+					description: 'Update any existing content instead of creating new items'
+				})
 				.check((argv) => {
 					if (argv.template && !argv.channel) {
 						throw new Error('Please specify channel to add template content');
@@ -1352,6 +1526,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadContent.example[1])
 				.example(...uploadContent.example[2])
 				.example(...uploadContent.example[3])
+				.example(...uploadContent.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -1415,6 +1590,32 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${removeComponentFromTheme.command}\n\n${removeComponentFromTheme.usage.long}`);
+		})
+	.command([controlTheme.command, controlTheme.alias], false,
+		(yargs) => {
+			yargs
+				.check((argv) => {
+					if (argv.action && !getThemeActions().includes(argv.action)) {
+						throw new Error(`${argv.action} is a not a valid value for <action>`);
+					} else {
+						return true;
+					}
+				})
+				.option('theme', {
+					alias: 't',
+					description: '<theme> The theme',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...controlTheme.example[0])
+				.example(...controlTheme.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${controlTheme.command}\n\n${controlTheme.usage.long}`);
 		})
 	.command([listResources.command, listResources.alias], false,
 		(yargs) => {
@@ -1516,6 +1717,19 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${updateSite.command}\n\n${updateSite.usage.long}`);
 		})
+	.command([validateSite.command, validateSite.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...validateSite.example[0])
+				.example(...validateSite.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${validateSite.command}\n\n${validateSite.usage.long}`);
+		})
 	.command([indexSite.command, indexSite.alias], false,
 		(yargs) => {
 			yargs.option('contenttype', {
@@ -1596,6 +1810,83 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${createSiteMap.command}\n\n${createSiteMap.usage.long}`);
+		})
+	.command([createRSSFeed.command, createRSSFeed.alias], false,
+		(yargs) => {
+			yargs.option('url', {
+					alias: 'u',
+					description: '<url> Site URL',
+					demandOption: true
+				})
+				.option('query', {
+					alias: 'q',
+					description: 'Query for content items',
+					demandOption: true
+				})
+				.option('limit', {
+					alias: 'l',
+					description: 'The limit of the items returned from the query',
+					demandOption: true
+				})
+				.option('orderby', {
+					alias: 'o',
+					description: 'The order by for the query',
+					demandOption: true
+				})
+				.option('language', {
+					alias: 'i',
+					description: 'The language for the query'
+				})
+				.option('template', {
+					alias: 'x',
+					description: 'The RSS xml template',
+					demandOption: true
+				})
+				.option('title', {
+					alias: 't',
+					description: 'The RSS feed title'
+				})
+				.option('description', {
+					alias: 'd',
+					description: 'The RSS feed description'
+				})
+				.option('ttl', {
+					description: 'How long the data will last in number of minutes'
+				})
+				.option('file', {
+					alias: 'f',
+					description: 'Name of the generated RSS feed file'
+				})
+				.option('publish', {
+					alias: 'p',
+					description: 'Upload the RSS feed to CEC server after creation'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.check((argv) => {
+					if (!Number.isInteger(argv.limit) || argv.limit <= 0) {
+						throw new Error('Value for limit should be an integer greater than 0');
+					} else if (argv.orderby) {
+						var orderbyarr = argv.orderby.split(':');
+						if ((orderbyarr.length !== 2 || (orderbyarr[1] !== 'asc' && orderbyarr[1] !== 'desc'))) {
+							throw new Error('Value for orderby should be as <field>:<asc|desc>');
+						} else {
+							return true;
+						}
+					} else if (argv.ttl && (!Number.isInteger(argv.ttl) || argv.ttl <= 0)) {
+						throw new Error('Value for ttl should be an integer greater than 0');
+					} else {
+						return true;
+					}
+				})
+				.example(...createRSSFeed.example[0])
+				.example(...createRSSFeed.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createRSSFeed.command}\n\n${createRSSFeed.usage.long}`);
 		})
 	.command([listTranslationJobs.command, listTranslationJobs.alias], false,
 		(yargs) => {
@@ -1982,6 +2273,20 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === downloadComponent.name || argv._[0] === downloadComponent.alias) {
+	let downloadComponentArgs = ['run', '-s', downloadComponent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--component', argv.names
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		downloadComponentArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, downloadComponentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === deployComponent.name || argv._[0] === deployComponent.alias) {
 	let deployComponentArgs = ['run', '-s', deployComponent.name, '--prefix', appRoot,
 		'--',
@@ -1998,6 +2303,41 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		deployComponentArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, deployComponentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === uploadComponent.name || argv._[0] === uploadComponent.alias) {
+	let uploadComponentArgs = ['run', '-s', uploadComponent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--component', argv.names
+	];
+	if (argv.publish) {
+		uploadComponentArgs.push(...['--publish', argv.publish]);
+	}
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		uploadComponentArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		uploadComponentArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, uploadComponentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === controlComponent.name || argv._[0] === controlComponent.alias) {
+	let controlComponentArgs = ['run', '-s', controlComponent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--action', argv.action,
+		'--components', argv.components
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		controlComponentArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, controlComponentArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -2239,6 +2579,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.template) {
 		uploadContentArgs.push(...['--template', argv.template]);
 	}
+	if (argv.update) {
+		uploadContentArgs.push(...['--update', argv.update]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, uploadContentArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -2284,6 +2627,21 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	];
 
 	spawnCmd = childProcess.spawnSync(npmCmd, removeComponentFromThemeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === controlTheme.name || argv._[0] === controlTheme.alias) {
+	let controlThemeArgs = ['run', '-s', controlTheme.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--action', argv.action,
+		'--theme', argv.theme
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		controlThemeArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, controlThemeArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -2373,6 +2731,20 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === validateSite.name || argv._[0] === validateSite.alias) {
+	let validateSiteArgs = ['run', '-s', validateSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		validateSiteArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, validateSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === indexSite.name || argv._[0] === indexSite.alias) {
 	let indexSiteArgs = ['run', '-s', indexSite.name, '--prefix', appRoot,
 		'--',
@@ -2417,6 +2789,44 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		createSiteMapArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createSiteMapArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createRSSFeed.name || argv._[0] === createRSSFeed.alias) {
+	let createRSSFeedArgs = ['run', '-s', createRSSFeed.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--site', argv.site,
+		'--url', argv.url,
+		'--query', argv.query,
+		'--limit', argv.limit,
+		'--orderby', argv.orderby,
+		'--template', argv.template
+	];
+
+	if (argv.language) {
+		createRSSFeedArgs.push(...['--language', argv.language]);
+	}
+	if (argv.title) {
+		createRSSFeedArgs.push(...['--title', argv.title]);
+	}
+	if (argv.description) {
+		createRSSFeedArgs.push(...['--description', argv.description]);
+	}
+	if (argv.ttl) {
+		createRSSFeedArgs.push(...['--ttl', argv.ttl]);
+	}
+	if (argv.file) {
+		createRSSFeedArgs.push(...['--file', argv.file]);
+	}
+	if (argv.publish) {
+		createRSSFeedArgs.push(...['--publish', argv.publish]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createRSSFeedArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createRSSFeedArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

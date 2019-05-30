@@ -31,8 +31,7 @@ var componentsDir,
 
 var _setupSourceDir = function (projectDir) {
 	if (projectDir) {
-		var config = _getConfiguredServer(projectDir);
-		var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
+		var srcfolder = _getSourceFolder(projectDir);
 
 		componentsDir = path.join(srcfolder, 'components');
 		connectionsDir = path.join(srcfolder, 'connections');
@@ -44,10 +43,45 @@ var _setupSourceDir = function (projectDir) {
 };
 
 /**
- * Get server and credentials from cec.properties
+ * Get the source folder.
  */
-module.exports.getConfiguration = function (currPath) {
-	return _getConfiguredServer(currPath);
+module.exports.getSourceFolder = function (currPath) {
+	return _getSourceFolder(currPath);
+};
+var _getSourceFolder = function (currPath) {
+	var newSrc = _isNewSource(currPath);
+	var srcfolder = newSrc ? path.join(currPath, 'src') : path.join(currPath, 'src', 'main');
+	return srcfolder;
+};
+
+/**
+ * Get the build folder.
+ */
+module.exports.getBuildFolder = function (currPath) {
+	return _getBuildFolder(currPath);
+};
+var _getBuildFolder = function (currPath) {
+	var newSrc = _isNewSource(currPath);
+	var buildFolder = newSrc ? path.join(currPath, 'build') : path.join(currPath, 'src', 'build');
+	return buildFolder;
+};
+
+/**
+ * Check if the project uses the new src structure
+ */
+module.exports.isNewSource = function (currPath) {
+	return _isNewSource(currPath);
+};
+var _isNewSource = function (currPath) {
+	var newSrc = true;
+	var packageFile = path.join(currPath, 'package.json');
+	if (fs.existsSync(packageFile)) {
+		var packageJSON = JSON.parse(fs.readFileSync(packageFile));
+		if (packageJSON && packageJSON.name === 'cec-components') {
+			newSrc = false;
+		}
+	}
+	return newSrc;
 };
 
 /**
@@ -58,10 +92,12 @@ module.exports.getConfiguredServer = function (currPath) {
 };
 var _getConfiguredServer = function (currPath) {
 	var configFile;
-	if (currPath && fs.existsSync(path.join(currPath, 'cec.properties'))) {
+	if (process.env.CEC_PROPERTIES) {
+		configFile = process.env.CEC_PROPERTIES;
+	} else if (currPath && fs.existsSync(path.join(currPath, 'cec.properties'))) {
 		configFile = path.join(currPath, 'cec.properties');
 	} else {
-		configFile = process.env.CEC_PROPERTIES || path.join(os.homedir(), '.gradle', 'gradle.properties');
+		configFile = path.join(os.homedir(), '.gradle', 'gradle.properties');
 	}
 	// console.log('CEC configure file: ' + configFile);
 	var server = {
@@ -75,8 +111,7 @@ var _getConfiguredServer = function (currPath) {
 		idcs_url: '',
 		client_id: '',
 		client_secret: '',
-		scope: '',
-		srcfolder: ''
+		scope: ''
 	};
 	if (fs.existsSync(configFile)) {
 		server.fileexist = true;
@@ -132,7 +167,6 @@ var _getConfiguredServer = function (currPath) {
 				server.client_secret = client_secret;
 				server.scope = scope;
 			}
-			server.srcfolder = srcfolder;
 
 			// console.log('configured server=' + JSON.stringify(server));
 		} catch (e) {
@@ -265,6 +299,11 @@ module.exports.updateItemFolderJson = function (projectDir, type, name, propName
 	fs.writeFileSync(file, JSON.stringify(folderjson));
 	return true;
 };
+
+/**
+ * Get a server in serversDir.
+ */
+module.exports.getRegisteredServer = function (projectDir, name) {};
 
 /**
  * Get a server in serversDir.
@@ -3033,4 +3072,155 @@ module.exports.browseSitesOnServer = function (request, server, fApplication) {
 		});
 	});
 	return sitePromise;
+};
+
+/**
+ * Get components from server using IdcService
+ */
+module.exports.browseComponentsOnServer = function (request, server) {
+	var compPromise = new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env === 'pod_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var isPod = server.env === 'pod_ec';
+		var auth = isPod ? {
+			bearer: server.oauthtoken
+		} : {
+			user: server.username,
+			password: server.password
+		};
+
+		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_APPS';
+		
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth,
+		};
+
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get components');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get components' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.AppInfo && data.ResultSets.AppInfo.fields || [];
+			var rows = data.ResultSets && data.ResultSets.AppInfo && data.ResultSets.AppInfo.rows;
+			var comps = []
+			for (var j = 0; j < rows.length; j++) {
+				comps.push({});
+			}
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				for (var j = 0; j < rows.length; j++) {
+					comps[j][attr] = rows[j][i];
+				}
+			}
+			
+			resolve({
+				data: comps
+			});
+		});
+	});
+	return compPromise;
+};
+
+/**
+ * Get themes from server using IdcService
+ */
+module.exports.browseThemesOnServer = function (request, server, params) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env === 'pod_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var isPod = server.env === 'pod_ec';
+		var auth = isPod ? {
+			bearer: server.oauthtoken
+		} : {
+			user: server.username,
+			password: server.password
+		};
+
+		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_THEMES';
+		if (params) {
+			url = url + '&' + params;
+		}
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth,
+		};
+
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get themes');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get themes' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.ThemeInfo && data.ResultSets.ThemeInfo.fields || [];
+			var rows = data.ResultSets && data.ResultSets.ThemeInfo && data.ResultSets.ThemeInfo.rows;
+			var themes = []
+			for (var j = 0; j < rows.length; j++) {
+				themes.push({});
+			}
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				for (var j = 0; j < rows.length; j++) {
+					themes[j][attr] = rows[j][i];
+				}
+			}
+			
+			resolve({
+				data: themes
+			});
+		});
+	});
 };

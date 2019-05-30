@@ -8,6 +8,7 @@
 var fs = require('fs'),
 	path = require('path'),
 	sprintf = require('sprintf-js').sprintf,
+	serverRest = require('../test/server/serverRest.js'),
 	serverUtils = require('../test/server/serverUtils.js');
 
 var projectDir,
@@ -20,8 +21,7 @@ var projectDir,
 var verifyRun = function (argv) {
 	projectDir = argv.projectDir;
 
-	var config = serverUtils.getConfiguration(projectDir);
-	var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
+	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
 	// reset source folders
 	serversSrcDir = path.join(srcfolder, 'servers');
@@ -476,7 +476,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 					'items': 'fFolderGUID:' + templateGUID,
 					'useBackgroundThread': 1
 				}
-				
+
 				var postData = {
 					method: 'POST',
 					url: url,
@@ -1362,23 +1362,335 @@ var _getOneIdcService = function (request, localhost, server, service, params) {
 				});
 			}
 
-			if (response && response.statusCode !== 200) {
-				if (isMaster) {
-					console.log('ERROR: Failed to do ' + service + ' - ' + (response.statusMessage || response.statusCode));
-					return resolve({
-						err: 'err'
-					});
-				} else {
-
-				}
-			}
-
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) {};
+
+			if (response && response.statusCode !== 200) {
+				var msg = data && data.LocalData ? data.LocalData.StatusMessage : (response.statusMessage || response.statusCode);
+				console.log('ERROR: Failed to do ' + service + ' - ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
 
 			return resolve(data);
 		});
 	});
+};
+
+
+/**
+ * validate site
+ */
+module.exports.validateSite = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		_cmdEnd(done);
+	}
+
+	try {
+
+		var serverName = argv.server;
+		if (serverName) {
+			var serverpath = path.join(serversSrcDir, serverName, 'server.json');
+			if (!fs.existsSync(serverpath)) {
+				console.log('ERROR: server ' + serverName + ' does not exist');
+				_cmdEnd(done);
+			}
+		}
+
+		var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured in ' + server.fileloc);
+			_cmdEnd(done);
+		}
+
+		var siteName = argv.name;
+
+		var request = serverUtils.getRequest();
+
+		var isPod = server.env === 'pod_ec';
+
+		var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
+
+			var express = require('express');
+			var app = express();
+
+			var port = '9191';
+			var localhost = 'http://localhost:' + port;
+
+			var dUser = '';
+			var idcToken;
+
+			var auth = isPod ? {
+				bearer: server.oauthtoken
+			} : {
+				user: server.username,
+				password: server.password
+			};
+
+			var siteId;
+			var repositoryId, channelId, channelToken;
+
+			app.get('/*', function (req, res) {
+				// console.log('GET: ' + req.url);
+				if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
+					var url = server.url + req.url;
+
+					var options = {
+						url: url,
+					};
+
+					options['auth'] = auth;
+
+					request(options).on('response', function (response) {
+							// fix headers for cross-domain and capitalization issues
+							serverUtils.fixHeaders(response, res);
+						})
+						.on('error', function (err) {
+							console.log('ERROR: GET request failed: ' + req.url);
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						})
+						.pipe(res);
+
+				} else {
+					console.log('ERROR: GET request not supported: ' + req.url);
+					res.write({});
+					res.end();
+				}
+			});
+
+			var localServer = app.listen(0, function () {
+				port = localServer.address().port;
+				localhost = 'http://localhost:' + port;
+
+				var inter = setInterval(function () {
+					// console.log(' - getting login user: ' + total);
+					var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
+
+					request.get(url, function (err, response, body) {
+						var data = JSON.parse(body);
+						dUser = data && data.LocalData && data.LocalData.dUser;
+						idcToken = data && data.LocalData && data.LocalData.idcToken;
+						if (dUser && dUser !== 'anonymous' && idcToken) {
+							// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
+							clearInterval(inter);
+							console.log(' - establish user session');
+
+							// verify site 
+							var sitePromise = serverUtils.browseSitesOnServer(request, server);
+							sitePromise.then(function (result) {
+									if (result.err) {
+										_cmdEnd(done);
+									}
+
+									var sites = result.data || [];
+									var site;
+									for (var i = 0; i < sites.length; i++) {
+										if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
+											site = sites[i];
+											break;
+										}
+									}
+									if (!site || !site.fFolderGUID) {
+										console.log('ERROR: site ' + siteName + ' does not exist');
+										_cmdEnd(done);
+									}
+
+									if (site.isEnterprise !== '1') {
+										console.log(' - site ' + siteName + ' is not an enterprise site');
+										_cmdEnd(done);
+									}
+
+									siteId = site.fFolderGUID;
+
+									// get other site info
+									return _getOneIdcService(request, localhost, server, 'SCS_GET_SITE_INFO_FILE', 'siteId=' + siteName + '&IsJson=1');
+								})
+								.then(function (result) {
+									if (result.err) {
+										_cmdEnd(done);
+									}
+
+									var site = result.base ? result.base.properties : undefined;
+									if (!site || !site.siteName) {
+										console.log('ERROR: failed to get site info');
+										_cmdEnd(done);
+									}
+
+									if (!site.defaultLanguage) {
+										console.log(' - site ' + siteName + ' is not configured with a default language')
+										_cmdEnd(done);
+									}
+
+									var tokens = site.channelAccessTokens;
+									for (var i = 0; i < tokens.length; i++) {
+										if (tokens[i].name === 'defaultToken') {
+											channelToken = tokens[i].value;
+											break;
+										}
+									}
+									if (!channelToken && tokens.length > 0) {
+										channelToken = tokens[0].value;
+									}
+
+									repositoryId = site.repositoryId;
+									channelId = site.channelId;
+									console.log(' - get site');
+									console.log('   repository: ' + repositoryId);
+									console.log('   channel: ' + channelId);
+									console.log('   channelToken: ' + channelToken);
+									console.log('   defaultLanguage: ' + site.defaultLanguage);
+
+									var params = 'item=fFolderGUID:' + siteId;
+									return _getOneIdcService(request, localhost, server, 'SCS_VALIDATE_SITE_PUBLISH', params);
+								})
+								.then(function (result) {
+									if (result.err) {
+										_cmdEnd(done);
+									}
+
+									var siteValidation;
+									try {
+										siteValidation = JSON.parse(result.LocalData && result.LocalData.SiteValidation);
+									} catch (e) {};
+
+									if (!siteValidation) {
+										console.log('ERROR: failed to get site validation');
+										_cmdEnd(done);
+									}
+									// console.log(siteValidation);
+									console.log('Site Validation:');
+									_displaySiteValidation(siteValidation);
+
+									// query channel items
+									return serverRest.getChannelItems({
+										registeredServerName: serverName,
+										currPath: projectDir,
+										channelToken: channelToken
+									});
+								})
+								.then(function (result) {
+									var items = result || [];
+									if (items.length === 0) {
+										console.log('Assets Validation:');
+										console.log('  no assets');
+										_cmdEnd(done);
+									}
+
+									var itemIds = [];
+									for (var i = 0; i < items.length; i++) {
+										var item = items[i];
+										itemIds.push(item.id);
+									}
+
+									// validate assets
+									return serverRest.validateChannelItems({
+										registeredServerName: serverName,
+										currPath: projectDir,
+										channelId: channelId,
+										itemIds: itemIds
+									});
+								})
+								.then(function (result) {
+									if (result.err) {
+										_cmdEnd(done);
+									}
+
+									console.log('Assets Validation:');
+									if (result.data && result.data.operations && result.data.operations.validatePublish) {
+										var assetsValidation = result.data.operations.validatePublish.validationResults;
+										_displayAssetValidation(assetsValidation);
+									} else {
+										console.log('  no assets');
+									}
+									_cmdEnd(done);
+								});
+						}
+					}); // idc token request
+
+				}, 6000);
+			}); // local 
+		}); // login
+	} catch (e) {
+		console.log(e);
+		_cmdEnd(done);
+	}
+};
+
+var _displaySiteValidation = function (validation) {
+	console.log('  is valid: ' + validation.valid);
+
+	if (validation.valid) {
+		return;
+	}
+
+	var format = '  %-12s : %-s';
+
+	var pages = validation.pages;
+	for (var i = 0; i < pages.length; i++) {
+		if (!pages[i].publishable) {
+			console.log(sprintf(format, 'page name', pages[i].name));
+			for (var k = 0; k < pages[i].languages.length; k++) {
+				var lang = pages[i].languages[k];
+				var msg = lang.validation + ' ' + lang.policyStatus + ' language ' + lang.language;
+				console.log(sprintf(format, (k === 0 ? 'languages' : ' '), msg));
+			}
+		}
+	}
+};
+
+var _displayAssetValidation = function (validations) {
+	var policyValidation;
+	for (var i = 0; i < validations.length; i++) {
+		var val = validations[i];
+		Object.keys(val).forEach(function (key) {
+			if (key === 'policyValidation') {
+				policyValidation = val[key];
+			}
+		});
+	}
+
+	var format = '  %-12s : %-s';
+
+	var items = policyValidation.items;
+	var valid = true;
+	for (var i = 0; i < items.length; i++) {
+		var val = items[i].validations;
+
+		for (var j = 0; j < val.length; j++) {
+			if (!val[j].publishable) {
+				valid = false;
+				console.log(sprintf(format, 'name', items[i].name));
+				console.log(sprintf(format, 'type', items[i].type));
+				console.log(sprintf(format, 'language', items[i].language));
+
+				var results = val[j].results;
+				for (var k = 0; k < results.length; k++) {
+					// console.log(results[k]);
+					// results[k].value is the policy languages
+					console.log(sprintf(format, 'item id', results[k].itemId));
+					console.log(sprintf(format, 'valid', results[k].valid));
+					console.log(sprintf(format, 'message', results[k].message));
+				}
+				console.log('');
+			}
+		}
+	}
+	if (valid) {
+		console.log('  is valid: ' + valid);
+	}
+
 };

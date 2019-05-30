@@ -42,8 +42,8 @@ var _logFiles = function (updateStep, folder, currentFileIndex, totalFiles) {
 
 var _getFilesFromTemplate = function (projectDir, templateName, folders) {
 	// handle both ootb config & custom install
-	var config = serverUtils.getConfiguration(projectDir);
-	var srcPath = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
+
+	var srcPath = serverUtils.getSourceFolder(projectDir);
 
 	// get the template file
 	var filesPath = path.join(srcPath, 'templates', templateName);
@@ -261,9 +261,8 @@ SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
 				siteinfo;
 
 			// get the path to the site info file
-			var config = serverUtils.getConfiguration(projectDir),
-				srcPath = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main'),
-				siteInfoPath = path.join(srcPath, 'templates', templateName, SITE_INFO_FILE);
+			var srcPath = serverUtils.getSourceFolder(projectDir);
+			siteInfoPath = path.join(srcPath, 'templates', templateName, SITE_INFO_FILE);
 
 			// read in and parse the siteinfo file
 			siteinfo = JSON.parse(fs.readFileSync(siteInfoPath));
@@ -475,7 +474,11 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 	contentArgv.action = 'remove'; // remove items from the channel
 	contentArgv.channel = argv.name || argv.site; // channel name is the same as the site name
 
-	var removeContentPromise = new Promise(function (resolve, reject) {
+	// ToDo:  At the moment you can't remove the content from the channel as it doesn't get added back in
+	//        For now (for testing/demo) don't remove the content from the channel.
+	var removeContentPromise = Promise.resolve();
+	if (false) {
+	var removeContentPromise2 = new Promise(function (resolve, reject) {
 		var maxWait = 100,
 			waitForCleanChannel = function () {
 				try {
@@ -531,11 +534,18 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 				resolve({});
 			});
 	});
+	}
 
 	// wait for remove content to complete and then import the assets
 	return removeContentPromise.then(function (removeResult) {
 		// Re-import the items, adding uploaded items back into the site's channel & collection
-		return contentLib.uploadContentFromTemplate(projectDir, argv.server, siteInfo, argv.template).then(function (result) {
+		return contentLib.uploadContentFromTemplate({
+			projectDir: projectDir,
+			registeredServerName: argv.server,
+			siteInfo: siteInfo,
+			templateName: argv.template,
+			updateContent: true
+		}).then(function (result) {
 			numErrors += (result.error ? 1 : 0);
 			return Promise.resolve({
 				errors: numErrors,

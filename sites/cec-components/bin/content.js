@@ -32,8 +32,7 @@ var projectDir,
 var verifyRun = function (argv) {
 	projectDir = argv.projectDir;
 
-	var config = serverUtils.getConfiguration(projectDir);
-	var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
+	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
 	contentSrcDir = path.join(srcfolder, 'content');
 	serversSrcDir = path.join(srcfolder, 'servers');
@@ -511,6 +510,7 @@ var _uploadContentFromZip = function (args) {
 		channelId = args.channelId,
 		collectionName = args.collectionName,
 		collectionId = args.collectionId,
+		updateContent = args.updateContent,
 		errorMessage;
 
 	var request = _getRequest();
@@ -562,7 +562,7 @@ var _uploadContentFromZip = function (args) {
 						var token = result && result.token;
 						console.log(' - get CSRF token');
 
-						var importPromise = _importContent(request, server, token, contentZipFileId, repositoryId, channelId, collectionId);
+						var importPromise = _importContent(request, server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent);
 						importPromise.then(function (result) {
 							if (!result.err) {
 								console.log(' - content imported:');
@@ -654,6 +654,7 @@ module.exports.uploadContent = function (argv, done) {
 		var repositoryName = argv.repository;
 		var channelName = argv.channel || name;
 		var collectionName = argv.collection;
+		var updateContent = typeof argv.update === 'string' && argv.update.toLowerCase() === 'true';
 
 		var repository, repositoryId;
 		var channelId;
@@ -798,7 +799,8 @@ module.exports.uploadContent = function (argv, done) {
 					channelName: channelName,
 					channelId: channelId,
 					collectionName: collectionName,
-					collectionId: collectionId
+					collectionId: collectionId,
+					updateContent: updateContent
 				}).then(function (result) {
 					_cmdEnd(done);
 				});
@@ -810,7 +812,7 @@ module.exports.uploadContent = function (argv, done) {
 	}
 };
 
-var _importContent = function (request, server, csrfToken, contentZipFileId, repositoryId, channelId, collectionId) {
+var _importContent = function (request, server, csrfToken, contentZipFileId, repositoryId, channelId, collectionId, updateContent) {
 	var importPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/content-templates/importjobs';
 
@@ -822,8 +824,14 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 		var postData = {
 			'exportDocId': contentZipFileId,
 			'repositoryId': repositoryId,
-			'channelIds': [channelId]
+			'channelIds': [channelId],
 		};
+
+		if (updateContent) {
+			// update the existing content items (if any) instead of creating new ones
+			postData.source = 'sites';
+		}
+
 		if (collectionId) {
 			postData.collections = [collectionId];
 		}
@@ -856,7 +864,7 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 						err: 'err'
 					});
 				}
-				console.log(' - submit import job');
+				console.log(' - submit import job' + (updateContent ? ', updating content': ''));
 
 				// Wait for job to finish
 				var inter = setInterval(function () {
@@ -897,7 +905,13 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 	});
 	return importPromise;
 };
-module.exports.uploadContentFromTemplate = function (projectDir, registeredServerName, siteInfo, templateName) {
+module.exports.uploadContentFromTemplate = function (args) {
+	var projectDir = args.projectDir,
+		registeredServerName = args.registeredServerName,
+		siteInfo = args.siteInfo,
+		templateName = args.templateName,
+		updateContent = args.updateContent;
+
 	verifyRun({
 		projectDir: projectDir
 	});
@@ -937,7 +951,8 @@ module.exports.uploadContentFromTemplate = function (projectDir, registeredServe
 		projectDir: projectDir,
 		repositoryId: siteInfo.repositoryId,
 		channelId: siteInfo.channelId,
-		collectionId: siteInfo.arCollectionId
+		collectionId: siteInfo.arCollectionId,
+		updateContent: updateContent
 	}).then(function (result) {
 		if (result.err) {
 			console.log(' - failed to upload content');

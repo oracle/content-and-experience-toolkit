@@ -20,8 +20,7 @@ var projectDir,
 var verifyRun = function (argv) {
 	projectDir = argv.projectDir;
 
-	var config = serverUtils.getConfiguration(projectDir);
-	var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
+	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
 	// reset source folders
 	serversSrcDir = path.join(srcfolder, 'servers');

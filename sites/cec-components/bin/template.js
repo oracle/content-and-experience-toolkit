@@ -40,8 +40,7 @@ var templateBuildContentDirBase = '',
 var verifyRun = function (argv) {
 	projectDir = argv.projectDir;
 
-	var config = serverUtils.getConfiguration(projectDir);
-	var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
+	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
 	// reset source folders
 	componentsSrcDir = path.join(srcfolder, 'components');
@@ -49,7 +48,7 @@ var verifyRun = function (argv) {
 	templatesSrcDir = path.join(srcfolder, 'templates');
 	themesSrcDir = path.join(srcfolder, 'themes');
 
-	var buildfolder = config.srcfolder ? path.join(projectDir, 'build') : path.join(projectDir, 'src', 'build');
+	var buildfolder = serverUtils.getBuildFolder(projectDir);
 	templatesBuildDir = path.join(buildfolder, 'templates');
 
 	return true;

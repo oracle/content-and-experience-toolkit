@@ -18,19 +18,17 @@ var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), '');
 var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
 var connectionsSrcDir, connectorsSrcDir;
 
-var _setupSourceDir = function (config) {
-	if (config) {
-		var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
-		connectionsSrcDir = path.join(srcfolder, 'connections');
-		connectorsSrcDir = path.join(srcfolder, 'connectors');
-	}
+var _setupSourceDir = function () {
+	var srcfolder = serverUtils.getSourceFolder(projectDir);
+	connectionsSrcDir = path.join(srcfolder, 'connections');
+	connectorsSrcDir = path.join(srcfolder, 'connectors');
 };
 
 router.get('/*', (req, res) => {
 	let app = req.app,
 		request = app.locals.request;
 
-	_setupSourceDir(app.locals.server);
+	_setupSourceDir();
 
 	console.log('$$$ Connector: GET: ' + req.url);
 
@@ -40,6 +38,7 @@ router.get('/*', (req, res) => {
 		apiUrl = req.url.substring(0, req.url.indexOf('?'));
 		params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
 	}
+	apiUrl = apiUrl.replace('/connector/rest/api', '');
 
 	var connectionName = params.connection;
 	if (!connectionName) {
@@ -61,6 +60,7 @@ router.get('/*', (req, res) => {
 		res.end();
 		return;
 	}
+	
 	var basicAuth = 'Basic ' + btoa(connector.user + ':' + connector.password);
 	var headers = {};
 	headers['Authorization'] = basicAuth;
@@ -145,7 +145,7 @@ router.post('/*', (req, res) => {
 	let app = req.app,
 		request = app.locals.request;
 
-	_setupSourceDir(app.locals.server);
+	_setupSourceDir();
 
 	console.log('$$$ Connector: POST: ' + req.url);
 
@@ -155,6 +155,7 @@ router.post('/*', (req, res) => {
 		apiUrl = req.url.substring(0, req.url.indexOf('?'));
 		params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
 	}
+	apiUrl = apiUrl.replace('/connector/rest/api', '');
 
 	var connectionName = params.connection;
 	if (!connectionName) {
@@ -235,7 +236,7 @@ router.delete('/*', (req, res) => {
 	let app = req.app,
 		request = app.locals.request;
 
-	_setupSourceDir(app.locals.server);
+	_setupSourceDir();
 
 	console.log('$$$ Connector: DELETE: ' + req.url);
 
@@ -245,7 +246,8 @@ router.delete('/*', (req, res) => {
 		apiUrl = req.url.substring(0, req.url.indexOf('?'));
 		params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
 	}
-
+	apiUrl = apiUrl.replace('/connector/rest/api', '');
+	
 	var connectionName = params.connection;
 	if (!connectionName) {
 		console.log(' - no connection is specified');

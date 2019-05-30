@@ -30,14 +30,12 @@ var templatesDir,
 	themesDir,
 	componentsDir;
 
-var _setupSourceDir = function (config) {
-	if (config) {
-		var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
+var _setupSourceDir = function () {
+	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
-		templatesDir = path.join(srcfolder, 'templates');
-		themesDir = path.join(srcfolder, 'themes');
-		componentsDir = path.join(srcfolder, 'components');
-	}
+	templatesDir = path.join(srcfolder, 'templates');
+	themesDir = path.join(srcfolder, 'themes');
+	componentsDir = path.join(srcfolder, 'components');
 };
 
 //
@@ -47,7 +45,7 @@ router.get('/*', (req, res) => {
 	let app = req.app,
 		request = app.locals.request;
 
-	_setupSourceDir(app.locals.server);
+	_setupSourceDir();
 
 	var filePathSuffix = req.path.replace(/\/components\//, '').replace(/\/$/, ''),
 		filePath = '',

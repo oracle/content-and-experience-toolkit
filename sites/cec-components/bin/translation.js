@@ -42,8 +42,7 @@ const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
 var verifyRun = function (argv) {
 	projectDir = argv.projectDir;
 
-	var config = serverUtils.getConfiguration(projectDir);
-	var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
+	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
 	// reset source folders
 	transSrcDir = path.join(srcfolder, 'translationJobs');
@@ -51,7 +50,8 @@ var verifyRun = function (argv) {
 	connectionsSrcDir = path.join(srcfolder, 'connections');
 	serversSrcDir = path.join(srcfolder, 'servers');
 
-	transBuildDir = path.join(projectDir, 'build', 'translationJobs');
+	var buildfolder = serverUtils.getBuildFolder(projectDir);
+	transBuildDir = path.join(buildfolder, 'translationJobs');
 
 	return true;
 }
@@ -1132,7 +1132,7 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 
 var _createConnectorJob = function (request, translationconnector, jobName) {
 	var jobPromise = new Promise(function (resolve, reject) {
-		var url = translationconnector.url + '/connector/rest/api/v1/job';
+		var url = translationconnector.url + '/v1/job';
 
 		var formData = {
 			'name': jobName
@@ -1187,7 +1187,7 @@ var _createConnectorJob = function (request, translationconnector, jobName) {
 
 var _sendFileToConnector = function (request, translationconnector, jobId, filePath) {
 	var filePromise = new Promise(function (resolve, reject) {
-		var url = translationconnector.url + '/connector/rest/api/v1/job/' + jobId + '/translate';
+		var url = translationconnector.url + '/v1/job/' + jobId + '/translate';
 
 		var basicAuth = 'Basic ' + btoa(translationconnector.user + ':' + translationconnector.password);
 		var headers = {};
@@ -1232,7 +1232,7 @@ var _sendFileToConnector = function (request, translationconnector, jobId, fileP
 
 var _getJobFromConnector = function (request, translationconnector, jobId, jobName) {
 	var jobPromise = new Promise(function (resolve, reject) {
-		var url = translationconnector.url + '/connector/rest/api/v1/job/' + jobId;
+		var url = translationconnector.url + '/v1/job/' + jobId;
 		var basicAuth = 'Basic ' + btoa(translationconnector.user + ':' + translationconnector.password);
 		var headers = {};
 		headers['Authorization'] = basicAuth;
@@ -1272,7 +1272,7 @@ var _getJobFromConnector = function (request, translationconnector, jobId, jobNa
 
 var _getTranslationFromConnector = function (request, translationconnector, jobId, targetFile) {
 	var transPromise = new Promise(function (resolve, reject) {
-		var url = translationconnector.url + '/connector/rest/api/v1/job/' + jobId + '/translation';
+		var url = translationconnector.url + '/v1/job/' + jobId + '/translation';
 
 		var basicAuth = 'Basic ' + btoa(translationconnector.user + ':' + translationconnector.password);
 		var headers = {};
@@ -1534,7 +1534,7 @@ var _listServerTranslationJobs = function (argv, done) {
 var _getconnectorServerInfo = function (connectorServer, user, password) {
 	var serverInfoPromise = new Promise(function (resolve, reject) {
 		var request = _getRequest();
-		var url = connectorServer + '/connector/rest/api/v1/server'
+		var url = connectorServer + '/v1/server'
 		request.get(url, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: failed to query translation connector: ' + err);

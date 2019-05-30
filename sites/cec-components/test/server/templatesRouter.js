@@ -23,13 +23,11 @@ var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
 var templatesDir,
 	themesDir;
 
-var _setupSourceDir = function (config) {
-	if (config) {
-		var srcfolder = config.srcfolder ? path.join(projectDir, config.srcfolder) : path.join(projectDir, 'src', 'main');
+var _setupSourceDir = function () {
+	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
-		templatesDir = path.join(srcfolder, 'templates');
-		themesDir = path.join(srcfolder, 'themes');
-	}
+	templatesDir = path.join(srcfolder, 'templates');
+	themesDir = path.join(srcfolder, 'themes');
 };
 
 //
@@ -39,7 +37,7 @@ router.get('/*', (req, res) => {
 	let app = req.app,
 		request = app.locals.request;
 
-	_setupSourceDir(app.locals.server);
+	_setupSourceDir();
 
 	var filePathSuffix = req.path.replace(/\/templates\//, '').replace(/\/$/, ''),
 		filePath = '',

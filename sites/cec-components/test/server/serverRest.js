@@ -576,7 +576,7 @@ module.exports.getChannelItems = function (args) {
 };
 
 // perform bulk operation on items in a channel from server
-var _opChannelItems = function (server, operation, channelIds, itemIds) {
+var _opChannelItems = function (server, operation, channelIds, itemIds, queryString) {
 	return new Promise(function (resolve, reject) {
 		siteUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -588,11 +588,15 @@ var _opChannelItems = function (server, operation, channelIds, itemIds) {
 				var request = siteUtils.getRequest();
 
 				var q = '';
-				for (var i = 0; i < itemIds.length; i++) {
-					if (q) {
-						q = q + ' or ';
+				if (queryString) {
+					q = queryString;
+				} else {
+					for (var i = 0; i < itemIds.length; i++) {
+						if (q) {
+							q = q + ' or ';
+						}
+						q = q + 'id eq "' + itemIds[i] + '"';
 					}
-					q = q + 'id eq "' + itemIds[i] + '"';
 				}
 
 				var channels = [];
@@ -613,11 +617,16 @@ var _opChannelItems = function (server, operation, channelIds, itemIds) {
 				operations[operation] = {
 					channels: channels
 				};
-				
+				if (operation === 'validatePublish') {
+					operations[operation]['validation'] = {
+						verbosity: 'normal'
+					};
+				}
 				var formData = {
 					q: q,
 					operations: operations
 				};
+				// console.log(JSON.stringify(formData));
 
 				var postData = {
 					method: 'POST',
@@ -641,14 +650,23 @@ var _opChannelItems = function (server, operation, channelIds, itemIds) {
 						});
 					}
 
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					};
+
 					if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
 						var statusId = response.headers && response.headers.location || '';
 						statusId = statusId.substring(statusId.lastIndexOf('/') + 1);
 						return resolve({
-							statusId: statusId
+							statusId: statusId,
+							data: data
 						});
 					} else {
-						console.log('Failed to ' + operation + ' items - ' + response.statusMessage);
+						var msg = data ? (data.detail || data.title) : response.statusMessage;
+						console.log('Failed to ' + operation + ' items - ' + msg);
 						resolve({
 							err: 'err'
 						});
@@ -694,8 +712,21 @@ module.exports.unpublishChannelItems = function (args) {
  * @param {array} args.itemIds The id of items to publish
  * @returns {Promise.<object>} The data object returned by the server.
  */
-module.exports.removeItemsFromChanel= function (args) {
+module.exports.removeItemsFromChanel = function (args) {
 	return _opChannelItems(_utils.getServer(args.currPath, args.registeredServerName), 'removeChannels', [args.channelId], args.itemIds);
+};
+
+/**
+ * Validate items from a channel on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.channelId The id of the channel to validate items.
+ * @param {array} args.itemIds The id of items to publish
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.validateChannelItems = function (args) {
+	return _opChannelItems(_utils.getServer(args.currPath, args.registeredServerName), 'validatePublish', [args.channelId], args.itemIds);
 };
 
 var _getItemOperationStatus = function (server, statusId) {
