@@ -6,6 +6,20 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.2.2f
+
+**Added**
+- `cecss create-site` - in your site template zip, include a dependencies.json file to add tech dependencies for created sites.
+
+Example: `dependencies.json`:
+
+```
+{
+"color": "3.1.1",
+"chalk": "2.4.2"
+}
+```
+
 # New in Release 19.2.2e
 
 **Added**
