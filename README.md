@@ -6,6 +6,17 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.2.2e
+
+**Added**
+- `cec download-component` -- download a component from a CEC server to local file system
+- `cec control-component` -- publish a component on a CEC server
+- `cec control-theme` -- publish a theme
+- `cec validate-site` -- validate site against localization policy before publish
+
+**Added**
+- `cec create-rss-feed` -- generate an RSS feed from a content query and publish to a site
+
 # New in Release 19.2.2d
 **The theme for this release is lifecycle.**
 
