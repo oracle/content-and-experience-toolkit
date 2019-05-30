@@ -40,7 +40,7 @@ module.exports.exportServerContent = function (argv, done) {
 	}
 
 	if (output && !path.isAbsolute(output)) {
-		output = path.join('..', output);
+		output = path.join(projectDir, output);
 	}
 	if (output && !fs.existsSync(path.resolve(output))) {
 		console.log('ERROR: invalid output dir');

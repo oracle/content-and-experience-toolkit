@@ -59,6 +59,11 @@ module.exports.createSite = function (argv, done) {
 
 	// verify the source template
 	var tempPath = template;
+	if (!path.isAbsolute(tempPath)) {
+		tempPath = path.join(projectDir, tempPath);
+	}
+	tempPath = path.resolve(tempPath);
+
 	if (!fs.existsSync(tempPath)) {
 		console.error('ERROR: invalid template ' + template);
 		done();
@@ -99,7 +104,7 @@ module.exports.createSite = function (argv, done) {
 	// verify the content file
 	if (!useserver && contentZipFile) {
 		if (!path.isAbsolute(contentZipFile)) {
-			contentZipFile = path.join('..', contentZipFile);
+			contentZipFile = path.join(projectDir, contentZipFile);
 		}
 		contentZipFile = path.resolve(contentZipFile);
 		if (!fs.existsSync(contentZipFile)) {
@@ -450,6 +455,25 @@ var _createSite = function (siteName, tempPath, runtimeSrc, isServer, contentdir
 			}
 			console.log(' - set up files for site runtime');
 
+			// inject extra dependencies
+			var depPath = path.join(siteSrcDir, 'dependencies.json');
+			if (fs.existsSync(depPath)) {
+				try {
+					var depJson = JSON.parse(fs.readFileSync(depPath));
+					var packageJson = JSON.parse(fs.readFileSync(path.join(sitesSrcDir, siteName, 'package.json')));
+					Object.keys(depJson).forEach(function (libname) {
+						var libversion = depJson[libname];
+						console.log(' - add dependency: ' + libname + ' ' + libversion);
+						packageJson.dependencies[libname] = libversion;
+					});
+
+					fs.writeFileSync(path.join(sitesSrcDir, siteName, 'package.json'), JSON.stringify(packageJson, null, 2));
+				} catch (e) {
+					// console.log(e);
+					console.log('ERROR: file ' + depPath + ' is not valid JSON file');
+				}
+			}
+
 			// create and process components
 			_createComponents(siteName, isServer, navTypes, types, fields, locales, done);
 		});
@@ -536,6 +560,7 @@ var _createComponents = function (site, isServer, navTypes, types, fields, local
 			var hasMultiple = field.settings && field.settings.caas && field.settings.caas.valuecountRange;
 			var isDateTime = field.datatype === 'datetime';
 			var isRichText = field.settings && field.settings.caas && field.settings.caas.editor && field.settings.caas.editor.name === 'rich-text-editor';
+			var isMarkdown = field.settings && field.settings.caas && field.settings.caas.editor && field.settings.caas.editor.name === 'markdown-editor';
 			var forsummary = false;
 			if (field.datatype === 'text' && !hasMultiple) {
 				textTotal += 1;
@@ -548,9 +573,10 @@ var _createComponents = function (site, isServer, navTypes, types, fields, local
 
 			// add field info for rendering
 			field['__render'] = {
-				'direct': !isDigitalAsset && !isReference && !isDateTime && !isRichText,
+				'direct': !isDigitalAsset && !isReference && !isDateTime && !isRichText && !isMarkdown,
 				'image': isDigitalAsset,
 				'richtext': isRichText,
+				'markdown': isMarkdown,
 				'datetime': isDateTime,
 				'reference': isReference,
 				'multiple': hasMultiple,
