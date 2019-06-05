@@ -9,7 +9,7 @@ Templates and resources for development platforms.
 # New in Release 19.2.3
 
 **Updated**
-- `cec create-rss-feed` - `{{{detailLink}}} now includes slug.  `{{{DetailPageUrl}}}` plain link to detail page with no type and GUID, added to make `<link>{{{detailPageUrl}}}?slug={{slug}}</link>` possible.
+- `cec create-rss-feed` - `{{{detailLink}}}` now includes slug.  `{{{DetailPageUrl}}}` plain link to detail page with no type and GUID, added to make `<link>{{{detailPageUrl}}}?slug={{slug}}</link>` possible.
 - `cec list` - can now list server resources as well as local resources.
 
 # New in Release 19.2.2f
