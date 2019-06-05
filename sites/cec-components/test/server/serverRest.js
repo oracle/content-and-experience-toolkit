@@ -495,7 +495,7 @@ var _getChannels = function (server) {
 	});
 };
 /**
- * Add all channels on server 
+ * Get all channels on server 
  * @param {object} args JavaScript object containing parameters. 
  * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
  * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
@@ -759,4 +759,68 @@ var _getItemOperationStatus = function (server, statusId) {
  */
 module.exports.getItemOperationStatus = function (args) {
 	return _getItemOperationStatus(_utils.getServer(args.currPath, args.registeredServerName), args.statusId);
+};
+
+// Get localization policies from server
+var _getLocalizationPolicies = function (server) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			url = server.url + '/content/management/api/v1.1/localizationPolicies?limit=999';
+
+		client.get(url, function (data, response) {
+			if (response && response.statusCode === 200) {
+				resolve(data && data.items);
+			} else {
+				console.log('ERROR: failed to get localization policies: ' + (response.statusMessage || response.statusCode));
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get all localization policies on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getLocalizationPolicies = function (args) {
+	return _getLocalizationPolicies(_utils.getServer(args.currPath, args.registeredServerName));
+};
+
+// Get repositories from server
+var _getRepositories = function (server) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			url = server.url + '/content/management/api/v1.1/repositories?limit=999';
+
+		client.get(url, function (data, response) {
+			if (response && response.statusCode === 200) {
+				resolve(data && data.items);
+			} else {
+				console.log('ERROR: failed to get repositories: ' + (response.statusMessage || response.statusCode));
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get all repositories on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getRepositories = function (args) {
+	return _getRepositories(_utils.getServer(args.currPath, args.registeredServerName));
 };

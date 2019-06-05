@@ -1636,6 +1636,9 @@ module.exports.createSiteMap = function (argv, done) {
 	}
 
 	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+	if (!serverName) {
+		console.log(' - configuration file: ' + server.fileloc);
+	}
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();

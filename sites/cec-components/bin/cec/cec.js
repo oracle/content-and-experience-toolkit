@@ -261,7 +261,7 @@ const deployComponent = {
 };
 const uploadComponent = {
 	command: 'upload-component <names>',
-	alias: 'ucp',
+	alias: 'ulcp',
 	name: 'upload-component',
 	usage: {
 		'short': 'Uploads the components <names> to the CEC server.',
@@ -379,7 +379,7 @@ const deployTemplate = {
 
 const uploadTemplate = {
 	command: 'upload-template <name>',
-	alias: 'ut',
+	alias: 'ult',
 	name: 'upload-template',
 	usage: {
 		'short': 'Uploads the template <name> to the CEC server.',
@@ -538,7 +538,7 @@ const downloadContent = {
 
 const uploadContent = {
 	command: 'upload-content <name>',
-	alias: 'uc',
+	alias: 'ulc',
 	name: 'upload-content',
 	usage: {
 		'short': 'Uploads local content to a repository on CEC server.',
@@ -630,19 +630,23 @@ const listResources = {
 	alias: 'l',
 	name: 'list',
 	usage: {
-		'short': 'Lists local resources.',
+		'short': 'Lists local and server resources.',
 		'long': (function () {
-			let desc = 'Lists local resources such components and templates. Optionally specify -t <type> to list specific type of resources. ' +
-				os.EOL + os.EOL + 'Valid values for <type> are: ' + os.EOL +
+			let desc = 'Lists local or CEC server resources such components and templates. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -t <types> to list specific types of resources on the CEC server. ' +
+				os.EOL + os.EOL + 'Valid values for <types> on the server are: ' + os.EOL +
+				'  channels' + os.EOL +
 				'  components' + os.EOL +
+				'  localizationpolicies' + os.EOL +
+				'  repositories' + os.EOL +
+				'  sites' + os.EOL +
 				'  templates' + os.EOL;
 			return desc;
 		})()
 	},
 	example: [
-		['cec list'],
-		['cec list -t components'],
-		['cec list --type templates']
+		['cec list', 'List all local resources'],
+		['cec list -t components,channels -s', 'List components and channels on the server specified in $HOME/gradle.properties file'],
+		['cec list -t components,channels -s UAT', 'List components and channels on the registered server UAT']
 	]
 };
 
@@ -766,13 +770,14 @@ const createRSSFeed = {
 	usage: {
 		'short': 'Creates RSS feed for site <site> on CEC server.',
 		'long': (function () {
-			let desc = 'Creates RSS feed for site <site> on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -p to upload the RSS feed to CEC server after creation.';
+			let desc = 'Creates RSS feed for site <site> on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -x <template> to specify the RSS template. Optionally specify -p to upload the RSS feed to CEC server after creation.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec create-rss-feed Site1 -u http://www.example.com/site1 -q \'type eq "BlogType"\' -l 10 -o name:asc -x ~/Files/RSSTemplate.xml -t "Blog RSS"'],
-		['cec create-rss-feed Site1 -u http://www.example.com/site1 -q \'type eq "BlogType"\' -l 10 -o name:asc -x ~/Files/RSSTemplate.xml -i fr-FR -t "Blog RSS"']
+		['cec create-rss-feed Site1 -u http://www.example.com/site1 -q \'type eq "BlogType"\' -l 10 -o name:asc -t "Blog RSS"'],
+		['cec create-rss-feed Site1 -u http://www.example.com/site1 -q \'type eq "BlogType"\' -l 10 -o name:asc -t "Blog RSS" -x ~/Files/RSSTemplate.xml'],
+		['cec create-rss-feed Site1 -u http://www.example.com/site1 -q \'type eq "BlogType"\' -l 10 -o name:asc -t "Blog RSS" -x ~/Files/RSSTemplate.xml -i fr-FR -f rssfrFR.xml']
 	]
 };
 
@@ -1619,9 +1624,13 @@ const argv = yargs.usage(_usage)
 		})
 	.command([listResources.command, listResources.alias], false,
 		(yargs) => {
-			yargs.option('type', {
+			yargs.option('types', {
 					alias: 't',
-					description: '<type> resource type: components | templates'
+					description: '<types> The comma separated list of resource types'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
 				})
 				.example(...listResources.example[0])
 				.example(...listResources.example[1])
@@ -1839,8 +1848,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('template', {
 					alias: 'x',
-					description: 'The RSS xml template',
-					demandOption: true
+					description: 'The RSS xml template'
 				})
 				.option('title', {
 					alias: 't',
@@ -1883,6 +1891,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...createRSSFeed.example[0])
 				.example(...createRSSFeed.example[1])
+				.example(...createRSSFeed.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2663,9 +2672,15 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 } else if (argv._[0] === listResources.name || argv._[0] === listResources.alias) {
 	let listArgs = ['run', '-s', listResources.name, '--prefix', appRoot,
 		'--',
-		'--projectDir', cwd,
-		'--resourcetype', typeof argv.type === 'string' ? argv.type : 'all'
+		'--projectDir', cwd
 	];
+	if (argv.types && typeof argv.types !== 'boolean') {
+		listArgs.push(...['--types', argv.types]);
+	}
+	if (argv.server) {
+		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		listArgs.push(...['--server'], serverVal);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, listArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -2801,10 +2816,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--url', argv.url,
 		'--query', argv.query,
 		'--limit', argv.limit,
-		'--orderby', argv.orderby,
-		'--template', argv.template
+		'--orderby', argv.orderby
 	];
 
+	if (argv.template) {
+		createRSSFeedArgs.push(...['--template', argv.template]);
+	}
 	if (argv.language) {
 		createRSSFeedArgs.push(...['--language', argv.language]);
 	}

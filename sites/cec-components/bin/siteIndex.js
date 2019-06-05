@@ -428,7 +428,7 @@ var _getPageContentItemIds = function (pageData) {
 	return pageContentIds;
 };
 
-var _getContentListQueryString = function (type, limit, offset, orderBy, locale) {
+var _getContentListQueryString = function (type, limit, offset, orderBy, queryString, locale) {
 	var str = 'fields=ALL';
 	var q = '';
 	if (orderBy) {
@@ -444,10 +444,12 @@ var _getContentListQueryString = function (type, limit, offset, orderBy, locale)
 		str = str + '&offset=' + offset;
 	}
 	if (type) {
+		q = 'type eq "' + type + '"';
+		if (queryString) {
+			q = q + ' and (' + queryString + ')';
+		}
 		if (locale) {
-			q = 'type eq "' + type + '" and (language eq "' + locale + '" or translatable eq "false")';
-		} else {
-			q = 'type eq "' + type + '"';
+			q = q +  ' and (language eq "' + locale + '" or translatable eq "false")';
 		}
 	}
 	if (q) {
@@ -474,9 +476,10 @@ var _getPageContentListQuery = function (pageData, contenttype, locale) {
 				var offset = data.firstItem;
 				var limit = data.maxResults;
 				var orderBy = data.sortOrder;
+				var queryString = data.queryString;
 				// Skip the page index content type 
 				if (type !== contenttype) {
-					var str = _getContentListQueryString(type, limit, offset, orderBy, locale);
+					var str = _getContentListQueryString(type, limit, offset, orderBy, queryString, locale);
 					pageContentListQueries.push({
 						pageId: pageId,
 						type: type,
@@ -574,7 +577,7 @@ var _getPageContent = function (request, localhost, channelToken, q, pageId, que
  * @param {*} localhost 
  * @param {*} pageContentIds 
  */
-var _getPageContentPromise = function (request, localhost, server, channelToken, pageContentIds, pageContentListQueries, locale) {
+var _getPageContentPromise = function (request, localhost, channelToken, pageContentIds, locale) {
 	var promises = [];
 	var limit = 30;
 	var num = 0;
@@ -613,11 +616,6 @@ var _getPageContentPromise = function (request, localhost, server, channelToken,
 			}
 			promises.push(_getPageContent(request, localhost, channelToken, q, pageId, 'item'));
 		}
-	}
-
-	// Content list queries
-	for (var i = 0; i < pageContentListQueries.length; i++) {
-		promises.push(_getPageContent(request, localhost, channelToken, pageContentListQueries[i].queryString, pageContentListQueries[i].pageId, 'list'));
 	}
 
 	return promises;
@@ -1964,57 +1962,83 @@ var _indexSiteWithLocale = function (server, request, localhost, site, contentty
 			//
 			var pageDataPromise = _getPageDataPromise(request, localhost, site, pages, locale, isMaster);
 			Promise.all(pageDataPromise).then(function (values) {
-				console.log(' - query page data ' + msg);
-				for (var i = 0; i < values.length; i++) {
-					var obj = values[i];
-					Object.keys(obj).forEach(key => {
-						var value = obj[key];
-						pageData.push({
-							id: key,
-							data: value && value.base
+					console.log(' - query page data ' + msg);
+					for (var i = 0; i < values.length; i++) {
+						var obj = values[i];
+						Object.keys(obj).forEach(key => {
+							var value = obj[key];
+							pageData.push({
+								id: key,
+								data: value && value.base
+							});
 						});
-					});
-				}
-				//
-				// Get content items on the pages
-				//
-				//
-				// Get content list queries on the pages
-				//
-				var pageContentListQueries = _getPageContentListQuery(_masterPageData, contenttype, locale);
-				// console.log(pageContentListQueries);
+					}
+					//
+					// Get content items on the pages
+					//
+					//
+					// Get content list queries on the pages
+					//
+					var pageContentListQueries = _getPageContentListQuery(_masterPageData, contenttype, locale);
+					// console.log(pageContentListQueries);
 
-				var pageContentPromise = _getPageContentPromise(request, localhost, server, _siteChannelToken, _pageContentIds, pageContentListQueries, (isMaster ? undefined : locale));
-				if (pageContentPromise && pageContentPromise.length > 0) {
-					Promise.all(pageContentPromise).then(function (values) {
-						console.log(' - query content on the pages ' + msg);
-						var items = [];
-						for (var i = 0; i < values.length; i++) {
-							items = items.concat(values[i]);
+					var promises = [];
+					// Content list queries
+					for (var i = 0; i < pageContentListQueries.length; i++) {
+						promises.push(_getPageContent(request, localhost, _siteChannelToken, pageContentListQueries[i].queryString, pageContentListQueries[i].pageId, 'list'));
+					}
+
+					return Promise.all(promises);
+				})
+				.then(function (results) {
+					// add items from content list for item query
+					for(var i = 0; i < results.length; i++) {
+						var list = results[i];
+						if (list.pageId && list.data.length > 0) {
+							for(var j = 0; j < _pageContentIds.length; j++) {
+								if (list.pageId === _pageContentIds[j].id) {
+									for(var k = 0; k < list.data.length; k++) {
+										var listItem = list.data[k];
+										if (!_pageContentIds[j].contentIds.includes(listItem.id)) {
+											_pageContentIds[j].contentIds.push(listItem.id);
+										}
+									}
+								}
+							}
 						}
+					}
 
-						var pageContent = _assignPageContent(pageData, _pageContentIds, items);
-						// console.log(pageContent);
+					var pageContentPromise = _getPageContentPromise(request, localhost, _siteChannelToken, _pageContentIds, (isMaster ? undefined : locale));
+					if (pageContentPromise && pageContentPromise.length > 0) {
+						Promise.all(pageContentPromise).then(function (values) {
+							console.log(' - query content on the pages ' + msg);
+							var items = [];
+							for (var i = 0; i < values.length; i++) {
+								items = items.concat(values[i]);
+							}
 
-						pageIndex = _generatePageIndex(site, pages, pageData, pageContent, _contentTextFields);
-						// console.log(pageIndex);
+							var pageContent = _assignPageContent(pageData, _pageContentIds, items);
+							// console.log(pageContent);
+
+							pageIndex = _generatePageIndex(site, pages, pageData, pageContent, _contentTextFields);
+							// console.log(pageIndex);
+							var indexSiteOnServerPromise = _indexSiteOnServer(request, localhost, _SiteInfo, _siteChannelToken, contenttype, pageIndex, locale, isMaster);
+							indexSiteOnServerPromise.then(function (values) {
+								return resolve(values);
+							});
+						});
+
+					} else {
+						// No content on the pages
+						console.log(' - no content on the pages');
+						pageIndex = _generatePageIndex(site, pages, pageData, []);
 						var indexSiteOnServerPromise = _indexSiteOnServer(request, localhost, _SiteInfo, _siteChannelToken, contenttype, pageIndex, locale, isMaster);
 						indexSiteOnServerPromise.then(function (values) {
 							return resolve(values);
 						});
-					});
+					}
 
-				} else {
-					// No content on the pages
-					console.log(' - no content on the pages');
-					pageIndex = _generatePageIndex(site, pages, pageData, []);
-					var indexSiteOnServerPromise = _indexSiteOnServer(request, localhost, _SiteInfo, _siteChannelToken, contenttype, pageIndex, locale, isMaster);
-					indexSiteOnServerPromise.then(function (values) {
-						return resolve(values);
-					});
-				}
-
-			}); // page content 
+				}); // page content 
 		}); // site structure
 	});
 	return sitePromise;
@@ -2207,6 +2231,9 @@ module.exports.indexSite = function (argv, done) {
 	}
 
 	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+	if (!serverName) {
+		console.log(' - configuration file: ' + server.fileloc);
+	}
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();

@@ -569,8 +569,8 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 
 		// logon and get the site folder GUID and Site info for the Channel/Repository/Collection details
 		console.log('Updating site: ' + siteName);
-		var serverDetailsPromise = serverUtils.getSiteFolder(projectDir, siteName, registeredServerName, done),
-			serverInfoPromise = serverUtils.getSiteInfo(projectDir, siteName, registeredServerName, done);
+		var serverDetailsPromise = serverUtils.getSiteFolder(projectDir, siteName, registeredServerName),
+			serverInfoPromise = serverUtils.getSiteInfo(projectDir, siteName, registeredServerName);
 
 		Promise.all([serverDetailsPromise, serverInfoPromise]).then(function (siteResults) {
 			var siteEntry = siteResults[0],

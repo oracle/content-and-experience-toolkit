@@ -10,6 +10,7 @@ var gulp = require('gulp'),
 	componentlib = require('./component.js'),
 	contentlayoutlib = require('./contentlayout.js'),
 	contentlib = require('./content.js'),
+	resourcelib = require('./resource.js'),
 	rsslib = require('./rss.js'),
 	templatelib = require('./template.js'),
 	sitelib = require('./site.js'),
@@ -18,7 +19,6 @@ var gulp = require('gulp'),
 	siteMaplib = require('./siteMap.js'),
 	themelib = require('./theme.js'),
 	translationlib = require('./translation.js'),
-	decompress = require('decompress'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	path = require('path'),
@@ -26,146 +26,20 @@ var gulp = require('gulp'),
 	argv = require('yargs').argv,
 	config = require('../config/config.json'),
 	semver = require('semver'),
-	sprintf = require('sprintf-js').sprintf,
-	zip = require('gulp-zip');
+	sprintf = require('sprintf-js').sprintf;
 
 var serverUtils = require('../test/server/serverUtils.js');
 
 var cecDir = path.join(__dirname, ".."),
-	configDataDir = path.join(cecDir, 'data', 'config'),
-	componentsDataDir = path.join(cecDir, 'data', 'components');
+	configDataDir = path.join(cecDir, 'data', 'config');
 
 var projectDir,
-	buildDir,
-	componentsSrcDir,
-	componentsBuildDir,
-	connectionsSrcDir,
-	connectorsSrcDir,
-	contentSrcDir,
-	serversSrcDir,
-	transSrcDir,
-	templatesSrcDir;
+	serversSrcDir;
 
 // console.log('cecDir: ' + cecDir);
 
 const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
 
-/**
- * Private
- * Convert a directory name to task name
- */
-var sanitizeName = function (name) {
-	'use strict';
-	// Sanitize dirname to taskname
-	let safeName = name.replace(/[^a-z0-9]/gi, '');
-	let chars = Array.from(safeName);
-	chars[0] = chars[0].toUpperCase();
-	return chars.join('');
-};
-
-/**
- * Private
- * Optimize a component if needed
- */
-var optimizeComponent = function (componentName) {
-	'use strict';
-	if (!componentName || typeof componentName !== 'string') {
-		console.error('Error:  please specify the component name');
-		return;
-	}
-
-	let compGulpFile = path.join(componentsSrcDir, componentName, 'gulpfile.js');
-	if (fs.existsSync(compGulpFile)) {
-		// Run 'gulp' under the components directory
-		var compBuild = childProcess.spawnSync(npmCmd, ['run', 'gulp', compGulpFile], {
-			stdio: 'inherit'
-		});
-		return compBuild.status;
-	} else {
-		console.log(`Optimization is not enabled for the component ${componentName}`);
-		return 0;
-	}
-};
-
-
-/**
- * Private
- * Get files/folders from given path
- */
-var getContents = function (path) {
-	"use strict";
-	var contents = fs.readdirSync(path);
-	return contents;
-};
-
-/**
- * private
- * create a component from the zip file fixing the GUID and component id
- * 
- */
-
-var createComponent = function (componentZipName, compName, done) {
-
-	// Create the directory
-	var componentDir = path.join(componentsSrcDir, compName);
-	fs.mkdirSync(componentDir);
-
-	// Unzip the component and fix the id
-	decompress(path.join(componentsDataDir, componentZipName), componentDir, {
-		strip: 1
-	}).then(() => {
-
-		// Fix the component id
-		var filepath = path.join(componentDir, 'appinfo.json');
-		if (fs.existsSync(filepath)) {
-			var appinfostr = fse.readFileSync(filepath),
-				appinfojson = JSON.parse(appinfostr),
-				oldId = appinfojson.id,
-				newId = compName;
-			appinfojson.id = newId;
-			if (appinfojson.initialData) {
-				appinfojson.initialData.componentId = newId;
-			}
-			console.log(' - update component Id ' + oldId + ' to ' + newId);
-			fs.writeFileSync(filepath, JSON.stringify(appinfojson));
-		}
-
-		// Fix the component itemGUID
-		filepath = path.join(componentDir, '/_folder.json');
-		if (fs.existsSync(filepath)) {
-			var folderstr = fse.readFileSync(filepath),
-				folderjson = JSON.parse(folderstr),
-				oldGUID = folderjson.itemGUID,
-				newGUID = serverUtils.createGUID();
-			folderjson.itemGUID = newGUID;
-			console.log(' - update component GUID ' + oldGUID + ' to ' + newGUID);
-			fs.writeFileSync(filepath, JSON.stringify(folderjson));
-		}
-
-		console.log(` - component ${compName} created at ${componentDir}`);
-		console.log(`To rename the component, rename the directory ${componentDir}`);
-
-		done();
-	});
-};
-
-
-/**
- * Private
- * Utility check if a string ends with 
- */
-var endsWith = function (str, end) {
-	return str.lastIndexOf(end) === str.length - end.length;
-};
-
-/**
- * Private
- * Utility replace all occurrences of a string
- */
-var replaceAll = function (str, search, replacement) {
-	var re = new RegExp(search, 'g');
-	return str.replace(re, replacement);
-};
 
 /**
  * Verify the source structure before proceed the command
@@ -177,16 +51,7 @@ var verifyRun = function () {
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
 	// set source folders
-	componentsSrcDir = path.join(srcfolder, 'components');
-	templatesSrcDir = path.join(srcfolder, 'templates');
-	connectorsSrcDir = path.join(srcfolder, 'connectors');
-	connectionsSrcDir = path.join(srcfolder, 'connections');
-	contentSrcDir = path.join(srcfolder, 'content');
-	transSrcDir = path.join(srcfolder, 'translationJobs');
 	serversSrcDir = path.join(srcfolder, 'servers');
-
-	buildDir = serverUtils.getBuildFolder(projectDir);
-	componentsBuildDir = path.join(buildDir, 'components');
 
 	return true;
 };
@@ -309,65 +174,7 @@ gulp.task('develop', function (done) {
 gulp.task('create-component', function (done) {
 	'use strict';
 
-	if (!verifyRun()) {
-		done();
-		return;
-	}
-	if (!fs.existsSync(componentsSrcDir)) {
-		console.log('ERROR: folder ' + componentsSrcDir + ' does not exist. Check your configuration');
-		return false;
-	}
-
-	var srcCompName = argv.source,
-		compName = argv.name,
-		comp = '',
-		seededComponents = getContents(componentsDataDir);
-
-	if (!srcCompName && !compName) {
-		console.error('ERROR: please run as npm run create-component -- --source <source component> --name <new component name>');
-		done();
-		return;
-	}
-	if (!srcCompName) {
-		console.error('ERROR: please use --source to specify the source component zip');
-		done();
-		return;
-	}
-	if (!compName) {
-		console.error('ERROR: please use --name to specify the new component name');
-		done();
-		return;
-	}
-
-	// verify the source component zip
-	for (var i = 0; i < seededComponents.length; i++) {
-		if (srcCompName + '.zip' === seededComponents[i]) {
-			comp = seededComponents[i];
-			break;
-		}
-	}
-	if (!comp) {
-		console.error('ERROR: invalid source component ' + srcCompName);
-		done();
-		return;
-	}
-
-	// verify the new template name 
-	var re = /^[a-z0-9_-]+$/ig;
-	if (compName.search(re) === -1) {
-		console.error('ERROR: Use only letters, numbers, hyphens, and underscores in component names.');
-		done();
-		return;
-	} else {
-		if (fs.existsSync(componentsSrcDir + '/' + compName)) {
-			console.error('ERROR: A component with the name ' + compName + ' already exists. Please specify a different name.');
-			done();
-			return;
-		}
-	}
-
-	console.log('Create Component: creating new component ' + compName + ' from ' + srcCompName);
-	createComponent(comp, compName, done);
+	componentlib.createComponent(argv, done);
 });
 
 /**
@@ -376,71 +183,8 @@ gulp.task('create-component', function (done) {
  */
 gulp.task('copy-component', function (done) {
 	'use strict';
-	if (!verifyRun()) {
-		done();
-		return;
-	}
-	if (!fs.existsSync(componentsSrcDir)) {
-		console.log('ERROR: folder ' + componentsSrcDir + ' does not exist. Check your configuration');
-		return false;
-	}
-
-	var srcCompName = argv.source,
-		compName = argv.name,
-		comp = '',
-		existingComponents = getContents(componentsSrcDir);
-
-	if (!srcCompName && !compName) {
-		console.error('ERROR: please run as npm run copy-component -- --source <source component> --name <new component name>');
-		done();
-		return;
-	}
-	if (!srcCompName) {
-		console.error('ERROR: please use --source to specify the source component name');
-		done();
-		return;
-	}
-	if (!compName) {
-		console.error('ERROR: please use --name to specify the new component name');
-		done();
-		return;
-	}
-
-	// verify the source component
-	for (var i = 0; i < existingComponents.length; i++) {
-		if (srcCompName === existingComponents[i]) {
-			comp = existingComponents[i];
-			break;
-		}
-	}
-	if (!comp) {
-		console.error('ERROR: invalid source component ' + srcCompName);
-		done();
-		return;
-	}
-
-	// verify the new template name 
-	var re = /^[a-z0-9_-]+$/ig;
-	if (compName.search(re) === -1) {
-		console.error('ERROR: Use only letters, numbers, hyphens, and underscores in component names.');
-		done();
-		return;
-	} else {
-		if (fs.existsSync(path.join(componentsSrcDir, compName))) {
-			console.error('ERROR: A component with the name ' + compName + ' already exists. Please specify a different name.');
-			done();
-			return;
-		}
-	}
-
-	// copy all files
-	fse.copySync(path.join(componentsSrcDir, srcCompName), path.join(componentsSrcDir, compName));
-
-	// update itemGUID
-	if (serverUtils.updateItemFolderJson(projectDir, 'component', compName)) {
-		console.log(' *** component is ready to test: http://localhost:8085/components/' + compName);
-		done();
-	}
+	
+	componentlib.copyComponent(argv, done);
 });
 
 /**
@@ -448,6 +192,8 @@ gulp.task('copy-component', function (done) {
  * Unzip the component zip file and place into the /src
  */
 gulp.task('import-component', function (done) {
+	'use strict';
+
 	componentlib.importComponent(argv, done);
 });
 
@@ -637,130 +383,6 @@ gulp.task('control-theme', function (done) {
 	themelib.controlTheme(argv, done);
 });
 
-/**
- * Copy the all component source to dist folder
- */
-gulp.task('dist-all', function () {
-	'use strict';
-	fse.removeSync('../src/build');
-
-	// Copy the components to the build folder
-
-	return gulp.src('../src/main/components/**')
-		.pipe(gulp.dest('../src/build/components'));
-});
-
-
-/**
- * Copy one component source to build folder, optimize if needed.
- */
-gulp.task('dist', function (done) {
-	'use strict';
-
-	if (fs.existsSync(buildDir)) {
-		// console.log(' - clean up folder ' + buildDir);
-		fse.removeSync(buildDir);
-	}
-
-	if (argv.component) {
-
-		var components = argv.component.split(',');
-		for (var i = 0; i < components.length; i++) {
-			if (fs.existsSync(componentsSrcDir + '/' + components[i])) {
-				console.log(` - copying ${components[i]} component `);
-				// Copy the components to the build folder
-				fse.copySync(path.join(componentsSrcDir, components[i]), path.join(componentsBuildDir, components[i]));
-			}
-		}
-	}
-
-	done();
-});
-
-/**
- * For each of these components, go to its directory and run gulp
- * The gulp file in the component should have a default task, which 
- * optimizes the source. If there is no gulpfile, return.
- */
-gulp.task('optimize-all', gulp.series('dist-all', function (done) {
-	"use strict";
-	var dirNames = fs.readdirSync(componentsSrcDir);
-	var componentsToOptimize = [];
-
-	if (dirNames) {
-		dirNames.forEach(function (name) {
-			if (fs.existsSync(path.join(componentsSrcDir, name, 'appinfo.json'))) {
-				componentsToOptimize.push(name);
-			}
-		});
-	}
-
-	for (var i = 0; i < componentsToOptimize.length; i++) {
-		const status = optimizeComponent(componentsToOptimize[i]);
-		if (status !== 0) {
-			console.log(`Optimizing ${componentsToOptimize[i]} failed.`);
-			done();
-			process.exit(1);
-		} else {
-			console.log(`Optimized ${componentsToOptimize[i]} successfully.`);
-
-		}
-	}
-	console.log(`Success: Finished optimizing all components`);
-	done();
-}));
-
-/**
- * Copy one component source to build folder, optimize if needed.
- */
-gulp.task('optimize', function (done) {
-	'use strict';
-
-	if (argv.component) {
-		var components = argv.component.split(',');
-		for (var i = 0; i < components.length; i++) {
-			if (fs.existsSync(path.join(componentsSrcDir, components[i]))) {
-				console.log(` - optimizing component ${components[i]}`);
-				optimizeComponent(components[i]);
-			}
-		}
-	}
-	done();
-});
-
-/**
- * Deploy all components
- */
-gulp.task('deploy-all', function (cb) {
-	'use strict';
-	// execGradle(['deployAll'], cb);
-	console.log('deploy-all has been deprecated, please use deploy to deply individual component.');
-});
-
-/**
- * Create a component zip file
- */
-gulp.task('create-component-zip', function (done) {
-	'use strict';
-
-	var destDir = path.join(projectDir, 'dist');
-	var components = argv.component.split(',');
-	var tasks = components.map(function (comp) {
-		if (fs.existsSync(path.join(componentsSrcDir, comp))) {
-			return gulp.src(`${componentsBuildDir}/${comp}/**/*`, {
-					base: componentsBuildDir
-				})
-				.pipe(zip(`${comp}.zip`))
-				.pipe(gulp.dest(destDir))
-				.on('end', function () {
-					var zippath = path.join(destDir, comp + '.zip');
-					console.log(' - created zip file ' + zippath);
-					done();
-				});
-		}
-	});
-	return tasks;
-});
 
 /**
  * Export a component zip
@@ -768,39 +390,7 @@ gulp.task('create-component-zip', function (done) {
 gulp.task('export-component', function (done) {
 	'use strict';
 
-	if (!verifyRun()) {
-		done();
-		return;
-	}
-	if (!fs.existsSync(componentsSrcDir)) {
-		console.log('ERROR: folder ' + componentsSrcDir + ' does not exist. Check your configuration');
-		return false;
-	}
-
-	if (!argv.component || typeof argv.component !== 'string') {
-		console.error('Usage: npm run export-component <componentName>');
-		done();
-		return;
-	} else {
-		var components = argv.component.split(',');
-		var validCompNum = 0;
-		for (var i = 0; i < components.length; i++) {
-			if (!fs.existsSync(path.join(componentsSrcDir, components[i]))) {
-				console.error(`Error: Component ${components[i]} doesn't exist`);
-			} else {
-				validCompNum += 1;
-			}
-		}
-
-		if (validCompNum > 0) {
-			var exportSeries = gulp.series('dist', 'optimize', 'create-component-zip');
-			exportSeries(function () {
-				done();
-			});
-		} else {
-			done();
-		}
-	}
+	componentlib.exportComponent(argv, done);
 });
 
 /**
@@ -815,14 +405,14 @@ gulp.task('download-component', function (done) {
  * Deploy components
  */
 gulp.task('deploy-component', function (done) {
-	_deployComponent(argv, done);
+	componentlib.deployComponent(argv, done);
 });
 
 /**
  * Upload components
  */
 gulp.task('upload-component', function (done) {
-	_deployComponent(argv, done);
+	componentlib.deployComponent(argv, done);
 });
 
 /**
@@ -832,187 +422,6 @@ gulp.task('control-component', function (done) {
 	componentlib.controlComponent(argv, done);
 });
 
-var _deployComponent = function (argv, done) {
-	'use strict';
-	if (!verifyRun()) {
-		done();
-		return;
-	}
-	if (!fs.existsSync(componentsSrcDir)) {
-		console.log('ERROR: folder ' + componentsSrcDir + ' does not exist. Check your configuration');
-		return false;
-	}
-
-	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
-		done();
-		return;
-	}
-
-	if (!argv.component || typeof argv.component !== 'string') {
-		console.error('Usage: npm run deploy <componentName>');
-		done();
-		return;
-	}
-
-	var publish = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
-
-	var folder = argv.folder && argv.folder.toString();
-	if (folder === '/') {
-		folder = '';
-	} else if (folder && !serverUtils.replaceAll(folder, '/', '')) {
-		console.log('ERROR: invalid folder');
-		done();
-		return;
-	}
-
-	// Support a list of components
-	var components = argv.component.split(',');
-	var allComps = [];
-
-	for (var i = 0; i < components.length; i++) {
-		if (!fs.existsSync(path.join(componentsSrcDir, components[i]))) {
-			console.error(`Error: Component ${components[i]} doesn't exist`);
-		} else {
-			allComps.push(components[i]);
-		}
-	}
-	if (allComps.length === 0) {
-		done();
-		return;
-	}
-
-	// Remove invalid component
-	argv.component = allComps.join();
-
-	var exportTask = gulp.series('export-component');
-	exportTask(function () {
-
-		if (server.env === 'pod_ec') {
-			var loginPromise = serverUtils.loginToPODServer(server);
-
-			loginPromise.then(function (result) {
-				if (!result.status) {
-					console.log(' - failed to connect to the server');
-					done();
-					return;
-				}
-
-				var imports = [];
-				for (var i = 0; i < allComps.length; i++) {
-					var name = allComps[i];
-					var zipfile = path.join(projectDir, "dist", name) + ".zip";
-					imports.push({
-						name: name,
-						zipfile: zipfile
-					});
-				}
-
-				var importPromise = serverUtils.importToPODServer(server, 'component', folder, imports, publish);
-				importPromise.then(function (importResult) {
-					// result is processed in the API
-					done();
-					process.exit(0);
-				});
-			});
-		} else {
-			var request = require('request');
-			request = request.defaults({
-				jar: true,
-				proxy: null
-			});
-
-			var loginPromise = serverUtils.loginToDevServer(server, request);
-
-			loginPromise.then(function (result) {
-				if (!result.status) {
-					console.log(' - failed to connect to the server');
-					done();
-					return;
-				}
-
-				var importsPromise = [];
-				for (var i = 0; i < allComps.length; i++) {
-					var name = allComps[i];
-					var zipfile = path.join(projectDir, "dist", name) + ".zip";
-
-					importsPromise[i] = _deployOneComponentToDevServer(request, server, folder, zipfile, name, publish);
-				}
-				Promise.all(importsPromise).then(function (values) {
-					// All done
-					done();
-					process.exit(0);
-				});
-
-			}); // login 
-		} // dev server case
-	}); // export
-};
-
-var _deployOneComponentToDevServer = function (request, server, folder, zipfile, name, publish) {
-	var deployOneCompPromise = new Promise(function (resolve, reject) {
-		// upload the zip file
-		var uploadPromise = serverUtils.uploadFileToServer(request, server, folder, zipfile);
-
-		uploadPromise.then(function (result) {
-			if (result.err) {
-				return resolve({});
-			}
-
-			var fileId = result && result.LocalData && result.LocalData.fFileGUID;
-			var idcToken = result && result.LocalData && result.LocalData.idcToken;
-			// console.log(' - name ' + name + ' file id ' + fileId + ' idcToken ' + idcToken);
-
-			// import
-			var importPromise = serverUtils.importComponentToServer(request, server, fileId, idcToken);
-			importPromise.then(function (importResult) {
-				// console.log(JSON.stringify(importResult));
-				if (importResult.err) {
-					console.log(' - failed to import: ' + importResult.err);
-					return resolve({});
-				} else {
-					if (!importResult.LocalData || importResult.LocalData.StatusCode !== '0') {
-						console.log(' - failed to import: ' + importResult.LocalData ? importResult.LocalData.StatusMessage : '');
-						return resolve({});
-					}
-
-					console.log(' - component ' + name + ' imported');
-					var compFolderId = serverUtils.getComponentAttribute(importResult, 'fFolderGUID');
-					if (publish && compFolderId) {
-						// publish the component
-						var publishPromise = serverUtils.publishComponentOnServer(request, server, compFolderId, idcToken);
-						publishPromise.then(function (publishResult) {
-							// console.log(publishResult);
-							if (publishResult.err) {
-								console.log(' - failed to publish: ' + publishResult.err);
-							} else if (!publishResult.LocalData || publishResult.LocalData.StatusCode !== '0') {
-								console.log(' - failed to publish: ' + publishResult.LocalData ? publishResult.LocalData.StatusMessage : '');
-							} else {
-								console.log(' - component ' + name + ' published/republished');
-							}
-							return resolve({});
-						});
-					} else {
-						return resolve({});
-					}
-				}
-			}); // import
-		}); // upload
-	});
-
-	return deployOneCompPromise;
-};
 
 /**
  * Copy the configured libraries from node_modules into library folder
@@ -1060,107 +469,12 @@ gulp.task('list', function (done) {
 		done();
 		return;
 	}
-	if (!fs.existsSync(componentsSrcDir)) {
-		console.log('ERROR: folder ' + componentsSrcDir + ' does not exist. Check your configuration');
-		return false;
+
+	if (argv.server) {
+		resourcelib.listServerResources(argv, done);
+	} else {
+		resourcelib.listLocalResources(argv, done);
 	}
-
-	var typeName = typeof argv.resourcetype !== 'string' ? 'all' : argv.resourcetype,
-		listComponents = !typeName || typeName === 'all' || typeName.toLowerCase() === 'components',
-		listTemplates = !typeName || typeName === 'all' || typeName.toLowerCase() === 'templates';
-
-	if (!listComponents && !listTemplates) {
-		// console.error('Usage: npm run list [components | templates]');
-		console.log('ERROR: invalid resource type ' + typeName);
-		done();
-		return;
-	}
-
-	// 
-	// Servers
-	//
-	console.log('Servers:');
-	var serverNames = fs.existsSync(serversSrcDir) ? fs.readdirSync(serversSrcDir) : [];
-	if (serverNames) {
-		var format = '    %-20s %-s';
-		serverNames.forEach(function (name) {
-			if (fs.existsSync(path.join(serversSrcDir, name, 'server.json'))) {
-				var serverinfo = fs.readFileSync(path.join(serversSrcDir, name, 'server.json'));
-				var serverinfojson = JSON.parse(serverinfo);
-				console.log(sprintf(format, name, serverinfojson.url));
-			}
-		});
-	}
-
-	// console.log('list components: ' + listComponents + ' list templates: ' + listTemplates);
-	if (listComponents) {
-		console.log('Components: ');
-		var compNames = fs.readdirSync(componentsSrcDir);
-		if (compNames) {
-			compNames.forEach(function (name) {
-				if (fs.existsSync(path.join(componentsSrcDir, name, 'appinfo.json'))) {
-					console.log('    ' + name);
-				}
-			});
-		}
-	}
-
-	if (listTemplates) {
-		console.log('Templates: ');
-		var tempNames = fs.readdirSync(templatesSrcDir);
-		if (tempNames) {
-			tempNames.forEach(function (name) {
-				if (fs.existsSync(path.join(templatesSrcDir, name, 'siteinfo.json'))) {
-					console.log('    ' + name);
-				}
-			});
-		}
-	}
-
-	//
-	// Content
-	//
-	console.log('Content:');
-	var contentNames = fs.existsSync(contentSrcDir) ? fs.readdirSync(contentSrcDir) : [];
-	if (contentNames) {
-		contentNames.forEach(function (name) {
-			if (fs.existsSync(path.join(contentSrcDir, name, 'contentexport'))) {
-				console.log('    ' + name);
-			}
-		});
-	}
-
-	console.log('Translation connectors:');
-	var connectorNames = fs.existsSync(connectorsSrcDir) ? fs.readdirSync(connectorsSrcDir) : [];
-	if (connectorNames) {
-		connectorNames.forEach(function (name) {
-			if (fs.existsSync(path.join(connectorsSrcDir, name, 'package.json'))) {
-				console.log('    ' + name);
-			}
-		});
-	}
-
-	console.log('Translation connections:');
-	var connectionNames = fs.existsSync(connectionsSrcDir) ? fs.readdirSync(connectionsSrcDir) : [];
-	if (connectionNames) {
-		connectionNames.forEach(function (name) {
-			if (fs.existsSync(path.join(connectionsSrcDir, name, 'connection.json'))) {
-				console.log('    ' + name);
-			}
-		});
-	}
-
-	console.log('Translation jobs:');
-	var jobNames = fs.existsSync(transSrcDir) ? fs.readdirSync(transSrcDir) : [];
-	if (jobNames) {
-		jobNames.forEach(function (name) {
-			if (fs.existsSync(path.join(transSrcDir, name, 'site')) || fs.existsSync(path.join(transSrcDir, name, 'job.json'))) {
-				console.log('    ' + name);
-			}
-		});
-	}
-
-	done();
 });
 
 /**

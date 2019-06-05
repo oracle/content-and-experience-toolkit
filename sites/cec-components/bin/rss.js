@@ -12,6 +12,9 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	path = require('path'),
 	sprintf = require('sprintf-js').sprintf;
 
+var cecDir = path.join(__dirname, ".."),
+	rssDataDir = path.join(cecDir, 'data', 'rss');
+
 var projectDir,
 	componentsSrcDir,
 	serversSrcDir;
@@ -52,6 +55,9 @@ module.exports.createRSSFeed = function (argv, done) {
 	}
 
 	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+	if (!serverName) {
+		console.log(' - configuration file: ' + server.fileloc);
+	}
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
@@ -59,7 +65,7 @@ module.exports.createRSSFeed = function (argv, done) {
 	}
 
 	// verify template
-	var tempPath = argv.template;
+	var tempPath = argv.template || path.join(rssDataDir, 'rss.xml');
 	if (!path.isAbsolute(tempPath)) {
 		tempPath = path.join(projectDir, tempPath);
 	}
@@ -85,7 +91,7 @@ var _createRSSFeed = function (server, argv, done) {
 
 	var siteName = argv.site;
 
-	var tempPath = argv.template;
+	var tempPath = argv.template || path.join(rssDataDir, 'rss.xml')
 	if (!path.isAbsolute(tempPath)) {
 		tempPath = path.join(projectDir, tempPath);
 	}
@@ -326,7 +332,7 @@ var _getContentItems = function (request, localhost, channelToken, query, limit,
 	return new Promise(function (resolve, reject) {
 		var url = '/content/published/api/v1.1/items';
 		var q = language ? (query + ' and (language eq "' + language + '" or translatable eq "false")') : query;
-		
+
 		url = url + '?q=(' + q + ')';
 		url = url + '&limit=' + limit;
 		url = url + '&orderBy=' + orderby;
@@ -414,24 +420,20 @@ var _generateRSSFile = function (siteUrl, items, language, detailPage, tempPath,
 	for (var i = 0; i < items.length; i++) {
 		var item = items[i];
 
-		var fields = item.fields;
-
-		fields['id'] = item.id;
-		fields['name'] = item.name;
-		fields['type'] = item.type;
-		fields['description'] = item.description;
-
 		var updatedDateStr = item.updatedDate.value;
 		var updatedDateRSS = _getRSSDate(new Date(Date.parse(updatedDateStr)));
 		item['publishDate'] = updatedDateRSS;
 
 		var detailLink = '';
+		var detailPageUrl = '';
 		if (detailPage) {
 			var detailPageUrl = detailPage.pageUrl;
 			var detailPagePrefix = detailPageUrl.replace('.html', '');
-			detailLink = siteUrl + '/' + (language ? (language + '/') : '') + detailPagePrefix + '/' + item.type + '/' + item.id + '/';
+			detailPageUrl = siteUrl + '/' + (language ? (language + '/') : '') + detailPageUrl;
+			detailLink = siteUrl + '/' + (language ? (language + '/') : '') + detailPagePrefix + '/' + item.type + '/' + item.id + '/' + item.slug;
 		}
 		item['detailLink'] = detailLink;
+		item['detailPageUrl'] = detailPageUrl;
 
 		itemValues.push(item);
 	}

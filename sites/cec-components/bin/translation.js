@@ -1454,13 +1454,16 @@ var _listServerTranslationJobs = function (argv, done) {
 	}
 
 	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+	if (!serverName) {
+		console.log(' - configuration file: ' + server.fileloc);
+	}
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
 		return;
 	}
 
-	console.log('Server: ' + server.url);
+	console.log(' - server: ' + server.url);
 	var type = argv.type;
 	if (type && type !== 'sites' && type !== 'assets') {
 		console.log('ERROR: invalid job type ' + type);
@@ -1643,6 +1646,9 @@ module.exports.downloadTranslationJob = function (argv, done) {
 	}
 
 	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+	if (!serverName) {
+		console.log(' - configuration file: ' + server.fileloc);
+	}
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
@@ -1760,6 +1766,9 @@ module.exports.uploadTranslationJob = function (argv, done) {
 	}
 
 	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+	if (!serverName) {
+		console.log(' - configuration file: ' + server.fileloc);
+	}
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();
@@ -1847,6 +1856,9 @@ module.exports.createTranslationJob = function (argv, done) {
 	}
 
 	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+	if (!serverName) {
+		console.log(' - configuration file: ' + server.fileloc);
+	}
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
 		done();

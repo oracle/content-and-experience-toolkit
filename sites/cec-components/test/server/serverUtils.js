@@ -2613,14 +2613,15 @@ var _getRequest = function () {
 	});
 	return request;
 };
-var _getSiteInfo = function (server, site, done) {
+var _getSiteInfo = function (server, site) {
 	var sitesPromise = new Promise(function (resolve, reject) {
 		'use strict';
 
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
-			done();
-			return;
+			return resolve({
+				err: 'no server is configured'
+			});
 		}
 
 		var request = _getRequest();
@@ -2672,18 +2673,19 @@ var _getSiteInfo = function (server, site, done) {
 	});
 	return sitesPromise;
 };
-module.exports.getSiteInfo = function (currPath, site, registeredServerName, done) {
+module.exports.getSiteInfo = function (currPath, site, registeredServerName) {
 	var server = registeredServerName ? _getRegisteredServer(currPath, registeredServerName) : _getConfiguredServer(currPath);
-	return _getSiteInfo(server, site, done);
+	return _getSiteInfo(server, site);
 };
-var _getSiteGUID = function (server, site, done) {
+var _getSiteGUID = function (server, site) {
 	var sitesPromise = new Promise(function (resolve, reject) {
 		'use strict';
 
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
-			done();
-			return;
+			return resolve({
+				err: 'no server is configured'
+			});
 		}
 
 		var request = _getRequest();
@@ -2746,9 +2748,9 @@ var _getSiteGUID = function (server, site, done) {
 	});
 	return sitesPromise;
 };
-module.exports.getSiteFolder = function (currPath, site, registeredServerName, done) {
+module.exports.getSiteFolder = function (currPath, site, registeredServerName) {
 	var server = registeredServerName ? _getRegisteredServer(currPath, registeredServerName) : _getConfiguredServer(currPath);
-	return _getSiteGUID(server, site, done);
+	return _getSiteGUID(server, site);
 };
 
 module.exports.sleep = function (delay) {
@@ -3141,6 +3143,28 @@ module.exports.browseComponentsOnServer = function (request, server) {
 				}
 			}
 			
+			// add metadata
+			var mFields = data.ResultSets && data.ResultSets.dAppMetaCollection && data.ResultSets.dAppMetaCollection.fields || [];
+			var mRows = data.ResultSets && data.ResultSets.dAppMetaCollection && data.ResultSets.dAppMetaCollection.rows || [];
+			var appMetadata = [];
+			for (var j = 0; j < mRows.length; j++) {
+				appMetadata.push({});
+			}
+			for (var i = 0; i < mFields.length; i++) {
+				var attr = mFields[i].name;
+				for (var j = 0; j < mRows.length; j++) {
+					appMetadata[j][attr] = mRows[j][i];
+				}
+			}
+			for (var i = 0; i < comps.length; i++) {
+				for (var j = 0; j < appMetadata.length; j++) {
+					if (comps[i].fFolderGUID === appMetadata[j].dIdentifier) {
+						Object.assign(comps[i], appMetadata[j]);
+						break;
+					}
+				}
+			}
+
 			resolve({
 				data: comps
 			});
