@@ -6,6 +6,13 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.2.3a
+
+**Added**
+- `cec create-repository` -- create a repository on the specified CEC server
+- `cec create-channel` -- create a channel on the specified CEC server
+- `cec create-localization-policy` -- create a localization policy on the specified CEC server
+
 # New in Release 19.2.3
 
 **Updated**
