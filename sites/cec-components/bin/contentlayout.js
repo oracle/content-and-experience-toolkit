@@ -421,7 +421,7 @@ module.exports.addContentLayoutMapping = function (argv, done) {
 /**
  * remove content layout mapping from a template
  */
-module.exports.removeContnetLayoutMapping = function (argv, done) {
+module.exports.removeContentLayoutMapping = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {

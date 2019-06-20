@@ -476,9 +476,7 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 
 	// ToDo:  At the moment you can't remove the content from the channel as it doesn't get added back in
 	//        For now (for testing/demo) don't remove the content from the channel.
-	var removeContentPromise = Promise.resolve();
-	if (false) {
-	var removeContentPromise2 = new Promise(function (resolve, reject) {
+	var removeContentPromise = new Promise(function (resolve, reject) {
 		var maxWait = 100,
 			waitForCleanChannel = function () {
 				try {
@@ -534,7 +532,6 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 				resolve({});
 			});
 	});
-	}
 
 	// wait for remove content to complete and then import the assets
 	return removeContentPromise.then(function (removeResult) {

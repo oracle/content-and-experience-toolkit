@@ -7,6 +7,7 @@
 
 var gulp = require('gulp'),
 	os = require('os'),
+	assetlib = require('./asset.js'),
 	componentlib = require('./component.js'),
 	contentlayoutlib = require('./contentlayout.js'),
 	contentlib = require('./content.js'),
@@ -232,7 +233,7 @@ gulp.task('add-contentlayout-mapping', function (done) {
 gulp.task('remove-contentlayout-mapping', function (done) {
 	'use strict';
 
-	contentlayoutlib.removeContnetLayoutMapping(argv, done);
+	contentlayoutlib.removeContentLayoutMapping(argv, done);
 });
 
 /**
@@ -545,6 +546,42 @@ gulp.task('create-rss-feed', function (done) {
 });
 
 /**
+ * Create a repository
+ */
+gulp.task('create-repository', function (done) {
+	'use strict';
+
+	assetlib.createRepository(argv, done);
+});
+
+/**
+ * Control a repository (add/remove types/channels)
+ */
+gulp.task('control-repository', function (done) {
+	'use strict';
+
+	assetlib.controlRepository(argv, done);
+});
+
+/**
+ * Create a channel
+ */
+gulp.task('create-channel', function (done) {
+	'use strict';
+
+	assetlib.createChannel(argv, done);
+});
+
+/**
+ * Create a localization policy
+ */
+gulp.task('create-localization-policy', function (done) {
+	'use strict';
+
+	assetlib.createLocalizationPolicy(argv, done);
+});
+
+/**
  * Download a translation job from the server
  */
 gulp.task('download-translation-job', function (done) {
@@ -745,45 +782,7 @@ gulp.task('check-version', function (done) {
 gulp.task('register-server', function (done) {
 	'use strict';
 
-	if (!verifyRun()) {
-		done();
-		return;
-	}
-
-	var name = argv.name;
-	var endpoint = argv.endpoint;
-	var user = argv.user;
-	var password = argv.password;
-	var type = argv.type || 'pod_ec';
-	var idcs_url = argv.idcsurl;
-	var client_id = argv.clientid;
-	var client_secret = argv.clientsecret;
-	var scope = argv.scope;
-
-	if (!fs.existsSync(serversSrcDir)) {
-		fs.mkdirSync(serversSrcDir);
-	}
-
-	var serverPath = path.join(serversSrcDir, name);
-	if (!fs.existsSync(serverPath)) {
-		fs.mkdirSync(serverPath);
-	}
-	var serverFile = path.join(serverPath, 'server.json');
-	// Use the same fields as serverUtils.getConfiguredServer
-	var serverjson = {
-		name: name,
-		url: endpoint,
-		username: user,
-		password: password,
-		env: type,
-		idcs_url: idcs_url,
-		client_id: client_id,
-		client_secret: client_secret,
-		scope: scope
-	}
-	fs.writeFileSync(serverFile, JSON.stringify(serverjson));
-	console.log(' - server registered in ' + serverFile);
-	done();
+	resourcelib.registerServer(argv, done);
 });
 
 /**

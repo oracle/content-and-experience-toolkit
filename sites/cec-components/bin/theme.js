@@ -27,9 +27,12 @@ var verifyRun = function (argv) {
 	return true;
 };
 
+var localServer;
 var _cmdEnd = function (done) {
 	done();
-	process.exit(0);
+	if (localServer) {
+		localServer.close();
+	}
 };
 
 /**
@@ -39,7 +42,8 @@ module.exports.controlTheme = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
-		_cmdEnd(done);
+		done();
+		return;
 	}
 
 	var serverName = argv.server;
@@ -166,7 +170,7 @@ var _controlTheme = function (serverName, server, action, themeName, done) {
 				});
 		});
 
-		var localServer = app.listen(0, function () {
+		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
 
@@ -188,7 +192,7 @@ var _controlTheme = function (serverName, server, action, themeName, done) {
 						var themePromise = serverUtils.browseThemesOnServer(request, server, params);
 						themePromise.then(function (result) {
 								if (result.err) {
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 
 								var themes = result.data || [];
@@ -203,8 +207,8 @@ var _controlTheme = function (serverName, server, action, themeName, done) {
 								}
 
 								if (!found) {
-									console.log('ERROR: ctheme ' + themeName + ' does not exist');
-									_cmdEnd(done);
+									console.log('ERROR: theme ' + themeName + ' does not exist');
+									return Promise.reject();
 								}
 
 								console.log(' - get theme');
@@ -213,15 +217,18 @@ var _controlTheme = function (serverName, server, action, themeName, done) {
 							})
 							.then(function (result) {
 								if (result.err) {
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 
 								console.log(' - publish theme ' + themeName + ' finished');
 								_cmdEnd(done);
+							})
+							.catch((error) => {
+								_cmdEnd(done);
 							});
 					}
 				});
-			}, 6000);
+			}, 2000);
 		}); // local
 	}); // login
 };

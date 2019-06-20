@@ -50,9 +50,12 @@ var verifyRun = function (argv) {
 	return true;
 }
 
+var localServer;
 var _cmdEnd = function (done) {
 	done();
-	process.exit(0);
+	if (localServer) {
+		localServer.close();
+	}
 };
 
 var _getSiteInfoFile = function (request, localhost, site, locale, isMaster) {
@@ -1202,7 +1205,7 @@ var _uploadSiteMapToServer = function (request, localhost, site, localFilePath) 
 	return uploadPromise;
 };
 
-var _prepareData = function (server, request, localhost, site, languages) {
+var _prepareData = function (server, request, localhost, site, languages, done) {
 	var dataPromise = new Promise(function (resolve, reject) {
 
 		var siteInfo, defaultLanguage, siteChannelToken, siteRepositoryId;
@@ -1215,7 +1218,7 @@ var _prepareData = function (server, request, localhost, site, languages) {
 		siteInfoPromise
 			.then(function (result) {
 				if (result.err) {
-					return resolve(result);
+					return Promise.reject();
 				}
 
 				siteInfo = result.data.base.properties;
@@ -1237,7 +1240,7 @@ var _prepareData = function (server, request, localhost, site, languages) {
 			})
 			.then(function (result) {
 				if (result.err) {
-					return resolve(result);
+					return Promise.reject();
 				}
 				console.log(' - query site channel');
 				var policyId = result && result.length > 0 ? result[0].localizationPolicy : undefined;
@@ -1252,11 +1255,13 @@ var _prepareData = function (server, request, localhost, site, languages) {
 			})
 			.then(function (result) {
 				if (result.err) {
-					return resolve(result);
+					return Promise.reject();
 				}
 
 				var policy = result && result[0] || {};
-				console.log(' - site localization policy: ' + policy.name);
+				if (policy && policy.id) {
+					console.log(' - site localization policy: ' + policy.name);
+				}
 				_requiredLangs = policy.requiredValues || [];
 				_optionalLangs = policy.optionalValues || [];
 
@@ -1300,9 +1305,7 @@ var _prepareData = function (server, request, localhost, site, languages) {
 				for (var i = 0; i < languages.length; i++) {
 					if (languages[i] !== _SiteInfo.defaultLanguage && !_validLocales.includes(languages[i])) {
 						console.log('ERROR: site does not have translation for ' + languages[i]);
-						return resolve({
-							err: 'err'
-						});
+						return Promise.reject();
 					}
 				}
 				if (languages.length > 0) {
@@ -1322,7 +1325,7 @@ var _prepareData = function (server, request, localhost, site, languages) {
 				// Get repository 
 				// 
 				if (result.err) {
-					return resolve(result);
+					return Promise.reject();
 				}
 				repository = result;
 				console.log(' - query site repository');
@@ -1334,7 +1337,7 @@ var _prepareData = function (server, request, localhost, site, languages) {
 				// Get site structure
 				//
 				if (result.err) {
-					return resolve(result);
+					return Promise.reject();
 				}
 				siteStructure = result;
 				_masterSiteStructure = siteStructure;
@@ -1342,9 +1345,7 @@ var _prepareData = function (server, request, localhost, site, languages) {
 				pages = siteStructure && siteStructure.base && siteStructure.base.pages;
 				if (!pages || pages.length === 0) {
 					console.log('ERROR: no page found');
-					return resolve({
-						err: 'err'
-					});
+					return Promise.reject();
 				}
 				// find the detail pages
 				_hasDetailPage = false;
@@ -1419,6 +1420,9 @@ var _prepareData = function (server, request, localhost, site, languages) {
 				} else {
 					return resolve({});
 				}
+			})
+			.catch((error) => {
+				_cmdEnd(done);
 			});
 	});
 	return dataPromise;
@@ -1597,7 +1601,8 @@ var _createSiteMap = function (server, request, localhost, site, siteUrl, change
 				var uploadPromise = _uploadSiteMapToServer(request, localhost, site, siteMapFile);
 				uploadPromise.then(function (result) {
 					if (!result.err) {
-						console.log(' - site map published');
+						var siteMapUrl = siteUrl + '/' + siteMapFile.substring(siteMapFile.lastIndexOf('/') + 1);
+						console.log(' - site map uploaded, publish the site and access it at ' + siteMapUrl);
 					}
 					_cmdEnd(done);
 				});
@@ -1797,7 +1802,7 @@ module.exports.createSiteMap = function (argv, done) {
 			}
 		});
 
-		var localServer = app.listen(0, function () {
+		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
 

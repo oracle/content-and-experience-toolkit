@@ -784,14 +784,12 @@ module.exports.downloadTemplate = function (argv, done) {
 						var templatePromise = _getServerTemplate(request, localhost, name);
 						templatePromise.then(function (result) {
 								if (result.err) {
-									_cmdEnd(done);
-									return;
+									return Promise.reject();
 								}
 
 								if (!result.templateGUID) {
 									console.log('ERROR: template ' + name + ' does not exist');
-									_cmdEnd(done);
-									return;
+									return Promise.reject();
 								}
 
 								templateGUID = result.templateGUID;
@@ -802,8 +800,7 @@ module.exports.downloadTemplate = function (argv, done) {
 							.then(function (result) {
 								// get personal home folder
 								if (result.err) {
-									_cmdEnd(done);
-									return;
+									return Promise.reject();
 								}
 								homeFolderGUID = result.folderId;
 								// console.log(' - Home folder GUID: ' + homeFolderGUID);
@@ -814,8 +811,7 @@ module.exports.downloadTemplate = function (argv, done) {
 							.then(function (result) {
 								// template exported
 								if (result.err) {
-									_cmdEnd(done);
-									return;
+									return Promise.reject();
 								}
 								console.log(' - export template');
 
@@ -824,8 +820,7 @@ module.exports.downloadTemplate = function (argv, done) {
 							.then(function (result) {
 								// get template zip file GUID from the Home folder
 								if (result.err) {
-									_cmdEnd(done);
-									return;
+									return Promise.reject();
 								}
 								templateZipFileGUID = result.fileGUID;
 
@@ -838,8 +833,7 @@ module.exports.downloadTemplate = function (argv, done) {
 							.then(function (result) {
 								// zip file downloaded
 								if (result.err) {
-									_cmdEnd(done);
-									return;
+									return Promise.reject();
 								}
 
 								fs.writeFileSync(zippath, result.data);
@@ -852,20 +846,23 @@ module.exports.downloadTemplate = function (argv, done) {
 								// delete the template zip on the server
 								// console.log(' - delete ' + templateZipFile + ' on the server');
 
-								var unzipPromise = unzipTemplate(name, zippath, false);
-								unzipPromise.then(function (result) {
-									_cmdEnd(done);
-								});
+								return unzipTemplate(name, zippath, false);
+							})
+							.then(function (results) {
+								_cmdEnd(done, localServer);
+							})
+							.catch((error) => {
+								_cmdEnd(done, localServer);
 							});
 					}
 					total += 1;
 					if (total >= 10) {
 						clearInterval(inter);
 						console.log('ERROR: disconnect from the server, try again');
-						_cmdEnd(done);
+						_cmdEnd(done, localServer);
 					}
 				});
-			}, 6000);
+			}, 1000);
 
 		});
 
@@ -1050,14 +1047,12 @@ module.exports.deleteTemplate = function (argv, done) {
 						var templatePromise = _getServerTemplate(request, localhost, name);
 						templatePromise.then(function (result) {
 								if (result.err) {
-									_cmdEnd(done);
-									return;
+									return Promise.reject();
 								}
 
 								if (!result.templateGUID) {
 									console.log('ERROR: template ' + name + ' does not exist');
-									_cmdEnd(done);
-									return;
+									return Promise.reject();
 								}
 
 								templateGUID = result.templateGUID;
@@ -1067,45 +1062,45 @@ module.exports.deleteTemplate = function (argv, done) {
 							})
 							.then(function (result) {
 								if (result.err) {
-									_cmdEnd(done);
-									return;
+									return Promise.reject();
 								}
 								console.log(' - template deleted');
 								if (!permanent) {
-									_cmdEnd(done);
-									return;
+									return Promise.reject();
 								}
 
 								// remove from trash
 								var transItemPromise = _getFolderFromTrash(request, localhost, templateGUID);
 								transItemPromise.then(function (result) {
 										if (result.err) {
-											_cmdEnd(done);
-											return;
+											return Promise.reject();
 										}
 
 										templateGUIDInTrash = result.folderGUIDInTrash;
 										return _deleteFromTrash(request, localhost);
 									})
 									.then(function (result) {
-										if (result.err) {
-											_cmdEnd(done);
-											return;
+										if (!result.err) {
+											console.log(' - template deleted permanently')
 										}
-
-										console.log(' - template deleted permanently')
-										_cmdEnd(done);
+										_cmdEnd(done, localServer);
+									})
+									.catch((error) => {
+										_cmdEnd(done, localServer);
 									});
+							})
+							.catch((error) => {
+								_cmdEnd(done, localServer);
 							});
 					}
 					total += 1;
 					if (total >= 10) {
 						clearInterval(inter);
 						console.log('ERROR: disconnect from the server, try again');
-						_cmdEnd(done);
+						_cmdEnd(done, localServer);
 					}
 				});
-			}, 6000);
+			}, 1000);
 
 		});
 
@@ -1726,9 +1721,9 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate) {
 		contentdir = path.join(dirbase, dirname);
 
 	// remove the content directory if it exists and should be excluded
-	if (excludeContentTemplate && fs.existsSync(dirbase)) {
+	if (excludeContentTemplate && fs.existsSync(contentdir)) {
 		console.log(' - exluding content template');
-		fse.removeSync(dirbase);
+		fse.removeSync(contentdir);
 	}
 
 	if (fs.existsSync(contentdir)) {
@@ -1752,7 +1747,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate) {
  * Import a template
  */
 var _importTemplate = function (server, name, folder, zipfile, done) {
-	console.log(' - deploy template ' + argv.template);
+	console.log(' - deploy template ' + name);
 
 	var request = require('request');
 	request = request.defaults({
@@ -1779,7 +1774,6 @@ var _importTemplate = function (server, name, folder, zipfile, done) {
 			importPromise.then(function (importResult) {
 				// The result processed in the API
 				done();
-				process.exit(0);
 			});
 		});
 	} else {
@@ -1798,7 +1792,6 @@ var _importTemplate = function (server, name, folder, zipfile, done) {
 			uploadPromise.then(function (result) {
 				if (result.err) {
 					done();
-					process.exit(0);
 					return;
 				}
 
@@ -1821,7 +1814,6 @@ var _importTemplate = function (server, name, folder, zipfile, done) {
 							console.log(' - template ' + name + ' imported');
 						}
 						done();
-						process.exit(0);
 					});
 				}
 			});
@@ -1857,9 +1849,11 @@ var getContents = function (path) {
 	return contents;
 };
 
-var _cmdEnd = function (done) {
+var _cmdEnd = function (done, localServer) {
 	done();
-	process.exit(0);
+	if (localServer) {
+		localServer.close();
+	}
 };
 
 var _getServerTemplate = function (request, localhost, name) {
@@ -2314,7 +2308,7 @@ var _IdcCopySites = function (request, server, name, fFolderGUID, doCopyToTempla
 						}
 					});
 
-				}, 6000);
+				}, 1000);
 			}); // local 
 		}); // login
 	});
@@ -2455,7 +2449,7 @@ var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpubl
 						var templatesPromise = serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
 						templatesPromise.then(function (result) {
 								if (result.err) {
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 
 								var templates = result.data || [];
@@ -2468,7 +2462,7 @@ var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpubl
 								}
 								if (foundTemplate) {
 									console.log('ERROR: template ' + name + ' already exists');
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 
 								//
@@ -2478,7 +2472,7 @@ var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpubl
 							})
 							.then(function (result) {
 								if (result.err) {
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 
 								var sites = result.data || [];
@@ -2491,7 +2485,7 @@ var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpubl
 								}
 								if (!site || !site.fFolderGUID) {
 									console.log('ERROR: site ' + siteName + ' does not exist');
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 
 								console.log(' - get site ');
@@ -2500,17 +2494,19 @@ var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpubl
 								return _IdcCopySites2(request, localhost, server, idcToken);
 							})
 							.then(function (result) {
-								if (result.err) {
-									_cmdEnd(done);
+								if (!result.err) {
+									console.log(' - create template ' + name + ' finished');
 								}
-								console.log(' - create template ' + name + ' finished');
-								_cmdEnd(done);
+								_cmdEnd(done, localServer);
 							})
+							.catch((error) => {
+								_cmdEnd(done, localServer);
+							});
 					}
 
 				}); // get idcToken
 
-			}, 6000);
+			}, 1000);
 		}); // local 
 	}); // login
 };

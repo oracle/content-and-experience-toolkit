@@ -31,9 +31,12 @@ var verifyRun = function (argv) {
 	return true;
 }
 
+var localServer;
 var _cmdEnd = function (done) {
 	done();
-	process.exit(0);
+	if (localServer) {
+		localServer.close();
+	}
 };
 
 module.exports.createRSSFeed = function (argv, done) {
@@ -173,7 +176,7 @@ var _createRSSFeed = function (server, argv, done) {
 			}
 		});
 
-		var localServer = app.listen(0, function () {
+		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
 
@@ -195,18 +198,18 @@ var _createRSSFeed = function (server, argv, done) {
 						var sitePromise = _getOneIdcService(request, localhost, 'SCS_GET_SITE_INFO_FILE', 'siteId=' + siteName + '&IsJson=1', msg);
 						sitePromise.then(function (result) {
 								if (result.err) {
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 
 								var site = result.base ? result.base.properties : undefined;
 								if (!site || !site.siteName) {
 									console.log('ERROR: site ' + siteName + ' does not exist');
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 
 								if (!site.isEnterprise) {
 									console.log(' - site ' + siteName + ' is not an enterprise site');
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 								// console.log(site);
 
@@ -225,7 +228,7 @@ var _createRSSFeed = function (server, argv, done) {
 
 								if (!channelId || !channelToken) {
 									console.log(' - no channel found for site ' + siteName);
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 
 								console.log(' - get site (channelToken: ' + channelToken + ')');
@@ -236,13 +239,13 @@ var _createRSSFeed = function (server, argv, done) {
 							})
 							.then(function (result) {
 								if (result.err) {
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 
 								items = result.data;
 								if (items.length === 0) {
 									console.log(' - no items');
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 								console.log(' - find ' + items.length + ' ' + (items.length > 1 ? 'items' : 'item'));
 
@@ -253,7 +256,7 @@ var _createRSSFeed = function (server, argv, done) {
 							})
 							.then(function (result) {
 								if (result.err) {
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 
 								var pages = result && result.base && result.base.pages;
@@ -285,6 +288,9 @@ var _createRSSFeed = function (server, argv, done) {
 								} else {
 									_cmdEnd(done);
 								}
+							})
+							.catch((error) => {
+								_cmdEnd(done);
 							});
 					}
 				});
@@ -486,7 +492,7 @@ var _pubishRSSFile = function (serverName, server, request, siteUrl, siteName, r
 	var sitePromise = serverUtils.browseSitesOnServer(request, server);
 	sitePromise.then(function (result) {
 			if (result.err) {
-				_cmdEnd(done);
+				return Promise.reject();
 			}
 
 			var sites = result.data || [];
@@ -499,7 +505,7 @@ var _pubishRSSFile = function (serverName, server, request, siteUrl, siteName, r
 			}
 			if (!site || !site.fFolderGUID) {
 				console.log('ERROR: failed to get site id');
-				_cmdEnd(done);
+				return Promise.reject();
 			}
 
 			// console.log(' - site id: ' + site.fFolderGUID);
@@ -515,7 +521,7 @@ var _pubishRSSFile = function (serverName, server, request, siteUrl, siteName, r
 		.then(function (result) {
 			if (!result || !result.id) {
 				console.log('ERROR: failed tp get folder settings');
-				_cmdEnd(done);
+				return Promise.reject();
 			}
 			var settingsFolderId = result.id;
 
@@ -530,7 +536,7 @@ var _pubishRSSFile = function (serverName, server, request, siteUrl, siteName, r
 		.then(function (result) {
 			if (!result || !result.id) {
 				console.log('ERROR: failed to get folder seo');
-				_cmdEnd(done);
+				return Promise.reject();
 			}
 			var seoFolderId = result.id;
 
@@ -549,11 +555,14 @@ var _pubishRSSFile = function (serverName, server, request, siteUrl, siteName, r
 		.then(function (result) {
 			if (!result || !result.id) {
 				console.log('ERROR: failed upload RSS file');
-				_cmdEnd(done);
+				return Promise.reject();
 			}
 
 			var rssFileUrl = siteUrl + '/' + result.name;
 			console.log(' - site RSS feed uploaded, publish the site and access it at ' + rssFileUrl);
+			_cmdEnd(done);
+		})
+		.catch((error) => {
 			_cmdEnd(done);
 		});
 };

@@ -44,9 +44,11 @@ var verifyRun = function (argv) {
 	return true;
 };
 
-var _cmdEnd = function (done) {
+var _cmdEnd = function (done, localServer) {
 	done();
-	process.exit(0);
+	if (localServer) {
+		localServer.close();
+	}
 };
 
 /**
@@ -502,7 +504,6 @@ module.exports.deployComponent = function (argv, done) {
 				importPromise.then(function (importResult) {
 					// result is processed in the API
 					done();
-					process.exit(0);
 				});
 			});
 		} else {
@@ -531,7 +532,6 @@ module.exports.deployComponent = function (argv, done) {
 				Promise.all(importsPromise).then(function (values) {
 					// All done
 					done();
-					process.exit(0);
 				});
 
 			}); // login 
@@ -662,7 +662,8 @@ module.exports.downloadComponent = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
-		_cmdEnd(done);
+		done();
+		return;
 	}
 
 	var serverName = argv.server;
@@ -699,6 +700,8 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 	var isPod = server.env === 'pod_ec';
 
 	var request = serverUtils.getRequest();
+
+	var localServer;
 
 	var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
 	loginPromise.then(function (result) {
@@ -798,12 +801,11 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 				});
 		});
 
-		var localServer = app.listen(0, function () {
+		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
 
 			var inter = setInterval(function () {
-				// console.log(' - getting login user: ' + total);
 				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
 
 				request.get(url, function (err, response, body) {
@@ -812,15 +814,15 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 					idcToken = data && data.LocalData && data.LocalData.idcToken;
 					homeFolderGUID = 'F:USER:' + dUser;
 					if (dUser && dUser !== 'anonymous' && idcToken) {
-						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken + ' home folder: ' + homeFolderGUID);
 						clearInterval(inter);
+						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken + ' home folder: ' + homeFolderGUID);
 						console.log(' - establish user session');
 
 						// verify components
 						var compPromise = serverUtils.browseComponentsOnServer(request, server);
 						compPromise.then(function (result) {
 								if (result.err) {
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 
 								var comps = result.data || [];
@@ -842,7 +844,7 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 
 									if (!found) {
 										console.log('ERROR: component ' + compName + ' does not exist');
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 								}
 
@@ -859,7 +861,7 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 							.then(function (results) {
 								for (var i = 0; i < results.length; i++) {
 									if (results[i].err) {
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 								}
 
@@ -939,16 +941,18 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 								return Promise.all(deleteFilePromises);
 							})
 							.then(function (results) {
-								_cmdEnd(done);
+								_cmdEnd(done, localServer);
+							})
+							.catch((error) => {
+								_cmdEnd(done, localServer);
 							});
 					}
 				});
-			}, 6000);
+			}, 1000);
 
 		}); // local
 
 	}); // login
-
 };
 
 var _exportComponentSCS = function (request, localhost, compId, compName) {
@@ -1029,7 +1033,8 @@ module.exports.controlComponent = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
-		_cmdEnd(done);
+		done();
+		return;
 	}
 
 	var serverName = argv.server;
@@ -1060,6 +1065,7 @@ module.exports.controlComponent = function (argv, done) {
 		_controlComponents(serverName, server, action, components, done);
 	} catch (e) {
 		console.log(e);
+		done();
 	}
 };
 
@@ -1068,6 +1074,7 @@ var _controlComponents = function (serverName, server, action, componentNames, d
 	var isPod = server.env === 'pod_ec';
 
 	var request = serverUtils.getRequest();
+	var localServer;
 
 	var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
 	loginPromise.then(function (result) {
@@ -1159,7 +1166,7 @@ var _controlComponents = function (serverName, server, action, componentNames, d
 				});
 		});
 
-		var localServer = app.listen(0, function () {
+		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
 
@@ -1172,15 +1179,15 @@ var _controlComponents = function (serverName, server, action, componentNames, d
 					dUser = data && data.LocalData && data.LocalData.dUser;
 					idcToken = data && data.LocalData && data.LocalData.idcToken;
 					if (dUser && dUser !== 'anonymous' && idcToken) {
-						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
 						clearInterval(inter);
+						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
 						console.log(' - establish user session');
 
 						// verify components
 						var compPromise = serverUtils.browseComponentsOnServer(request, server);
 						compPromise.then(function (result) {
 								if (result.err) {
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 
 								var comps = result.data || [];
@@ -1201,7 +1208,7 @@ var _controlComponents = function (serverName, server, action, componentNames, d
 
 									if (!found) {
 										console.log('ERROR: component ' + compName + ' does not exist');
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 								}
 
@@ -1222,11 +1229,14 @@ var _controlComponents = function (serverName, server, action, componentNames, d
 										console.log(' - ' + action + ' ' + results[i].comp + ' finished');
 									}
 								}
-								_cmdEnd(done);
+								_cmdEnd(done, localServer);
+							})
+							.catch((error) => {
+								_cmdEnd(done, localServer);
 							});
 					}
 				});
-			}, 6000);
+			}, 1000);
 		}); // local
 	}); // login
 };

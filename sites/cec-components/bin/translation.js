@@ -64,10 +64,12 @@ var _CSRFToken;
 /** 
  * private 
  */
-
+var localServer;
 var _cmdEnd = function (done) {
 	done();
-	process.exit(0);
+	if (localServer) {
+		localServer.close();
+	}
 };
 
 var _getIdcToken = function (request, server) {
@@ -519,7 +521,7 @@ var _deployTranslationJobSCS = function (request, server, idcToken, jobName, fil
 			} catch (e) {}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to submit import translation job ' + job.jobName + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				console.log('ERROR: Failed to submit import translation job ' + jobName + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 				return resolve({
 					err: 'err'
 				});
@@ -697,8 +699,7 @@ var _execdeployTranslationJob = function (server, request, validateonly, folder,
 		})
 		.then(function (result) {
 			if (result.err) {
-				_cmdEnd(done);
-				return;
+				return Promise.reject();
 			}
 			var file = result;
 			if (validateonly) {
@@ -707,38 +708,41 @@ var _execdeployTranslationJob = function (server, request, validateonly, folder,
 				//
 				var validatePromise = _validateTranslationJobSCS(request, server, idcToken, jobName, file);
 				validatePromise.then(function (result) {
-					if (result.err) {
-						_cmdEnd(done);
-					}
-					var jobId = result.LocalData.JobID;
+						if (result.err) {
+							return Promise.reject();
+						}
+						var jobId = result.LocalData.JobID;
 
-					// wait validate to finish
-					var inter = setInterval(function () {
-						var jobPromise = _getImportValidateStatusSCS(server, request, idcToken, jobId);
-						jobPromise.then(function (data) {
-							if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
-								clearInterval(inter);
-								// try to get error message
-								var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
-								jobDataPromise.then(function (data) {
-									console.log('ERROR: validation failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
-									_cmdEnd(done);
-								});
-							}
-							if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
-								clearInterval(inter);
-								console.log(' - validate ' + jobName + ' finished');
-								var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
-								jobDataPromise.then(function (data) {
-									_displayValidationResult(data, jobType, tempDir);
-									_cmdEnd(done);
-								});
-							} else {
-								console.log(' - validating: percentage ' + data.JobPercentage);
-							}
-						});
-					}, 5000);
-				})
+						// wait validate to finish
+						var inter = setInterval(function () {
+							var jobPromise = _getImportValidateStatusSCS(server, request, idcToken, jobId);
+							jobPromise.then(function (data) {
+									if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
+										clearInterval(inter);
+										// try to get error message
+										var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
+										jobDataPromise.then(function (data) {
+											console.log('ERROR: validation failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
+											_cmdEnd(done);
+										});
+									}
+									if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
+										clearInterval(inter);
+										console.log(' - validate ' + jobName + ' finished');
+										var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
+										jobDataPromise.then(function (data) {
+											_displayValidationResult(data, jobType, tempDir);
+											_cmdEnd(done);
+										});
+									} else {
+										console.log(' - validating: percentage ' + data.JobPercentage);
+									}
+								})
+						}, 5000);
+					})
+					.catch((error) => {
+						_cmdEnd(done);
+					});
 
 			} else {
 				//
@@ -746,39 +750,45 @@ var _execdeployTranslationJob = function (server, request, validateonly, folder,
 				//
 				var importPromise = _deployTranslationJobSCS(request, server, idcToken, jobName, file);
 				importPromise.then(function (result) {
-					if (result.err) {
-						_cmdEnd(done);
-					}
+						if (result.err) {
+							return Promise.reject();
+						}
 
-					var jobId = result.LocalData.JobID;
-					var idcToken = result.LocalData.idcToken;
+						var jobId = result.LocalData.JobID;
+						var idcToken = result.LocalData.idcToken;
 
-					// wait import to finish
-					var inter = setInterval(function () {
-						var jobPromise = _getImportValidateStatusSCS(server, request, idcToken, jobId);
-						jobPromise.then(function (data) {
-							if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
-								clearInterval(inter);
-								// try to get error message
-								var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
-								jobDataPromise.then(function (data) {
-									console.log('ERROR: import failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
-									_cmdEnd(done);
+						// wait import to finish
+						var inter = setInterval(function () {
+							var jobPromise = _getImportValidateStatusSCS(server, request, idcToken, jobId);
+							jobPromise.then(function (data) {
+									if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
+										clearInterval(inter);
+										// try to get error message
+										var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
+										jobDataPromise.then(function (data) {
+											console.log('ERROR: import failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
+											_cmdEnd(done);
+										});
+									}
+									if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
+										clearInterval(inter);
+										console.log(' - import ' + jobName + ' finished');
+										_cmdEnd(done);
+
+									} else {
+										console.log(' - importing: percentage ' + data.JobPercentage);
+									}
 								});
-							}
-							if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
-								clearInterval(inter);
-								console.log(' - import ' + jobName + ' finished');
-								_cmdEnd(done);
-
-							} else {
-								console.log(' - importing: percentage ' + data.JobPercentage);
-							}
-						});
-					}, 5000);
-				});
+						}, 5000);
+					})
+					.catch((error) => {
+						_cmdEnd(done);
+					});
 			}
 
+		})
+		.catch((error) => {
+			_cmdEnd(done);
 		});
 };
 
@@ -972,32 +982,35 @@ var _exportTranslationJobSCS = function (request, localhost, idcToken, jobName, 
 var _execCreateTranslationJob = function (server, request, localhost, idcToken, name, siteInfo, targetLanguages, exportType, done) {
 	var exportPromise = _exportTranslationJobSCS(request, localhost, idcToken, name, siteInfo, targetLanguages, exportType);
 	exportPromise.then(function (result) {
-		if (result.err) {
+			if (result.err) {
+				return Promise.reject();
+			}
+			// console.log(result);
+			var jobId = result.LocalData.JobID;
+
+			// wait export to finish
+			var inter = setInterval(function () {
+				var jobPromise = _getImportValidateStatusSCS(server, request, idcToken, jobId);
+				jobPromise.then(function (data) {
+						if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
+							clearInterval(inter);
+							console.log('ERROR: create translation job failed: ' + (data && data.JobMessage));
+							_cmdEnd(done);
+						}
+						if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
+							clearInterval(inter);
+							console.log(' - translation job ' + name + ' created');
+							_cmdEnd(done);
+
+						} else {
+							console.log(' - creating: percentage ' + data.JobPercentage);
+						}
+					});
+			}, 5000);
+		})
+		.catch((error) => {
 			_cmdEnd(done);
-		}
-		// console.log(result);
-		var jobId = result.LocalData.JobID;
-
-		// wait export to finish
-		var inter = setInterval(function () {
-			var jobPromise = _getImportValidateStatusSCS(server, request, idcToken, jobId);
-			jobPromise.then(function (data) {
-				if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
-					clearInterval(inter);
-					console.log('ERROR: create translation job failed: ' + (data && data.JobMessage));
-					_cmdEnd(done);
-				}
-				if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
-					clearInterval(inter);
-					console.log(' - translation job ' + name + ' created');
-					_cmdEnd(done);
-
-				} else {
-					console.log(' - creating: percentage ' + data.JobPercentage);
-				}
-			});
-		}, 5000);
-	});
+		});
 };
 
 var _createTranslationJob = function (server, request, localhost, idcToken, site, name, langs, exportType, done) {
@@ -1023,8 +1036,7 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 			}
 			if (found) {
 				console.log('ERROR: job ' + name + ' already exists');
-				_cmdEnd(done);
-				return;
+				return Promise.reject();
 			}
 
 			return _getSiteInfoFile(request, localhost, site);
@@ -1034,21 +1046,18 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 			// validate site
 			//
 			if (result.err) {
-				_cmdEnd(done);
-				return;
+				return Promise.reject();
 			}
 			siteInfo = result.data.base.properties;
 			if (!siteInfo.isEnterprise) {
 				console.log('ERROR: site ' + site + ' is not an enterprise site');
-				_cmdEnd(done);
-				return;
+				return Promise.reject();
 			}
 			var defaultLanguage = siteInfo.defaultLanguage;
 
 			if (!defaultLanguage) {
 				console.log('ERROR: site ' + site + ' has no default language, make it translatable first.');
-				_cmdEnd(done);
-				return;
+				return Promise.reject();
 			}
 			console.log(' - site: ' + site + ', default language: ' + defaultLanguage);
 
@@ -1059,8 +1068,7 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 			// ger site GUID
 			//
 			if (result.err) {
-				_cmdEnd(done);
-				return;
+				return Promise.reject();
 			}
 			siteInfo.siteGUID = result.siteGUID;
 
@@ -1071,8 +1079,7 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 			// get channel
 			//
 			if (result.err) {
-				_cmdEnd(done);
-				return;
+				return Promise.reject();
 			}
 			console.log(' - query channel');
 			var policyId = result.localizationPolicy;
@@ -1083,8 +1090,7 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 			// Get Localization policy
 			//
 			if (result.err) {
-				_cmdEnd(done);
-				return;
+				return Promise.reject();
 			}
 			var policy = result;
 			console.log(' - site localization policy: ' + policy.name);
@@ -1101,13 +1107,11 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 				for (var i = 0; i < langArr.length; i++) {
 					if (langArr[i] === siteInfo.defaultLanguage) {
 						console.log('ERROR: language ' + langArr[i] + ' is the default language');
-						_cmdEnd(done);
-						return;
+						return Promise.reject();
 					}
 					if (!allLangs.includes(langArr[i])) {
 						console.log('ERROR: language ' + langArr[i] + ' is not in the localization policy');
-						_cmdEnd(done);
-						return;
+						return Promise.reject();
 					}
 				}
 				targetLanguages = langArr;
@@ -1120,12 +1124,14 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 			}
 			if (targetLanguages.length === 0) {
 				console.log('ERROR: no target language');
-				_cmdEnd(done);
-				return;
+				return Promise.reject();
 			}
 			console.log(' - target languages: ' + targetLanguages);
 			_execCreateTranslationJob(server, request, localhost, idcToken, name, siteInfo, targetLanguages, exportType, done);
 
+		})
+		.catch((error) => {
+			_cmdEnd(done);
 		});
 
 };
@@ -1988,7 +1994,7 @@ module.exports.createTranslationJob = function (argv, done) {
 			}
 		});
 
-		var localServer = app.listen(0, function () {
+		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
 
@@ -2018,7 +2024,7 @@ module.exports.createTranslationJob = function (argv, done) {
 						_cmdEnd(done);
 					}
 				});
-			}, 6000);
+			}, 2000);
 
 		});
 	});

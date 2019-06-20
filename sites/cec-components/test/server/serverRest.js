@@ -337,13 +337,23 @@ module.exports.deleteFile = function (args) {
 
 
 // Create channel on server
-var _createChannel = function (server, name, channelType) {
+var _createChannel = function (server, name, channelType, description, publishPolicy, localizationPolicy) {
 	return new Promise(function (resolve, reject) {
 		siteUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
 				resolve(result);
 			} else {
 				var csrfToken = result && result.token;
+
+				var payload = {
+					'name': name,
+					'channelType': channelType || 'public',
+					'description': description || '',
+					'publishPolicy': publishPolicy || 'anythingPublished'
+				};
+				if (localizationPolicy) {
+					payload.localizationPolicy = localizationPolicy
+				}
 
 				var client = new Client({
 						user: server.username,
@@ -356,10 +366,7 @@ var _createChannel = function (server, name, channelType) {
 							'X-CSRF-TOKEN': csrfToken,
 							'X-REQUESTED-WITH': 'XMLHttpRequest'
 						},
-						data: {
-							'name': name,
-							'channelType': channelType || 'public'
-						}
+						data: payload
 					};
 
 				client.post(url, args, function (data, response) {
@@ -384,11 +391,15 @@ var _createChannel = function (server, name, channelType) {
  * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
  * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
  * @param {string} args.name The name of the channel to create.
+ * @param {string} args.description The description of the channel to create.
  * @param {string} args.channelType The type of the channel, defaults to public.
+ * @param {string} args.publishPolicy the publish policy, defaults to anythingPublished.
+ * @param {string} args.localizationPolicy the id of the localization policy.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createChannel = function (args) {
-	return _createChannel(_utils.getServer(args.currPath, args.registeredServerName), args.name, args.channelType);
+	return _createChannel(_utils.getServer(args.currPath, args.registeredServerName), args.name, args.channelType,
+		args.description, args.publishPolicy, args.localizationPolicy);
 };
 
 // Add channel to repository
@@ -473,6 +484,7 @@ module.exports.addChannelToRepository = function (args) {
 	return _addChannelToRepository(_utils.getServer(args.currPath, args.registeredServerName), args.id, args.name, args.repository);
 };
 
+
 // Get channels from server
 var _getChannels = function (server) {
 	return new Promise(function (resolve, reject) {
@@ -482,7 +494,7 @@ var _getChannels = function (server) {
 			}),
 			url = server.url + '/content/management/api/v1.1/channels?limit=999';
 
-		client.get(url, function (data, response) {
+		var req = client.get(url, function (data, response) {
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
@@ -492,6 +504,12 @@ var _getChannels = function (server) {
 				});
 			}
 		});
+		req.on("error", function (err) {
+			console.log('ERROR: ' + err);
+			resolve({
+				err: 'err'
+			});
+		})
 	});
 };
 /**
@@ -770,7 +788,7 @@ var _getLocalizationPolicies = function (server) {
 			}),
 			url = server.url + '/content/management/api/v1.1/localizationPolicies?limit=999';
 
-		client.get(url, function (data, response) {
+		var req = client.get(url, function (data, response) {
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
@@ -780,6 +798,12 @@ var _getLocalizationPolicies = function (server) {
 				});
 			}
 		});
+		req.on("error", function (err) {
+			console.log('ERROR: ' + err);
+			resolve({
+				err: 'err'
+			});
+		})
 	});
 };
 /**
@@ -793,6 +817,69 @@ module.exports.getLocalizationPolicies = function (args) {
 	return _getLocalizationPolicies(_utils.getServer(args.currPath, args.registeredServerName));
 };
 
+// Create localization policy on server
+var _createLocalizationPolicy = function (server, name, description, requiredLanguages, defaultLanguage, optionalLanguages) {
+	return new Promise(function (resolve, reject) {
+		siteUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var client = new Client({
+						user: server.username,
+						password: server.password
+					}),
+					url = server.url + '/content/management/api/v1.1/localizationPolicies',
+					payload = {};
+
+				payload.name = name;
+				payload.description = description || '';
+				payload.requiredValues = requiredLanguages;
+				payload.defaultValue = defaultLanguage;
+				payload.optionalValues = optionalLanguages || [];
+
+				var args = {
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					data: payload
+				};
+
+				client.post(url, args, function (data, response) {
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						console.log('ERROR: failed to create localization policy: ' + name + ' - ' + (data && data.detail ? data.detail : response.statusMessage));
+						// continue
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Create localization policy on server by channel name
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.name The name of the localization policy to create.
+ * @param {string} args.description The description of the localization policy.
+ * @param {string} args.defaultLanguage The default language of the localization policy.
+ * @param {array} args.requiredLanguages The list of required languages.
+ * @param {array} args.optionalLanguages The list of optional languages.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createLocalizationPolicy = function (args) {
+	return _createLocalizationPolicy(_utils.getServer(args.currPath, args.registeredServerName), args.name, args.description,
+		args.requiredLanguages, args.defaultLanguage, args.optionalLanguages);
+};
+
 // Get repositories from server
 var _getRepositories = function (server) {
 	return new Promise(function (resolve, reject) {
@@ -800,9 +887,9 @@ var _getRepositories = function (server) {
 				user: server.username,
 				password: server.password
 			}),
-			url = server.url + '/content/management/api/v1.1/repositories?limit=999';
+			url = server.url + '/content/management/api/v1.1/repositories?limit=999&fields=all';
 
-		client.get(url, function (data, response) {
+		var req = client.get(url, function (data, response) {
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
@@ -812,6 +899,13 @@ var _getRepositories = function (server) {
 				});
 			}
 		});
+		req.on("error", function (err) {
+			console.log('ERROR: ' + err);
+			resolve({
+				err: 'err'
+			});
+		})
+
 	});
 };
 /**
@@ -823,4 +917,179 @@ var _getRepositories = function (server) {
  */
 module.exports.getRepositories = function (args) {
 	return _getRepositories(_utils.getServer(args.currPath, args.registeredServerName));
+};
+
+// Create repository on server
+var _createRepository = function (server, name, description, contentTypes, channels, defaultLanguage) {
+	return new Promise(function (resolve, reject) {
+		siteUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var client = new Client({
+						user: server.username,
+						password: server.password
+					}),
+					url = server.url + '/content/management/api/v1.1/repositories',
+					payload = {};
+				payload.name = name;
+				payload.description = description || '';
+				payload.defaultLanguage = defaultLanguage || 'en-US';
+				payload.taxonomies = [];
+
+				if (contentTypes && contentTypes.length > 0) {
+					payload.contentTypes = contentTypes;
+				}
+				if (channels && channels.length > 0) {
+					payload.channels = channels;
+				}
+
+				var args = {
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					data: payload
+				};
+
+				client.post(url, args, function (data, response) {
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						console.log('ERROR: failed to create repository: ' + name + ' - ' + (data && data.detail ? data.detail : response.statusMessage));
+						// continue
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Create channel on server by channel name
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.name The name of the repository to create.
+ * @param {string} args.description The description of the repository.
+ * @param {string} args.defaultLanguage The default language of the repository.
+ * @param {array} args.contentTypes The list of content types.
+ * @param {array} args.channels The list of channels.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createRepository = function (args) {
+	return _createRepository(_utils.getServer(args.currPath, args.registeredServerName), args.name, args.description,
+		args.contentTypes, args.channels, args.defaultLanguage);
+};
+
+// Update repository
+var _updateRepository = function (server, repository, contentTypes, channels) {
+	return new Promise(function (resolve, reject) {
+		siteUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var data = repository;
+				data.contentTypes = contentTypes;
+				data.channels = channels;
+
+				var request = require('request');
+				var url = server.url + '/content/management/api/v1.1/repositories/' + repository.id;
+
+				var auth = {
+					user: server.username,
+					password: server.password
+				};
+				var postData = {
+					method: 'PUT',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					body: data,
+					json: true
+				};
+
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to add channel ' + channelName + ' to respository ' + repository.name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					if (response && response.statusCode === 200) {
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (error) {
+							data = body;
+						};
+						resolve(data);
+					} else {
+						console.log('Failed to update repository respository ' + repository.name + ' - ' + response.statusMessage);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Update repository on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} repository JavaScript object containing repository
+ * @param {array} args.contentTypes The list of content types.
+ * @param {array} args.channels The list of channels.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.updateRepository = function (args) {
+	return _updateRepository(_utils.getServer(args.currPath, args.registeredServerName), args.repository, args.contentTypes, args.channels);
+};
+
+// Get typefrom server
+var _getContentType = function (server, typeName) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			url = server.url + '/content/management/api/v1.1/types/' + typeName;
+
+		client.get(url, function (data, response) {
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				console.log('ERROR: failed to get type ' + typeName + ' : ' + (response.statusMessage || response.statusCode));
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get a content type on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.name The name of the type to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getContentType = function (args) {
+	return _getContentType(_utils.getServer(args.currPath, args.registeredServerName), args.name);
 };

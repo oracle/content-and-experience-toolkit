@@ -39,7 +39,50 @@ var verifyRun = function (argv) {
 
 var _cmdEnd = function (done) {
 	done();
-	process.exit(0);
+};
+
+module.exports.registerServer = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+	var endpoint = argv.endpoint;
+	var user = argv.user;
+	var password = argv.password;
+	var type = argv.type || 'pod_ec';
+	var idcs_url = argv.idcsurl;
+	var client_id = argv.clientid;
+	var client_secret = argv.clientsecret;
+	var scope = argv.scope;
+
+	if (!fs.existsSync(serversSrcDir)) {
+		fs.mkdirSync(serversSrcDir);
+	}
+
+	var serverPath = path.join(serversSrcDir, name);
+	if (!fs.existsSync(serverPath)) {
+		fs.mkdirSync(serverPath);
+	}
+	var serverFile = path.join(serverPath, 'server.json');
+	// Use the same fields as serverUtils.getConfiguredServer
+	var serverjson = {
+		name: name,
+		url: endpoint,
+		username: user,
+		password: password,
+		env: type,
+		idcs_url: idcs_url,
+		client_id: client_id,
+		client_secret: client_secret,
+		scope: scope
+	}
+	fs.writeFileSync(serverFile, JSON.stringify(serverjson));
+	console.log(' - server registered in ' + serverFile);
+	done();
 };
 
 module.exports.listLocalResources = function (argv, done) {
@@ -172,7 +215,8 @@ module.exports.listServerResources = function (argv, done) {
 
 	if (!listChannels && !listComponents && !listLocalizationpolicies && !listRepositories && !listSites && !listTemplates) {
 		console.log('ERROR: invalid resource types: ' + argv.types);
-		_cmdEnd(done);
+		done();
+		return;
 	}
 
 	var format = '  %-36s';
@@ -190,16 +234,18 @@ module.exports.listServerResources = function (argv, done) {
 			return;
 		}
 
-		var promises = listChannels ? [_getChannels(serverName)] : [];
+		var promises = (listChannels || listRepositories) ? [_getChannels(serverName)] : [];
+		var channels;
 
 		Promise.all(promises).then(function (results) {
 				//
 				// List channels
 				//
-				var channels = results.length > 0 ? results[0] : [];
+				var channelFormat = '  %-36s  %-36s  %-8s  %-s';
+				channels = results.length > 0 ? results[0] : [];
 				if (listChannels) {
 					console.log('Channels:');
-					console.log(sprintf(format2, 'Name', 'Token'));
+					console.log(sprintf(channelFormat, 'Name', 'Token', 'Access', 'Publishing'));
 					for (var i = 0; i < channels.length; i++) {
 						var channel = channels[i];
 						var channelToken;
@@ -213,7 +259,8 @@ module.exports.listServerResources = function (argv, done) {
 						if (!channelToken && tokens.length > 0) {
 							channelToken = tokens[0].token;
 						}
-						console.log(sprintf(format2, channel.name, channelToken));
+						var publishPolicy = channel.publishPolicy === 'anythingPublished' ? 'Anything can be published' : 'Only approved items can be published';
+						console.log(sprintf(channelFormat, channel.name, channelToken, channel.channelType, publishPolicy));
 					}
 					console.log('');
 				}
@@ -287,9 +334,23 @@ module.exports.listServerResources = function (argv, done) {
 				var repositories = results.length > 0 ? results[0] : [];
 				if (listRepositories) {
 					console.log('Repositories:');
-					console.log(sprintf(format, 'Name'));
+					var repoFormat = '  %-36s  %-16s  %-42s  %-s';
+					console.log(sprintf(repoFormat, 'Name', 'Default Language', 'Channels', 'Content Types'));
 					for (var i = 0; i < repositories.length; i++) {
-						console.log(sprintf(format, repositories[i].name));
+						var repo = repositories[i];
+						var contentTypes = [];
+						for(var j = 0; j < repo.contentTypes.length; j++) {
+							contentTypes.push(repo.contentTypes[j].name);
+						}
+						var repoChannels = [];
+						for(var j = 0; j < repo.channels.length; j++) {
+							for(var k = 0; k < channels.length; k++) {
+								if (repo.channels[j].id === channels[k].id) {
+									repoChannels.push(channels[k].name);
+								}
+							}
+						}
+						console.log(sprintf(repoFormat, repo.name, repo.defaultLanguage, repoChannels, contentTypes));
 					}
 					console.log('');
 				}
@@ -336,7 +397,7 @@ module.exports.listServerResources = function (argv, done) {
 					}
 				}
 
-				_cmdEnd(done);
+				done();
 			});
 
 	}); // login 

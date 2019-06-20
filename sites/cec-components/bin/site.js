@@ -29,9 +29,11 @@ var verifyRun = function (argv) {
 	return true;
 }
 
-var _cmdEnd = function (done) {
+var _cmdEnd = function (done, localServer) {
 	done();
-	process.exit(0);
+	if (localServer) {
+		localServer.close();
+	}
 };
 
 
@@ -43,6 +45,7 @@ module.exports.createSite = function (argv, done) {
 
 	if (!verifyRun(argv)) {
 		_cmdEnd(done);
+		return;
 	}
 
 	var serverName = argv.server;
@@ -51,6 +54,7 @@ module.exports.createSite = function (argv, done) {
 		if (!fs.existsSync(serverpath)) {
 			console.log('ERROR: server ' + serverName + ' does not exist');
 			_cmdEnd(done);
+			return;
 		}
 	}
 
@@ -61,6 +65,7 @@ module.exports.createSite = function (argv, done) {
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
 		_cmdEnd(done);
+		return;
 	}
 
 	var request = serverUtils.getRequest();
@@ -526,7 +531,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 							var sitePromise = serverUtils.browseSitesOnServer(request, server);
 							sitePromise.then(function (result) {
 									if (result.err) {
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									var sites = result.data || [];
@@ -539,7 +544,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 									}
 									if (site && site.fFolderGUID) {
 										console.log('ERROR: site ' + siteName + ' already exists');
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									// Verify template
@@ -548,7 +553,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 								})
 								.then(function (result) {
 									if (!result || result.err) {
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									var templates = result.data;
@@ -560,7 +565,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 									}
 									if (!templateGUID) {
 										console.log('ERROR: template ' + templateName + ' does not exist');
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									// get other template info
@@ -568,13 +573,13 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 								})
 								.then(function (result) {
 									if (!result || result.err) {
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									template = result.base ? result.base.properties : undefined;
 									if (!template || !template.siteName) {
 										console.log('ERROR: failed to get template info');
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									console.log(' - get template ');
@@ -582,19 +587,19 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 
 									if (template.isEnterprise && !repositoryName) {
 										console.log('ERROR: repository is required to create enterprise site');
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									createEnterprise = repositoryName ? true : false;
 
 									if (createEnterprise && !template.localizationPolicy && !localizationPolicyName) {
 										console.log('ERROR: localization policy is required to create enterprise site');
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 									// Remove this condition when defaultLanguage returned from API /templates 
 									if (createEnterprise && !defaultLanguage) {
 										console.log('ERROR: default language is required to create enterprise site');
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									if (!createEnterprise) {
@@ -605,11 +610,11 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 										var actionPromise = _postOneIdcService(request, localhost, server, 'SCS_COPY_SITES', 'create site', idcToken);
 										actionPromise.then(function (result) {
 											if (result.err) {
-												_cmdEnd(done);
+												_cmdEnd(done, localServer);
+											} else {
+												console.log(' - site created');
+												_cmdEnd(done, localServer);
 											}
-
-											console.log(' - site created');
-											_cmdEnd(done);
 										});
 
 									} else {
@@ -619,13 +624,13 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 												// validate repository
 												//
 												if (!result || result.err) {
-													_cmdEnd(done);
+													return Promise.reject();
 												}
 
 												var repository = result.data;
 												if (!repository || !repository.id) {
 													console.log('ERROR: repository ' + repositoryName + ' does not exist');
-													_cmdEnd(done);
+													return Promise.reject();
 												}
 												repositoryId = repository.id;
 												console.log(' - get repository');
@@ -644,7 +649,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 												//
 												var result = results.length > 0 ? results[0] : undefined;
 												if (!result || result.err) {
-													_cmdEnd(done);
+													return Promise.reject();
 												}
 
 												var policy = result.data;
@@ -654,7 +659,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 													} else {
 														console.log('ERROR: localization policy in template does not exist');
 													}
-													_cmdEnd(done);
+													return Promise.reject();
 												}
 
 												if (localizationPolicyName) {
@@ -671,7 +676,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 												var requiredLanguages = policy.requiredValues;
 												if (!requiredLanguages.includes(defaultLanguage)) {
 													console.log('ERROR: language ' + defaultLanguage + ' is not in localization policy ' + policy.name);
-													_cmdEnd(done);
+													return Promise.reject();
 												}
 
 												//
@@ -688,20 +693,26 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 												var actionPromise = _postOneIdcService(request, localhost, server, 'SCS_COPY_SITES', 'create site', idcToken);
 												actionPromise.then(function (result) {
 													if (result.err) {
-														_cmdEnd(done);
+														_cmdEnd(done, localServer);
+													} else {
+														console.log(' - site created');
+														_cmdEnd(done, localServer);
 													}
-
-													console.log(' - site created');
-													_cmdEnd(done);
 												});
 
+											})
+											.catch((error) => {
+												_cmdEnd(done, localServer);
 											});
 
 									} // enterprise site
+								})
+								.catch((error) => {
+									_cmdEnd(done, localServer);
 								});
 						}
 					}); // idc token
-				}, 6000);
+				}, 1000);
 			}); // local
 		});
 	} catch (e) {
@@ -719,6 +730,7 @@ module.exports.controlSite = function (argv, done) {
 
 	if (!verifyRun(argv)) {
 		_cmdEnd(done);
+		return;
 	}
 
 	try {
@@ -729,6 +741,7 @@ module.exports.controlSite = function (argv, done) {
 			if (!fs.existsSync(serverpath)) {
 				console.log('ERROR: server ' + serverName + ' does not exist');
 				_cmdEnd(done);
+				return;
 			}
 		}
 
@@ -739,6 +752,7 @@ module.exports.controlSite = function (argv, done) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured in ' + server.fileloc);
 			_cmdEnd(done);
+			return;
 		}
 		// console.log('server: ' + server.url);
 
@@ -840,6 +854,7 @@ module.exports.controlSite = function (argv, done) {
 
 	} catch (e) {
 		console.log(e);
+		done();
 	}
 
 };
@@ -1206,86 +1221,90 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 						// verify site 
 						var sitePromise = serverUtils.browseSitesOnServer(request, server);
 						sitePromise.then(function (result) {
-							if (result.err) {
-								_cmdEnd(done);
-							}
-
-							var sites = result.data || [];
-							var site;
-							for (var i = 0; i < sites.length; i++) {
-								if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-									site = sites[i];
-									break;
-								}
-							}
-							if (!site || !site.fFolderGUID) {
-								console.log('ERROR: site ' + siteName + ' does not exist');
-								_cmdEnd(done);
-							}
-
-							siteId = site.fFolderGUID;
-
-							// console.log(' - xScsIsSiteActive: ' + site.xScsIsSiteActive + ' xScsSitePublishStatus: ' + site.xScsSitePublishStatus);
-							var runtimeStatus = site.xScsIsSiteActive && site.xScsIsSiteActive === '1' ? 'online' : 'offline';
-							var publishStatus = site.xScsSitePublishStatus && site.xScsSitePublishStatus === 'published' ? 'published' : 'unpublished';
-							console.log(' - get site: runtimeStatus: ' + runtimeStatus + '  publishStatus: ' + publishStatus);
-
-							if (action === 'take-offline' && runtimeStatus === 'offline') {
-								console.log(' - site is already offline');
-								_cmdEnd(done);
-							}
-							if (action === 'bring-online' && runtimeStatus === 'online') {
-								console.log(' - site is already online');
-								_cmdEnd(done);
-							}
-							if (action === 'bring-online' && publishStatus === 'unpublished') {
-								console.log('ERROR: site ' + siteName + ' is draft, publish it first');
-								_cmdEnd(done);
-							}
-
-							if (action === 'unpublish' && runtimeStatus === 'online') {
-								console.log('ERROR: site ' + siteName + ' is online, take it offline first');
-								_cmdEnd(done);
-							}
-							if (action === 'unpublish' && publishStatus === 'unpublished') {
-								console.log('ERROR: site ' + siteName + ' is draft');
-								_cmdEnd(done);
-							}
-
-							var service;
-							if (action === 'publish') {
-								service = 'SCS_PUBLISH_SITE';
-							} else if (action === 'unpublish') {
-								service = 'SCS_UNPUBLISH_SITE';
-							} else if (action === 'bring-online') {
-								service = 'SCS_ACTIVATE_SITE';
-							} else if (action === 'take-offline') {
-								service = 'SCS_DEACTIVATE_SITE';
-							} else {
-								console.log('ERROR: invalid action ' + action);
-								_cmdEnd(done);
-							}
-
-							var actionPromise = _postOneIdcService(request, localhost, server, service, action, idcToken);
-							actionPromise.then(function (result) {
 								if (result.err) {
-									_cmdEnd(done);
+									return Promise.reject();
 								}
 
-								if (action === 'bring-online') {
-									console.log(' - site ' + siteName + ' is online now');
-								} else if (action === 'take-offline') {
-									console.log(' - site ' + siteName + ' is offline now');
-								} else {
-									console.log(' - ' + action + ' ' + siteName + ' finished');
+								var sites = result.data || [];
+								var site;
+								for (var i = 0; i < sites.length; i++) {
+									if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
+										site = sites[i];
+										break;
+									}
 								}
-								_cmdEnd(done);
+								if (!site || !site.fFolderGUID) {
+									console.log('ERROR: site ' + siteName + ' does not exist');
+									return Promise.reject();
+								}
+
+								siteId = site.fFolderGUID;
+
+								// console.log(' - xScsIsSiteActive: ' + site.xScsIsSiteActive + ' xScsSitePublishStatus: ' + site.xScsSitePublishStatus);
+								var runtimeStatus = site.xScsIsSiteActive && site.xScsIsSiteActive === '1' ? 'online' : 'offline';
+								var publishStatus = site.xScsSitePublishStatus && site.xScsSitePublishStatus === 'published' ? 'published' : 'unpublished';
+								console.log(' - get site: runtimeStatus: ' + runtimeStatus + '  publishStatus: ' + publishStatus);
+
+								if (action === 'take-offline' && runtimeStatus === 'offline') {
+									console.log(' - site is already offline');
+									return Promise.reject();
+								}
+								if (action === 'bring-online' && runtimeStatus === 'online') {
+									console.log(' - site is already online');
+									return Promise.reject();
+								}
+								if (action === 'bring-online' && publishStatus === 'unpublished') {
+									console.log('ERROR: site ' + siteName + ' is draft, publish it first');
+									return Promise.reject();
+								}
+
+								if (action === 'unpublish' && runtimeStatus === 'online') {
+									console.log('ERROR: site ' + siteName + ' is online, take it offline first');
+									return Promise.reject();
+								}
+								if (action === 'unpublish' && publishStatus === 'unpublished') {
+									console.log('ERROR: site ' + siteName + ' is draft');
+									return Promise.reject();
+								}
+
+								var service;
+								if (action === 'publish') {
+									service = 'SCS_PUBLISH_SITE';
+								} else if (action === 'unpublish') {
+									service = 'SCS_UNPUBLISH_SITE';
+								} else if (action === 'bring-online') {
+									service = 'SCS_ACTIVATE_SITE';
+								} else if (action === 'take-offline') {
+									service = 'SCS_DEACTIVATE_SITE';
+								} else {
+									console.log('ERROR: invalid action ' + action);
+									return Promise.reject();
+								}
+
+								var actionPromise = _postOneIdcService(request, localhost, server, service, action, idcToken);
+								actionPromise.then(function (result) {
+									if (result.err) {
+										_cmdEnd(done, localServer);
+										return;
+									}
+
+									if (action === 'bring-online') {
+										console.log(' - site ' + siteName + ' is online now');
+									} else if (action === 'take-offline') {
+										console.log(' - site ' + siteName + ' is offline now');
+									} else {
+										console.log(' - ' + action + ' ' + siteName + ' finished');
+									}
+									_cmdEnd(done, localServer);
+								});
+							})
+							.catch((error) => {
+								_cmdEnd(done, localServer);
 							});
-						});
 					}
 				}); // idc token request
 
-			}, 6000);
+			}, 1000);
 		}); // local 
 	}); // login
 };
@@ -1297,7 +1316,7 @@ var _postOneIdcService = function (request, localhost, server, service, action, 
 
 		request.post(url, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to ' + action + ' site');
+				console.log('ERROR: Failed to ' + action);
 				console.log(err);
 				return resolve({
 					err: 'err'
@@ -1310,7 +1329,7 @@ var _postOneIdcService = function (request, localhost, server, service, action, 
 			} catch (e) {}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to ' + action + ' site ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				console.log('ERROR: failed to ' + action + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
 				return resolve({
 					err: 'err'
 				});
@@ -1319,7 +1338,7 @@ var _postOneIdcService = function (request, localhost, server, service, action, 
 			var jobId = data.LocalData.JobID;
 
 			if (jobId) {
-				console.log(' - submit ' + action + ' site');
+				console.log(' - submit ' + action);
 				// wait action to finish
 				var inter = setInterval(function () {
 					var jobPromise = serverUtils.getBackgroundServiceJobStatus(server, request, idcToken, jobId);
@@ -1328,7 +1347,7 @@ var _postOneIdcService = function (request, localhost, server, service, action, 
 							clearInterval(inter);
 							console.log(data);
 							// try to get error message
-							console.log('ERROR: ' + action + ' site failed: ' + (data && data.JobMessage));
+							console.log('ERROR: ' + action + ' failed: ' + (data && data.JobMessage));
 							return resolve({
 								err: 'err'
 							});
@@ -1395,6 +1414,7 @@ module.exports.validateSite = function (argv, done) {
 
 	if (!verifyRun(argv)) {
 		_cmdEnd(done);
+		return;
 	}
 
 	try {
@@ -1405,6 +1425,7 @@ module.exports.validateSite = function (argv, done) {
 			if (!fs.existsSync(serverpath)) {
 				console.log('ERROR: server ' + serverName + ' does not exist');
 				_cmdEnd(done);
+				return;
 			}
 		}
 
@@ -1415,6 +1436,7 @@ module.exports.validateSite = function (argv, done) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured in ' + server.fileloc);
 			_cmdEnd(done);
+			return;
 		}
 
 		var siteName = argv.name;
@@ -1502,7 +1524,7 @@ module.exports.validateSite = function (argv, done) {
 							var sitePromise = serverUtils.browseSitesOnServer(request, server);
 							sitePromise.then(function (result) {
 									if (result.err) {
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									var sites = result.data || [];
@@ -1515,12 +1537,12 @@ module.exports.validateSite = function (argv, done) {
 									}
 									if (!site || !site.fFolderGUID) {
 										console.log('ERROR: site ' + siteName + ' does not exist');
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									if (site.isEnterprise !== '1') {
 										console.log(' - site ' + siteName + ' is not an enterprise site');
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									siteId = site.fFolderGUID;
@@ -1530,18 +1552,18 @@ module.exports.validateSite = function (argv, done) {
 								})
 								.then(function (result) {
 									if (result.err) {
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									var site = result.base ? result.base.properties : undefined;
 									if (!site || !site.siteName) {
 										console.log('ERROR: failed to get site info');
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									if (!site.defaultLanguage) {
 										console.log(' - site ' + siteName + ' is not configured with a default language')
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									var tokens = site.channelAccessTokens;
@@ -1568,7 +1590,7 @@ module.exports.validateSite = function (argv, done) {
 								})
 								.then(function (result) {
 									if (result.err) {
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									var siteValidation;
@@ -1578,7 +1600,7 @@ module.exports.validateSite = function (argv, done) {
 
 									if (!siteValidation) {
 										console.log('ERROR: failed to get site validation');
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 									// console.log(siteValidation);
 									console.log('Site Validation:');
@@ -1596,7 +1618,7 @@ module.exports.validateSite = function (argv, done) {
 									if (items.length === 0) {
 										console.log('Assets Validation:');
 										console.log('  no assets');
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									var itemIds = [];
@@ -1615,7 +1637,7 @@ module.exports.validateSite = function (argv, done) {
 								})
 								.then(function (result) {
 									if (result.err) {
-										_cmdEnd(done);
+										return Promise.reject();
 									}
 
 									console.log('Assets Validation:');
@@ -1625,7 +1647,10 @@ module.exports.validateSite = function (argv, done) {
 									} else {
 										console.log('  no assets');
 									}
-									_cmdEnd(done);
+									_cmdEnd(done, localServer);
+								})
+								.catch((error) => {
+									_cmdEnd(done, localServer);
 								});
 						}
 					}); // idc token request

@@ -28,9 +28,13 @@ var verifyRun = function (argv) {
 	return true;
 }
 
+var localServer;
+
 var _indexSiteEnd = function (done) {
 	done();
-	process.exit(0);
+	if (localServer) {
+		localServer.close();
+	}
 };
 
 var _getSiteInfoFile = function (request, localhost, site, locale, isMaster) {
@@ -163,11 +167,11 @@ var _getContentTypeFields = function (request, localhost, contenttype) {
 	return fieldsPromise;
 };
 
-var _validatePageIndexFields = function (done, contenttype, result, done) {
+var _validatePageIndexFields = function (done, contenttype, result) {
 	var fields = result && result.fields;
 	if (!fields || fields.length === 0) {
 		console.log('ERROR: content type ' + contenttype + ' has no field');
-		_indexSiteEnd(done);
+		return false;
 	}
 	// Require fields: site, pageid, pagename, pageurl, pagetitle, pagedescription, keywords
 	var site, pageid, pagename, pageurl, pagetitle, pagedescription, keywords;
@@ -176,78 +180,80 @@ var _validatePageIndexFields = function (done, contenttype, result, done) {
 			site = true;
 			if (fields[i].datatype !== 'text') {
 				console.log('ERROR: field site should be text');
-				_indexSiteEnd(done);
+				return false;
 			}
 		} else if (fields[i].name === 'pageid') {
 			pageid = true;
 			if (fields[i].datatype !== 'text') {
 				console.log('ERROR: field pageid should be text');
-				_indexSiteEnd(done);
+				return false;
 			}
 		} else if (fields[i].name === 'pagename') {
 			pagename = true;
 			if (fields[i].datatype !== 'text') {
 				console.log('ERROR: field pagename should be text');
-				_indexSiteEnd(done);
+				return false;
 			}
 		} else if (fields[i].name === 'pageurl') {
 			pageurl = true;
 			if (fields[i].datatype !== 'text') {
 				console.log('ERROR: field pageurl should be text');
-				_indexSiteEnd(done);
+				return false;
 			}
 		} else if (fields[i].name === 'pagetitle') {
 			pagetitle = true;
 			if (fields[i].datatype !== 'text') {
 				console.log('ERROR: field pagetitle should be text');
-				_indexSiteEnd(done);
+				return false;
 			}
 		} else if (fields[i].name === 'pagedescription') {
 			pagedescription = true;
 			if (fields[i].datatype !== 'text' && fields[i].datatype !== 'largetext') {
 				console.log('ERROR: field pagedescription should be text');
-				_indexSiteEnd(done);
+				return false;
 			}
 		} else if (fields[i].name === 'keywords') {
 			keywords = true;
 			if (fields[i].datatype !== 'text') {
 				console.log('ERROR: field keywords should be text');
-				_indexSiteEnd(done);
+				return false;
 			}
 			if (fields[i].valuecount !== 'list') {
 				console.log('ERROR: field keywords should allow multiple values');
-				_indexSiteEnd(done);
+				return false;
 			}
 		}
 	}
 	if (!site) {
 		console.log('ERROR: field site is missing from type ' + contenttype);
-		_indexSiteEnd(done);
+		return false;
 	}
 	if (!pageid) {
 		console.log('ERROR: field pageid is missing from type ' + contenttype);
-		_indexSiteEnd(done);
+		return false;
 	}
 	if (!pagename) {
 		console.log('ERROR: field pagename is missing from type ' + contenttype);
-		_indexSiteEnd(done);
+		return false;
 	}
 	if (!pageurl) {
 		console.log('ERROR: field pageurl is missing from type ' + contenttype);
-		_indexSiteEnd(done);
+		return false;
 	}
 	if (!pagetitle) {
 		console.log('ERROR: field pagetitle is missing from type ' + contenttype);
-		_indexSiteEnd(done);
+		return false;
 	}
 	if (!pagedescription) {
 		console.log('ERROR: field pagedescription is missing from type ' + contenttype);
-		_indexSiteEnd(done);
+		return false;
 	}
 	if (!keywords) {
 		console.log('ERROR: field keywords is missing from type ' + contenttype);
-		_indexSiteEnd(done);
+		return false;
 	}
+
+	return true;
 };
 
 var _getRepository = function (request, localhost, repositoryId) {
@@ -1677,15 +1683,13 @@ var _getPublishJobStatus = function (request, localhost, jobId) {
 var _publishPageIndexItems = function (request, localhost, channelId, done) {
 	if (_masterItems.length === 0) {
 		console.log(' - no item to publish');
-		_indexSiteEnd(done);
-		return;
+		return Promise.reject();
 	}
 
 	var publishItemsPromise = _publishItems(request, localhost, channelId);
 	publishItemsPromise.then(function (result) {
 		if (result.err) {
-			_indexSiteEnd(done);
-			return;
+			return Promise.reject();
 		}
 		var jobId = result.jobId;
 		// console.log(jobId);
@@ -1695,8 +1699,7 @@ var _publishPageIndexItems = function (request, localhost, channelId, done) {
 				// console.log(result);
 				if (result.err) {
 					clearInterval(inter);
-					_indexSiteEnd(done);
-					return;
+					return Promise.reject();
 				}
 				// console.log(result.status);
 				if (result.status === 'success') {
@@ -1711,7 +1714,7 @@ var _publishPageIndexItems = function (request, localhost, channelId, done) {
 					}
 					console.log('ERROR: ' + msg);
 					clearInterval(inter);
-					_indexSiteEnd(done);
+					return Promise.reject();
 				} else {
 					console.log(' - publish ' + result.message.toLowerCase());
 				}
@@ -1744,8 +1747,7 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 		siteInfoPromise
 			.then(function (result) {
 				if (result.err) {
-					_indexSiteEnd(done);
-					return;
+					return Promise.reject();
 				}
 				siteInfo = result.data.base.properties;
 				_SiteInfo = siteInfo;
@@ -1756,8 +1758,7 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 
 				if (!siteInfo.isEnterprise) {
 					console.log('ERROR: site ' + site + ' is not an enterprise site');
-					_indexSiteEnd(done);
-					return;
+					return Promise.reject();
 				}
 
 				console.log(' - site: ' + site + ', default language: ' + defaultLanguage + ', channel token: ' + _siteChannelToken);
@@ -1773,8 +1774,7 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 			})
 			.then(function (result) {
 				if (result.err) {
-					_indexSiteEnd(done);
-					return;
+					return Promise.reject();
 				}
 				console.log(' - query channel');
 				var policyId = result && result.length > 0 ? result[0].localizationPolicy : undefined;
@@ -1793,8 +1793,7 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 				// Get Localization policy
 				//
 				if (result.err) {
-					_indexSiteEnd(done);
-					return;
+					return Promise.reject();
 				}
 				var policy = result && result[0] || {};
 				console.log(' - site localization policy: ' + policy.name);
@@ -1808,8 +1807,7 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 				// Get repository 
 				// 
 				if (result.err) {
-					_indexSiteEnd(done);
-					return;
+					return Promise.reject();
 				}
 				repository = result;
 				console.log(' - query site repository');
@@ -1823,7 +1821,7 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 
 				if (result.err) {
 					console.log('ERROR: ' + result.err);
-					_indexSiteEnd(done);
+					return Promise.reject();
 				}
 				console.log(' - query content type ' + contenttype);
 				var repsotiroyContentTypes = repository && repository.contentTypes;
@@ -1838,8 +1836,7 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 				}
 				if (!pageIndexInRepository) {
 					console.log('ERROR: content type ' + contenttype + ' is not in repository ' + repository.name);
-					_indexSiteEnd(done);
-					return;
+					return Promise.reject();
 				}
 
 				return _getContentTypeFields(request, localhost, contenttype);
@@ -1850,11 +1847,13 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 				//
 
 				if (result.err) {
-					_indexSiteEnd(done);
+					return Promise.reject();
 				}
-				_validatePageIndexFields(done, contenttype, result, done);
-
-				return _getSiteStructure(request, localhost, site);
+				if (_validatePageIndexFields(done, contenttype, result, done)) {
+					return _getSiteStructure(request, localhost, site);
+				} else {
+					return Promise.reject();
+				}
 			})
 			.then(function (result) {
 				// 
@@ -1862,15 +1861,14 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 				//
 
 				if (result.err) {
-					_indexSiteEnd(done);
-					return;
+					return Promise.reject();
 				}
 				siteStructure = result;
 				console.log(' - query site structure');
 				pages = siteStructure && siteStructure.base && siteStructure.base.pages;
 				if (!pages || pages.length === 0) {
 					console.log('ERROR: no page found');
-					_indexSiteEnd(done);
+					return Promise.reject();
 				}
 				_masterSiteStructure = siteStructure;
 
@@ -1933,9 +1931,13 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 					return resolve({});
 				}
 
+			})
+			.catch((error) => {
+				_indexSiteEnd(done);
 			});
 
 	}); // site info
+	
 
 
 	return dataPromise;
@@ -1948,8 +1950,7 @@ var _indexSiteWithLocale = function (server, request, localhost, site, contentty
 		var siteStructurePromise = _getSiteStructure(request, localhost, site, locale, isMaster, queriedStructure);
 		siteStructurePromise.then(function (result) {
 			if (result.err) {
-				_indexSiteEnd(done);
-				return;
+				return Promise.reject();
 			}
 			var siteStructure = result;
 			if (!queriedStructure) {
@@ -2063,8 +2064,7 @@ var _indexSite = function (server, request, localhost, site, contenttype, publis
 	var dataPromise = _prepareData(server, request, localhost, site, contenttype, publish, done);
 	dataPromise.then(function (result) {
 		if (result.err) {
-			_indexSiteEnd(done);
-			return;
+			return Promise.reject();
 		}
 
 		// index master site
@@ -2172,7 +2172,10 @@ var _indexSite = function (server, request, localhost, site, contenttype, publis
 
 		}); // index site in one master / locale
 
-	}); // prepare data
+	}) // prepare data
+	.catch((error) => {
+		_indexSiteEnd(done, localServer);
+	});
 
 };
 
@@ -2601,7 +2604,7 @@ module.exports.indexSite = function (argv, done) {
 		});
 
 
-		var localServer = app.listen(0, function () {
+		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
 
@@ -2623,7 +2626,7 @@ module.exports.indexSite = function (argv, done) {
 							var csrfToken = result && result.token;
 							if (!csrfToken) {
 								console.log('ERROR: Failed to get CSRF token');
-								_indexSiteEnd(done);
+								return Promise.reject();
 							}
 							console.log(' - get CSRF token');
 							_CSRFToken = csrfToken;
@@ -2634,12 +2637,15 @@ module.exports.indexSite = function (argv, done) {
 					if (total >= 10) {
 						clearInterval(inter);
 						console.log('ERROR: disconnect from the server, try again');
-						_indexSiteEnd(done);
+						return Promise.reject();
 					}
 				});
 			}, 6000);
 
 		});
 
+	})
+	.catch((error) => {
+		_indexSiteEnd(done);
 	});
 };

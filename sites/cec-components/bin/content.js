@@ -43,7 +43,6 @@ var verifyRun = function (argv) {
 
 var _cmdEnd = function (done) {
 	done();
-	process.exit(0);
 };
 
 module.exports.downloadContent = function (argv, done) {
@@ -109,7 +108,6 @@ module.exports.downloadContent = function (argv, done) {
 		if (!channelId) {
 			console.log('ERROR: channel ' + channel + ' does not exist');
 			done();
-			process.exit(0);
 			return;
 		}
 
@@ -636,21 +634,24 @@ module.exports.uploadContent = function (argv, done) {
 			var templatepath = path.join(templatesSrcDir, name);
 			if (!fs.existsSync(templatepath)) {
 				console.log('ERROR: template folder ' + templatepath + ' does not exist');
-				_cmdEnd(done);
+				done();
+				return;
 			}
 
 			// check if the template has content
 			contentpath = path.join(templatepath, 'assets', 'contenttemplate');
 			if (!fs.existsSync(contentpath)) {
 				console.log('ERROR: template ' + name + ' does not have content');
-				_cmdEnd(done);
+				done();
+				return;
 			}
 			contentfilename = name + '_export.zip';
 		} else {
 			contentpath = path.join(contentSrcDir, name);
 			if (!fs.existsSync(contentpath)) {
 				console.log('ERROR: content folder ' + contentpath + ' does not exist');
-				_cmdEnd(done);
+				done();
+				return;
 			}
 			contentfilename = name + '.zip';
 		}
@@ -673,13 +674,13 @@ module.exports.uploadContent = function (argv, done) {
 		var repositoryPromise = serverUtils.getRepositoryFromServer(request, server, repositoryName);
 		repositoryPromise.then(function (result) {
 				if (!result || result.err) {
-					_cmdEnd(done);
+					return Promise.reject();
 				}
 
 				repository = result.data;
 				if (!repository || !repository.id) {
 					console.log('ERROR: repository ' + repositoryName + ' does not exist');
-					_cmdEnd(done);
+					return Promise.reject();
 				}
 
 				repositoryId = repository.id;
@@ -696,7 +697,7 @@ module.exports.uploadContent = function (argv, done) {
 				//
 				if (results.length > 0) {
 					if (results[0].err) {
-						_cmdEnd(done);
+						return Promise.reject();
 					}
 
 					var collections = results[0] && results[0].data;
@@ -709,7 +710,7 @@ module.exports.uploadContent = function (argv, done) {
 
 					if (!collectionId) {
 						console.log('ERROR: collection ' + collectionName + ' does not exist in repository ' + repositoryName);
-						_cmdEnd(done);
+						return Promise.reject();
 					}
 
 					console.log(' - get collection');
@@ -723,7 +724,7 @@ module.exports.uploadContent = function (argv, done) {
 				// Get channel
 				//
 				if (!result || result.err) {
-					_cmdEnd(done);
+					return Promise.reject();
 				}
 
 				var channels = result.channels || [];
@@ -753,7 +754,7 @@ module.exports.uploadContent = function (argv, done) {
 				//
 				if (results.length > 0) {
 					if (results[0].err) {
-						_cmdEnd(done);
+						return Promise.reject();
 					}
 
 					console.log(' - create channel ' + channelName);
@@ -788,7 +789,7 @@ module.exports.uploadContent = function (argv, done) {
 				//
 				if (results.length > 0) {
 					if (results[0].err) {
-						_cmdEnd(done);
+						return Promise.reject();
 					}
 
 					console.log(' - add channel ' + channelName + ' to repository ' + repositoryName);
@@ -810,7 +811,10 @@ module.exports.uploadContent = function (argv, done) {
 				}).then(function (result) {
 					_cmdEnd(done);
 				});
-			}); // get repository
+			}) // get repository
+			.catch((error) => {
+				_cmdEnd(done);
+			});
 
 	} catch (err) {
 		console.log(err);
@@ -870,7 +874,7 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 						err: 'err'
 					});
 				}
-				console.log(' - submit import job' + (updateContent ? ', updating content': ''));
+				console.log(' - submit import job' + (updateContent ? ', updating content' : ''));
 
 				// Wait for job to finish
 				var inter = setInterval(function () {
@@ -1017,7 +1021,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 		});
 		chanelsPromise.then(function (result) {
 				if (result.err) {
-					return cmdEnd(done);
+					return Promise.reject();
 				}
 
 				var channels = result || [];
@@ -1031,7 +1035,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 
 				if (!channelId) {
 					console.log('ERROR: channel ' + channelName + ' does not exist');
-					return cmdEnd(done);
+					return Promise.reject();
 				}
 
 				//
@@ -1045,7 +1049,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 			})
 			.then(function (result) {
 				if (result.err) {
-					return cmdEnd(done);
+					return Promise.reject();
 				}
 
 				channel = result;
@@ -1074,7 +1078,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 			})
 			.then(function (result) {
 				if (result.err) {
-					return cmdEnd(done);
+					return Promise.reject();
 				}
 
 				var items = result || [];
@@ -1114,12 +1118,12 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 
 				if (action === 'publish' && toPublishItemIds.length === 0) {
 					console.log(' - no item to publish');
-					return cmdEnd(done);
+					return Promise.reject();
 				}
 
 				if (action === 'unpublish' && !hasPublishedItems) {
 					console.log(' - all items are already draft');
-					return cmdEnd(done);
+					return Promise.reject();
 				}
 
 				if (action === 'publish') {
@@ -1147,7 +1151,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 								console.log('ERROR: removing items from channel');
 								return cmdEnd(done);
 							}
-							console.log(' - remove items from channel submitted');
+							console.log(' - ' + itemIds.length + ' items removed from channel');
 							return cmdSuccess(done);
 						});
 					});
@@ -1155,6 +1159,9 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					console.log('ERROR: action ' + action + ' not supported');
 					return cmdEnd(done);
 				}
+			})
+			.catch((error) => {
+				cmdEnd(done);
 			});
 
 	} catch (e) {

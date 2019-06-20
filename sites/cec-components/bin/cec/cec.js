@@ -135,6 +135,10 @@ var getThemeActions = function () {
 	return actions;
 };
 
+var getRepositoryActions = function () {
+	const actions = ['add-type', 'remove-type', 'add-channel', 'remove-channel'];
+	return actions;
+};
 /*********************
  * Command definitions
  **********************/
@@ -630,9 +634,9 @@ const listResources = {
 	alias: 'l',
 	name: 'list',
 	usage: {
-		'short': 'Lists local and server resources.',
+		'short': 'Lists local or server resources.',
 		'long': (function () {
-			let desc = 'Lists local or CEC server resources such components and templates. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -t <types> to list specific types of resources on the CEC server. ' +
+			let desc = 'Lists local or server resources such components and templates. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -t <types> to list specific types of resources on the CEC server. ' +
 				os.EOL + os.EOL + 'Valid values for <types> on the server are: ' + os.EOL +
 				'  channels' + os.EOL +
 				'  components' + os.EOL +
@@ -645,6 +649,7 @@ const listResources = {
 	},
 	example: [
 		['cec list', 'List all local resources'],
+		['cec list -s', 'List resources on the server specified in $HOME/gradle.properties file'],
 		['cec list -t components,channels -s', 'List components and channels on the server specified in $HOME/gradle.properties file'],
 		['cec list -t components,channels -s UAT', 'List components and channels on the registered server UAT']
 	]
@@ -778,6 +783,93 @@ const createRSSFeed = {
 		['cec create-rss-feed Site1 -u http://www.example.com/site1 -q \'type eq "BlogType"\' -l 10 -o name:asc -t "Blog RSS"'],
 		['cec create-rss-feed Site1 -u http://www.example.com/site1 -q \'type eq "BlogType"\' -l 10 -o name:asc -t "Blog RSS" -x ~/Files/RSSTemplate.xml'],
 		['cec create-rss-feed Site1 -u http://www.example.com/site1 -q \'type eq "BlogType"\' -l 10 -o name:asc -t "Blog RSS" -x ~/Files/RSSTemplate.xml -i fr-FR -f rssfrFR.xml']
+	]
+};
+
+const createRepository = {
+	command: 'create-repository <name>',
+	alias: 'cr',
+	name: 'create-repository',
+	usage: {
+		'short': 'Creates a repository on CEC server.',
+		'long': (function () {
+			let desc = 'Creates a repository on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. ' +
+				'Optionally specify -d <description> to set the description. ' +
+				'Optionally specify -t <contenttypes> to set the content types. ' +
+				'Optionally specify -c <channels> to set the publishing channels. ' +
+				'Optionally specify -l <defaultlanguage> to set the default language.'
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-repository Repo1'],
+		['cec create-repository Repo1 -d "Blog Repository" -t BlogType,AuthorType -c channel1,channel2 -l en-US -s UAT']
+	]
+};
+
+const controlRepository = {
+	command: 'control-repository <action>',
+	alias: 'ctr',
+	name: 'control-repository',
+	usage: {
+		'short': 'Performs action <action> on repository on CEC server.',
+		'long': (function () {
+			let desc = 'Performs action <action> on repository on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. ' +
+				'The valid actions are\n\n';
+			return getRepositoryActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec control-repository add-type -r Repo1 -t Blog,Author'],
+		['cec control-repository add-type -r Repo1 -t Blog,Author -s UAT'],
+		['cec control-repository remove-type -r Repo1 -t Blog,Author'],
+		['cec control-repository add-channel -r Repo1 -c channel1,channel2'],
+		['cec control-repository remove-channel -r Repo1 -c channel1,channel2']
+	]
+};
+
+const createChannel = {
+	command: 'create-channel <name>',
+	alias: 'cch',
+	name: 'create-channel',
+	usage: {
+		'short': 'Creates a channel on CEC server.',
+		'long': (function () {
+			let desc = 'Creates a channel on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. ' +
+				'Optionally specify -t <type> to set the channel type [public | secure], defaults to public. ' +
+				'Optionally specify -p <publishpolicy> to set the publish policy [anythingPublished | onlyApproved], defaults to anythingPublished. ' +
+				'Optionally specify -l <localizationpolicy> to set the localization policy.'
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-channel channel1', 'Create public channel channel1 and everything can be published'],
+		['cec create-channel channel1 -s UAT', 'On registered server UAT, reate public channel channel1 and everything can be published'],
+		['cec create-channel channel1 -l en-fr', 'Create public channel channel1 with localization policy en-fr and everything can be published'],
+		['cec create-channel channel1 -t secure -p onlyApproved', 'Create secure channel channel1 and only approved items can be published']
+	]
+};
+
+const createLocalizationPolicy = {
+	command: 'create-localization-policy <name>',
+	alias: 'clp',
+	name: 'create-localization-policy',
+	usage: {
+		'short': 'Creates a localization policy on CEC server.',
+		'long': (function () {
+			let desc = 'Creates a localization policy on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. ' +
+				'Specify -r <requiredlanguages> to set the required languages. ' +
+				'Specify -l <defaultlanguage> to set the default language.' +
+				'Optionally specify -o <optionallanguages> to set the optional languages. ' +
+				'Optionally specify -d <description> to set the description. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-localization-policy en-us -r en-US -l en-US'],
+		['cec create-localization-policy en-fr -r en-US,fr-FR -l en-US'],
+		['cec create-localization-policy multi -r en-US,fr-FR -l en-US -o zh-CN -d "Policy for Blog" -s UAT']
+
 	]
 };
 
@@ -1057,6 +1149,12 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(downloadContent) + os.EOL +
 	_getCmdHelp(uploadContent) + os.EOL +
 	_getCmdHelp(controlContent) + os.EOL;
+
+_usage = _usage + os.EOL + 'Assets' + os.EOL +
+	_getCmdHelp(createRepository) + os.EOL +
+	_getCmdHelp(controlRepository) + os.EOL +
+	_getCmdHelp(createChannel) + os.EOL +
+	_getCmdHelp(createLocalizationPolicy) + os.EOL;
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(listTranslationJobs) + os.EOL +
@@ -1635,6 +1733,7 @@ const argv = yargs.usage(_usage)
 				.example(...listResources.example[0])
 				.example(...listResources.example[1])
 				.example(...listResources.example[2])
+				.example(...listResources.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -1896,6 +1995,147 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${createRSSFeed.command}\n\n${createRSSFeed.usage.long}`);
+		})
+	.command([createRepository.command, createRepository.alias], false,
+		(yargs) => {
+			yargs.option('description', {
+					alias: 'd',
+					description: 'The description for the repository'
+				})
+				.option('contenttypes', {
+					alias: 't',
+					description: 'The comma separated list of content types for the repository'
+				})
+				.option('channels', {
+					alias: 'c',
+					description: 'The comma separated list of publishing channels to use in this repository'
+				})
+				.option('defaultlanguage', {
+					alias: 'l',
+					description: 'The default language'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.example(...createRepository.example[0])
+				.example(...createRepository.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createRepository.command}\n\n${createRepository.usage.long}`);
+		})
+	.command([controlRepository.command, controlRepository.alias], false,
+		(yargs) => {
+			yargs.check((argv) => {
+					if (argv.action && !getRepositoryActions().includes(argv.action)) {
+						throw new Error(`${argv.action} is a not a valid value for <action>`);
+					} else if ((argv.action === 'add-type' || argv.action === 'remove-type') && !argv.contenttypes) {
+						throw new Error(`<contenttypes> is required for ${argv.action}`);
+					} else if ((argv.action === 'add-channel' || argv.action === 'remove-channel') && !argv.channels) {
+						throw new Error(`<channels> is required for ${argv.action}`);
+					} else {
+						return true;
+					}
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'Repository',
+					demandOption: true
+				})
+				.option('contenttypes', {
+					alias: 't',
+					description: 'The comma separated list of content types to add to the repository'
+				})
+				.option('channels', {
+					alias: 'c',
+					description: 'The comma separated list of publishing channels to add to the repository'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.example(...controlRepository.example[0])
+				.example(...controlRepository.example[1])
+				.example(...controlRepository.example[2])
+				.example(...controlRepository.example[3])
+				.example(...controlRepository.example[4])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${controlRepository.command}\n\n${controlRepository.usage.long}`);
+		})
+	.command([createChannel.command, createChannel.alias], false,
+		(yargs) => {
+			yargs.option('description', {
+					alias: 'd',
+					description: 'The description for the channel'
+				})
+				.option('type', {
+					alias: 't',
+					description: 'The channel type [public | secure]'
+				})
+				.option('publishpolicy', {
+					alias: 'p',
+					description: 'The publish policy [anythingPublished | onlyApproved]'
+				})
+				.option('localizationpolicy', {
+					alias: 'l',
+					description: 'The localization policy for the channel'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.check((argv) => {
+					if (argv.type && argv.type !== 'public' && argv.type !== 'secure') {
+						throw new Error(`${argv.type} is a not a valid value for <type>`);
+					} else if (argv.publishpolicy && argv.publishpolicy !== 'anythingPublished' && argv.publishpolicy !== 'onlyApproved') {
+						throw new Error(`${argv.publishpolicy} is a not a valid value for <publishpolicy>`);
+					} else {
+						return true;
+					}
+				})
+				.example(...createChannel.example[0])
+				.example(...createChannel.example[1])
+				.example(...createChannel.example[2])
+				.example(...createChannel.example[3])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createChannel.command}\n\n${createChannel.usage.long}`);
+		})
+	.command([createLocalizationPolicy.command, createLocalizationPolicy.alias], false,
+		(yargs) => {
+			yargs.option('requiredlanguages', {
+					alias: 'r',
+					description: 'The comma separated list of required languages for the localization policy',
+					demandOption: true
+				})
+				.option('defaultlanguage', {
+					alias: 'l',
+					description: 'The default language',
+					demandOption: true
+				})
+				.option('optionallanguages', {
+					alias: 'o',
+					description: 'The comma separated list of optional languages for the localization policy'
+				})
+				.option('description', {
+					alias: 'd',
+					description: 'The description for the repository'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.example(...createLocalizationPolicy.example[0])
+				.example(...createLocalizationPolicy.example[1])
+				.example(...createLocalizationPolicy.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createLocalizationPolicy.command}\n\n${createLocalizationPolicy.usage.long}`);
 		})
 	.command([listTranslationJobs.command, listTranslationJobs.alias], false,
 		(yargs) => {
@@ -2844,6 +3084,103 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		createRSSFeedArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createRSSFeedArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createRepository.name || argv._[0] === createRepository.alias) {
+	let createRepositoryArgs = ['run', '-s', createRepository.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.description) {
+		createRepositoryArgs.push(...['--description', argv.description]);
+	}
+	if (argv.contenttypes) {
+		createRepositoryArgs.push(...['--contenttypes', argv.contenttypes]);
+	}
+	if (argv.channels) {
+		createRepositoryArgs.push(...['--channels', argv.channels]);
+	}
+	if (argv.defaultlanguage) {
+		createRepositoryArgs.push(...['--defaultlanguage', argv.defaultlanguage]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createRepositoryArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createRepositoryArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === controlRepository.name || argv._[0] === controlRepository.alias) {
+	let controlRepositoryArgs = ['run', '-s', controlRepository.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--action', argv.action,
+		'--repository', argv.repository
+	];
+	
+	if (argv.contenttypes) {
+		controlRepositoryArgs.push(...['--contenttypes', argv.contenttypes]);
+	}
+	if (argv.channels) {
+		controlRepositoryArgs.push(...['--channels', argv.channels]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		controlRepositoryArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, controlRepositoryArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createChannel.name || argv._[0] === createChannel.alias) {
+	let createChannelArgs = ['run', '-s', createChannel.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.description) {
+		createChannelArgs.push(...['--description', argv.description]);
+	}
+	if (argv.type) {
+		createChannelArgs.push(...['--type', argv.type]);
+	}
+	if (argv.publishpolicy) {
+		createChannelArgs.push(...['--publishpolicy', argv.publishpolicy]);
+	}
+	if (argv.localizationpolicy) {
+		createChannelArgs.push(...['--localizationpolicy', argv.localizationpolicy]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createChannelArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createChannelArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createLocalizationPolicy.name || argv._[0] === createLocalizationPolicy.alias) {
+	let createLocalizationPolicyArgs = ['run', '-s', createLocalizationPolicy.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--requiredlanguages', argv.requiredlanguages,
+		'--defaultlanguage', argv.defaultlanguage
+	];
+	if (argv.description) {
+		createLocalizationPolicyArgs.push(...['--description', argv.description]);
+	}
+	if (argv.optionallanguages) {
+		createLocalizationPolicyArgs.push(...['--optionallanguages', argv.optionallanguages]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createLocalizationPolicyArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createLocalizationPolicyArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

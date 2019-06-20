@@ -84,6 +84,12 @@ var _isNewSource = function (currPath) {
 	return newSrc;
 };
 
+var _closeServer = function (localServer) {
+	if (localServer) {
+		localServer.close();
+	}
+};
+
 /**
  * Get server and credentials from gradle properties
  */
@@ -1547,6 +1553,7 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 				if (err) {
 					console.log('ERROR: Failed to get user id ');
 					console.log(err);
+					_closeServer(localServer);
 					return resolve({
 						err: 'err'
 					});
@@ -1561,6 +1568,7 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 					var queryFolderPromise = _queryFolderId(request, server, localhost, folder);
 					queryFolderPromise.then(function (result) {
 						if (result.err) {
+							_closeServer(localServer);
 							return resolve({
 								err: 'err'
 							});
@@ -1574,6 +1582,7 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 						var fileId;
 						request.get(options, function (err, response, body) {
 							if (err) {
+								_closeServer(localServer);
 								console.log('ERROR: Failed to get personal files');
 								console.log(err);
 								return resolve({
@@ -1588,6 +1597,7 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 
 							if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 								console.log('ERROR: Failed to get personal files ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+								_closeServer(localServer);
 								return resolve({
 									err: 'err'
 								});
@@ -1596,6 +1606,7 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 							var dRoleName = data.LocalData.dRoleName;
 							if (dRoleName !== 'owner' && dRoleName !== 'manager' && dRoleName !== 'contributor') {
 								console.log('ERROR: no permission to upload to ' + (folder ? 'folder ' + folder : 'home folder'));
+								_closeServer(localServer);
 								return resolve({
 									err: 'err'
 								});
@@ -1611,6 +1622,7 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 
 							request.post(uploadUrl, function (err, response, body) {
 								if (err) {
+									_closeServer(localServer);
 									console.log('ERROR: Failed to upload');
 									console.log(err);
 									return resolve({
@@ -1622,10 +1634,11 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 									var version = data && data.LocalData && data.LocalData.dRevLabel;
 									console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + version);
 									localServer.close(function () {
-										// console.log(' - close local server: ' + port);
+										//console.log(' - close local server: ' + port);
 										return resolve(data);
 									});
 								} else {
+									_closeServer(localServer);
 									console.log(' - failed to upload: ' + response.statusCode);
 									return resolve({
 										err: 'err'
@@ -2148,6 +2161,7 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 					total += 1;
 					if (total >= 10) {
 						clearInterval(inter);
+						_closeServer(localServer);
 						console.log('ERROR: disconnect from the server, try again');
 						return resolve({});
 					}
@@ -2158,6 +2172,7 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 				var queryFolderPromise = _queryFolderId(request, server, localhost, folder);
 				queryFolderPromise.then(function (result) {
 					if (result.err) {
+						_closeServer(localServer);
 						return resolve({
 							err: 'err'
 						});
@@ -2168,6 +2183,7 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 
 					request.get(url, function (err, response, body) {
 						if (err) {
+							_closeServer(localServer);
 							console.log('ERROR: Failed to get personal files ');
 							console.log(err);
 							return resolve({});
@@ -2178,6 +2194,7 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 						} catch (e) {}
 
 						if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+							_closeServer(localServer);
 							console.log('ERROR: Failed to get personal files ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 							return resolve({
 								err: 'err'
@@ -2186,6 +2203,7 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 
 						var dRoleName = data.LocalData.dRoleName;
 						if (dRoleName !== 'owner' && dRoleName !== 'manager' && dRoleName !== 'contributor') {
+							_closeServer(localServer);
 							console.log('ERROR: no permission to upload to ' + (folder ? 'folder ' + folder : 'home folder'));
 							return resolve({
 								err: 'err'
@@ -2210,6 +2228,7 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 
 						// Execute parallelly
 						Promise.all(importsPromise).then(function (values) {
+							_closeServer(localServer);
 							// All done
 							resolve({});
 						});
