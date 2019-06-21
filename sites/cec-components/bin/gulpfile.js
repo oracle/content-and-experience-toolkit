@@ -11,6 +11,7 @@ var gulp = require('gulp'),
 	componentlib = require('./component.js'),
 	contentlayoutlib = require('./contentlayout.js'),
 	contentlib = require('./content.js'),
+	doclib = require('./document.js'),
 	resourcelib = require('./resource.js'),
 	rsslib = require('./rss.js'),
 	templatelib = require('./template.js'),
@@ -166,6 +167,15 @@ gulp.task('develop', function (done) {
 		stdio: 'inherit'
 	});
 	done();
+});
+
+/**
+ * Create folder
+ */
+gulp.task('create-folder', function (done) {
+	'use strict';
+
+	doclib.createFolder(argv, done);
 });
 
 /**

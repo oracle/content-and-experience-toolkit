@@ -554,7 +554,7 @@ app.get('/public/translationconnections', function (req, res) {
 
 app.get('/translationconnections*', function (req, res) {
 	"use strict";
-	
+
 	var connectionName = req.path.replace('/translationconnections', '');
 	if (!connectionName || connectionName.indexOf('/') < 0) {
 		// no connector name specified
@@ -568,7 +568,7 @@ app.get('/translationconnections*', function (req, res) {
 
 	var testpage = path.join(testDir, 'public', 'testconnector.html');
 	console.log(' - filePath=' + testpage);
-	
+
 	res.sendFile(testpage);
 });
 
@@ -828,11 +828,21 @@ function authenticateUserOnPodEC(params) {
 			console.log('Go to ' + tokenurl);
 			await page.goto(tokenurl);
 			try {
-				await page.waitForSelector('pre');
+				await page.waitForSelector('pre', {
+					timeout: 120000
+				});
 			} catch (err) {
-				console.log('Failed to connect to the server to get the OAuth token');
-				await browser.close();
-				params.onfailure.apply(null, null);
+				console.log('Failed to connect to the server to get the OAuth token the first time');
+
+				await page.goto(tokenurl);
+				try {
+					await page.waitForSelector('pre'); // smaller timeout
+				} catch (err) {
+					console.log('Failed to connect to the server to get the OAuth token the second time');
+
+					await browser.close();
+					params.onfailure.apply(null, null);
+				}
 			}
 
 			//await page.screenshot({path: '/tmp/puppeteer.png'});

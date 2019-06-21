@@ -1890,7 +1890,25 @@ var _loginToPODServer = function (server) {
 				// get OAuth token
 				var tokenurl = server.url + '/documents/web?IdcService=GET_OAUTH_TOKEN';
 				await page.goto(tokenurl);
-				await page.waitForSelector('pre');
+				try {
+					await page.waitForSelector('pre', {
+						timeout: 120000
+					});
+				} catch (err) {
+					console.log('Failed to connect to the server to get the OAuth token the first time');
+
+					await page.goto(tokenurl);
+					try {
+						await page.waitForSelector('pre'); // smaller timeout
+					} catch (err) {
+						console.log('Failed to connect to the server to get the OAuth token the second time');
+
+						await browser.close();
+						return resolve({
+							'status': false
+						});
+					}
+				}
 
 				var result = await page.evaluate(() => document.querySelector('pre').textContent);
 				var token = '';
@@ -3122,7 +3140,7 @@ module.exports.browseComponentsOnServer = function (request, server) {
 		};
 
 		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_APPS';
-		
+
 		var options = {
 			method: 'GET',
 			url: url,
@@ -3161,7 +3179,7 @@ module.exports.browseComponentsOnServer = function (request, server) {
 					comps[j][attr] = rows[j][i];
 				}
 			}
-			
+
 			// add metadata
 			var mFields = data.ResultSets && data.ResultSets.dAppMetaCollection && data.ResultSets.dAppMetaCollection.fields || [];
 			var mRows = data.ResultSets && data.ResultSets.dAppMetaCollection && data.ResultSets.dAppMetaCollection.rows || [];
@@ -3260,7 +3278,7 @@ module.exports.browseThemesOnServer = function (request, server, params) {
 					themes[j][attr] = rows[j][i];
 				}
 			}
-			
+
 			resolve({
 				data: themes
 			});

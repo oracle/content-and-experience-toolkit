@@ -6,6 +6,12 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.2.3b
+
+**Added**
+- `cec control-repository` -- support for add-type, remove-type, add-channel, remove-channel
+- `cec create-folder` -- create folder in CEC server by name or path
+
 # New in Release 19.2.3a
 
 **Added**

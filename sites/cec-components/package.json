@@ -1,6 +1,6 @@
 {
 	"name": "cec-components",
-	"version": "19.2.3a",
+	"version": "19.2.3b",
 	"license": "UPL-1.0",
 	"description": "Content and Experience Cloud custom components build system",
 	"main": "index.js",
@@ -12,6 +12,7 @@
 		"start": "node test/server.js",
 		"debug": "node --inspect --debug-brk test/server.js",
 		"check-version": "gulp --silent --gulpfile bin/gulpfile.js check-version ",
+		"create-folder": "gulp --silent --gulpfile bin/gulpfile.js create-folder ",
 		"create-component": "gulp --silent --gulpfile bin/gulpfile.js create-component ",
 		"copy-component": "gulp --silent --gulpfile bin/gulpfile.js copy-component ",
 		"import-component": "gulp --silent --gulpfile bin/gulpfile.js import-component ",

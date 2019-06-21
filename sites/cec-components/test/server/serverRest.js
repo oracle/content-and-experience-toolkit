@@ -78,7 +78,7 @@ module.exports.createFolder = function (args) {
 var _findOrCreateFolder = function (server, parentID, foldername) {
 	return new Promise(function (resolve, reject) {
 		// try to find the folder
-		_findFile(server, parentID, foldername).then(function (existingFolder) {
+		_findFile(server, parentID, foldername, false).then(function (existingFolder) {
 			// if we've found the folder, return it
 			if (existingFolder) {
 				return resolve(existingFolder);
@@ -87,6 +87,9 @@ var _findOrCreateFolder = function (server, parentID, foldername) {
 			// didn't find the folder, create it
 			_createFolder(server, parentID, foldername).then(function (newFolder) {
 				// return the created folder
+				if (newFolder) {
+					newFolder.__created = '1';
+				}
 				return resolve(newFolder);
 			});
 		});
@@ -140,7 +143,7 @@ module.exports.deleteFolder = function (args) {
 };
 
 // Find file by name with the parent folder
-var _findFile = function (server, parentID, filename) {
+var _findFile = function (server, parentID, filename, showError) {
 	return new Promise(function (resolve, reject) {
 		var client = new Client({
 				user: server.username,
@@ -148,7 +151,7 @@ var _findFile = function (server, parentID, filename) {
 			}),
 			url = server.url + '/documents/api/1.2/folders/' + parentID + '/items';
 
-		client.get(url, function (data, response) {
+		var req = client.get(url, function (data, response) {
 			// try to find the requested folder
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				// find the requested folder
@@ -161,8 +164,14 @@ var _findFile = function (server, parentID, filename) {
 			}
 
 			// folder not found
-			console.log('Failed to find File: ' + filename);
+			if (showError) {
+				console.log('Failed to find File: ' + filename);
+			}
 			return resolve();
+		});
+		req.on('error', function (err) {
+			console.log('ERROR: ' + err);
+			resolve();
 		});
 	});
 };
@@ -176,7 +185,7 @@ var _findFile = function (server, parentID, filename) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.findFile = function (args) {
-	return _findFile(_utils.getServer(args.currPath, args.registeredServerName), args.parentID, args.filename);
+	return _findFile(_utils.getServer(args.currPath, args.registeredServerName), args.parentID, args.filename, true);
 };
 
 
@@ -492,7 +501,7 @@ var _getChannels = function (server) {
 				user: server.username,
 				password: server.password
 			}),
-			url = server.url + '/content/management/api/v1.1/channels?limit=999';
+			url = server.url + '/content/management/api/v1.1/channels?limit=999&fields=all';
 
 		var req = client.get(url, function (data, response) {
 			if (response && response.statusCode === 200) {
@@ -504,7 +513,7 @@ var _getChannels = function (server) {
 				});
 			}
 		});
-		req.on("error", function (err) {
+		req.on('error', function (err) {
 			console.log('ERROR: ' + err);
 			resolve({
 				err: 'err'
@@ -798,7 +807,7 @@ var _getLocalizationPolicies = function (server) {
 				});
 			}
 		});
-		req.on("error", function (err) {
+		req.on('error', function (err) {
 			console.log('ERROR: ' + err);
 			resolve({
 				err: 'err'
@@ -899,7 +908,7 @@ var _getRepositories = function (server) {
 				});
 			}
 		});
-		req.on("error", function (err) {
+		req.on('error', function (err) {
 			console.log('ERROR: ' + err);
 			resolve({
 				err: 'err'

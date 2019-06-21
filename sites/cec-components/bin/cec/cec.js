@@ -1027,6 +1027,24 @@ const registerTranslationConnector = {
 	]
 };
 
+const createFolder = {
+	command: 'create-folder <name>',
+	alias: 'cf',
+	name: 'create-folder',
+	usage: {
+		'short': 'Create a folder or folder hierarchy on CEC server.',
+		'long': (function () {
+			let desc = 'Create a folder or folder hierarchy on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-folder Projects', 'Create folder Projects under the Home folder'],
+		['cec create-folder Projects/Blogs', 'Create folder Projects under the Home folder and folder Blogs under Projects'],
+		['cec create-folder Projects -s UAT', 'Create folder Projects under the Home folder on the registered server UAT']
+	]
+};
+
 const registerServer = {
 	command: 'register-server <name>',
 	alias: 'rs',
@@ -1107,6 +1125,9 @@ var _getCmdHelp = function (cmd) {
 var _usage = 'Usage: cec <command> [options] ' + os.EOL + os.EOL +
 	'Run \cec <command> -h\' to get the detailed help for the command.' + os.EOL + os.EOL +
 	'Commands:' + os.EOL;
+_usage = _usage + os.EOL + 'Documents' + os.EOL +
+	_getCmdHelp(createFolder) + os.EOL;
+
 _usage = _usage + os.EOL + 'Components' + os.EOL +
 	_getCmdHelp(createComponent) + os.EOL +
 	_getCmdHelp(copyComponent) + os.EOL +
@@ -2317,6 +2338,20 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${registerTranslationConnector.command}\n\n${registerTranslationConnector.usage.long}`);
 		})
+	.command([createFolder.command, createFolder.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...createFolder.example[0])
+				.example(...createFolder.example[1])
+				.example(...createFolder.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createFolder.command}\n\n${createFolder.usage.long}`);
+		})
 	.command([registerServer.command, registerServer.alias], false,
 		(yargs) => {
 			yargs
@@ -3122,7 +3157,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--action', argv.action,
 		'--repository', argv.repository
 	];
-	
+
 	if (argv.contenttypes) {
 		controlRepositoryArgs.push(...['--contenttypes', argv.contenttypes]);
 	}
@@ -3318,6 +3353,20 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		startTranslationConnectorArgs.push(...['--port', argv.port]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, startTranslationConnectorArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createFolder.name || argv._[0] === createFolder.alias) {
+	let createFolderArgs = ['run', '-s', createFolder.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createFolderArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createFolderArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
