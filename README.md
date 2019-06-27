@@ -12,6 +12,7 @@ Templates and resources for development platforms.
 - `cec upload-file` -- upload a file to CEC server
 
 **Updated**
+- `cec-components` -- folder no longer needed, upleveled contained files.
 - `README.MD` -- install instructions only need `npm install` now and then put `cec` on your path.
 
 # New in Release 19.2.3b
