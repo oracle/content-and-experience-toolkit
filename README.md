@@ -6,6 +6,14 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.2.3c
+
+**Added**
+- `cec upload-file` -- upload a file to CEC server
+
+**Updated**
+- `README.MD` -- install instructions only need `npm install` now and then put `cec` on your path.
+
 # New in Release 19.2.3b
 
 **Added**
