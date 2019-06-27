@@ -179,6 +179,16 @@ gulp.task('create-folder', function (done) {
 });
 
 /**
+ * Upload file
+ */
+gulp.task('upload-file', function (done) {
+	'use strict';
+
+	doclib.uploadFile(argv, done);
+});
+
+
+/**
  * Create component
  * Unzip the zip file of the seeded component and place into the /src
  */

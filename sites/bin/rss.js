@@ -489,6 +489,9 @@ var _getRSSDate = function (date) {
 
 var _pubishRSSFile = function (serverName, server, request, siteUrl, siteName, rssFile, done) {
 
+	var filename = rssFile;
+	filename = filename.substring(filename.lastIndexOf('/') + 1);
+	
 	var sitePromise = serverUtils.browseSitesOnServer(request, server);
 	sitePromise.then(function (result) {
 			if (result.err) {
@@ -540,9 +543,6 @@ var _pubishRSSFile = function (serverName, server, request, siteUrl, siteName, r
 			}
 			var seoFolderId = result.id;
 
-			var filename = rssFile;
-			filename = filename.substring(filename.lastIndexOf('/') + 1);
-
 			// upload file
 			return serverRest.createFile({
 				registeredServerName: serverName,
@@ -558,7 +558,7 @@ var _pubishRSSFile = function (serverName, server, request, siteUrl, siteName, r
 				return Promise.reject();
 			}
 
-			var rssFileUrl = siteUrl + '/' + result.name;
+			var rssFileUrl = siteUrl + '/' + filename;
 			console.log(' - site RSS feed uploaded, publish the site and access it at ' + rssFileUrl);
 			_cmdEnd(done);
 		})

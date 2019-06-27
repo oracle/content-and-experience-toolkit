@@ -7,53 +7,41 @@ To learn about developing components for Content and Experience Cloud, see the l
 ## Setup
 
 * Make sure `node` and `npm` are in your `PATH`.  Use NodeJS 8.0.0 or later.
-* Pull the source from the - Git Repository.  Open a terminal window and enter this command:
-
- ```
-	git clone git@github.com:oracle/content-and-experience.git
-```
-
-* Install the dependencies - In the project root `cec-components`, enter:
+* Download the OCE Toolkit - e.g. from GitHub - [link](https://github.com/oracle/content-and-experience-toolkit/archive/master.zip)
+* Install the dependencies
 
 ```
-cd toolkit/sites/cec-components
+cd  <download-path>/content-and-experience-toolkit/sites
 npm install
 ```
 
-* Install the `cec` command line utility:
+* Put `cec` on your path:
 
 > **Mac**:
 
 ```
-sudo npm run install-cec
+sudo ln -s $PWD/content-and-experience-toolkit/sites/node_modules/.bin/cec /usr/local/bin/cec
 ```
 
 > **Windows**:
 
-```
-npm run install-cec
-```
+Run `SystemPropertiesAdvanced.exe`, edit Environment Variables and add `<your download path>\content-and-experience-toolkit\sites\node_modules\.bin` to the `PATH` variable, replacing `<your download path>` as appropriate.
 
->Note: In Windows, If the `npm run install-cec` command fails, run the following commands:
-
+* Run the command line utility `cec` to get help about the commands.
+ 
 ```
-cd bin\cec
-npm install
-cd ..\..\
-npm run install-cec
+cec
 ```
-Run the command line utility `cec` to get help about the commands.
 
 * Start the local test harness to allow disconnected development of components, themes, templates, and content layouts:
  
 ```
-cd cec-components
 npm start
 ```
 
 * the runtime test harness can be accessed from the browser using address: [http://localhost:8085](http://localhost:8085)
 
-* Your components, themes, templates, layouts can all be found in `cec-components/src/main`
+* Your components, themes, templates, layouts can all be found in `src/main`
  
 ## Using a Content and Experience Cloud instance for local testing
 
@@ -62,7 +50,7 @@ The CEC instance can be used for the following things:
 * Testing components like Sample-File-List which access content
 * Generating Content Layouts from content types stored in CEC
 * Rendering Content Layouts using content from CEC
-* Exporting and Importing templates, and components from / to CEC into local cec-components
+* Exporting and Importing templates, and components from / to CEC into local file system
  
 The steps are as follows:
 
@@ -70,7 +58,7 @@ The steps are as follows:
  
 ```
 mkdir ~/.gradle 
-cp cec-components/gradle.properties ~/.gradle
+cp gradle.properties ~/.gradle
 ```
 
 * Edit `~/.gradle/gradle.properties` to point to your CEC instance.  Note for internal compute CEC instances, use `cec_env=pod`

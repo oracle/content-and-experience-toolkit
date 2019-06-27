@@ -1032,16 +1032,35 @@ const createFolder = {
 	alias: 'cf',
 	name: 'create-folder',
 	usage: {
-		'short': 'Create a folder or folder hierarchy on CEC server.',
+		'short': 'Creates a folder or folder hierarchy on CEC server.',
 		'long': (function () {
 			let desc = 'Create a folder or folder hierarchy on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec create-folder Projects', 'Create folder Projects under the Home folder'],
-		['cec create-folder Projects/Blogs', 'Create folder Projects under the Home folder and folder Blogs under Projects'],
-		['cec create-folder Projects -s UAT', 'Create folder Projects under the Home folder on the registered server UAT']
+		['cec create-folder Projects', 'Creates folder Projects under the Home folder'],
+		['cec create-folder Projects/Blogs', 'Creates folder Projects under the Home folder and folder Blogs under Projects'],
+		['cec create-folder Projects -s UAT', 'Creates folder Projects under the Home folder on the registered server UAT']
+	]
+};
+
+const uploadFile = {
+	command: 'upload-file <file>',
+	alias: 'ulf',
+	name: 'upload-file',
+	usage: {
+		'short': 'Uploads file <file> to CEC server.',
+		'long': (function () {
+			let desc = 'Uploads file <file> to CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. ' +
+				'Optionally specify -f <folder> to upload the file.';
+			return desc;
+		})()
+	},
+	example: [
+		['upload-file ~/Documents/Projects.pdf', 'Uploads the file to the Home folder'],
+		['upload-file ~/Documents/Projects.pdf -s UAT', 'Uploads the file to the Home folder on the registered server UAT'],
+		['upload-file ~/Documents/Projects.pdf -f Doc/Plan', 'Uploads the file to folder Doc/Plan']
 	]
 };
 
@@ -1126,7 +1145,8 @@ var _usage = 'Usage: cec <command> [options] ' + os.EOL + os.EOL +
 	'Run \cec <command> -h\' to get the detailed help for the command.' + os.EOL + os.EOL +
 	'Commands:' + os.EOL;
 _usage = _usage + os.EOL + 'Documents' + os.EOL +
-	_getCmdHelp(createFolder) + os.EOL;
+	_getCmdHelp(createFolder) + os.EOL +
+	_getCmdHelp(uploadFile) + os.EOL;
 
 _usage = _usage + os.EOL + 'Components' + os.EOL +
 	_getCmdHelp(createComponent) + os.EOL +
@@ -2352,6 +2372,24 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${createFolder.command}\n\n${createFolder.usage.long}`);
 		})
+	.command([uploadFile.command, uploadFile.alias], false,
+		(yargs) => {
+			yargs.option('folder', {
+					alias: 'f',
+					description: '<folder> Folder to upload the file'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...uploadFile.example[0])
+				.example(...uploadFile.example[1])
+				.example(...uploadFile.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${uploadFile.command}\n\n${uploadFile.usage.long}`);
+		})
 	.command([registerServer.command, registerServer.alias], false,
 		(yargs) => {
 			yargs
@@ -3367,6 +3405,23 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		createFolderArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createFolderArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === uploadFile.name || argv._[0] === uploadFile.alias) {
+	let uploadFileArgs = ['run', '-s', uploadFile.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--file', argv.file
+	];
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		uploadFileArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		uploadFileArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, uploadFileArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

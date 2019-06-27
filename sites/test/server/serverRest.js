@@ -142,8 +142,44 @@ module.exports.deleteFolder = function (args) {
 	return _deleteFolder(_utils.getServer(args.currPath, args.registeredServerName), args.fFolderGUID);
 };
 
+// Get child items with the parent folder
+var _getChildItems = function (server, parentID) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			url = server.url + '/documents/api/1.2/folders/' + parentID + '/items';
+
+		var req = client.get(url, function (data, response) {
+			// try to find the requested folder
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve(data);
+			} else {
+				console.log('ERROR: failed to get folder child items');
+				return resolve();
+			}
+		});
+		req.on('error', function (err) {
+			console.log('ERROR: ' + err);
+			resolve();
+		});
+	});
+};
+/**
+ * Get child items from server under the given parent
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.parentID The DOCS GUID for the folder to search
+ * @returns {array} The array of data object returned by the server.
+ */
+module.exports.getChildItems = function (args) {
+	return _getChildItems(_utils.getServer(args.currPath, args.registeredServerName), args.parentID);
+};
+
 // Find file by name with the parent folder
-var _findFile = function (server, parentID, filename, showError) {
+var _findFile = function (server, parentID, filename, showError, itemtype) {
 	return new Promise(function (resolve, reject) {
 		var client = new Client({
 				user: server.username,
@@ -165,7 +201,7 @@ var _findFile = function (server, parentID, filename, showError) {
 
 			// folder not found
 			if (showError) {
-				console.log('Failed to find File: ' + filename);
+				console.log('ERROR: failed to find ' + (itemtype ? itemtype : ' File') + ': ' + filename);
 			}
 			return resolve();
 		});
@@ -182,10 +218,11 @@ var _findFile = function (server, parentID, filename, showError) {
  * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
  * @param {string} args.parentID The DOCS GUID for the folder to search
  * @param {string} args.filename The name of the folder to find
+ * @param {string} args.itemtype The type of item ti find, folder or file
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.findFile = function (args) {
-	return _findFile(_utils.getServer(args.currPath, args.registeredServerName), args.parentID, args.filename, true);
+	return _findFile(_utils.getServer(args.currPath, args.registeredServerName), args.parentID, args.filename, true, args.itemtype);
 };
 
 
@@ -223,7 +260,7 @@ var _createFile = function (server, parentID, filename, contents) {
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(JSON.parse(response.body));
 			} else {
-				console.log('Failed to create file: ' + fFileGUID);
+				console.log('Failed to create file: ' + filename);
 				// continue 
 				resolve();
 			}
