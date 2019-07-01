@@ -29,7 +29,7 @@ var _getProjectRoot = function () {
 		var packageFile = path.join(projectRoot, 'package.json');
 		if (fs.existsSync(packageFile)) {
 			var packageJSON = JSON.parse(fs.readFileSync(packageFile));
-			if (packageJSON && (packageJSON.name === 'cec-components' || packageJSON.name === 'cec-sites-toolkit-source')) {
+			if (packageJSON && (packageJSON.name === 'cec-sites-toolkit' || packageJSON.name === 'cec-sites-toolkit-source')) {
 				isCEC = true;
 				break;
 			}
@@ -139,6 +139,17 @@ var getRepositoryActions = function () {
 	const actions = ['add-type', 'remove-type', 'add-channel', 'remove-channel'];
 	return actions;
 };
+
+var getFolderActions = function () {
+	const actions = ['share', 'unshare'];
+	return actions;
+};
+
+var getFolderRoles = function () {
+	const roles = ['manager', 'contributor', 'downloader', 'viewer'];
+	return roles;
+};
+
 /*********************
  * Command definitions
  **********************/
@@ -168,7 +179,7 @@ const copyComponent = {
 	usage: {
 		'short': 'Copies an existing component named <source> to <destination>.',
 		'long': (function () {
-			let desc = 'Copies an existing component named <source> to <destination>. <source> is a folder name from cec-components/src/main/components';
+			let desc = 'Copies an existing component named <source> to <destination>. <source> is a folder name from src/components';
 			return desc;
 		})()
 	},
@@ -325,7 +336,7 @@ const copyTemplate = {
 	usage: {
 		'short': 'Copies an existing template named <source> to <destination>.',
 		'long': (function () {
-			let desc = 'Copies an existing template named <source> to <destination>. <source> is a folder name from cec-components/src/main/templates';
+			let desc = 'Copies an existing template named <source> to <destination>. <source> is a folder name from src/templates';
 			return desc;
 		})()
 	},
@@ -1045,6 +1056,23 @@ const createFolder = {
 	]
 };
 
+const shareFolder = {
+	command: 'share-folder <name>',
+	alias: 'sf',
+	name: 'share-folder',
+	usage: {
+		'short': 'Share folder with users on CEC server.',
+		'long': (function () {
+			let desc = 'Share folder with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. The valid roles are\n\n';
+			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec share-folder Projects/Blogs -u user1,user2 -r manager', 'Share folder Projects/Blogs with user user1 and user2 and assign Manager role to them'],
+		['cec share-folder Projects/Blogs -u user1,user2 -r manager -s UAT', 'Share folder Projects/Blogs with user user1 and user2 and assign Manager role to them on the registered server UAT']
+	]
+};
+
 const uploadFile = {
 	command: 'upload-file <file>',
 	alias: 'ulf',
@@ -1092,7 +1120,7 @@ const install = {
 		'long': (function () {
 			let desc = 'Creates an initial source tree in the current directory.' + os.EOL + os.EOL +
 				'With cec install, your source can be in a separate directory to the cec command install files, ' +
-				'and you no longer need your source to be within a cec-components directory.' + os.EOL + os.EOL +
+				'and you no longer need your source to be within a sites-toolkit directory.' + os.EOL + os.EOL +
 				'Use cec develop to start a dev/test server for your source.  ' +
 				'Different ports can be used for the server, to enable multiple source trees to exist.';
 			return desc;
@@ -1146,6 +1174,7 @@ var _usage = 'Usage: cec <command> [options] ' + os.EOL + os.EOL +
 	'Commands:' + os.EOL;
 _usage = _usage + os.EOL + 'Documents' + os.EOL +
 	_getCmdHelp(createFolder) + os.EOL +
+	_getCmdHelp(shareFolder) + os.EOL +
 	_getCmdHelp(uploadFile) + os.EOL;
 
 _usage = _usage + os.EOL + 'Components' + os.EOL +
@@ -2372,6 +2401,36 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${createFolder.command}\n\n${createFolder.usage.long}`);
 		})
+	.command([shareFolder.command, shareFolder.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names',
+					demandOption: true
+				})
+				.option('role', {
+					alias: 'r',
+					description: 'The role [' + getFolderRoles().join(' | ') + '] to asign to the users',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.check((argv) => {
+					if (argv.role && !getFolderRoles().includes(argv.role)) {
+						throw new Error(`${argv.role} is a not a valid value for <role>`);
+					} else {
+						return true;
+					}
+				})
+				.example(...shareFolder.example[0])
+				.example(...shareFolder.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${shareFolder.command}\n\n${shareFolder.usage.long}`);
+		})
 	.command([uploadFile.command, uploadFile.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
@@ -2507,6 +2566,16 @@ if (argv._[0] === 'install' || argv._[0] === 'i') {
 		console.log(`A Content and Experience Cloud project already installed at ${projectRoot}`);
 		return;
 	}
+
+	if (projectRoot) {
+		var packageFile = path.join(projectRoot, 'package.json');
+		var packageJSON = JSON.parse(fs.readFileSync(packageFile));
+		if (packageJSON && packageJSON.name === 'cec-sites-toolkit') {
+			console.log(`You cannot install Content and Experience Cloud project at ${projectRoot}. Please install at a different location.`);
+			return;
+		}
+	}
+
 	let installArgs = ['run', '-s', 'install-src', '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd
@@ -3405,6 +3474,22 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		createFolderArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createFolderArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === shareFolder.name || argv._[0] === shareFolder.alias) {
+	let shareFolderArgs = ['run', '-s', shareFolder.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--users', argv.users,
+		'--role', argv.role
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		shareFolderArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, shareFolderArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

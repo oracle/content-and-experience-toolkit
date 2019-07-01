@@ -8,7 +8,7 @@ $.getJSON('/getsrcfolder', function (data) {
 	'use strict';
 
 	var srcfolder = data.srcfolder;
-	var libfolder = srcfolder === 'src' ? 'libs' : 'src/libs';
+	var libfolder = data.libsfolder;
 
 	requirejs.config({
 		'baseUrl': '.',

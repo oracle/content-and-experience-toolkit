@@ -32,11 +32,20 @@ Run `SystemPropertiesAdvanced.exe`, edit Environment Variables and add `<your do
 ```
 cec
 ```
+## Create an initial `src` directory
+Create an initial src directory in any location on your local file system to contain your CEC source.
+A `package.json` some dependencies, and src will be created.  You can use this a your starting point for CEC source and dependency inclusion.
 
+```
+mkdir cec-src
+cd cec-src
+cec install
+```
+ 
 * Start the local test harness to allow disconnected development of components, themes, templates, and content layouts:
  
 ```
-npm start
+cec develop
 ```
 
 * the runtime test harness can be accessed from the browser using address: [http://localhost:8085](http://localhost:8085)
@@ -54,14 +63,7 @@ The CEC instance can be used for the following things:
  
 The steps are as follows:
 
-* Create a `gradle.properties` file:
- 
-```
-mkdir ~/.gradle 
-cp gradle.properties ~/.gradle
-```
-
-* Edit `~/.gradle/gradle.properties` to point to your CEC instance.  Note for internal compute CEC instances, use `cec_env=pod`
+* Update `cec.properties` file to point to your CEC instance.  Note for internal compute CEC instances, use `cec_env=pod`
  
 ```
 cec_url=https://<documents-hostname>:443
@@ -70,5 +72,11 @@ cec_password=your.password
 cec_env=pod_ec
 ```
 
+`cec.properties` file will be loaded from your current working directory.  Alternatively, you can use an environment variable to specify the location.  E.g.:
+
+```
+# optional
+export CEC_PROPERTIES=~/my.properties
+```
 
 

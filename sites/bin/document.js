@@ -7,6 +7,8 @@
 
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
+	request = require('request'),
+	Client = require('node-rest-client').Client,
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	path = require('path');
@@ -76,6 +78,7 @@ var _createFolder = function (serverName, folderPath) {
 			if (foldername) {
 				folderPromises.push(function (parentID) {
 					return serverRest.findOrCreateFolder({
+						currPath: projectDir,
 						registeredServerName: serverName,
 						parentID: parentID,
 						foldername: foldername
@@ -202,6 +205,7 @@ var _findFolder = function (serverName, folderPath) {
 			if (foldername) {
 				folderPromises.push(function (parentID) {
 					return serverRest.findFile({
+						currPath: projectDir,
 						registeredServerName: serverName,
 						parentID: parentID,
 						filename: foldername,
@@ -241,3 +245,172 @@ var _findFolder = function (serverName, folderPath) {
 		})
 	});
 };
+
+module.exports.shareFolder = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	if (serverName) {
+		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
+		if (!fs.existsSync(serverpath)) {
+			console.log('ERROR: server ' + serverName + ' does not exist');
+			done();
+			return;
+		}
+	}
+
+	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+	if (!serverName) {
+		console.log(' - configuration file: ' + server.fileloc);
+	}
+	if (!server.url || !server.username || !server.password) {
+		console.log('ERROR: no server is configured in ' + server.fileloc);
+		done();
+		return;
+	}
+	console.log(' - server: ' + server.url);
+
+	var name = argv.name;
+	var folderPath = name.split('/');
+	var folderId;
+
+	var userNames = argv.users.split(',');
+	var role = argv.role;
+
+	var users = [];
+
+	_findFolder(serverName, folderPath).then(function (result) {
+			if (folderPath.length > 0 && !result) {
+				return Promise.reject();
+			}
+
+			if (result.id !== 'self' && (!result.type || result.type !== 'folder')) {
+				console.log('ERROR: invalid folder ' + argv.folder);
+				return Promise.reject();
+			}
+			folderId = result.id;
+
+			var usersPromises = [];
+			for (var i = 0; i < userNames.length; i++) {
+				usersPromises.push(serverRest.getUser({
+					currPath: projectDir,
+					registeredServerName: serverName,
+					name: userNames[i]
+				}));
+			}
+
+			return Promise.all(usersPromises);
+		})
+		.then(function (results) {
+			var allUsers = [];
+			for (var i = 0; i < results.length; i++) {
+				if (results[i].items) {
+					allUsers = allUsers.concat(results[i].items);
+				}
+			}
+			// verify users
+			for (var k = 0; k < userNames.length; k++) {
+				var found = false;
+				for (var i = 0; i < allUsers.length; i++) {
+					if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+						users.push(allUsers[i]);
+						found = true;
+						break;
+					}
+					if (found) {
+						break;
+					}
+				}
+				if (!found) {
+					console.log('ERROR: user ' + userNames[k] + ' does not exist');
+					return Promise.reject();
+				}
+			}
+
+			return _getFolderMembers(server, folderId);
+		})
+		.then(function (result) {
+			var existingMembers = result.items || [];
+
+			var sharePromises = [];
+			for (var i = 0; i < users.length; i++) {
+				var newMember = true;
+				for (var j = 0; j < existingMembers.length; j++) {
+					if (existingMembers[j].user.id === users[i].id) {
+						newMember = false;
+						break;
+					}
+				}
+				// console.log(' - user: ' + users[i].loginName + ' new grant: ' + newMember);
+				sharePromises.push(_shareFolder(server, folderId, users[i].id, role, newMember));
+			}
+			return Promise.all(sharePromises);
+		})
+		.then(function (results) {
+			for (var i = 0; i < results.length; i++) {
+				if (results[i].errorCode === '0') {
+					console.log(' - user ' + results[i].user.loginName + ' granted "' +
+						results[i].role + '" on folder ' + name);
+				} else {
+					console.log('ERROR: ' + results[i].title);
+				}
+			}
+			done();
+		})
+		.catch((error) => {
+			done();
+		});
+};
+
+var _shareFolder = function (server, folderId, userId, role, createNew) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			url = server.url + '/documents/api/1.2/shares/' + folderId,
+			args = {
+				headers: {
+					"Content-Type": "application/json"
+				},
+				data: {
+					'userID': userId,
+					'role': role
+				}
+			};
+
+		if (createNew) {
+			client.post(url, args, function (data, response) {
+				resolve(data);
+			});
+		} else {
+			url = url + '/role';
+			client.put(url, args, function (data, response) {
+				resolve(data);
+			});
+		}
+	});
+};
+
+var _getFolderMembers = function (server, folderId) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			url = server.url + '/documents/api/1.2/shares/' + folderId + '/items';
+
+		var req = client.get(url, function (data, response) {
+			resolve(data);
+		});
+		req.on('error', function (err) {
+			console.log('ERROR: ' + err);
+			resolve();
+		});
+	});
+}

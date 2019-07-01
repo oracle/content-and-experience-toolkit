@@ -179,6 +179,15 @@ gulp.task('create-folder', function (done) {
 });
 
 /**
+ * Share folder
+ */
+gulp.task('share-folder', function (done) {
+	'use strict';
+
+	doclib.shareFolder(argv, done);
+});
+
+/**
  * Upload file
  */
 gulp.task('upload-file', function (done) {

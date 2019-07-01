@@ -13,6 +13,7 @@ var express = require('express'),
 	app = express(),
 	os = require('os'),
 	fs = require('fs'),
+	fse = require('fs-extra'),
 	path = require('path'),
 	ps = require('ps-node'),
 	uuid4 = require('uuid/v4'),
@@ -49,8 +50,37 @@ module.exports.getSourceFolder = function (currPath) {
 	return _getSourceFolder(currPath);
 };
 var _getSourceFolder = function (currPath) {
-	var newSrc = _isNewSource(currPath);
-	var srcfolder = newSrc ? path.join(currPath, 'src') : path.join(currPath, 'src', 'main');
+	// var newSrc = _isNewSource(currPath);
+	// var srcfolder = newSrc ? path.join(currPath, 'src') : path.join(currPath, 'src', 'main');
+	var srcfolder = path.join(currPath, 'src');
+	if (!fs.existsSync(srcfolder)) {
+		fse.mkdirSync(srcfolder);
+	}
+	if (!fs.existsSync(path.join(srcfolder, 'components'))) {
+		fse.mkdirSync(path.join(srcfolder, 'components'));
+	}
+	if (!fs.existsSync(path.join(srcfolder, 'connections'))) {
+		fse.mkdirSync(path.join(srcfolder, 'connections'));
+	}
+	if (!fs.existsSync(path.join(srcfolder, 'connectors'))) {
+		fse.mkdirSync(path.join(srcfolder, 'connectors'));
+	}
+	if (!fs.existsSync(path.join(srcfolder, 'content'))) {
+		fse.mkdirSync(path.join(srcfolder, 'content'));
+	}
+	if (!fs.existsSync(path.join(srcfolder, 'servers'))) {
+		fse.mkdirSync(path.join(srcfolder, 'servers'));
+	}
+	if (!fs.existsSync(path.join(srcfolder, 'templates'))) {
+		fse.mkdirSync(path.join(srcfolder, 'templates'));
+	}
+	if (!fs.existsSync(path.join(srcfolder, 'theme'))) {
+		fse.mkdirSync(path.join(srcfolder, 'theme'));
+	}
+	if (!fs.existsSync(path.join(srcfolder, 'translationJobs'))) {
+		fse.mkdirSync(path.join(srcfolder, 'translationJobs'));
+	}
+	
 	return srcfolder;
 };
 
@@ -77,7 +107,7 @@ var _isNewSource = function (currPath) {
 	var packageFile = path.join(currPath, 'package.json');
 	if (fs.existsSync(packageFile)) {
 		var packageJSON = JSON.parse(fs.readFileSync(packageFile));
-		if (packageJSON && packageJSON.name === 'cec-components') {
+		if (packageJSON && packageJSON.name === 'cec-sites-toolkit') {
 			newSrc = false;
 		}
 	}

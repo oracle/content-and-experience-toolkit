@@ -1139,3 +1139,33 @@ var _getContentType = function (server, typeName) {
 module.exports.getContentType = function (args) {
 	return _getContentType(_utils.getServer(args.currPath, args.registeredServerName), args.name);
 };
+
+var _getUser = function (server, userName) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			url = server.url + '/documents/api/1.2/users/items?info=' + userName;
+
+		client.get(url, function (data, response) {
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve(data);
+			} else {
+				// continue 
+				resolve();
+			}
+		});
+	});
+};
+/**
+ * Get user info on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.name The name of user.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getUser = function (args) {
+	return _getUser(_utils.getServer(args.currPath, args.registeredServerName), args.name);
+};

@@ -34,7 +34,6 @@ var cecDir = path.join(__dirname, ".."),
 	testDir = path.join(cecDir, 'test');
 
 var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
-var newSrc = serverUtils.isNewSource(projectDir);
 var srcfolder = serverUtils.getSourceFolder(projectDir);
 var componentsDir = path.join(srcfolder, 'components'),
 	themesDir = path.join(srcfolder, 'themes');
@@ -209,9 +208,12 @@ app.delete('/connector*', connectorRouter);
 
 app.get('/getsrcfolder', function (req, res) {
 	"use strict";
-	var srcfolder = newSrc ? 'src' : 'src/main';
+	var srcfolder = 'src';
+
+	var libsfolder = fs.existsSync(path.join(projectDir, 'libs')) ? 'libs' : 'src/libs';
 	var result = {
-		srcfolder: srcfolder
+		srcfolder: srcfolder,
+		libsfolder: libsfolder
 	};
 	res.write(JSON.stringify(result));
 	res.end();
