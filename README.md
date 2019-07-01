@@ -5,13 +5,14 @@ Templates and resources for development platforms.
 [sites](sites/) – Work with tools to create, test, and package your own site templates, themes, components and content layouts.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
+
 # New in Release 19.3.1
 
 **Added**
-`cec share-folder` -- share a documents folder in a CEC server
+- `cec share-folder` -- share a documents folder in a CEC server
 
 **Fixed**
-`npm install` -- on Windows not doing copy-libs step
+- `npm install` -- on Windows not doing copy-libs step
 
 # New in Release 19.2.3c
 
