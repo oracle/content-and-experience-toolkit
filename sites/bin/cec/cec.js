@@ -203,7 +203,7 @@ const createContentLayout = {
 	example: [
 		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -t BlogTemplate'],
 		['cec create-contentlayout Blog-Post-Detail-Layout -c Blog-Post -t BlogTemplate -s detail'],
-		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -r', 'Use content type Blog-Post from the server specified in $HOME/gradle.properties file'],
+		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -r', 'Use content type Blog-Post from the server specified in cec.properties file'],
 		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -r UAT -s detail', 'Use content type Blog-Post from the registered server UAT']
 	]
 };
@@ -244,7 +244,7 @@ const downloadComponent = {
 	usage: {
 		'short': 'Downloads the components <names> from the CEC server.',
 		'long': (function () {
-			let desc = 'Downloads the components <names> from the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			let desc = 'Downloads the components <names> from the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -262,12 +262,12 @@ const deployComponent = {
 	usage: {
 		'short': 'Deploys the components <names> to the CEC server.',
 		'long': (function () {
-			let desc = 'Deploys the components <names> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
+			let desc = 'Deploys the components <names> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec deploy-component Sample-To-Do', 'Deploys the component Sample-To-Do to the server specified in $HOME/gradle.properties.'],
+		['cec deploy-component Sample-To-Do', 'Deploys the component Sample-To-Do to the server specified in cec.properties.'],
 		['cec deploy-component Sample-To-Do -s UAT', 'Deploys the component Sample-To-Do to the registered server UAT.'],
 		['cec deploy-component Sample-To-Do -p', 'Deploys and publishes the component Sample-To-Do.'],
 		['cec deploy-component Sample-To-Do,Sample-To-Do2', 'Deploys component Sample-To-Do and Sample-To-Do2.'],
@@ -281,12 +281,12 @@ const uploadComponent = {
 	usage: {
 		'short': 'Uploads the components <names> to the CEC server.',
 		'long': (function () {
-			let desc = 'Uploads the components <names> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
+			let desc = 'Uploads the components <names> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec upload-component Sample-To-Do', 'Uploads the component Sample-To-Do to the server specified in $HOME/gradle.properties.'],
+		['cec upload-component Sample-To-Do', 'Uploads the component Sample-To-Do to the server specified in cec.properties.'],
 		['cec upload-component Sample-To-Do -s UAT', 'Uploads the component Sample-To-Do to the registered server UAT.'],
 		['cec upload-component Sample-To-Do -p', 'Uploads and publishes the component Sample-To-Do.'],
 		['cec upload-component Sample-To-Do,Sample-To-Do2', 'Uploads component Sample-To-Do and Sample-To-Do2.'],
@@ -301,12 +301,12 @@ const controlComponent = {
 	usage: {
 		'short': 'Performs action <action> on components on CEC server.',
 		'long': (function () {
-			let desc = 'Perform <action> on components on CEC server. Specify the components with -c <components>. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on components on CEC server. Specify the components with -c <components>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
 			return getComponentActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
-		['cec control-component publish -c Comp1', 'Publish component Comp1 on the server specified in $HOME/gradle.properties file'],
+		['cec control-component publish -c Comp1', 'Publish component Comp1 on the server specified in cec.properties file'],
 		['cec control-component publish -c Comp1 -s UAT', 'Publish component Comp1 on the registered server UAT'],
 		['cec control-component publish -c Comp1,Comp2 -s UAT', 'Publish component Comp1 and Comp2 on the registered server UAT']
 	]
@@ -379,7 +379,7 @@ const deployTemplate = {
 	usage: {
 		'short': 'Deploys the template <name> to the CEC server.',
 		'long': (function () {
-			let desc = 'Deploys the template <name> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
+			let desc = 'Deploys the template <name> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
 			return desc;
 		})()
 	},
@@ -399,7 +399,7 @@ const uploadTemplate = {
 	usage: {
 		'short': 'Uploads the template <name> to the CEC server.',
 		'long': (function () {
-			let desc = 'Uploads the template <name> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
+			let desc = 'Uploads the template <name> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
 			return desc;
 		})()
 	},
@@ -433,7 +433,7 @@ const createTemplateFromSite = {
 	usage: {
 		'short': 'Creates the template <name> from site <site> on the CEC server.',
 		'long': (function () {
-			let desc = 'Creates the template <name> from site <site> on the Content and Experience Cloud server. Specify the server with -r <server> or use the one specified in $HOME/gradle.properties file. Optionally specify <includeunpublishedassets> to include unpublished content items and digital assets in your template.';
+			let desc = 'Creates the template <name> from site <site> on the Content and Experience Cloud server. Specify the server with -r <server> or use the one specified in cec.properties file. Optionally specify <includeunpublishedassets> to include unpublished content items and digital assets in your template.';
 			return desc;
 		})()
 	},
@@ -451,7 +451,7 @@ const downloadTemplate = {
 	usage: {
 		'short': 'Downloads the template <name> from the CEC server.',
 		'long': (function () {
-			let desc = 'Downloads the template <name> from the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			let desc = 'Downloads the template <name> from the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -461,6 +461,21 @@ const downloadTemplate = {
 	]
 };
 
+const compileTemplate = {
+	command: 'compile-template <source>',
+	alias: 'cmpt',
+	name: 'compile-template',
+	usage: {
+		'short': 'Compiles the site within the template.',
+		'long': (function () {
+			let desc = 'Compiles all the pages within the site of the template and places the compiled pages under the sites assets folder';
+			return desc;
+		})()
+	},
+	example: ['cec compile-template Temp1', 'Compiles the site in template Temp1.']
+};
+
+
 const deleteTemplate = {
 	command: 'delete-template <name>',
 	alias: '',
@@ -468,7 +483,7 @@ const deleteTemplate = {
 	usage: {
 		'short': 'Deletes the template <name> on the CEC server.',
 		'long': (function () {
-			let desc = 'Deletes the template <name> on the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -p to permanently delete the template.';
+			let desc = 'Deletes the template <name> on the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to permanently delete the template.';
 			return desc;
 		})()
 	},
@@ -540,7 +555,7 @@ const downloadContent = {
 	usage: {
 		'short': 'Downloads content in channel <channel> from CEC server.',
 		'long': (function () {
-			let desc = 'Downloads content in channel <channel> from CEC server. By default all assets are downloaded, optionally specify -p to download only published assets. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			let desc = 'Downloads content in channel <channel> from CEC server. By default all assets are downloaded, optionally specify -p to download only published assets. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -558,7 +573,7 @@ const uploadContent = {
 	usage: {
 		'short': 'Uploads local content to a repository on CEC server.',
 		'long': (function () {
-			let desc = 'Uploads local content from channel <name> or template <name> to repository <repository> on CEC server. Specify -c <channel> to add the template content to channel. Optionally specify specify -l <collection> to add the content to collection. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			let desc = 'Uploads local content from channel <name> or template <name> to repository <repository> on CEC server. Specify -c <channel> to add the template content to channel. Optionally specify specify -l <collection> to add the content to collection. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -578,12 +593,12 @@ const controlContent = {
 	usage: {
 		'short': 'Performs action <action> on channel items on CEC server.',
 		'long': (function () {
-			let desc = 'Performs action <action> on channel items on CEC server. Specify the channel with -c <channel>. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. The valid actions are\n\n';
+			let desc = 'Performs action <action> on channel items on CEC server. Specify the channel with -c <channel>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
 			return getContentActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
-		['cec control-content publish -c Channel1', 'Publish all items in channel Channel1 on the server specified in $HOME/gradle.properties file'],
+		['cec control-content publish -c Channel1', 'Publish all items in channel Channel1 on the server specified in cec.properties file'],
 		['cec control-content publish -c Channel1 -s UAT', 'Publish all items in channel Channel1 on the registered server UAT'],
 		['cec control-content unpublish -c Channel1 -s UAT', 'Unpublish all items in channel Channel1 on the registered server UAT'],
 		['cec control-content remove -c Channel1 -s UAT', 'Remove all items in channel Channel1 on the registered server UAT']
@@ -630,12 +645,12 @@ const controlTheme = {
 	usage: {
 		'short': 'Performs action <action> on theme on CEC server.',
 		'long': (function () {
-			let desc = 'Perform <action> on theme on CEC server. Specify the theme with -t <theme>. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on theme on CEC server. Specify the theme with -t <theme>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
 			return getThemeActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
-		['cec control-theme publish -c Theme1', 'Publish theme Theme1 on the server specified in $HOME/gradle.properties file'],
+		['cec control-theme publish -c Theme1', 'Publish theme Theme1 on the server specified in cec.properties file'],
 		['cec control-theme publish -c Theme1 -s UAT', 'Publish theme Theme1 on the registered server UAT']
 	]
 };
@@ -647,7 +662,7 @@ const listResources = {
 	usage: {
 		'short': 'Lists local or server resources.',
 		'long': (function () {
-			let desc = 'Lists local or server resources such components and templates. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -t <types> to list specific types of resources on the CEC server. ' +
+			let desc = 'Lists local or server resources such components and templates. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -t <types> to list specific types of resources on the CEC server. ' +
 				os.EOL + os.EOL + 'Valid values for <types> on the server are: ' + os.EOL +
 				'  channels' + os.EOL +
 				'  components' + os.EOL +
@@ -660,8 +675,8 @@ const listResources = {
 	},
 	example: [
 		['cec list', 'List all local resources'],
-		['cec list -s', 'List resources on the server specified in $HOME/gradle.properties file'],
-		['cec list -t components,channels -s', 'List components and channels on the server specified in $HOME/gradle.properties file'],
+		['cec list -s', 'List resources on the server specified in cec.properties file'],
+		['cec list -t components,channels -s', 'List components and channels on the server specified in cec.properties file'],
 		['cec list -t components,channels -s UAT', 'List components and channels on the registered server UAT']
 	]
 };
@@ -673,7 +688,7 @@ const createSite = {
 	usage: {
 		'short': 'Creates Enterprise Site <name>.',
 		'long': (function () {
-			let desc = 'Create Enterprise Site on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			let desc = 'Create Enterprise Site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -692,12 +707,12 @@ const controlSite = {
 	usage: {
 		'short': 'Performs action <action> on site on CEC server.',
 		'long': (function () {
-			let desc = 'Perform <action> on site on CEC server. Specify the site with -s <site>. Specify the server with -r <server> or use the one specified in $HOME/gradle.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on site on CEC server. Specify the site with -s <site>. Specify the server with -r <server> or use the one specified in cec.properties file. The valid actions are\n\n';
 			return getSiteActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
-		['cec control-site publish -s Site1', 'Publish site Site1 on the server specified in $HOME/gradle.properties file'],
+		['cec control-site publish -s Site1', 'Publish site Site1 on the server specified in cec.properties file'],
 		['cec control-site publish -s Site1 -r UAT', 'Publish site Site1 on the registered server UAT'],
 		['cec control-site unpublish -s Site1 -r UAT', 'Unpublish site Site1 on the registered server UAT'],
 		['cec control-site bring-online -s Site1 -r UAT', 'Bring site Site1 online on the registered server UAT'],
@@ -712,12 +727,12 @@ const validateSite = {
 	usage: {
 		'short': 'Validates site <name>.',
 		'long': (function () {
-			let desc = 'Validates site <name> on CEC server before publish or view publishing failure. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			let desc = 'Validates site <name> on CEC server before publish or view publishing failure. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec validate-site Site1', 'Validate site Site1 on the server specified in $HOME/gradle.properties file'],
+		['cec validate-site Site1', 'Validate site Site1 on the server specified in cec.properties file'],
 		['cec validate-site Site1 -s UAT', 'Validate site Site1 on the registered server UAT']
 	]
 };
@@ -729,7 +744,7 @@ const updateSite = {
 	usage: {
 		'short': 'Update Enterprise Site <name>.',
 		'long': (function () {
-			let desc = 'Update Enterprise Site on CEC server using the content from the template. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			let desc = 'Update Enterprise Site on CEC server using the content from the template. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -746,7 +761,7 @@ const indexSite = {
 	usage: {
 		'short': 'Index the page content of site <site> on CEC server.',
 		'long': (function () {
-			let desc = 'Creates content item for each page with all text on the page. If the page index content item already exists for a page, updated it with latest text on the page. Specify -c <contenttype> to set the page index content type. Optionally specify -p to publish the page index items after creation or update. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			let desc = 'Creates content item for each page with all text on the page. If the page index content item already exists for a page, updated it with latest text on the page. Specify -c <contenttype> to set the page index content type. Optionally specify -p to publish the page index items after creation or update. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -764,7 +779,7 @@ const createSiteMap = {
 	usage: {
 		'short': 'Creates a site map for site <site> on CEC server.',
 		'long': (function () {
-			let desc = 'Creates a site map for site on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -p to upload the site map to CEC server after creation. Optionally specify -c <changefreq> to define how frequently the page is likely to change. Optionally specify -t <toppagepriority> as the priority for the top level pages. Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
+			let desc = 'Creates a site map for site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to upload the site map to CEC server after creation. Optionally specify -c <changefreq> to define how frequently the page is likely to change. Optionally specify -t <toppagepriority> as the priority for the top level pages. Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
 			return getSiteMapChangefreqValues().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -786,7 +801,7 @@ const createRSSFeed = {
 	usage: {
 		'short': 'Creates RSS feed for site <site> on CEC server.',
 		'long': (function () {
-			let desc = 'Creates RSS feed for site <site> on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. Optionally specify -x <template> to specify the RSS template. Optionally specify -p to upload the RSS feed to CEC server after creation.';
+			let desc = 'Creates RSS feed for site <site> on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -x <template> to specify the RSS template. Optionally specify -p to upload the RSS feed to CEC server after creation.';
 			return desc;
 		})()
 	},
@@ -804,7 +819,7 @@ const createRepository = {
 	usage: {
 		'short': 'Creates a repository on CEC server.',
 		'long': (function () {
-			let desc = 'Creates a repository on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. ' +
+			let desc = 'Creates a repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -d <description> to set the description. ' +
 				'Optionally specify -t <contenttypes> to set the content types. ' +
 				'Optionally specify -c <channels> to set the publishing channels. ' +
@@ -825,7 +840,7 @@ const controlRepository = {
 	usage: {
 		'short': 'Performs action <action> on repository on CEC server.',
 		'long': (function () {
-			let desc = 'Performs action <action> on repository on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. ' +
+			let desc = 'Performs action <action> on repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid actions are\n\n';
 			return getRepositoryActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -846,7 +861,7 @@ const createChannel = {
 	usage: {
 		'short': 'Creates a channel on CEC server.',
 		'long': (function () {
-			let desc = 'Creates a channel on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. ' +
+			let desc = 'Creates a channel on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -t <type> to set the channel type [public | secure], defaults to public. ' +
 				'Optionally specify -p <publishpolicy> to set the publish policy [anythingPublished | onlyApproved], defaults to anythingPublished. ' +
 				'Optionally specify -l <localizationpolicy> to set the localization policy.'
@@ -868,7 +883,7 @@ const createLocalizationPolicy = {
 	usage: {
 		'short': 'Creates a localization policy on CEC server.',
 		'long': (function () {
-			let desc = 'Creates a localization policy on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. ' +
+			let desc = 'Creates a localization policy on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Specify -r <requiredlanguages> to set the required languages. ' +
 				'Specify -l <defaultlanguage> to set the default language.' +
 				'Optionally specify -o <optionallanguages> to set the optional languages. ' +
@@ -897,7 +912,7 @@ const listTranslationJobs = {
 	},
 	example: [
 		['cec list-translation-jobs', 'Lists local translation jobs'],
-		['cec list-translation-jobs -s', 'Lists translation jobs on the server specified in $HOME/gradle.properties file'],
+		['cec list-translation-jobs -s', 'Lists translation jobs on the server specified in cec.properties file'],
 		['cec list-translation-jobs -s UAT', 'Lists translation jobs on the registered server UAT']
 	]
 };
@@ -909,7 +924,7 @@ const createTranslationJob = {
 	usage: {
 		'short': 'Creates a translation job <name> for a site on CEC server.',
 		'long': (function () {
-			let desc = 'Creates a translation job <name> for a site on CEC server. Specify the server with -r <server> or use the one specified in $HOME/gradle.properties file. Specify -l <languages> to set the target languages, use "all" to select all languages from the translation policy. Optionally specify -t <type> to set the content type. The valid values for <type> are:\n\n';
+			let desc = 'Creates a translation job <name> for a site on CEC server. Specify the server with -r <server> or use the one specified in cec.properties file. Specify -l <languages> to set the target languages, use "all" to select all languages from the translation policy. Optionally specify -t <type> to set the content type. The valid values for <type> are:\n\n';
 			return getTranslationJobExportTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -928,7 +943,7 @@ const downloadTranslationJob = {
 	usage: {
 		'short': 'Downloads translation job <name> from CEC server.',
 		'long': (function () {
-			let desc = 'Downloads translation job <name> from CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			let desc = 'Downloads translation job <name> from CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -945,7 +960,7 @@ const uploadTranslationJob = {
 	usage: {
 		'short': 'Uploads translation job <name> to CEC server.',
 		'long': (function () {
-			let desc = 'Uploads translation <name> to CEC server, validate and then ingest the translations. Optionally specify -v to validate only. Optionally specify -f <folder> to set the folder to upload the translation zip file. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			let desc = 'Uploads translation <name> to CEC server, validate and then ingest the translations. Optionally specify -v to validate only. Optionally specify -f <folder> to set the folder to upload the translation zip file. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1040,12 +1055,12 @@ const registerTranslationConnector = {
 
 const createFolder = {
 	command: 'create-folder <name>',
-	alias: 'cf',
+	alias: 'cfd',
 	name: 'create-folder',
 	usage: {
 		'short': 'Creates a folder or folder hierarchy on CEC server.',
 		'long': (function () {
-			let desc = 'Create a folder or folder hierarchy on CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file.';
+			let desc = 'Create a folder or folder hierarchy on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1058,18 +1073,77 @@ const createFolder = {
 
 const shareFolder = {
 	command: 'share-folder <name>',
-	alias: 'sf',
+	alias: 'sfd',
 	name: 'share-folder',
 	usage: {
 		'short': 'Share folder with users on CEC server.',
 		'long': (function () {
-			let desc = 'Share folder with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. The valid roles are\n\n';
+			let desc = 'Share folder with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
 		['cec share-folder Projects/Blogs -u user1,user2 -r manager', 'Share folder Projects/Blogs with user user1 and user2 and assign Manager role to them'],
 		['cec share-folder Projects/Blogs -u user1,user2 -r manager -s UAT', 'Share folder Projects/Blogs with user user1 and user2 and assign Manager role to them on the registered server UAT']
+	]
+};
+
+const unshareFolder = {
+	command: 'unshare-folder <name>',
+	alias: 'usfd',
+	name: 'unshare-folder',
+	usage: {
+		'short': 'Delete the user\'s access to a shared folder on CEC server.',
+		'long': (function () {
+			let desc = 'Delete the user\'s access to a shared folder on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec unshare-folder Projects/Blogs -u user1,user2 '],
+		['cec unshare-folder Projects/Blogs -u user1,user2 -s UAT']
+	]
+};
+
+const downloadFolder = {
+	command: 'download-folder <path>',
+	alias: 'dlfd',
+	name: 'download-folder',
+	usage: {
+		'short': 'Downloads folder from CEC server.',
+		'long': (function () {
+			let desc = 'Downloads folder and all its content from CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -f <folder> to save the folder on the local system.';
+			return desc;
+		})()
+	},
+	example: [
+		['download-folder Releases/1', 'Downloads folder Releases/1 from CEC server and save to local folder src/documents/'],
+		['download-folder /', 'Downloads all documents from CEC server and save to local folder src/documents/'],
+		['download-folder Releases/1 -s UAT', 'Downloads folder Releases/1 from the registered server UAT and save to local folder src/documents/'],
+		['download-folder Releases/1 -f ~/Downloads', 'Downloads folder Releases/1 from CEC server and save to local folder ~/Download/'],
+		['download-folder Releases/1 -f .', 'Downloads folder Releases/1 from CEC server and save to the current local folder']
+	]
+};
+
+const uploadFolder = {
+	command: 'upload-folder <path>',
+	alias: 'ulfd',
+	name: 'upload-folder',
+	usage: {
+		'short': 'Uploads folder to CEC server.',
+		'long': (function () {
+			let desc = 'Uploads folder and all its content to CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -f <folder> to set the parent folder on CEC server.';
+			return desc;
+		})()
+	},
+	example: [
+		['upload-folder ~/Downloads/docs', 'Uploads all content from ~/Downloads/docs to folder docs on the server'],
+		['upload-folder ~/Downloads/docs/', 'Uploads all content from ~/Downloads/docs to the Home folder on the server'],
+		['upload-folder ~/Downloads/docs -f Mydoc', 'Uploads all content from ~/Downloads/docs to folder Mydoc/docs on the server'],
+		['upload-folder ~/Downloads/docs/ -f Mydoc', 'Uploads all content from ~/Downloads/docs to folder Mydoc on the server'],
+		['upload-folder ~/Downloads/docs -s UAT', 'Uploads all content from ~/Downloads/docs to folder docs on the registered server UAT']
 	]
 };
 
@@ -1080,8 +1154,8 @@ const uploadFile = {
 	usage: {
 		'short': 'Uploads file <file> to CEC server.',
 		'long': (function () {
-			let desc = 'Uploads file <file> to CEC server. Specify the server with -s <server> or use the one specified in $HOME/gradle.properties file. ' +
-				'Optionally specify -f <folder> to upload the file.';
+			let desc = 'Uploads file <file> to CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -f <folder> to set the parent folder on CEC server.';
 			return desc;
 		})()
 	},
@@ -1089,6 +1163,26 @@ const uploadFile = {
 		['upload-file ~/Documents/Projects.pdf', 'Uploads the file to the Home folder'],
 		['upload-file ~/Documents/Projects.pdf -s UAT', 'Uploads the file to the Home folder on the registered server UAT'],
 		['upload-file ~/Documents/Projects.pdf -f Doc/Plan', 'Uploads the file to folder Doc/Plan']
+	]
+};
+
+const downloadFile = {
+	command: 'download-file <file>',
+	alias: 'dlf',
+	name: 'download-file',
+	usage: {
+		'short': 'Downloads file <file> from CEC server.',
+		'long': (function () {
+			let desc = 'Downloads file <file> from CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -f <folder> to save the file on the local system.';
+			return desc;
+		})()
+	},
+	example: [
+		['download-file Releases/Projects.pdf', 'Downloads the file from CEC server and save to folder src/documents/'],
+		['download-file Releases/Projects.pdf -s UAT', 'Downloads the file from the registered server UAT and save to folder src/documents/'],
+		['download-file Releases/Projects.pdf -f ~/Downloads', 'Downloads the file from CEC server and save to folder ~/Download/'],
+		['download-file Releases/Projects.pdf -f .', 'Downloads the file from CEC server and save to the current folder']
 	]
 };
 
@@ -1121,6 +1215,7 @@ const install = {
 			let desc = 'Creates an initial source tree in the current directory.' + os.EOL + os.EOL +
 				'With cec install, your source can be in a separate directory to the cec command install files, ' +
 				'and you no longer need your source to be within a sites-toolkit directory.' + os.EOL + os.EOL +
+				'The cec.properties file can be used to speicfy server settings.  It will be picked up from the source directory, or can be specified with enviornment variable CEC_PROPERTIES' + os.EOL + os.EOL +
 				'Use cec develop to start a dev/test server for your source.  ' +
 				'Different ports can be used for the server, to enable multiple source trees to exist.';
 			return desc;
@@ -1175,6 +1270,10 @@ var _usage = 'Usage: cec <command> [options] ' + os.EOL + os.EOL +
 _usage = _usage + os.EOL + 'Documents' + os.EOL +
 	_getCmdHelp(createFolder) + os.EOL +
 	_getCmdHelp(shareFolder) + os.EOL +
+	_getCmdHelp(unshareFolder) + os.EOL +
+	_getCmdHelp(downloadFolder) + os.EOL +
+	_getCmdHelp(uploadFolder) + os.EOL +
+	_getCmdHelp(downloadFile) + os.EOL +
 	_getCmdHelp(uploadFile) + os.EOL;
 
 _usage = _usage + os.EOL + 'Components' + os.EOL +
@@ -1190,6 +1289,7 @@ _usage = _usage + os.EOL + 'Templates' + os.EOL +
 	_getCmdHelp(createTemplate) + os.EOL +
 	_getCmdHelp(createTemplateFromSite) + os.EOL +
 	_getCmdHelp(downloadTemplate) + os.EOL +
+	//_getCmdHelp(compileTemplate) + os.EOL +
 	_getCmdHelp(copyTemplate) + os.EOL +
 	_getCmdHelp(importTemplate) + os.EOL +
 	_getCmdHelp(exportTemplate) + os.EOL +
@@ -1495,6 +1595,14 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${downloadTemplate.command}\n\n${downloadTemplate.usage.long}`);
+		})
+	.command([compileTemplate.command, compileTemplate.alias], false,
+		(yargs) => {
+			yargs.example(...compileTemplate.example)
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${compileTemplate.command}\n\n${compileTemplate.usage.long}`);
 		})
 	.command([deleteTemplate.command, deleteTemplate.alias], false,
 		(yargs) => {
@@ -2431,11 +2539,69 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${shareFolder.command}\n\n${shareFolder.usage.long}`);
 		})
+	.command([unshareFolder.command, unshareFolder.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...unshareFolder.example[0])
+				.example(...unshareFolder.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${unshareFolder.command}\n\n${unshareFolder.usage.long}`);
+		})
+	.command([downloadFolder.command, downloadFolder.alias], false,
+		(yargs) => {
+			yargs.option('folder', {
+					alias: 'f',
+					description: '<folder> Local folder to save the folder on CEC server'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...downloadFolder.example[0])
+				.example(...downloadFolder.example[1])
+				.example(...downloadFolder.example[2])
+				.example(...downloadFolder.example[3])
+				.example(...downloadFolder.example[4])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${downloadFolder.command}\n\n${downloadFolder.usage.long}`);
+		})
+	.command([uploadFolder.command, uploadFolder.alias], false,
+		(yargs) => {
+			yargs.option('folder', {
+					alias: 'f',
+					description: '<folder> The parent folder on CEC server'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...uploadFolder.example[0])
+				.example(...uploadFolder.example[1])
+				.example(...uploadFolder.example[2])
+				.example(...uploadFolder.example[3])
+				.example(...uploadFolder.example[4])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${uploadFolder.command}\n\n${uploadFolder.usage.long}`);
+		})
 	.command([uploadFile.command, uploadFile.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
 					alias: 'f',
-					description: '<folder> Folder to upload the file'
+					description: '<folder> The parent folder on CEC server'
 				})
 				.option('server', {
 					alias: 's',
@@ -2448,6 +2614,25 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${uploadFile.command}\n\n${uploadFile.usage.long}`);
+		})
+	.command([downloadFile.command, downloadFile.alias], false,
+		(yargs) => {
+			yargs.option('folder', {
+					alias: 'f',
+					description: '<folder> Local folder to save the file'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...downloadFile.example[0])
+				.example(...downloadFile.example[1])
+				.example(...downloadFile.example[2])
+				.example(...downloadFile.example[3])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${downloadFile.command}\n\n${downloadFile.usage.long}`);
 		})
 	.command([registerServer.command, registerServer.alias], false,
 		(yargs) => {
@@ -2862,6 +3047,22 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, downloadTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === compileTemplate.name || argv._[0] === compileTemplate.alias) {
+	let compileTemplateArgs = ['run', '-s', compileTemplate.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--source', argv.source
+	];
+	if (argv.destination) {
+		compileTemplateArgs.push(...['--name', argv.destination]);
+	} else {
+		compileTemplateArgs.push(...['--name', argv.source + '_' + Math.floor(Math.random() * 1000000)]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, compileTemplateArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -3494,6 +3695,55 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === unshareFolder.name || argv._[0] === unshareFolder.alias) {
+	let unshareFolderArgs = ['run', '-s', unshareFolder.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--users', argv.users
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		unshareFolderArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, unshareFolderArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === downloadFolder.name || argv._[0] === downloadFolder.alias) {
+	let downloadFolderArgs = ['run', '-s', downloadFolder.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--path', argv.path
+	];
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		downloadFolderArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		downloadFolderArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, downloadFolderArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === uploadFolder.name || argv._[0] === uploadFolder.alias) {
+	let uploadFolderArgs = ['run', '-s', uploadFolder.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--path', argv.path
+	];
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		uploadFolderArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		uploadFolderArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, uploadFolderArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === uploadFile.name || argv._[0] === uploadFile.alias) {
 	let uploadFileArgs = ['run', '-s', uploadFile.name, '--prefix', appRoot,
 		'--',
@@ -3507,6 +3757,23 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		uploadFileArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, uploadFileArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === downloadFile.name || argv._[0] === downloadFile.alias) {
+	let downloadFileArgs = ['run', '-s', downloadFile.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--file', argv.file
+	];
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		downloadFileArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		downloadFileArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, downloadFileArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

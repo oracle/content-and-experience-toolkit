@@ -188,6 +188,33 @@ gulp.task('share-folder', function (done) {
 });
 
 /**
+ * Unshare folder
+ */
+gulp.task('unshare-folder', function (done) {
+	'use strict';
+
+	doclib.unshareFolder(argv, done);
+});
+
+/**
+ * Download folder
+ */
+gulp.task('download-folder', function (done) {
+	'use strict';
+
+	doclib.downloadFolder(argv, done);
+});
+
+/**
+ * Upload folder
+ */
+gulp.task('upload-folder', function (done) {
+	'use strict';
+
+	doclib.uploadFolder(argv, done);
+});
+
+/**
  * Upload file
  */
 gulp.task('upload-file', function (done) {
@@ -196,6 +223,14 @@ gulp.task('upload-file', function (done) {
 	doclib.uploadFile(argv, done);
 });
 
+/**
+ * Download file
+ */
+gulp.task('download-file', function (done) {
+	'use strict';
+
+	doclib.downloadFile(argv, done);
+});
 
 /**
  * Create component
@@ -349,6 +384,17 @@ gulp.task('download-template', function (done) {
 
 	templatelib.downloadTemplate(argv, done);
 });
+
+/**
+ * Compile template
+ * compile a template and place compiles pages under the sites assets
+ */
+gulp.task('compile-template', function (done) {
+	'use strict';
+
+	templatelib.compileTemplate(argv, done);
+});
+
 
 /**
  * delete template on server

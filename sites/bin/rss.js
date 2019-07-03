@@ -523,7 +523,7 @@ var _pubishRSSFile = function (serverName, server, request, siteUrl, siteName, r
 		})
 		.then(function (result) {
 			if (!result || !result.id) {
-				console.log('ERROR: failed tp get folder settings');
+				console.log('ERROR: failed to get folder settings');
 				return Promise.reject();
 			}
 			var settingsFolderId = result.id;

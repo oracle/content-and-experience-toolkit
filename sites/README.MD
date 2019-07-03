@@ -4,6 +4,8 @@ To learn about developing components for Content and Experience Cloud, see the l
 
 [Developing for Oracle Content and Experience Cloud](https://docs.oracle.com/en/cloud/paas/content-cloud/developer/develop-sites-toolkit.html)
 
+[Test to Production](doc/T2P.md) – Use the OCE toolkit for Test to Production
+
 ## Setup
 
 * Make sure `node` and `npm` are in your `PATH`.  Use NodeJS 8.0.0 or later.

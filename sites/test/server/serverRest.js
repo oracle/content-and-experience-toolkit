@@ -156,7 +156,7 @@ var _getChildItems = function (server, parentID) {
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to get folder child items');
+				console.log('ERROR: failed to get folder child items: ' + (response.statusMessage || response.statusCode));
 				return resolve();
 			}
 		});

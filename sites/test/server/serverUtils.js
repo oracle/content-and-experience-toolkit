@@ -68,6 +68,9 @@ var _getSourceFolder = function (currPath) {
 	if (!fs.existsSync(path.join(srcfolder, 'content'))) {
 		fse.mkdirSync(path.join(srcfolder, 'content'));
 	}
+	if (!fs.existsSync(path.join(srcfolder, 'documents'))) {
+		fse.mkdirSync(path.join(srcfolder, 'documents'));
+	}
 	if (!fs.existsSync(path.join(srcfolder, 'servers'))) {
 		fse.mkdirSync(path.join(srcfolder, 'servers'));
 	}
@@ -233,7 +236,28 @@ var _createGUID = function () {
  * Utility check if a string ends with 
  */
 module.exports.endsWith = (str, end) => {
+	return _endsWith(str, end);
+};
+var _endsWith = function (str, end) {
 	return str.lastIndexOf(end) === str.length - end.length;
+};
+
+module.exports.trimString = (str, search) => {
+	if (!str || !search) {
+		return str;
+	}
+	var val = str;
+
+	// remove leading
+	while(val.startsWith(search)) {
+		val = val.substring(search.length);
+	}
+
+	// remove trailing
+	while(_endsWith(val, search)) {
+		val = val.substring(0, val.length - search.length);
+	}
+	return val;
 };
 
 /**

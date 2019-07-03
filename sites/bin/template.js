@@ -2565,3 +2565,55 @@ var _IdcCopySites2 = function (request, localhost, server, idcToken) {
 		});
 	});
 };
+
+module.exports.compileTemplate = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var tempName = argv.source,
+		template = '',
+		existingTemplates = getContents(templatesSrcDir);
+
+	if (!tempName) {
+		console.error('ERROR: please use --source to specify the name of the template to compile');
+		done();
+		return;
+	}
+
+	// verify the template to compile
+	for (var i = 0; i < existingTemplates.length; i++) {
+		if (tempName === existingTemplates[i]) {
+			template = existingTemplates[i];
+			break;
+		}
+	}
+	if (!template) {
+		console.error('ERROR: invalid template ' + tempName);
+		done();
+		return;
+	}
+
+	console.log('Compile Template: compiling template ' + tempName);
+
+	var compiler = require('./compiler/compiler');
+
+	if (typeof compiler.compileSite === 'function') {
+		compiler.compileSite({
+			siteFolder: path.join(templatesSrcDir, tempName),
+			outputFolder: path.join(templatesSrcDir, tempName, 'assets', 'pages'),
+			themesFolder: themesSrcDir,
+			sitesCloudRuntimeFolder: undefined,
+			componentsFolder: componentsSrcDir,
+			logLevel: 'log',
+			outputURL: 'http://localhost:8085/templates/' + tempName + '/assets/pages/'
+		});
+	}
+
+
+	console.log(' *** compiled template is ready to test');
+	done();
+};
