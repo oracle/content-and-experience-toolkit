@@ -138,6 +138,7 @@ cec download-template blog-template --server DEV
 Upload the template to the UAT instance to update components, theme, content types.
 
 ```
+cec delete-template blog-template -p --server UAT
 cec upload-template blog-template --server UAT
 ```
 
