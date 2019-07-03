@@ -58,7 +58,7 @@ Upload template again but now exclude the content, content will be added after s
 cec upload-template blog-template -x --server DEV
 ```
 
-Create the content site - and upload the content to the site with "update" option to keep the IDs
+Create the site - and upload the content to the site with "update" option to keep the IDs
 
 ```
 cec create-site blog-site -t blog-template -r Repo1 -l Policy1 -d en-US --server DEV
