@@ -4,6 +4,8 @@ Templates and resources for development platforms.
 
 [sites](sites/) – Work with tools to create, test, and package your own site templates, themes, components and content layouts.
 
+[sites](sites/doc/T2P.md) – Use the OCE toolkit for Test to Production
+
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 # New in Release 19.3.1
