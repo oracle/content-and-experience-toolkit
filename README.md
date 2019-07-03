@@ -8,6 +8,17 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.3.1a
+
+**Added**
+
+- `cec download-folder` -- recursive download of a folder contents from a CEC instance
+- `cec upload-folder` -- recursive upload of a folder contents from local file system to a CEC instance
+- `cec download-file` -- download a file from a CEC instance
+- `cec unshare-folder` -- remove a user access from a folder
+
+- Test to Production using OCE Toolkit documentation - [link](https://github.com/oracle/content-and-experience-toolkit/blob/master/sites/doc/T2P.md)
+
 # New in Release 19.3.1
 
 **Added**
