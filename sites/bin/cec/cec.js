@@ -1233,13 +1233,14 @@ const develop = {
 	usage: {
 		'short': 'Starts a test server.',
 		'long': (function () {
-			let desc = 'Starts a test server in the current folder. Optionally specify -p <port> to set the port, default port is 8085.';
+			let desc = 'Starts a test server in the current folder. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p <port> to set the port, default port is 8085.';
 			return desc;
 		})()
 	},
 	example: [
 		['cec develop'],
-		['cec develop -p 7878']
+		['cec develop -p 7878'],
+		['cec develop -p 7878 -s UAT']
 	]
 };
 
@@ -2715,8 +2716,13 @@ const argv = yargs.usage(_usage)
 					alias: 'p',
 					description: 'Set <port>. Defaults to 8085.'
 				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
 				.example(...develop.example[0])
 				.example(...develop.example[1])
+				.example(...develop.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2728,6 +2734,13 @@ const argv = yargs.usage(_usage)
 	.alias('version', 'v')
 	.strict()
 	.wrap(yargs.terminalWidth())
+	.fail((msg, err, yargs) => {
+		yargs.showHelp('log');
+		if (msg.indexOf('Not enough non-option arguments') < 0) {
+			console.log(msg);
+		}
+		process.exit(1);
+	})
 	.argv;
 
 if (!argv._[0]) {
@@ -3814,6 +3827,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	];
 	if (argv.port) {
 		developArgs.push(...['--port', argv.port]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		developArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, developArgs, {
 		cwd,

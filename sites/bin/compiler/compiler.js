@@ -33,6 +33,12 @@ Sample Invocation:
 var fs = require('fs'),
 	path = require('path');
 
+var componentsEnabled = false;
+if (componentsEnabled) {
+	var cheerio = require('cheerio'),
+		mustache = require('mustache');
+}
+
 //*********************************************
 // Configuration
 //*********************************************
@@ -83,14 +89,14 @@ function readStructure() {
 	// Set site global variables here
 	siteInfo = structureObject.siteInfo;
 	if (!siteInfo) {
-        var siteInfoFilePath = path.join(siteFolder, "siteinfo.json");
-        siteInfo = {
-            base: JSON.parse(fs.readFileSync(siteInfoFilePath, {
-                encoding: 'utf8'
-            }) || {})
-        };
-    }
-	structure =  structureObject.base || structureObject;
+		var siteInfoFilePath = path.join(siteFolder, "siteinfo.json");
+		siteInfo = {
+			base: JSON.parse(fs.readFileSync(siteInfoFilePath, {
+				encoding: 'utf8'
+			}) || {})
+		};
+	}
+	structure = structureObject.base || structureObject;
 	themeName = siteInfo.base.properties.themeName;
 	designName = siteInfo.base.properties.designName || 'default';
 }
@@ -239,14 +245,184 @@ function resolveTokens(layoutMarkup, pageModel, sitePrefix) {
 	return pageMarkup;
 }
 
-function fixupPage(pageId, pageUrl, layoutMarkup, pageModel, sitePrefix) {
-	trace('fixupPage: pageUrl=' + pageUrl + ', layoutMarkup=' + layoutMarkup);
-	var pageMarkup = layoutMarkup;
+var compiler = {
+	setup: function (args) {
+		var self = this;
 
-	pageMarkup = resolveTokens(pageMarkup, pageModel, sitePrefix);
-	pageMarkup = resolveRenderInfo(pageId, pageMarkup, pageModel, sitePrefix);
+		self.sitePrefix = args.sitePrefix;
+		self.pageModel = args.pageModel;
+		self.navigationRoot = args.navRoot;
+		self.navigationCurr = args.navigationCurr;
+		self.structureMap = args.navMap;
+		self.siteInfo = args.siteInfo;
+
+		// define the list of supported component compilers
+		self.componentCompilers = {};
+
+		// add in the compilers for any supported components
+		var supportedComponents = [{
+			type: 'scs-contentsearch',
+			compiler: 'contentsearch/contentsearch'
+		}];
+		supportedComponents.forEach(function (componentCompiler) {
+			self.componentCompilers[componentCompiler.type] = require('./components/' + componentCompiler.compiler);
+		});
+
+		// store the compiled components
+		self.compiledComponents = {};
+	},
+	compileComponentInstance: function (compId, compInstance) {
+		var self = this;
+		return new Promise(function (resolve, reject) {
+			var ComponentCompiler = self.componentCompilers[compInstance.type];
+			if (ComponentCompiler) {
+				var component = new ComponentCompiler(compId, compInstance);
+				component.compile().then(function (compiledComp) {
+					// make sure the component can be parsed
+					if (compiledComp.content) {
+						var $ = cheerio.load('<div>');
+						compiledComp.content = $('<div>' + compiledComp.content + '</div>').html();
+
+						// not that this component was compiled by the controller
+						compInstance.preRenderedByController = true;
+					}
+					// store the compiled component
+					self.compiledComponents[compId] = compiledComp;
+					resolve();
+				});
+			} else {
+				console.log('No component compiler for: ' + compInstance.type);
+				resolve();
+			}
+		});
+	},
+	compileComponents: function () {
+		var self = this,
+			compilePromises = [];
+
+		if (componentsEnabled) {
+			Object.keys(self.pageModel.componentInstances).forEach(function (compId) {
+				compilePromises.push(self.compileComponentInstance(compId, self.pageModel.componentInstances[compId]));
+			});
+		}
+
+		return Promise.all(compilePromises);
+	},
+	getSlotDataFromPageModel: function (id) {
+		if (this.pageModel.slots && this.pageModel.slots[id]) {
+			return this.pageModel.slots[id];
+		}
+		return null;
+	},
+	compileSlot: function (slotId) {
+		var slotConfig;
+		var self = this;
+		var slotMarkup = '';
+
+		//*********************************************
+		// Get the slot configuration
+		//*********************************************	
+		slotConfig = this.getSlotDataFromPageModel(slotId);
+
+		// enable this for slot compilation
+		if (componentsEnabled && slotConfig) {
+			//*********************************************
+			// Add in the grid
+			//*********************************************	
+			if (slotConfig.grid && !slotConfig.preRenderedByController) {
+				var $ = cheerio.load('<div/>'),
+					$slotObj = $(slotConfig.grid),
+					gridUpdated = false;
+
+				// convert the grid to use mustache macros to insert the compiled component content
+				// Note: this assumes the compiled component results is valid HTML
+				$slotObj.find('div[id]').each(function (index) {
+					var $divEle = $(this);
+					var componentId = $divEle.attr('id');
+					if (self.compiledComponents && self.compiledComponents[componentId] && self.compiledComponents[componentId].content) {
+						$divEle.append('<div class="scs-component-bounding-box">{{{' + componentId + '.content}}}</div>');
+
+						// note the grid was updated
+						gridUpdated = true;
+					}
+				});
+
+				if (gridUpdated) {
+					// apply the compiled component results to the grid
+					try {
+						slotMarkup = mustache.render($slotObj.html(), self.compiledComponents);
+					} catch (e) {
+						console.log('Failed to render slot: ' + slotId);
+						console.log(e);
+					}
+
+					// note that this slot is "pre-compiled" by the controller(?)
+					slotConfig.preRenderedByController = true;
+				}
+			}
+		}
+
+		// return the result
+		return slotMarkup;
+	},
+};
+
+function resolveSlots(pageMarkup, pageModel, sitePrefix) {
+	trace('resolveSlots');
+
+	if (componentsEnabled) {
+		// define slot macros
+		// e.g.: <div id="mySlotId" class="scs-slot scs-responsive">{{#scs-slot}}mySlotId{{/scs-slot}}</div>
+		var renderSlot = function (text, render) {
+			var slotId = text;
+			if (slotId) {
+				// compile the components into the slot
+				return compiler.compileSlot(slotId);
+			} else {
+				// can't identify the slot, just return what was there
+				return text;
+			}
+		};
+		var rendererModel = {
+			'scs-slot': function () {
+				return function (text, render) {
+					return renderSlot.apply(null, arguments);
+				};
+			}
+		};
+
+		// expand the macros
+		pageMarkup = mustache.render(pageMarkup, rendererModel);
+	}
 
 	return pageMarkup;
+}
+
+function fixupPage(pageId, pageUrl, layoutMarkup, pageModel, sitePrefix) {
+	trace('fixupPage: pageUrl=' + pageUrl + ', layoutMarkup=' + layoutMarkup);
+
+	// setup the compiler for this page
+	compiler.setup({
+		"sitePrefix": sitePrefix,
+		"pageModel": pageModel,
+		"navigationRoot": navRoot,
+		"navigationCurr": (pageId && typeof pageId == 'string') ? parseInt(pageId) : pageId,
+		"structureMap": navMap,
+		"siteInfo": siteInfo
+	});
+
+	// compile all the components asynchronously
+	return compiler.compileComponents().then(function () {
+		// now we have the compiled components, resolve the page markup 
+		var pageMarkup = layoutMarkup;
+
+		pageMarkup = resolveSlots(pageMarkup, pageModel, sitePrefix);
+		pageMarkup = resolveTokens(pageMarkup, pageModel, sitePrefix);
+		pageMarkup = resolveRenderInfo(pageId, pageMarkup, pageModel, sitePrefix);
+
+		return Promise.resolve(pageMarkup);
+	});
+
 }
 
 function encodeHTML(textData) {
@@ -492,22 +668,37 @@ function computeSitePrefix(pageUrl) {
 }
 
 function createPage(pageInfo) {
-	if ((typeof pageInfo.linkUrl === "string") && (pageInfo.linkUrl.trim().length > 0)) {
-		// Don't emit a page for external links.
-		console.log('createPage: Bypassing pageId ' + pageInfo.id + ' having external URL: ' + pageInfo.linkUrl);
-	} else {
-		console.log('createPage: Processing pageId ' + pageInfo.id + ' at the URL: ' + (outputURL ? outputURL : '') + pageInfo.pageUrl);
+	return new Promise(function (resolve, reject) {
+		try {
+			if ((typeof pageInfo.linkUrl === "string") && (pageInfo.linkUrl.trim().length > 0)) {
+				// Don't emit a page for external links.
+				console.log('createPage: Bypassing pageId ' + pageInfo.id + ' having external URL: ' + pageInfo.linkUrl);
+				resolve();
+			} else {
+				console.log('createPage: Processing pageId ' + pageInfo.id + ' at the URL: ' + (outputURL ? outputURL : '') + pageInfo.pageUrl);
 
-		var pageData = getPageData(pageInfo.id);
-		var layoutName = (pageData.base || pageData).properties.pageLayout;
-		var layoutMarkup = getThemeLayout(themeName, layoutName);
-		var sitePrefix = computeSitePrefix(pageInfo.pageUrl);
-		pageData = fixupPageDataWithSlotReuseData(pageData, layoutName, layoutMarkup);
+				var pageData = getPageData(pageInfo.id);
+				var layoutName = (pageData.base || pageData).properties.pageLayout;
+				var layoutMarkup = getThemeLayout(themeName, layoutName);
+				var sitePrefix = computeSitePrefix(pageInfo.pageUrl);
+				pageData = fixupPageDataWithSlotReuseData(pageData, layoutName, layoutMarkup);
 
-		var pageMarkup = fixupPage(pageInfo.id, pageInfo.pageUrl, layoutMarkup, (pageData.base || pageData), sitePrefix);
+				// now fixup the page
+				fixupPage(pageInfo.id, pageInfo.pageUrl, layoutMarkup, (pageData.base || pageData), sitePrefix).then(function (pageMarkup) {
+					writePage(pageInfo.pageUrl, pageMarkup);
+					resolve();
+				});
+			}
+		} catch (e) {
+			console.log('Failed to create page: ' + pageInfo.id);
+			console.log(e);
 
-		writePage(pageInfo.pageUrl, pageMarkup);
-	}
+			// continue to the next page
+			resolve({
+				erorr: e
+			});
+		}
+	});
 }
 
 function copyFileSync(source, target) {
@@ -627,15 +818,33 @@ var compileSite = function (args) {
 	readSlotReuseData();
 	produceSiteNavigationStructure();
 
-	for (i = 0; i < structure.pages.length; i++) {
-		pageInfo = structure.pages[i];
-		createPage(pageInfo);
-	}
+	// create the array of functions that will execute the createPage promise when called
+	var createPagePromises = [];
+	structure.pages.forEach(function (pageInfo) {
+		createPagePromises.push(function () {
+			return createPage(pageInfo);
+		});
+	});
 
-	//copySiteContentDirectory();
-	//copySiteCloudDeliveryDirectory();
-	//copyThemesDeliveryDirectory();
-	//copyComponentsDeliveryDirectory();
+	// execute page promises serially
+	var doCreatePages = createPagePromises.reduce(function (previousPromise, nextPromise) {
+			return previousPromise.then(function () {
+				// wait for the previous promise to complete and then call the function to start executing the next promise
+				return nextPromise();
+			});
+		},
+		// Start with a previousPromise value that is a resolved promise 
+		Promise.resolve());
+
+	// wait until all pages have been created
+	doCreatePages.then(function () {
+		console.log('All page creation calls complete.');
+
+		//copySiteContentDirectory();
+		//copySiteCloudDeliveryDirectory();
+		//copyThemesDeliveryDirectory();
+		//copyComponentsDeliveryDirectory();
+	});
 };
 
 module.exports.compileSite = compileSite;

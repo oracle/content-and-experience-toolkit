@@ -24,7 +24,7 @@ var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), ''),
 
 var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
 
-console.log('componentRouter: cecDir: ' + cecDir + ' projectDir: ' + projectDir);
+// console.log('componentRouter: cecDir: ' + cecDir + ' projectDir: ' + projectDir);
 
 var templatesDir,
 	themesDir,

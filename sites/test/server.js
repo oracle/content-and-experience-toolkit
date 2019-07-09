@@ -39,11 +39,18 @@ var componentsDir = path.join(srcfolder, 'components'),
 	themesDir = path.join(srcfolder, 'themes');
 
 var port = process.env.CEC_TOOLKIT_PORT || 8085;
+var serverName = process.env.CEC_TOOLKIT_SERVER || '';
+if (serverName && !fs.existsSync(path.join(srcfolder, 'servers', serverName, 'server.json'))) {
+	console.log('ERROR: server ' + serverName + ' does not exist');
+	process.exit(0);
+};
 
-// console.log('cecDir: ' + cecDir + ' projectDir: ' + projectDir + ' port: ' + port);
+// console.log('cecDir: ' + cecDir + ' projectDir: ' + projectDir + ' port: ' + port + ' server: ' + serverName);
 
 // read remote CEC server config 
-var server = serverUtils.getConfiguredServer(projectDir);
+var server = serverName && fs.existsSync(path.join(srcfolder, 'servers', serverName, 'server.json')) ?
+	serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+
 // console.log('Configured server=' + JSON.stringify(server));
 console.log('Use config file: ' + server.fileloc);
 

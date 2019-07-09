@@ -159,8 +159,9 @@ gulp.task('develop', function (done) {
 
 	var port = argv.port || '8085';
 	process.env['CEC_TOOLKIT_PORT'] = port;
+	process.env['CEC_TOOLKIT_SERVER'] = argv.server || '';
 	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
-
+	
 	var args = ['run', 'start', '--prefix', cecDir];
 	var spawnCmd = childProcess.spawnSync(npmCmd, args, {
 		projectDir,
