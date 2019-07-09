@@ -8,6 +8,11 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.3.1c
+
+**Fixed**
+- `cec update-site` -- command line logging not working with node 10 when tracking progress updating files to site.
+
 # New in Release 19.3.1b
 
 **Updated**
