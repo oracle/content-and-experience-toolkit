@@ -13,6 +13,7 @@ var gulp = require('gulp'),
 	serverRest = require('../test/server/serverRest.js'),
 	contentLib = require('./content.js'),
 	fs = require('fs'),
+	readline = require('readline'),
 	path = require('path');
 
 
@@ -31,7 +32,7 @@ var _logFiles = function (updateStep, folder, currentFileIndex, totalFiles) {
 				process.stdout.clearLine();
 			}
 			process.stdout.write(' - ' + context + ': updating file# ' + currentFileIndex.toString().padEnd(4) + ' of ' + totalFiles.toString().padEnd(4) + ' files');
-			process.stdout.cursorTo(0);
+			readline.cursorTo(process.stdout, 0);
 
 			if (currentFileIndex && currentFileIndex === totalFiles) {
 				process.stdout.write('\n');

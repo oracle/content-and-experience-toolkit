@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "19.3.1b",
+	"version": "19.3.1c",
 	"license": "UPL-1.0",
 	"description": "Content and Experience Cloud custom components build system",
 	"main": "index.js",
