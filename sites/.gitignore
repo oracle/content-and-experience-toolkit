@@ -4,6 +4,7 @@
 
 /.idea/
 /.gradle/
+/package-lock.json
 /build/
 /node-*/**
 /node_modules/**
