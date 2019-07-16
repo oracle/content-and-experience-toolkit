@@ -8,6 +8,14 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.3.1d
+
+**Updated**
+- `cec create-site-map` - use `--changefreq auto` to calculate page update frequency based on page update history.
+
+**Fixed**
+- `cec upload-template` - can now successfully upload templates which use hybrid links.
+
 # New in Release 19.3.1c
 
 **Fixed**
