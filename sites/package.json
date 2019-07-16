@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "19.3.1c",
+	"version": "19.3.1d",
 	"license": "UPL-1.0",
 	"description": "Content and Experience Cloud custom components build system",
 	"main": "index.js",
@@ -10,6 +10,7 @@
 	"scripts": {
 		"postinstall": "gulp --gulpfile bin/gulpfile.js copy-libs && npm install bin/cec --no-save",
 		"start": "node test/server.js",
+		"start-sync": "node test/sync-server.js",
 		"debug": "node --inspect --debug-brk test/server.js",
 		"check-version": "gulp --silent --gulpfile bin/gulpfile.js check-version ",
 		"create-folder": "gulp --silent --gulpfile bin/gulpfile.js create-folder ",
@@ -77,7 +78,8 @@
 		"finish-upgrade": "gulp  --gulpfile bin/upgrade.js",
 		"install-cec": "npm install -g bin/cec",
 		"install-src": "gulp --silent --gulpfile bin/gulpfile.js install-src ",
-		"develop": "gulp --silent --gulpfile bin/gulpfile.js develop "
+		"develop": "gulp --silent --gulpfile bin/gulpfile.js develop ",
+		"sync-server": "gulp --silent --gulpfile bin/gulpfile.js sync-server "
 	},
 	"repository": {
 		"type": "git",
@@ -97,6 +99,7 @@
 		"bower-art-resolver": "2.0.9",
 		"btoa": "1.2.1",
 		"chai": "4.1.2",
+		"cheerio": "1.0.0-rc.3",
 		"cors": "2.8.4",
 		"csso": "3.5.1",
 		"decompress": "4.2.0",

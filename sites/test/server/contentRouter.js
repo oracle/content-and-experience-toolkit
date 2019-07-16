@@ -278,13 +278,18 @@ router.get('/*', (req, res) => {
 
 					// check query conditions if there are
 					for (var j = 0; j < otherConditions.length; j++) {
-						if (!data.hasOwnProperty(otherConditions[j].field) ||
-							!data[otherConditions[j].field]) {
+						var otherFieldName= otherConditions[j].field;
+						if (otherFieldName.indexOf('fields.') === 0) {
+							otherFieldName = otherFieldName.substring(7);
+						}
+						
+						if (!data.hasOwnProperty(otherFieldName) ||
+							!data[otherFieldName]) {
 							// the item does not have the field or field value
 							qualified = false;
 							break;
 						} else {
-							var itemfieldvalue = data[otherConditions[j].field];
+							var itemfieldvalue = data[otherFieldName];
 							if (typeof itemfieldvalue === 'object') {
 								var found = false;
 								Object.keys(itemfieldvalue).forEach(function (key) {
@@ -306,7 +311,7 @@ router.get('/*', (req, res) => {
 							}
 						}
 					}
-
+					
 					if (qualified) {
 						// search fields
 						if (fieldName && fieldValue) {

@@ -9,7 +9,8 @@ var path = require('path'),
 	fs = require('fs'),
 	os = require('os'),
 	url = require('url'),
-	serverUtils = require('../test/server/serverUtils.js');
+	serverRest = require('../test/server/serverRest.js')
+serverUtils = require('../test/server/serverUtils.js');
 
 var projectDir,
 	serversSrcDir;
@@ -716,9 +717,11 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 			// find out last modified date
 			var fileName = (includeLocale ? (pages[i].locale + '_') : '') + pages[i].id.toString() + '.json';
 			var lastmod;
+			var pageChangefreq = changefreq;
 			for (var j = 0; j < pageFiles.length; j++) {
 				if (fileName === pageFiles[j].name) {
 					lastmod = _getLastmod(pageFiles[j].lastModifiedDate);
+					pageChangefreq = pageFiles[j].changefreq || changefreq;
 					break;
 				}
 			}
@@ -739,12 +742,14 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 			urls.push({
 				loc: prefix + '/' + (includeLocale ? (pages[i].locale + '/') : '') + pages[i].pageUrl,
 				lastmod: lastmod,
-				priority: priority
+				priority: priority,
+				changefreq: pageChangefreq
 			});
 
 			pagePriority.push({
 				id: pages[i].id.toString(),
-				priority: priority
+				priority: priority,
+				changefreq: pageChangefreq
 			});
 
 		}
@@ -760,9 +765,11 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 			// get page's priority
 			var pageId = items[i].pageId;
 			var itemPriority;
+			var itemChangefreq;
 			for (var j = 0; j < pagePriority.length; j++) {
 				if (pageId === pagePriority[j].id) {
 					itemPriority = pagePriority[j].priority;
+					itemChangefreq = pagePriority[j].changefreq;
 					break;
 				}
 			}
@@ -790,7 +797,7 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 					var itemlanguage = item.language || items[i].locale;
 					var locale = itemlanguage && itemlanguage !== _SiteInfo.defaultLanguage ? (itemlanguage + '/') : '';
 					// trailing / is required
-					var url = prefix + '/' + locale + detailPagePrefix + '/' + item.type + '/' + item.id + '/';
+					var url = prefix + '/' + locale + detailPagePrefix + '/' + item.type + '/' + item.id + '/' + item.slug;
 					var lastmod = _getLastmod(item.updatedDate.value);
 
 					// no duplicate url
@@ -799,7 +806,8 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 						urls.push({
 							loc: url,
 							lastmod: lastmod,
-							priority: itemPriority
+							priority: itemPriority,
+							changefreq: itemChangefreq
 						});
 
 						addedUrls.push(url);
@@ -821,7 +829,7 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 		buf = buf + ident + '<url>' + os.EOL;
 		buf = buf + ident2 + '<loc>' + urls[i].loc + '</loc>' + os.EOL;
 		buf = buf + ident2 + '<lastmod>' + urls[i].lastmod + '</lastmod>' + os.EOL;
-		buf = buf + ident2 + '<changefreq>' + changefreq + '</changefreq>' + os.EOL;
+		buf = buf + ident2 + '<changefreq>' + urls[i].changefreq + '</changefreq>' + os.EOL;
 		buf = buf + ident2 + '<priority>' + urls[i].priority + '</priority>' + os.EOL;
 		buf = buf + ident + '</url>' + os.EOL;
 	}
@@ -1526,33 +1534,36 @@ var _getSiteDataWithLocale = function (server, request, localhost, site, locale,
  * Main entry
  * 
  */
-var _createSiteMap = function (server, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, languages, toppagepriority, done) {
+var _createSiteMap = function (server, serverName, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, languages, toppagepriority, done) {
 
 	//
 	// get site info and other metadata
 	// 
+	var masterPages = [];
+	var allPages = [];
+	var allPageFiles = [];
+	var allItems = [];
 	var dataPromise = _prepareData(server, request, localhost, site, languages, done);
 	dataPromise.then(function (result) {
-		if (result.err) {
-			_cmdEnd(done);
-			return;
-		}
-
-		var isMaster = true;
-		var siteDataPromises = [];
-		siteDataPromises.push(_getSiteDataWithLocale(server, request, localhost, site, _SiteInfo.defaultLanguage, isMaster));
-		for (var i = 0; i < _languages.length; i++) {
-			if (_languages[i] !== _SiteInfo.defaultLanguage) {
-				siteDataPromises.push(_getSiteDataWithLocale(server, request, localhost, site, _languages[i], false));
+			if (result.err) {
+				_cmdEnd(done);
+				return;
 			}
-		}
 
-		Promise.all(siteDataPromises).then(function (values) {
+			var isMaster = true;
+			var siteDataPromises = [];
+			siteDataPromises.push(_getSiteDataWithLocale(server, request, localhost, site, _SiteInfo.defaultLanguage, isMaster));
+			for (var i = 0; i < _languages.length; i++) {
+				if (_languages[i] !== _SiteInfo.defaultLanguage) {
+					siteDataPromises.push(_getSiteDataWithLocale(server, request, localhost, site, _languages[i], false));
+				}
+			}
+
+			return Promise.all(siteDataPromises);
+
+		})
+		.then(function (values) {
 			// console.log(values);
-			var masterPages = [];
-			var allPages = [];
-			var allPageFiles = [];
-			var allItems = [];
 			for (var i = 0; i < values.length; i++) {
 				if (values[i].locale === _SiteInfo.defaultLanguage) {
 					masterPages = values[i].pages;
@@ -1591,6 +1602,12 @@ var _createSiteMap = function (server, request, localhost, site, siteUrl, change
 				}
 			}
 
+			var changefreqPromises = changefreq === 'auto' ? [_calculatePageChangeFraq(serverName, allPageFiles)] : [];
+
+			return Promise.all(changefreqPromises);
+		})
+		.then(function (results) {
+			// console.log(allPageFiles);
 			//
 			// create site map
 			//
@@ -1610,9 +1627,74 @@ var _createSiteMap = function (server, request, localhost, site, siteUrl, change
 				_cmdEnd(done);
 			}
 		});
+};
 
-	}); // prepare data 
+var _calculatePageChangeFraq = function (serverName, allPageFiles) {
+	return new Promise(function (resolve, reject) {
+		var versionPromises = [];
+		for (var i = 0; i < allPageFiles.length; i++) {
+			versionPromises.push(serverRest.getFileVersions({
+				registeredServerName: serverName,
+				currPath: projectDir,
+				fFileGUID: allPageFiles[i].id
+			}));
+		}
+		Promise.all(versionPromises).then(function (results) {
+			var pages = results;
 
+			var todayDate = new Date();
+			var oneDay = 24*60*60*1000;
+			
+			for (var i = 0; i < pages.length; i++) {
+				versions = pages[i];
+				if (versions.length > 5) {
+					// use the latest 5 versions
+					var byVersion = versions.slice(0);
+					byVersion.sort(function (a, b) {
+						var x = a.version;
+						var y = b.version;
+						return (x < y ? 1 : x > y ? -1 : 0);
+					});
+					versions = byVersion;
+				}
+				
+				var oldestVersionIdx = versions.length > 5 ? versions.length - 5 : 0;
+				var versionNum = versions.length > 5 ? 5 : versions.length;
+				var oldest = new Date(versions[oldestVersionIdx].modifiedTime);                                                                                                                                                                                                                                                   
+				var diffDays = Math.round(Math.abs((todayDate.getTime() - oldest.getTime()) / oneDay));
+				var changefreq = diffDays / versionNum;
+				var roundDown = changefreq * 0.7;
+				var calculatedChangefreq;
+				if (roundDown < 0.05) {
+					calculatedChangefreq = 'hourly';
+				} else if (roundDown <= 1) {
+					calculatedChangefreq = 'daily';
+				} else if (roundDown <= 7) {
+					calculatedChangefreq = 'weekly';
+				} else if (roundDown <= 31) {
+					calculatedChangefreq = 'monthly';
+				} else if (roundDown <= 365) {
+					calculatedChangefreq = 'yearly';
+				} else {
+					calculatedChangefreq = 'never';
+				}
+				/*
+				console.log(' - page: ' + versions[0].name + ' versions: ' + versions.length + 
+				' oldest update: ' + versions[oldestVersionIdx].modifiedTime + 
+				' days: ' + diffDays + ' changefreq: ' + changefreq.toFixed(2) + ' roundDown: ' + roundDown.toFixed(2) + ' => ' + calculatedChangefreq);
+				*/
+				for(var j = 0; j < allPageFiles.length; j++) {
+					if (allPageFiles[j].name === versions[0].name) {
+						allPageFiles[j].changefreq = calculatedChangefreq;
+						break;
+					}
+				}
+
+			}
+
+			resolve(allPageFiles);
+		});
+	});
 };
 
 /////////////////////////////////////////////////////////////////////
@@ -1677,12 +1759,6 @@ module.exports.createSiteMap = function (argv, done) {
 
 	// changefreq
 	var changefreq = argv.changefreq || 'monthly';
-	var changefreqValues = ['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never'];
-	if (!changefreqValues.includes(changefreq)) {
-		console.error('ERROR: invalid changefreq ' + changefreq + '. Valid values are: ' + changefreqValues);
-		done();
-		return;
-	}
 
 	// site map file
 	var siteMapFile = argv.file || (site + 'SiteMap.xml');
@@ -1807,7 +1883,7 @@ module.exports.createSiteMap = function (argv, done) {
 			localhost = 'http://localhost:' + port;
 
 			// console.log('localhost: ' + localhost);
-			_createSiteMap(server, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, languages, toppagepriority, done);
+			_createSiteMap(server, serverName, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, languages, toppagepriority, done);
 		});
 		localServer.on('error', function (e) {
 			console.log('ERROR: ');

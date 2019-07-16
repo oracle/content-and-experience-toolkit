@@ -381,6 +381,71 @@ module.exports.deleteFile = function (args) {
 	return _deleteFile(_utils.getServer(args.currPath, args.registeredServerName), args.fFileGUID);
 };
 
+// Get file versions from server
+var _getFileVersions = function (server, fFileGUID) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/versions';
+
+		client.get(url, function (data, response) {
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve(data && data.items);
+			} else {
+				// continue 
+				resolve();
+			}
+		});
+	});
+};
+/**
+ * Get file versions from server by file id
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.fFileGUID The DOCS GUID for the file to query
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getFileVersions = function (args) {
+	return _getFileVersions(_utils.getServer(args.currPath, args.registeredServerName), args.fFileGUID);
+};
+
+var _getItem = function (server, id, expand) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			url = server.url + '/content/management/api/v1.1/items/' + id;
+		if (expand) {
+			url = url + '&expand=' + expand;
+		}
+		client.get(url, function (data, response) {
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				console.log('ERROR: failed to get item: ' + (response.statusMessage || response.statusCode));
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get an item on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.id The id of the item to query.
+ * @param {string} args.expand The comma-separated list of field names or all to get child resources.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getItem = function (args) {
+	return _getItem(_utils.getServer(args.currPath, args.registeredServerName), args.id, args.expand);
+};
 
 // Create channel on server
 var _createChannel = function (server, name, channelType, description, publishPolicy, localizationPolicy) {
@@ -446,6 +511,55 @@ var _createChannel = function (server, name, channelType, description, publishPo
 module.exports.createChannel = function (args) {
 	return _createChannel(_utils.getServer(args.currPath, args.registeredServerName), args.name, args.channelType,
 		args.description, args.publishPolicy, args.localizationPolicy);
+};
+
+// Delete channel on server
+var _deleteChannel = function (server, id) {
+	return new Promise(function (resolve, reject) {
+		siteUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var client = new Client({
+						user: server.username,
+						password: server.password
+					}),
+					url = server.url + '/content/management/api/v1.1/channels/' + id,
+					args = {
+						headers: {
+							'Content-Type': 'application/json',
+							'X-CSRF-TOKEN': csrfToken,
+							'X-REQUESTED-WITH': 'XMLHttpRequest'
+						}
+					};
+
+				client.delete(url, args, function (data, response) {
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						console.log('Failed to delete channel: ' + id + ' - ' + response.statusMessage);
+						// continue
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Delete channel on server by channel id
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.id The id of the channel to delete
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteChannel = function (args) {
+	return _deleteChannel(_utils.getServer(args.currPath, args.registeredServerName), args.id);
 };
 
 // Add channel to repository
@@ -678,14 +792,21 @@ var _opChannelItems = function (server, operation, channelIds, itemIds, queryStr
 				};
 
 				var operations = {};
-				operations[operation] = {
-					channels: channels
-				};
+				if (operation === 'deleteItems') {
+					operations[operation] = {
+						value: 'true'
+					};
+				} else {
+					operations[operation] = {
+						channels: channels
+					};
+				}
 				if (operation === 'validatePublish') {
 					operations[operation]['validation'] = {
 						verbosity: 'normal'
 					};
 				}
+
 				var formData = {
 					q: q,
 					operations: operations
@@ -778,6 +899,31 @@ module.exports.unpublishChannelItems = function (args) {
  */
 module.exports.removeItemsFromChanel = function (args) {
 	return _opChannelItems(_utils.getServer(args.currPath, args.registeredServerName), 'removeChannels', [args.channelId], args.itemIds);
+};
+
+/**
+ * Add items to a channel on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.channelId The id of the channel to add items.
+ * @param {array} args.itemIds The id of items 
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.addItemsToChanel = function (args) {
+	return _opChannelItems(_utils.getServer(args.currPath, args.registeredServerName), 'addChannels', [args.channelId], args.itemIds);
+};
+
+/**
+ * Delete items (translatable items with all tts variations) on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {array} args.itemIds The id of items 
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteItems = function (args) {
+	return _opChannelItems(_utils.getServer(args.currPath, args.registeredServerName), 'deleteItems', [], args.itemIds);
 };
 
 /**

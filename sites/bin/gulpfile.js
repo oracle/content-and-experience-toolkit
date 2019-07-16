@@ -12,6 +12,7 @@ var gulp = require('gulp'),
 	contentlayoutlib = require('./contentlayout.js'),
 	contentlib = require('./content.js'),
 	doclib = require('./document.js'),
+	readline = require('readline'),
 	resourcelib = require('./resource.js'),
 	rsslib = require('./rss.js'),
 	templatelib = require('./template.js'),
@@ -161,7 +162,7 @@ gulp.task('develop', function (done) {
 	process.env['CEC_TOOLKIT_PORT'] = port;
 	process.env['CEC_TOOLKIT_SERVER'] = argv.server || '';
 	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
-	
+
 	var args = ['run', 'start', '--prefix', cecDir];
 	var spawnCmd = childProcess.spawnSync(npmCmd, args, {
 		projectDir,
@@ -169,6 +170,149 @@ gulp.task('develop', function (done) {
 	});
 	done();
 });
+
+gulp.task('sync-server', function (done) {
+	'use strict';
+
+	if (!verifyRun()) {
+		done();
+		return;
+	}
+
+	var srcServerName = argv.server;
+	if (!fs.existsSync(path.join(serversSrcDir, srcServerName, 'server.json'))) {
+		console.log('ERROR: source server ' + srcServerName + ' does not exist');
+		done();
+		return;
+	};
+
+	var destServerName = argv.destination;
+	if (!fs.existsSync(path.join(serversSrcDir, destServerName, 'server.json'))) {
+		console.log('ERROR: destination server ' + destServerName + ' does not exist');
+		done();
+		return;
+	};
+
+	var port = argv.port || '8086';
+	process.env['CEC_TOOLKIT_SYNC_PORT'] = port;
+	process.env['CEC_TOOLKIT_SYNC_SRC'] = srcServerName;
+	process.env['CEC_TOOLKIT_SYNC_DEST'] = destServerName;
+	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
+	process.env['CEC_TOOLKIT_SYNC_HTTPS_KEY'] = '';
+	process.env['CEC_TOOLKIT_SYNC_HTTPS_CERTIFICATE'] = '';
+	
+	var keyPath = argv.key;
+	if (keyPath) {
+		if (!path.isAbsolute(keyPath)) {
+			keyPath = path.join(projectDir, keyPath);
+		}
+		keyPath = path.resolve(keyPath);
+		if (!fs.existsSync(keyPath)) {
+			console.log('ERROR: file ' + keyPath + ' does not exist');
+			done();
+			return;
+		}
+		process.env['CEC_TOOLKIT_SYNC_HTTPS_KEY'] = keyPath;
+	}
+
+	var certPath = argv.certificate;
+	if (certPath) {
+		if (!path.isAbsolute(certPath)) {
+			certPath = path.join(projectDir, certPath);
+		}
+		certPath = path.resolve(certPath);
+		if (!fs.existsSync(certPath)) {
+			console.log('ERROR: file ' + certPath + ' does not exist');
+			done();
+			return;
+		}
+		process.env['CEC_TOOLKIT_SYNC_HTTPS_CERTIFICATE'] = certPath;
+	}
+
+
+	var rl = readline.createInterface({
+		input: process.stdin,
+		output: process.stdout
+	});
+
+	rl._writeToOutput = function _writeToOutput(stringToWrite) {
+		if (rl.stdoutMuted) {
+			var str = stringToWrite.replace(/(\r\n|\n|\r)/gm, '').trim();
+			if (str) {
+				rl.output.write("*");
+			}
+		} else {
+			rl.output.write(stringToWrite);
+		}
+	};
+
+	var username = argv.username || '';
+	var password = argv.password || '';
+
+	var usernamePromises = [];
+	if (!username) {
+		usernamePromises.push(_promptInput(rl, 'Please enter username: '));
+	}
+	Promise.all(usernamePromises)
+		.then(function (results) {
+			if (!username) {
+				username = results[0].value;
+				if (!username) {
+					console.log('ERROR: username is empty');
+					return Promise.reject();
+				}
+			}
+
+			var passwordPromises = [];
+			if (!password) {
+				rl.stdoutMuted = true;
+				passwordPromises.push(_promptInput(rl, 'Please enter password: '));
+			}
+
+			return Promise.all(passwordPromises);
+		})
+		.then(function (results) {
+			if (!password) {
+				password = results[0].value;
+				if (!password) {
+					console.log('ERROR: password is empty');
+					return Promise.reject();
+				}
+				console.log('');
+			}
+
+			rl.stdoutMuted = false;
+			rl.close();
+
+			process.env['CEC_TOOLKIT_SYNC_USERNAME'] = username;
+			process.env['CEC_TOOLKIT_SYNC_PASSWORD'] = password;
+
+			var args = ['run', 'start-sync', '--prefix', cecDir];
+			var spawnCmd = childProcess.spawnSync(npmCmd, args, {
+				projectDir,
+				stdio: 'inherit'
+			});
+
+			done();
+		})
+		.catch((error) => {
+			rl.stdoutMuted = false;
+			rl.close();
+			done();
+		});
+
+});
+
+var _promptInput = function (rl, question) {
+	return new Promise((resolve, reject) => {
+		console.log(question);
+		rl.question('', (answer) => {
+			resolve({
+				value: answer
+			});
+		});
+	});
+};
 
 /**
  * Create folder
@@ -249,7 +393,7 @@ gulp.task('create-component', function (done) {
  */
 gulp.task('copy-component', function (done) {
 	'use strict';
-	
+
 	componentlib.copyComponent(argv, done);
 });
 
@@ -424,13 +568,14 @@ gulp.task('upload-content', function (done) {
 	contentlib.uploadContent(argv, done);
 });
 
+
 /**
- * Control content (publish, unpublish, remove) on server
+ * sync channel content on destination server from source server
  */
-gulp.task('control-content', function (done) {
+gulp.task('sync-content', function (done) {
 	'use strict';
 
-	contentlib.controlContent(argv, done);
+	contentlib.syncContent(argv, done);
 });
 
 /**

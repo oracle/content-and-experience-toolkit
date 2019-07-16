@@ -106,7 +106,7 @@ var getTemplateSources = function () {
 };
 
 var getSiteMapChangefreqValues = function () {
-	const values = ['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never'];
+	const values = ['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never', 'auto'];
 	return values;
 };
 
@@ -560,8 +560,8 @@ const downloadContent = {
 		})()
 	},
 	example: [
-		['cec download-content Site1Channel', 'Donwload all assets in channel Site1Channel'],
-		['cec download-content Site1Channel -p', 'Donwload published assets in channel Site1Channel'],
+		['cec download-content Site1Channel', 'Download all assets in channel Site1Channel'],
+		['cec download-content Site1Channel -p', 'Download published assets in channel Site1Channel'],
 		['cec download-content Site1Channel -s UAT']
 	]
 };
@@ -779,7 +779,11 @@ const createSiteMap = {
 	usage: {
 		'short': 'Creates a site map for site <site> on CEC server.',
 		'long': (function () {
-			let desc = 'Creates a site map for site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to upload the site map to CEC server after creation. Optionally specify -c <changefreq> to define how frequently the page is likely to change. Optionally specify -t <toppagepriority> as the priority for the top level pages. Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
+			let desc = 'Creates a site map for site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' + 
+				'Optionally specify -p to upload the site map to CEC server after creation. ' +
+				'Optionally specify -c <changefreq> to define how frequently the page is likely to change. ' + 
+				'Optionally specify -t <toppagepriority> as the priority for the top level pages. ' + 
+				'Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
 			return getSiteMapChangefreqValues().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1244,6 +1248,28 @@ const develop = {
 	]
 };
 
+const syncServer = {
+	command: 'sync-server',
+	alias: 'ss',
+	name: 'sync-server',
+	usage: {
+		'short': 'Starts a sync server.',
+		'long': (function () {
+			let desc = 'Starts a sync server in the current folder to sync changes notified by web hook from <server> to <destination> server. Specify the source server with -s <server> and the destination server with -d <destination>. ' + 
+				'Specify -u <username> and -w <password> for authenticating web hook events. Optionally specify -p <port> to set the port, default port is 8086. ' + 
+				'To run the sync server over HTTPS, specify the key file with -k <key> and the certificate file with -c <certificate>.'
+			return desc;
+		})()
+	},
+	example: [
+		['cec sync-server -s DEV -d UAT -u admin -w welcome1'],
+		['cec sync-server -s DEV -d UAT -u admin -w welcome1 -p 7878'],
+		['cec sync-server -s DEV -d UAT', 'The username and password will be prompted to enter'],
+		['cec sync-server -s DEV -d UAT -u admin', 'The password will be prompted to enter'],
+		['cec sync-server -s DEV -d UAT -k ~/keys/key.pem -c ~/keys/cert.pem', 'The sync server will start over HTTPS']
+	]
+};
+
 /*********************
  * Setup yargs
  **********************/
@@ -1342,7 +1368,8 @@ _usage = _usage + os.EOL + 'Local Environment' + os.EOL +
 	_getCmdHelp(registerServer) + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
 	_getCmdHelp(install) + os.EOL +
-	_getCmdHelp(develop);
+	_getCmdHelp(develop) + os.EOL;
+	// _getCmdHelp(syncServer);
 
 const argv = yargs.usage(_usage)
 	.command([createComponent.command, createComponent.alias], false,
@@ -2080,6 +2107,8 @@ const argv = yargs.usage(_usage)
 				.check((argv) => {
 					if (!argv.url) {
 						throw new Error('Please specify site URL');
+					} else if (argv.changefreq && !getSiteMapChangefreqValues().includes(argv.changefreq)) {
+						throw new Error(`${argv.changefreq} is a not a valid value for <changefreq>`);
 					} else if (argv.toppagepriority !== undefined && (argv.toppagepriority <= 0 || argv.toppagepriority >= 1)) {
 						throw new Error('Value for toppagepriority should be greater than 0 and less than 1');
 					} else {
@@ -2727,6 +2756,49 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${develop.command}\n\n${develop.usage.long}`);
+		})
+	.command([syncServer.command, syncServer.alias], false,
+		(yargs) => {
+			yargs
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server for sync source',
+					demandOption: true
+				})
+				.option('destination', {
+					alias: 'd',
+					description: 'The registered CEC server for sync destination',
+					demandOption: true
+				})
+				.option('username', {
+					alias: 'u',
+					description: 'The username used to authenticate the web hook event'
+				})
+				.option('password', {
+					alias: 'w',
+					description: 'The password used to authenticate the web hook event'
+				})
+				.option('port', {
+					alias: 'p',
+					description: 'Set port. Defaults to 8086.'
+				})
+				.option('key', {
+					alias: 'k',
+					description: 'The key file for HTTPS'
+				})
+				.option('certificate', {
+					alias: 'c',
+					description: 'The certificate file for HTTPS'
+				})
+				.example(...syncServer.example[0])
+				.example(...syncServer.example[1])
+				.example(...syncServer.example[2])
+				.example(...syncServer.example[3])
+				.example(...syncServer.example[4])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${syncServer.command}\n\n${syncServer.usage.long}`);
 		})
 	.help('help')
 	.alias('help', 'h')
@@ -3835,7 +3907,33 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		cwd,
 		stdio: 'inherit'
 	});
-}
+} else if (argv._[0] === syncServer.name || argv._[0] === syncServer.alias) {
+	let syncServerArgs = ['run', '-s', syncServer.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--server', argv.server,
+		'--destination', argv.destination
+	];
+	if (argv.username && typeof argv.username !== 'boolean') {
+		syncServerArgs.push(...['--username', argv.username]);
+	}
+	if (argv.password && typeof argv.password !== 'boolean') {
+		syncServerArgs.push(...['--password', argv.password]);
+	}
+	if (argv.port) {
+		syncServerArgs.push(...['--port', argv.port]);
+	}
+	if (argv.key && typeof argv.key !== 'boolean') {
+		syncServerArgs.push(...['--key', argv.key]);
+	}
+	if (argv.certificate && typeof argv.certificate !== 'boolean') {
+		syncServerArgs.push(...['--certificate', argv.certificate]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, syncServerArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+};
 
 // see if need to show deprecation warning
 _checkVersion();

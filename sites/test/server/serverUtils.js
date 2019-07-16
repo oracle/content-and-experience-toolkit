@@ -1752,7 +1752,8 @@ module.exports.importTemplateToServer = function (request, server, fileId, idcTo
 			'useBackgroundThread': true,
 			'ThemeConflictResolution': 'overwrite',
 			'TemplateConflictResolution': 'overwrite',
-			'DefaultComponentConflictResolution': true
+			'DefaultComponentConflictResolution': true,
+			'allowCrossTenant': true
 		};
 		var postData = {
 			'form': data
@@ -2115,7 +2116,8 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 					'useBackgroundThread': true,
 					'ThemeConflictResolution': 'overwrite',
 					'TemplateConflictResolution': 'overwrite',
-					'DefaultComponentConflictResolution': true
+					'DefaultComponentConflictResolution': true,
+					'allowCrossTenant': true
 				};
 				var postData = {
 					method: 'POST',

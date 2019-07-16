@@ -84,70 +84,87 @@ module.exports.downloadContent = function (argv, done) {
 		return;
 	}
 
-	var destdir = path.join(projectDir, 'dist');
-	if (!fs.existsSync(destdir)) {
-		fs.mkdirSync(destdir);
-	}
+	_downloadContent(server, channel, publishedassets).then(function (result) {
+		done();
+	});
+};
 
-	var request = _getRequest();
-
-	var channelsPromise = _getChannelsFromServer(server);
-	channelsPromise.then(function (result) {
-		// console.log(result);
-		var channels = result && result.channels || [];
-		var channelId = '';
-		var channelToken = '';
-		for (var i = 0; i < channels.length; i++) {
-			if (channels[i].name === channel) {
-				channelId = channels[i].id;
-				channelToken = channels[i].token;
-				break;
-			}
+var _downloadContent = function (server, channel, publishedassets) {
+	return new Promise(function (resolve, reject) {
+		var destdir = path.join(projectDir, 'dist');
+		if (!fs.existsSync(destdir)) {
+			fs.mkdirSync(destdir);
 		}
 
-		if (!channelId) {
-			console.log('ERROR: channel ' + channel + ' does not exist');
-			done();
-			return;
-		}
+		var request = _getRequest();
 
-		console.log(' - validate channel ' + channel + ' (id: ' + channelId + ')');
-
-		var exportfilepath = path.join(destdir, channel + '_export.zip');
-
-		var exportPromise = _exportChannelContent(request, server, channelId, channel, publishedassets, exportfilepath);
-		exportPromise.then(function (result) {
-			if (result.err) {
-				done();
-				return;
-			}
-
-			if (!fs.existsSync(contentSrcDir)) {
-				fs.mkdirSync(contentSrcDir);
-			}
-
-			// unzip to src/content
-			var contentPath = path.join(contentSrcDir, channel);
-			if (fs.existsSync(contentPath)) {
-				fse.removeSync(contentPath);
-			}
-			fs.mkdirSync(contentPath);
-
-			extract(exportfilepath, {
-				dir: contentPath
-			}, function (err) {
-				if (err) {
-					console.log(err);
-				} else {
-					console.log(' - ' + (publishedassets ? 'published' : 'all') + ' assets from channel ' + channel + ' are available at ' + contentPath);
+		var channelsPromise = _getChannelsFromServer(server);
+		channelsPromise.then(function (result) {
+			// console.log(result);
+			var channels = result && result.channels || [];
+			var channelId = '';
+			var channelName = '';
+			var channelToken = '';
+			for (var i = 0; i < channels.length; i++) {
+				// supports channel id or name
+				if (channels[i].id === channel || channels[i].name.toLowerCase() === channel.toLowerCase()) {
+					channelId = channels[i].id;
+					channelName = channels[i].name;
+					channelToken = channels[i].token;
+					break;
 				}
-				done();
+			}
+
+			if (!channelId) {
+				console.log('ERROR: channel ' + channel + ' does not exist');
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			console.log(' - validate channel ' + channelName + ' (id: ' + channelId + ')');
+
+			var exportfilepath = path.join(destdir, channelName + '_export.zip');
+
+			var exportPromise = _exportChannelContent(request, server, channelId, channelName, publishedassets, exportfilepath);
+			exportPromise.then(function (result) {
+				if (result.err) {
+					return resolve({
+						err: result.err
+					});
+				}
+
+				if (!fs.existsSync(contentSrcDir)) {
+					fs.mkdirSync(contentSrcDir);
+				}
+
+				// unzip to src/content
+				var contentPath = path.join(contentSrcDir, channelName);
+				if (fs.existsSync(contentPath)) {
+					fse.removeSync(contentPath);
+				}
+				fs.mkdirSync(contentPath);
+
+				extract(exportfilepath, {
+					dir: contentPath
+				}, function (err) {
+					if (err) {
+						return resolve({
+							err: 'err'
+						});
+					} else {
+						console.log(' - ' + (publishedassets ? 'published' : 'all') + ' assets from channel ' + channelName + ' are available at ' + contentPath);
+						resolve({
+							channelId: channelId,
+							channeName: channelName
+						});
+					}
+				});
+
 			});
 
 		});
-
 	});
-
 };
 
 var _getRequest = function () {
@@ -597,71 +614,78 @@ var _uploadContentFromZip = function (args) {
 module.exports.uploadContent = function (argv, done) {
 	'use strict';
 
-	try {
-		if (!verifyRun(argv)) {
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	if (serverName) {
+		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
+		if (!fs.existsSync(serverpath)) {
+			console.log('ERROR: server ' + serverName + ' does not exist');
+			done();
+			return;
+		}
+	}
+
+	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+	if (!serverName) {
+		console.log(' - configuration file: ' + server.fileloc);
+	}
+	if (!server.url || !server.username || !server.password) {
+		console.log('ERROR: no server is configured in ' + server.fileloc);
+		done();
+		return;
+	}
+
+	console.log(' - server: ' + server.url);
+
+	var name = argv.name;
+	var contentpath;
+	var contentfilename;
+
+	var isTemplate = typeof argv.template === 'string' && argv.template.toLowerCase() === 'true';
+	if (isTemplate) {
+		var templatepath = path.join(templatesSrcDir, name);
+		if (!fs.existsSync(templatepath)) {
+			console.log('ERROR: template folder ' + templatepath + ' does not exist');
 			done();
 			return;
 		}
 
-		var serverName = argv.server;
-		if (serverName) {
-			var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-			if (!fs.existsSync(serverpath)) {
-				console.log('ERROR: server ' + serverName + ' does not exist');
-				done();
-				return;
-			}
-		}
-
-		var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-		if (!serverName) {
-			console.log(' - configuration file: ' + server.fileloc);
-		}
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured in ' + server.fileloc);
+		// check if the template has content
+		contentpath = path.join(templatepath, 'assets', 'contenttemplate');
+		if (!fs.existsSync(contentpath)) {
+			console.log('ERROR: template ' + name + ' does not have content');
 			done();
 			return;
 		}
-
-		console.log(' - server: ' + server.url);
-
-		var name = argv.name;
-		var contentpath;
-		var contentfilename;
-
-		var isTemplate = typeof argv.template === 'string' && argv.template.toLowerCase() === 'true';
-		if (isTemplate) {
-			var templatepath = path.join(templatesSrcDir, name);
-			if (!fs.existsSync(templatepath)) {
-				console.log('ERROR: template folder ' + templatepath + ' does not exist');
-				done();
-				return;
-			}
-
-			// check if the template has content
-			contentpath = path.join(templatepath, 'assets', 'contenttemplate');
-			if (!fs.existsSync(contentpath)) {
-				console.log('ERROR: template ' + name + ' does not have content');
-				done();
-				return;
-			}
-			contentfilename = name + '_export.zip';
-		} else {
-			contentpath = path.join(contentSrcDir, name);
-			if (!fs.existsSync(contentpath)) {
-				console.log('ERROR: content folder ' + contentpath + ' does not exist');
-				done();
-				return;
-			}
-			contentfilename = name + '.zip';
+		contentfilename = name + '_export.zip';
+	} else {
+		contentpath = path.join(contentSrcDir, name);
+		if (!fs.existsSync(contentpath)) {
+			console.log('ERROR: content folder ' + contentpath + ' does not exist');
+			done();
+			return;
 		}
+		contentfilename = name + '.zip';
+	}
 
+	var repositoryName = argv.repository;
+	var channelName = argv.channel || name;
+	var collectionName = argv.collection;
+	var updateContent = typeof argv.update === 'string' && argv.update.toLowerCase() === 'true';
+
+	_uploadContent(server, serverName, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename)
+		.then(function (result) {
+			done();
+		});
+};
+
+var _uploadContent = function (server, serverName, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename) {
+	return new Promise(function (resolve, reject) {
 		var request = _getRequest();
-
-		var repositoryName = argv.repository;
-		var channelName = argv.channel || name;
-		var collectionName = argv.collection;
-		var updateContent = typeof argv.update === 'string' && argv.update.toLowerCase() === 'true';
 
 		var repository, repositoryId;
 		var channelId;
@@ -809,17 +833,22 @@ module.exports.uploadContent = function (argv, done) {
 					collectionId: collectionId,
 					updateContent: updateContent
 				}).then(function (result) {
-					_cmdEnd(done);
+					if (result.err) {
+						return resolve({
+							err: 'err'
+						});
+					} else {
+						return resolve({});
+					}
 				});
 			}) // get repository
 			.catch((error) => {
-				_cmdEnd(done);
+				return resolve({
+					err: 'err'
+				});
 			});
 
-	} catch (err) {
-		console.log(err);
-		_cmdEnd(done);
-	}
+	});
 };
 
 var _importContent = function (request, server, csrfToken, contentZipFileId, repositoryId, channelId, collectionId, updateContent) {
@@ -1290,4 +1319,387 @@ var _displayValidation = function (validations, action) {
 		console.log(sprintf(format, blockingItems[i].id, blockingItems[i].name, blockingItems[i].message));
 	}
 
+};
+
+module.exports.syncPublishItems = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var srcServerName = argv.server;
+	if (!fs.existsSync(path.join(serversSrcDir, srcServerName, 'server.json'))) {
+		console.log('ERROR: source server ' + srcServerName + ' does not exist');
+		done();
+		return;
+	};
+
+	var destServerName = argv.destination;
+	if (!fs.existsSync(path.join(serversSrcDir, destServerName, 'server.json'))) {
+		console.log('ERROR: destination server ' + destServerName + ' does not exist');
+		done();
+		return;
+	};
+
+	var srcServer = serverUtils.getRegisteredServer(projectDir, srcServerName);
+	console.log(' - source server: ' + srcServer.url);
+
+	var destServer = serverUtils.getRegisteredServer(projectDir, destServerName);
+	console.log(' - destination server: ' + destServer.url);
+
+	var channel = argv.channel;
+	var contentGuids = argv.contentGuids;
+
+	var channelName, channelIdSrc, channelIdDest;
+
+	_getChannelsFromServer(srcServer)
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			var channels = result.channels || [];
+			for (var i = 0; i < channels.length; i++) {
+				if (channels[i].id === channel || channels[i].name.toLowerCase() === channel.toLowerCase()) {
+					channelIdSrc = channels[i].id;
+					channelName = channels[i].name;
+					break;
+				}
+			}
+
+			if (!channelIdSrc) {
+				console.log('ERROR: channel ' + channel + ' does not exist on server ' + srcServerName);
+				return Promise.reject();
+			}
+
+			console.log(' - validate channel on source server: ' + channelName + '(Id: ' + channelIdSrc + ')');
+
+			return _getChannelsFromServer(destServer);
+		})
+		.then(function (result) {
+			var channels = result.channels || [];
+			for (var i = 0; i < channels.length; i++) {
+				if (channels[i].name.toLowerCase() === channelName.toLowerCase()) {
+					channelIdDest = channels[i].id;
+					break;
+				}
+			}
+
+			if (!channelIdDest) {
+				console.log('ERROR: channel ' + channelName + ' does not exist on server ' + destServerName);
+				return Promise.reject();
+			}
+
+			console.log(' - validate channel on destination server: ' + channelName + '(Id: ' + channelIdDest + ')');
+
+			return _performOneOp(destServerName, 'publish', channelIdDest, contentGuids, true);
+	
+		})
+		.then(function (result) {
+			if (result && result.err) {
+				return Promise.reject();
+			}
+
+			console.log(' - items published to channel ' + channelName + ' on server ' + destServerName);
+			done();
+		})
+		.catch((error) => {
+			done();
+		});
+
+};
+
+module.exports.syncCreateUpdateItem = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var srcServerName = argv.server;
+	if (!fs.existsSync(path.join(serversSrcDir, srcServerName, 'server.json'))) {
+		console.log('ERROR: source server ' + srcServerName + ' does not exist');
+		done();
+		return;
+	};
+
+	var destServerName = argv.destination;
+	if (!fs.existsSync(path.join(serversSrcDir, destServerName, 'server.json'))) {
+		console.log('ERROR: destination server ' + destServerName + ' does not exist');
+		done();
+		return;
+	};
+
+	var srcServer = serverUtils.getRegisteredServer(projectDir, srcServerName);
+	console.log(' - source server: ' + srcServer.url);
+
+	var destServer = serverUtils.getRegisteredServer(projectDir, destServerName);
+	console.log(' - destination server: ' + destServer.url);
+
+	var id = argv.id;
+	var repositoryId = argv.repositoryId;
+
+	var item, srcRepository, destRepository;
+	var srcChannel;
+
+	// Verify item
+	serverRest.getItem({
+			registeredServerName: srcServerName,
+			currPath: projectDir,
+			id: id
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+			item = result;
+			console.log(' - validate item on source server: name: ' + item.name + ' (type: ' + item.type + ' id: ' + item.id + ')');
+
+			return serverRest.getRepositories({
+				registeredServerName: srcServerName,
+				currPath: projectDir
+			});
+		})
+		.then(function (result) {
+			var repositories = result || [];
+			for (var i = 0; i < repositories.length; i++) {
+				if (repositories[i].id === repositoryId) {
+					srcRepository = repositories[i];
+					break;
+				}
+			}
+
+			if (!srcRepository || !srcRepository.id) {
+				console.log('ERROR: repository ' + repositoryId + ' does not exist on server ' + srcServerName);
+				return Promise.reject();
+			}
+
+			console.log(' - validate repository on source server: ' + srcRepository.name + ' (id: ' + srcRepository.id + ')');
+
+			return serverRest.getRepositories({
+				registeredServerName: destServerName,
+				currPath: projectDir
+			});
+		})
+		.then(function (result) {
+			var repositories = result || [];
+			for (var i = 0; i < repositories.length; i++) {
+				if (repositories[i].name.toLowerCase() === srcRepository.name.toLowerCase()) {
+					destRepository = repositories[i];
+					break;
+				}
+			}
+
+			if (!destRepository || !destRepository.id) {
+				console.log('ERROR: repository ' + srcRepository.name + ' does not exist on server ' + destServerName);
+				return Promise.reject();
+			}
+
+			console.log(' - validate repository on destination server: ' + destRepository.name + ' (id: ' + destRepository.id + ')');
+
+			// create a new channel to export the item
+			var channelName = 'SyncItemChannel' + serverUtils.createGUID();
+			return serverRest.createChannel({
+				currPath: projectDir,
+				registeredServerName: srcServerName,
+				name: channelName
+			});
+
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			srcChannel = result;
+			console.log(' - create channel ' + srcChannel.name);
+
+			return serverRest.addChannelToRepository({
+				currPath: projectDir,
+				registeredServerName: srcServerName,
+				id: srcChannel.id,
+				name: srcChannel.name,
+				repository: srcRepository
+			});
+
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			console.log(' - add channel to repository ' + srcRepository.name);
+
+			// add item to the channel
+			return serverRest.addItemsToChanel({
+				registeredServerName: srcServerName,
+				currPath: projectDir,
+				channelId: srcChannel.id,
+				itemIds: [id]
+			});
+
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			console.log(' - add the item to channel');
+
+			// download content from source
+			return _downloadContent(srcServer, srcChannel.id, false);
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			// delete the channel
+			return serverRest.deleteChannel({
+				registeredServerName: srcServerName,
+				currPath: projectDir,
+				id: srcChannel.id
+			});
+		})
+		.then(function (result) {
+			if (!result.err) {
+				console.log(' - delete channel ' + srcChannel.name + ' on server ' + srcServerName);
+			}
+
+			// upload content to destination 
+			var updateContent = true;
+			var contentpath = path.join(contentSrcDir, srcChannel.name);
+			var contentfilename = srcChannel.name + '.zip';
+			return _uploadContent(destServer, destServerName, destRepository.name, '', srcChannel.name, updateContent, contentpath, contentfilename);
+
+		})
+		.then(function (result) {
+			// clean up local resource
+			fse.removeSync(path.join(contentSrcDir, srcChannel.name));
+			fse.removeSync(path.join(projectDir, 'dist', srcChannel.name + '.zip'));
+			fse.removeSync(path.join(projectDir, 'dist', srcChannel.name + '_export.zip'));
+
+			return serverRest.getChannels({
+				registeredServerName: destServerName,
+				currPath: projectDir
+			});
+		})
+		.then(function (result) {
+			var channels = result || [];
+			var channelId;
+			for (var i = 0; i < channels.length; i++) {
+				if (srcChannel.name.toLowerCase() === channels[i].name.toLowerCase()) {
+					channelId = channels[i].id;
+					break;
+				}
+			}
+			if (channelId) {
+				serverRest.deleteChannel({
+					registeredServerName: destServerName,
+					currPath: projectDir,
+					id: channelId
+				}).then(function (result) {
+					if (!result.err) {
+						console.log(' - delete channel ' + srcChannel.name + ' on server ' + destServerName);
+					}
+
+					console.log(' - item ' + item.name + (argv.action === 'CREATE' ? ' created ' : ' updated ') + ' on server ' + destServerName);
+					done();
+				})
+			} else {
+				console.log(' - item ' + item.name + (argv.action === 'CREATE' ? ' created ' : ' updated ') + ' on server ' + destServerName);
+				done();
+			}
+		})
+		.catch((error) => {
+			done();
+		});
+
+};
+
+
+module.exports.syncDeleteItem = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var srcServerName = argv.server;
+	if (!fs.existsSync(path.join(serversSrcDir, srcServerName, 'server.json'))) {
+		console.log('ERROR: source server ' + srcServerName + ' does not exist');
+		done();
+		return;
+	};
+
+	var destServerName = argv.destination;
+	if (!fs.existsSync(path.join(serversSrcDir, destServerName, 'server.json'))) {
+		console.log('ERROR: destination server ' + destServerName + ' does not exist');
+		done();
+		return;
+	};
+
+	var srcServer = serverUtils.getRegisteredServer(projectDir, srcServerName);
+	console.log(' - source server: ' + srcServer.url);
+
+	var destServer = serverUtils.getRegisteredServer(projectDir, destServerName);
+	console.log(' - destination server: ' + destServer.url);
+
+	var id = argv.id;
+
+	var item, destItem;
+
+	// Verify item
+	serverRest.getItem({
+			registeredServerName: srcServerName,
+			currPath: projectDir,
+			id: id
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+			item = result;
+			console.log(' - validate item on source server: name: ' + item.name + ' (type: ' + item.type + ' id: ' + item.id + ')');
+
+			return serverRest.getItem({
+				registeredServerName: destServerName,
+				currPath: projectDir,
+				id: id
+			});
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+			destItem = result;
+			console.log(' - validate item on source server: name: ' + destItem.name +
+				' (type: ' + destItem.type + ' id: ' + destItem.id + ' status: ' + destItem.status + ')');
+
+			// delete
+			return serverRest.deleteItems({
+				registeredServerName: destServerName,
+				currPath: projectDir,
+				itemIds: [destItem.id]
+			});
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+			var failedItems = result && result.data && result.data.operations && result.data.operations.deleteItems && result.data.operations.deleteItems.failedItems || [];
+			if (failedItems.length > 0) {
+				console.log('ERROR: failed to delete the item - ' + failedItems[0].message);
+			} else {
+				console.log(' - item ' + destItem.name + ' deleted on server ' + destServerName);
+			}
+			done();
+		})
+		.catch((error) => {
+			done();
+		});
 };
