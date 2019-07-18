@@ -8,6 +8,17 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.3.1e
+
+**Updated**
+
+- `cec download-folder` - can now download files from a site
+- `cec upload-folder` - can now upload folders or folder contents to a site
+
+**Added**
+- `cec share-repository` - share access to a repository in the CEC server
+- `cec unshare-repository` - remove user access to a repository in the CEC server
+
 # New in Release 19.3.1d
 
 **Updated**
