@@ -785,6 +785,25 @@ gulp.task('control-repository', function (done) {
 });
 
 /**
+ * Share a repository
+ */
+gulp.task('share-repository', function (done) {
+	'use strict';
+
+	assetlib.shareRepository(argv, done);
+});
+
+/**
+ * Unshare a repository
+ */
+gulp.task('unshare-repository', function (done) {
+	'use strict';
+
+	assetlib.unShareRepository(argv, done);
+});
+
+
+/**
  * Create a channel
  */
 gulp.task('create-channel', function (done) {

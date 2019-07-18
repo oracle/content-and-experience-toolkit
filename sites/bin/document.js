@@ -66,7 +66,7 @@ module.exports.createFolder = function (argv, done) {
 	var name = argv.name;
 	var folderPath = name.split('/');
 
-	_createFolder(serverName, folderPath, true).then(function (result) {
+	_createFolder(serverName, 'self', folderPath, true).then(function (result) {
 			done();
 		})
 		.catch((error) => {
@@ -74,7 +74,7 @@ module.exports.createFolder = function (argv, done) {
 		});
 };
 
-var _createFolder = function (serverName, folderPath, showMessage) {
+var _createFolder = function (serverName, rootParentId, folderPath, showMessage) {
 	return new Promise(function (resolve, reject) {
 		var folderPromises = [],
 			parentGUID;
@@ -114,7 +114,7 @@ var _createFolder = function (serverName, folderPath, showMessage) {
 			},
 			// Start with a previousPromise value that is a resolved promise passing in the home folder id as the parentID
 			Promise.resolve({
-				id: 'self'
+				id: rootParentId
 			}));
 
 		doFindFolder.then(function (newFolder) {
@@ -181,14 +181,47 @@ module.exports.uploadFile = function (argv, done) {
 		return;
 	}
 
-	var folderPath = argv.folder ? argv.folder.split('/') : [];
+	var inputPath = argv.folder === '/' ? '' : serverUtils.trimString(argv.folder, '/');
+	var siteFolder = false;
+	var siteName;
+	if (inputPath.indexOf('site:') === 0) {
+		siteFolder = true;
+		inputPath = inputPath.substring(5);
+		if (inputPath.indexOf('/') > 0) {
+			siteName = inputPath.substring(0, inputPath.indexOf('/'));
+			inputPath = inputPath.substring(inputPath.indexOf('/') + 1);
+		} else {
+			siteName = inputPath;
+			inputPath = '';
+		}
+	}
+	var folderPath = inputPath ? inputPath.split('/') : [];
+	console.log(' - target folder: ' + (siteFolder ? 'Sites > ' + siteName : 'Documents') + ' > ' + folderPath.join(' > '));
 
-	_findFolder(serverName, folderPath).then(function (result) {
+	var sitePromises = [];
+	if (siteFolder) {
+		sitePromises.push(serverUtils.getSiteFolder(projectDir, siteName, serverName));
+	}
+
+	Promise.all(sitePromises).then(function (results) {
+			var rootParentId = 'self';
+			if (siteFolder) {
+				var siteGUID = results.length > 0 ? results[0].siteGUID : undefined;
+				if (!siteGUID) {
+					console.log('ERROR: invalid site ' + siteName);
+					return Promise.reject();
+				}
+				rootParentId = siteGUID;
+			}
+
+			return _findFolder(serverName, rootParentId, folderPath);
+		})
+		.then(function (result) {
 			if (folderPath.length > 0 && !result) {
 				return Promise.reject();
 			}
 
-			if (result.id !== 'self' && (!result.type || result.type !== 'folder')) {
+			if (siteFolder && !result.id || !siteFolder && result.id !== 'self' && (!result.type || result.type !== 'folder')) {
 				console.log('ERROR: invalid folder ' + argv.folder);
 				return Promise.reject();
 			}
@@ -214,7 +247,7 @@ module.exports.uploadFile = function (argv, done) {
 		});
 };
 
-var _findFolder = function (serverName, folderPath) {
+var _findFolder = function (serverName, rootParentId, folderPath) {
 	return new Promise(function (resolve, reject) {
 		var folderPromises = [],
 			parentGUID;
@@ -237,7 +270,7 @@ var _findFolder = function (serverName, folderPath) {
 				return previousPromise.then(function (folderDetails) {
 					// store the parent
 					if (folderDetails) {
-						if (folderDetails.id !== 'self') {
+						if (folderDetails.id !== rootParentId) {
 							console.log(' - find ' + folderDetails.type + ' ' + folderDetails.name + ' (Id: ' + folderDetails.id + ')');
 						}
 						parentGUID = folderDetails.id;
@@ -249,12 +282,12 @@ var _findFolder = function (serverName, folderPath) {
 			},
 			// Start with a previousPromise value that is a resolved promise passing in the home folder id as the parentID
 			Promise.resolve({
-				id: 'self'
+				id: rootParentId
 			}));
 
 		doFindFolder.then(function (parentFolder) {
 			if (parentFolder) {
-				if (parentFolder.id !== 'self') {
+				if (parentFolder.id !== rootParentId) {
 					console.log(' - find ' + parentFolder.type + ' ' + parentFolder.name + ' (Id: ' + parentFolder.id + ')');
 				}
 			}
@@ -300,6 +333,21 @@ module.exports.downloadFile = function (argv, done) {
 	}
 
 	var folderPathStr = filePath.indexOf('/') >= 0 ? filePath.substring(0, filePath.lastIndexOf('/')) : '';
+	var siteFolder = false;
+	var siteName;
+	if (folderPathStr.indexOf('site:') === 0) {
+		siteFolder = true;
+		folderPathStr = folderPathStr.substring(5);
+		if (folderPathStr.indexOf('/') > 0) {
+			siteName = folderPathStr.substring(0, folderPathStr.indexOf('/'));
+			folderPathStr = folderPathStr.substring(folderPathStr.indexOf('/') + 1);
+		} else {
+			siteName = folderPathStr;
+			folderPathStr = '';
+		}
+	}
+	// console.log('argv.file=' + argv.file + ' folderPathStr=' + folderPathStr + ' siteName=' + siteName);
+
 	var folderPath = folderPathStr.split('/');
 	var folderId;
 
@@ -325,12 +373,28 @@ module.exports.downloadFile = function (argv, done) {
 		}
 	}
 
-	_findFolder(serverName, folderPath).then(function (result) {
+	var sitePromises = [];
+	if (siteFolder) {
+		sitePromises.push(serverUtils.getSiteFolder(projectDir, siteName, serverName));
+	}
+
+	Promise.all(sitePromises).then(function (results) {
+			var rootParentId = 'self';
+			if (siteFolder) {
+				var siteGUID = results.length > 0 ? results[0].siteGUID : undefined;
+				if (!siteGUID) {
+					console.log('ERROR: invalid site ' + siteName);
+					return Promise.reject();
+				}
+				rootParentId = siteGUID;
+			}
+			return _findFolder(serverName, rootParentId, folderPath);
+		}).then(function (result) {
 			if (folderPath.length > 0 && !result) {
 				return Promise.reject();
 			}
 
-			if (result.id !== 'self' && (!result.type || result.type !== 'folder')) {
+			if (siteFolder && !result.id || !siteFolder && result.id !== 'self' && (!result.type || result.type !== 'folder')) {
 				console.log('ERROR: invalid folder ' + folderPathStr);
 				return Promise.reject();
 			}
@@ -420,7 +484,7 @@ module.exports.shareFolder = function (argv, done) {
 
 	var users = [];
 
-	_findFolder(serverName, folderPath).then(function (result) {
+	_findFolder(serverName, 'self', folderPath).then(function (result) {
 			if (folderPath.length > 0 && !result) {
 				return Promise.reject();
 			}
@@ -587,7 +651,7 @@ module.exports.unshareFolder = function (argv, done) {
 	var userNames = argv.users.split(',');
 	var users = [];
 
-	_findFolder(serverName, folderPath).then(function (result) {
+	_findFolder(serverName, 'self', folderPath).then(function (result) {
 			if (folderPath.length > 0 && !result) {
 				return Promise.reject();
 			}
@@ -787,19 +851,51 @@ module.exports.downloadFolder = function (argv, done) {
 	}
 
 	var inputPath = argv.path === '/' ? '' : serverUtils.trimString(argv.path, '/');
-	var folderPath = argv.path === '/' ? [] : inputPath.split('/');
+	var siteFolder = false;
+	var siteName;
+	if (inputPath.indexOf('site:') === 0) {
+		siteFolder = true;
+		inputPath = inputPath.substring(5);
+		if (inputPath.indexOf('/') > 0) {
+			siteName = inputPath.substring(0, inputPath.indexOf('/'));
+			inputPath = inputPath.substring(inputPath.indexOf('/') + 1);
+		} else {
+			siteName = inputPath;
+			inputPath = '';
+		}
+	}
+
+	var folderPath = argv.path === '/' || !inputPath ? [] : inputPath.split('/');
 	// console.log('argv.path=' + argv.path + ' inputPath=' + inputPath + ' folderPath=' + folderPath);
 
 	var folderId;
 
 	_files = [];
 
-	_findFolder(serverName, folderPath).then(function (result) {
+	var sitePromises = [];
+	if (siteFolder) {
+		sitePromises.push(serverUtils.getSiteFolder(projectDir, siteName, serverName));
+	}
+
+	Promise.all(sitePromises).then(function (results) {
+			var rootParentId = 'self';
+			if (siteFolder) {
+				var siteGUID = results.length > 0 ? results[0].siteGUID : undefined;
+				if (!siteGUID) {
+					console.log('ERROR: invalid site ' + siteName);
+					return Promise.reject();
+				}
+				rootParentId = siteGUID;
+			}
+
+			return _findFolder(serverName, rootParentId, folderPath);
+		})
+		.then(function (result) {
 			if (folderPath.length > 0 && !result) {
 				return Promise.reject();
 			}
 
-			if (result.id !== 'self' && (!result.type || result.type !== 'folder')) {
+			if (siteFolder && !result.id || !siteFolder && result.id !== 'self' && (!result.type || result.type !== 'folder')) {
 				console.log('ERROR: invalid folder ' + argv.folder);
 				return Promise.reject();
 			}
@@ -945,11 +1041,25 @@ module.exports.uploadFolder = function (argv, done) {
 	// console.log(' - path=' + argv.path + ' srcPath=' + srcPath + ' contentOnly=' + contentOnly + ' folderName=' + folderName);
 
 	var inputPath = argv.folder === '/' ? '' : serverUtils.trimString(argv.folder, '/');
-	var folderPath = !argv.folder || argv.folder === '/' ? [] : inputPath.split('/');
+	var siteFolder = false;
+	var siteName;
+	if (inputPath.indexOf('site:') === 0) {
+		siteFolder = true;
+		inputPath = inputPath.substring(5);
+		if (inputPath.indexOf('/') > 0) {
+			siteName = inputPath.substring(0, inputPath.indexOf('/'));
+			inputPath = inputPath.substring(inputPath.indexOf('/') + 1);
+		} else {
+			siteName = inputPath;
+			inputPath = '';
+		}
+	}
+	// console.log('argv.folder=' + argv.folder + ' inputPath=' + inputPath + ' siteName=' + siteName);
+	var folderPath = !argv.folder || argv.folder === '/' || !inputPath ? [] : inputPath.split('/');
 	if (folderName) {
 		folderPath.push(folderName);
 	}
-	// console.log(' - target folder: Documents > ' + folderPath.join(' > '));
+	console.log(' - target folder: ' + (siteFolder ? 'Sites > ' + siteName : 'Documents') + ' > ' + folderPath.join(' > '));
 
 	// get all files to upload
 	var folderContent = [];
@@ -980,14 +1090,35 @@ module.exports.uploadFolder = function (argv, done) {
 				}
 			}
 			// console.log(folderContent);
-			_createFolderUploadFiles(serverName, folderPath, folderContent).then(function (result) {
-				done();
-			});
+
+			var sitePromises = [];
+			if (siteFolder) {
+				sitePromises.push(serverUtils.getSiteFolder(projectDir, siteName, serverName));
+			}
+
+			Promise.all(sitePromises).then(function (results) {
+					var rootParentId = 'self';
+					if (siteFolder) {
+						var siteGUID = results.length > 0 ? results[0].siteGUID : undefined;
+						if (!siteGUID) {
+							console.log('ERROR: invalid site ' + siteName);
+							return Promise.reject();
+						}
+						rootParentId = siteGUID;
+					}
+					return _createFolderUploadFiles(serverName, rootParentId, folderPath, folderContent);
+				})
+				.then(function (result) {
+					done();
+				})
+				.catch((error) => {
+					done();
+				});
 		}
 	});
 };
 
-var _createFolderUploadFiles = function (serverName, folderPath, folderContent) {
+var _createFolderUploadFiles = function (serverName, rootParentId, folderPath, folderContent) {
 	return new Promise(function (resolve, reject) {
 		format = '   %-48s  %-7s  %-s';
 		var doCreateFolders = folderContent.reduce(function (createPromise, param) {
@@ -997,7 +1128,7 @@ var _createFolderUploadFiles = function (serverName, folderPath, folderContent) 
 						folders = folders.concat(param.fileFolder.split('/'));
 					}
 
-					return _createFolder(serverName, folders, false).then(function (parentFolder) {
+					return _createFolder(serverName, rootParentId, folders, false).then(function (parentFolder) {
 
 						var filePromises = [];
 						for (var i = 0; i < param.files.length; i++) {

@@ -356,6 +356,250 @@ module.exports.controlRepository = function (argv, done) {
 
 };
 
+
+module.exports.shareRepository = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	if (serverName) {
+		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
+		if (!fs.existsSync(serverpath)) {
+			console.log('ERROR: server ' + serverName + ' does not exist');
+			done();
+			return;
+		}
+	}
+
+	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+	if (!serverName) {
+		console.log(' - configuration file: ' + server.fileloc);
+	}
+	if (!server.url || !server.username || !server.password) {
+		console.log('ERROR: no server is configured in ' + server.fileloc);
+		done();
+		return;
+	}
+	console.log(' - server: ' + server.url);
+
+	var name = argv.name;
+	var userNames = argv.users.split(',');
+	var role = argv.role;
+
+	var repository;
+	var users = [];
+	var goodUserName = [];
+
+	serverRest.getRepositories({
+			registeredServerName: serverName,
+			currPath: projectDir
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+			// get repositories
+			var repositories = result || [];
+			for (var i = 0; i < repositories.length; i++) {
+				if (name.toLowerCase() === repositories[i].name.toLowerCase()) {
+					repository = repositories[i];
+					break;
+				}
+			}
+			if (!repository) {
+				console.log('ERROR: repository ' + name + ' does not exist');
+				return Promise.reject();
+			}
+			console.log(' - verify repository');
+
+			var usersPromises = [];
+			for (var i = 0; i < userNames.length; i++) {
+				usersPromises.push(serverRest.getUser({
+					currPath: projectDir,
+					registeredServerName: serverName,
+					name: userNames[i]
+				}));
+			}
+
+			return Promise.all(usersPromises);
+		})
+		.then(function (results) {
+			var allUsers = [];
+			for (var i = 0; i < results.length; i++) {
+				if (results[i].items) {
+					allUsers = allUsers.concat(results[i].items);
+				}
+			}
+			console.log(' - verify users');
+
+			// verify users
+			for (var k = 0; k < userNames.length; k++) {
+				var found = false;
+				for (var i = 0; i < allUsers.length; i++) {
+					if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+						users.push(allUsers[i]);
+						goodUserName.push(userNames[k]);
+						found = true;
+						break;
+					}
+					if (found) {
+						break;
+					}
+				}
+				if (!found) {
+					console.log('ERROR: user ' + userNames[k] + ' does not exist');
+				}
+			}
+
+			return serverRest.performPermissionOperation({
+				registeredServerName: serverName,
+				currPath: projectDir,
+				operation: 'share',
+				resourceId: repository.id,
+				resourceType: 'repository',
+				role: role,
+				users: users
+			});
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on repository ' + name);
+			done();
+		})
+		.catch((error) => {
+			done();
+		});
+};
+
+
+module.exports.unShareRepository = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	if (serverName) {
+		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
+		if (!fs.existsSync(serverpath)) {
+			console.log('ERROR: server ' + serverName + ' does not exist');
+			done();
+			return;
+		}
+	}
+
+	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
+	if (!serverName) {
+		console.log(' - configuration file: ' + server.fileloc);
+	}
+	if (!server.url || !server.username || !server.password) {
+		console.log('ERROR: no server is configured in ' + server.fileloc);
+		done();
+		return;
+	}
+	console.log(' - server: ' + server.url);
+
+	var name = argv.name;
+	var userNames = argv.users.split(',');
+	var role = argv.role;
+
+	var repository;
+	var users = [];
+	var goodUserName = [];
+
+	serverRest.getRepositories({
+			registeredServerName: serverName,
+			currPath: projectDir
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+			// get repositories
+			var repositories = result || [];
+			for (var i = 0; i < repositories.length; i++) {
+				if (name.toLowerCase() === repositories[i].name.toLowerCase()) {
+					repository = repositories[i];
+					break;
+				}
+			}
+			if (!repository) {
+				console.log('ERROR: repository ' + name + ' does not exist');
+				return Promise.reject();
+			}
+			console.log(' - verify repository');
+
+			var usersPromises = [];
+			for (var i = 0; i < userNames.length; i++) {
+				usersPromises.push(serverRest.getUser({
+					currPath: projectDir,
+					registeredServerName: serverName,
+					name: userNames[i]
+				}));
+			}
+
+			return Promise.all(usersPromises);
+		})
+		.then(function (results) {
+			var allUsers = [];
+			for (var i = 0; i < results.length; i++) {
+				if (results[i].items) {
+					allUsers = allUsers.concat(results[i].items);
+				}
+			}
+			console.log(' - verify users');
+
+			// verify users
+			for (var k = 0; k < userNames.length; k++) {
+				var found = false;
+				for (var i = 0; i < allUsers.length; i++) {
+					if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+						users.push(allUsers[i]);
+						goodUserName.push(userNames[k]);
+						found = true;
+						break;
+					}
+					if (found) {
+						break;
+					}
+				}
+				if (!found) {
+					console.log('ERROR: user ' + userNames[k] + ' does not exist');
+				}
+			}
+
+			return serverRest.performPermissionOperation({
+				registeredServerName: serverName,
+				currPath: projectDir,
+				operation: 'unshare',
+				resourceId: repository.id,
+				resourceType: 'repository',
+				users: users
+			});
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to repository ' + name + ' removed');
+			done();
+		})
+		.catch((error) => {
+			done();
+		});
+};
+
+
 module.exports.createChannel = function (argv, done) {
 	'use strict';
 

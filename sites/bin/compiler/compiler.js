@@ -418,13 +418,13 @@ function resolveLinks(pageModel, context, sitePrefix) {
 	return tempVar;
 }
 
-function parsePageIdAndParams (linkText) {
+function parsePageIdAndParams(linkText) {
 	// CKEditor encodes "&" to "&amp;" in page links, decode the entry
 	var pageLink = linkText.replace(/\&amp\;/g, '&');
 
 	// default the values (pageId === pageLink)
 	var pageValues = {
-		pageId: pageLink, 
+		pageId: pageLink,
 		pageParams: ''
 	};
 
@@ -486,7 +486,7 @@ function getPageLinkData(pageEntry, sitePrefix, structureMap, pageLocale) {
 	// add in any parameters
 	if (pageValues.pageParams) {
 		var joinChar = url.indexOf('?') === -1 ? '?' : '&';
-		url += (joinChar + pageValues.pageParams); 
+		url += (joinChar + pageValues.pageParams);
 	}
 
 	if (url) {
@@ -676,26 +676,54 @@ var compiler = {
 				var $ = cheerio.load('<div/>'),
 					$slotObj = $('<div>' + slotConfig.grid + '</div>'),
 					tempSlotMarkup = slotConfig.grid,
-					gridUpdated = false;
+					gridUpdated = false,
+					componentIds = [],
+					index;
+				var content,
+					tempMarkup,
+					componentId,
+					parentClasses;
 
 				// convert the grid to use mustache macros to insert the compiled component content
 				// Note: this assumes the compiled component results is valid HTML
 				$slotObj.find('div[id]').each(function (index) {
-					var $divEle = $(this);
-					var componentId = $divEle.attr('id');
-					var content;
-					var tempMarkup;
+					var id = $(this).attr('id');
+					componentIds.push(id);
+				});
+
+				for (index = 0; index < componentIds.length; index++) {
+					componentId = componentIds[index];
 					if (self.compiledComponents && self.compiledComponents[componentId] && self.compiledComponents[componentId].content) {
 						content = self.compiledComponents[componentId].content;
 
-						tempMarkup = replaceTagContent(tempSlotMarkup, componentId, '<div class="scs-component-bounding-box">' + content + '</div>', { append: true });
+						// Some container components, like Component Groups and Section Layouts, do not use the bounding box div
+						if (!self.compiledComponents[componentId].omitBoundingBox) {
+							content = '<div class="scs-component-bounding-box">' + content + '</div>';
+						}
+
+						// Write the component markup into the component's div
+						tempMarkup = replaceTagContent(tempSlotMarkup, componentId, content, { append: true });
 						if (typeof tempMarkup === 'string') {
 							compiledComponentIds.push(componentId);
 							tempSlotMarkup = tempMarkup;
 							gridUpdated = true;
+
+							// If the component added markup having sub-components, add those to the list of components to process
+							if (Array.isArray(self.compiledComponents[componentId].componentIds)) {
+								Array.prototype.push.apply(componentIds, self.compiledComponents[componentId].componentIds);
+							}
+
+							// Some components, like Component Groups, want to set class names into the component div tag
+							parentClasses = self.compiledComponents[componentId].parentClasses;
+							if (Array.isArray(parentClasses) && (parentClasses.length > 0)) {
+								tempMarkup = replaceTagAttributes(tempSlotMarkup, componentId, { class: parentClasses.join(' ') });
+								if (typeof tempMarkup === 'string') {
+									tempSlotMarkup = tempMarkup;
+								}
+							}
 						}
 					}
-				});
+				}
 
 				if (gridUpdated) {
 					slotMarkup = tempSlotMarkup;
@@ -1133,7 +1161,7 @@ function replaceTagContent(layout, id, value, options) {
 
 	options = options || {};
 
-	var verifyFunction = options.verifyClass ? function() {
+	var verifyFunction = options.verifyClass ? function () {
 		var ok = false;
 
 		var tag = layout.substring(startTagPos, startContentPos);
@@ -1147,7 +1175,7 @@ function replaceTagContent(layout, id, value, options) {
 		}
 
 		return ok;
-	} : function() {
+	} : function () {
 		return true;
 	};
 
@@ -1229,7 +1257,9 @@ function findEndTag(layout, tagName, startPos) {
 function getPageModelStyleMarkup(pageModel, context, sitePrefix) {
 	var markup = "";
 	var styleData,
-		slotId;
+		slotData,
+		slotId,
+		componentInstances;
 
 	try {
 		styleData = pageModel.properties.styles;
@@ -1237,8 +1267,10 @@ function getPageModelStyleMarkup(pageModel, context, sitePrefix) {
 
 		for (slotId in pageModel.slots) {
 			if (Object.prototype.hasOwnProperty.call(pageModel.slots, slotId)) {
-				styleData = pageModel.slots[slotId].styles;
-				markup += getStyleMarkup("scs-slot-styles-" + slotId, "#" + slotId, context, sitePrefix, styleData);
+				slotData = pageModel.slots[slotId];
+				componentInstances = pageModel.componentInstances;
+
+				markup += getContainerStyleMarkup(slotId, slotData, componentInstances, true, context, sitePrefix);
 			}
 		}
 	} catch (e) {
@@ -1247,6 +1279,38 @@ function getPageModelStyleMarkup(pageModel, context, sitePrefix) {
 
 	if (markup.length > 0) {
 		markup = '\n<style id="scsPageStyles" type="text/css">' + markup + "\n</style>";
+	}
+
+	return markup;
+}
+
+function getContainerStyleMarkup(id, slotData, componentInstances, isSlot, context, sitePrefix) {
+	var markup = "",
+		styleData,
+		componentId,
+		componentInstanceData,
+		prefix,
+		selector,
+		i;
+
+	if (slotData) {
+		styleData = slotData.styles;
+		prefix = isSlot ? 'scs-slot-styles-' : 'scs-container-styles-';
+		selector = encodeHTML('#' + id) + (isSlot ? '' : ' > .scs-container-styles > .scs-component-content');
+		markup += getStyleMarkup(prefix + id, selector, context, sitePrefix, styleData);
+
+		if (slotData.components && Array.isArray(slotData.components)) {
+			for (i = 0; i < slotData.components.length; i++) {
+				componentId = slotData.components[i];
+				if (typeof componentInstances[componentId] === 'object') {
+					componentInstanceData = componentInstances[componentId];
+					if ((componentInstanceData.type === 'scs-componentgroup') ||
+						(componentInstanceData.type === 'scs-sectionlayout')) {
+						markup += getContainerStyleMarkup(componentId, componentInstanceData.data, componentInstances, false, context, sitePrefix); // <<< RECURSION
+					}
+				}
+			}
+		}
 	}
 
 	return markup;
@@ -1262,7 +1326,7 @@ function getStyleMarkup(id, selector, context, sitePrefix, stylesArray) {
 
 	if (Array.isArray(stylesArray) && (stylesArray.length > 0)) {
 		// css += '\n<style id="' + encodeHTML(id) + '" type="text/css">';
-		css += "\n" + encodeHTML(selector) + " {";
+		css += "\n" + selector + " {";
 
 		for (i = 0; i < stylesArray.length; i++) {
 			property = stylesArray[i];

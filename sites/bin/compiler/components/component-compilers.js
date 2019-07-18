@@ -4,6 +4,11 @@ var componentCompilers = [{
 		canNest: true
 	},
 	{
+		type: 'scs-componentgroup',
+		compiler: 'componentgroup/componentgroup',
+		canNest: true
+	},
+	{
 		type: 'scs-divider',
 		compiler: 'divider/divider',
 		canNest: true

@@ -20,6 +20,8 @@ var fs = require('fs'),
 	Base = require(path.normalize('../base/base'));
 
 
+var reportedFiles = {};
+
 var Component = function (compId, compInstance, componentsFolder) {
 	this.init('scs-component', compId, compInstance);
 	this.custComp = compInstance.id;
@@ -41,6 +43,7 @@ Component.prototype.compile = function () {
 		if (compiledComponent.customContent) {
 			// render the content
 			self.customContent = compiledComponent.customContent;
+			self.customHydration = compiledComponent.hydrate ? 'data-scs-hydrate="true"' : '';
 			content = self.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'component.html'), 'utf8'));
 		}
 
@@ -138,12 +141,12 @@ Component.prototype.compileComponent = function () {
 
 	return new Promise(function (resolve, reject) {
 
-		try {
-			//
-			// compile in the referenced component
-			//
-			var compileFile = path.normalize(viewModel.componentsFolder + '/' + viewModel.custComp + '/assets/compile');
+		//
+		// compile in the referenced component
+		//
+		var compileFile = path.normalize(viewModel.componentsFolder + '/' + viewModel.custComp + '/assets/compile');
 
+		try {
 			// verify if we can load the file
 			require.resolve(compileFile);
 
@@ -188,7 +191,8 @@ Component.prototype.compileComponent = function () {
 								// render in the nested components into the custom component
 								var customContent = mustache.render(compiledComp.content, compiledComps);
 								return resolve({
-									customContent: customContent
+									customContent: customContent,
+									hydrate: compiledComp.hydrate
 								});
 							} catch (e) {
 								console.log(type + ': failed to expand template');
@@ -202,22 +206,23 @@ Component.prototype.compileComponent = function () {
 				} catch (e) {
 					// unable to compile the custom component, js
 					console.log('Error: failed to render nested components for : ' + viewModel.id + ' into the page. The component will render in the client.');
-					console.log(e);
 					return resolve({
 						customContent: ''
 					});
 				}
 			}).catch(function (e) {
 				console.log('Error: failed to compile component: ' + viewModel.id + ' into the page. The component will render in the client.');
-				console.log(e);
 				return resolve({
 					customContent: ''
 				});
 			});
 		} catch (e) {
 			// unable to compile the custom component, js
-			console.log('Error: failed to find compile component: ' + viewModel.id + ' into the page. The component will render in the client.');
-			console.log(e);
+			if (!reportedFiles[compileFile]) {
+				reportedFiles[compileFile] = 'done';
+
+				console.log('No custom component compiler for: "' + compileFile + '.js"');
+			}
 			return resolve({
 				customContent: ''
 			});

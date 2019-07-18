@@ -150,6 +150,11 @@ var getFolderRoles = function () {
 	return roles;
 };
 
+var getResourceRoles = function () {
+	const roles = ['manager', 'contributor', 'viewer'];
+	return roles;
+};
+
 /*********************
  * Command definitions
  **********************/
@@ -779,10 +784,10 @@ const createSiteMap = {
 	usage: {
 		'short': 'Creates a site map for site <site> on CEC server.',
 		'long': (function () {
-			let desc = 'Creates a site map for site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' + 
+			let desc = 'Creates a site map for site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -p to upload the site map to CEC server after creation. ' +
-				'Optionally specify -c <changefreq> to define how frequently the page is likely to change. ' + 
-				'Optionally specify -t <toppagepriority> as the priority for the top level pages. ' + 
+				'Optionally specify -c <changefreq> to define how frequently the page is likely to change. ' +
+				'Optionally specify -t <toppagepriority> as the priority for the top level pages. ' +
 				'Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
 			return getSiteMapChangefreqValues().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -855,6 +860,40 @@ const controlRepository = {
 		['cec control-repository remove-type -r Repo1 -t Blog,Author'],
 		['cec control-repository add-channel -r Repo1 -c channel1,channel2'],
 		['cec control-repository remove-channel -r Repo1 -c channel1,channel2']
+	]
+};
+
+const shareRepository = {
+	command: 'share-repository <name>',
+	alias: 'sr',
+	name: 'share-repository',
+	usage: {
+		'short': 'Share repository with users on CEC server.',
+		'long': (function () {
+			let desc = 'Share repository with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are\n\n';
+			return getResourceRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec share-repository Repo1 -u user1,user2 -r manager', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them'],
+		['cec share-repository Repo1 -u user1,user2 -r manager -s UAT', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them on the registered server UAT']
+	]
+};
+
+const unshareRepository = {
+	command: 'unshare-repository <name>',
+	alias: 'usr',
+	name: 'unshare-repository',
+	usage: {
+		'short': 'Delete the user\'s access to a repository on CEC server.',
+		'long': (function () {
+			let desc = 'Delete the user\'s access to a repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec unshare-repository Repo1 -u user1,user2 '],
+		['cec unshare-repository Repo1 -u user1,user2 -s UAT']
 	]
 };
 
@@ -1122,11 +1161,12 @@ const downloadFolder = {
 		})()
 	},
 	example: [
-		['download-folder Releases/1', 'Downloads folder Releases/1 from CEC server and save to local folder src/documents/'],
-		['download-folder /', 'Downloads all documents from CEC server and save to local folder src/documents/'],
-		['download-folder Releases/1 -s UAT', 'Downloads folder Releases/1 from the registered server UAT and save to local folder src/documents/'],
-		['download-folder Releases/1 -f ~/Downloads', 'Downloads folder Releases/1 from CEC server and save to local folder ~/Download/'],
-		['download-folder Releases/1 -f .', 'Downloads folder Releases/1 from CEC server and save to the current local folder']
+		['cec download-folder Releases/1', 'Downloads folder Releases/1 from CEC server and save to local folder src/documents/'],
+		['cec download-folder /', 'Downloads all documents from CEC server and save to local folder src/documents/'],
+		['cec download-folder Releases/1 -s UAT', 'Downloads folder Releases/1 from the registered server UAT and save to local folder src/documents/'],
+		['cec download-folder Releases/1 -f ~/Downloads', 'Downloads folder Releases/1 from CEC server and save to local folder ~/Download/'],
+		['cec download-folder Releases/1 -f .', 'Downloads folder Releases/1 from CEC server and save to the current local folder'],
+		['cec download-folder site:blog1 -f ~/Downloads/blog1Files', 'Downloads all files of site blog1 and save to local folder ~/Download/blog1Files']
 	]
 };
 
@@ -1143,11 +1183,12 @@ const uploadFolder = {
 		})()
 	},
 	example: [
-		['upload-folder ~/Downloads/docs', 'Uploads all content from ~/Downloads/docs to folder docs on the server'],
-		['upload-folder ~/Downloads/docs/', 'Uploads all content from ~/Downloads/docs to the Home folder on the server'],
-		['upload-folder ~/Downloads/docs -f Mydoc', 'Uploads all content from ~/Downloads/docs to folder Mydoc/docs on the server'],
-		['upload-folder ~/Downloads/docs/ -f Mydoc', 'Uploads all content from ~/Downloads/docs to folder Mydoc on the server'],
-		['upload-folder ~/Downloads/docs -s UAT', 'Uploads all content from ~/Downloads/docs to folder docs on the registered server UAT']
+		['cec upload-folder ~/Downloads/docs', 'Uploads all content from ~/Downloads/docs to folder docs on the server'],
+		['cec upload-folder ~/Downloads/docs/', 'Uploads all content from ~/Downloads/docs to the Home folder on the server'],
+		['cec upload-folder ~/Downloads/docs -f Mydoc', 'Uploads all content from ~/Downloads/docs to folder Mydoc/docs on the server'],
+		['cec upload-folder ~/Downloads/docs/ -f Mydoc', 'Uploads all content from ~/Downloads/docs to folder Mydoc on the server'],
+		['cec upload-folder ~/Downloads/docs -s UAT', 'Uploads all content from ~/Downloads/docs to folder docs on the registered server UAT'],
+		['cec upload-folder ~/Downloads/docs/ -f site:blog1/settings/misc', 'Uploads all content from ~/Downloads/docs to folder settings/misc of site blog1']
 	]
 };
 
@@ -1164,9 +1205,10 @@ const uploadFile = {
 		})()
 	},
 	example: [
-		['upload-file ~/Documents/Projects.pdf', 'Uploads the file to the Home folder'],
-		['upload-file ~/Documents/Projects.pdf -s UAT', 'Uploads the file to the Home folder on the registered server UAT'],
-		['upload-file ~/Documents/Projects.pdf -f Doc/Plan', 'Uploads the file to folder Doc/Plan']
+		['cec upload-file ~/Documents/Projects.pdf', 'Uploads the file to the Home folder'],
+		['cec upload-file ~/Documents/Projects.pdf -s UAT', 'Uploads the file to the Home folder on the registered server UAT'],
+		['cec upload-file ~/Documents/Projects.pdf -f Doc/Plan', 'Uploads the file to folder Doc/Plan'],
+		['cec upload-file ~/Documents/Projects.pdf -f site:blog1/settings/misc', 'Uploads the file to folder settings/misc of site blog1']
 	]
 };
 
@@ -1183,10 +1225,11 @@ const downloadFile = {
 		})()
 	},
 	example: [
-		['download-file Releases/Projects.pdf', 'Downloads the file from CEC server and save to folder src/documents/'],
-		['download-file Releases/Projects.pdf -s UAT', 'Downloads the file from the registered server UAT and save to folder src/documents/'],
-		['download-file Releases/Projects.pdf -f ~/Downloads', 'Downloads the file from CEC server and save to folder ~/Download/'],
-		['download-file Releases/Projects.pdf -f .', 'Downloads the file from CEC server and save to the current folder']
+		['cec download-file Releases/Projects.pdf', 'Downloads the file from CEC server and save to local folder src/documents/'],
+		['cec download-file Releases/Projects.pdf -s UAT', 'Downloads the file from the registered server UAT and save to local folder src/documents/'],
+		['cec download-file Releases/Projects.pdf -f ~/Downloads', 'Downloads the file from CEC server and save to local folder ~/Download/'],
+		['cec download-file Releases/Projects.pdf -f .', 'Downloads the file from CEC server and save to the current local folder'],
+		['cec download-file site:blog1/siteinfo.json', 'Downloads the file from folder blog1 and save to local folder src/documents/'],
 	]
 };
 
@@ -1255,8 +1298,8 @@ const syncServer = {
 	usage: {
 		'short': 'Starts a sync server.',
 		'long': (function () {
-			let desc = 'Starts a sync server in the current folder to sync changes notified by web hook from <server> to <destination> server. Specify the source server with -s <server> and the destination server with -d <destination>. ' + 
-				'Specify -u <username> and -w <password> for authenticating web hook events. Optionally specify -p <port> to set the port, default port is 8086. ' + 
+			let desc = 'Starts a sync server in the current folder to sync changes notified by web hook from <server> to <destination> server. Specify the source server with -s <server> and the destination server with -d <destination>. ' +
+				'Specify -u <username> and -w <password> for authenticating web hook events. Optionally specify -p <port> to set the port, default port is 8086. ' +
 				'To run the sync server over HTTPS, specify the key file with -k <key> and the certificate file with -c <certificate>.'
 			return desc;
 		})()
@@ -1350,6 +1393,8 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(createRepository) + os.EOL +
 	_getCmdHelp(controlRepository) + os.EOL +
+	_getCmdHelp(shareRepository) + os.EOL +
+	_getCmdHelp(unshareRepository) + os.EOL +
 	_getCmdHelp(createChannel) + os.EOL +
 	_getCmdHelp(createLocalizationPolicy) + os.EOL;
 
@@ -1369,7 +1414,7 @@ _usage = _usage + os.EOL + 'Local Environment' + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
 	_getCmdHelp(install) + os.EOL +
 	_getCmdHelp(develop) + os.EOL;
-	// _getCmdHelp(syncServer);
+// _getCmdHelp(syncServer);
 
 const argv = yargs.usage(_usage)
 	.command([createComponent.command, createComponent.alias], false,
@@ -2273,6 +2318,54 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${controlRepository.command}\n\n${controlRepository.usage.long}`);
 		})
+	.command([shareRepository.command, shareRepository.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names',
+					demandOption: true
+				})
+				.option('role', {
+					alias: 'r',
+					description: 'The role [' + getResourceRoles().join(' | ') + '] to asign to the users',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.check((argv) => {
+					if (argv.role && !getResourceRoles().includes(argv.role)) {
+						throw new Error(`${argv.role} is a not a valid value for <role>`);
+					} else {
+						return true;
+					}
+				})
+				.example(...shareRepository.example[0])
+				.example(...shareRepository.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${shareRepository.command}\n\n${shareRepository.usage.long}`);
+		})
+	.command([unshareRepository.command, unshareRepository.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...unshareRepository.example[0])
+				.example(...unshareRepository.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${unshareRepository.command}\n\n${unshareRepository.usage.long}`);
+		})
 	.command([createChannel.command, createChannel.alias], false,
 		(yargs) => {
 			yargs.option('description', {
@@ -2602,6 +2695,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadFolder.example[2])
 				.example(...downloadFolder.example[3])
 				.example(...downloadFolder.example[4])
+				.example(...downloadFolder.example[5])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2622,6 +2716,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadFolder.example[2])
 				.example(...uploadFolder.example[3])
 				.example(...uploadFolder.example[4])
+				.example(...uploadFolder.example[5])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2640,6 +2735,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadFile.example[0])
 				.example(...uploadFile.example[1])
 				.example(...uploadFile.example[2])
+				.example(...uploadFile.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2659,6 +2755,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadFile.example[1])
 				.example(...downloadFile.example[2])
 				.example(...downloadFile.example[3])
+				.example(...downloadFile.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3561,6 +3658,37 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		controlRepositoryArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, controlRepositoryArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === shareRepository.name || argv._[0] === shareRepository.alias) {
+	let shareRepositoryArgs = ['run', '-s', shareRepository.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--users', argv.users,
+		'--role', argv.role
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		shareRepositoryArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, shareRepositoryArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === unshareRepository.name || argv._[0] === unshareRepository.alias) {
+	let unshareRepositoryArgs = ['run', '-s', unshareRepository.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--users', argv.users
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		unshareRepositoryArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, unshareRepositoryArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

@@ -37,6 +37,7 @@ Base.prototype.init = function (compType, compId, compInstance) {
 	this.data = compInstance.data;
 	this.id = this.data.parentId ? this.data.parentId + compId : compId;
 	this.componentWrapperTag = this.data.parentId ? compType : 'div';
+	this.nestedId = this.data.parentId ? ' data-scs-id="' + this.id + '"' : '';
 
 	// to allow for hydration after rendering compiled content in the browser, add in the id (and any parent ID if it's nested)
 	var hydrateData = {
@@ -123,7 +124,7 @@ Base.prototype.getAssetUrl = function (caasGUID, options) {
 			'itemGUID': caasGUID
 		},
 		contentClient;
-	
+
 	// ToDo:centralize content client entries
 	//contentClient = ContentSDK.createContentClient({});
 

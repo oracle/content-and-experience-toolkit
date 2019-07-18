@@ -1253,6 +1253,123 @@ module.exports.updateRepository = function (args) {
 	return _updateRepository(_utils.getServer(args.currPath, args.registeredServerName), args.repository, args.contentTypes, args.channels);
 };
 
+var _performPermissionOperation = function (server, operation, resourceId, resourceType, role, users) {
+	return new Promise(function (resolve, reject) {
+		siteUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var request = siteUtils.getRequest();
+
+				var url = server.url + '/content/management/api/v1.1/permissionOperations';
+
+				var auth = {
+					user: server.username,
+					password: server.password
+				};
+
+				var userArr = [];
+				for (var i = 0; i < users.length; i++) {
+					userArr.push({
+						id: users[i].loginName
+					});
+				}
+				var operations = {};
+				operations[operation] = {
+					resource: {
+						id: resourceId,
+						type: resourceType
+					}
+				};
+				if (operation === 'share') {
+					operations[operation]['roles'] = [{
+						name: role,
+						users: userArr
+					}];
+				} else {
+					operations[operation]['users'] = userArr;
+				}
+
+				var formData = {
+					operations: operations
+				};
+				// console.log(JSON.stringify(formData));
+
+				var postData = {
+					method: 'POST',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					body: formData,
+					json: true
+				};
+
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('ERROR: failed to ' + operation + ' resource ');
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					};
+				
+					if (response && response.statusCode === 200) {
+						var failedRoles = data && data.operations[operation] && data.operations[operation].failedRoles;
+						if (failedRoles && failedRoles.length > 0) {
+							console.log('ERROR: failed to ' + operation + ' resource: ');
+							for(var i = 0; i < failedRoles.length; i++) {
+								for(var j = 0; j < failedRoles[i].users.length; j++) {
+									console.log(failedRoles[i].users[j].message);
+								}
+							}
+							resolve({
+								err: 'err'
+							});
+						} else {
+							resolve(data);
+						}
+					} else {
+						var msg = data ? (data.detail || data.title) : response.statusMessage;
+						console.log('ERROR: failed to ' + operation + ' resource ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Share/Unshare a resource
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {String} operation share | unshare
+ * @param {String} args.resourceId the id of the resource
+ * @param {String} args.resourceType the type of the resource
+ * @param {String} args.role manager | contributor | viewer
+ * @param {array} args.users The list of the users or groups
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.performPermissionOperation = function (args) {
+	return _performPermissionOperation(_utils.getServer(args.currPath, args.registeredServerName),
+		args.operation, args.resourceId, args.resourceType, args.role, args.users);
+};
+
 // Get typefrom server
 var _getContentType = function (server, typeName) {
 	return new Promise(function (resolve, reject) {
