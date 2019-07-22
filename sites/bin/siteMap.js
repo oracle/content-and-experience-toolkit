@@ -8,6 +8,7 @@
 var path = require('path'),
 	fs = require('fs'),
 	os = require('os'),
+	readline = require('readline'),
 	url = require('url'),
 	serverRest = require('../test/server/serverRest.js')
 serverUtils = require('../test/server/serverUtils.js');
@@ -717,13 +718,18 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 			// find out last modified date
 			var fileName = (includeLocale ? (pages[i].locale + '_') : '') + pages[i].id.toString() + '.json';
 			var lastmod;
-			var pageChangefreq = changefreq;
+			var pageChangefreq = changefreq === 'auto' ? 'monthly' : changefreq;
+			var found = false;
 			for (var j = 0; j < pageFiles.length; j++) {
 				if (fileName === pageFiles[j].name) {
 					lastmod = _getLastmod(pageFiles[j].lastModifiedDate);
-					pageChangefreq = pageFiles[j].changefreq || changefreq;
+					pageChangefreq = pageFiles[j].changefreq || pageChangefreq;
+					found = true;
 					break;
 				}
+			}
+			if (!found) {
+				console.log('*** page ' + fileName);
 			}
 			// calculate priority
 			var priority;
@@ -781,39 +787,41 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 			var pageItems = items[i].data || [];
 			for (var j = 0; j < pageItems.length; j++) {
 				var item = pageItems[j];
+				if (item && item.id) {
 
-				// verify if the detail page allows the content type
-				var detailPageAllowed = false;
-				for (var k = 0; k < _detailPages.length; k++) {
-					if (_detailPages[k].page.id.toString() === detailPage.id.toString() &&
-						(_detailPages[k].contentTypes.length === 0 || _detailPages[k].contentTypes.includes(item.type))) {
-						detailPageAllowed = true;
-						break;
+					// verify if the detail page allows the content type
+					var detailPageAllowed = false;
+					for (var k = 0; k < _detailPages.length; k++) {
+						if (_detailPages[k].page.id.toString() === detailPage.id.toString() &&
+							(_detailPages[k].contentTypes.length === 0 || _detailPages[k].contentTypes.includes(item.type))) {
+							detailPageAllowed = true;
+							break;
+						}
 					}
+
+					if (detailPageAllowed && detailPageUrl) {
+						var detailPagePrefix = detailPageUrl.replace('.html', '');
+						var itemlanguage = item.language || items[i].locale;
+						var locale = itemlanguage && itemlanguage !== _SiteInfo.defaultLanguage ? (itemlanguage + '/') : '';
+						// trailing / is required
+						var url = prefix + '/' + locale + detailPagePrefix + '/' + item.type + '/' + item.id + '/' + item.slug;
+						// console.log(item);
+						var lastmod = _getLastmod(item.updatedDate.value);
+
+						// no duplicate url
+						if (!addedUrls.includes(url)) {
+							// console.log('item: ' + item.name + ' page: ' + pageId + ' priority: ' + itemPriority + ' lastmod: ' + lastmod);
+							urls.push({
+								loc: url,
+								lastmod: lastmod,
+								priority: itemPriority,
+								changefreq: itemChangefreq
+							});
+
+							addedUrls.push(url);
+						}
+					} // has detail for the item
 				}
-
-				if (detailPageAllowed && detailPageUrl) {
-					var detailPagePrefix = detailPageUrl.replace('.html', '');
-					var itemlanguage = item.language || items[i].locale;
-					var locale = itemlanguage && itemlanguage !== _SiteInfo.defaultLanguage ? (itemlanguage + '/') : '';
-					// trailing / is required
-					var url = prefix + '/' + locale + detailPagePrefix + '/' + item.type + '/' + item.id + '/' + item.slug;
-					var lastmod = _getLastmod(item.updatedDate.value);
-
-					// no duplicate url
-					if (!addedUrls.includes(url)) {
-						// console.log('item: ' + item.name + ' page: ' + pageId + ' priority: ' + itemPriority + ' lastmod: ' + lastmod);
-						urls.push({
-							loc: url,
-							lastmod: lastmod,
-							priority: itemPriority,
-							changefreq: itemChangefreq
-						});
-
-						addedUrls.push(url);
-					}
-				} // has detail for the item
-
 			} // all items on the page
 		} // all items
 	} // has detail page
@@ -1019,7 +1027,7 @@ function _getChildFile(request, localhost, folderId, fileName) {
  */
 function _getChildFiles(request, localhost, folderId) {
 	var filesPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=FLD_BROWSE&itemType=File&item=fFolderGUID:' + folderId;
+		var url = localhost + '/documents/web?IdcService=FLD_BROWSE&itemType=File&item=fFolderGUID:' + folderId + '&fileCount=99999';
 
 		request.get(url, function (err, response, body) {
 			if (err) {
@@ -1631,69 +1639,111 @@ var _createSiteMap = function (server, serverName, request, localhost, site, sit
 
 var _calculatePageChangeFraq = function (serverName, allPageFiles) {
 	return new Promise(function (resolve, reject) {
-		var versionPromises = [];
-		for (var i = 0; i < allPageFiles.length; i++) {
-			versionPromises.push(serverRest.getFileVersions({
-				registeredServerName: serverName,
-				currPath: projectDir,
-				fFileGUID: allPageFiles[i].id
-			}));
-		}
-		Promise.all(versionPromises).then(function (results) {
-			var pages = results;
-
-			var todayDate = new Date();
-			var oneDay = 24*60*60*1000;
-			
-			for (var i = 0; i < pages.length; i++) {
-				versions = pages[i];
-				if (versions.length > 5) {
-					// use the latest 5 versions
-					var byVersion = versions.slice(0);
-					byVersion.sort(function (a, b) {
-						var x = a.version;
-						var y = b.version;
-						return (x < y ? 1 : x > y ? -1 : 0);
-					});
-					versions = byVersion;
-				}
-				
-				var oldestVersionIdx = versions.length > 5 ? versions.length - 5 : 0;
-				var versionNum = versions.length > 5 ? 5 : versions.length;
-				var oldest = new Date(versions[oldestVersionIdx].modifiedTime);                                                                                                                                                                                                                                                   
-				var diffDays = Math.round(Math.abs((todayDate.getTime() - oldest.getTime()) / oneDay));
-				var changefreq = diffDays / versionNum;
-				var roundDown = changefreq * 0.7;
-				var calculatedChangefreq;
-				if (roundDown < 0.05) {
-					calculatedChangefreq = 'hourly';
-				} else if (roundDown <= 1) {
-					calculatedChangefreq = 'daily';
-				} else if (roundDown <= 7) {
-					calculatedChangefreq = 'weekly';
-				} else if (roundDown <= 31) {
-					calculatedChangefreq = 'monthly';
-				} else if (roundDown <= 365) {
-					calculatedChangefreq = 'yearly';
-				} else {
-					calculatedChangefreq = 'never';
-				}
-				/*
-				console.log(' - page: ' + versions[0].name + ' versions: ' + versions.length + 
-				' oldest update: ' + versions[oldestVersionIdx].modifiedTime + 
-				' days: ' + diffDays + ' changefreq: ' + changefreq.toFixed(2) + ' roundDown: ' + roundDown.toFixed(2) + ' => ' + calculatedChangefreq);
-				*/
-				for(var j = 0; j < allPageFiles.length; j++) {
-					if (allPageFiles[j].name === versions[0].name) {
-						allPageFiles[j].changefreq = calculatedChangefreq;
-						break;
-					}
-				}
-
+		var total = allPageFiles.length;
+		console.log(' - total page number: ' + total);
+		var groups = [];
+		var limit = 20;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
 			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
 
+		var todayDate = new Date();
+		var oneDay = 24 * 60 * 60 * 1000;
+		var count = [];
+		var doQueryVersion = groups.reduce(function (versionPromise, param) {
+				return versionPromise.then(function (result) {
+					var versionPromises = [];
+					for (var i = param.start; i < param.end; i++) {
+						versionPromises.push(serverRest.getFileVersions({
+							registeredServerName: serverName,
+							currPath: projectDir,
+							fFileGUID: allPageFiles[i].id
+						}));
+					}
+
+					count.push('.');
+					process.stdout.write(' - calculating page change frequence ' + count.join(''));
+					readline.cursorTo(process.stdout, 0);
+					return Promise.all(versionPromises).then(function (results) {
+						var pages = results;
+
+						for (var i = 0; i < pages.length; i++) {
+							versions = pages[i];
+
+							if (versions) {
+								if (versions.length > 5) {
+									// use the latest 5 versions
+									var byVersion = versions.slice(0);
+									byVersion.sort(function (a, b) {
+										var x = a.version;
+										var y = b.version;
+										return (x < y ? 1 : x > y ? -1 : 0);
+									});
+									versions = byVersion;
+								}
+
+								var oldestVersionIdx = versions.length > 5 ? versions.length - 5 : 0;
+								var versionNum = versions.length > 5 ? 5 : versions.length;
+								var oldest = new Date(versions[oldestVersionIdx].modifiedTime);
+								var diffDays = Math.round(Math.abs((todayDate.getTime() - oldest.getTime()) / oneDay));
+								var changefreq = diffDays / versionNum;
+								var roundDown = changefreq * 0.7;
+								var calculatedChangefreq;
+								if (roundDown < 0.05) {
+									calculatedChangefreq = 'hourly';
+								} else if (roundDown <= 1) {
+									calculatedChangefreq = 'daily';
+								} else if (roundDown <= 7) {
+									calculatedChangefreq = 'weekly';
+								} else if (roundDown <= 31) {
+									calculatedChangefreq = 'monthly';
+								} else if (roundDown <= 365) {
+									calculatedChangefreq = 'yearly';
+								} else {
+									calculatedChangefreq = 'never';
+								}
+								/*
+								console.log(' - page : ' + versions[0].name + ' versions: ' + versions.length +
+									' oldest update: ' + versions[oldestVersionIdx].modifiedTime +
+									' days: ' + diffDays + ' changefreq: ' + changefreq.toFixed(2) + ' roundDown: ' + roundDown.toFixed(2) + ' => ' + calculatedChangefreq);
+								*/
+								for (var j = 0; j < allPageFiles.length; j++) {
+									if (allPageFiles[j].name === versions[0].name) {
+										allPageFiles[j].changefreq = calculatedChangefreq;
+										break;
+									}
+								}
+							} else {
+								console.log(' - ' + i + ' is empty');
+							}
+						}
+					});
+
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doQueryVersion.then(function (result) {
+			process.stdout.write(os.EOL);
 			resolve(allPageFiles);
 		});
+
 	});
 };
 

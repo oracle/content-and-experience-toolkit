@@ -389,10 +389,13 @@ module.exports.shareRepository = function (argv, done) {
 	var name = argv.name;
 	var userNames = argv.users.split(',');
 	var role = argv.role;
+	var shareTypes = typeof argv.types === 'string' && argv.types.toLowerCase() === 'true';
+	var typeRole = argv.typerole || role;
 
 	var repository;
 	var users = [];
 	var goodUserName = [];
+	var typeNames = [];
 
 	serverRest.getRepositories({
 			registeredServerName: serverName,
@@ -415,6 +418,19 @@ module.exports.shareRepository = function (argv, done) {
 				return Promise.reject();
 			}
 			console.log(' - verify repository');
+
+			if (repository.contentTypes) {
+				for (var i = 0; i < repository.contentTypes.length; i++) {
+					typeNames.push(repository.contentTypes[i].name);
+				}
+			}
+			if (shareTypes) {
+				if (typeNames.length === 0) {
+				console.log(' - no content types in the repository');
+				} else {
+					console.log(' - repository includes content type ' + typeNames.join(', '));
+				}
+			}
 
 			var usersPromises = [];
 			for (var i = 0; i < userNames.length; i++) {
@@ -471,7 +487,50 @@ module.exports.shareRepository = function (argv, done) {
 			}
 
 			console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on repository ' + name);
-			done();
+
+			if (shareTypes && typeNames.length > 0) {
+				var typePromises = [];
+				for (var i = 0; i < typeNames.length; i++) {
+					typePromises.push(serverRest.getContentType({
+						registeredServerName: serverName,
+						currPath: projectDir,
+						name: typeNames[i]
+					}));
+				}
+				Promise.all(typePromises).then(function (results) {
+						var shareTypePromises = [];
+						for (var i = 0; i < results.length; i++) {
+							if (results[i].id) {
+								shareTypePromises.push(serverRest.performPermissionOperation({
+									registeredServerName: serverName,
+									currPath: projectDir,
+									operation: 'share',
+									resourceName: results[i].name,
+									resourceType: 'type',
+									role: typeRole,
+									users: users
+								}));
+							}
+						}
+						return Promise.all(shareTypePromises);
+					})
+					.then(function (results) {
+						var sharedTypes = [];
+						for(var i = 0; i < results.length; i++) {
+							var obj = results[i].operations.share;
+							if (obj.resource && obj.resource.name) {
+								sharedTypes.push(obj.resource.name);
+							}
+						}
+						if (sharedTypes.length > 0) {
+							console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + typeRole + ' on type ' + sharedTypes.join(', '));
+						}
+						done();
+					});
+			} else {
+				done();
+			}
+
 		})
 		.catch((error) => {
 			done();
@@ -510,11 +569,12 @@ module.exports.unShareRepository = function (argv, done) {
 
 	var name = argv.name;
 	var userNames = argv.users.split(',');
-	var role = argv.role;
+	var unshareTypes = typeof argv.types === 'string' && argv.types.toLowerCase() === 'true';
 
 	var repository;
 	var users = [];
 	var goodUserName = [];
+	var typeNames = [];
 
 	serverRest.getRepositories({
 			registeredServerName: serverName,
@@ -537,6 +597,19 @@ module.exports.unShareRepository = function (argv, done) {
 				return Promise.reject();
 			}
 			console.log(' - verify repository');
+
+			if (repository.contentTypes) {
+				for (var i = 0; i < repository.contentTypes.length; i++) {
+					typeNames.push(repository.contentTypes[i].name);
+				}
+			}
+			if (unshareTypes) {
+				if (typeNames.length === 0) {
+				console.log(' - no content types in the repository');
+				} else {
+					console.log(' - repository includes content type ' + typeNames.join(', '));
+				}
+			}
 
 			var usersPromises = [];
 			for (var i = 0; i < userNames.length; i++) {
@@ -592,7 +665,48 @@ module.exports.unShareRepository = function (argv, done) {
 			}
 
 			console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to repository ' + name + ' removed');
-			done();
+			
+			if (unshareTypes && typeNames.length > 0) {
+				var typePromises = [];
+				for (var i = 0; i < typeNames.length; i++) {
+					typePromises.push(serverRest.getContentType({
+						registeredServerName: serverName,
+						currPath: projectDir,
+						name: typeNames[i]
+					}));
+				}
+				Promise.all(typePromises).then(function (results) {
+						var shareTypePromises = [];
+						for (var i = 0; i < results.length; i++) {
+							if (results[i].id) {
+								shareTypePromises.push(serverRest.performPermissionOperation({
+									registeredServerName: serverName,
+									currPath: projectDir,
+									operation: 'unshare',
+									resourceName: results[i].name,
+									resourceType: 'type',
+									users: users
+								}));
+							}
+						}
+						return Promise.all(shareTypePromises);
+					})
+					.then(function (results) {
+						var unsharedTypes = [];
+						for(var i = 0; i < results.length; i++) {
+							var obj = results[i].operations.unshare;
+							if (obj.resource && obj.resource.name) {
+								unsharedTypes.push(obj.resource.name);
+							}
+						}
+						if (unsharedTypes.length > 0) {
+							console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to type ' + unsharedTypes.join(', ') + ' removed');
+						}
+						done();
+					});
+			} else {
+				done();
+			}
 		})
 		.catch((error) => {
 			done();

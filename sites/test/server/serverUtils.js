@@ -2720,8 +2720,11 @@ var _getSiteInfo = function (server, site) {
 		var request = _getRequest();
 
 		var isPod = server.env === 'pod_ec';
-		var loginPromise = isPod ? _loginToPODServer(server) : _loginToDevServer(server, request);
-		loginPromise.then(function (result) {
+		var loginPromises = [];
+		if (!server.login) {
+			loginPromises.push(isPod ? _loginToPODServer(server) : _loginToDevServer(server, request));
+		}
+		Promise.all(loginPromises).then(function (result) {
 			var auth = isPod ? {
 				bearer: server.oauthtoken
 			} : {
@@ -2734,6 +2737,7 @@ var _getSiteInfo = function (server, site) {
 				url: server.url + '/documents/web?IdcService=SCS_GET_SITE_INFO_FILE&siteId=' + site + '&IsJson=1',
 				auth: auth
 			};
+			
 			request.get(options, function (err, response, body) {
 				if (err) {
 					console.log('ERROR: Failed to get site Id');
@@ -2768,6 +2772,9 @@ var _getSiteInfo = function (server, site) {
 };
 module.exports.getSiteInfo = function (currPath, site, registeredServerName) {
 	var server = registeredServerName ? _getRegisteredServer(currPath, registeredServerName) : _getConfiguredServer(currPath);
+	return _getSiteInfo(server, site);
+};
+module.exports.getSiteInfoWithToken = function (server, site) {
 	return _getSiteInfo(server, site);
 };
 var _getSiteGUID = function (server, site) {

@@ -821,6 +821,23 @@ const createRSSFeed = {
 	]
 };
 
+const createAssetReport = {
+	command: 'create-asset-report <site>',
+	alias: 'car',
+	name: 'create-asset-report',
+	usage: {
+		'short': 'Generate an asset usage report for site <site> on CEC server.',
+		'long': (function () {
+			let desc = 'Generate an asset usage report for site <site> on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-asset-report Site1'],
+		['cec create-asset-report Site1 -s UAT']
+	]
+};
+
 const createRepository = {
 	command: 'create-repository <name>',
 	alias: 'cr',
@@ -870,13 +887,18 @@ const shareRepository = {
 	usage: {
 		'short': 'Share repository with users on CEC server.',
 		'long': (function () {
-			let desc = 'Share repository with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are\n\n';
+			let desc = 'Share repository with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -t to also share the content types in the repository with the users. ' +
+				'Optionally specify -y <typerole> to share the types with different role. ' +
+				'The valid roles are\n\n';
 			return getResourceRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
 		['cec share-repository Repo1 -u user1,user2 -r manager', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them'],
-		['cec share-repository Repo1 -u user1,user2 -r manager -s UAT', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them on the registered server UAT']
+		['cec share-repository Repo1 -u user1,user2 -r manager -s UAT', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them on the registered server UAT'],
+		['cec share-repository Repo1 -u user1,user2 -r manager -t', 'Share repository Repo1 and all the types in Repo1 with user user1 and user2 and assign Manager role to them'],
+		['cec share-repository Repo1 -u user1,user2 -r manager -t -y contributor', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them, share all types in  Repo1 with user user1 and user2 and assign Contributor role to them']
 	]
 };
 
@@ -887,13 +909,15 @@ const unshareRepository = {
 	usage: {
 		'short': 'Delete the user\'s access to a repository on CEC server.',
 		'long': (function () {
-			let desc = 'Delete the user\'s access to a repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Delete the user\'s access to a repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -t to also delete the user\'s access to the content types in the repository.'
 			return desc;
 		})()
 	},
 	example: [
 		['cec unshare-repository Repo1 -u user1,user2 '],
-		['cec unshare-repository Repo1 -u user1,user2 -s UAT']
+		['cec unshare-repository Repo1 -u user1,user2 -s UAT'],
+		['cec unshare-repository Repo1 -u user1,user2 -t']
 	]
 };
 
@@ -2249,6 +2273,19 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${createRSSFeed.command}\n\n${createRSSFeed.usage.long}`);
 		})
+	.command([createAssetReport.command, createAssetReport.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.example(...createAssetReport.example[0])
+				.example(...createAssetReport.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createAssetReport.command}\n\n${createAssetReport.usage.long}`);
+		})
 	.command([createRepository.command, createRepository.alias], false,
 		(yargs) => {
 			yargs.option('description', {
@@ -2330,6 +2367,14 @@ const argv = yargs.usage(_usage)
 					description: 'The role [' + getResourceRoles().join(' | ') + '] to asign to the users',
 					demandOption: true
 				})
+				.option('types', {
+					alias: 't',
+					description: 'flag to indicate to share types in the repository'
+				})
+				.option('typerole', {
+					alias: 'y',
+					description: 'The role [' + getResourceRoles().join(' | ') + '] to asign to the users for types'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered CEC server'
@@ -2337,12 +2382,16 @@ const argv = yargs.usage(_usage)
 				.check((argv) => {
 					if (argv.role && !getResourceRoles().includes(argv.role)) {
 						throw new Error(`${argv.role} is a not a valid value for <role>`);
+					} else if (argv.typerole && !getResourceRoles().includes(argv.typerole)) {
+						throw new Error(`${argv.typerole} is a not a valid value for <typerole>`);
 					} else {
 						return true;
 					}
 				})
 				.example(...shareRepository.example[0])
 				.example(...shareRepository.example[1])
+				.example(...shareRepository.example[2])
+				.example(...shareRepository.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2355,12 +2404,17 @@ const argv = yargs.usage(_usage)
 					description: 'The comma separated list of user names',
 					demandOption: true
 				})
+				.option('types', {
+					alias: 't',
+					description: 'flag to indicate to remove user\'s access to types in the repository'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered CEC server'
 				})
 				.example(...unshareRepository.example[0])
 				.example(...unshareRepository.example[1])
+				.example(...unshareRepository.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3613,6 +3667,21 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === createAssetReport.name || argv._[0] === createAssetReport.alias) {
+	let createAssetReportArgs = ['run', '-s', createAssetReport.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--site', argv.site
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createAssetReportArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createAssetReportArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === createRepository.name || argv._[0] === createRepository.alias) {
 	let createRepositoryArgs = ['run', '-s', createRepository.name, '--prefix', appRoot,
 		'--',
@@ -3670,6 +3739,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--users', argv.users,
 		'--role', argv.role
 	];
+	if (argv.types) {
+		shareRepositoryArgs.push(...['--types', argv.types]);
+	}
+	if (argv.typerole && typeof argv.typerole !== 'boolean') {
+		shareRepositoryArgs.push(...['--typerole', argv.typerole]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		shareRepositoryArgs.push(...['--server', argv.server]);
 	}
@@ -3685,6 +3760,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--name', argv.name,
 		'--users', argv.users
 	];
+	if (argv.types) {
+		unshareRepositoryArgs.push(...['--types', argv.types]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		unshareRepositoryArgs.push(...['--server', argv.server]);
 	}

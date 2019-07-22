@@ -395,6 +395,7 @@ var _getFileVersions = function (server, fFileGUID) {
 				resolve(data && data.items);
 			} else {
 				// continue 
+				console.log('ERROR: file ' + fFileGUID + ' ' + response.statusMessage);
 				resolve();
 			}
 		});
@@ -1253,7 +1254,7 @@ module.exports.updateRepository = function (args) {
 	return _updateRepository(_utils.getServer(args.currPath, args.registeredServerName), args.repository, args.contentTypes, args.channels);
 };
 
-var _performPermissionOperation = function (server, operation, resourceId, resourceType, role, users) {
+var _performPermissionOperation = function (server, operation, resourceId, resourceName, resourceType, role, users) {
 	return new Promise(function (resolve, reject) {
 		siteUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -1276,12 +1277,18 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 						id: users[i].loginName
 					});
 				}
+				var resource = {
+					type: resourceType
+				};
+				if (resourceId) {
+					resource['id'] = resourceId;
+				}
+				if (resourceName) {
+					resource['name'] = resourceName;
+				}
 				var operations = {};
 				operations[operation] = {
-					resource: {
-						id: resourceId,
-						type: resourceType
-					}
+					resource: resource
 				};
 				if (operation === 'share') {
 					operations[operation]['roles'] = [{
@@ -1325,7 +1332,7 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 					} catch (e) {
 						data = body;
 					};
-				
+					
 					if (response && response.statusCode === 200) {
 						var failedRoles = data && data.operations[operation] && data.operations[operation].failedRoles;
 						if (failedRoles && failedRoles.length > 0) {
@@ -1361,13 +1368,14 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
  * @param {String} operation share | unshare
  * @param {String} args.resourceId the id of the resource
  * @param {String} args.resourceType the type of the resource
+ * @param {String} args.resourceName the name of the resource
  * @param {String} args.role manager | contributor | viewer
  * @param {array} args.users The list of the users or groups
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.performPermissionOperation = function (args) {
 	return _performPermissionOperation(_utils.getServer(args.currPath, args.registeredServerName),
-		args.operation, args.resourceId, args.resourceType, args.role, args.users);
+		args.operation, args.resourceId, args.resourceName, args.resourceType, args.role, args.users);
 };
 
 // Get typefrom server
@@ -1431,4 +1439,45 @@ var _getUser = function (server, userName) {
  */
 module.exports.getUser = function (args) {
 	return _getUser(_utils.getServer(args.currPath, args.registeredServerName), args.name);
+};
+
+var _getFolderUsers = function (server, folderId) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			url = server.url + '/documents/api/1.2/shares/' + folderId + '/items';
+
+		client.get(url, function (data, response) {
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				var users = [];
+				if (data && data.items && data.items.length > 0) {
+					for(var i = 0; i < data.items.length; i++) {
+						users.push({
+							name: data.items[i].user.loginName,
+							type: data.items[i].user.type,
+							role: data.items[i].role
+						});
+					}
+				}
+				resolve(users);
+
+			} else {
+				// continue 
+				resolve();
+			}
+		});
+	});
+};
+/**
+ * Get shared folder users on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.id The id of the folder
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getFolderUsers = function (args) {
+	return _getFolderUsers(_utils.getServer(args.currPath, args.registeredServerName), args.id);
 };

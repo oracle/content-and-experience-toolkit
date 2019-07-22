@@ -24,6 +24,65 @@ var _setupSourceDir = function () {
 
 	defaultTemplatesDir = path.join(srcfolder, 'templates');
 };
+
+var context = {};
+var _returnSlugItems = function (res, slug) {
+	var typesdir = path.join(context.contentdir, 'ContentItems'),
+		slugItems = [];
+	if (fs.existsSync(typesdir)) {
+		// get the list of folders
+		var getDirectories = function (source) {
+			return fs.readdirSync(source).map(function (name) {
+				return path.join(source, name);
+			}).filter(function (source) {
+				return fs.lstatSync(source).isDirectory();
+			});
+		};
+
+		var typeFolders = getDirectories(typesdir);
+
+		// now loop through all the folders checking each item for one with matching slug value
+		typeFolders.forEach(function (folderName) {
+			// ignore VariationSets & DigitialAssets "type" folders
+			if (!folderName.match(/\/VariationSets$|\/DigitalAsset$/)) {
+				var chkItems = fs.readdirSync(folderName);
+
+				chkItems.forEach(function (chkItem) {
+					try {
+						var slugJson = JSON.parse(fs.readFileSync(path.join(folderName, chkItem)));
+
+						var slugData = slugJson.fields || slugJson.data;
+
+						if (slugJson.slug === slug) {
+							// got a match, handle both data formats
+							if (!slugJson.fields && slugJson.data) {
+								slugJson.fields = slugJson.data;
+							} else if (slugJson.fields && !slugJson.data) {
+								slugJson.data = slugJson.fields;
+							}
+
+							// add to the output
+							slugItems.push(slugJson);
+						}
+					} catch (e) {}
+				});
+			}
+		});
+
+		// return the result
+		res.write(JSON.stringify({
+			hasMore: false,
+			limit: slugItems.length,
+			count: 0,
+			items: slugItems,
+			totalResults: slugItems.length,
+			offset: 0
+		}));
+		res.end();
+		return;
+	}
+};
+
 //
 // Get requests
 //
@@ -120,6 +179,8 @@ router.get('/*', (req, res) => {
 		contentdir = path.join(tempdir, 'assets', 'contenttemplate', 'Content Template of ' + temp),
 		filePath = '';
 
+	context.contentdir = contentdir;
+
 	if (!fs.existsSync(contentdir)) {
 		console.log(' - content directory ' + contentdir + ' does not exist');
 		res.writeHead(200, {});
@@ -146,7 +207,8 @@ router.get('/*', (req, res) => {
 			contentItemType = params['field:type:equals'] || '',
 			language = '',
 			otherConditions = [],
-			ids = [];
+			ids = [],
+			slug;
 
 		if (q) {
 			var conds = q.indexOf(' and ') > 0 ? q.split(' and ') : [q];
@@ -177,6 +239,8 @@ router.get('/*', (req, res) => {
 							contentItemType = serverUtils.replaceAll(namevalue[1], '"');
 						} else if (namevalue[0] === 'language') {
 							language = serverUtils.replaceAll(namevalue[1], '"');
+						} else if (namevalue[0] === 'slug') {
+							slug = serverUtils.replaceAll(namevalue[1], '"');
 						} else {
 							otherConditions[otherConditions.length] = {
 								field: namevalue[0],
@@ -208,6 +272,7 @@ router.get('/*', (req, res) => {
 			' orderBy=' + orderBy + ' limit=' + limit +
 			' offset=' + offset + ' contentItemType=' + contentItemType +
 			' ids=' + JSON.stringify(ids) +
+			' slug=' + slug +
 			' language=' + language +
 			' other conditions=' + JSON.stringify(otherConditions));
 
@@ -252,6 +317,8 @@ router.get('/*', (req, res) => {
 			res.write(JSON.stringify(results));
 			res.end();
 			return;
+		} else if (slug) {
+			return _returnSlugItems(res, slug);
 		} else if (contentItemType) {
 			var itemsdir = path.join(contentdir, 'ContentItems', contentItemType);
 			if (fs.existsSync(itemsdir)) {
@@ -278,11 +345,11 @@ router.get('/*', (req, res) => {
 
 					// check query conditions if there are
 					for (var j = 0; j < otherConditions.length; j++) {
-						var otherFieldName= otherConditions[j].field;
+						var otherFieldName = otherConditions[j].field;
 						if (otherFieldName.indexOf('fields.') === 0) {
 							otherFieldName = otherFieldName.substring(7);
 						}
-						
+
 						if (!data.hasOwnProperty(otherFieldName) ||
 							!data[otherFieldName]) {
 							// the item does not have the field or field value
@@ -311,7 +378,7 @@ router.get('/*', (req, res) => {
 							}
 						}
 					}
-					
+
 					if (qualified) {
 						// search fields
 						if (fieldName && fieldValue) {

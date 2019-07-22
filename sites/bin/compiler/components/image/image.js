@@ -30,10 +30,14 @@ Image.prototype.compile = function () {
 	this.computedStyle = this.encodeCSS(this.computeStyle());
 	this.computedContentStyle = this.encodeCSS(this.computeContentStyle());
 	this.computedImageUrl = this.computeImageUrl();
-	this.computedTarget = this.linkType === 'scs-link-lightbox' ? '' : this.computeTarget(this.imageTarget);
+	this.computedTarget = ['scs-link-lightbox', 'scs-link-email'].indexOf(this.linkType) === -1 ? this.computeTarget(this.imageTarget) : '';
 	this.computedLinkClass = this.linkType === 'scs-link-map' ? '' : 'scs-image-link';
 
 	this.hrefAttr = 'href="' + (this.linkType === 'scs-link-lightbox' ? '#' : this.imageHref) + '"';
+
+	if (this.linkType === 'scs-link-file') {
+		this.downloadFileName = this.getNameFromURL(this.imageHref, this.imageHrefName);
+	}
 
 	// see if this image has a link (either click or href)
 	// for gallyerGrid, it will pass in a click handler

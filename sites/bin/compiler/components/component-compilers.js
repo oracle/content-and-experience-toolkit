@@ -47,6 +47,11 @@ var componentCompilers = [{
 		type: 'scs-paragraph',
 		compiler: 'title/title',
 		canNest: true
+	},
+	{
+		type: 'scs-button',
+		compiler: 'button/button',
+		canNest: true
 	}
 ];
 

@@ -136,6 +136,23 @@ Component.prototype.compileNestedComponent = function (compId, compiledComps) {
 	}
 };
 
+Component.prototype.getSeededCompFile = function (compName) {
+	var seededComps = {
+			'scs-comp-article': {
+				compileFile: 'article/article'
+			},
+			'scs-comp-headline': {
+				compileFile: 'headline/headline'
+			},
+			'scs-comp-image-text': {
+				compileFile: 'image-text/image-text'
+			}
+		},
+		seededComp = seededComps[compName];
+
+	return seededComp ? path.normalize(__dirname + '/../' + seededComp.compileFile) : '';
+};
+
 Component.prototype.compileComponent = function () {
 	var viewModel = this;
 
@@ -144,7 +161,10 @@ Component.prototype.compileComponent = function () {
 		//
 		// compile in the referenced component
 		//
-		var compileFile = path.normalize(viewModel.componentsFolder + '/' + viewModel.custComp + '/assets/compile');
+		var compileFile = viewModel.getSeededCompFile(viewModel.custComp);
+		if (!compileFile) {
+			compileFile = path.normalize(viewModel.componentsFolder + '/' + viewModel.custComp + '/assets/compile');
+		}
 
 		try {
 			// verify if we can load the file

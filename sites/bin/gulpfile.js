@@ -12,6 +12,7 @@ var gulp = require('gulp'),
 	contentlayoutlib = require('./contentlayout.js'),
 	contentlib = require('./content.js'),
 	doclib = require('./document.js'),
+	reportlib = require('./report.js'),
 	readline = require('readline'),
 	resourcelib = require('./resource.js'),
 	rsslib = require('./rss.js'),
@@ -767,6 +768,16 @@ gulp.task('create-rss-feed', function (done) {
 });
 
 /**
+ * Generate asset usage report for a site 
+ */
+gulp.task('create-asset-report', function (done) {
+	'use strict';
+
+	reportlib.createAssetReport(argv, done);
+});
+
+
+/**
  * Create a repository
  */
 gulp.task('create-repository', function (done) {
@@ -939,14 +950,14 @@ gulp.task('check-version', function (done) {
 	var url = server.url + (isPod ? '/content' : '/osn/social/api/v1/connections');
 	client.get(url, function (data, response) {
 		if (!response || response.statusCode !== 200) {
-			console.log('ERROR: failed to query CEC version: ' + (response && response.statusMessage));
+			// console.log('ERROR: failed to query CEC version: ' + (response && response.statusMessage));
 			return;
 		}
 		var cecVersion, cecVersion2;
 		if (isPod) {
 			cecVersion = data ? data.toString() : '';
 			if (!cecVersion) {
-				console.log('ERROR: no value returned for CEC version');
+				// console.log('ERROR: no value returned for CEC version');
 				return;
 			}
 
@@ -973,7 +984,7 @@ gulp.task('check-version', function (done) {
 		} else {
 			cecVersion = data && data.version;
 			if (!cecVersion) {
-				console.log('ERROR: no value returned for CEC version');
+				// console.log('ERROR: no value returned for CEC version');
 				return;
 			}
 			var arr = cecVersion.split('.');
