@@ -8,6 +8,11 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.31.f
+
+**Fixed**
+- `cec create-site-map` - now works for sites with 1000s of pages
+
 # New in Release 19.3.1e
 
 **Updated**
