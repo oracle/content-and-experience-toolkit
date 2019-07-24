@@ -635,9 +635,7 @@ module.exports.downloadTemplate = function (argv, done) {
 
 	var request = _getRequest();
 
-	var isPod = server.env === 'pod_ec';
-
-	var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -659,12 +657,7 @@ module.exports.downloadTemplate = function (argv, done) {
 		var templateZipFileGUID;
 		var zippath = path.join(destdir, templateZipFile);
 
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 
 		app.get('/*', function (req, res) {
 			// console.log('GET: ' + req.url);
@@ -902,9 +895,7 @@ module.exports.deleteTemplate = function (argv, done) {
 
 	var request = _getRequest();
 
-	var isPod = server.env === 'pod_ec';
-
-	var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -923,12 +914,8 @@ module.exports.deleteTemplate = function (argv, done) {
 		var templateGUID;
 		var templateGUIDInTrash;
 
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
+
 		app.get('/*', function (req, res) {
 			// console.log('GET: ' + req.url);
 			if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
@@ -1755,8 +1742,8 @@ var _importTemplate = function (server, name, folder, zipfile, done) {
 		proxy: null
 	});
 
-	if (server.env === 'pod_ec') {
-		var loginPromise = serverUtils.loginToPODServer(server);
+	if (server.env !== 'dev_ec') {
+		var loginPromise = server.env === 'dev_osso' ? serverUtils.loginToSSOServer(server) : serverUtils.loginToPODServer(server);
 
 		loginPromise.then(function (result) {
 			if (!result.status) {
@@ -2138,9 +2125,8 @@ var _deleteFromTrash = function (request, localhost) {
 
 var _IdcCopySites = function (request, server, name, fFolderGUID, doCopyToTemplate, exportPublishedAssets) {
 	var copyPromise = new Promise(function (resolve, reject) {
-		var isPod = server.env === 'pod_ec';
-
-		var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+		
+		var loginPromise = serverUtils.loginToServer(server, request);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
@@ -2157,12 +2143,7 @@ var _IdcCopySites = function (request, server, name, fFolderGUID, doCopyToTempla
 			var dUser = '';
 			var idcToken;
 
-			var auth = isPod ? {
-				bearer: server.oauthtoken
-			} : {
-				user: server.username,
-				password: server.password
-			};
+			var auth = serverUtils.getRequestAuth(server);
 
 			app.get('/*', function (req, res) {
 				// console.log('GET: ' + req.url);
@@ -2323,10 +2304,9 @@ var _IdcCopySites = function (request, server, name, fFolderGUID, doCopyToTempla
  * @param {*} done 
  */
 var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpublishedAssets, done) {
-	var isPod = server.env === 'pod_ec';
 	var request = serverUtils.getRequest();
 
-	var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -2343,12 +2323,7 @@ var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpubl
 		var dUser = '';
 		var idcToken;
 
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 
 		// the site id
 		var fFolderGUID;
@@ -2576,6 +2551,7 @@ module.exports.compileTemplate = function (argv, done) {
 
 	var tempName = argv.source,
 		template = '',
+		channelToken = argv.channelToken,
 		existingTemplates = getContents(templatesSrcDir);
 
 	if (!tempName) {
@@ -2608,6 +2584,7 @@ module.exports.compileTemplate = function (argv, done) {
 			themesFolder: themesSrcDir,
 			sitesCloudRuntimeFolder: undefined,
 			componentsFolder: componentsSrcDir,
+			channelToken: channelToken,
 			logLevel: 'log',
 			outputURL: 'http://localhost:8085/templates/' + tempName + '/assets/pages/'
 		});

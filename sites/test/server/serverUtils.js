@@ -83,7 +83,7 @@ var _getSourceFolder = function (currPath) {
 	if (!fs.existsSync(path.join(srcfolder, 'translationJobs'))) {
 		fse.mkdirSync(path.join(srcfolder, 'translationJobs'));
 	}
-	
+
 	return srcfolder;
 };
 
@@ -216,6 +216,52 @@ var _getConfiguredServer = function (currPath) {
 };
 
 /**
+ * Return the auth object for request
+ * @param server the object obtained from API getConfiguredServer()
+ */
+module.exports.getRequestAuth = function (server) {
+	return _getRequestAuth(server);
+};
+var _getRequestAuth = function (server) {
+	var auth = server.env === 'dev_ec' ? {
+		user: server.username,
+		password: server.password
+	} : {
+		bearer: server.oauthtoken
+	};
+	return auth;
+};
+
+module.exports.verifyServer = function (serverName, currPath) {
+	return _verifyServer(serverName, currPath);
+};
+var _verifyServer = function (serverName, currPath) {
+	var server = {};
+	if (serverName) {
+		_setupSourceDir(currPath);
+		
+		var serverpath = path.join(serversDir, serverName, 'server.json');
+		if (!fs.existsSync(serverpath)) {
+			console.log('ERROR: server ' + serverName + ' does not exist');
+			return server;
+		}
+	}
+
+	server = serverName ? _getRegisteredServer(currPath, serverName) : _getConfiguredServer(currPath);
+	if (!serverName) {
+		console.log(' - configuration file: ' + server.fileloc);
+	}
+	if (!server.url || !server.username || !server.password) {
+		console.log('ERROR: no server is configured in ' + server.fileloc);
+		return server;
+	}
+
+	server['valid'] = true;
+	return server;
+};
+
+
+/**
  * Create a 44 char GUID
  * ‘C’ + 32 char complete UUID + 11 char from another UUID
  */
@@ -249,12 +295,12 @@ module.exports.trimString = (str, search) => {
 	var val = str;
 
 	// remove leading
-	while(val.startsWith(search)) {
+	while (val.startsWith(search)) {
 		val = val.substring(search.length);
 	}
 
 	// remove trailing
-	while(_endsWith(val, search)) {
+	while (_endsWith(val, search)) {
 		val = val.substring(0, val.length - search.length);
 	}
 	return val;
@@ -359,11 +405,6 @@ module.exports.updateItemFolderJson = function (projectDir, type, name, propName
 	fs.writeFileSync(file, JSON.stringify(folderjson));
 	return true;
 };
-
-/**
- * Get a server in serversDir.
- */
-module.exports.getRegisteredServer = function (projectDir, name) {};
 
 /**
  * Get a server in serversDir.
@@ -792,8 +833,7 @@ module.exports.getContentTypesFromServer = function (server) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				// console.log('status=' + response.statusCode + ' err=' + err);
-				console.log('ERROR: failed to query content types');
+				console.log('ERROR: failed to query content types - ' + (response.statusMessage || response.statusCode));
 				resolve({
 					err: 'failed to query content types: ' + response.statusCode
 				});
@@ -836,8 +876,7 @@ module.exports.getContentTypeFromServer = function (server, typename) {
 /**
  * Get all fields of a content types from server
  */
-module.exports.getContentTypeFieldsFromServer = function (currPath, typename, callback) {
-	var server = _getConfiguredServer(currPath);
+module.exports.getContentTypeFieldsFromServer = function (server, typename, callback) {
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured');
 		return;
@@ -1038,7 +1077,7 @@ module.exports.getTemplateFromServer = function (request, server, templateName) 
 				err: 'no server'
 			});
 		}
-		if (server.env === 'pod_ec' && !server.oauthtoken) {
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
 			console.log('ERROR: OAuth token');
 			resolve({
 				err: 'no OAuth token'
@@ -1050,7 +1089,7 @@ module.exports.getTemplateFromServer = function (request, server, templateName) 
 		var options = {
 			url: url
 		};
-		if (server.env === 'pod_ec') {
+		if (server.env !== 'dev_ec') {
 			options.headers = {
 				Authorization: server.oauthtoken
 			};
@@ -1107,7 +1146,7 @@ module.exports.getSiteFromServer = function (request, server, siteName) {
 				err: 'no server'
 			});
 		}
-		if (server.env === 'pod_ec' && !server.oauthtoken) {
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
 			console.log('ERROR: OAuth token');
 			resolve({
 				err: 'no OAuth token'
@@ -1118,7 +1157,7 @@ module.exports.getSiteFromServer = function (request, server, siteName) {
 		var options = {
 			url: url
 		};
-		if (server.env === 'pod_ec') {
+		if (server.env !== 'dev_ec') {
 			options.headers = {
 				Authorization: server.oauthtoken
 			};
@@ -1521,13 +1560,7 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 		var port = '9393';
 		var localhost = 'http://localhost:' + port;
 
-		var isPod = server.env === 'pod_ec';
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = _getRequestAuth(server);
 
 		app.get('/documents/web', function (req, res) {
 			// console.log('GET: ' + req.url);
@@ -1597,11 +1630,6 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 			var options = {
 				url: folderUrl
 			};
-			if (server.env === 'pod_ec') {
-				options['auth'] = {
-					bearer: server.oauthtoken
-				};
-			}
 
 			request.get(options, function (err, response, body) {
 				if (err) {
@@ -1902,6 +1930,9 @@ var _loginToDevServer = function (server, request) {
 module.exports.loginToDevServer = _loginToDevServer;
 
 var _loginToPODServer = function (server) {
+	if (server.sso) {
+		return _loginToSSOServer(server);
+	}
 	var loginPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/documents',
 			usernameid = '#idcs-signin-basic-signin-form-username',
@@ -2008,6 +2039,121 @@ var _loginToPODServer = function (server) {
 };
 module.exports.loginToPODServer = _loginToPODServer;
 
+var _loginToSSOServer = function (server) {
+	var loginPromise = new Promise(function (resolve, reject) {
+		var url = server.url + '/documents',
+			usernameid = '#sso_username',
+			passwordid = '#ssopassword',
+			submitid = '.submit_btn',
+			username = server.username,
+			password = server.password;
+		/* jshint ignore:start */
+		var browser;
+		async function loginServer() {
+			try {
+				browser = await puppeteer.launch({
+					ignoreHTTPSErrors: true,
+					headless: false
+				});
+				const page = await browser.newPage();
+				await page.setViewport({
+					width: 960,
+					height: 768
+				});
+
+				await page.goto(url);
+
+				await page.waitForSelector(usernameid);
+				await page.type(usernameid, username);
+
+				await page.waitForSelector(passwordid);
+				await page.type(passwordid, password);
+
+				var button = await page.waitForSelector(submitid);
+				await button.click();
+
+				try {
+					await page.waitForSelector('#content-wrapper', {
+						timeout: 12000
+					});
+				} catch (err) {
+					// will continue, in headleass mode, after login redirect does not occur
+				}
+
+				// get OAuth token
+				var tokenurl = server.url + '/documents/web?IdcService=GET_OAUTH_TOKEN';
+				await page.goto(tokenurl);
+				try {
+					await page.waitForSelector('pre', {
+						timeout: 120000
+					});
+				} catch (err) {
+					console.log('Failed to connect to the server to get the OAuth token the first time');
+
+					await page.goto(tokenurl);
+					try {
+						await page.waitForSelector('pre'); // smaller timeout
+					} catch (err) {
+						console.log('Failed to connect to the server to get the OAuth token the second time');
+
+						await browser.close();
+						return resolve({
+							'status': false
+						});
+					}
+				}
+
+				var result = await page.evaluate(() => document.querySelector('pre').textContent);
+				var token = '';
+				if (result) {
+					var localdata = JSON.parse(result);
+					token = localdata && localdata.LocalData && localdata.LocalData.tokenValue;
+				}
+				// console.log('OAuth token=' + token);
+
+				server.oauthtoken = token;
+
+				await browser.close();
+
+				if (!token || token.toLowerCase().indexOf('error') >= 0) {
+					console.log('ERROR: failed to get the OAuth token');
+					return resolve({
+						'status': false
+					});
+				}
+
+				console.log(' - connect to remote server: ' + server.url);
+
+				return resolve({
+					'status': true
+				});
+
+			} catch (err) {
+				console.log('ERROR: failed to connect to the server');
+				console.log(err);
+				if (browser) {
+					await browser.close();
+				}
+				return resolve({
+					'status': false
+				});
+			}
+		}
+		loginServer();
+		/* jshint ignore:end */
+	});
+	return loginPromise;
+};
+module.exports.loginToSSOServer = _loginToSSOServer;
+
+module.exports.loginToServer = function (server, request) {
+	return _loginToServer(server, request);
+};
+var _loginToServer = function (server, request) {
+	var env = server.env || 'pod_ec';
+	var loginPromise = env === 'dev_osso' ? _loginToSSOServer(server) : (env === 'dev_ec' ? _loginToDevServer(server, request) : _loginToPODServer(server));
+	return loginPromise;
+};
 
 /**
  * Upload a local file to the personal folder on the server
@@ -2463,7 +2609,7 @@ function _browseFolder(request, server, host, folderId, folderName) {
 		var options = {
 			url: url
 		};
-		if (server.env === 'pod_ec') {
+		if (server.env !== 'dev_ec') {
 			options['auth'] = {
 				bearer: server.oauthtoken
 			};
@@ -2516,7 +2662,7 @@ var _queryFolderId = function (request, server, host, folderPath) {
 		var options = {
 			url: url
 		};
-		if (server.env === 'pod_ec') {
+		if (server.env !== 'dev_ec') {
 			options['auth'] = {
 				bearer: server.oauthtoken
 			};
@@ -2719,25 +2865,18 @@ var _getSiteInfo = function (server, site) {
 
 		var request = _getRequest();
 
-		var isPod = server.env === 'pod_ec';
 		var loginPromises = [];
 		if (!server.login) {
-			loginPromises.push(isPod ? _loginToPODServer(server) : _loginToDevServer(server, request));
+			loginPromises.push(_loginToServer(server, request));
 		}
 		Promise.all(loginPromises).then(function (result) {
-			var auth = isPod ? {
-				bearer: server.oauthtoken
-			} : {
-				user: server.username,
-				password: server.password
-			};
-
+			var auth = _getRequestAuth(server);
 
 			var options = {
 				url: server.url + '/documents/web?IdcService=SCS_GET_SITE_INFO_FILE&siteId=' + site + '&IsJson=1',
 				auth: auth
 			};
-			
+
 			request.get(options, function (err, response, body) {
 				if (err) {
 					console.log('ERROR: Failed to get site Id');
@@ -2790,16 +2929,9 @@ var _getSiteGUID = function (server, site) {
 
 		var request = _getRequest();
 
-		var isPod = server.env === 'pod_ec';
-		var loginPromise = isPod ? _loginToPODServer(server) : _loginToDevServer(server, request);
+		var loginPromise = _loginToServer(server, request);
 		loginPromise.then(function (result) {
-			var auth = isPod ? {
-				bearer: server.oauthtoken
-			} : {
-				user: server.username,
-				password: server.password
-			};
-
+			var auth = _getRequestAuth(server);
 
 			var options = {
 				url: server.url + '/documents/web?IdcService=SCS_BROWSE_SITES',
@@ -2972,13 +3104,7 @@ module.exports.getBackgroundServiceJobStatus = function (server, request, idcTok
 		url = url + '&JobID=' + jobId;
 		url = url + '&idcToken=' + idcToken;
 
-		var isPod = server.env === 'pod_ec';
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = _getRequestAuth(server);
 
 		var params = {
 			method: 'GET',
@@ -3032,13 +3158,7 @@ module.exports.getBackgroundServiceJobData = function (server, request, idcToken
 		url = url + '&JobID=' + jobId;
 		url = url + '&idcToken=' + idcToken;
 
-		var isPod = server.env === 'pod_ec';
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = _getRequestAuth(server);
 
 		var params = {
 			method: 'GET',
@@ -3090,20 +3210,14 @@ module.exports.browseSitesOnServer = function (request, server, fApplication) {
 				err: 'no server'
 			});
 		}
-		if (server.env === 'pod_ec' && !server.oauthtoken) {
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
 			console.log('ERROR: OAuth token');
 			resolve({
 				err: 'no OAuth token'
 			});
 		}
 
-		var isPod = server.env === 'pod_ec';
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = _getRequestAuth(server);
 
 		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_SITES';
 		if (fApplication) {
@@ -3187,20 +3301,14 @@ module.exports.browseComponentsOnServer = function (request, server) {
 				err: 'no server'
 			});
 		}
-		if (server.env === 'pod_ec' && !server.oauthtoken) {
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
 			console.log('ERROR: OAuth token');
 			resolve({
 				err: 'no OAuth token'
 			});
 		}
 
-		var isPod = server.env === 'pod_ec';
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = _getRequestAuth(server);
 
 		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_APPS';
 
@@ -3224,7 +3332,7 @@ module.exports.browseComponentsOnServer = function (request, server) {
 			} catch (e) {}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get components' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				console.log('ERROR: Failed to get components ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
 				return resolve({
 					err: 'err'
 				});
@@ -3284,20 +3392,14 @@ module.exports.browseThemesOnServer = function (request, server, params) {
 				err: 'no server'
 			});
 		}
-		if (server.env === 'pod_ec' && !server.oauthtoken) {
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
 			console.log('ERROR: OAuth token');
 			resolve({
 				err: 'no OAuth token'
 			});
 		}
 
-		var isPod = server.env === 'pod_ec';
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = _getRequestAuth(server);
 
 		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_THEMES';
 		if (params) {

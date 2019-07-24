@@ -813,6 +813,23 @@ gulp.task('unshare-repository', function (done) {
 	assetlib.unShareRepository(argv, done);
 });
 
+/**
+ * Share a type
+ */
+gulp.task('share-type', function (done) {
+	'use strict';
+
+	assetlib.shareType(argv, done);
+});
+
+/**
+ * Unshare a type
+ */
+gulp.task('unshare-type', function (done) {
+	'use strict';
+
+	assetlib.unshareType(argv, done);
+});
 
 /**
  * Create a channel
@@ -946,7 +963,7 @@ gulp.task('check-version', function (done) {
 		password: server.password
 	});
 
-	var isPod = server.env === 'pod_ec';
+	var isPod = server.env !== 'dev_ec';
 	var url = server.url + (isPod ? '/content' : '/osn/social/api/v1/connections');
 	client.get(url, function (data, response) {
 		if (!response || response.statusCode !== 200) {

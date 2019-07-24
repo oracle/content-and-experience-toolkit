@@ -50,7 +50,8 @@ var siteFolder, // Z:/sitespublish/SiteC/
 	outputFolder, // Z:/OUTPUT/SiteC
 	outputURL, // http://server:port/{path to output folder}
 	logLevel = "log",
-	sitesCloudCDN = ''; // 'https://cdn.cec.oraclecorp.com/cdn/cec/v19.3.2.31';
+	sitesCloudCDN = '', // 'https://cdn.cec.oraclecorp.com/cdn/cec/v19.3.2.31';
+	channelAccessToken = ''; // channel access token for the site
 
 // Global Variables
 var layoutInfoRE = /<!--\s*SCS Layout Information:\s*(\{[\s\S]*?\})\s*-->/;
@@ -140,6 +141,23 @@ function readStructure(locale) {
 
 	var themeName = siteInfo.properties.themeName;
 	var designName = siteInfo.properties.designName || 'default';
+
+	// Configure the channel access token in the siteInfo with the supplied one
+	if (channelAccessToken && siteInfo && siteInfo.properties) {
+		siteInfo.properties.channelAccessTokens = siteInfo.properties.channelAccessTokens || [];
+
+		// Remove the previous "defaultToken"
+		siteInfo.properties.channelAccessTokens = siteInfo.properties.channelAccessTokens.filter(function (element) {
+			return element && element.name && (element.name !== 'defaultToken');
+		});
+
+		// Add in the new "defaultToken"
+		siteInfo.properties.channelAccessTokens.push({
+			name: "defaultToken",
+			value: channelAccessToken,
+			expirationDate: "01\/01\/2099"
+		});
+	}
 
 	return {
 		siteInfo: siteInfo,
@@ -500,6 +518,34 @@ function getPageLinkData(pageEntry, sitePrefix, structureMap, pageLocale) {
 	return data;
 }
 
+// return first "isDetail" or "isSearch" page in the hierarchy
+function getDefaultPage(structureMap, navigationRoot, pageOption) {
+	var getFirstDetailPage = function (page, childFunction) {
+		var firstDetailPage = '';
+
+		// Look for the first page marked as detailPage in the site hierarchy.
+		if (page !== null) {
+			if (page[pageOption]) {
+				return page.id.toString();
+			}
+
+			// handle any child pages
+			if (page.children && page.children.length > 0) {
+				// Once a detail page is found, break out of the loop.
+				page.children.some(function (child) {
+					firstDetailPage = getFirstDetailPage(childFunction(child), childFunction);
+					return firstDetailPage !== '';
+				});
+			}
+		}
+		return firstDetailPage;
+	};
+	return getFirstDetailPage(structureMap[navigationRoot], function (child) {
+		return structureMap[child];
+	});
+}
+
+
 function combineUrlSegments(segment1, segment2) {
 	var url = "";
 
@@ -598,17 +644,17 @@ var compiler = {
 
 		self.sitePrefix = args.sitePrefix;
 		self.pageModel = args.pageModel;
-		self.navigationRoot = args.navRoot;
+		self.navigationRoot = args.navigationRoot;
 		self.navigationCurr = args.navigationCurr;
-		self.structureMap = args.navMap;
+		self.structureMap = args.structureMap;
 		self.siteInfo = args.siteInfo;
 
 		// define the list of supported component compilers
 		self.componentCompilers = {};
 
 		// add in the compilers for any supported components
-		var componentCompiers = require('./components/component-compilers');
-		componentCompiers.forEach(function (componentCompiler) {
+		var componentCompilers = require('./components/component-compilers');
+		componentCompilers.forEach(function (componentCompiler) {
 			self.componentCompilers[componentCompiler.type] = require('./components/' + componentCompiler.compiler);
 		});
 
@@ -621,7 +667,32 @@ var compiler = {
 			var ComponentCompiler = self.componentCompilers[compInstance.type];
 			if (ComponentCompiler) {
 				var component = new ComponentCompiler(compId, compInstance, componentsFolder);
-				component.compile().then(function (compiledComp) {
+				// ToDo: pass SCSRenderAPI equivalent through
+				var SCSCompileAPI = {
+					channelAccessToken: channelAccessToken,
+					getChannelAccessToken: function () {
+						return channelAccessToken;
+					},
+					getSiteId: function () {
+						return path.basename(siteFolder);
+					},
+					getDetailPageId: function () {
+						return getDefaultPage(self.structureMap, self.navigationRoot, 'isDetailPage');
+					},
+					getPageURL: function (pageId) {
+						var linkData = getPageLinkData(pageId, self.sitePrefix, self.structureMap, self.localePageModel),
+							pageURL = '';
+
+						if (linkData && (typeof linkData.href === 'string')) {
+							pageURL = linkData.href;
+						}
+
+						return pageURL;
+					}
+				};
+				component.compile({
+					SCSCompileAPI: SCSCompileAPI
+				}).then(function (compiledComp) {
 					// make sure the component can be parsed
 					if (compiledComp.content) {
 						var $ = cheerio.load('<div>');
@@ -875,6 +946,7 @@ function resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, conte
 		"navigationCurr": (pageId && typeof pageId == 'string') ? parseInt(pageId) : pageId,
 		"structureMap": context.navMap,
 		"siteInfo": context.siteInfo,
+		"pageState": 'compiled',
 		//    "placeholderContent": this.data.placeholderContent,
 		//    "deviceInfo": SCS.getDeviceInfo(),
 		"sitesCloudCDN": ((typeof sitesCloudCDN === 'string') && sitesCloudCDN) || '',
@@ -1636,6 +1708,7 @@ var compileSite = function (args) {
 	logLevel = args.logLevel;
 	sitesCloudCDN = args.sitesCloudCDN || '';
 	outputURL = args.outputURL;
+	channelAccessToken = args.channelToken || '';
 
 	console.log("Oracle Content and Experience Site Compiler");
 	console.log("Version 0.1");
@@ -1647,8 +1720,9 @@ var compileSite = function (args) {
 	console.log("    -sitesCloudRuntimeFolder = " + sitesCloudRuntimeFolder);
 	console.log("    -outputFolder            = " + outputFolder);
 	console.log("    -outputURL               = " + outputURL);
-	console.log("    -logLevel                = " + logLevel);
+	console.log("    -channelAccessToken      = " + channelAccessToken);
 	console.log("    -sitesCloudCDN           = " + sitesCloudCDN);
+	console.log("    -logLevel                = " + logLevel);
 	console.log("");
 
 	readStyleShim();
@@ -1663,8 +1737,18 @@ var compileSite = function (args) {
 		readSlotReuseData(context);
 		produceSiteNavigationStructure(context);
 
+		// update the context with the locale
 		context.locale = language;
 		context.pageLocale = language;
+
+		// include the default channelAccessToken entry if provided
+		if (channelAccessToken && context.siteInfo.properties) {
+			context.siteInfo.properties.channelAccessTokens = context.siteInfo.properties.channelAccessTokens || [];
+			context.siteInfo.properties.channelAccessTokens.push({
+				'name': 'defaultToken',
+				'value': channelAccessToken
+			});
+		}
 
 		// create the array of functions that will execute the createPage promise when called
 		context.structure.pages.forEach(function (pageInfo) {

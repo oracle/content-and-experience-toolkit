@@ -88,7 +88,6 @@ module.exports.createRSSFeed = function (argv, done) {
 };
 
 var _createRSSFeed = function (server, argv, done) {
-	var isPod = server.env === 'pod_ec';
 
 	var request = serverUtils.getRequest();
 
@@ -117,7 +116,7 @@ var _createRSSFeed = function (server, argv, done) {
 
 	var publish = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
 
-	var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -134,12 +133,7 @@ var _createRSSFeed = function (server, argv, done) {
 		var dUser = '';
 		var idcToken;
 
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 
 		var channelId, channelToken;
 		var defaultDetailPage;

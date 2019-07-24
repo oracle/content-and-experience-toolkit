@@ -213,7 +213,7 @@ module.exports.createContentLayout = function (argv, done) {
 				return;
 			}
 
-			serverUtils.getContentTypeFieldsFromServer(projectDir, contenttypename, function (typefields) {
+			serverUtils.getContentTypeFieldsFromServer(server, contenttypename, function (typefields) {
 				if (!typefields || typefields.length === 0) {
 					console.error('ERROR: content type ' + contenttypename + ' does not have any field');
 					done();

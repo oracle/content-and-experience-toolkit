@@ -76,13 +76,7 @@ var _getIdcToken = function (request, server) {
 	var tokenPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
 
-		var isPod = server.env === 'pod_ec';
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 
 		var params = {
 			method: 'GET',
@@ -442,13 +436,7 @@ var _validateTranslationJobSCS = function (request, server, idcToken, jobName, f
 		url = url + '&validationMode=validateOnly&useBackgroundThread=1';
 		url = url + '&idcToken=' + idcToken;
 
-		var isPod = server.env === 'pod_ec';
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 
 		var params = {
 			method: 'GET',
@@ -492,13 +480,7 @@ var _deployTranslationJobSCS = function (request, server, idcToken, jobName, fil
 		url = url + '&validationMode=validateAndImport&useBackgroundThread=1';
 		url = url + '&idcToken=' + idcToken;
 
-		var isPod = server.env === 'pod_ec';
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 
 		var params = {
 			method: 'GET',
@@ -540,13 +522,7 @@ var _getImportValidateStatusSCS = function (server, request, idcToken, jobId) {
 		url = url + '&JobID=' + jobId;
 		url = url + '&idcToken=' + idcToken;
 
-		var isPod = server.env === 'pod_ec';
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 
 		var params = {
 			method: 'GET',
@@ -594,13 +570,7 @@ var _getJobReponseDataSCS = function (server, request, idcToken, jobId) {
 		url = url + '&JobID=' + jobId;
 		url = url + '&idcToken=' + idcToken;
 
-		var isPod = server.env === 'pod_ec';
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 
 		var params = {
 			method: 'GET',
@@ -1822,8 +1792,7 @@ module.exports.uploadTranslationJob = function (argv, done) {
 
 			var request = _getRequest();
 
-			var isPod = server.env === 'pod_ec';
-			var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+			var loginPromise = serverUtils.loginToServer(server, request);
 			loginPromise.then(function (result) {
 				if (!result.status) {
 					console.log(' - failed to connect to the server');
@@ -1897,8 +1866,7 @@ module.exports.createTranslationJob = function (argv, done) {
 
 	var request = _getRequest();
 
-	var isPod = server.env === 'pod_ec';
-	var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -1906,12 +1874,7 @@ module.exports.createTranslationJob = function (argv, done) {
 			return;
 		}
 
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 
 		var express = require('express');
 		var app = express();

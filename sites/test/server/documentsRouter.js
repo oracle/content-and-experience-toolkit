@@ -16,7 +16,7 @@ router.get('/*', (req, res) => {
 		request = app.locals.request,
 		requestUrl = req.originalUrl;
 
-	if (app.locals.server.env === 'pod_ec' && !app.locals.server.oauthtoken) {
+	if (app.locals.server.env !== 'dev_ec' && !app.locals.server.oauthtoken) {
 		console.log('No remote EC server access for remote traffic ', requestUrl);
 		res.end();
 		return;
@@ -34,7 +34,7 @@ router.get('/*', (req, res) => {
 		var options = {
 			url: requestUrl
 		};
-		if (app.locals.server.env === 'pod_ec') {
+		if (app.locals.server.env !== 'dev_ec') {
 			options['auth'] = {
 				bearer: app.locals.server.oauthtoken
 			};
@@ -56,7 +56,7 @@ router.get('/*', (req, res) => {
 				user: app.locals.server.username,
 				password: app.locals.server.password
 			};
-		} else if (app.locals.server.env === 'pod_ec') {
+		} else if (app.locals.server.env !== 'dev_ec') {
 			// external compute pod
 			options['auth'] = {
 				bearer: app.locals.server.oauthtoken
@@ -97,7 +97,7 @@ router.post('/*', (req, res) => {
 		user: app.locals.server.username,
 		password: app.locals.server.password
 	};
-	if (app.locals.server.env === 'pod_ec') {
+	if (app.locals.server.env !== 'dev_ec') {
 		// external compute pod
 		authvalue = {
 			bearer: app.locals.server.oauthtoken

@@ -115,8 +115,8 @@ router.get('/*', (req, res) => {
 		var options = {
 			url: location
 		};
-		if (location.indexOf('8080') > 0 || app.locals.server.env === 'pod_ec') {
-			if (app.locals.server.env === 'pod_ec' && location.indexOf('assets') > 0) {
+		if (location.indexOf('8080') > 0 || app.locals.server.env !== 'dev_ec') {
+			if (app.locals.server.env !== 'dev_ec' && location.indexOf('assets') > 0) {
 				options['auth'] = {
 					bearer: app.locals.server.oauthtoken
 				};

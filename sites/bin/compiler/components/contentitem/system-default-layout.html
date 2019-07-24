@@ -1,0 +1,31 @@
+<ul class="scs-default-layout">
+    <li>
+        <h1>{{name}}</h1>
+    </li>
+    {{#render.items}} {{#text}}
+    <li>
+        <p>{{text}}</p>
+    </li>
+    {{/text}} {{#richText}}
+    <li>
+        <p>{{{richText}}}</p>
+    </li>
+    {{/richText}} {{#markdownText}}
+    <li>
+        <p>{{{markdownText}}}</p>
+    </li>
+    {{/markdownText}} {{#image}}
+    <li>
+        <img src="{{image}}" alt="{{name}}" />
+    </li>
+    {{/image}} {{#download}}
+    <li>
+        <a _target_="_blank" download="{{name}}" linktype="scs-link-file"  href="{{url}}">{{displayName}} {{displayType}}</a>
+    </li>
+    {{/download}} {{/render.items}} {{#scsData.detailPageLink}}
+    <li>
+        <a href="{{scsData.detailPageLink}}" title="Go to detail page">Details</a>
+    </li>
+    {{/scsData.detailPageLink}}
+</ul>
+

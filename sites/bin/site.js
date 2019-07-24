@@ -225,7 +225,7 @@ module.exports.createSite = function (argv, done) {
 							console.log(sprintf(format, 'name', name));
 							console.log(sprintf(format, 'template', templateName));
 							console.log(sprintf(format, 'site prefix', sitePrefix));
-							console.log(sprintf(format, 'respository', repositoryName));
+							console.log(sprintf(format, 'repository', repositoryName));
 							console.log(sprintf(format, 'localization policy', localizationPolicy.name));
 							console.log(sprintf(format, 'default language', defaultLanguage));
 							var sitePromise = _createSite(request, server, template.id, true, name, description, sitePrefix,
@@ -400,9 +400,9 @@ var _getSiteRequestStatus = function (request, server, statusUrl) {
  * @param {*} sitePrefix 
  */
 var _createSiteSCS = function (request, server, siteName, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, done) {
-	var isPod = server.env === 'pod_ec';
+	
 	try {
-		var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server, request);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
@@ -419,12 +419,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 			var dUser = '';
 			var idcToken;
 
-			var auth = isPod ? {
-				bearer: server.oauthtoken
-			} : {
-				user: server.username,
-				password: server.password
-			};
+			var auth = serverUtils.getRequestAuth(server);
 
 			var template, templateGUID;
 			var repositoryId, localizationPolicyId;
@@ -686,7 +681,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 												console.log(sprintf(format, 'name', siteName));
 												console.log(sprintf(format, 'template', templateName));
 												console.log(sprintf(format, 'site prefix', sitePrefix));
-												console.log(sprintf(format, 'respository', repositoryName));
+												console.log(sprintf(format, 'repository', repositoryName));
 												console.log(sprintf(format, 'localization policy', policy.name));
 												console.log(sprintf(format, 'default language', defaultLanguage));
 
@@ -925,9 +920,8 @@ var _setSiteRuntimeStatus = function (request, server, action, siteId) {
  */
 var _IdcControlSite = function (request, server, action, siteId) {
 	var controlPromise = new Promise(function (resolve, reject) {
-		var isPod = server.env === 'pod_ec';
 
-		var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server, request);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
@@ -944,12 +938,7 @@ var _IdcControlSite = function (request, server, action, siteId) {
 			var dUser = '';
 			var idcToken;
 
-			var auth = isPod ? {
-				bearer: server.oauthtoken
-			} : {
-				user: server.username,
-				password: server.password
-			};
+			var auth = serverUtils.getRequestAuth(server);
 
 			app.get('/*', function (req, res) {
 				// console.log('GET: ' + req.url);
@@ -1105,9 +1094,7 @@ var _IdcControlSite = function (request, server, action, siteId) {
  */
 var _controlSiteSCS = function (request, server, action, siteName, done) {
 
-	var isPod = server.env === 'pod_ec';
-
-	var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -1124,12 +1111,7 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 		var dUser = '';
 		var idcToken;
 
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 
 		var siteId;
 
@@ -1443,9 +1425,7 @@ module.exports.validateSite = function (argv, done) {
 
 		var request = serverUtils.getRequest();
 
-		var isPod = server.env === 'pod_ec';
-
-		var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server, request);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
@@ -1462,12 +1442,7 @@ module.exports.validateSite = function (argv, done) {
 			var dUser = '';
 			var idcToken;
 
-			var auth = isPod ? {
-				bearer: server.oauthtoken
-			} : {
-				user: server.username,
-				password: server.password
-			};
+			var auth = serverUtils.getRequestAuth(server);
 
 			var siteId;
 			var repositoryId, channelId, channelToken;

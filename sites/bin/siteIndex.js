@@ -2276,8 +2276,7 @@ module.exports.indexSite = function (argv, done) {
 		proxy: null
 	});
 
-	var isPod = server.env === 'pod_ec';
-	var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -2302,12 +2301,7 @@ module.exports.indexSite = function (argv, done) {
 				var options = {
 					url: url,
 				};
-				var auth = isPod ? {
-					bearer: server.oauthtoken
-				} : {
-					user: server.username,
-					password: server.password
-				};
+				var auth = serverUtils.getRequestAuth(server);
 				options['auth'] = auth;
 
 				request(options).on('response', function (response) {

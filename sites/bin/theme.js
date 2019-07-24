@@ -77,11 +77,10 @@ module.exports.controlTheme = function (argv, done) {
 };
 
 var _controlTheme = function (serverName, server, action, themeName, done) {
-	var isPod = server.env === 'pod_ec';
-
+	
 	var request = serverUtils.getRequest();
 
-	var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -98,12 +97,7 @@ var _controlTheme = function (serverName, server, action, themeName, done) {
 		var dUser = '';
 		var idcToken;
 
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 
 		var themeId;
 

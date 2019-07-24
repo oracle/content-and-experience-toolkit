@@ -29,7 +29,7 @@ router.get('/*', (req, res) => {
 		url: location
 	};
 	
-	if (app.locals.server.env === 'pod_ec') {
+	if (app.locals.server.env !== 'dev_ec') {
 		options['auth'] = {
 			bearer: app.locals.server.oauthtoken
 		};

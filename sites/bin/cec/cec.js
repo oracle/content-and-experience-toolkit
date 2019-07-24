@@ -155,6 +155,11 @@ var getResourceRoles = function () {
 	return roles;
 };
 
+var getServerTypes = function () {
+	const roles = ['pod_ec', 'dev_ec', 'dev_osso'];
+	return roles;
+};
+
 /*********************
  * Command definitions
  **********************/
@@ -477,7 +482,10 @@ const compileTemplate = {
 			return desc;
 		})()
 	},
-	example: ['cec compile-template Temp1', 'Compiles the site in template Temp1.']
+	example: [
+		['cec compile-template Temp1', 'Compiles the site in template Temp1.'],
+		['cec compile-template Temp1 -c channelToken', 'Compiles the site in template Temp1 using the given channelToken for any content URLs.']
+	]
 };
 
 
@@ -921,6 +929,40 @@ const unshareRepository = {
 	]
 };
 
+const shareType = {
+	command: 'share-type <name>',
+	alias: 'st',
+	name: 'share-type',
+	usage: {
+		'short': 'Share type with users on CEC server.',
+		'long': (function () {
+			let desc = 'Share type with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'The valid roles are\n\n';
+			return getResourceRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec share-type BlogType -u user1,user2 -r manager', 'Share type BlogType with user user1 and user2 and assign Manager role to them'],
+		['cec share-type BlogType -u user1,user2 -r manager -s UAT', 'Share type BlogType with user user1 and user2 and assign Manager role to them on the registered server UAT']
+	]
+};
+
+const unshareType = {
+	command: 'unshare-type <name>',
+	alias: 'ust',
+	name: 'unshare-type',
+	usage: {
+		'short': 'Delete the user\'s access to a type on CEC server.',
+		'long': (function () {
+			let desc = 'Delete the user\'s access to a type on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec unshare-type BlogType -u user1,user2 '],
+		['cec unshare-type BlogType -u user1,user2 -s UAT']
+	]
+};
 const createChannel = {
 	command: 'create-channel <name>',
 	alias: 'cch',
@@ -1264,7 +1306,9 @@ const registerServer = {
 	usage: {
 		'short': 'Registers a CEC server.',
 		'long': (function () {
-			let desc = 'Registers a CEC server. Specify -e <endpoint> for the server URL. Specify -u <user> and -p <password> for connecting to the server. Optionally specify -t <type> to set the server type, The valid values for <type> are:\n\n pod_ec\n dev_ec\n\nand the default value is pod_ec.';
+			let desc = 'Registers a CEC server. Specify -e <endpoint> for the server URL. Specify -u <user> and -p <password> for connecting to the server. Optionally specify -t <type> to set the server type, The valid values for <type> are:\n\n';
+			desc = getServerTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc) +
+				'\nand the default value is pod_ec.';
 			// desc = desc + os.EOL + os.EOL + 'For pod_ec server, option <idcsurl>, <clientid>, <clientsecret> and <scope> are required. ';
 			return desc;
 		})()
@@ -1286,7 +1330,7 @@ const install = {
 			let desc = 'Creates an initial source tree in the current directory.' + os.EOL + os.EOL +
 				'With cec install, your source can be in a separate directory to the cec command install files, ' +
 				'and you no longer need your source to be within a sites-toolkit directory.' + os.EOL + os.EOL +
-				'The cec.properties file can be used to speicfy server settings.  It will be picked up from the source directory, or can be specified with enviornment variable CEC_PROPERTIES' + os.EOL + os.EOL +
+				'The cec.properties file can be used to specify server settings.  It will be picked up from the source directory, or can be specified with environment variable CEC_PROPERTIES' + os.EOL + os.EOL +
 				'Use cec develop to start a dev/test server for your source.  ' +
 				'Different ports can be used for the server, to enable multiple source trees to exist.';
 			return desc;
@@ -1420,7 +1464,9 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(shareRepository) + os.EOL +
 	_getCmdHelp(unshareRepository) + os.EOL +
 	_getCmdHelp(createChannel) + os.EOL +
-	_getCmdHelp(createLocalizationPolicy) + os.EOL;
+	_getCmdHelp(createLocalizationPolicy) + os.EOL +
+	_getCmdHelp(shareType) + os.EOL +
+	_getCmdHelp(unshareType) + os.EOL;
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(listTranslationJobs) + os.EOL +
@@ -1695,7 +1741,12 @@ const argv = yargs.usage(_usage)
 		})
 	.command([compileTemplate.command, compileTemplate.alias], false,
 		(yargs) => {
-			yargs.example(...compileTemplate.example)
+			yargs.option('channelToken', {
+					alias: 'c',
+					description: '<channelToken> The channel access token to use for content URLs'
+				})
+				.example(...compileTemplate.example[0])
+				.example(...compileTemplate.example[1])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2364,7 +2415,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('role', {
 					alias: 'r',
-					description: 'The role [' + getResourceRoles().join(' | ') + '] to asign to the users',
+					description: 'The role [' + getResourceRoles().join(' | ') + '] to assign to the users',
 					demandOption: true
 				})
 				.option('types', {
@@ -2373,7 +2424,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('typerole', {
 					alias: 'y',
-					description: 'The role [' + getResourceRoles().join(' | ') + '] to asign to the users for types'
+					description: 'The role [' + getResourceRoles().join(' | ') + '] to assign to the users for types'
 				})
 				.option('server', {
 					alias: 's',
@@ -2419,6 +2470,54 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${unshareRepository.command}\n\n${unshareRepository.usage.long}`);
+		})
+	.command([shareType.command, shareType.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names',
+					demandOption: true
+				})
+				.option('role', {
+					alias: 'r',
+					description: 'The role [' + getResourceRoles().join(' | ') + '] to assign to the users',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.check((argv) => {
+					if (argv.role && !getResourceRoles().includes(argv.role)) {
+						throw new Error(`${argv.role} is a not a valid value for <role>`);
+					} else {
+						return true;
+					}
+				})
+				.example(...shareType.example[0])
+				.example(...shareType.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${shareType.command}\n\n${shareType.usage.long}`);
+		})
+	.command([unshareType.command, unshareType.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...unshareType.example[0])
+				.example(...unshareType.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${unshareType.command}\n\n${unshareType.usage.long}`);
 		})
 	.command([createChannel.command, createChannel.alias], false,
 		(yargs) => {
@@ -2695,7 +2794,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('role', {
 					alias: 'r',
-					description: 'The role [' + getFolderRoles().join(' | ') + '] to asign to the users',
+					description: 'The role [' + getFolderRoles().join(' | ') + '] to assign to the users',
 					demandOption: true
 				})
 				.option('server', {
@@ -2856,7 +2955,7 @@ const argv = yargs.usage(_usage)
 				})
 				*/
 				.check((argv) => {
-					if (argv.type && argv.type !== 'pod_ec' && argv.type !== 'dev_ec') {
+					if (argv.type && !getServerTypes().includes(argv.type)) {
 						throw new Error(`${argv.type} is a not a valid value for <type>`);
 						/*
 					} else if (!argv.type || argv.type === 'pod_ec') {
@@ -3295,8 +3394,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	];
 	if (argv.destination) {
 		compileTemplateArgs.push(...['--name', argv.destination]);
-	} else {
-		compileTemplateArgs.push(...['--name', argv.source + '_' + Math.floor(Math.random() * 1000000)]);
+	}
+	if (argv.channelToken) {
+		compileTemplateArgs.push(...['--channelToken', argv.channelToken]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, compileTemplateArgs, {
 		cwd,
@@ -3767,6 +3867,37 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		unshareRepositoryArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, unshareRepositoryArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === shareType.name || argv._[0] === shareType.alias) {
+	let shareTypeArgs = ['run', '-s', shareType.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--users', argv.users,
+		'--role', argv.role
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		shareTypeArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, shareTypeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === unshareType.name || argv._[0] === unshareType.alias) {
+	let unshareTypeArgs = ['run', '-s', unshareType.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--users', argv.users
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		unshareTypeArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, unshareTypeArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

@@ -364,7 +364,7 @@ app.get('/isAuthenticated', function (req, res) {
 		timeout: 1000
 	};
 
-	if (app.locals.server.env === 'pod_ec') {
+	if (app.locals.server.env !== 'dev_ec') {
 		options['auth'] = {
 			bearer: app.locals.server.oauthtoken
 		};
@@ -403,7 +403,7 @@ app.get('/getvbcsconnection', function (req, res) {
 		isJson: true,
 		timeout: 1000
 	};
-	if (app.locals.server.env === 'pod_ec') {
+	if (app.locals.server.env !== 'dev_ec') {
 		options['auth'] = {
 			bearer: app.locals.server.oauthtoken
 		};
@@ -445,7 +445,7 @@ app.get('/getcontentlayoutmappings', function (req, res) {
 		isJson: true,
 		timeout: 1000
 	};
-	if (app.locals.server.env === 'pod_ec') {
+	if (app.locals.server.env !== 'dev_ec') {
 		options['auth'] = {
 			bearer: app.locals.server.oauthtoken
 		};
@@ -619,7 +619,7 @@ if (!app.locals.serverURL) {
 			password: server.password,
 			onsuccess: function () {
 				app.locals.connectToServer = true;
-				var wait = server.env === 'pod_ec' ? 15000 : 1000;
+				var wait = server.env === 'dev_ec' ? 1500 : 15000;
 				app.listen(port, function () {
 					"use strict";
 					setTimeout(function () {
@@ -643,6 +643,7 @@ function authenticateUser(env, params) {
 		pod: authenticateUserOnPod,
 		dev: authenticateUserOnDevInstance,
 		dev_ec: authenticateUserOnDevECInstance,
+		dev_osso: authenticateUserOnOSSO,
 		pod_ec: authenticateUserOnPodEC
 	};
 
@@ -791,6 +792,109 @@ function authenticateUserOnPodEC(params) {
 		submitid = '#idcs-signin-basic-signin-form-submit',
 		username = app.locals.server.username,
 		password = app.locals.server.password;
+	/* jshint ignore:start */
+	async function loginServer() {
+		try {
+			const browser = await puppeteer.launch({
+				ignoreHTTPSErrors: true,
+				headless: false
+			});
+			const page = await browser.newPage();
+			await page.setViewport({
+				width: 960,
+				height: 768
+			});
+
+			try {
+				await page.goto(url, {
+					timeout: 50000
+				});
+			} catch (err) {
+				console.log('Could not connect to the server, check if the server is up');
+				params.onfailure.apply(null, null);
+			}
+
+			await page.waitForSelector(usernameid);
+			console.log('Enter username ' + username);
+			await page.type(usernameid, username);
+
+			await page.waitForSelector(passwordid);
+			console.log('Enter password');
+			await page.type(passwordid, password);
+
+			var button = await page.waitForSelector(submitid);
+			console.log('Click Login');
+			await button.click();
+
+			try {
+				await page.waitForSelector('#content-wrapper', {
+					timeout: 8000
+				});
+			} catch (err) {
+				// will continue, in headleass mode, after login redirect does not occur
+			}
+
+			var tokenurl = app.locals.serverURL + '/documents/web?IdcService=GET_OAUTH_TOKEN';
+			console.log('Go to ' + tokenurl);
+			await page.goto(tokenurl);
+			try {
+				await page.waitForSelector('pre', {
+					timeout: 120000
+				});
+			} catch (err) {
+				console.log('Failed to connect to the server to get the OAuth token the first time');
+
+				await page.goto(tokenurl);
+				try {
+					await page.waitForSelector('pre'); // smaller timeout
+				} catch (err) {
+					console.log('Failed to connect to the server to get the OAuth token the second time');
+
+					await browser.close();
+					params.onfailure.apply(null, null);
+				}
+			}
+
+			//await page.screenshot({path: '/tmp/puppeteer.png'});
+
+			const result = await page.evaluate(() => document.querySelector('pre').textContent);
+			var token = '';
+			var status = '';
+			if (result) {
+				var localdata = JSON.parse(result);
+				token = localdata && localdata.LocalData && localdata.LocalData.tokenValue;
+				status = localdata && localdata.LocalData && localdata.LocalData.StatusCode;
+			}
+			// console.log(token);
+
+			await browser.close();
+
+			if (status && status === '0' && token) {
+				app.locals.server.oauthtoken = token;
+				console.log('The OAuth token recieved');
+				params.onsuccess.apply();
+			} else {
+				console.log('Failed to get the OAuth token: status=' + status + ' token=' + token);
+				params.onfailure.apply(null, null);
+			}
+
+		} catch (err) {
+			console.log('ERROR!', err);
+			params.onfailure.apply(null, null);
+		}
+	}
+	loginServer();
+	/* jshint ignore:end */
+}
+
+function authenticateUserOnOSSO(params) {
+	var url = app.locals.serverURL + '/documents',
+		usernameid = '#sso_username',
+		passwordid = '#ssopassword',
+		submitid = '.submit_btn',
+		username = app.locals.server.username,
+		password = app.locals.server.password;
+	
 	/* jshint ignore:start */
 	async function loginServer() {
 		try {

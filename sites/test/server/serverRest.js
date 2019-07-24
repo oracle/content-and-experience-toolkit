@@ -13,7 +13,7 @@ var _utils = {
 		return registeredServerName ? siteUtils.getRegisteredServer(currPath, registeredServerName) : siteUtils.getConfiguredServer(currPath);
 	},
 	getAuth: function (server) {
-		var auth = server.env === 'pod_ec' ? {
+		var auth = server.env !== 'dev_ec' ? {
 			bearer: server.oauthtoken
 		} : {
 			user: server.username,
@@ -605,7 +605,7 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 
 				request(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to add channel ' + channelName + ' to respository ' + repository.name);
+						console.log('Failed to add channel ' + channelName + ' to repository ' + repository.name);
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -620,7 +620,7 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 							data
 						});
 					} else {
-						console.log('Failed to add channel ' + channelName + ' to respository ' + repository.name + ' ' + response.statusMessage);
+						console.log('Failed to add channel ' + channelName + ' to repository ' + repository.name + ' ' + response.statusMessage);
 						resolve({
 							err: 'err'
 						});
@@ -1215,7 +1215,7 @@ var _updateRepository = function (server, repository, contentTypes, channels) {
 
 				request(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to add channel ' + channelName + ' to respository ' + repository.name);
+						console.log('Failed to add channel ' + channelName + ' to repository ' + repository.name);
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -1230,7 +1230,7 @@ var _updateRepository = function (server, repository, contentTypes, channels) {
 						};
 						resolve(data);
 					} else {
-						console.log('Failed to update repository respository ' + repository.name + ' - ' + response.statusMessage);
+						console.log('Failed to update repository repository ' + repository.name + ' - ' + response.statusMessage);
 						resolve({
 							err: 'err'
 						});

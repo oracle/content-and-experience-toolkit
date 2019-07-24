@@ -26,6 +26,7 @@ var applyStyles = function ($div, cgData) {
 	var name,
 		value;
 
+	// For numeric css values (only), ensure they have the suffix "px"
 	var toPixelValue = function (value) {
 		value = "" + value;
 		if (value.match(/^[0-9]+$/)) {
@@ -67,7 +68,7 @@ var ComponentGroup = function (componentId, componentInstanceObject, filePath) {
 };
 
 ComponentGroup.prototype = {
-	compile: function (a, b, c, d) {
+	compile: function () {
 		var content;
 
 		// Set the class style for the component group

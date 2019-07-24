@@ -9,6 +9,11 @@ var componentCompilers = [{
 		canNest: true
 	},
 	{
+		type: 'scs-sectionlayout',
+		compiler: 'sectionlayout/sectionlayout',
+		canNest: true
+	},
+	{
 		type: 'scs-divider',
 		compiler: 'divider/divider',
 		canNest: true

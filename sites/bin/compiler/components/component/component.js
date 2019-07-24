@@ -29,7 +29,7 @@ var Component = function (compId, compInstance, componentsFolder) {
 };
 Component.prototype = Object.create(Base.prototype);
 
-Component.prototype.compile = function () {
+Component.prototype.compile = function (args) {
 	var self = this;
 	// extend the model with any divider specific values
 	self.customComponentDiv = self.id + 'customComponentDiv';
@@ -38,7 +38,7 @@ Component.prototype.compile = function () {
 
 	// load the custom component's compile.js file
 	// if the file doesn't exist, the component doesn't support compile and will be rendered at runtime
-	return self.compileComponent().then(function (compiledComponent) {
+	return self.compileComponent(args).then(function (compiledComponent) {
 		var content = '';
 		if (compiledComponent.customContent) {
 			// render the content
@@ -146,6 +146,9 @@ Component.prototype.getSeededCompFile = function (compName) {
 			},
 			'scs-comp-image-text': {
 				compileFile: 'image-text/image-text'
+			},
+			'scs-contentitem': {
+				compileFile: 'contentitem/contentitem'
 			}
 		},
 		seededComp = seededComps[compName];
@@ -153,7 +156,7 @@ Component.prototype.getSeededCompFile = function (compName) {
 	return seededComp ? path.normalize(__dirname + '/../' + seededComp.compileFile) : '';
 };
 
-Component.prototype.compileComponent = function () {
+Component.prototype.compileComponent = function (args) {
 	var viewModel = this;
 
 	return new Promise(function (resolve, reject) {
@@ -166,21 +169,25 @@ Component.prototype.compileComponent = function () {
 			compileFile = path.normalize(viewModel.componentsFolder + '/' + viewModel.custComp + '/assets/compile');
 		}
 
+		var foundComponentFile = false;
 		try {
 			// verify if we can load the file
 			require.resolve(compileFile);
+			foundComponentFile = true;
 
 			// ok, file's there, load it in
 			var custComp = require(compileFile);
 
 			// compile the component
-			custComp.compile({
-				//renderAPI: renderAPI,
+			var compileArgs = {
 				//contentSDK: contentSDK,
+				SCSCompileAPI: args.SCSCompileAPI,
+				compVM: viewModel, 
 				compId: viewModel.id,
 				componentLayout: viewModel.componentLayout,
 				customSettingsData: viewModel.customSettingsData || {}
-			}).then(function (compiledComp) {
+			};
+			custComp.compile(compileArgs).then(function (compiledComp) {
 				try {
 					// make sure there is something to render
 					if (compiledComp && compiledComp.content) {
@@ -241,7 +248,12 @@ Component.prototype.compileComponent = function () {
 			if (!reportedFiles[compileFile]) {
 				reportedFiles[compileFile] = 'done';
 
-				console.log('No custom component compiler for: "' + compileFile + '.js"');
+				if (foundComponentFile) {
+					console.log('require failed to load: "' + compileFile + '.js" due to:');
+					console.log(e);
+				} else {
+					console.log('No custom component compiler for: "' + compileFile + '.js"');
+				}
 			}
 			return resolve({
 				customContent: ''

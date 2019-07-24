@@ -10,8 +10,8 @@ var path = require('path'),
 	os = require('os'),
 	readline = require('readline'),
 	url = require('url'),
-	serverRest = require('../test/server/serverRest.js')
-serverUtils = require('../test/server/serverUtils.js');
+	serverRest = require('../test/server/serverRest.js'),
+	serverUtils = require('../test/server/serverUtils.js');
 
 var projectDir,
 	serversSrcDir;
@@ -890,7 +890,7 @@ var _getSiteFolder = function (request, localhost, site) {
 			var siteFolderId;
 			if (fFolderGUIDIdx !== undefined && fFolderNameIdx !== undefined && sites && sites.length > 0) {
 				for (var i = 0; i < sites.length; i++) {
-					// site name is case insensetive
+					// site name is case insensitive
 					if (sites[i][fFolderNameIdx].toLowerCase() === site.toLowerCase()) {
 						siteFolderId = sites[i][fFolderGUIDIdx];
 					}
@@ -1640,7 +1640,7 @@ var _createSiteMap = function (server, serverName, request, localhost, site, sit
 var _calculatePageChangeFraq = function (serverName, allPageFiles) {
 	return new Promise(function (resolve, reject) {
 		var total = allPageFiles.length;
-		console.log(' - total page number: ' + total);
+		console.log(' - total number of pages: ' + total);
 		var groups = [];
 		var limit = 20;
 		var start, end;
@@ -1677,7 +1677,7 @@ var _calculatePageChangeFraq = function (serverName, allPageFiles) {
 					}
 
 					count.push('.');
-					process.stdout.write(' - calculating page change frequence ' + count.join(''));
+					process.stdout.write(' - calculating page change frequency ' + count.join(''));
 					readline.cursorTo(process.stdout, 0);
 					return Promise.all(versionPromises).then(function (results) {
 						var pages = results;
@@ -1838,8 +1838,7 @@ module.exports.createSiteMap = function (argv, done) {
 		proxy: null
 	});
 
-	var isPod = server.env === 'pod_ec';
-	var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -1856,12 +1855,7 @@ module.exports.createSiteMap = function (argv, done) {
 		var dUser = '';
 		var idcToken;
 
-		var auth = isPod ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 
 		app.get('/*', function (req, res) {
 			// console.log('GET: ' + req.url);

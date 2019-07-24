@@ -99,12 +99,12 @@ module.exports.listLocalResources = function (argv, done) {
 	console.log('Servers:');
 	var serverNames = fs.existsSync(serversSrcDir) ? fs.readdirSync(serversSrcDir) : [];
 	if (serverNames) {
-		var format = '    %-20s %-s';
+		var format = '    %-20s  %-8s  %-s';
 		serverNames.forEach(function (name) {
 			if (fs.existsSync(path.join(serversSrcDir, name, 'server.json'))) {
 				var serverinfo = fs.readFileSync(path.join(serversSrcDir, name, 'server.json'));
 				var serverinfojson = JSON.parse(serverinfo);
-				console.log(sprintf(format, name, serverinfojson.url));
+				console.log(sprintf(format, name, serverinfojson.env, serverinfojson.url));
 			}
 		});
 	}
@@ -223,18 +223,16 @@ module.exports.listServerResources = function (argv, done) {
 	var format2 = '  %-36s  %-36s';
 	var format3 = '  %-36s  %-36s  %-s';
 
-	var isPod = server.env === 'pod_ec';
 	var request = serverUtils.getRequest();
 
-	var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
-	loginPromise.then(function (result) {
+	serverUtils.loginToServer(server, request).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
 			return;
 		}
 
-		var promises = (listChannels || listRepositories) ? [_getChannels(serverName)] : [];
+		var promises = (listChannels || listRepositories) ? [_getChannels(serverName, server)] : [];
 		var channels;
 
 		Promise.all(promises).then(function (results) {
@@ -403,10 +401,11 @@ module.exports.listServerResources = function (argv, done) {
 	}); // login 
 };
 
-var _getChannels = function (serverName) {
+var _getChannels = function (serverName, server) {
 	return new Promise(function (resolve, reject) {
 		var chanelsPromise = serverRest.getChannels({
 			registeredServerName: serverName,
+			server: server,
 			currPath: projectDir
 		});
 		chanelsPromise.then(function (result) {
@@ -419,6 +418,7 @@ var _getChannels = function (serverName) {
 				for (var i = 0; i < channels.length; i++) {
 					channelPromises.push(serverRest.getChannel({
 						registeredServerName: serverName,
+						server: server,
 						currPath: projectDir,
 						id: channels[i].id
 					}));

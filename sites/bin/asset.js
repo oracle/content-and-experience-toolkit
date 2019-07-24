@@ -426,7 +426,7 @@ module.exports.shareRepository = function (argv, done) {
 			}
 			if (shareTypes) {
 				if (typeNames.length === 0) {
-				console.log(' - no content types in the repository');
+					console.log(' - no content types in the repository');
 				} else {
 					console.log(' - repository includes content type ' + typeNames.join(', '));
 				}
@@ -469,6 +469,10 @@ module.exports.shareRepository = function (argv, done) {
 				if (!found) {
 					console.log('ERROR: user ' + userNames[k] + ' does not exist');
 				}
+			}
+
+			if (users.length === 0) {
+				return Promise.reject();
 			}
 
 			return serverRest.performPermissionOperation({
@@ -516,7 +520,7 @@ module.exports.shareRepository = function (argv, done) {
 					})
 					.then(function (results) {
 						var sharedTypes = [];
-						for(var i = 0; i < results.length; i++) {
+						for (var i = 0; i < results.length; i++) {
 							var obj = results[i].operations.share;
 							if (obj.resource && obj.resource.name) {
 								sharedTypes.push(obj.resource.name);
@@ -605,7 +609,7 @@ module.exports.unShareRepository = function (argv, done) {
 			}
 			if (unshareTypes) {
 				if (typeNames.length === 0) {
-				console.log(' - no content types in the repository');
+					console.log(' - no content types in the repository');
 				} else {
 					console.log(' - repository includes content type ' + typeNames.join(', '));
 				}
@@ -650,6 +654,10 @@ module.exports.unShareRepository = function (argv, done) {
 				}
 			}
 
+			if (users.length === 0) {
+				return Promise.reject();
+			}
+			
 			return serverRest.performPermissionOperation({
 				registeredServerName: serverName,
 				currPath: projectDir,
@@ -665,7 +673,7 @@ module.exports.unShareRepository = function (argv, done) {
 			}
 
 			console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to repository ' + name + ' removed');
-			
+
 			if (unshareTypes && typeNames.length > 0) {
 				var typePromises = [];
 				for (var i = 0; i < typeNames.length; i++) {
@@ -693,7 +701,7 @@ module.exports.unShareRepository = function (argv, done) {
 					})
 					.then(function (results) {
 						var unsharedTypes = [];
-						for(var i = 0; i < results.length; i++) {
+						for (var i = 0; i < results.length; i++) {
 							var obj = results[i].operations.unshare;
 							if (obj.resource && obj.resource.name) {
 								unsharedTypes.push(obj.resource.name);
@@ -707,6 +715,206 @@ module.exports.unShareRepository = function (argv, done) {
 			} else {
 				done();
 			}
+		})
+		.catch((error) => {
+			done();
+		});
+};
+
+module.exports.shareType = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	console.log(' - server: ' + server.url);
+
+	var name = argv.name;
+	var userNames = argv.users.split(',');
+	var role = argv.role;
+
+	var users = [];
+	var goodUserName = [];
+
+	serverRest.getContentType({
+			registeredServerName: serverName,
+			currPath: projectDir,
+			name: name
+		}).then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			console.log(' - verify type');
+
+			var usersPromises = [];
+			for (var i = 0; i < userNames.length; i++) {
+				usersPromises.push(serverRest.getUser({
+					currPath: projectDir,
+					registeredServerName: serverName,
+					name: userNames[i]
+				}));
+			}
+
+			return Promise.all(usersPromises);
+		})
+		.then(function (results) {
+			var allUsers = [];
+			for (var i = 0; i < results.length; i++) {
+				if (results[i].items) {
+					allUsers = allUsers.concat(results[i].items);
+				}
+			}
+			console.log(' - verify users');
+
+			// verify users
+			for (var k = 0; k < userNames.length; k++) {
+				var found = false;
+				for (var i = 0; i < allUsers.length; i++) {
+					if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+						users.push(allUsers[i]);
+						goodUserName.push(userNames[k]);
+						found = true;
+						break;
+					}
+					if (found) {
+						break;
+					}
+				}
+				if (!found) {
+					console.log('ERROR: user ' + userNames[k] + ' does not exist');
+				}
+			}
+
+			if (users.length === 0) {
+				return Promise.reject();
+			}
+
+			return serverRest.performPermissionOperation({
+				registeredServerName: serverName,
+				currPath: projectDir,
+				operation: 'share',
+				resourceName: name,
+				resourceType: 'type',
+				role: role,
+				users: users
+			});
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on type ' + name);
+		})
+		.catch((error) => {
+			done();
+		});
+};
+
+module.exports.unshareType = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	console.log(' - server: ' + server.url);
+
+	var name = argv.name;
+	var userNames = argv.users.split(',');
+
+	var users = [];
+	var goodUserName = [];
+
+	serverRest.getContentType({
+			registeredServerName: serverName,
+			currPath: projectDir,
+			name: name
+		}).then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			console.log(' - verify type');
+
+			var usersPromises = [];
+			for (var i = 0; i < userNames.length; i++) {
+				usersPromises.push(serverRest.getUser({
+					currPath: projectDir,
+					registeredServerName: serverName,
+					name: userNames[i]
+				}));
+			}
+
+			return Promise.all(usersPromises);
+		})
+		.then(function (results) {
+			var allUsers = [];
+			for (var i = 0; i < results.length; i++) {
+				if (results[i].items) {
+					allUsers = allUsers.concat(results[i].items);
+				}
+			}
+			console.log(' - verify users');
+
+			// verify users
+			for (var k = 0; k < userNames.length; k++) {
+				var found = false;
+				for (var i = 0; i < allUsers.length; i++) {
+					if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+						users.push(allUsers[i]);
+						goodUserName.push(userNames[k]);
+						found = true;
+						break;
+					}
+					if (found) {
+						break;
+					}
+				}
+				if (!found) {
+					console.log('ERROR: user ' + userNames[k] + ' does not exist');
+				}
+			}
+
+			if (users.length === 0) {
+				return Promise.reject();
+			}
+
+			return serverRest.performPermissionOperation({
+				registeredServerName: serverName,
+				currPath: projectDir,
+				operation: 'unshare',
+				resourceName: name,
+				resourceType: 'type',
+				users: users
+			});
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to type ' + name + ' removed');
 		})
 		.catch((error) => {
 			done();

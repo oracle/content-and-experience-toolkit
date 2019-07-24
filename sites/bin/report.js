@@ -64,17 +64,18 @@ module.exports.createAssetReport = function (argv, done) {
 
 var _createAssetReport = function (server, serverName, siteName, done) {
 
-	var isPod = server.env === 'pod_ec';
-
 	var request = serverUtils.getRequest();
 
-	var site, siteInfo, siteUsers;
-	var themeName, templateName;
+	var site, siteInfo;
+	var templateName, template;
+	var themeName, theme;
 	var repositoryId, channelId;
 
 	var sitejson = {};
+	var templatejson = {};
+	var themejson = {};
 
-	var loginPromise = isPod ? serverUtils.loginToPODServer(server) : serverUtils.loginToDevServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -97,25 +98,25 @@ var _createAssetReport = function (server, serverName, siteName, done) {
 					return Promise.reject();
 				}
 
-				console.log(site);
+				//console.log(site);
 				sitejson['id'] = site.fFolderGUID;
 				sitejson['name'] = site.fFolderName;
 				sitejson['type'] = site.xScsIsEnterprise === '1' ? 'Enterprise' : 'Standard';
 				sitejson['slug'] = site.xScsSlugPrefix;
 				sitejson['defaultLanguage'] = site.xScsSiteDefaultLanguage;
 				sitejson['siteTemplate'] = site.xScsSiteTemplate;
+				templateName = site.xScsSiteTemplate;
 
 				return serverUtils.getSiteInfoWithToken(server, siteName);
 			})
 			.then(function (result) {
 
 				siteInfo = result && result.siteInfo;
-				console.log(siteInfo);
+				//console.log(siteInfo);
 				if (siteInfo) {
 					sitejson['theme'] = siteInfo.themeName;
+					themeName = siteInfo.themeName;
 				}
-
-				console.log(sitejson);
 
 				return serverRest.getFolderUsers({
 					registeredServerName: serverName,
@@ -124,9 +125,66 @@ var _createAssetReport = function (server, serverName, siteName, done) {
 				});
 			})
 			.then(function (result) {
+				sitejson['members'] =  result || [];
+				console.log(sitejson);
 
-				siteUsers = result || [];
-				console.log(siteUsers);
+				return serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
+			})
+			.then(function (result) {
+				//
+				// list templates
+				//
+				var templates = result.data || [];
+
+				for (var i = 0; i < templates.length; i++) {
+					var temp = templates[i];
+					if (temp.fFolderName.toLowerCase() === templateName.toLowerCase()) {
+						template = temp;
+						templatejson['id'] = temp.fFolderGUID;
+						templatejson['name'] = temp.fFolderName;
+						break;
+					}
+				}
+
+				return serverRest.getFolderUsers({
+					registeredServerName: serverName,
+					currPath: projectDir,
+					id: template.fFolderGUID
+				});
+			})
+			.then(function (result) {
+				templatejson['members'] =  result || [];
+				console.log(templatejson);
+
+				var params = 'doBrowseStarterThemes=1';
+				return serverUtils.browseThemesOnServer(request, server, params);
+						
+			})
+			.then(function (result) {
+				//
+				// list themes
+				//
+				var themes = result.data || [];
+
+				for (var i = 0; i < themes.length; i++) {
+					if (themes[i].fFolderName.toLowerCase() === themeName.toLowerCase()) {
+						theme = themes[i];
+						// console.log(theme);
+						themejson['id'] = theme.fFolderGUID;
+						themejson['name'] = theme.fFolderName;
+						break;
+					}
+				}
+
+				return serverRest.getFolderUsers({
+					registeredServerName: serverName,
+					currPath: projectDir,
+					id: theme.fFolderGUID
+				});
+			})
+			.then(function (result) {
+				themejson['members'] =  result || [];
+				console.log(themejson);
 
 				done();
 			})
