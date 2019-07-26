@@ -225,7 +225,7 @@ module.exports.getChannelsFromServer = function (server) {
 			user: server.username,
 			password: server.password
 		});
-		var url = server.url + '/content/management/api/v1.1/channels';
+		var url = server.url + '/content/management/api/v1.1/channels?limit=1000';
 		client.get(url, function (data, response) {
 			if (response && response.statusCode === 200 && data) {
 				var channels = [];
