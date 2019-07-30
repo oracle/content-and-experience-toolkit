@@ -932,7 +932,7 @@ var _generatePageIndex = function (site, pages, pageData, pageContent, typeTextF
 
 var _getPageIndexItem = function (request, localhost, channelToken, contenttype, locale) {
 	var pageIndexItemPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/content/management/api/v1.1/items?fields=ALL&limit=9999';
+		var url = localhost + '/content/management/api/v1.1/items?fields=ALL&limit=99999';
 		url = url + '&channelToken=' + channelToken;
 		if (locale) {
 			url = url + '&q=(type eq "' + contenttype + '" and language eq "' + locale + '")';

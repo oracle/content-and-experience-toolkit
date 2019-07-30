@@ -173,6 +173,7 @@ app.use('/_sitesclouddelivery', express.static(testDir + '/sitescloud'));
 // At local, use the same SiteSDK
 app.use('*sites.min.js', express.static(testDir + '/sitescloud/renderer/app/sdk/js/sites.min.js'));
 app.use('*sites.mock.min.js', express.static(testDir + '/sitescloud/renderer/app/sdk/js/sites.mock.min.js'));
+app.use('*content.min.js', express.static(testDir + '/sitescloud/renderer/app/sdk/js/content.min.js'));
 app.use('/src', express.static(path.join(projectDir, 'src')));
 app.use('/main/components', express.static(componentsDir));
 app.use('/themes', express.static(themesDir));

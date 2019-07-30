@@ -648,6 +648,7 @@ var compiler = {
 		self.navigationCurr = args.navigationCurr;
 		self.structureMap = args.structureMap;
 		self.siteInfo = args.siteInfo;
+		self.reportedMessages = {}; 
 
 		// define the list of supported component compilers
 		self.componentCompilers = {};
@@ -670,6 +671,9 @@ var compiler = {
 				// ToDo: pass SCSRenderAPI equivalent through
 				var SCSCompileAPI = {
 					channelAccessToken: channelAccessToken,
+					getComponentInstanceData: function (instanceId) {
+						return self.pageModel.componentInstances[instanceId];
+					},
 					getChannelAccessToken: function () {
 						return channelAccessToken;
 					},
@@ -703,7 +707,11 @@ var compiler = {
 					resolve();
 				});
 			} else {
-				console.log('No component compiler for: ' + compInstance.type);
+				var message = 'No component compiler for: ' + compInstance.type;
+				if (!self.reportedMessages[message]) {
+					self.reportedMessages[message] = 'done';
+					console.log(message);
+				}
 				resolve();
 			}
 		});
@@ -1776,6 +1784,8 @@ var compileSite = function (args) {
 		//copySiteCloudDeliveryDirectory();
 		//copyThemesDeliveryDirectory();
 		//copyComponentsDeliveryDirectory();
+	}).catch(function (e) {
+		console.log(e);
 	});
 };
 

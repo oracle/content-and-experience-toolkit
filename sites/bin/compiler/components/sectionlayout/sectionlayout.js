@@ -24,7 +24,7 @@ var factoryToNameMap = {
 	"scs-tabs": "tabs",
 	"scs-three-columns": "three-columns",
 	"scs-two-columns": "two-columns",
-	"scs-vertical": "vertical",
+	"scs-vertical": "vertical"
 };
 
 var applyStyles = function ($div, slData) {

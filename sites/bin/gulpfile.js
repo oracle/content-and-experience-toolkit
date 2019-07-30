@@ -569,6 +569,15 @@ gulp.task('upload-content', function (done) {
 	contentlib.uploadContent(argv, done);
 });
 
+/**
+ * control content to server
+ */
+gulp.task('control-content', function (done) {
+	'use strict';
+
+	contentlib.controlContent(argv, done);
+});
+
 
 /**
  * sync channel content on destination server from source server
@@ -945,6 +954,7 @@ gulp.task('check-version', function (done) {
 		// console.log(' - file ' + msgFile + ' last updated on ' + statInfo.mtime + ' days passed: ' + diffDays);
 		// warn every 30 days :-)
 		if (diffDays < 30) {
+			done();
 			return;
 		}
 	}
@@ -954,6 +964,7 @@ gulp.task('check-version', function (done) {
 	var server = serverUtils.getConfiguredServer(projectDir);
 	if (!server.url || !server.username || !server.password) {
 		// console.log(' - no server is configured in ' + server.fileloc);
+		done();
 		return;
 	}
 
@@ -968,6 +979,7 @@ gulp.task('check-version', function (done) {
 	client.get(url, function (data, response) {
 		if (!response || response.statusCode !== 200) {
 			// console.log('ERROR: failed to query CEC version: ' + (response && response.statusMessage));
+			done();
 			return;
 		}
 		var cecVersion, cecVersion2;
@@ -975,6 +987,7 @@ gulp.task('check-version', function (done) {
 			cecVersion = data ? data.toString() : '';
 			if (!cecVersion) {
 				// console.log('ERROR: no value returned for CEC version');
+				done();
 				return;
 			}
 
@@ -1002,6 +1015,7 @@ gulp.task('check-version', function (done) {
 			cecVersion = data && data.version;
 			if (!cecVersion) {
 				// console.log('ERROR: no value returned for CEC version');
+				done();
 				return;
 			}
 			var arr = cecVersion.split('.');
@@ -1020,6 +1034,7 @@ gulp.task('check-version', function (done) {
 
 		if (!toolkitVersion) {
 			//console.log('ERROR: version found in ' + packagejsonpath);
+			done();
 			return;
 		}
 		arr = toolkitVersion.split('.');
@@ -1042,6 +1057,15 @@ gulp.task('check-version', function (done) {
 
 		done();
 	});
+});
+
+/**
+ * Register server
+ */
+gulp.task('create-encryption-key', function (done) {
+	'use strict';
+
+	resourcelib.createEncryptionKey(argv, done);
 });
 
 /**

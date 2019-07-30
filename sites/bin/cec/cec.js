@@ -836,13 +836,17 @@ const createAssetReport = {
 	usage: {
 		'short': 'Generate an asset usage report for site <site> on CEC server.',
 		'long': (function () {
-			let desc = 'Generate an asset usage report for site <site> on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Generate an asset usage report for site <site> on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -o to save the report to a json file.';
 			return desc;
 		})()
 	},
 	example: [
 		['cec create-asset-report Site1'],
-		['cec create-asset-report Site1 -s UAT']
+		['cec create-asset-report Site1 -s UAT'],
+		['cec create-asset-report Site1 -o', 'The report will be saved to Site1AssetUsage.json at the current local location'],
+		['cec create-asset-report Site1 -o ~/Documents', 'The report will be saved to ~/Documents/Site1AssetUsage.json'],
+		['cec create-asset-report Site1 -o ~/Documents/Site1Report.json', 'The report will be saved to ~/Documents/Site1Report.json']
 	]
 };
 
@@ -1299,6 +1303,22 @@ const downloadFile = {
 	]
 };
 
+const createEncryptionKey = {
+	command: 'create-encryption-key <file>',
+	alias: 'cek',
+	name: 'create-encryption-key',
+	usage: {
+		'short': 'Create an encryption key to encrypt/decrypt password for servers.',
+		'long': (function () {
+			let desc = 'Create an encryption key to encrypt/decrypt password for servers and save to <file>. Use NodeJS 10.12.0 or later.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-encryption-key ~/.ceckey', 'Create encryption key and save to file ~/.ceckey']
+	]
+};
+
 const registerServer = {
 	command: 'register-server <name>',
 	alias: 'rs',
@@ -1306,7 +1326,10 @@ const registerServer = {
 	usage: {
 		'short': 'Registers a CEC server.',
 		'long': (function () {
-			let desc = 'Registers a CEC server. Specify -e <endpoint> for the server URL. Specify -u <user> and -p <password> for connecting to the server. Optionally specify -t <type> to set the server type, The valid values for <type> are:\n\n';
+			let desc = 'Registers a CEC server. Specify -e <endpoint> for the server URL. ' +
+				'Specify -u <user> and -p <password> for connecting to the server. ' +
+				'Optionally specify -k <key> to encrypt the password. ' +
+				'Optionally specify -t <type> to set the server type. The valid values for <type> are:\n\n';
 			desc = getServerTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc) +
 				'\nand the default value is pod_ec.';
 			// desc = desc + os.EOL + os.EOL + 'For pod_ec server, option <idcsurl>, <clientid>, <clientsecret> and <scope> are required. ';
@@ -1317,6 +1340,7 @@ const registerServer = {
 		// ['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -i http://idcs1.com -c clientid -s clientsecret -o https://primary-audience-and-scope', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.git.oraclecorp.com.com -u user1 -p Welcome1 -t dev_ec', 'The server is a standalone development instance'],
+		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -k ~/.ceckey', 'The password will be encrypted']
 	]
 };
 
@@ -1447,7 +1471,8 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(controlSite) + os.EOL +
 	_getCmdHelp(indexSite) + os.EOL +
 	_getCmdHelp(createSiteMap) + os.EOL +
-	_getCmdHelp(createRSSFeed) + os.EOL;
+	_getCmdHelp(createRSSFeed) + os.EOL +
+	_getCmdHelp(createAssetReport) + os.EOL;
 
 _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
@@ -1480,6 +1505,7 @@ _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(registerTranslationConnector) + os.EOL;
 
 _usage = _usage + os.EOL + 'Local Environment' + os.EOL +
+	_getCmdHelp(createEncryptionKey) + os.EOL +
 	_getCmdHelp(registerServer) + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
 	_getCmdHelp(install) + os.EOL +
@@ -2326,12 +2352,19 @@ const argv = yargs.usage(_usage)
 		})
 	.command([createAssetReport.command, createAssetReport.alias], false,
 		(yargs) => {
-			yargs.option('server', {
+			yargs.option('output', {
+					alias: 'o',
+					description: 'Output the report to a JSON file'
+				})
+				.option('server', {
 					alias: 's',
 					description: 'The registered CEC server'
 				})
 				.example(...createAssetReport.example[0])
 				.example(...createAssetReport.example[1])
+				.example(...createAssetReport.example[2])
+				.example(...createAssetReport.example[3])
+				.example(...createAssetReport.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2914,6 +2947,14 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${downloadFile.command}\n\n${downloadFile.usage.long}`);
 		})
+	.command([createEncryptionKey.command, createEncryptionKey.alias], false,
+		(yargs) => {
+			yargs.example(...createEncryptionKey.example[0])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createEncryptionKey.command}\n\n${createEncryptionKey.usage.long}`);
+		})
 	.command([registerServer.command, registerServer.alias], false,
 		(yargs) => {
 			yargs
@@ -2931,6 +2972,10 @@ const argv = yargs.usage(_usage)
 					alias: 'p',
 					description: '<password> Password',
 					demandOption: true
+				})
+				.option('key', {
+					alias: 'k',
+					description: 'The key file used to encrypt the password'
 				})
 				.option('type', {
 					alias: 't',
@@ -2976,6 +3021,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...registerServer.example[0])
 				.example(...registerServer.example[1])
+				.example(...registerServer.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3774,6 +3820,10 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--site', argv.site
 	];
 
+	if (argv.output) {
+		var outputVal = typeof argv.output === 'boolean' ? './' : argv.output;
+		createAssetReportArgs.push(...['--output', outputVal]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createAssetReportArgs.push(...['--server', argv.server]);
 	}
@@ -4200,6 +4250,17 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === createEncryptionKey.name || argv._[0] === createEncryptionKey.alias) {
+	let createEncryptionKeyArgs = ['run', '-s', createEncryptionKey.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--file', argv.file
+	];
+	spawnCmd = childProcess.spawnSync(npmCmd, createEncryptionKeyArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === registerServer.name || argv._[0] === registerServer.alias) {
 	let registerServerArgs = ['run', '-s', registerServer.name, '--prefix', appRoot,
 		'--',
@@ -4209,6 +4270,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--user', argv.user,
 		'--password', argv.password
 	];
+	if (argv.key && typeof argv.key !== 'boolean') {
+		registerServerArgs.push(...['--key'], argv.key);
+	}
 	if (argv.type) {
 		registerServerArgs.push(...['--type'], argv.type);
 	}

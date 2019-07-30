@@ -57,6 +57,21 @@ var componentCompilers = [{
 		type: 'scs-button',
 		compiler: 'button/button',
 		canNest: true
+	},
+	{
+		type: 'scs-contentlist',
+		compiler: 'contentlist/contentlist',
+		canNest: true
+	},
+	{
+		type: 'scs-socialbar',
+		compiler: 'socialbar/socialbar',
+		canNest: true
+	},
+	{
+		type: 'scs-gallerygrid',
+		compiler: 'gallerygrid/gallerygrid',
+		canNest: true
 	}
 ];
 

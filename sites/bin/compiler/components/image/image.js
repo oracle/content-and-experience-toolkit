@@ -32,6 +32,14 @@ Image.prototype.compile = function () {
 	this.computedImageUrl = this.computeImageUrl();
 	this.computedTarget = ['scs-link-lightbox', 'scs-link-email'].indexOf(this.linkType) === -1 ? this.computeTarget(this.imageTarget) : '';
 	this.computedLinkClass = this.linkType === 'scs-link-map' ? '' : 'scs-image-link';
+	this.computedImgClass = 'scs-image-image';
+	// Override for gallerygrid
+	if (this.data.inGallery) {
+		// TODO: See setImageLoaded in image-vm.js of SitesCloudRuntime to see how scs-image-wide and scs-image-tall are decided.
+		this.computedImgClass = 'scs-image-image scs-image-wide';
+		this.componentWrapperTag = 'scs-image';
+		this.componentTagAttribute = this.data.componentTagAttribute;
+	}
 
 	this.hrefAttr = 'href="' + (this.linkType === 'scs-link-lightbox' ? '#' : this.imageHref) + '"';
 
@@ -69,7 +77,7 @@ Image.prototype.computeContentStyle = function () {
 		computedContentStyle = '';
 
 	// width
-	if (!viewModel.inGallery) {
+	if (!viewModel.data.inGallery) {
 		computedContentStyle += viewModel.computedWidthStyle;
 	}
 

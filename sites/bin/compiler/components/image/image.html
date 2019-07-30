@@ -1,11 +1,11 @@
-<{{componentWrapperTag}} {{{nestedId}}}>
+<{{componentWrapperTag}} {{{nestedId}}} {{{componentTagAttribute}}}>
 	<div class="{{computedStyleClass}}" style="{{computedWrapperStyle}}">
 		<div class="scs-component-content" style="{{computedContentStyle}}">
 			<div class="scs-image-container" style="{{computedStyle}}">
 				{{#linkHandler}}
 				<a {{{hrefAttr}}} class="{{computedLinkClass}}" target="{{computedTarget}}" download="{{downloadFileName}}">
 				{{/linkHandler}}
-					<img id="{{imageId}}" src="{{computedImageUrl}}" alt="{{altText}}" title="{{title}}" class="scs-image-image" />
+					<img id="{{imageId}}" src="{{computedImageUrl}}" alt="{{altText}}" title="{{title}}" class="{{computedImgClass}}" />
 				{{#linkHandler}}
 				</a>
 				{{/linkHandler}}

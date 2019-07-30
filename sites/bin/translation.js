@@ -125,7 +125,7 @@ var _getTranslationJobs = function (server, jobType) {
 			user: server.username,
 			password: server.password
 		});
-		var url = server.url + '/content/management/api/v1.1/translationJobs?jobType=' + jobType + '&limit=999&offset=0&orderBy=name:asc';
+		var url = server.url + '/content/management/api/v1.1/translationJobs?jobType=' + jobType + '&limit=99999&offset=0&orderBy=name:asc';
 		client.get(url, function (data, response) {
 			var jobs = [];
 			if (response && response.statusCode === 200) {

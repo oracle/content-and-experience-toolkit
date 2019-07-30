@@ -91,7 +91,8 @@ router.get('/*', (req, res) => {
 		request = app.locals.request,
 		requestUrl = req.originalUrl,
 		cntPath = req.path,
-		cntURL = url.parse(req.url);
+		cntURL = url.parse(req.url),
+		currentTemplate = (req.query && req.query.template) || app.locals.currentContentItem.template || app.locals.currentTemplate;
 
 	_setupSourceDir();
 
@@ -135,7 +136,7 @@ router.get('/*', (req, res) => {
 	}
 
 	// console.log(' - currentContentItem.template=' + app.locals.currentContentItem.template + ' currentTemplate=' + app.locals.currentTemplate);
-	var temp = app.locals.currentContentItem.template || app.locals.currentTemplate,
+	var temp = currentTemplate,
 		comp = app.locals.currentComponent;
 	if (!temp) {
 		if (cntPath.indexOf('/content/published/api/v1/digital-assets/') === 0 ||

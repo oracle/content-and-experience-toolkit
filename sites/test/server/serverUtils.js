@@ -11,6 +11,7 @@
 
 var express = require('express'),
 	app = express(),
+	crypto = require('crypto'),
 	os = require('os'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
@@ -239,7 +240,7 @@ var _verifyServer = function (serverName, currPath) {
 	var server = {};
 	if (serverName) {
 		_setupSourceDir(currPath);
-		
+
 		var serverpath = path.join(serversDir, serverName, 'server.json');
 		if (!fs.existsSync(serverpath)) {
 			console.log('ERROR: server ' + serverName + ' does not exist');
@@ -427,6 +428,21 @@ var _getRegisteredServer = function (projectDir, name) {
 		server = serverjson;
 		server['fileloc'] = serverpath;
 		server['fileexist'] = true;
+
+		var keyFile = server.key;
+		if (server.password && keyFile && fs.existsSync(keyFile)) {
+			// decrypt the password
+			var key = fs.readFileSync(keyFile, 'utf8').toString();
+			try {
+				var buf = Buffer.from(server.password, 'base64');
+				var decrypted = crypto.privateDecrypt(key, buf);
+				server.password = decrypted.toString('utf8');
+				
+			} catch (e) {
+				console.log('ERROR: failed to decrypt the password');
+				console.log(e);
+			}
+		}
 	}
 	// console.log(server);
 	return server;
@@ -828,7 +844,7 @@ module.exports.getContentTypesFromServer = function (server) {
 			user: server.username,
 			password: server.password
 		});
-		var url = server.url + '/content/management/api/v1.1/types?limit=9999';
+		var url = server.url + '/content/management/api/v1.1/types?limit=99999';
 		client.get(url, function (data, response) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
@@ -2879,7 +2895,7 @@ var _getSiteInfo = function (server, site) {
 
 			request.get(options, function (err, response, body) {
 				if (err) {
-					console.log('ERROR: Failed to get site Id');
+					console.log('ERROR: Failed to get site info');
 					console.log(err);
 					return resolve({
 						'err': err
@@ -2892,9 +2908,10 @@ var _getSiteInfo = function (server, site) {
 					} catch (e) {}
 				}
 
-				var siteInfo = data && (data.properties || data.base.properties);
+				var siteInfo = data && (data.properties || (data.base && data.base.properties));
 				if (!siteInfo) {
-					console.log('ERROR: Failed to get site info for - ' + site);
+					var msg = data && data.LocalData ? data.LocalData.StatusMessage : '';
+					console.log('ERROR: Failed to get site info for ' + site + ' ' + msg);
 					return resolve({
 						err: 'err'
 					});

@@ -92,7 +92,7 @@ SectionLayout.prototype = {
 				// Add in the child components that belong to this column
 				(slData.components || []).forEach(function (childComponentId, childComponentIndex) {
 					if ((childComponentIndex % styleClasses.length) === styleIndex) {
-						html += '<div id="' + childComponentId + '"></div>';
+						html += '<div id="' + childComponentId + '" class="scs-component-container"></div>';
 					}
 				});
 

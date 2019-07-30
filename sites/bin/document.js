@@ -184,7 +184,7 @@ module.exports.uploadFile = function (argv, done) {
 	var inputPath = argv.folder === '/' ? '' : serverUtils.trimString(argv.folder, '/');
 	var siteFolder = false;
 	var siteName;
-	if (inputPath.indexOf('site:') === 0) {
+	if (inputPath && inputPath.indexOf('site:') === 0) {
 		siteFolder = true;
 		inputPath = inputPath.substring(5);
 		if (inputPath.indexOf('/') > 0) {
@@ -335,7 +335,7 @@ module.exports.downloadFile = function (argv, done) {
 	var folderPathStr = filePath.indexOf('/') >= 0 ? filePath.substring(0, filePath.lastIndexOf('/')) : '';
 	var siteFolder = false;
 	var siteName;
-	if (folderPathStr.indexOf('site:') === 0) {
+	if (folderPathStr && folderPathStr.indexOf('site:') === 0) {
 		siteFolder = true;
 		folderPathStr = folderPathStr.substring(5);
 		if (folderPathStr.indexOf('/') > 0) {
@@ -853,7 +853,7 @@ module.exports.downloadFolder = function (argv, done) {
 	var inputPath = argv.path === '/' ? '' : serverUtils.trimString(argv.path, '/');
 	var siteFolder = false;
 	var siteName;
-	if (inputPath.indexOf('site:') === 0) {
+	if (inputPath && inputPath.indexOf('site:') === 0) {
 		siteFolder = true;
 		inputPath = inputPath.substring(5);
 		if (inputPath.indexOf('/') > 0) {
@@ -1043,7 +1043,7 @@ module.exports.uploadFolder = function (argv, done) {
 	var inputPath = argv.folder === '/' ? '' : serverUtils.trimString(argv.folder, '/');
 	var siteFolder = false;
 	var siteName;
-	if (inputPath.indexOf('site:') === 0) {
+	if (inputPath && inputPath.indexOf('site:') === 0) {
 		siteFolder = true;
 		inputPath = inputPath.substring(5);
 		if (inputPath.indexOf('/') > 0) {

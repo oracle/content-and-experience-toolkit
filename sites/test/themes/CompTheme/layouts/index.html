@@ -255,7 +255,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 				// save to session
 				window.sessionStorage.setItem('currentComponentTheme', theme);
 
-				var cssfile = '/src/main/themes/' + theme + '/designs/default/design.css';
+				var cssfile = '/src/themes/' + theme + '/designs/default/design.css';
 				var head = document.getElementsByTagName('head')[0],
 					link = document.createElement('link');
 				if (head) {
@@ -278,7 +278,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 							}
 							// console.log('rel=' + rel + ' type=' + type + ' href=' + href);
 							if (rel === 'stylesheet' && type === 'text/css' && href && href.indexOf(
-									'/src/main/themes/') === 0) {
+									'/src/themes/') === 0) {
 								head.removeChild(childnodes[i]);
 								console.log(' removed style: ' + href);
 							}

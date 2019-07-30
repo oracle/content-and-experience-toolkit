@@ -1668,7 +1668,7 @@ var _calculatePageChangeFraq = function (serverName, allPageFiles) {
 		var doQueryVersion = groups.reduce(function (versionPromise, param) {
 				return versionPromise.then(function (result) {
 					var versionPromises = [];
-					for (var i = param.start; i < param.end; i++) {
+					for (var i = param.start; i <= param.end; i++) {
 						versionPromises.push(serverRest.getFileVersions({
 							registeredServerName: serverName,
 							currPath: projectDir,
@@ -1717,6 +1717,7 @@ var _calculatePageChangeFraq = function (serverName, allPageFiles) {
 								} else {
 									calculatedChangefreq = 'never';
 								}
+								
 								/*
 								console.log(' - page : ' + versions[0].name + ' versions: ' + versions.length +
 									' oldest update: ' + versions[oldestVersionIdx].modifiedTime +

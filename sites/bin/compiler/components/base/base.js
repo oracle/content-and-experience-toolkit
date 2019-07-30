@@ -18,10 +18,13 @@ var fs = require('fs'),
 	path = require('path'),
 	mustache = require('mustache'),
 	compReg = require(path.normalize('../component-registration'))['component-registration'],
-	ComponentCommon = require(path.normalize('../common/component-common')).ComponentCommon;
+	ComponentCommon = require(path.normalize('../common/component-common')).ComponentCommon,
+	serverUtils = require('../../../../test/server/serverUtils.js');
 
-// ToDo: Work out how to install/load the content SDK
-//var ContendSDK = require('ContentSDK');
+var serverURL = 'http://localhost:8085',
+	siteURLPrefix = serverURL + '/templates',
+	SYSTEM_DEFAULT_LAYOUT = 'system-default-layout';
+
 
 var Base = function () {};
 Base.prototype = Object.create(ComponentCommon.prototype);
@@ -38,6 +41,7 @@ Base.prototype.init = function (compType, compId, compInstance) {
 	this.id = this.data.parentId ? this.data.parentId + compId : compId;
 	this.componentWrapperTag = this.data.parentId ? compType : 'div';
 	this.nestedId = this.data.parentId ? ' data-scs-id="' + this.id + '"' : '';
+	this.contentItemCache = this.data.contentItemCache;
 
 	// to allow for hydration after rendering compiled content in the browser, add in the id (and any parent ID if it's nested)
 	var hydrateData = {

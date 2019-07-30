@@ -143,13 +143,16 @@ module.exports.deleteFolder = function (args) {
 };
 
 // Get child items with the parent folder
-var _getChildItems = function (server, parentID) {
+var _getChildItems = function (server, parentID, limit) {
 	return new Promise(function (resolve, reject) {
 		var client = new Client({
 				user: server.username,
 				password: server.password
 			}),
 			url = server.url + '/documents/api/1.2/folders/' + parentID + '/items';
+		if (limit) {
+			url = url + '?limit=' + limit;
+		}
 
 		var req = client.get(url, function (data, response) {
 			// try to find the requested folder
@@ -172,10 +175,11 @@ var _getChildItems = function (server, parentID) {
  * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
  * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
  * @param {string} args.parentID The DOCS GUID for the folder to search
+ * @param {string} args.limit the maximum number of items to return
  * @returns {array} The array of data object returned by the server.
  */
 module.exports.getChildItems = function (args) {
-	return _getChildItems(_utils.getServer(args.currPath, args.registeredServerName), args.parentID);
+	return _getChildItems(_utils.getServer(args.currPath, args.registeredServerName), args.parentID, args.limit);
 };
 
 // Find file by name with the parent folder
@@ -438,6 +442,7 @@ var _getItem = function (server, id, expand) {
 /**
  * Get an item on server 
  * @param {object} args JavaScript object containing parameters. 
+ * @param {string} args.server the server object
  * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
  * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
  * @param {string} args.id The id of the item to query.
@@ -445,7 +450,8 @@ var _getItem = function (server, id, expand) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getItem = function (args) {
-	return _getItem(_utils.getServer(args.currPath, args.registeredServerName), args.id, args.expand);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _getItem(server, args.id, args.expand);
 };
 
 // Create channel on server
@@ -653,7 +659,7 @@ var _getChannels = function (server) {
 				user: server.username,
 				password: server.password
 			}),
-			url = server.url + '/content/management/api/v1.1/channels?limit=999&fields=all';
+			url = server.url + '/content/management/api/v1.1/channels?limit=99999&fields=all';
 
 		var req = client.get(url, function (data, response) {
 			if (response && response.statusCode === 200) {
@@ -725,10 +731,11 @@ var _getChannelItems = function (server, channelToken, fields) {
 				user: server.username,
 				password: server.password
 			}),
-			url = server.url + '/content/management/api/v1.1/items?limit=9999&channelToken=' + channelToken;
+			url = server.url + '/content/management/api/v1.1/items?limit=99999&channelToken=' + channelToken;
 		if (fields) {
 			url = url + '&fields=' + fields;
 		}
+
 		client.get(url, function (data, response) {
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
@@ -744,6 +751,7 @@ var _getChannelItems = function (server, channelToken, fields) {
 /**
  * Get all items in a channel on server 
  * @param {object} args JavaScript object containing parameters. 
+ * @param {string} args.server the server object
  * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
  * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
  * @param {string} args.channelToken The token of the channel to query.
@@ -751,7 +759,8 @@ var _getChannelItems = function (server, channelToken, fields) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getChannelItems = function (args) {
-	return _getChannelItems(_utils.getServer(args.currPath, args.registeredServerName), args.channelToken, args.fields);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _getChannelItems(server, args.channelToken, args.fields);
 };
 
 // perform bulk operation on items in a channel from server
@@ -979,7 +988,7 @@ var _getLocalizationPolicies = function (server) {
 				user: server.username,
 				password: server.password
 			}),
-			url = server.url + '/content/management/api/v1.1/localizationPolicies?limit=999';
+			url = server.url + '/content/management/api/v1.1/localizationPolicies?limit=99999';
 
 		var req = client.get(url, function (data, response) {
 			if (response && response.statusCode === 200) {
@@ -1008,6 +1017,45 @@ var _getLocalizationPolicies = function (server) {
  */
 module.exports.getLocalizationPolicies = function (args) {
 	return _getLocalizationPolicies(_utils.getServer(args.currPath, args.registeredServerName));
+};
+
+// Get a localization policy from server
+var _getLocalizationPolicy = function (server, id) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			url = server.url + '/content/management/api/v1.1/localizationPolicies/' + id;
+
+		var req = client.get(url, function (data, response) {
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				console.log('ERROR: failed to get localization policy: ' + (response.statusMessage || response.statusCode));
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+		req.on('error', function (err) {
+			console.log('ERROR: ' + err);
+			resolve({
+				err: 'err'
+			});
+		})
+	});
+};
+/**
+ * Get a localization policy on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.id The id of the localization policy to query
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getLocalizationPolicy = function (args) {
+	return _getLocalizationPolicy(_utils.getServer(args.currPath, args.registeredServerName), args.id);
 };
 
 // Create localization policy on server
@@ -1080,7 +1128,7 @@ var _getRepositories = function (server) {
 				user: server.username,
 				password: server.password
 			}),
-			url = server.url + '/content/management/api/v1.1/repositories?limit=999&fields=all';
+			url = server.url + '/content/management/api/v1.1/repositories?limit=99999&fields=all';
 
 		var req = client.get(url, function (data, response) {
 			if (response && response.statusCode === 200) {
@@ -1110,6 +1158,79 @@ var _getRepositories = function (server) {
  */
 module.exports.getRepositories = function (args) {
 	return _getRepositories(_utils.getServer(args.currPath, args.registeredServerName));
+};
+
+// Get a repository from server
+var _getRepository = function (server, repoId) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			url = server.url + '/content/management/api/v1.1/repositories/' + repoId;
+
+		client.get(url, function (data, response) {
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				console.log('ERROR: failed to get repository: ' + (response.statusMessage || response.statusCode));
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get a repository on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.id The id of the repository to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getRepository = function (args) {
+	return _getRepository(_utils.getServer(args.currPath, args.registeredServerName), args.id);
+};
+
+// Get a repository from server
+var _getResourcePermissions = function (server, id, type) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			resourceType = type === 'repository' ? 'repositories' : (type === 'type' ? 'types' : type),
+			url = server.url + '/content/management/api/v1.1/' + resourceType + '/' + id + '/permissions';
+		client.get(url, function (data, response) {
+			if (response && response.statusCode === 200) {
+				resolve({
+					resource: id,
+					resourceType: type,
+					permissions: data && data.items
+				});
+			} else {
+				console.log('ERROR: failed to get ' + type + ' permissions for ' + id + ' : ' + (response.statusMessage || response.statusCode));
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get all permissions of a resource on a ron server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} server the server object
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.id The id of the resource to query.
+ * @param {string} args.type The type of the resource to query [repository | type]
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getResourcePermissions = function (args) {
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _getResourcePermissions(server, args.id, args.type);
 };
 
 // Create repository on server
@@ -1332,13 +1453,13 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 					} catch (e) {
 						data = body;
 					};
-					
+
 					if (response && response.statusCode === 200) {
 						var failedRoles = data && data.operations[operation] && data.operations[operation].failedRoles;
 						if (failedRoles && failedRoles.length > 0) {
 							console.log('ERROR: failed to ' + operation + ' resource: ');
-							for(var i = 0; i < failedRoles.length; i++) {
-								for(var j = 0; j < failedRoles[i].users.length; j++) {
+							for (var i = 0; i < failedRoles.length; i++) {
+								for (var j = 0; j < failedRoles[i].users.length; j++) {
 									console.log(failedRoles[i].users[j].message);
 								}
 							}
@@ -1453,15 +1574,18 @@ var _getFolderUsers = function (server, folderId) {
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				var users = [];
 				if (data && data.items && data.items.length > 0) {
-					for(var i = 0; i < data.items.length; i++) {
+					for (var i = 0; i < data.items.length; i++) {
 						users.push({
-							name: data.items[i].user.loginName,
+							name: data.items[i].user.loginName || data.items[i].user.displayName,
 							type: data.items[i].user.type,
 							role: data.items[i].role
 						});
 					}
 				}
-				resolve(users);
+				resolve({
+					id: folderId,
+					data: users
+				});
 
 			} else {
 				// continue 
@@ -1479,5 +1603,6 @@ var _getFolderUsers = function (server, folderId) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getFolderUsers = function (args) {
-	return _getFolderUsers(_utils.getServer(args.currPath, args.registeredServerName), args.id);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _getFolderUsers(server, args.id);
 };

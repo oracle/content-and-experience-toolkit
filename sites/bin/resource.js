@@ -7,6 +7,7 @@
 
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
+	crypto = require('crypto'),
 	fs = require('fs'),
 	path = require('path'),
 	sprintf = require('sprintf-js').sprintf;
@@ -37,7 +38,64 @@ var verifyRun = function (argv) {
 	return true;
 }
 
-var _cmdEnd = function (done) {
+
+module.exports.createEncryptionKey = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var file = argv.file;
+	if (!path.isAbsolute(file)) {
+		file = path.join(projectDir, file);
+	}
+	file = path.resolve(file);
+
+	if (fs.existsSync(file) && fs.statSync(file).isDirectory()) {
+		console.log('ERROR: no file specified');
+		done();
+		return;
+	}
+	var folder = file.substring(0, file.lastIndexOf('/'));
+	if (!fs.existsSync(folder)) {
+		console.log('ERROR: directory ' + folder + ' does not exist');
+		done();
+		return;
+	}
+	if (folder.indexOf(projectDir) === 0) {
+		console.log('ERROR: key file cannot be saved in sites-toolkit directory');
+		done();
+		return;
+	}
+
+	try {
+		var obj = crypto.generateKeyPairSync('rsa', {
+			modulusLength: 2048, // the length of your key in bits
+			publicKeyEncoding: {
+				type: 'pkcs1',
+				format: 'pem'
+			},
+			privateKeyEncoding: {
+				type: 'pkcs8',
+				format: 'pem'
+				// cipher: 'aes-256-cbc',
+				// passphrase: 'cec sites-toolkit secret'
+			}
+		});
+		// console.log(obj.privateKey.length);
+
+		fs.writeFileSync(file, obj.privateKey);
+		console.log(' - key saved to ' + file);
+		done();
+	} catch (e) {
+		if (e && e.message === 'crypto.generateKeyPairSync is not a function') {
+			console.log('ERROR: require NodeJS 10.12.0 and later');
+		}
+		done();
+	}
+
 	done();
 };
 
@@ -45,6 +103,13 @@ module.exports.registerServer = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var keyFile = argv.key;
+	if (keyFile && !fs.existsSync(keyFile)) {
+		console.log('ERROR: key file ' + keyFile + ' does not exist');
 		done();
 		return;
 	}
@@ -58,6 +123,23 @@ module.exports.registerServer = function (argv, done) {
 	var client_id = argv.clientid;
 	var client_secret = argv.clientsecret;
 	var scope = argv.scope;
+
+	var savedPassword = password;
+	if (keyFile) {
+		try {
+			var key = fs.readFileSync(keyFile, 'utf8');
+			var encrypted = crypto.publicEncrypt({
+				key: key,
+			}, Buffer.from(password, 'utf8'));
+			savedPassword = encrypted.toString('base64');
+			console.log(' - encrypt the password');
+		} catch (e) {
+			console.log('ERROR: failed to encrypt the password');
+			console.log(e);
+			done();
+			return;
+		}
+	}
 
 	if (!fs.existsSync(serversSrcDir)) {
 		fs.mkdirSync(serversSrcDir);
@@ -73,8 +155,9 @@ module.exports.registerServer = function (argv, done) {
 		name: name,
 		url: endpoint,
 		username: user,
-		password: password,
+		password: savedPassword,
 		env: type,
+		key: keyFile,
 		idcs_url: idcs_url,
 		client_id: client_id,
 		client_secret: client_secret,
@@ -337,12 +420,12 @@ module.exports.listServerResources = function (argv, done) {
 					for (var i = 0; i < repositories.length; i++) {
 						var repo = repositories[i];
 						var contentTypes = [];
-						for(var j = 0; j < repo.contentTypes.length; j++) {
+						for (var j = 0; j < repo.contentTypes.length; j++) {
 							contentTypes.push(repo.contentTypes[j].name);
 						}
 						var repoChannels = [];
-						for(var j = 0; j < repo.channels.length; j++) {
-							for(var k = 0; k < channels.length; k++) {
+						for (var j = 0; j < repo.channels.length; j++) {
+							for (var k = 0; k < channels.length; k++) {
 								if (repo.channels[j].id === channels[k].id) {
 									repoChannels.push(channels[k].name);
 								}

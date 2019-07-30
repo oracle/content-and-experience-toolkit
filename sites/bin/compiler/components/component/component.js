@@ -149,6 +149,10 @@ Component.prototype.getSeededCompFile = function (compName) {
 			},
 			'scs-contentitem': {
 				compileFile: 'contentitem/contentitem'
+			},
+			'scsCaaSLayout': {
+				// scs-contentitem when used in a content list
+				compileFile: 'contentitem/contentitem'
 			}
 		},
 		seededComp = seededComps[compName];
@@ -157,7 +161,8 @@ Component.prototype.getSeededCompFile = function (compName) {
 };
 
 Component.prototype.compileComponent = function (args) {
-	var viewModel = this;
+	var viewModel = this,
+		isSeeded = false;
 
 	return new Promise(function (resolve, reject) {
 
@@ -165,7 +170,9 @@ Component.prototype.compileComponent = function (args) {
 		// compile in the referenced component
 		//
 		var compileFile = viewModel.getSeededCompFile(viewModel.custComp);
-		if (!compileFile) {
+		if (compileFile) {
+			isSeeded = true;
+		} else {
 			compileFile = path.normalize(viewModel.componentsFolder + '/' + viewModel.custComp + '/assets/compile');
 		}
 
@@ -182,7 +189,7 @@ Component.prototype.compileComponent = function (args) {
 			var compileArgs = {
 				//contentSDK: contentSDK,
 				SCSCompileAPI: args.SCSCompileAPI,
-				compVM: viewModel, 
+				compVM: viewModel,
 				compId: viewModel.id,
 				componentLayout: viewModel.componentLayout,
 				customSettingsData: viewModel.customSettingsData || {}
@@ -229,6 +236,20 @@ Component.prototype.compileComponent = function (args) {
 								});
 							}
 						});
+					} else {
+						var message; 
+						if (viewModel.custComp === 'scs-contentitem') {
+							message = 'failed to compile content item with layout that maps to category: ' + viewModel.contentLayoutCategory;
+						} else {
+							message = 'failed to compile component with: ' + custComp;
+						}
+						if (!reportedFiles[message]) {
+							reportedFiles[message] = 'done';
+							console.log(message);
+						}
+						return resolve({
+							customContent: ''
+						});
 					}
 				} catch (e) {
 					// unable to compile the custom component, js
@@ -252,7 +273,19 @@ Component.prototype.compileComponent = function (args) {
 					console.log('require failed to load: "' + compileFile + '.js" due to:');
 					console.log(e);
 				} else {
-					console.log('No custom component compiler for: "' + compileFile + '.js"');
+					// don't report on ootb component sectionLayout compilers
+					// these are temporary "components" for content lists that aren't compiled at this point so ignore them
+					var ootbSectionLayouts = [
+						'scs-sl-horizontal',
+						'scs-sl-slider',
+						'scs-sl-tabs',
+						'scs-sl-three-columns',
+						'scs-sl-two-columns',
+						'scs-sl-vertical'
+					];
+					if (ootbSectionLayouts.indexOf(viewModel.custComp) === -1) {
+						console.log('No custom component compiler for: "' + compileFile + '.js"');
+					}
 				}
 			}
 			return resolve({

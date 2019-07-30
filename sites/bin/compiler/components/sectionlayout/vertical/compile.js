@@ -35,7 +35,7 @@ SectionLayout.prototype = {
 			// rendered into these <div>s.
 			if (Array.isArray(slData.components) && (slData.components.length > 0)) {
 				slData.components.forEach(function (componentId) {
-					html += '<div id="' + componentId + '"></div>';
+					html += '<div id="' + componentId + '" class="scs-component-container"></div>';
 				});
 			}
 		} catch (e) {
