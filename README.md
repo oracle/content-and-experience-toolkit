@@ -14,7 +14,7 @@ Templates and resources for development platforms.
 - `cec create-asset-report` - audit a site, for all site members, checking all members have access to all site resources: components, theme, content items, etc.  and that all content items are assigned to the site channel.
 - `cec create-encryption-key` - for use with `cec register-server` allows RSA private key to be used to encrypt-decrypt passwords stored in server.json files.  **Note:** node version 10 or later required for this feature.
 
-**Fixed***
+**Fixed**
 - `cec develop` - runtime will serve content.min.js now
 
 # New in Release 19.3.1g
