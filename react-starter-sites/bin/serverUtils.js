@@ -163,7 +163,7 @@ module.exports.getContentTypesFromServer = function (server) {
 			user: server.username,
 			password: server.password
 		});
-		var url = server.url + '/content/management/api/v1/types?limit=9999';
+		var url = server.url + '/content/management/api/v1/types?limit=99999';
 		client.get(url, function (data, response) {
 			var types = [];
 			if (response && response.statusCode === 200) {
@@ -225,7 +225,7 @@ module.exports.getChannelsFromServer = function (server) {
 			user: server.username,
 			password: server.password
 		});
-		var url = server.url + '/content/management/api/v1.1/channels?limit=1000';
+		var url = server.url + '/content/management/api/v1.1/channels?limit=99999';
 		client.get(url, function (data, response) {
 			if (response && response.statusCode === 200 && data) {
 				var channels = [];
