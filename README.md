@@ -8,6 +8,12 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.3.1i
+
+**Fixed**
+- `cec create-asset-report` - resolved issues identifying content items and content layouts.
+- `cec create-encryption-key` - correctly outputs keyfile on windows
+
 # New in Release 19.3.1h
 
 **Added**
