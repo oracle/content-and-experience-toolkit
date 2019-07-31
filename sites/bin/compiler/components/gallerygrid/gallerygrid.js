@@ -38,7 +38,7 @@ Gallerygrid.prototype.compile = function () {
 				content = self.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'gallerygrid.html'), 'utf8'));
 
 				resolve({
-					hydrate: false,
+					hydrate: true,
 					content: content
 				});
 			};
@@ -130,7 +130,8 @@ Gallerygrid.prototype.computeImages = function () {
 					scaling: viewModel.scaling,
 					layout: viewModel.layout,
 					inGallery: true,
-					componentTagAttribute: 'style="' + viewModel.galleryImageStyle + '"'
+					componentTagAttribute: 'style="' + viewModel.galleryImageStyle + '"',
+					clickHandler: viewModel.useLightbox // inform the compiler in the way runtime code does
 				}
 			};
 

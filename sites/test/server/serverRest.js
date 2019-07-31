@@ -425,7 +425,7 @@ var _getItem = function (server, id, expand) {
 			}),
 			url = server.url + '/content/management/api/v1.1/items/' + id;
 		if (expand) {
-			url = url + '&expand=' + expand;
+			url = url + '?expand=' + expand;
 		}
 		client.get(url, function (data, response) {
 			if (response && response.statusCode === 200) {
@@ -731,7 +731,7 @@ var _getChannelItems = function (server, channelToken, fields) {
 				user: server.username,
 				password: server.password
 			}),
-			url = server.url + '/content/management/api/v1.1/items?limit=99999&channelToken=' + channelToken;
+			url = server.url + '/content/management/api/v1.1/items?limit=9999&channelToken=' + channelToken;
 		if (fields) {
 			url = url + '&fields=' + fields;
 		}

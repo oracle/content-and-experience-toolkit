@@ -58,7 +58,7 @@ module.exports.createEncryptionKey = function (argv, done) {
 		done();
 		return;
 	}
-	var folder = file.substring(0, file.lastIndexOf('/'));
+	var folder = file.substring(0, file.lastIndexOf(path.sep));
 	if (!fs.existsSync(folder)) {
 		console.log('ERROR: directory ' + folder + ' does not exist');
 		done();

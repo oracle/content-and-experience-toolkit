@@ -71,7 +71,7 @@ module.exports.createAssetReport = function (argv, done) {
 
 		var outputFolder = output;
 		if (serverUtils.endsWith(outputFolder, '.json')) {
-			outputFolder = outputFolder.substring(0, outputFolder.lastIndexOf('/'));
+			outputFolder = outputFolder.substring(0, outputFolder.lastIndexOf(path.sep));
 		} else {
 			output = path.join(output, argv.site + 'AssetUsage.json');
 		}
@@ -539,19 +539,25 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 							page['version'] = pages[j].version;
 							var componentInstances = pages[j].fileContent && pages[j].fileContent.componentInstances
 							// console.log(componentInstances);
+							// console.log('Page: ' + fileName);
 							var contentlist = [];
 							var contentitems = [];
 							var components = [];
 							if (componentInstances) {
 								Object.keys(componentInstances).forEach(function (key) {
 									var comp = componentInstances[key];
-									if (comp.id === 'scs-contentitem') {
+									if (comp.id === 'scs-contentitem' || (comp.id === 'scsCaaSLayout' && comp.type === 'scs-component')) {
 										if (comp.data.contentId) {
 											itemIds.push(comp.data.contentId);
 											contentitems.push({
 												id: comp.data.contentId,
 												contentType: comp.data.contentTypes && comp.data.contentTypes.length > 0 ? comp.data.contentTypes[0] : ''
 											});
+										}
+										if (comp.data.contentTypes && comp.data.contentTypes.length > 0 && comp.data.contentTypes[0]) {
+											if (!typeNames.includes(comp.data.contentTypes[0])) {
+												typeNames.push(comp.data.contentTypes[0]);
+											}
 										}
 									} else if (comp.id === 'scs-contentlist') {
 										if (comp.data.contentTypes[0]) {
@@ -649,6 +655,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				}
 
 				var typePermissionPromises = [];
+				// console.log(typeNames);
 				for (var i = 0; i < typeNames.length; i++) {
 					pageContentTypes.push({
 						name: typeNames[i],
@@ -679,41 +686,27 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			})
 			.then(function (result) {
 				pageItems = result || [];
-
-				var channelItemPromises = [];
-				if (channeljson && channeljson.id && channeljson.token) {
-					channelItemPromises.push(serverRest.getChannelItems({
-						server: server,
-						channelToken: channeljson.token
-					}));
-				}
-
-				return Promise.all(channelItemPromises);
-			})
-			.then(function (results) {
-				channelItems = results && results.length > 0 ? results[0] : [];
+				// console.log(pageItems);
 
 				for (var i = 0; i < structurePages.length; i++) {
 					var page = structurePages[i];
 					for (var j = 0; j < page.contentitems.length; j++) {
 						var exist = false;
 						var name;
+						var itemChannels = [];
 						for (var k = 0; k < pageItems.length; k++) {
 							if (page.contentitems[j].id === pageItems[k].id) {
 								name = pageItems[k].name;
+								itemChannels = pageItems[k].channels && pageItems[k].channels.data;
 								exist = true;
 								break;
 							}
 						}
 
 						var existInChannel = false;
-						for (var k = 0; k < channelItems.length; k++) {
-							if (page.contentitems[j].id === channelItems[k].id) {
-								if (!name) {
-									name = channelItems[k].name;
-								}
+						for (var k = 0; k < itemChannels.length; k++) {
+							if (itemChannels[k].id === channel.id) {
 								existInChannel = true;
-								break;
 							}
 						}
 						page.contentitems[j]['name'] = name;
@@ -967,7 +960,8 @@ var _getPageItems = function (server, itemIds) {
 						for (var i = param.start; i <= param.end; i++) {
 							itemPromises.push(serverRest.getItem({
 								server: server,
-								id: itemIds[i]
+								id: itemIds[i],
+								expand: 'all'
 							}));
 						}
 						count.push('.');

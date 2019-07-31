@@ -35,13 +35,18 @@ Image.prototype.compile = function () {
 	this.computedImgClass = 'scs-image-image';
 	// Override for gallerygrid
 	if (this.data.inGallery) {
-		// TODO: See setImageLoaded in image-vm.js of SitesCloudRuntime to see how scs-image-wide and scs-image-tall are decided.
-		this.computedImgClass = 'scs-image-image scs-image-wide';
 		this.componentWrapperTag = 'scs-image';
 		this.componentTagAttribute = this.data.componentTagAttribute;
 	}
 
-	this.hrefAttr = 'href="' + (this.linkType === 'scs-link-lightbox' ? '#' : this.imageHref) + '"';
+	if (!(this.linkType === 'scs-link-lightbox' || this.imageHref)) {
+		if (this.data.clickHandler) {
+			this.hrefAttr = '';
+			this.computedTarget = '';
+		}
+	} else {
+		this.hrefAttr = 'href="' + (this.linkType === 'scs-link-lightbox' ? '#' : this.imageHref) + '"';
+	}
 
 	if (this.linkType === 'scs-link-file') {
 		this.downloadFileName = this.getNameFromURL(this.imageHref, this.imageHrefName);
@@ -49,8 +54,7 @@ Image.prototype.compile = function () {
 
 	// see if this image has a link (either click or href)
 	// for gallyerGrid, it will pass in a click handler
-	// this.linkHandler = !!(this.clickHandler || this.imageHref || this.linkType === 'scs-link-lightbox');
-	this.linkHandler = !!(this.imageHref || this.linkType === 'scs-link-lightbox');
+	this.linkHandler = !!(this.data.clickHandler || this.imageHref || this.linkType === 'scs-link-lightbox');
 
 	// render the content
 	var content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'image.html'), 'utf8'));

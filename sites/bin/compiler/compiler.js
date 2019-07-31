@@ -301,18 +301,43 @@ function getPageData(context, pageId) {
 	};
 }
 
-function getThemeLayout(themeName, layoutName) {
-	trace('getThemeLayout: themeName=' + themeName + ', layoutName=' + layoutName);
+function compileThemeLayout(themeName, layoutName, pageData) {
+	trace('compileThemeLayout: themeName=' + themeName + ', layoutName=' + layoutName);
 
 	var filePath = path.join(themesFolder, themeName, "layouts", layoutName);
-	trace('getThemeLayout: filePath=' + filePath);
+	trace('compileThemeLayout: filePath=' + filePath);
 
 	var layoutMarkup = fs.readFileSync(filePath, {
 		encoding: 'utf8'
 	});
-	trace('getThemeLayout: layoutMarkup=' + layoutMarkup);
+	trace('compileThemeLayout: layoutMarkup=' + layoutMarkup);
 
-	return layoutMarkup;
+	// now compile the page if compiler supplied
+	var compilerName = layoutName.replace(/\.(htm|html)$/i, '') + '-compile.js',
+		compileFile = path.join(themesFolder, themeName, "layouts", compilerName);
+
+	try { 
+		// verify if we can load the file
+		require.resolve(compileFile);
+			
+		// ok, file's there, load it in
+		var pageCompiler = require(compileFile);
+
+		// make sure there is a compiler
+		if (typeof pageCompiler.compile === 'function') {
+			trace('compileThemeLayout: custom compiler using: ' + compileFile);
+			return pageCompiler.compile({
+				layoutMarkup: layoutMarkup, 
+				SCSCompileAPI: compiler.getSCSCompileAPI()
+			});
+		} else {
+			trace('compileThemeLayout: no compile() function in page compiler for page layout: ' + compileFile);
+			return Promise.resolve(layoutMarkup);
+		}
+	} catch (e) {
+		trace('compileThemeLayout: no page compiler found: ' + compileFile);
+		return Promise.resolve(layoutMarkup);
+	}
 }
 
 function resolveLinks(pageModel, context, sitePrefix) {
@@ -438,7 +463,7 @@ function resolveLinks(pageModel, context, sitePrefix) {
 
 function parsePageIdAndParams(linkText) {
 	// CKEditor encodes "&" to "&amp;" in page links, decode the entry
-	var pageLink = linkText.replace(/\&amp\;/g, '&');
+	var pageLink = typeof linkText === 'string' ? linkText.replace(/\&amp\;/g, '&') : linkText.toString();
 
 	// default the values (pageId === pageLink)
 	var pageValues = {
@@ -662,40 +687,49 @@ var compiler = {
 		// store the compiled components
 		self.compiledComponents = {};
 	},
+	getSCSCompileAPI: function () {
+		var self = this;
+		return {
+			navigationRoot: self.navigationRoot,
+			navigationCurr: self.navigationCurr,
+			structureMap: self.structureMap,
+			siteInfo: self.siteInfo,
+			channelAccessToken: channelAccessToken,
+			getComponentInstanceData: function (instanceId) {
+				return self.pageModel.componentInstances[instanceId];
+			},
+			getChannelAccessToken: function () {
+				return channelAccessToken;
+			},
+			getSiteId: function () {
+				return path.basename(siteFolder);
+			},
+			getDetailPageId: function () {
+				return getDefaultPage(self.structureMap, self.navigationRoot, 'isDetailPage');
+			},
+			getPageLinkData: function (pageId) {
+				return getPageLinkData(pageId, self.sitePrefix, self.structureMap, self.localePageModel);
+			},
+			getPageURL: function (pageId) {
+				var linkData = this.getPageLinkData(pageId),
+					pageURL = '';
+
+				if (linkData && (typeof linkData.href === 'string')) {
+					pageURL = linkData.href;
+				}
+
+				return pageURL;
+			}
+		};
+	},
 	compileComponentInstance: function (compId, compInstance) {
 		var self = this;
 		return new Promise(function (resolve, reject) {
 			var ComponentCompiler = self.componentCompilers[compInstance.type];
 			if (ComponentCompiler) {
 				var component = new ComponentCompiler(compId, compInstance, componentsFolder);
-				// ToDo: pass SCSRenderAPI equivalent through
-				var SCSCompileAPI = {
-					channelAccessToken: channelAccessToken,
-					getComponentInstanceData: function (instanceId) {
-						return self.pageModel.componentInstances[instanceId];
-					},
-					getChannelAccessToken: function () {
-						return channelAccessToken;
-					},
-					getSiteId: function () {
-						return path.basename(siteFolder);
-					},
-					getDetailPageId: function () {
-						return getDefaultPage(self.structureMap, self.navigationRoot, 'isDetailPage');
-					},
-					getPageURL: function (pageId) {
-						var linkData = getPageLinkData(pageId, self.sitePrefix, self.structureMap, self.localePageModel),
-							pageURL = '';
-
-						if (linkData && (typeof linkData.href === 'string')) {
-							pageURL = linkData.href;
-						}
-
-						return pageURL;
-					}
-				};
 				component.compile({
-					SCSCompileAPI: SCSCompileAPI
+					SCSCompileAPI: self.getSCSCompileAPI()
 				}).then(function (compiledComp) {
 					// make sure the component can be parsed
 					if (compiledComp.content) {
@@ -867,17 +901,6 @@ function fixupPage(pageId, pageUrl, layoutMarkup, pageModel, localePageModel, co
 
 	// Fill in the inline components
 	var pageMarkup = preFillPageLayout(layoutMarkup, pageModel, localePageModel, context);
-
-	// setup the compiler for this page
-	compiler.setup({
-		"sitePrefix": sitePrefix,
-		"pageModel": pageModel,
-		"localePageModel": localePageModel,
-		"navigationRoot": context.navRoot,
-		"navigationCurr": (pageId && typeof pageId == 'string') ? parseInt(pageId) : pageId,
-		"structureMap": context.navMap,
-		"siteInfo": context.siteInfo
-	});
 
 	// compile all the components asynchronously
 	return compiler.compileComponents().then(function () {
@@ -1597,15 +1620,28 @@ function createPage(context, pageInfo) {
 				var pageDatas = getPageData(context, pageInfo.id);
 				var pageData = pageDatas.pageData;
 				var layoutName = (pageData.base || pageData).properties.pageLayout;
-				var layoutMarkup = getThemeLayout(context.themeName, layoutName);
-				var sitePrefix = computeSitePrefix(context, pageInfo.pageUrl);
-				pageData = fixupPageDataWithSlotReuseData(context, pageData, layoutName, layoutMarkup);
+				var sitePrefix = computeSitePrefix(context, pageInfo.pageUrl); 
 
-				// now fixup the page
-				fixupPage(pageInfo.id, pageInfo.pageUrl, layoutMarkup, (pageData.base || pageData), pageDatas.localePageData, context, sitePrefix).then(function (pageMarkup) {
-					var pagePrefix = context.locale ? (context.locale + '/') : '';
-					writePage(pagePrefix + pageInfo.pageUrl, pageMarkup);
-					resolve();
+				// setup the compiler for this page
+				var pageId = pageInfo.id;
+				compiler.setup({
+					"sitePrefix": sitePrefix,
+					"pageModel": (pageData.base || pageData),
+					"localePageModel": pageDatas.localePageData,
+					"navigationRoot": context.navRoot,
+					"navigationCurr": (pageId && typeof pageId == 'string') ? parseInt(pageId) : pageId,
+					"structureMap": context.navMap,
+					"siteInfo": context.siteInfo
+				});
+
+				compileThemeLayout(context.themeName, layoutName, pageData).then(function (layoutMarkup) { 
+					pageData = fixupPageDataWithSlotReuseData(context, pageData, layoutName, layoutMarkup); 
+					// now fixup the page 
+					fixupPage(pageInfo.id, pageInfo.pageUrl, layoutMarkup, (pageData.base || pageData), pageDatas.localePageData, context, sitePrefix).then(function (pageMarkup) { 
+						var pagePrefix = context.locale ? (context.locale + '/') : ''; 
+						writePage(pagePrefix + pageInfo.pageUrl, pageMarkup); 
+						resolve(); 
+					});
 				});
 			}
 		} catch (e) {

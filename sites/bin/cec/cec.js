@@ -34,11 +34,11 @@ var _getProjectRoot = function () {
 				break;
 			}
 		}
-		if (projectRoot.indexOf('/') < 0) {
+		if (projectRoot.indexOf(path.sep) < 0) {
 			break;
 		}
 		// go 1 level up
-		projectRoot = projectRoot.substring(0, projectRoot.lastIndexOf('/'));
+		projectRoot = projectRoot.substring(0, projectRoot.lastIndexOf(path.sep));
 	}
 	return (isCEC ? projectRoot : '');
 };
