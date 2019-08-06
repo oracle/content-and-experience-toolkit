@@ -25,6 +25,7 @@
 		"gulp": "4.0.0",
 		"gulp-replace": "1.0.0",
 		"mocha": "5.2.0",
+		"mustache": "2.3.2",
 		"requirejs": "2.3.6"
 	}
 }

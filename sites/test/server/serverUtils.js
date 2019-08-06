@@ -2508,7 +2508,9 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 			if (err) {
 				console.log('ERROR: Failed to upload ' + filePath);
 				console.log(err);
-				return resolve({err: 'err'});
+				return resolve({
+					err: 'err'
+				});
 			}
 			if (response && response.statusCode === 200) {
 				var data = JSON.parse(body);
@@ -2532,10 +2534,40 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 							data = JSON.parse(body);
 						} catch (e) {}
 						if (!data || data.err || !data.LocalData || data.LocalData.StatusCode !== '0') {
-							console.log(' - failed to import  ' + (data && data.LocalData ? ('- ' + data.LocalData.StatusMessage) : err));
-							return resolve({err: 'err'});
+							console.log(' - failed to import ' + (data && data.LocalData ? ('- ' + data.LocalData.StatusMessage) : err));
+							return resolve({
+								err: 'err'
+							});
 						}
+						if (data.LocalData.ImportConflicts) {
+							var conflict = data.ResultSets.ImportConflictsResultSet;
+							console.log(' - failed to import: ImportConflicts');
+							// console.log(conflict);
+							if (data.ResultSets.ImportConflictsResultSet) {
+								var conflictIdx, nameIdx, ownerIdx, resolutionIdx;
+								var fields = data.ResultSets.ImportConflictsResultSet.fields || [];
+								var rows = data.ResultSets.ImportConflictsResultSet.rows;
+								for (var i = 0; i < fields.length; i++) {
+									if (fields[i].name === 'conflict') {
+										conflictIdx = i;
+									} else if (fields[i].name === 'name') {
+										nameIdx = i;
+									} else if (fields[i].name === 'fCreatorLoginName') {
+										ownerIdx = i;
+									} else if (fields[i].name === 'resolution') {
+										resolutionIdx = i;
+									}
+								}
 
+								for (var i = 0; i < rows.length; i++) {
+									var msg = rows[i][conflictIdx] + ': ' + rows[i][nameIdx] + ' owned by ' + rows[i][ownerIdx] + ' ' + rows[i][resolutionIdx];
+									console.log('   ' + msg);
+								}
+							}
+							return resolve({
+								err: 'err'
+							});
+						}
 						if (type === 'template') {
 							var jobId = data.LocalData.JobID;
 							var importTempStatusPromise = _getTemplateImportStatus(request, localhost, jobId);
@@ -2552,7 +2584,9 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 										console.log(' - template ' + name + ' imported (' + _timeUsed(startTime, new Date()) + ')');
 									}
 								}
-								return success ? resolve({}) : resolve({err: 'err'});
+								return success ? resolve({}) : resolve({
+									err: 'err'
+								});
 							});
 						} else {
 							console.log(' - finished import component');
@@ -2562,10 +2596,14 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 							if (data && data.LocalData) {
 								if (data.LocalData.StatusCode !== '0') {
 									console.log(' - failed to import ' + name + ': ' + data.LocalData.StatusMessage);
-									return resolve({err: 'err'});
+									return resolve({
+										err: 'err'
+									});
 								} else if (data.LocalData.ImportConflicts) {
 									console.log(' - failed to import ' + name + ': the component already exists and you do not have privilege to override it');
-									return resolve({err: 'err'});
+									return resolve({
+										err: 'err'
+									});
 								} else {
 									console.log(' - component ' + name + ' imported (' + _timeUsed(startTime, new Date()) + ')');
 									var importedCompFolderId = _getComponentAttribute(data, 'fFolderGUID');
@@ -2578,20 +2616,28 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 										request.post(url, function (err, response, body) {
 											if (err) {
 												console.log(' - failed to publish ' + name + ': ' + err);
-												return resolve({err: 'err'});
+												return resolve({
+													err: 'err'
+												});
 											}
 											if (response.statusCode !== 200) {
 												console.log(' - failed to publish ' + name + ': status code ' + response.statusCode + ' ' + response.statusMessage);
-												return resolve({err: 'err'});
+												return resolve({
+													err: 'err'
+												});
 											}
 											var publishResult = JSON.parse(body);
 											if (publishResult.err) {
 												console.log(' - failed to import ' + name + ': ' + err);
-												return resolve({err: 'err'});
+												return resolve({
+													err: 'err'
+												});
 											}
 											if (publishResult.LocalData && publishResult.LocalData.StatusCode !== '0') {
 												console.log(' - failed to publish: ' + publishResult.LocalData.StatusMessage);
-												return resolve({err: 'err'});
+												return resolve({
+													err: 'err'
+												});
 											} else {
 												console.log(' - component ' + name + ' published (' + _timeUsed(startTime, new Date()) + ')');
 												return resolve({});
@@ -2603,17 +2649,23 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 								}
 							} else {
 								console.log(' - failed to import ' + name);
-								return resolve({err: 'err'});
+								return resolve({
+									err: 'err'
+								});
 							}
 						}
 					});
 				} else {
 					console.log('ERROR: Failed to upload ' + filePath);
-					return resolve({err: 'err'});
+					return resolve({
+						err: 'err'
+					});
 				}
 			} else {
 				console.log(' - failed to upload ' + filePath + ': ' + response && response.statusCode);
-				return resolve({err: 'err'});
+				return resolve({
+					err: 'err'
+				});
 			}
 		});
 	});
@@ -3095,7 +3147,6 @@ var _getBackgroundServiceStatus = function (request, host, jobId) {
 					err: 'err'
 				});
 			}
-
 			var status;
 			var percentage;
 			var jobInfo = data.ResultSets && data.ResultSets.JobInfo;
