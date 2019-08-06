@@ -1,0 +1,104 @@
+<{{componentWrapperTag}}>
+	<script src="/_sitescloud/renderer/libs/scs-core/jssor-slider/js/jssor.slider.min.js" type="text/javascript"></script>
+	<div class="{{computedStyleClass}}" style="{{computedWrapperStyle}}">
+		<div class="scs-component-content" style="{{computedContentStyle}}">
+			<div class="scs-document-container" style="{{computedStyle}}">
+				<div id="{{sliderContainerId}}"
+					style="position: relative; top: 0px; left: 0px; height: {{computedContainerHeight}}; width: {{computedWidth}}; background-color: {{computedBackgroundColor}};">
+					<!-- Slides -->
+					<div data-u="slides"
+						style="cursor: move; position: absolute; overflow: hidden; left: 0px; top: 0px; height: {{computedHeight}}; width: {{computedWidth}};">
+						{{#computedImages}}
+						<div tabindex="{{tabIndex}}">
+							<img data-u="image" alt="{{altText}}" src="{{documentRenditionURL}}" id="{{id}}" />
+
+							<img data-u="thumb" alt="{{altText}}" src="{{documentRenditionURL}}" />
+							<!-- should be different image -->
+							{{#showCaption}}
+							<div data-u="caption" class="scs-document-cap" style="position: {{position}}">
+								<div class="scs-document-title">
+									{{#title}}
+									<div><span>{{title}}</span></div>
+									{{/title}}
+									{{#showPages}}
+									<div><span class="scs-document-desc">{{pageDescription}}</span></div>
+									{{/showPages}}
+								</div>
+								<div class="scs-document-capb"></div>
+							</div>
+							{{/showCaption}}
+						</div>
+						{{/computedImages}}
+					</div>
+					<!-- Navigator (bullets) -->
+					<div data-u="navigator" class="jssorb14" style="bottom: 36px;">
+						<div data-u="prototype"></div>
+						<!-- <div data-u="prototype"><div data-u="numbertemplate"></div></div> -->
+					</div>
+					<!-- Arrow Left -->
+					<span data-u="arrowleft" class="jssora02l" style="left: 8px;"></span>
+					<!-- Arrow Right -->
+					<span data-u="arrowright" class="jssora02r" style="right: 8px;"></span>
+					<!-- thumbnail navigator container -->
+					<div data-u="thumbnavigator" class="jssort07" style="left: 0px; bottom: 0px; background-color: {{computedBackgroundColor}};">
+						<!-- Thumbnail Item Skin Begin -->
+						<div data-u="slides" style="cursor: default;">
+							<div data-u="prototype" class="p">
+								<div class=w>
+									<div data-u="thumbnailtemplate" class="i" style="width: {{thumbWidth}}; height: {{thumbHeight}}; padding-left: {{thumbPL}}; padding-top: {{thumbPT}};">
+									</div>
+									{{#showThumbPT}}
+									<div class="o" style="box-sizing: 'border-box'; width: '72px'; height: {{thumbHeight}}; margin-top: {{thumbPT}};">
+									</div>
+									{{/showThumbPT}}
+									{{#showThumbPL}}
+									<div class="o" style="box-sizing: border-box; width: {{thumbWidth}}; height: '72px'; margin-left: {{thumbPL}};">
+									</div>
+									{{/showThumbPL}}
+									{{#showNoThumb}}
+									<div class="o"></div>
+									{{/showNoThumb}}
+								</div>
+								<div class=c></div>
+							</div>
+						</div>
+						<!-- Thumbnail Item Skin End -->
+					</div>
+				</div>
+
+			</div>
+		</div>
+	</div>
+	<script type="text/javascript">
+		(function () {
+			// get the required options
+			var options = {{{computedOptions}}};
+
+			// select the JSSOR value options
+			options.$BulletNavigatorOptions.$Class = $JssorBulletNavigator$;
+			options.$ArrowNavigatorOptions.$Class = $JssorArrowNavigator$;
+			options.$ThumbnailNavigatorOptions.$Class = $JssorThumbnailNavigator$;
+
+			// create the slider
+			var slider = new $JssorSlider$("{{sliderContainerId}}", options);
+
+			// resize, maintaining aspect ratio
+			var container = slider.$Elmt.parentElement;
+			if (container) {
+				slider.$ScaleWidth(container.getBoundingClientRect().width);
+			}
+
+			{{#hasScrollbar}}
+			//Add Slider scrollbar 
+			slider.$On($JssorSlider$.$EVT_LOAD_END, function (slide) {
+				document.getElementById('document-' + {{id}} + '-page' + slide).parentElement.style.overflowY = 'scroll';
+				document.getElementById('document-' + {{id}} + '-page' + slide).style.top = '0px';
+			});
+			{{/hasScrollbar}}
+
+			// store slider against the global for access during hydration
+			window.SCSHydrateObjects = window.SCSHydrateObjects || {};
+			window.SCSHydrateObjects['{{hydrateId}}'] = slider;
+		})();
+	</script>
+</{{componentWrapperTag}}>

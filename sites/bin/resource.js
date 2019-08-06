@@ -7,6 +7,7 @@
 
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
+	sitesRest = require('../test/server/sitesRest.js'),
 	crypto = require('crypto'),
 	fs = require('fs'),
 	path = require('path'),
@@ -88,7 +89,7 @@ module.exports.createEncryptionKey = function (argv, done) {
 
 		fs.writeFileSync(file, obj.privateKey);
 		console.log(' - key saved to ' + file);
-		done();
+		done(true);
 	} catch (e) {
 		if (e && e.message === 'crypto.generateKeyPairSync is not a function') {
 			console.log('ERROR: require NodeJS 10.12.0 and later');
@@ -96,7 +97,6 @@ module.exports.createEncryptionKey = function (argv, done) {
 		done();
 	}
 
-	done();
 };
 
 module.exports.registerServer = function (argv, done) {
@@ -123,7 +123,13 @@ module.exports.registerServer = function (argv, done) {
 	var client_id = argv.clientid;
 	var client_secret = argv.clientsecret;
 	var scope = argv.scope;
-
+	var useRest = false;
+	if (type.indexOf('dev_ec') === 0) {
+		if (type.indexOf('rest') > 0) {
+			useRest = true;
+		}
+		type = 'dev_ec';
+	}
 	var savedPassword = password;
 	if (keyFile) {
 		try {
@@ -157,6 +163,7 @@ module.exports.registerServer = function (argv, done) {
 		username: user,
 		password: savedPassword,
 		env: type,
+		useRest: useRest,
 		key: keyFile,
 		idcs_url: idcs_url,
 		client_id: client_id,
@@ -165,7 +172,7 @@ module.exports.registerServer = function (argv, done) {
 	}
 	fs.writeFileSync(serverFile, JSON.stringify(serverjson));
 	console.log(' - server registered in ' + serverFile);
-	done();
+	done(true);
 };
 
 module.exports.listLocalResources = function (argv, done) {
@@ -255,7 +262,7 @@ module.exports.listLocalResources = function (argv, done) {
 		});
 	}
 
-	done();
+	done(true);
 };
 
 module.exports.listServerResources = function (argv, done) {
@@ -267,25 +274,17 @@ module.exports.listServerResources = function (argv, done) {
 	}
 
 	var serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
-	// console.log('Server: ' + server.url);
+
+	if (server.useRest) {
+		console.log(' - use /sites/management/api/v1');
+		_listServerResourcesRest(server, serverName, argv, done);
+		return;
+	}
 
 	var types = argv.types ? argv.types.split(',') : [];
 
@@ -478,10 +477,220 @@ module.exports.listServerResources = function (argv, done) {
 					}
 				}
 
-				done();
+				done(true);
 			});
 
 	}); // login 
+};
+
+
+var _listServerResourcesRest = function (server, serverName, argv, done) {
+
+	var types = argv.types ? argv.types.split(',') : [];
+
+	var listChannels = types.length === 0 || types.includes('channels')
+	var listComponents = types.length === 0 || types.includes('components')
+	var listLocalizationpolicies = types.length === 0 || types.includes('localizationpolicies')
+	var listRepositories = types.length === 0 || types.includes('repositories')
+	var listSites = types.length === 0 || types.includes('sites')
+	var listTemplates = types.length === 0 || types.includes('templates')
+
+	if (!listChannels && !listComponents && !listLocalizationpolicies && !listRepositories && !listSites && !listTemplates) {
+		console.log('ERROR: invalid resource types: ' + argv.types);
+		done();
+		return;
+	}
+
+	var format = '  %-36s';
+	var format2 = '  %-36s  %-36s';
+	var format3 = '  %-36s  %-36s  %-s';
+
+
+	var tokenPromises = [];
+	if (server.env === 'pod_ec') {
+		tokenPromises.push(serverUtils.getOAuthTokenFromIDCS(request, server));
+	}
+	Promise.all(tokenPromises).then(function (result) {
+		if (result.length > 0 && result[0].err) {
+			done();
+			return;
+		}
+
+		// save the OAuth token
+		if (result.length > 0) {
+			server.oauthtoken = result[0].oauthtoken;
+		}
+
+		var promises = (listChannels || listRepositories) ? [_getChannels(serverName, server)] : [];
+		var channels;
+
+		Promise.all(promises).then(function (results) {
+				//
+				// List channels
+				//
+				var channelFormat = '  %-36s  %-36s  %-8s  %-s';
+				channels = results.length > 0 ? results[0] : [];
+				if (listChannels) {
+					console.log('Channels:');
+					console.log(sprintf(channelFormat, 'Name', 'Token', 'Access', 'Publishing'));
+					for (var i = 0; i < channels.length; i++) {
+						var channel = channels[i];
+						var channelToken;
+						var tokens = channel.channelTokens || [];
+						for (var j = 0; j < tokens.length; j++) {
+							if (tokens[j].name === 'defaultToken') {
+								channelToken = tokens[j].token;
+								break;
+							}
+						}
+						if (!channelToken && tokens.length > 0) {
+							channelToken = tokens[0].token;
+						}
+						var publishPolicy = channel.publishPolicy === 'anythingPublished' ? 'Anything can be published' : 'Only approved items can be published';
+						console.log(sprintf(channelFormat, channel.name, channelToken, channel.channelType, publishPolicy));
+					}
+					console.log('');
+				}
+
+				promises = listComponents ? [sitesRest.getComponents({
+					server: server
+				})] : [];
+
+				return Promise.all(promises);
+			})
+			.then(function (results) {
+				//
+				// list components
+				//
+				var comps = results.length > 0 ? results[0] : [];
+				if (listComponents) {
+					console.log('Components:');
+					console.log(sprintf(format3, 'Name', 'Type', 'Published'));
+					for (var i = 0; i < comps.length; i++) {
+						var comp = comps[i];
+						var compType = comp.type;
+						var typeLabel = 'Local component';
+						if (compType === 'componentgroup') {
+							typeLabel = 'Component group';
+						} else if (compType === 'remote') {
+							typeLabel = 'Remote component';
+						} else if (compType === 'contentlayout') {
+							typeLabel = 'Content layout';
+						} else if (compType === 'sandboxed') {
+							typeLabel = 'Local component in an iframe';
+						} else if (compType === 'sectionlayout') {
+							typeLabel = 'Section layout';
+						}
+						var published = comp.publishStatus === 'published' ? '    √' : '';
+						console.log(sprintf(format3, comp.name, typeLabel, published));
+					}
+					console.log('');
+				}
+
+				promises = listLocalizationpolicies ? [serverRest.getLocalizationPolicies({
+					registeredServerName: serverName,
+					currPath: projectDir
+				})] : [];
+
+				return Promise.all(promises);
+			})
+			.then(function (results) {
+				//
+				// list localization policies
+				//
+				var policies = results.length > 0 ? results[0] : [];
+				if (listLocalizationpolicies) {
+					console.log('Localization policies:');
+					console.log(sprintf(format3, 'Name', 'Required Languages', 'Optional Languages'));
+					for (var i = 0; i < policies.length; i++) {
+						var policy = policies[i];
+						console.log(sprintf(format3, policy.name, policy.requiredValues, policy.optionalValues));
+					}
+					console.log('');
+				}
+
+				promises = listRepositories ? [serverRest.getRepositories({
+					registeredServerName: serverName,
+					currPath: projectDir
+				})] : [];
+
+				return Promise.all(promises);
+			})
+			.then(function (results) {
+				//
+				// list repositories
+				//
+				var repositories = results.length > 0 ? results[0] : [];
+				if (listRepositories) {
+					console.log('Repositories:');
+					var repoFormat = '  %-36s  %-16s  %-42s  %-s';
+					console.log(sprintf(repoFormat, 'Name', 'Default Language', 'Channels', 'Content Types'));
+					for (var i = 0; i < repositories.length; i++) {
+						var repo = repositories[i];
+						var contentTypes = [];
+						for (var j = 0; j < repo.contentTypes.length; j++) {
+							contentTypes.push(repo.contentTypes[j].name);
+						}
+						var repoChannels = [];
+						for (var j = 0; j < repo.channels.length; j++) {
+							for (var k = 0; k < channels.length; k++) {
+								if (repo.channels[j].id === channels[k].id) {
+									repoChannels.push(channels[k].name);
+								}
+							}
+						}
+						console.log(sprintf(repoFormat, repo.name, repo.defaultLanguage, repoChannels, contentTypes));
+					}
+					console.log('');
+				}
+
+				promises = listSites ? [sitesRest.getSites({
+					server: server
+				})] : [];
+				return Promise.all(promises);
+			})
+			.then(function (results) {
+				//
+				// list sites
+				//
+				var sites = results.length > 0 ? results[0] : [];
+				if (listSites) {
+					var siteFormat = '  %-36s  %-36s  %-10s  %-10s  %-s';
+					console.log('Sites:');
+					console.log(sprintf(siteFormat, 'Name', 'Theme', 'Type', 'Published', 'Online'));
+					for (var i = 0; i < sites.length; i++) {
+						var site = sites[i];
+						var type = site.isEnterprise ? 'Enterprise' : 'Standard';
+						var published = site.publishStatus === 'published' ? '    √' : '';
+						var online = site.runtimeStatus === 'online' ? '  √' : ''
+						console.log(sprintf(siteFormat, site.name, site.themeName, type, published, online))
+					}
+					console.log('');
+				}
+
+				promises = listTemplates ? [sitesRest.getTemplates({
+					server: server
+				})] : [];
+				return Promise.all(promises);
+			})
+			.then(function (results) {
+				//
+				// list templates
+				//
+				var templates = results.length > 0 ? results[0] : [];
+				if (listTemplates) {
+					console.log('Templates:');
+					console.log(sprintf(format3, 'Name', 'Theme', 'Type'));
+					for (var i = 0; i < templates.length; i++) {
+						var temp = templates[i];
+						var type = temp.isEnterprise ? 'Enterprise' : 'Standard';
+						console.log(sprintf(format3, temp.name, temp.themeName, type));
+					}
+				}
+
+				done(true);
+			});
+	});
 };
 
 var _getChannels = function (serverName, server) {

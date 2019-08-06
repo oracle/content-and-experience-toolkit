@@ -32,8 +32,8 @@ var verifyRun = function (argv) {
 }
 
 var localServer;
-var _cmdEnd = function (done) {
-	done();
+var _cmdEnd = function (done, success) {
+	done(success);
 	if (localServer) {
 		localServer.close();
 	}
@@ -48,21 +48,8 @@ module.exports.createRSSFeed = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -277,7 +264,7 @@ var _createRSSFeed = function (server, argv, done) {
 									if (publish) {
 										_pubishRSSFile(argv.server, server, request, siteUrl, siteName, rssFile, done);
 									} else {
-										_cmdEnd(done);
+										_cmdEnd(done, true);
 									}
 								} else {
 									_cmdEnd(done);
@@ -554,7 +541,7 @@ var _pubishRSSFile = function (serverName, server, request, siteUrl, siteName, r
 
 			var rssFileUrl = siteUrl + '/' + filename;
 			console.log(' - site RSS feed uploaded, publish the site and access it at ' + rssFileUrl);
-			_cmdEnd(done);
+			_cmdEnd(done, true);
 		})
 		.catch((error) => {
 			_cmdEnd(done);

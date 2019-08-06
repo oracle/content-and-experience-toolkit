@@ -54,21 +54,10 @@ module.exports.listServerContentTypes = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			_cmdEnd(done);
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
-		_cmdEnd(done);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
 	}
 	console.log(' - server: ' + server.url);
 
@@ -91,12 +80,12 @@ module.exports.listServerContentTypes = function (argv, done) {
 					typeFound = true;
 				}
 			}
-		} 
+		}
 		if (!typeFound) {
 			console.log(' - no content type on the server')
 		}
 
-		done();
+		done(true);
 	});
 };
 
@@ -117,21 +106,8 @@ module.exports.createContentLayout = function (argv, done) {
 	var server;
 	if (useserver) {
 		serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
-		if (serverName) {
-			var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-			if (!fs.existsSync(serverpath)) {
-				console.log('ERROR: server ' + serverName + ' does not exist');
-				done();
-				return;
-			}
-		}
-
-		server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-		if (!serverName) {
-			console.log(' - configuration file: ' + server.fileloc);
-		}
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured in ' + server.fileloc);
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
 			done();
 			return;
 		}
@@ -415,7 +391,7 @@ module.exports.addContentLayoutMapping = function (argv, done) {
 	}
 
 	console.log('Content layout ' + layoutname + ' is set to use by type ' + contenttypename + ' for template ' + templatename);
-	done();
+	done(true);
 };
 
 /**
@@ -551,7 +527,7 @@ module.exports.removeContentLayoutMapping = function (argv, done) {
 	} else {
 		console.log('Content layout ' + layoutname + ' removed from the content layout mapping');
 	}
-	done();
+	done(true);
 };
 
 /**
@@ -807,6 +783,6 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 		if (!isServer) {
 			console.log('To use this content layout, run add-contentlayout-mapping');
 		}
-		done();
+		done(true);
 	});
 };

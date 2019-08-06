@@ -41,8 +41,8 @@ var verifyRun = function (argv) {
 	return true;
 };
 
-var _cmdEnd = function (done) {
-	done();
+var _cmdEnd = function (done, success) {
+	done(success);
 };
 
 module.exports.downloadContent = function (argv, done) {
@@ -56,21 +56,8 @@ module.exports.downloadContent = function (argv, done) {
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -85,7 +72,11 @@ module.exports.downloadContent = function (argv, done) {
 	}
 
 	_downloadContent(server, channel, publishedassets).then(function (result) {
-		done();
+		if (result && result.err) {
+			done();
+		} else {
+			done(true);
+		}
 	});
 };
 
@@ -581,6 +572,7 @@ var _uploadContentFromZip = function (args) {
 						console.log(' - get CSRF token');
 
 						var importPromise = _importContent(request, server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent);
+						var importSuccess = false;
 						importPromise.then(function (result) {
 							if (!result.err) {
 								console.log(' - content imported:');
@@ -594,6 +586,7 @@ var _uploadContentFromZip = function (args) {
 								if (typeof channelName === 'string') {
 									console.log(sprintf(format, 'channel', channelName));
 								}
+								importSuccess = true;
 							}
 							// delete the zip file
 							var deleteFilePromise = serverRest.deleteFile({
@@ -603,7 +596,9 @@ var _uploadContentFromZip = function (args) {
 							});
 							deleteFilePromise.then(function (result) {
 								// all done
-								return resolve({});
+								return importSuccess ? resolve({}) : resolve({
+									err: 'err'
+								});
 							});
 						});
 					});
@@ -620,21 +615,8 @@ module.exports.uploadContent = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -679,7 +661,11 @@ module.exports.uploadContent = function (argv, done) {
 
 	_uploadContent(server, serverName, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename)
 		.then(function (result) {
-			done();
+			if (result && result.err) {
+				done();
+			} else {
+				done(true);
+			}
 		});
 };
 
@@ -1015,21 +1001,10 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 		}
 
 		var serverName = argv.server;
-		if (serverName) {
-			var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-			if (!fs.existsSync(serverpath)) {
-				console.log('ERROR: server ' + serverName + ' does not exist');
-				return cmdEnd(done);
-			}
-		}
-
-		var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-		if (!serverName) {
-			console.log(' - configuration file: ' + server.fileloc);
-		}
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured in ' + server.fileloc);
-			return cmdEnd(done);
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			done();
+			return;
 		}
 
 		console.log(' - server: ' + server.url);
@@ -1158,13 +1133,21 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 				if (action === 'publish') {
 					var opPromise = _performOneOp(serverName, action, channel.id, toPublishItemIds, true);
 					opPromise.then(function (result) {
-						return cmdSuccess(done);
+						if (result.err) {
+							return cmdEnd(done);
+						} else {
+							return cmdSuccess(done, true);
+						}
 					});
 
 				} else if (action === 'unpublish') {
 					var opPromise = _performOneOp(serverName, action, channel.id, itemIds, true);
 					opPromise.then(function (result) {
-						return cmdSuccess(done);
+						if (result.err) {
+							return cmdEnd(done);
+						} else {
+							return cmdSuccess(done, true);
+						}
 					});
 
 				} else if (action === 'remove') {
@@ -1181,7 +1164,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 								return cmdEnd(done);
 							}
 							console.log(' - ' + itemIds.length + ' items removed from channel');
-							return cmdSuccess(done);
+							return cmdSuccess(done, true);
 						});
 					});
 				} else {
@@ -1395,7 +1378,7 @@ module.exports.syncPublishItems = function (argv, done) {
 			console.log(' - validate channel on destination server: ' + channelName + '(Id: ' + channelIdDest + ')');
 
 			return _performOneOp(destServerName, 'publish', channelIdDest, contentGuids, true);
-	
+
 		})
 		.then(function (result) {
 			if (result && result.err) {

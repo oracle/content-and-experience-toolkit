@@ -43,21 +43,8 @@ module.exports.createFolder = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -67,7 +54,7 @@ module.exports.createFolder = function (argv, done) {
 	var folderPath = name.split('/');
 
 	_createFolder(serverName, 'self', folderPath, true).then(function (result) {
-			done();
+			done(true);
 		})
 		.catch((error) => {
 			done();
@@ -143,21 +130,8 @@ module.exports.uploadFile = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -182,36 +156,66 @@ module.exports.uploadFile = function (argv, done) {
 	}
 
 	var inputPath = argv.folder === '/' ? '' : serverUtils.trimString(argv.folder, '/');
-	var siteFolder = false;
-	var siteName;
-	if (inputPath && inputPath.indexOf('site:') === 0) {
-		siteFolder = true;
-		inputPath = inputPath.substring(5);
+	var resourceFolder = false;
+	var resourceName;
+	var resourceType;
+	var resourceLabel;
+	if (inputPath && (inputPath.indexOf('site:') === 0 || inputPath.indexOf('theme:') === 0 || inputPath.indexOf('component:') === 0)) {
+		resourceFolder = true;
+		if (inputPath.indexOf('site:') === 0) {
+			inputPath = inputPath.substring(5);
+			resourceType = 'site';
+			resourceLabel = 'Sites';
+		} else if (inputPath.indexOf('theme:') === 0) {
+			inputPath = inputPath.substring(6);
+			resourceType = 'theme';
+			resourceLabel = 'Themes';
+		} else {
+			inputPath = inputPath.substring(10);
+			resourceType = 'component';
+			resourceLabel = 'Components';
+		}
 		if (inputPath.indexOf('/') > 0) {
-			siteName = inputPath.substring(0, inputPath.indexOf('/'));
+			resourceName = inputPath.substring(0, inputPath.indexOf('/'));
 			inputPath = inputPath.substring(inputPath.indexOf('/') + 1);
 		} else {
-			siteName = inputPath;
+			resourceName = inputPath;
 			inputPath = '';
 		}
 	}
 	var folderPath = inputPath ? inputPath.split('/') : [];
-	console.log(' - target folder: ' + (siteFolder ? 'Sites > ' + siteName : 'Documents') + ' > ' + folderPath.join(' > '));
+	console.log(' - target folder: ' + (resourceFolder ? (resourceLabel + ' > ' + resourceName) : 'Documents') + ' > ' + folderPath.join(' > '));
 
-	var sitePromises = [];
-	if (siteFolder) {
-		sitePromises.push(serverUtils.getSiteFolder(projectDir, siteName, serverName));
+	var resourcePromises = [];
+	if (resourceFolder) {
+		if (resourceType === 'site') {
+			resourcePromises.push(serverUtils.getSiteFolder(projectDir, resourceName, serverName));
+		} else if (resourceType === 'theme') {
+			resourcePromises.push(_getThemeGUID(server, resourceName));
+		} else {
+			resourcePromises.push(_getComponentGUID(server, resourceName));
+		}
 	}
 
-	Promise.all(sitePromises).then(function (results) {
+	Promise.all(resourcePromises).then(function (results) {
 			var rootParentId = 'self';
-			if (siteFolder) {
-				var siteGUID = results.length > 0 ? results[0].siteGUID : undefined;
-				if (!siteGUID) {
-					console.log('ERROR: invalid site ' + siteName);
+			if (resourceFolder) {
+				var resourceGUID;
+				if (results.length > 0  && results[0]) {
+					if (resourceType === 'site') {
+						resourceGUID = results[0].siteGUID;
+					} else if (resourceType === 'theme') {
+						resourceGUID = results[0].themeGUID;
+					} else {
+						resourceGUID = results[0].compGUID;
+					}
+				}
+				
+				if (!resourceGUID) {
+					console.log('ERROR: invalid ' + resourceType + ' ' + resourceName);
 					return Promise.reject();
 				}
-				rootParentId = siteGUID;
+				rootParentId = resourceGUID;
 			}
 
 			return _findFolder(serverName, rootParentId, folderPath);
@@ -221,7 +225,7 @@ module.exports.uploadFile = function (argv, done) {
 				return Promise.reject();
 			}
 
-			if (siteFolder && !result.id || !siteFolder && result.id !== 'self' && (!result.type || result.type !== 'folder')) {
+			if (resourceFolder && !result.id || !resourceFolder && result.id !== 'self' && (!result.type || result.type !== 'folder')) {
 				console.log('ERROR: invalid folder ' + argv.folder);
 				return Promise.reject();
 			}
@@ -239,8 +243,10 @@ module.exports.uploadFile = function (argv, done) {
 				console.log(' - file ' + fileName + ' uploaded to ' +
 					(argv.folder ? ('folder ' + argv.folder) : 'Home folder') +
 					' (Id: ' + result.id + ' version:' + result.version + ')');
+				done(true);
+			} else {
+				done();
 			}
-			done();
 		})
 		.catch((error) => {
 			done();
@@ -306,21 +312,8 @@ module.exports.downloadFile = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -362,7 +355,7 @@ module.exports.downloadFile = function (argv, done) {
 		}
 		targetPath = path.resolve(targetPath);
 		if (!fs.existsSync(targetPath)) {
-			console.log('ERROR: file ' + targetPath + ' does not exist');
+			console.log('ERROR: folder ' + targetPath + ' does not exist');
 			done();
 			return;
 		}
@@ -438,7 +431,7 @@ module.exports.downloadFile = function (argv, done) {
 
 			console.log(' - save file ' + targetFile);
 
-			done();
+			done(true);
 		})
 		.catch((error) => {
 			done();
@@ -455,21 +448,8 @@ module.exports.shareFolder = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -552,15 +532,17 @@ module.exports.shareFolder = function (argv, done) {
 			return Promise.all(sharePromises);
 		})
 		.then(function (results) {
+			var shared = false;
 			for (var i = 0; i < results.length; i++) {
 				if (results[i].errorCode === '0') {
+					shared = true;
 					console.log(' - user ' + results[i].user.loginName + ' granted "' +
 						results[i].role + '" on folder ' + name);
 				} else {
 					console.log('ERROR: ' + results[i].title);
 				}
 			}
-			done();
+			done(shared);
 		})
 		.catch((error) => {
 			done();
@@ -624,21 +606,8 @@ module.exports.unshareFolder = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -723,14 +692,16 @@ module.exports.unshareFolder = function (argv, done) {
 			return Promise.all(revokePromises);
 		})
 		.then(function (results) {
+			var unshared = false;
 			for (var i = 0; i < results.length; i++) {
 				if (results[i].errorCode === '0') {
+					unshared = true;
 					console.log(' - user ' + results[i].user.loginName + '\'s access to the folder removed');
 				} else {
 					console.log('ERROR: ' + results[i].title);
 				}
 			}
-			done();
+			done(unshared);
 		})
 		.catch((error) => {
 			done();
@@ -811,21 +782,8 @@ module.exports.downloadFolder = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -946,7 +904,7 @@ module.exports.downloadFolder = function (argv, done) {
 				console.log(' - save file ' + targetFile);
 			}
 
-			done();
+			done(true);
 		})
 		.catch((error) => {
 			done();
@@ -998,21 +956,8 @@ module.exports.uploadFolder = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -1109,7 +1054,7 @@ module.exports.uploadFolder = function (argv, done) {
 					return _createFolderUploadFiles(serverName, rootParentId, folderPath, folderContent);
 				})
 				.then(function (result) {
-					done();
+					done(true);
 				})
 				.catch((error) => {
 					done();
@@ -1162,5 +1107,74 @@ var _createFolderUploadFiles = function (serverName, rootParentId, folderPath, f
 		doCreateFolders.then(function (result) {
 			resolve();
 		});
+	});
+};
+
+var _getThemeGUID = function (server, themeName) {
+	return new Promise(function (resolve, reject) {
+		var request = serverUtils.getRequest();
+		serverUtils.loginToServer(server, request).then(function (result) {
+			if (!result.status) {
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var params = 'doBrowseStarterThemes=1';
+			serverUtils.browseThemesOnServer(request, server, params).then(function (result) {
+				var themes = result.data || [];
+				var themeGuid;
+				for (var i = 0; i < themes.length; i++) {
+					if (themes[i].fFolderName.toLowerCase() === themeName.toLowerCase()) {
+						themeGuid = themes[i].fFolderGUID;
+						break;
+					}
+				}
+
+				if (themeGuid) {
+					resolve({
+						themeGUID: themeGuid
+					});
+				} else {
+					resolve({
+						err: 'err'
+					});
+				}
+			});
+		}); // login
+	});
+};
+
+var _getComponentGUID = function (server, compName) {
+	return new Promise(function (resolve, reject) {
+		var request = serverUtils.getRequest();
+		serverUtils.loginToServer(server, request).then(function (result) {
+			if (!result.status) {
+				resolve({
+					err: 'err'
+				});
+			}
+
+			serverUtils.browseComponentsOnServer(request, server).then(function (result) {
+				var comps = result.data || [];
+				var compGuid;
+				for (var i = 0; i < comps.length; i++) {
+					if (comps[i].fFolderName.toLowerCase() === compName.toLowerCase()) {
+						compGuid = comps[i].fFolderGUID;
+						break;
+					}
+				}
+
+				if (compGuid) {
+					resolve({
+						compGUID: compGuid
+					});
+				} else {
+					resolve({
+						err: 'err'
+					});
+				}
+			});
+		}); // login
 	});
 };

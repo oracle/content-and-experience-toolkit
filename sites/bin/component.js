@@ -44,8 +44,8 @@ var verifyRun = function (argv) {
 	return true;
 };
 
-var _cmdEnd = function (done, localServer) {
-	done();
+var _cmdEnd = function (done, localServer, success) {
+	done(success);
 	if (localServer) {
 		localServer.close();
 	}
@@ -70,10 +70,6 @@ module.exports.createComponent = function (argv, done) {
 	if (!verifyRun(argv)) {
 		done();
 		return;
-	}
-	if (!fs.existsSync(componentsSrcDir)) {
-		console.log('ERROR: folder ' + componentsSrcDir + ' does not exist. Check your configuration');
-		return false;
 	}
 
 	var srcCompName = argv.source,
@@ -173,7 +169,7 @@ var _createComponent = function (componentZipName, compName, done) {
 		console.log(` - component ${compName} created at ${componentDir}`);
 		console.log(`To rename the component, rename the directory ${componentDir}`);
 
-		done();
+		done(true);
 	});
 };
 
@@ -186,10 +182,6 @@ module.exports.copyComponent = function (argv, done) {
 	if (!verifyRun(argv)) {
 		done();
 		return;
-	}
-	if (!fs.existsSync(componentsSrcDir)) {
-		console.log('ERROR: folder ' + componentsSrcDir + ' does not exist. Check your configuration');
-		return false;
 	}
 
 	var srcCompName = argv.source,
@@ -246,7 +238,7 @@ module.exports.copyComponent = function (argv, done) {
 	// update itemGUID
 	if (serverUtils.updateItemFolderJson(projectDir, 'component', compName)) {
 		console.log(' *** component is ready to test: http://localhost:8085/components/' + compName);
-		done();
+		done(true);
 	}
 };
 
@@ -357,7 +349,11 @@ module.exports.exportComponent = function (argv, done) {
 	}
 
 	_exportComponent(argv).then(function (result) {
-		done();
+		if (result && result.err) {
+			done();
+		} else {
+			done(true);
+		}
 	});
 };
 
@@ -396,7 +392,9 @@ var _exportComponent = function (argv) {
 					return resolve({});
 				});
 			} else {
-				return resolve({});
+				return resolve({
+					err: 'err'
+				});
 			}
 		}
 	});
@@ -418,21 +416,8 @@ module.exports.deployComponent = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -503,7 +488,11 @@ module.exports.deployComponent = function (argv, done) {
 				var importPromise = serverUtils.importToPODServer(server, 'component', folder, imports, publish);
 				importPromise.then(function (importResult) {
 					// result is processed in the API
-					done();
+					if (importResult && importResult.err) {
+						done();
+					} else {
+						done(true);
+					}
 				});
 			});
 		} else {
@@ -529,9 +518,13 @@ module.exports.deployComponent = function (argv, done) {
 
 					importsPromise[i] = _deployOneComponentToDevServer(request, server, folder, zipfile, name, publish);
 				}
-				Promise.all(importsPromise).then(function (values) {
+				Promise.all(importsPromise).then(function (results) {
 					// All done
-					done();
+					if (results && results.length > 0 && results[0] && results[0].err) {
+						done();
+					} else {
+						done(true);
+					}
 				});
 
 			}); // login 
@@ -546,7 +539,7 @@ var _deployOneComponentToDevServer = function (request, server, folder, zipfile,
 
 		uploadPromise.then(function (result) {
 			if (result.err) {
-				return resolve({});
+				return resolve(result);
 			}
 
 			var fileId = result && result.LocalData && result.LocalData.fFileGUID;
@@ -559,11 +552,15 @@ var _deployOneComponentToDevServer = function (request, server, folder, zipfile,
 				// console.log(JSON.stringify(importResult));
 				if (importResult.err) {
 					console.log(' - failed to import: ' + importResult.err);
-					return resolve({});
+					return resolve({
+						err: 'err'
+					});
 				} else {
 					if (!importResult.LocalData || importResult.LocalData.StatusCode !== '0') {
 						console.log(' - failed to import: ' + importResult.LocalData ? importResult.LocalData.StatusMessage : '');
-						return resolve({});
+						return resolve({
+							err: 'err'
+						});
 					}
 
 					console.log(' - component ' + name + ' imported');
@@ -575,12 +572,18 @@ var _deployOneComponentToDevServer = function (request, server, folder, zipfile,
 							// console.log(publishResult);
 							if (publishResult.err) {
 								console.log(' - failed to publish: ' + publishResult.err);
+								return resolve({
+									err: 'err'
+								});
 							} else if (!publishResult.LocalData || publishResult.LocalData.StatusCode !== '0') {
 								console.log(' - failed to publish: ' + publishResult.LocalData ? publishResult.LocalData.StatusMessage : '');
+								return resolve({
+									err: 'err'
+								});
 							} else {
 								console.log(' - component ' + name + ' published/republished');
+								return resolve({});
 							}
-							return resolve({});
 						});
 					} else {
 						return resolve({});
@@ -624,10 +627,6 @@ module.exports.importComponent = function (argv, done) {
 		done();
 		return;
 	}
-	if (!fs.existsSync(componentsSrcDir)) {
-		console.log('ERROR: folder ' + componentsSrcDir + ' does not exist. Check your configuration');
-		return false;
-	}
 
 	if (typeof argv.path !== 'string') {
 		console.error('ERROR: please specify the component zip file');
@@ -651,7 +650,7 @@ module.exports.importComponent = function (argv, done) {
 	unzipComponent(compName, compPath).then(function (result) {
 		console.log(' - import component to ' + path.join(componentsSrcDir, compName));
 		console.log(' - component is ready to test: http://localhost:8085/components/' + compName);
-		done();
+		done(true);
 	});
 };
 
@@ -667,21 +666,8 @@ module.exports.downloadComponent = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -693,6 +679,7 @@ module.exports.downloadComponent = function (argv, done) {
 		_downloadComponents(serverName, server, components, done);
 	} catch (e) {
 		console.log(e);
+		done();
 	}
 };
 
@@ -797,7 +784,7 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
-
+			var downloadSuccess = false;
 			var inter = setInterval(function () {
 				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
 
@@ -907,6 +894,7 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 										var targetFile = path.join(destdir, results[i].comp + '.zip');
 										fs.writeFileSync(targetFile, results[i].data);
 										console.log(' - save file ' + targetFile);
+										downloadSuccess = true;
 										unzipPromises.push(unzipComponent(results[i].comp, targetFile));
 									}
 								}
@@ -934,7 +922,7 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 								return Promise.all(deleteFilePromises);
 							})
 							.then(function (results) {
-								_cmdEnd(done, localServer);
+								_cmdEnd(done, localServer, downloadSuccess);
 							})
 							.catch((error) => {
 								_cmdEnd(done, localServer);
@@ -1031,21 +1019,8 @@ module.exports.controlComponent = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -1210,12 +1185,15 @@ var _controlComponents = function (serverName, server, action, componentNames, d
 								return Promise.all(compActionPromises);
 							})
 							.then(function (results) {
+								var success = true;
 								for (var i = 0; i < results.length; i++) {
 									if (!results[i].err) {
 										console.log(' - ' + action + ' ' + results[i].comp + ' finished');
+									} else {
+										success = false;
 									}
 								}
-								_cmdEnd(done, localServer);
+								_cmdEnd(done, localServer, success);
 							})
 							.catch((error) => {
 								_cmdEnd(done, localServer);

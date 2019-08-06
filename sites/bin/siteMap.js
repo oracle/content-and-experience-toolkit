@@ -53,8 +53,8 @@ var verifyRun = function (argv) {
 }
 
 var localServer;
-var _cmdEnd = function (done) {
-	done();
+var _cmdEnd = function (done, success) {
+	done(success);
 	if (localServer) {
 		localServer.close();
 	}
@@ -1629,10 +1629,10 @@ var _createSiteMap = function (server, serverName, request, localhost, site, sit
 						var siteMapUrl = siteUrl + '/' + siteMapFile.substring(siteMapFile.lastIndexOf('/') + 1);
 						console.log(' - site map uploaded, publish the site and access it at ' + siteMapUrl);
 					}
-					_cmdEnd(done);
+					_cmdEnd(done, true);
 				});
 			} else {
-				_cmdEnd(done);
+				_cmdEnd(done, true);
 			}
 		});
 };
@@ -1764,21 +1764,8 @@ module.exports.createSiteMap = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}

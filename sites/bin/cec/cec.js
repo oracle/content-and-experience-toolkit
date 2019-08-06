@@ -1278,7 +1278,9 @@ const uploadFile = {
 		['cec upload-file ~/Documents/Projects.pdf', 'Uploads the file to the Home folder'],
 		['cec upload-file ~/Documents/Projects.pdf -s UAT', 'Uploads the file to the Home folder on the registered server UAT'],
 		['cec upload-file ~/Documents/Projects.pdf -f Doc/Plan', 'Uploads the file to folder Doc/Plan'],
-		['cec upload-file ~/Documents/Projects.pdf -f site:blog1/settings/misc', 'Uploads the file to folder settings/misc of site blog1']
+		['cec upload-file ~/Documents/Projects.pdf -f site:blog1/settings/misc', 'Uploads the file to folder settings/misc of site blog1'],
+		['cec upload-file ~/Documents/style1.css -f theme:blog1Theme/designs/default', 'Uploads the css file to folder designs/default of theme blog1Theme'],
+		['cec upload-file ~/Documents/comp1.js -f component:Comp1/assets', 'Uploads the js file to folder assets of component Comp1']
 	]
 };
 
@@ -2922,6 +2924,8 @@ const argv = yargs.usage(_usage)
 				.example(...uploadFile.example[1])
 				.example(...uploadFile.example[2])
 				.example(...uploadFile.example[3])
+				.example(...uploadFile.example[4])
+				.example(...uploadFile.example[5])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3000,7 +3004,7 @@ const argv = yargs.usage(_usage)
 				})
 				*/
 				.check((argv) => {
-					if (argv.type && !getServerTypes().includes(argv.type)) {
+					if (argv.type && !getServerTypes().includes(argv.type) && argv.type.indexOf('dev_ec:') < 0) {
 						throw new Error(`${argv.type} is a not a valid value for <type>`);
 						/*
 					} else if (!argv.type || argv.type === 'pod_ec') {
@@ -4338,3 +4342,6 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 
 // see if need to show deprecation warning
 _checkVersion();
+
+// console.log(spawnCmd);
+process.exit(spawnCmd ? spawnCmd.status : 0);

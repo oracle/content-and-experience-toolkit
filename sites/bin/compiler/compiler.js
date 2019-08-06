@@ -741,10 +741,13 @@ var compiler = {
 					resolve();
 				});
 			} else {
-				var message = 'No component compiler for: ' + compInstance.type;
-				if (!self.reportedMessages[message]) {
-					self.reportedMessages[message] = 'done';
-					console.log(message);
+				// inline components are handled separately
+				if (['scs-inline-text', 'scs-inline-image'].indexOf(compInstance.type) === -1) { 
+					var message = 'No component compiler for: ' + compInstance.type; 
+					if (!self.reportedMessages[message]) { 
+						self.reportedMessages[message] = 'done'; 
+						console.log(message); 
+					} 
 				}
 				resolve();
 			}

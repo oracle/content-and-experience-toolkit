@@ -72,6 +72,16 @@ var componentCompilers = [{
 		type: 'scs-gallerygrid',
 		compiler: 'gallerygrid/gallerygrid',
 		canNest: true
+	},
+	{
+		type: 'scs-gallery',
+		compiler: 'gallery/gallery',
+		canNest: true
+	},
+	{
+		type: 'scs-document',
+		compiler: 'document/document',
+		canNest: true
 	}
 ];
 

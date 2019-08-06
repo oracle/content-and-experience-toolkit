@@ -17,8 +17,8 @@
 var fs = require('fs'),
 	path = require('path'),
 	mustache = require('mustache'),
-	compReg = require(path.normalize('../component-registration'))['component-registration'],
-	ComponentCommon = require(path.normalize('../common/component-common')).ComponentCommon,
+	compReg = require('../component-registration')['component-registration'],
+	ComponentCommon = require('../common/component-common').ComponentCommon,
 	serverUtils = require('../../../../test/server/serverUtils.js');
 
 var serverURL = 'http://localhost:8085',

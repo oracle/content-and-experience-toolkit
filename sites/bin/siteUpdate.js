@@ -394,7 +394,7 @@ SiteUpdate.prototype.updateSystemFiles = function (argv, siteEntry) {
 		return self.updateSiteFolder(argv, siteEntry, stepName, [], excludeFiles, _getSystemFromTemplate).then(function (result) {
 			// if siteinfo not included, increase the reported error count 
 			if (!siteInfoUpdated) {
-				result.errors = results.errors + 1;
+				result.errors = 1;
 			}
 			return Promise.resolve(result);
 		});
@@ -577,6 +577,7 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 			// if can't locate the site, return
 			if (!(siteEntry && siteEntry.siteGUID)) {
 				console.log('Error: failed to locate site: ' + siteName);
+				done();
 				return;
 			}
 
@@ -622,9 +623,12 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 
 				// output the results
 				console.log('Update Site Results:');
+				var totalErr = 0;
 				results.forEach(function (result) {
+					totalErr = totalErr + result.errors;
 					console.log(' - ' + result.name.padEnd(20) + ': completed with ' + result.errors + ' errors.');
 				});
+				done(totalErr === 0);
 			}).catch(function (err) {
 				console.log('Error: failed to update site: ');
 				console.log(err);

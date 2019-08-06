@@ -29,8 +29,8 @@ var verifyRun = function (argv) {
 	return true;
 }
 
-var _cmdEnd = function (done, localServer) {
-	done();
+var _cmdEnd = function (done, localServer, success) {
+	done(success);
 	if (localServer) {
 		localServer.close();
 	}
@@ -49,21 +49,8 @@ module.exports.createSite = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			_cmdEnd(done);
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		_cmdEnd(done);
 		return;
 	}
@@ -400,7 +387,7 @@ var _getSiteRequestStatus = function (request, server, statusUrl) {
  * @param {*} sitePrefix 
  */
 var _createSiteSCS = function (request, server, siteName, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, done) {
-	
+
 	try {
 		var loginPromise = serverUtils.loginToServer(server, request);
 		loginPromise.then(function (result) {
@@ -608,7 +595,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 												_cmdEnd(done, localServer);
 											} else {
 												console.log(' - site created');
-												_cmdEnd(done, localServer);
+												_cmdEnd(done, localServer, true);
 											}
 										});
 
@@ -691,7 +678,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 														_cmdEnd(done, localServer);
 													} else {
 														console.log(' - site created');
-														_cmdEnd(done, localServer);
+														_cmdEnd(done, localServer, true);
 													}
 												});
 
@@ -731,24 +718,12 @@ module.exports.controlSite = function (argv, done) {
 	try {
 
 		var serverName = argv.server;
-		if (serverName) {
-			var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-			if (!fs.existsSync(serverpath)) {
-				console.log('ERROR: server ' + serverName + ' does not exist');
-				_cmdEnd(done);
-				return;
-			}
-		}
-
-		var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-		if (!serverName) {
-			console.log(' - configuration file: ' + server.fileloc);
-		}
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured in ' + server.fileloc);
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
 			_cmdEnd(done);
 			return;
 		}
+
 		// console.log('server: ' + server.url);
 
 		var action = argv.action;
@@ -1277,7 +1252,7 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 									} else {
 										console.log(' - ' + action + ' ' + siteName + ' finished');
 									}
-									_cmdEnd(done, localServer);
+									_cmdEnd(done, localServer, true);
 								});
 							})
 							.catch((error) => {
@@ -1402,21 +1377,8 @@ module.exports.validateSite = function (argv, done) {
 	try {
 
 		var serverName = argv.server;
-		if (serverName) {
-			var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-			if (!fs.existsSync(serverpath)) {
-				console.log('ERROR: server ' + serverName + ' does not exist');
-				_cmdEnd(done);
-				return;
-			}
-		}
-
-		var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-		if (!serverName) {
-			console.log(' - configuration file: ' + server.fileloc);
-		}
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured in ' + server.fileloc);
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
 			_cmdEnd(done);
 			return;
 		}
@@ -1622,7 +1584,7 @@ module.exports.validateSite = function (argv, done) {
 									} else {
 										console.log('  no assets');
 									}
-									_cmdEnd(done, localServer);
+									_cmdEnd(done, localServer, true);
 								})
 								.catch((error) => {
 									_cmdEnd(done, localServer);

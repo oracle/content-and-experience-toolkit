@@ -129,7 +129,7 @@ module.exports.createTemplate = function (argv, done) {
 	console.log('Create Template: creating new template ' + tempName + ' from ' + srcTempName);
 	var unzipPromise = unzipTemplate(tempName, path.resolve(templatesDataDir + '/' + template), true);
 	unzipPromise.then(function (result) {
-		done();
+		done(true);
 	});
 };
 
@@ -162,7 +162,7 @@ module.exports.importTemplate = function (argv, done) {
 	console.log('Import Template: importing template name=' + tempName + ' path=' + tempPath);
 	var unzipPromise = unzipTemplate(tempName, tempPath, false);
 	unzipPromise.then(function (result) {
-		done();
+		done(true);
 	});
 };
 
@@ -205,7 +205,7 @@ module.exports.exportTemplate = function (argv, done) {
 		if (fs.existsSync(zipfile)) {
 			console.log('The template exported to ' + zipfile);
 			clearInterval(inter);
-			done();
+			done(true);
 			return;
 		}
 		total += 1;
@@ -365,7 +365,7 @@ module.exports.copyTemplate = function (argv, done) {
 	}
 
 	console.log(' *** template is ready to test: http://localhost:8085/templates/' + tempName);
-	done();
+	done(true);
 };
 
 module.exports.deployTemplate = function (argv, done) {
@@ -377,21 +377,8 @@ module.exports.deployTemplate = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured');
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -596,7 +583,7 @@ module.exports.describeTemplate = function (argv, done) {
 			}
 		}
 	}
-	done();
+	done(true);
 };
 
 module.exports.downloadTemplate = function (argv, done) {
@@ -609,21 +596,8 @@ module.exports.downloadTemplate = function (argv, done) {
 	var name = argv.name;
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured');
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -842,7 +816,7 @@ module.exports.downloadTemplate = function (argv, done) {
 								return unzipTemplate(name, zippath, false);
 							})
 							.then(function (results) {
-								_cmdEnd(done, localServer);
+								_cmdEnd(done, localServer, true);
 							})
 							.catch((error) => {
 								_cmdEnd(done, localServer);
@@ -874,21 +848,8 @@ module.exports.deleteTemplate = function (argv, done) {
 	var permanent = typeof argv.permanent === 'string' && argv.permanent.toLowerCase() === 'true';
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured');
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -1018,6 +979,7 @@ module.exports.deleteTemplate = function (argv, done) {
 			localhost = 'http://localhost:' + port;
 
 			var total = 0;
+			var success = false;
 			var inter = setInterval(function () {
 				// console.log(' - getting login user: ' + total);
 				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
@@ -1053,6 +1015,7 @@ module.exports.deleteTemplate = function (argv, done) {
 								}
 								console.log(' - template deleted');
 								if (!permanent) {
+									success = true;
 									return Promise.reject();
 								}
 
@@ -1070,14 +1033,14 @@ module.exports.deleteTemplate = function (argv, done) {
 										if (!result.err) {
 											console.log(' - template deleted permanently')
 										}
-										_cmdEnd(done, localServer);
+										_cmdEnd(done, localServer, true);
 									})
 									.catch((error) => {
 										_cmdEnd(done, localServer);
 									});
 							})
 							.catch((error) => {
-								_cmdEnd(done, localServer);
+								_cmdEnd(done, localServer, success);
 							});
 					}
 					total += 1;
@@ -1108,21 +1071,8 @@ module.exports.createTemplateFromSite = function (argv, done) {
 		var includeUnpublishedAssets = typeof argv.includeunpublishedassets === 'string' && argv.includeunpublishedassets.toLowerCase() === 'true';
 
 		var serverName = argv.server;
-		if (serverName) {
-			var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-			if (!fs.existsSync(serverpath)) {
-				console.log('ERROR: server ' + serverName + ' does not exist');
-				done();
-				return;
-			}
-		}
-
-		var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-		if (!serverName) {
-			console.log(' - configuration file: ' + server.fileloc);
-		}
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured in ' + server.fileloc);
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
 			done();
 			return;
 		}
@@ -1311,7 +1261,7 @@ module.exports.addThemeComponent = function (argv, done) {
 	fs.writeFileSync(componentsjsonfile, JSON.stringify(newComps));
 
 	console.log(' - Component ' + component + ' added to theme ' + theme);
-	done();
+	done(true);
 };
 
 module.exports.removeThemeComponent = function (argv, done) {
@@ -1396,7 +1346,7 @@ module.exports.removeThemeComponent = function (argv, done) {
 	fs.writeFileSync(componentsjsonfile, JSON.stringify(newComps));
 
 	console.log(' - Component ' + component + ' removed from theme ' + theme);
-	done();
+	done(true);
 };
 
 /** 
@@ -1760,7 +1710,11 @@ var _importTemplate = function (server, name, folder, zipfile, done) {
 			var importPromise = serverUtils.importToPODServer(server, 'template', folder, imports);
 			importPromise.then(function (importResult) {
 				// The result processed in the API
-				done();
+				if (importResult && importResult.err) {
+					done();
+				} else {
+					done(true);
+				}
 			});
 		});
 	} else {
@@ -1791,6 +1745,7 @@ var _importTemplate = function (server, name, folder, zipfile, done) {
 					var importPromise = serverUtils.importTemplateToServer(request, server, fileId, idcToken);
 					importPromise.then(function (importResult) {
 						// console.log(importResult);
+						var success = false;
 						if (importResult.err) {
 							console.log(' - failed to import: ' + importResult.err);
 						} else if (importResult.LocalData && importResult.LocalData.StatusCode !== '0') {
@@ -1798,9 +1753,10 @@ var _importTemplate = function (server, name, folder, zipfile, done) {
 						} else if (importResult.LocalData && importResult.LocalData.ImportConflicts) {
 							console.log(' - failed to import: the template already exists and you do not have privilege to override it');
 						} else {
+							success = true;
 							console.log(' - template ' + name + ' imported');
 						}
-						done();
+						done(success);
 					});
 				}
 			});
@@ -1836,11 +1792,11 @@ var getContents = function (path) {
 	return contents;
 };
 
-var _cmdEnd = function (done, localServer) {
-	done();
+var _cmdEnd = function (done, localServer, success) {
 	if (localServer) {
 		localServer.close();
 	}
+	done(success);
 };
 
 var _getServerTemplate = function (request, localhost, name) {
@@ -2125,7 +2081,7 @@ var _deleteFromTrash = function (request, localhost) {
 
 var _IdcCopySites = function (request, server, name, fFolderGUID, doCopyToTemplate, exportPublishedAssets) {
 	var copyPromise = new Promise(function (resolve, reject) {
-		
+
 		var loginPromise = serverUtils.loginToServer(server, request);
 		loginPromise.then(function (result) {
 			if (!result.status) {
@@ -2472,7 +2428,7 @@ var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpubl
 								if (!result.err) {
 									console.log(' - create template ' + name + ' finished');
 								}
-								_cmdEnd(done, localServer);
+								_cmdEnd(done, localServer, true);
 							})
 							.catch((error) => {
 								_cmdEnd(done, localServer);
@@ -2592,5 +2548,5 @@ module.exports.compileTemplate = function (argv, done) {
 
 
 	console.log(' *** compiled template is ready to test');
-	done();
+	done(true);
 };

@@ -8,6 +8,16 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.3.2
+
+**Updated**
+
+- `cec upload-file` - can now upload files into themes and components
+- `cec download-file` - can now download files from themes and components
+
+**Added**
+- `cec` -  commands now return exit status for use in scripting
+
 # New in Release 19.3.1i
 
 **Fixed**

@@ -148,6 +148,7 @@ var _getConfiguredServer = function (currPath) {
 		password: '',
 		oauthtoken: '',
 		env: '',
+		useRest: false,
 		idcs_url: '',
 		client_id: '',
 		client_secret: '',
@@ -160,6 +161,7 @@ var _getConfiguredServer = function (currPath) {
 				username,
 				password,
 				env,
+				useRest,
 				idcs_url,
 				client_id,
 				client_secret,
@@ -254,6 +256,10 @@ var _verifyServer = function (serverName, currPath) {
 	}
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
+		return server;
+	}
+	if (server.key && !fs.existsSync(server.key)) {
+		console.log('ERROR: missing key file ' + server.key);
 		return server;
 	}
 
@@ -437,7 +443,7 @@ var _getRegisteredServer = function (projectDir, name) {
 				var buf = Buffer.from(server.password, 'base64');
 				var decrypted = crypto.privateDecrypt(key, buf);
 				server.password = decrypted.toString('utf8');
-				
+
 			} catch (e) {
 				console.log('ERROR: failed to decrypt the password');
 				console.log(e);
@@ -2466,7 +2472,7 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 						Promise.all(importsPromise).then(function (values) {
 							_closeServer(localServer);
 							// All done
-							resolve({});
+							resolve(values);
 						});
 					}); // query file
 				}); // query folder
@@ -2502,7 +2508,7 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 			if (err) {
 				console.log('ERROR: Failed to upload ' + filePath);
 				console.log(err);
-				return resolve({});
+				return resolve({err: 'err'});
 			}
 			if (response && response.statusCode === 200) {
 				var data = JSON.parse(body);
@@ -2527,13 +2533,14 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 						} catch (e) {}
 						if (!data || data.err || !data.LocalData || data.LocalData.StatusCode !== '0') {
 							console.log(' - failed to import  ' + (data && data.LocalData ? ('- ' + data.LocalData.StatusMessage) : err));
-							return resolve({});
+							return resolve({err: 'err'});
 						}
 
 						if (type === 'template') {
 							var jobId = data.LocalData.JobID;
 							var importTempStatusPromise = _getTemplateImportStatus(request, localhost, jobId);
 							importTempStatusPromise.then(function (data) {
+								var success = false;
 								if (data && data.LocalData) {
 									if (data.LocalData.StatusCode !== '0') {
 										console.log(' - failed to import ' + name + ': ' + importResult.LocalData.StatusMessage);
@@ -2541,10 +2548,11 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 										console.log(data.LocalData);
 										console.log(' - failed to import ' + name + ': the template already exists and you do not have privilege to override it');
 									} else {
+										success = true;
 										console.log(' - template ' + name + ' imported (' + _timeUsed(startTime, new Date()) + ')');
 									}
 								}
-								return resolve({});
+								return success ? resolve({}) : resolve({err: 'err'});
 							});
 						} else {
 							console.log(' - finished import component');
@@ -2554,10 +2562,10 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 							if (data && data.LocalData) {
 								if (data.LocalData.StatusCode !== '0') {
 									console.log(' - failed to import ' + name + ': ' + data.LocalData.StatusMessage);
-									return resolve({});
+									return resolve({err: 'err'});
 								} else if (data.LocalData.ImportConflicts) {
 									console.log(' - failed to import ' + name + ': the component already exists and you do not have privilege to override it');
-									return resolve({});
+									return resolve({err: 'err'});
 								} else {
 									console.log(' - component ' + name + ' imported (' + _timeUsed(startTime, new Date()) + ')');
 									var importedCompFolderId = _getComponentAttribute(data, 'fFolderGUID');
@@ -2570,23 +2578,24 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 										request.post(url, function (err, response, body) {
 											if (err) {
 												console.log(' - failed to publish ' + name + ': ' + err);
-												return resolve({});
+												return resolve({err: 'err'});
 											}
 											if (response.statusCode !== 200) {
 												console.log(' - failed to publish ' + name + ': status code ' + response.statusCode + ' ' + response.statusMessage);
-												return resolve({});
+												return resolve({err: 'err'});
 											}
 											var publishResult = JSON.parse(body);
 											if (publishResult.err) {
 												console.log(' - failed to import ' + name + ': ' + err);
-												return resolve({});
+												return resolve({err: 'err'});
 											}
 											if (publishResult.LocalData && publishResult.LocalData.StatusCode !== '0') {
 												console.log(' - failed to publish: ' + publishResult.LocalData.StatusMessage);
+												return resolve({err: 'err'});
 											} else {
 												console.log(' - component ' + name + ' published (' + _timeUsed(startTime, new Date()) + ')');
+												return resolve({});
 											}
-											return resolve({});
 										});
 									} else {
 										return resolve({});
@@ -2594,17 +2603,17 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 								}
 							} else {
 								console.log(' - failed to import ' + name);
-								return resolve({});
+								return resolve({err: 'err'});
 							}
 						}
 					});
 				} else {
 					console.log('ERROR: Failed to upload ' + filePath);
-					return resolve({});
+					return resolve({err: 'err'});
 				}
 			} else {
 				console.log(' - failed to upload ' + filePath + ': ' + response && response.statusCode);
-				return resolve({});
+				return resolve({err: 'err'});
 			}
 		});
 	});
@@ -3197,20 +3206,7 @@ module.exports.getBackgroundServiceJobData = function (server, request, idcToken
 				data = JSON.parse(body);
 			} catch (e) {}
 
-			var result = {};
-			if (data && data.LocalData) {
-
-				var fields = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.fields || [];
-				var rows = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.rows || [];
-
-				if (rows && rows.length > 0) {
-					for (var i = 0; i < fields.length; i++) {
-						var attr = fields[i].name;
-						result[attr] = rows[0][i];
-					}
-				}
-			}
-			return resolve(result);
+			return resolve(data);
 		});
 	});
 	return statusPromise;

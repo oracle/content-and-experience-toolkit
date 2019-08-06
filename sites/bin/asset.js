@@ -39,21 +39,8 @@ module.exports.createRepository = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -165,7 +152,7 @@ module.exports.createRepository = function (argv, done) {
 			// console.log(result);
 			console.log(' - repository ' + name + ' created');
 
-			done();
+			done(true);
 		})
 		.catch((error) => {
 			done();
@@ -182,21 +169,8 @@ module.exports.controlRepository = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -348,7 +322,7 @@ module.exports.controlRepository = function (argv, done) {
 				console.log(' - removed channel ' + channelNames + ' from repository ' + name);
 			}
 
-			done();
+			done(true);
 		})
 		.catch((error) => {
 			done();
@@ -366,21 +340,8 @@ module.exports.shareRepository = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -529,10 +490,10 @@ module.exports.shareRepository = function (argv, done) {
 						if (sharedTypes.length > 0) {
 							console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + typeRole + ' on type ' + sharedTypes.join(', '));
 						}
-						done();
+						done(true);
 					});
 			} else {
-				done();
+				done(true);
 			}
 
 		})
@@ -551,21 +512,8 @@ module.exports.unShareRepository = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -710,10 +658,10 @@ module.exports.unShareRepository = function (argv, done) {
 						if (unsharedTypes.length > 0) {
 							console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to type ' + unsharedTypes.join(', ') + ' removed');
 						}
-						done();
+						done(true);
 					});
 			} else {
-				done();
+				done(true);
 			}
 		})
 		.catch((error) => {
@@ -816,6 +764,7 @@ module.exports.shareType = function (argv, done) {
 			}
 
 			console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on type ' + name);
+			done(true);
 		})
 		.catch((error) => {
 			done();
@@ -915,6 +864,7 @@ module.exports.unshareType = function (argv, done) {
 			}
 
 			console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to type ' + name + ' removed');
+			done(true);
 		})
 		.catch((error) => {
 			done();
@@ -931,21 +881,8 @@ module.exports.createChannel = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -1018,7 +955,7 @@ module.exports.createChannel = function (argv, done) {
 			// console.log(result);
 			console.log(' - channel ' + name + ' created');
 
-			done();
+			done(true);
 		})
 		.catch((error) => {
 			done();
@@ -1035,21 +972,8 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -1098,7 +1022,7 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 			// console.log(result);
 			console.log(' - localization policy ' + name + ' created');
 
-			done();
+			done(done);
 		})
 		.catch((error) => {
 			done();

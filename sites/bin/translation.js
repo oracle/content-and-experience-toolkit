@@ -65,8 +65,8 @@ var _CSRFToken;
  * private 
  */
 var localServer;
-var _cmdEnd = function (done) {
-	done();
+var _cmdEnd = function (done, success) {
+	done(success);
 	if (localServer) {
 		localServer.close();
 	}
@@ -687,27 +687,27 @@ var _execdeployTranslationJob = function (server, request, validateonly, folder,
 						var inter = setInterval(function () {
 							var jobPromise = _getImportValidateStatusSCS(server, request, idcToken, jobId);
 							jobPromise.then(function (data) {
-									if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
-										clearInterval(inter);
-										// try to get error message
-										var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
-										jobDataPromise.then(function (data) {
-											console.log('ERROR: validation failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
-											_cmdEnd(done);
-										});
-									}
-									if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
-										clearInterval(inter);
-										console.log(' - validate ' + jobName + ' finished');
-										var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
-										jobDataPromise.then(function (data) {
-											_displayValidationResult(data, jobType, tempDir);
-											_cmdEnd(done);
-										});
-									} else {
-										console.log(' - validating: percentage ' + data.JobPercentage);
-									}
-								})
+								if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
+									clearInterval(inter);
+									// try to get error message
+									var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
+									jobDataPromise.then(function (data) {
+										console.log('ERROR: validation failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
+										_cmdEnd(done);
+									});
+								}
+								if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
+									clearInterval(inter);
+									console.log(' - validate ' + jobName + ' finished');
+									var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
+									jobDataPromise.then(function (data) {
+										_displayValidationResult(data, jobType, tempDir);
+										_cmdEnd(done, true);
+									});
+								} else {
+									console.log(' - validating: percentage ' + data.JobPercentage);
+								}
+							})
 						}, 5000);
 					})
 					.catch((error) => {
@@ -731,24 +731,24 @@ var _execdeployTranslationJob = function (server, request, validateonly, folder,
 						var inter = setInterval(function () {
 							var jobPromise = _getImportValidateStatusSCS(server, request, idcToken, jobId);
 							jobPromise.then(function (data) {
-									if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
-										clearInterval(inter);
-										// try to get error message
-										var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
-										jobDataPromise.then(function (data) {
-											console.log('ERROR: import failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
-											_cmdEnd(done);
-										});
-									}
-									if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
-										clearInterval(inter);
-										console.log(' - import ' + jobName + ' finished');
+								if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
+									clearInterval(inter);
+									// try to get error message
+									var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
+									jobDataPromise.then(function (data) {
+										console.log('ERROR: import failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
 										_cmdEnd(done);
+									});
+								}
+								if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
+									clearInterval(inter);
+									console.log(' - import ' + jobName + ' finished');
+									_cmdEnd(done, true);
 
-									} else {
-										console.log(' - importing: percentage ' + data.JobPercentage);
-									}
-								});
+								} else {
+									console.log(' - importing: percentage ' + data.JobPercentage);
+								}
+							});
 						}, 5000);
 					})
 					.catch((error) => {
@@ -962,20 +962,20 @@ var _execCreateTranslationJob = function (server, request, localhost, idcToken, 
 			var inter = setInterval(function () {
 				var jobPromise = _getImportValidateStatusSCS(server, request, idcToken, jobId);
 				jobPromise.then(function (data) {
-						if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
-							clearInterval(inter);
-							console.log('ERROR: create translation job failed: ' + (data && data.JobMessage));
-							_cmdEnd(done);
-						}
-						if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
-							clearInterval(inter);
-							console.log(' - translation job ' + name + ' created');
-							_cmdEnd(done);
+					if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
+						clearInterval(inter);
+						console.log('ERROR: create translation job failed: ' + (data && data.JobMessage));
+						_cmdEnd(done);
+					}
+					if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
+						clearInterval(inter);
+						console.log(' - translation job ' + name + ' created');
+						_cmdEnd(done, true);
 
-						} else {
-							console.log(' - creating: percentage ' + data.JobPercentage);
-						}
-					});
+					} else {
+						console.log(' - creating: percentage ' + data.JobPercentage);
+					}
+				});
 			}, 5000);
 		})
 		.catch((error) => {
@@ -1420,21 +1420,8 @@ var _listServerTranslationJobs = function (argv, done) {
 	projectDir = argv.projectDir || projectDir;
 
 	var serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -1506,7 +1493,7 @@ var _listServerTranslationJobs = function (argv, done) {
 				}
 			}
 
-			done();
+			done(true);
 		});
 };
 
@@ -1612,21 +1599,8 @@ module.exports.downloadTranslationJob = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -1703,7 +1677,11 @@ module.exports.downloadTranslationJob = function (argv, done) {
 						// import into local
 						var importPromise = _importJob(filePath);
 						importPromise.then(function (result) {
-							done();
+							if (result && result.err) {
+								done();
+							} else {
+								done(true);
+							}
 						})
 					});
 			} else {
@@ -1712,7 +1690,11 @@ module.exports.downloadTranslationJob = function (argv, done) {
 				// import into local
 				var importPromise = _importJob(filePath);
 				importPromise.then(function (result) {
-					done();
+					if (result && result.err) {
+						done();
+					} else {
+						done(true);
+					}
 				})
 			}
 		}); // job zip downloaded
@@ -1732,21 +1714,8 @@ module.exports.uploadTranslationJob = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -1821,21 +1790,8 @@ module.exports.createTranslationJob = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
@@ -2042,7 +1998,7 @@ module.exports.listTranslationJobs = function (argv, done) {
 	}
 	if (jobs.length === 0) {
 		console.log(' - no valid translation job available');
-		done();
+		done(true);
 		return;
 	}
 
@@ -2085,7 +2041,7 @@ module.exports.listTranslationJobs = function (argv, done) {
 			console.log(sprintf(format, jobs[i].jobName, status, jobs[i].sourceLanguage, jobs[i].targetLanguages));
 		}
 
-		done();
+		done(true);
 	});
 };
 
@@ -2171,7 +2127,7 @@ module.exports.submitTranslationJob = function (argv, done) {
 					};
 					var connectionJobJsonPath = path.join(transSrcDir, name, 'connectionjob.json');
 					fs.writeFileSync(connectionJobJsonPath, JSON.stringify(jobjson));
-					done();
+					done(true);
 				});
 		});
 };
@@ -2266,7 +2222,7 @@ module.exports.ingestTranslationJob = function (argv, done) {
 
 				var connectionJobJsonPath = path.join(transSrcDir, name, 'connectionjob.json');
 				fs.writeFileSync(connectionJobJsonPath, JSON.stringify(jobConnectionInfo));
-				done();
+				done(true);
 			});
 		});
 	});
@@ -2369,7 +2325,7 @@ module.exports.registerTranslationConnector = function (argv, done) {
 
 		fs.writeFileSync(connectionfile, JSON.stringify(connectionConfig));
 		console.log(' - translation connection registered in ' + connectionfile);
-		done();
+		done(true);
 	});
 };
 
@@ -2417,7 +2373,7 @@ module.exports.createTranslationConnector = function (argv, done) {
 		});
 
 		console.log('Start the connector: cec start-translation-connector ' + name + ' [-p <port>]');
-		done();
+		done(true);
 	});
 };
 

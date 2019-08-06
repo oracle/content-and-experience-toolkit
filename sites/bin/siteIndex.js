@@ -30,8 +30,8 @@ var verifyRun = function (argv) {
 
 var localServer;
 
-var _indexSiteEnd = function (done) {
-	done();
+var _indexSiteEnd = function (done, success) {
+	done(success);
 	if (localServer) {
 		localServer.close();
 	}
@@ -1705,7 +1705,7 @@ var _publishPageIndexItems = function (request, localhost, channelId, done) {
 				if (result.status === 'success') {
 					clearInterval(inter);
 					console.log(' - publish page index items finished');
-					_indexSiteEnd(done);
+					_indexSiteEnd(done, true);
 					return;
 				} else if (result.status === 'failed') {
 					var msg = result.message;
@@ -2109,7 +2109,7 @@ var _indexSite = function (server, request, localhost, site, contenttype, publis
 								if (publish) {
 									_publishPageIndexItems(request, localhost, _SiteInfo.channelId, done);
 								} else {
-									_indexSiteEnd(done);
+									_indexSiteEnd(done, true);
 								}
 							});
 						} else {
@@ -2137,7 +2137,7 @@ var _indexSite = function (server, request, localhost, site, contenttype, publis
 										if (publish) {
 											_publishPageIndexItems(request, localhost, _SiteInfo.channelId, done);
 										} else {
-											_indexSiteEnd(done);
+											_indexSiteEnd(done, true);
 										}
 									} else {
 										return _indexSiteWithLocale(param.server, param.request, param.localhost, param.site, param.contenttype, param.locale, false);
@@ -2154,7 +2154,7 @@ var _indexSite = function (server, request, localhost, site, contenttype, publis
 						if (publish) {
 							_publishPageIndexItems(request, localhost, _SiteInfo.channelId, done);
 						} else {
-							_indexSiteEnd(done);
+							_indexSiteEnd(done, true);
 						}
 					}
 				});
@@ -2166,7 +2166,7 @@ var _indexSite = function (server, request, localhost, site, contenttype, publis
 				if (publish) {
 					_publishPageIndexItems(request, localhost, _SiteInfo.channelId, done);
 				} else {
-					_indexSiteEnd(done);
+					_indexSiteEnd(done, true);
 				}
 			}
 
@@ -2174,7 +2174,7 @@ var _indexSite = function (server, request, localhost, site, contenttype, publis
 
 	}) // prepare data
 	.catch((error) => {
-		_indexSiteEnd(done, localServer);
+		_indexSiteEnd(done);
 	});
 
 };
@@ -2224,21 +2224,8 @@ module.exports.indexSite = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	if (serverName) {
-		var serverpath = path.join(serversSrcDir, serverName, 'server.json');
-		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
-			done();
-			return;
-		}
-	}
-
-	var server = serverName ? serverUtils.getRegisteredServer(projectDir, serverName) : serverUtils.getConfiguredServer(projectDir);
-	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
-	}
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}

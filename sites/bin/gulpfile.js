@@ -147,6 +147,7 @@ gulp.task('install-src', function (done) {
 		stdio: 'inherit'
 	});
 
+	process.exitCode = 0;
 	done();
 });
 
@@ -201,7 +202,7 @@ gulp.task('sync-server', function (done) {
 	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
 	process.env['CEC_TOOLKIT_SYNC_HTTPS_KEY'] = '';
 	process.env['CEC_TOOLKIT_SYNC_HTTPS_CERTIFICATE'] = '';
-	
+
 	var keyPath = argv.key;
 	if (keyPath) {
 		if (!path.isAbsolute(keyPath)) {
@@ -321,7 +322,10 @@ var _promptInput = function (rl, question) {
 gulp.task('create-folder', function (done) {
 	'use strict';
 
-	doclib.createFolder(argv, done);
+	doclib.createFolder(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -330,7 +334,10 @@ gulp.task('create-folder', function (done) {
 gulp.task('share-folder', function (done) {
 	'use strict';
 
-	doclib.shareFolder(argv, done);
+	doclib.shareFolder(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -339,7 +346,10 @@ gulp.task('share-folder', function (done) {
 gulp.task('unshare-folder', function (done) {
 	'use strict';
 
-	doclib.unshareFolder(argv, done);
+	doclib.unshareFolder(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -348,7 +358,10 @@ gulp.task('unshare-folder', function (done) {
 gulp.task('download-folder', function (done) {
 	'use strict';
 
-	doclib.downloadFolder(argv, done);
+	doclib.downloadFolder(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -357,7 +370,10 @@ gulp.task('download-folder', function (done) {
 gulp.task('upload-folder', function (done) {
 	'use strict';
 
-	doclib.uploadFolder(argv, done);
+	doclib.uploadFolder(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -366,7 +382,10 @@ gulp.task('upload-folder', function (done) {
 gulp.task('upload-file', function (done) {
 	'use strict';
 
-	doclib.uploadFile(argv, done);
+	doclib.uploadFile(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -375,7 +394,10 @@ gulp.task('upload-file', function (done) {
 gulp.task('download-file', function (done) {
 	'use strict';
 
-	doclib.downloadFile(argv, done);
+	doclib.downloadFile(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -385,7 +407,10 @@ gulp.task('download-file', function (done) {
 gulp.task('create-component', function (done) {
 	'use strict';
 
-	componentlib.createComponent(argv, done);
+	componentlib.createComponent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -395,7 +420,10 @@ gulp.task('create-component', function (done) {
 gulp.task('copy-component', function (done) {
 	'use strict';
 
-	componentlib.copyComponent(argv, done);
+	componentlib.copyComponent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -405,7 +433,10 @@ gulp.task('copy-component', function (done) {
 gulp.task('import-component', function (done) {
 	'use strict';
 
-	componentlib.importComponent(argv, done);
+	componentlib.importComponent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 
@@ -415,7 +446,10 @@ gulp.task('import-component', function (done) {
 gulp.task('list-server-content-types', function (done) {
 	'use strict';
 
-	contentlayoutlib.listServerContentTypes(argv, done);
+	contentlayoutlib.listServerContentTypes(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -425,7 +459,10 @@ gulp.task('list-server-content-types', function (done) {
 gulp.task('create-contentlayout', function (done) {
 	'use strict';
 
-	contentlayoutlib.createContentLayout(argv, done);
+	contentlayoutlib.createContentLayout(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -434,7 +471,10 @@ gulp.task('create-contentlayout', function (done) {
 gulp.task('add-contentlayout-mapping', function (done) {
 	'use strict';
 
-	contentlayoutlib.addContentLayoutMapping(argv, done);
+	contentlayoutlib.addContentLayoutMapping(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -443,7 +483,10 @@ gulp.task('add-contentlayout-mapping', function (done) {
 gulp.task('remove-contentlayout-mapping', function (done) {
 	'use strict';
 
-	contentlayoutlib.removeContentLayoutMapping(argv, done);
+	contentlayoutlib.removeContentLayoutMapping(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -453,7 +496,10 @@ gulp.task('remove-contentlayout-mapping', function (done) {
 gulp.task('create-template', function (done) {
 	'use strict';
 
-	templatelib.createTemplate(argv, done);
+	templatelib.createTemplate(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -472,7 +518,10 @@ gulp.task('create-template-from-site', function (done) {
 gulp.task('copy-template', function (done) {
 	'use strict';
 
-	templatelib.copyTemplate(argv, done);
+	templatelib.copyTemplate(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -482,7 +531,10 @@ gulp.task('copy-template', function (done) {
 gulp.task('import-template', function (done) {
 	'use strict';
 
-	templatelib.importTemplate(argv, done);
+	templatelib.importTemplate(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -492,7 +544,10 @@ gulp.task('import-template', function (done) {
 gulp.task('export-template', function (done) {
 	'use strict';
 
-	templatelib.exportTemplate(argv, done);
+	templatelib.exportTemplate(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -501,7 +556,10 @@ gulp.task('export-template', function (done) {
 gulp.task('deploy-template', function (done) {
 	'use strict';
 
-	templatelib.deployTemplate(argv, done);
+	templatelib.deployTemplate(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -510,7 +568,10 @@ gulp.task('deploy-template', function (done) {
 gulp.task('upload-template', function (done) {
 	'use strict';
 
-	templatelib.deployTemplate(argv, done);
+	templatelib.deployTemplate(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -519,7 +580,10 @@ gulp.task('upload-template', function (done) {
 gulp.task('describe-template', function (done) {
 	'use strict';
 
-	templatelib.describeTemplate(argv, done);
+	templatelib.describeTemplate(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -528,7 +592,10 @@ gulp.task('describe-template', function (done) {
 gulp.task('download-template', function (done) {
 	'use strict';
 
-	templatelib.downloadTemplate(argv, done);
+	templatelib.downloadTemplate(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -538,7 +605,10 @@ gulp.task('download-template', function (done) {
 gulp.task('compile-template', function (done) {
 	'use strict';
 
-	templatelib.compileTemplate(argv, done);
+	templatelib.compileTemplate(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 
@@ -548,7 +618,10 @@ gulp.task('compile-template', function (done) {
 gulp.task('delete-template', function (done) {
 	'use strict';
 
-	templatelib.deleteTemplate(argv, done);
+	templatelib.deleteTemplate(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -557,7 +630,10 @@ gulp.task('delete-template', function (done) {
 gulp.task('download-content', function (done) {
 	'use strict';
 
-	contentlib.downloadContent(argv, done);
+	contentlib.downloadContent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -566,7 +642,10 @@ gulp.task('download-content', function (done) {
 gulp.task('upload-content', function (done) {
 	'use strict';
 
-	contentlib.uploadContent(argv, done);
+	contentlib.uploadContent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -575,7 +654,10 @@ gulp.task('upload-content', function (done) {
 gulp.task('control-content', function (done) {
 	'use strict';
 
-	contentlib.controlContent(argv, done);
+	contentlib.controlContent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 
@@ -594,7 +676,10 @@ gulp.task('sync-content', function (done) {
 gulp.task('add-theme-component', function (done) {
 	'use strict';
 
-	templatelib.addThemeComponent(argv, done);
+	templatelib.addThemeComponent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -603,7 +688,10 @@ gulp.task('add-theme-component', function (done) {
 gulp.task('remove-theme-component', function (done) {
 	'use strict';
 
-	templatelib.removeThemeComponent(argv, done);
+	templatelib.removeThemeComponent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -612,7 +700,10 @@ gulp.task('remove-theme-component', function (done) {
 gulp.task('control-theme', function (done) {
 	'use strict';
 
-	themelib.controlTheme(argv, done);
+	themelib.controlTheme(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 
@@ -622,14 +713,20 @@ gulp.task('control-theme', function (done) {
 gulp.task('export-component', function (done) {
 	'use strict';
 
-	componentlib.exportComponent(argv, done);
+	componentlib.exportComponent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
  * Download components
  */
 gulp.task('download-component', function (done) {
-	componentlib.downloadComponent(argv, done);
+	componentlib.downloadComponent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 
@@ -637,21 +734,30 @@ gulp.task('download-component', function (done) {
  * Deploy components
  */
 gulp.task('deploy-component', function (done) {
-	componentlib.deployComponent(argv, done);
+	componentlib.deployComponent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
  * Upload components
  */
 gulp.task('upload-component', function (done) {
-	componentlib.deployComponent(argv, done);
+	componentlib.deployComponent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
  * Control components
  */
 gulp.task('control-component', function (done) {
-	componentlib.controlComponent(argv, done);
+	componentlib.controlComponent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 
@@ -697,15 +803,16 @@ gulp.task('copy-libs', function (done) {
 gulp.task('list', function (done) {
 	'use strict';
 
-	if (!verifyRun()) {
-		done();
-		return;
-	}
-
 	if (argv.server) {
-		resourcelib.listServerResources(argv, done);
+		resourcelib.listServerResources(argv, function (success) {
+			process.exitCode = success ? 0 : 1;
+			done();
+		});
 	} else {
-		resourcelib.listLocalResources(argv, done);
+		resourcelib.listLocalResources(argv, function (success) {
+			process.exitCode = success ? 0 : 1;
+			done();
+		});
 	}
 });
 
@@ -715,7 +822,10 @@ gulp.task('list', function (done) {
 gulp.task('create-site', function (done) {
 	'use strict';
 
-	sitelib.createSite(argv, done);
+	sitelib.createSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -724,7 +834,10 @@ gulp.task('create-site', function (done) {
 gulp.task('control-site', function (done) {
 	'use strict';
 
-	sitelib.controlSite(argv, done);
+	sitelib.controlSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 
@@ -734,7 +847,10 @@ gulp.task('control-site', function (done) {
 gulp.task('update-site', function (done) {
 	'use strict';
 
-	siteUpdateLib.updateSite(argv, done);
+	siteUpdateLib.updateSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -743,7 +859,10 @@ gulp.task('update-site', function (done) {
 gulp.task('validate-site', function (done) {
 	'use strict';
 
-	sitelib.validateSite(argv, done);
+	sitelib.validateSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -753,7 +872,10 @@ gulp.task('validate-site', function (done) {
 gulp.task('index-site', function (done) {
 	'use strict';
 
-	siteIndexlib.indexSite(argv, done);
+	siteIndexlib.indexSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -763,7 +885,10 @@ gulp.task('index-site', function (done) {
 gulp.task('create-site-map', function (done) {
 	'use strict';
 
-	siteMaplib.createSiteMap(argv, done);
+	siteMaplib.createSiteMap(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -773,7 +898,10 @@ gulp.task('create-site-map', function (done) {
 gulp.task('create-rss-feed', function (done) {
 	'use strict';
 
-	rsslib.createRSSFeed(argv, done);
+	rsslib.createRSSFeed(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -782,7 +910,10 @@ gulp.task('create-rss-feed', function (done) {
 gulp.task('create-asset-report', function (done) {
 	'use strict';
 
-	reportlib.createAssetReport(argv, done);
+	reportlib.createAssetReport(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 
@@ -792,7 +923,10 @@ gulp.task('create-asset-report', function (done) {
 gulp.task('create-repository', function (done) {
 	'use strict';
 
-	assetlib.createRepository(argv, done);
+	assetlib.createRepository(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -801,7 +935,10 @@ gulp.task('create-repository', function (done) {
 gulp.task('control-repository', function (done) {
 	'use strict';
 
-	assetlib.controlRepository(argv, done);
+	assetlib.controlRepository(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -810,7 +947,10 @@ gulp.task('control-repository', function (done) {
 gulp.task('share-repository', function (done) {
 	'use strict';
 
-	assetlib.shareRepository(argv, done);
+	assetlib.shareRepository(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -819,7 +959,10 @@ gulp.task('share-repository', function (done) {
 gulp.task('unshare-repository', function (done) {
 	'use strict';
 
-	assetlib.unShareRepository(argv, done);
+	assetlib.unShareRepository(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -828,7 +971,10 @@ gulp.task('unshare-repository', function (done) {
 gulp.task('share-type', function (done) {
 	'use strict';
 
-	assetlib.shareType(argv, done);
+	assetlib.shareType(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -837,7 +983,10 @@ gulp.task('share-type', function (done) {
 gulp.task('unshare-type', function (done) {
 	'use strict';
 
-	assetlib.unshareType(argv, done);
+	assetlib.unshareType(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -846,7 +995,10 @@ gulp.task('unshare-type', function (done) {
 gulp.task('create-channel', function (done) {
 	'use strict';
 
-	assetlib.createChannel(argv, done);
+	assetlib.createChannel(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -855,7 +1007,10 @@ gulp.task('create-channel', function (done) {
 gulp.task('create-localization-policy', function (done) {
 	'use strict';
 
-	assetlib.createLocalizationPolicy(argv, done);
+	assetlib.createLocalizationPolicy(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -864,7 +1019,10 @@ gulp.task('create-localization-policy', function (done) {
 gulp.task('download-translation-job', function (done) {
 	'use strict';
 
-	translationlib.downloadTranslationJob(argv, done);
+	translationlib.downloadTranslationJob(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -873,7 +1031,10 @@ gulp.task('download-translation-job', function (done) {
 gulp.task('upload-translation-job', function (done) {
 	'use strict';
 
-	translationlib.uploadTranslationJob(argv, done);
+	translationlib.uploadTranslationJob(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -882,7 +1043,10 @@ gulp.task('upload-translation-job', function (done) {
 gulp.task('list-translation-jobs', function (done) {
 	'use strict';
 
-	translationlib.listTranslationJobs(argv, done);
+	translationlib.listTranslationJobs(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -891,7 +1055,10 @@ gulp.task('list-translation-jobs', function (done) {
 gulp.task('create-translation-job', function (done) {
 	'use strict';
 
-	translationlib.createTranslationJob(argv, done);
+	translationlib.createTranslationJob(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -900,7 +1067,10 @@ gulp.task('create-translation-job', function (done) {
 gulp.task('submit-translation-job', function (done) {
 	'use strict';
 
-	translationlib.submitTranslationJob(argv, done);
+	translationlib.submitTranslationJob(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -909,7 +1079,10 @@ gulp.task('submit-translation-job', function (done) {
 gulp.task('ingest-translation-job', function (done) {
 	'use strict';
 
-	translationlib.ingestTranslationJob(argv, done);
+	translationlib.ingestTranslationJob(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 
@@ -919,7 +1092,10 @@ gulp.task('ingest-translation-job', function (done) {
 gulp.task('register-translation-connector', function (done) {
 	'use strict';
 
-	translationlib.registerTranslationConnector(argv, done);
+	translationlib.registerTranslationConnector(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -928,7 +1104,10 @@ gulp.task('register-translation-connector', function (done) {
 gulp.task('create-translation-connector', function (done) {
 	'use strict';
 
-	translationlib.createTranslationConnector(argv, done);
+	translationlib.createTranslationConnector(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -1065,7 +1244,10 @@ gulp.task('check-version', function (done) {
 gulp.task('create-encryption-key', function (done) {
 	'use strict';
 
-	resourcelib.createEncryptionKey(argv, done);
+	resourcelib.createEncryptionKey(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
@@ -1074,7 +1256,10 @@ gulp.task('create-encryption-key', function (done) {
 gulp.task('register-server', function (done) {
 	'use strict';
 
-	resourcelib.registerServer(argv, done);
+	resourcelib.registerServer(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**
