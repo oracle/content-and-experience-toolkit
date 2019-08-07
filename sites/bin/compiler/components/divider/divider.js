@@ -15,26 +15,34 @@
  * $Id: base-vm.js 167153 2019-01-25 21:29:15Z muralik $
  */
 var fs = require('fs'),
-	path = require('path'),
-	Base = require(path.normalize('../base/base'));
+    path = require('path'),
+    Base = require(path.normalize('../base/base'));
 
 
 var Divider = function (compId, compInstance) {
-	this.init('scs-divider', compId, compInstance);
+    this.init('scs-divider', compId, compInstance);
 };
 Divider.prototype = Object.create(Base.prototype);
 
 Divider.prototype.compile = function () {
+    // make sure we can compile
+    if (!this.canCompile) {
+        return Promise.resolve({
+            hydrate: true,
+            content: ''
+        });
+    }
+
     // extend the model with any divider specific values
     this.computedStyle = this.encodeCSS(this.computeStyle());
 
     // render the content
-	var content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'divider.html'), 'utf8'));
+    var content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'divider.html'), 'utf8'));
 
-	return Promise.resolve({
-		hydrate: false,
-		content: content
-	});
+    return Promise.resolve({
+        hydrate: false,
+        content: content
+    });
 };
 
 Divider.prototype.computeStyle = function () {

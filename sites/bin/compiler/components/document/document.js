@@ -29,6 +29,14 @@ Document.prototype = Object.create(Base.prototype);
 Document.prototype.compile = function () {
 	var self = this;
 
+	// make sure we can compile
+	if (!this.canCompile) {
+		return Promise.resolve({
+			hydrate: true,
+			content: ''
+		});
+	}
+
 	return new Promise(function (resolve, reject) {
 		// extend the model with any values specific to this component type
 		self.computedStyle = self.encodeCSS(self.computeStyle());
@@ -83,6 +91,10 @@ Document.prototype.compile = function () {
 			content: content
 		});
 	});
+};
+
+Document.prototype.hasVisualData = function () {
+	return (this.images.length > 0) && this.validateFilename(this.documentUrl);
 };
 
 Document.prototype.computeStyle = function () {

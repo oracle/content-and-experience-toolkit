@@ -25,6 +25,14 @@ var Title = function (compId, compInstance) {
 Title.prototype = Object.create(Base.prototype);
 
 Title.prototype.compile = function () {
+    // make sure we can compile
+    if (!this.canCompile) {
+        return Promise.resolve({
+            hydrate: true,
+            content: ''
+        });
+    }
+
     // extend the model with any contentsearch specific values
     this.subType = this.toolbarGroups ? 'scs-text' : '';
     this.wrapperTag = this.getWrapperTag();

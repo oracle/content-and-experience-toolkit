@@ -25,10 +25,18 @@ var Spacer = function (compId, compInstance) {
 Spacer.prototype = Object.create(Base.prototype);
 
 Spacer.prototype.compile = function () {
-    // extend the model with any divider specific values
-    this.computedStyle = this.encodeCSS(this.computeStyle());
+	// make sure we can compile
+	if (!this.canCompile) {
+		return Promise.resolve({
+			hydrate: true,
+			content: ''
+		});
+	}
 
-    // render the content
+	// extend the model with any divider specific values
+	this.computedStyle = this.encodeCSS(this.computeStyle());
+
+	// render the content
 	var content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'spacer.html'), 'utf8'));
 
 	return Promise.resolve({
@@ -38,12 +46,12 @@ Spacer.prototype.compile = function () {
 };
 
 Spacer.prototype.computeStyle = function () {
-    var viewModel = this,
-        computedStyle = '';
+	var viewModel = this,
+		computedStyle = '';
 
-    computedStyle += 'height:' + viewModel.getDimensionValue(viewModel.height) + ';';
+	computedStyle += 'height:' + viewModel.getDimensionValue(viewModel.height) + ';';
 
-    return computedStyle;
+	return computedStyle;
 };
 
 module.exports = Spacer;

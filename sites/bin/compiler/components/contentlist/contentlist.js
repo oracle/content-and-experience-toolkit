@@ -37,13 +37,21 @@ ContentList.prototype.compile = function (args) {
 		SCSCompileAPI = args.SCSCompileAPI,
 		content = '';
 
+	// make sure we can compile
+	if (!this.canCompile) {
+		return Promise.resolve({
+			hydrate: true,
+			content: ''
+		});
+	}
+
 	return new Promise(function (resolve, reject) {
 		// can't compile if it requires pagination or is a recommendation
 		if ((self.loadType === 'showPagination') || (self.isRecommendation)) {
 			console.log('Cannot compile content lists that leverage pagination or use recommendations.');
 			return resolve({
 				hydrate: true,
-				content: content
+				content: ''
 			});
 		}
 
@@ -53,7 +61,7 @@ ContentList.prototype.compile = function (args) {
 				// if no compiler exists for the content layout, then can't compile content list into the page
 				return resolve({
 					hydrate: true,
-					content: content
+					content: ''
 				});
 			}
 
@@ -85,7 +93,7 @@ ContentList.prototype.compile = function (args) {
 				console.log(e);
 				return resolve({
 					hydrate: true,
-					content: content
+					content: ''
 				});
 			});
 		});
@@ -153,6 +161,11 @@ ContentList.prototype.compileSectionLayout = function (args, contentItems) {
 		slInstance = self.createSectionLayoutInstance(args, contentItems);
 	self.sectionLayoutInstanceId = self.generateUUID();
 	sectionLayout = new SectionLayout(self.sectionLayoutInstanceId, slInstance, self.componentsFolder);
+
+	// if there are no content items, then nothing to render
+	if (contentItems.length === 0) {
+		return Promise.resolve('');
+	}
 
 	// compile the content items into the section layout
 	return sectionLayout.compile().then(function (compiledSectionLayout) {

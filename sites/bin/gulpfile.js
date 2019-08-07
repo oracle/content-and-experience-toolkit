@@ -508,7 +508,10 @@ gulp.task('create-template', function (done) {
 gulp.task('create-template-from-site', function (done) {
 	'use strict';
 
-	templatelib.createTemplateFromSite(argv, done);
+	templatelib.createTemplateFromSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**

@@ -25,6 +25,14 @@ var ContentSearch = function (compId, compInstance) {
 ContentSearch.prototype = Object.create(Base.prototype);
 
 ContentSearch.prototype.compile = function () {
+	// make sure we can compile
+	if (!this.canCompile) {
+		return Promise.resolve({
+			hydrate: true,
+			content: ''
+		});
+	}
+
 	// extend the model with any contentsearch specific values
 	this.searchId = 'scs-search-' + this.id;
 	this.queryString = ''; // need to get from URL so need some inline script tag

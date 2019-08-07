@@ -103,7 +103,32 @@ Base.prototype.init = function (compType, compId, compInstance) {
 	this.computeBorderStyle = this.encodeCSS(this.createBorderStyle(this));
 
 	// Determine if the component can be seen and so can be compiled
-	this.canCompile = this.visible && ((typeof this.visibleOnMobile !== 'boolean') || this.visibleOnMobile);
+	this.canCompile = this.computeVisibilty();
+};
+
+Base.prototype.validateFilename = function (filename) {
+	var compConfig = compReg.definitions[this.compType].config || [],
+		ext = filename ? filename.substr(filename.lastIndexOf('.') + 1).toLowerCase() : '';
+
+	return (!filename || compConfig.supportedFileExtensions.indexOf(ext) !== -1);
+};
+
+Base.prototype.computeVisibilty = function () {
+	var viewModel = this,
+		isVisible = viewModel.visible; // default to desktop visibility
+
+	// check if visible on mobile
+	if (isVisible && typeof viewModel.visibleOnMobile === 'boolean') {
+		// must be visible on both desktop and mobile
+		isVisible = viewModel.visibleOnMobile;
+	}
+
+	// now check it has necessary visual attributes to render
+	if (isVisible && typeof viewModel.hasVisualData === 'function') {
+		isVisible = viewModel.hasVisualData();
+	}
+
+	return isVisible;
 };
 
 Base.prototype.renderMustacheTemplate = function (template) {

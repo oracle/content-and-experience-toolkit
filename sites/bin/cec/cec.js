@@ -1236,7 +1236,9 @@ const downloadFolder = {
 		['cec download-folder Releases/1 -s UAT', 'Downloads folder Releases/1 from the registered server UAT and save to local folder src/documents/'],
 		['cec download-folder Releases/1 -f ~/Downloads', 'Downloads folder Releases/1 from CEC server and save to local folder ~/Download/'],
 		['cec download-folder Releases/1 -f .', 'Downloads folder Releases/1 from CEC server and save to the current local folder'],
-		['cec download-folder site:blog1 -f ~/Downloads/blog1Files', 'Downloads all files of site blog1 and save to local folder ~/Download/blog1Files']
+		['cec download-folder site:blog1 -f ~/Downloads/blog1Files', 'Downloads all files of site blog1 and save to local folder ~/Download/blog1Files'],
+		['cec download-folder theme:blog1Theme', 'Downloads all files of theme blog1Theme and save to local folder src/documents/blog1Theme/'],
+		['cec download-folder component:Comp1/assets', 'Downloads all files in folder assets of component Comp1 and save to local folder src/documents/Comp1/assets/']
 	]
 };
 
@@ -1258,7 +1260,9 @@ const uploadFolder = {
 		['cec upload-folder ~/Downloads/docs -f Mydoc', 'Uploads all content from ~/Downloads/docs to folder Mydoc/docs on the server'],
 		['cec upload-folder ~/Downloads/docs/ -f Mydoc', 'Uploads all content from ~/Downloads/docs to folder Mydoc on the server'],
 		['cec upload-folder ~/Downloads/docs -s UAT', 'Uploads all content from ~/Downloads/docs to folder docs on the registered server UAT'],
-		['cec upload-folder ~/Downloads/docs/ -f site:blog1/settings/misc', 'Uploads all content from ~/Downloads/docs to folder settings/misc of site blog1']
+		['cec upload-folder ~/Downloads/docs/ -f site:blog1/settings/misc', 'Uploads all content from ~/Downloads/docs to folder settings/misc of site blog1'],
+		['cec upload-folder ~/Downloads/docs -f theme:blog1Theme', 'Uploads all content from ~/Downloads/docs to folder docs of theme blog1Theme'],
+		['cec upload-folder ~/Downloads/docs -f component:Comp1', 'Uploads all content from ~/Downloads/docs to folder docs of component Comp1']
 	]
 };
 
@@ -1301,7 +1305,9 @@ const downloadFile = {
 		['cec download-file Releases/Projects.pdf -s UAT', 'Downloads the file from the registered server UAT and save to local folder src/documents/'],
 		['cec download-file Releases/Projects.pdf -f ~/Downloads', 'Downloads the file from CEC server and save to local folder ~/Download/'],
 		['cec download-file Releases/Projects.pdf -f .', 'Downloads the file from CEC server and save to the current local folder'],
-		['cec download-file site:blog1/siteinfo.json', 'Downloads the file from folder blog1 and save to local folder src/documents/'],
+		['cec download-file site:blog1/siteinfo.json', 'Downloads the file from folder blog1 and save to local folder src/documents/blog1'],
+		['cec download-file theme:blog1Theme/designs/default/design.css', 'Downloads the css file from folder designs/default of theme blog1Theme and save to local folder src/documents/blog1Theme/designs/default/'],
+		['cec download-file component:Comp1/assets/render.js', 'Downloads the js file from folder assets of component Comp1 and save to local folder src/documents/Comp1/assets/']
 	]
 };
 
@@ -2884,6 +2890,8 @@ const argv = yargs.usage(_usage)
 				.example(...downloadFolder.example[3])
 				.example(...downloadFolder.example[4])
 				.example(...downloadFolder.example[5])
+				.example(...downloadFolder.example[6])
+				.example(...downloadFolder.example[7])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2905,6 +2913,8 @@ const argv = yargs.usage(_usage)
 				.example(...uploadFolder.example[3])
 				.example(...uploadFolder.example[4])
 				.example(...uploadFolder.example[5])
+				.example(...uploadFolder.example[6])
+				.example(...uploadFolder.example[7])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2946,6 +2956,8 @@ const argv = yargs.usage(_usage)
 				.example(...downloadFile.example[2])
 				.example(...downloadFile.example[3])
 				.example(...downloadFile.example[4])
+				.example(...downloadFile.example[5])
+				.example(...downloadFile.example[6])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)

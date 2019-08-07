@@ -26,16 +26,23 @@ var Video = function (compId, compInstance) {
 Video.prototype = Object.create(Base.prototype);
 
 Video.prototype.compile = function () {
-    // extend the model with any divider specific values
-	this.computedStyle = this.computeBorderStyle; 
+	// make sure we can compile
+	if (!this.canCompile) {
+		return Promise.resolve({
+			hydrate: true,
+			content: ''
+		});
+	}
+
+	// extend the model with any divider specific values
+	this.computedStyle = this.computeBorderStyle;
 	this.computedContentStyle = this.computedWidthStyle;
 	this.computedHtml = this.computeHtml();
-	this.hasVisualData = this.videoUrl && this.isHybridLink(this.videoUrl) || this.validateFilename(this.videoUrl);
 
-    // render the content
-	var content = ''; 
-	
-	if (this.hasVisualData) {
+	// render the content
+	var content = '';
+
+	if (this.hasVisualData()) {
 		content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'video.html'), 'utf8'));
 	}
 
@@ -45,44 +52,47 @@ Video.prototype.compile = function () {
 	});
 };
 
-Video.prototype.computeStyle = function () {
-    return this.computeBorderStyle;
+Video.prototype.hasVisualData = function () {
+	return this.videoUrl && this.isHybridLink(this.videoUrl) || this.validateFilename(this.videoUrl);
 };
 
-Video.prototype.computeHtml = function() {
-	var viewModel = this;
+Video.prototype.computeStyle = function () {
+	return this.computeBorderStyle;
+};
 
-	var t = '<video width="100%" src="';
+Video.prototype.computeHtml = function () {
+		var viewModel = this;
 
-	// Note: links will be resolved in the compiler.js code
-	t += viewModel.videoUrl + '"';
+		var t = '<video width="100%" src="';
 
-	if (viewModel.controls === 'true') {
-		t += ' controls';
-	}
-	if (viewModel.loop === 'true') {
-		t += ' loop';
-	}
-	if (viewModel.muted === 'true') {
-		t += ' muted';
-	}
-	if (viewModel.autoplay === 'true') {
-		t += ' autoplay';
-	}
-
-	// add in the poster attribute
-	if (viewModel.posterUrl) {
 		// Note: links will be resolved in the compiler.js code
-		t += ' poster="' + viewModel.posterUrl + '"';
-	}
+		t += viewModel.videoUrl + '"';
 
-	// SCS-7506
-	t += ' controlsList="nodownload"';
+		if (viewModel.controls === 'true') {
+			t += ' controls';
+		}
+		if (viewModel.loop === 'true') {
+			t += ' loop';
+		}
+		if (viewModel.muted === 'true') {
+			t += ' muted';
+		}
+		if (viewModel.autoplay === 'true') {
+			t += ' autoplay';
+		}
 
-	t += '></video>';
+		// add in the poster attribute
+		if (viewModel.posterUrl) {
+			// Note: links will be resolved in the compiler.js code
+			t += ' poster="' + viewModel.posterUrl + '"';
+		}
 
-	return t;
-},
+		// SCS-7506
+		t += ' controlsList="nodownload"';
 
-module.exports = Video;
+		t += '></video>';
 
+		return t;
+	},
+
+	module.exports = Video;

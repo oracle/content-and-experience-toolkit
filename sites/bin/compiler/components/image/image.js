@@ -25,6 +25,14 @@ var Image = function (compId, compInstance) {
 Image.prototype = Object.create(Base.prototype);
 
 Image.prototype.compile = function () {
+	// make sure we can compile
+	if (!this.canCompile) {
+		return Promise.resolve({
+			hydrate: true,
+			content: ''
+		});
+	}
+
 	// extend the model with any divider specific values
 	this.imageId = 'scs-image-' + this.id;
 	this.computedStyle = this.encodeCSS(this.computeStyle());
@@ -63,6 +71,10 @@ Image.prototype.compile = function () {
 		hydrate: true,
 		content: content
 	});
+};
+
+Image.prototype.hasVisualData = function () {
+	return this.imageUrl && this.validateFilename(this.imageUrl) || this.contentId;
 };
 
 // compute CSS for image

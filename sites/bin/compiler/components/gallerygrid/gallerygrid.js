@@ -30,22 +30,29 @@ Gallerygrid.prototype = Object.create(Base.prototype);
 Gallerygrid.prototype.compile = function () {
 	var self = this;
 
-	return new Promise(function(resolve, reject) {
-		var render = function() {
-				// render the content
-				var content = ''; 
-				
-				content = self.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'gallerygrid.html'), 'utf8'));
+	// make sure we can compile
+	if (!this.canCompile) {
+		return Promise.resolve({
+			hydrate: true,
+			content: ''
+		});
+	}
 
-				resolve({
-					hydrate: true,
-					content: content
-				});
-			};
+	return new Promise(function (resolve, reject) {
+		var render = function () {
+			// render the content
+			var content = '';
+
+			content = self.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'gallerygrid.html'), 'utf8'));
+
+			resolve({
+				hydrate: true,
+				content: content
+			});
+		};
 
 		// extend the model with any values specific to this component type
 		self.gridId = self.id + 'grid';
-		self.hasVisualData = self.images.length > 0;
 		self.galleryClass = self.computeGalleryClass();
 		self.galleryStyle = self.computeGalleryStyle();
 		self.galleryImageStyle = self.computeGalleryImageStyle();
@@ -54,20 +61,24 @@ Gallerygrid.prototype.compile = function () {
 
 		self.computedContentStyle = self.encodeCSS(self.computeContentStyle());
 
-		self.computeImages().then(function(images) {
+		self.computeImages().then(function (images) {
 			self.galleryImages = images;
 			render();
-		}, function() {
+		}, function () {
 			self.galleryImages = '';
 			render();
 		});
 	});
 };
 
+Gallerygrid.prototype.hasVisualData = function () {
+	return this.images.length > 0;
+};
+
 Gallerygrid.prototype.computeContentStyle = function () {
 	var viewModel = this;
 	var computedWidthStyle;
-	var imageSpacing = viewModel.hasVisualData ? viewModel.imageSpacing : 0;
+	var imageSpacing = viewModel.hasVisualData() ? viewModel.imageSpacing : 0;
 
 	if (viewModel.hasOwnProperty('alignment') && viewModel.alignment === constants.constants.ALIGNMENT_FILL) {
 		computedWidthStyle = 'width:calc(100% + ' + imageSpacing + 'px);';
@@ -92,13 +103,13 @@ Gallerygrid.prototype.computeContentStyle = function () {
 Gallerygrid.prototype.computeImages = function () {
 	var viewModel = this;
 
-	return new Promise(function(resolve, reject) {
+	return new Promise(function (resolve, reject) {
 		var imageContent = '';
 		var imagePromises = [];
 
 		viewModel.images.map(function (image) {
 
-			var imageObj =  {
+			var imageObj = {
 				id: image.id,
 				type: 'scs-image',
 				renderMode: viewModel.renderMode,
@@ -140,12 +151,12 @@ Gallerygrid.prototype.computeImages = function () {
 			imagePromises.push(imageComp.compile());
 		});
 
-		Promise.all(imagePromises).then(function(responses) {
-			responses.map(function(compiledImage) {
+		Promise.all(imagePromises).then(function (responses) {
+			responses.map(function (compiledImage) {
 				imageContent += compiledImage.content;
 			});
 			resolve(imageContent);
-		}).catch(function(error) {
+		}).catch(function (error) {
 			console.log('computeImages failed', error);
 			reject(error);
 		});

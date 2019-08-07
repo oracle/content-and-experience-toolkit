@@ -201,7 +201,7 @@ module.exports.uploadFile = function (argv, done) {
 			var rootParentId = 'self';
 			if (resourceFolder) {
 				var resourceGUID;
-				if (results.length > 0  && results[0]) {
+				if (results.length > 0 && results[0]) {
 					if (resourceType === 'site') {
 						resourceGUID = results[0].siteGUID;
 					} else if (resourceType === 'theme') {
@@ -210,7 +210,7 @@ module.exports.uploadFile = function (argv, done) {
 						resourceGUID = results[0].compGUID;
 					}
 				}
-				
+
 				if (!resourceGUID) {
 					console.log('ERROR: invalid ' + resourceType + ' ' + resourceName);
 					return Promise.reject();
@@ -326,20 +326,34 @@ module.exports.downloadFile = function (argv, done) {
 	}
 
 	var folderPathStr = filePath.indexOf('/') >= 0 ? filePath.substring(0, filePath.lastIndexOf('/')) : '';
-	var siteFolder = false;
-	var siteName;
-	if (folderPathStr && folderPathStr.indexOf('site:') === 0) {
-		siteFolder = true;
-		folderPathStr = folderPathStr.substring(5);
+	var resourceFolder = false;
+	var resourceName;
+	var resourceType;
+	var resourceLabel;
+	if (folderPathStr && (folderPathStr.indexOf('site:') === 0 || folderPathStr.indexOf('theme:') === 0 || folderPathStr.indexOf('component:') === 0)) {
+		resourceFolder = true;
+		if (folderPathStr.indexOf('site:') === 0) {
+			folderPathStr = folderPathStr.substring(5);
+			resourceType = 'site';
+			resourceLabel = 'Sites';
+		} else if (folderPathStr.indexOf('theme:') === 0) {
+			folderPathStr = folderPathStr.substring(6);
+			resourceType = 'theme';
+			resourceLabel = 'Themes';
+		} else {
+			folderPathStr = folderPathStr.substring(10);
+			resourceType = 'component';
+			resourceLabel = 'Components';
+		}
 		if (folderPathStr.indexOf('/') > 0) {
-			siteName = folderPathStr.substring(0, folderPathStr.indexOf('/'));
+			resourceName = folderPathStr.substring(0, folderPathStr.indexOf('/'));
 			folderPathStr = folderPathStr.substring(folderPathStr.indexOf('/') + 1);
 		} else {
-			siteName = folderPathStr;
+			resourceName = folderPathStr;
 			folderPathStr = '';
 		}
 	}
-	// console.log('argv.file=' + argv.file + ' folderPathStr=' + folderPathStr + ' siteName=' + siteName);
+	console.log('argv.file=' + argv.file + ' folderPathStr=' + folderPathStr + ' resourceName=' + resourceName);
 
 	var folderPath = folderPathStr.split('/');
 	var folderId;
@@ -366,20 +380,36 @@ module.exports.downloadFile = function (argv, done) {
 		}
 	}
 
-	var sitePromises = [];
-	if (siteFolder) {
-		sitePromises.push(serverUtils.getSiteFolder(projectDir, siteName, serverName));
+	var resourcePromises = [];
+	if (resourceFolder) {
+		if (resourceType === 'site') {
+			resourcePromises.push(serverUtils.getSiteFolder(projectDir, resourceName, serverName));
+		} else if (resourceType === 'theme') {
+			resourcePromises.push(_getThemeGUID(server, resourceName));
+		} else {
+			resourcePromises.push(_getComponentGUID(server, resourceName));
+		}
 	}
 
-	Promise.all(sitePromises).then(function (results) {
+	Promise.all(resourcePromises).then(function (results) {
 			var rootParentId = 'self';
-			if (siteFolder) {
-				var siteGUID = results.length > 0 ? results[0].siteGUID : undefined;
-				if (!siteGUID) {
-					console.log('ERROR: invalid site ' + siteName);
+			if (resourceFolder) {
+				var resourceGUID;
+				if (results.length > 0 && results[0]) {
+					if (resourceType === 'site') {
+						resourceGUID = results[0].siteGUID;
+					} else if (resourceType === 'theme') {
+						resourceGUID = results[0].themeGUID;
+					} else {
+						resourceGUID = results[0].compGUID;
+					}
+				}
+
+				if (!resourceGUID) {
+					console.log('ERROR: invalid ' + resourceType + ' ' + resourceName);
 					return Promise.reject();
 				}
-				rootParentId = siteGUID;
+				rootParentId = resourceGUID;
 			}
 			return _findFolder(serverName, rootParentId, folderPath);
 		}).then(function (result) {
@@ -387,7 +417,7 @@ module.exports.downloadFile = function (argv, done) {
 				return Promise.reject();
 			}
 
-			if (siteFolder && !result.id || !siteFolder && result.id !== 'self' && (!result.type || result.type !== 'folder')) {
+			if (resourceFolder && !result.id || !resourceFolder && result.id !== 'self' && (!result.type || result.type !== 'folder')) {
 				console.log('ERROR: invalid folder ' + folderPathStr);
 				return Promise.reject();
 			}
@@ -417,6 +447,12 @@ module.exports.downloadFile = function (argv, done) {
 
 			if (!argv.folder) {
 				targetPath = documentsSrcDir;
+				if (resourceFolder) {
+					targetPath = path.join(documentsSrcDir, resourceName);
+					if (!fs.existsSync(targetPath)) {
+						fse.mkdirSync(targetPath);
+					}
+				}
 				for (var i = 0; i < folderPath.length; i++) {
 					targetPath = path.join(targetPath, folderPath[i]);
 					if (!fs.existsSync(targetPath)) {
@@ -809,16 +845,30 @@ module.exports.downloadFolder = function (argv, done) {
 	}
 
 	var inputPath = argv.path === '/' ? '' : serverUtils.trimString(argv.path, '/');
-	var siteFolder = false;
-	var siteName;
-	if (inputPath && inputPath.indexOf('site:') === 0) {
-		siteFolder = true;
-		inputPath = inputPath.substring(5);
+	var resourceFolder = false;
+	var resourceName;
+	var resourceType;
+	var resourceLabel;
+	if (inputPath && (inputPath.indexOf('site:') === 0 || inputPath.indexOf('theme:') === 0 || inputPath.indexOf('component:') === 0)) {
+		resourceFolder = true;
+		if (inputPath.indexOf('site:') === 0) {
+			inputPath = inputPath.substring(5);
+			resourceType = 'site';
+			resourceLabel = 'Sites';
+		} else if (inputPath.indexOf('theme:') === 0) {
+			inputPath = inputPath.substring(6);
+			resourceType = 'theme';
+			resourceLabel = 'Themes';
+		} else {
+			inputPath = inputPath.substring(10);
+			resourceType = 'component';
+			resourceLabel = 'Components';
+		}
 		if (inputPath.indexOf('/') > 0) {
-			siteName = inputPath.substring(0, inputPath.indexOf('/'));
+			resourceName = inputPath.substring(0, inputPath.indexOf('/'));
 			inputPath = inputPath.substring(inputPath.indexOf('/') + 1);
 		} else {
-			siteName = inputPath;
+			resourceName = inputPath;
 			inputPath = '';
 		}
 	}
@@ -830,20 +880,36 @@ module.exports.downloadFolder = function (argv, done) {
 
 	_files = [];
 
-	var sitePromises = [];
-	if (siteFolder) {
-		sitePromises.push(serverUtils.getSiteFolder(projectDir, siteName, serverName));
+	var resourcePromises = [];
+	if (resourceFolder) {
+		if (resourceType === 'site') {
+			resourcePromises.push(serverUtils.getSiteFolder(projectDir, resourceName, serverName));
+		} else if (resourceType === 'theme') {
+			resourcePromises.push(_getThemeGUID(server, resourceName));
+		} else {
+			resourcePromises.push(_getComponentGUID(server, resourceName));
+		}
 	}
 
-	Promise.all(sitePromises).then(function (results) {
+	Promise.all(resourcePromises).then(function (results) {
 			var rootParentId = 'self';
-			if (siteFolder) {
-				var siteGUID = results.length > 0 ? results[0].siteGUID : undefined;
-				if (!siteGUID) {
-					console.log('ERROR: invalid site ' + siteName);
+			if (resourceFolder) {
+				var resourceGUID;
+				if (results.length > 0 && results[0]) {
+					if (resourceType === 'site') {
+						resourceGUID = results[0].siteGUID;
+					} else if (resourceType === 'theme') {
+						resourceGUID = results[0].themeGUID;
+					} else {
+						resourceGUID = results[0].compGUID;
+					}
+				}
+
+				if (!resourceGUID) {
+					console.log('ERROR: invalid ' + resourceType + ' ' + resourceName);
 					return Promise.reject();
 				}
-				rootParentId = siteGUID;
+				rootParentId = resourceGUID;
 			}
 
 			return _findFolder(serverName, rootParentId, folderPath);
@@ -853,7 +919,7 @@ module.exports.downloadFolder = function (argv, done) {
 				return Promise.reject();
 			}
 
-			if (siteFolder && !result.id || !siteFolder && result.id !== 'self' && (!result.type || result.type !== 'folder')) {
+			if (resourceFolder && !result.id || !resourceFolder && result.id !== 'self' && (!result.type || result.type !== 'folder')) {
 				console.log('ERROR: invalid folder ' + argv.folder);
 				return Promise.reject();
 			}
@@ -873,6 +939,12 @@ module.exports.downloadFolder = function (argv, done) {
 
 			if (!argv.folder) {
 				targetPath = documentsSrcDir;
+				if (resourceFolder) {
+					targetPath = path.join(documentsSrcDir, resourceName);
+					if (!fs.existsSync(targetPath)) {
+						fse.mkdirSync(targetPath);
+					}
+				}
 				for (var i = 0; i < folderPath.length; i++) {
 					targetPath = path.join(targetPath, folderPath[i]);
 					if (!fs.existsSync(targetPath)) {
@@ -986,16 +1058,30 @@ module.exports.uploadFolder = function (argv, done) {
 	// console.log(' - path=' + argv.path + ' srcPath=' + srcPath + ' contentOnly=' + contentOnly + ' folderName=' + folderName);
 
 	var inputPath = argv.folder === '/' ? '' : serverUtils.trimString(argv.folder, '/');
-	var siteFolder = false;
-	var siteName;
-	if (inputPath && inputPath.indexOf('site:') === 0) {
-		siteFolder = true;
-		inputPath = inputPath.substring(5);
+	var resourceFolder = false;
+	var resourceName;
+	var resourceType;
+	var resourceLabel;
+	if (inputPath && (inputPath.indexOf('site:') === 0 || inputPath.indexOf('theme:') === 0 || inputPath.indexOf('component:') === 0)) {
+		resourceFolder = true;
+		if (inputPath.indexOf('site:') === 0) {
+			inputPath = inputPath.substring(5);
+			resourceType = 'site';
+			resourceLabel = 'Sites';
+		} else if (inputPath.indexOf('theme:') === 0) {
+			inputPath = inputPath.substring(6);
+			resourceType = 'theme';
+			resourceLabel = 'Themes';
+		} else {
+			inputPath = inputPath.substring(10);
+			resourceType = 'component';
+			resourceLabel = 'Components';
+		}
 		if (inputPath.indexOf('/') > 0) {
-			siteName = inputPath.substring(0, inputPath.indexOf('/'));
+			resourceName = inputPath.substring(0, inputPath.indexOf('/'));
 			inputPath = inputPath.substring(inputPath.indexOf('/') + 1);
 		} else {
-			siteName = inputPath;
+			resourceName = inputPath;
 			inputPath = '';
 		}
 	}
@@ -1004,7 +1090,7 @@ module.exports.uploadFolder = function (argv, done) {
 	if (folderName) {
 		folderPath.push(folderName);
 	}
-	console.log(' - target folder: ' + (siteFolder ? 'Sites > ' + siteName : 'Documents') + ' > ' + folderPath.join(' > '));
+	console.log(' - target folder: ' + (resourceFolder ? (resourceLabel + ' > ' + resourceName) : 'Documents') + ' > ' + folderPath.join(' > '));
 
 	// get all files to upload
 	var folderContent = [];
@@ -1036,20 +1122,36 @@ module.exports.uploadFolder = function (argv, done) {
 			}
 			// console.log(folderContent);
 
-			var sitePromises = [];
-			if (siteFolder) {
-				sitePromises.push(serverUtils.getSiteFolder(projectDir, siteName, serverName));
+			var resourcePromises = [];
+			if (resourceFolder) {
+				if (resourceType === 'site') {
+					resourcePromises.push(serverUtils.getSiteFolder(projectDir, resourceName, serverName));
+				} else if (resourceType === 'theme') {
+					resourcePromises.push(_getThemeGUID(server, resourceName));
+				} else {
+					resourcePromises.push(_getComponentGUID(server, resourceName));
+				}
 			}
 
-			Promise.all(sitePromises).then(function (results) {
+			Promise.all(resourcePromises).then(function (results) {
 					var rootParentId = 'self';
-					if (siteFolder) {
-						var siteGUID = results.length > 0 ? results[0].siteGUID : undefined;
-						if (!siteGUID) {
-							console.log('ERROR: invalid site ' + siteName);
+					if (resourceFolder) {
+						var resourceGUID;
+						if (results.length > 0 && results[0]) {
+							if (resourceType === 'site') {
+								resourceGUID = results[0].siteGUID;
+							} else if (resourceType === 'theme') {
+								resourceGUID = results[0].themeGUID;
+							} else {
+								resourceGUID = results[0].compGUID;
+							}
+						}
+		
+						if (!resourceGUID) {
+							console.log('ERROR: invalid ' + resourceType + ' ' + resourceName);
 							return Promise.reject();
 						}
-						rootParentId = siteGUID;
+						rootParentId = resourceGUID;
 					}
 					return _createFolderUploadFiles(serverName, rootParentId, folderPath, folderContent);
 				})

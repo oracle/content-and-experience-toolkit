@@ -31,6 +31,14 @@ Gallery.prototype = Object.create(Base.prototype);
 Gallery.prototype.compile = function () {
 	var self = this;
 
+	// make sure we can compile
+	if (!this.canCompile) {
+		return Promise.resolve({
+			hydrate: true,
+			content: ''
+		});
+	}
+
 	return new Promise(function (resolve, reject) {
 		// extend the model with any values specific to this component type
 		self.computedStyle = self.encodeCSS(self.computeStyle());
@@ -61,6 +69,10 @@ Gallery.prototype.compile = function () {
 			content: content
 		});
 	});
+};
+
+Gallery.prototype.hasVisualData = function () {
+	return this.images.length > 0;
 };
 
 Gallery.prototype.computeStyle = function () {

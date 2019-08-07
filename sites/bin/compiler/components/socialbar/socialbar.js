@@ -35,12 +35,14 @@ Socialbar.prototype.compile = function () {
 	this.computedStyle = this.encodeCSS(this.computeStyle());
 	this.computedContentStyle = this.encodeCSS(this.computeContentStyle());
 	this.computedImages = this.computeImages();
-	this.hasVisualData = this.computedImages.length > 0;
+	this.hasVisualData = function () { 
+		return this.computedImages.length > 0; 
+	};
 
     // render the content
 	var content = ''; 
 	
-	if (this.hasVisualData) {
+	if (this.hasVisualData()) {
 		content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'socialbar.html'), 'utf8'));
 	}
 

@@ -164,8 +164,15 @@ Component.prototype.compileComponent = function (args) {
 	var viewModel = this,
 		isSeeded = false;
 
-	return new Promise(function (resolve, reject) {
+	// make sure we can compile
+	if (!this.canCompile) {
+		return Promise.resolve({
+			hydrate: true,
+			content: ''
+		});
+	}
 
+	return new Promise(function (resolve, reject) {
 		//
 		// compile in the referenced component
 		//
@@ -237,7 +244,7 @@ Component.prototype.compileComponent = function (args) {
 							}
 						});
 					} else {
-						var message; 
+						var message;
 						if (viewModel.custComp === 'scs-contentitem') {
 							message = 'failed to compile content item with layout that maps to category: ' + viewModel.contentLayoutCategory;
 						} else {

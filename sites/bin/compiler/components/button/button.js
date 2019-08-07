@@ -25,6 +25,14 @@ var Button = function (compId, compInstance) {
 Button.prototype = Object.create(Base.prototype);
 
 Button.prototype.compile = function () {
+	// make sure we can compile
+	if (!this.canCompile) {
+		return Promise.resolve({
+			hydrate: true,
+			content: ''
+		});
+	}
+
 	// extend the model with any component specific values
 	this.computedStyle = this.encodeCSS(this.computeStyle());
 	this.computedContentStyle = this.encodeCSS(this.computeContentStyle());
@@ -69,6 +77,11 @@ Button.prototype.compile = function () {
 		hydrate: true,
 		content: content
 	});
+};
+
+Button.prototype.hasVisualData = function () {
+	// has visual attributes if has button text
+	return !!(this.text);
 };
 
 var nbspChar = String.fromCharCode(65279);
