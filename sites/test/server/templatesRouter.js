@@ -35,7 +35,8 @@ var _setupSourceDir = function () {
 //
 router.get('/*', (req, res) => {
 	let app = req.app,
-		request = app.locals.request;
+		request = app.locals.request,
+		contentType;
 
 	_setupSourceDir();
 
@@ -145,9 +146,38 @@ router.get('/*', (req, res) => {
 		return;
 
 	} else {
-		filePath = path.resolve(templatesDir + '/' + filePathSuffix);
-		if (!existsAndIsFile(filePath)) {
-			filePath = path.resolve(templatesDir + '/' + tempName + '/controller.html');
+		// if the file exists under settings/misc, return it first
+		var urlBits = filePathSuffix.split('/'),
+			templateName = urlBits.shift(),
+			pageURL = urlBits.join('/'),
+			sitePage;
+		filePath = path.resolve(templatesDir + '/' + templateName + '/settings/misc/' + pageURL);
+		if (existsAndIsFile(filePath)) {
+			// it may be a page, see if we can match it with the structure.json
+			var structurePath = path.join(templatesDir, templateName, 'structure.json');
+			try {
+				var siteStructure = JSON.parse(fs.readFileSync(structurePath, 'utf8'));
+
+				sitePage = (siteStructure.pages || []).find(function (page) {
+					return page.pageUrl === pageURL;
+				});
+
+				if (sitePage) {
+					// set the mime-type - may be required if can't be derived from file extension (e.g.: page file doesn't have an extension)
+					contentType = 'text/html';
+				} else {}
+			} catch (e) {
+				console.log(' - misc file: ' + filePathSuffix + ' failed to load and parse structure.json: ' + structurePath);
+			}
+		}
+
+		if (!sitePage) {
+			// not a page, try to access it directly
+			filePath = path.resolve(templatesDir + '/' + filePathSuffix);
+			if (!existsAndIsFile(filePath)) {
+				// can't find it, return the controller
+				filePath = path.resolve(templatesDir + '/' + tempName + '/controller.html');
+			}
 		}
 	}
 	console.log(' - filePath=' + filePath);
@@ -293,6 +323,9 @@ router.get('/*', (req, res) => {
 				res.end();
 			}
 		} else {
+			if (contentType) {
+				res.setHeader("Content-Type", contentType);
+			}
 			res.sendFile(filePath);
 		}
 	} else {

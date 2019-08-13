@@ -478,13 +478,20 @@ const compileTemplate = {
 	usage: {
 		'short': 'Compiles the site within the template.',
 		'long': (function () {
-			let desc = 'Compiles all the pages within the site of the template and places the compiled pages under the sites assets folder';
+			let desc = 'Compiles all the pages within the site of the template and places the compiled pages under the sites assets folder.\n' +
+				'Optionally specify -s <server> to make content queries against this server (requires channelToken).\n' +
+				'Optionally specify -c <channelToken> to use this channelToken when generating any content URLs.\n' +
+				'Optionally specify -t <contentType> [draft | published] content to retrieve from the server type, defaults to published.\n' +
+				'Optionally specify -p <pages> the set of pages to compile.\n' +
+				'Optionally specify -r recurse through all child pages of specified pages.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec compile-template Temp1', 'Compiles the site in template Temp1.'],
-		['cec compile-template Temp1 -c channelToken', 'Compiles the site in template Temp1 using the given channelToken for any content URLs.']
+		['cec compile-template Temp1', 'Compiles the site in template Temp1 using content stored in the template.'],
+		['cec compile-template Temp1 -c channelToken', 'Compiles the site in template Temp1 using the given channelToken for any content URLs.'],
+		['cec compile-template Temp1 -c channelToken -s UAT -t draft', 'Compiles the site in template Temp1 retrieving draft content from the specified server.'],
+		['cec compile-template Temp1 -p 104,112,183 -r', 'Compiles the specified pages in the site in template Temp1 including all child pages.'],
 	]
 };
 
@@ -730,6 +737,41 @@ const controlSite = {
 		['cec control-site unpublish -s Site1 -r UAT', 'Unpublish site Site1 on the registered server UAT'],
 		['cec control-site bring-online -s Site1 -r UAT', 'Bring site Site1 online on the registered server UAT'],
 		['cec control-site take-offline -s Site1 -r UAT', 'Take site Site1 offline on the registered server UAT']
+	]
+};
+
+const shareSite = {
+	command: 'share-site <name>',
+	alias: 'ss',
+	name: 'share-site',
+	usage: {
+		'short': 'Share site with users on CEC server.',
+		'long': (function () {
+			let desc = 'Share site with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'The valid roles are\n\n';
+			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec share-site Site1 -u user1,user2 -r manager', 'Share site Site1 with user user1 and user2 and assign Manager role to them'],
+		['cec share-site Site1 -u user1,user2 -r manager -s UAT', 'Share site Site1 with user user1 and user2 and assign Manager role to them on the registered server UAT']
+	]
+};
+
+const unshareSite = {
+	command: 'unshare-site <name>',
+	alias: 'uss',
+	name: 'unshare-site',
+	usage: {
+		'short': 'Delete the user\'s access to a site on CEC server.',
+		'long': (function () {
+			let desc = 'Delete the user\'s access to a site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec unshare-site Site1 -u user1,user2'],
+		['cec unshare-site Site1 -u user1,user2 -s UAT']
 	]
 };
 
@@ -1393,7 +1435,7 @@ const develop = {
 
 const syncServer = {
 	command: 'sync-server',
-	alias: 'ss',
+	alias: 'scs',
 	name: 'sync-server',
 	usage: {
 		'short': 'Starts a sync server.',
@@ -1477,6 +1519,8 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(updateSite) + os.EOL +
 	_getCmdHelp(validateSite) + os.EOL +
 	_getCmdHelp(controlSite) + os.EOL +
+	_getCmdHelp(shareSite) + os.EOL +
+	_getCmdHelp(unshareSite) + os.EOL +
 	_getCmdHelp(indexSite) + os.EOL +
 	_getCmdHelp(createSiteMap) + os.EOL +
 	_getCmdHelp(createRSSFeed) + os.EOL +
@@ -1775,12 +1819,40 @@ const argv = yargs.usage(_usage)
 		})
 	.command([compileTemplate.command, compileTemplate.alias], false,
 		(yargs) => {
-			yargs.option('channelToken', {
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				}).option('channelToken', {
 					alias: 'c',
 					description: '<channelToken> The channel access token to use for content URLs'
 				})
+				.option('type', {
+					alias: 't',
+					description: 'The type of content to retrieve from the serve [published | draft]'
+				})
+				.option('pages', {
+					alias: 'p',
+					description: 'The list of pages to compile'
+				})
+				.option('recurse', {
+					alias: 'r',
+					description: 'Compile all child pages of those specifed in the page list'
+				})
+				.check((argv) => {
+					if (argv.type && argv.type !== 'draft' && argv.type !== 'published') {
+						throw new Error(`${argv.type} is a not a valid value for <type>`);
+					} else if (argv.server && !argv.channelToken) {
+						throw new Error(`Specifying calls to <server>: ${argv.server} for content queries also requires <channelToken> to also be specified.`);
+					} else if (argv.type && argv.type !== 'published' && !argv.server) {
+						throw new Error(`<type>: '${argv.type}' not supported without <server> parameter`);
+					} else {
+						return true;
+					}
+				})
 				.example(...compileTemplate.example[0])
 				.example(...compileTemplate.example[1])
+				.example(...compileTemplate.example[2])
+				.example(...compileTemplate.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2167,6 +2239,54 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${controlSite.command}\n\n${controlSite.usage.long}`);
+		})
+	.command([shareSite.command, shareSite.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names',
+					demandOption: true
+				})
+				.option('role', {
+					alias: 'r',
+					description: 'The role [' + getFolderRoles().join(' | ') + '] to assign to the users',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.check((argv) => {
+					if (argv.role && !getFolderRoles().includes(argv.role)) {
+						throw new Error(`${argv.role} is a not a valid value for <role>`);
+					} else {
+						return true;
+					}
+				})
+				.example(...shareSite.example[0])
+				.example(...shareSite.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${shareSite.command}\n\n${shareSite.usage.long}`);
+		})
+	.command([unshareSite.command, unshareSite.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...unshareSite.example[0])
+				.example(...unshareSite.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${unshareSite.command}\n\n${unshareSite.usage.long}`);
 		})
 	.command([updateSite.command, updateSite.alias], false,
 		(yargs) => {
@@ -3454,11 +3574,23 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--source', argv.source
 	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		compileTemplateArgs.push(...['--server', argv.server]);
+	}
 	if (argv.destination) {
 		compileTemplateArgs.push(...['--name', argv.destination]);
 	}
+	if (argv.type) {
+		compileTemplateArgs.push(...['--type', argv.type]);
+	}
 	if (argv.channelToken) {
 		compileTemplateArgs.push(...['--channelToken', argv.channelToken]);
+	}
+	if (argv.pages) {
+		compileTemplateArgs.push(...['--pages', argv.pages]);
+	}
+	if (argv.recurse) {
+		compileTemplateArgs.push(...['--recurse', argv.recurse]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, compileTemplateArgs, {
 		cwd,
@@ -3708,6 +3840,37 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		controlSiteArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, controlSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === shareSite.name || argv._[0] === shareSite.alias) {
+	let shareSiteArgs = ['run', '-s', shareSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--users', argv.users,
+		'--role', argv.role
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		shareSiteArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, shareSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === unshareSite.name || argv._[0] === unshareSite.alias) {
+	let unshareSiteArgs = ['run', '-s', unshareSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--users', argv.users
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		unshareSiteArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, unshareSiteArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

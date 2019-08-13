@@ -51,7 +51,9 @@ var siteFolder, // Z:/sitespublish/SiteC/
 	outputURL, // http://server:port/{path to output folder}
 	logLevel = "log",
 	sitesCloudCDN = '', // 'https://cdn.cec.oraclecorp.com/cdn/cec/v19.3.2.31';
-	channelAccessToken = ''; // channel access token for the site
+	channelAccessToken = '', // channel access token for the site
+	defaultContentType, // type of content to fetch ['draft' | 'published'] if querying from server
+	server; // server to use for any content calls
 
 // Global Variables
 var layoutInfoRE = /<!--\s*SCS Layout Information:\s*(\{[\s\S]*?\})\s*-->/;
@@ -422,6 +424,16 @@ function resolveLinks(pageModel, context, sitePrefix) {
 		var format = (params.length > 2) ? params[2].trim() : '';
 		var separator = (caasCacheKey || channelToken) ? '&' : '?';
 
+		// handle case of "<id>,<rendition>~<format>"
+		if (renditionId && !format) {
+			var options = renditionId.split('~');
+
+			if (options.length > 1) {
+				renditionId = options[0];
+				format = options[1];
+			}
+		}
+
 		var url = (renditionId && format) ?
 			(contentId + '/' + renditionId + caasCacheKey + channelToken + separator + 'format=' + format) :
 			(contentId + '/native' + caasCacheKey + channelToken);
@@ -695,6 +707,55 @@ var compiler = {
 			structureMap: self.structureMap,
 			siteInfo: self.siteInfo,
 			channelAccessToken: channelAccessToken,
+			getContentClient: function (type) {
+				var contentType = type === 'published' ? 'published' : defaultContentType, 
+					contentSDK = require('../../test/server/npm/contentSDK.js'),
+					beforeSend = function () {
+						return true;
+					};
+
+				// get/create the content client cache
+				self.contentClients = self.contentClients || {}; 
+
+				// create the content client if it doesn't exist in the cache
+				if (!self.contentClients[type]) {
+					var serverURL,
+						authorization = '';
+
+					if (server && server.username && server.password) {
+						// use the configured server
+						serverURL = server.url;
+
+						if (server.username && server.password) {
+							authorization = 'Basic ' + Buffer.from(server.username + ':' + server.password).toString('base64');
+						}
+						// set the header
+						beforeSend = function (options) {
+							options.headers = options.headers || {};
+							options.headers.authorization = authorization;
+						};
+					} else if (process.env.CEC_TOOLKIT_SERVER) {
+						// no server, use the local server
+						serverURL = 'http://' + process.env.CEC_TOOLKIT_SERVER + ':' + (process.env.CEC_TOOLKIT_PORT || '8085');
+						contentType = 'published'; // only support published URLs on local server
+					} else {
+						// no server available, default
+						serverURL = 'http://localhost:8085';
+						contentType = 'published'; // only support published URLs on local server
+					}
+
+					self.contentClients[type] = contentSDK.createPreviewClient({
+							contentServer: serverURL,
+							authorization: authorization,
+							contentType: contentType,
+							beforeSend: beforeSend,
+							contentVersion: 'v1.1',
+							channelToken: channelAccessToken || '',
+							isCompiler: true
+					});
+				} 
+				return self.contentClients[type];
+			},
 			getComponentInstanceData: function (instanceId) {
 				return self.pageModel.componentInstances[instanceId];
 			},
@@ -1746,16 +1807,63 @@ function copyComponentsDeliveryDirectory() {
 	}
 }
 
+function getPagesToCompile (context, pages, recurse) {
+	var pagesToCompile = context.structure.pages,
+		pageIds = pages ? pages.toString().split(',') : [];
+
+	var findPages = function (pageId) {
+		var pages = []; 
+
+		// get the requested page
+		var page = context.structure.pages.find(function (entry) {
+			return entry.id.toString() === pageId.toString();
+		});
+		if (page) {
+			pages.push(page);
+
+			if (recurse) {
+				// find all child pages
+				page.children.forEach(function (childPage) {
+					pages = pages.concat(findPages(childPage));
+				});
+			}
+		} else {
+			console.log('Failed to find page: ' + pageId + '. Page will not be compiled');
+		}
+
+		return pages;
+	};
+
+	if (pageIds.length > 0) {
+		var requestedPages = []; 
+
+		pageIds.forEach(function (pageId) {
+			requestedPages = requestedPages.concat(findPages(pageId));
+		});
+
+		pagesToCompile = requestedPages;
+		if (requestedPages.length === 0) {
+			console.log('Failed to find any specified pages. Nothing to compile');
+		} 
+	}
+
+	return pagesToCompile;
+}
+
 var compileSite = function (args) {
 	siteFolder = args.siteFolder;
 	themesFolder = args.themesFolder;
 	componentsFolder = args.componentsFolder;
 	sitesCloudRuntimeFolder = args.sitesCloudRuntimeFolder;
 	outputFolder = args.outputFolder;
+	pages = args.pages;
+	recurse = args.recurse;
 	logLevel = args.logLevel;
 	sitesCloudCDN = args.sitesCloudCDN || '';
 	outputURL = args.outputURL;
 	channelAccessToken = args.channelToken || '';
+	server = args.server;
+	defaultContentType = args.type === 'published' ? 'published' : 'draft'; // default to draft content, URLs will still be published
 
 	console.log("Oracle Content and Experience Site Compiler");
 	console.log("Version 0.1");
@@ -1780,7 +1888,7 @@ var compileSite = function (args) {
 	var languages = getAvailableLanguages();
 	languages.forEach(function (language) {
 		// Initialize the context for this set of pages
-		var context = readStructure(language);
+		var context = readStructure(language, pages, recurse);
 		readSlotReuseData(context);
 		produceSiteNavigationStructure(context);
 
@@ -1797,8 +1905,11 @@ var compileSite = function (args) {
 			});
 		}
 
+		// get the array of pages to compile
+		var pagesToCompile = getPagesToCompile(context, pages, recurse);
+
 		// create the array of functions that will execute the createPage promise when called
-		context.structure.pages.forEach(function (pageInfo) {
+		pagesToCompile.forEach(function (pageInfo) {
 			createPagePromises.push(function () {
 				return createPage(context, pageInfo);
 			});
@@ -1816,15 +1927,17 @@ var compileSite = function (args) {
 		Promise.resolve());
 
 	// wait until all pages have been created
-	doCreatePages.then(function () {
+	return doCreatePages.then(function () {
 		console.log('All page creation calls complete.');
 
 		//copySiteContentDirectory();
 		//copySiteCloudDeliveryDirectory();
 		//copyThemesDeliveryDirectory();
 		//copyComponentsDeliveryDirectory();
+		return Promise.resolve();
 	}).catch(function (e) {
 		console.log(e);
+		return Promise.reject();
 	});
 };
 

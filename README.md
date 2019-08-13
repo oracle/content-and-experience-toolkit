@@ -8,6 +8,11 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.3.2c
+
+- `cec share-site` - share site with users or groups on a CEC server
+- `cec unshare-site` - un-share site access from users or groups on a CEC server
+
 # New in Release 19.3.2b
 
 **Added**

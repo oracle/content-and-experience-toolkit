@@ -129,6 +129,8 @@ module.exports.registerServer = function (argv, done) {
 			useRest = true;
 		}
 		type = 'dev_ec';
+	} else if (idcs_url && client_id && client_secret && scope) {
+		useRest = true;
 	}
 	var savedPassword = password;
 	if (keyFile) {

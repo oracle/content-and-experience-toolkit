@@ -99,26 +99,11 @@ Gallery.prototype.computeImages = function () {
 	return viewModel.images.map(function (img, dataIndex) {
 		var image = JSON.parse(JSON.stringify(img)),
 			rendition = image.rendition,
-			options = {};
+			imageUrl = image.source,
+			contentId = image.contentId,
+			digitalAsset = contentId + (rendition ? ',' + rendition : '');
 
-		options.approvalState = 'published'; // compiled sites always used published content
-
-		// add renditon type and format when available
-		// 	rendion value may include format, needs to split the string with identifier('~')
-		if (rendition) {
-			var index = rendition.indexOf('~');
-
-			options.type = rendition;
-
-			if (index !== -1) {
-				options.type = rendition.split('~')[0];
-				options.format = rendition.split('~')[1];
-			}
-		}
-
-		// ToDo: handle content item URLs
-		//image.imageURL = image.contentId ? compCtx.caasApi.getAssetUrl(image.contentId, options) : image.source;
-		image.imageURL = image.source;
+		image.imageURL = contentId ? '[!--$SCS_DIGITAL_ASSET--]' + digitalAsset + '[/!--$SCS_DIGITAL_ASSET--]' : imageUrl;
 		image.linkURL = image.link;
 		image.hasLink = !!(image.link);
 		image.isMap = image.linkType === 'scs-link-map';

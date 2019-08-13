@@ -7,6 +7,7 @@
 
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
+	sitesRest = require('../test/server/sitesRest.js'),
 	decompress = require('decompress'),
 	childProcess = require('child_process'),
 	gulp = require('gulp'),
@@ -44,7 +45,8 @@ var verifyRun = function (argv) {
 	return true;
 };
 
-var _cmdEnd = function (done, localServer, success) {
+var localServer;
+var _cmdEnd = function (done, success) {
 	done(success);
 	if (localServer) {
 		localServer.close();
@@ -410,10 +412,6 @@ module.exports.deployComponent = function (argv, done) {
 		done();
 		return;
 	}
-	if (!fs.existsSync(componentsSrcDir)) {
-		console.log('ERROR: folder ' + componentsSrcDir + ' does not exist. Check your configuration');
-		return false;
-	}
 
 	var serverName = argv.server;
 	var server = serverUtils.verifyServer(serverName, projectDir);
@@ -465,8 +463,58 @@ module.exports.deployComponent = function (argv, done) {
 			return;
 		}
 
-		if (server.env !== 'dev_ec') {
-			var loginPromise = server.env === 'dev_osso' ? serverUtils.loginToSSOServer(server) : serverUtils.loginToPODServer(server);
+		if (server.useRest) {
+
+			var loginPromise = serverUtils.loginToServer(server, request);
+			loginPromise.then(function (result) {
+				if (!result.status) {
+					console.log(' - failed to connect to the server');
+					done();
+					return;
+				}
+
+				var folderPromises = [];
+				if (folder) {
+					folderPromises.push(serverRest.findFolderHierarchy({
+						server: server,
+						parentID: 'self',
+						folderPath: folder
+					}));
+				}
+				Promise.all(folderPromises).then(function (results) {
+					if (folder && (!results || results.length === 0 || !results[0] || !results[0].id)) {
+						done();
+						return;
+					}
+
+					var folderId = folder ? results[0].id : 'self';
+
+					var importsPromise = [];
+					for (var i = 0; i < allComps.length; i++) {
+						var name = allComps[i];
+						var zipfile = path.join(projectDir, "dist", name) + ".zip";
+
+						importsPromise[i] = _deployOneComponentREST(server, folder, folderId, zipfile, name, publish);
+					}
+					Promise.all(importsPromise).then(function (results) {
+						// All done
+						var success = false;
+						if (results && results.length > 0) {
+							for (var i = 0; i < results.length; i++) {
+								if (!results[i].err) {
+									success = true;
+									break;
+								}
+							}
+						}
+						done(success);
+					});
+				});
+
+			}); // login 
+
+		} else if (server.env !== 'dev_ec') {
+			var loginPromise = serverUtils.loginToServer(server);
 
 			loginPromise.then(function (result) {
 				if (!result.status) {
@@ -617,6 +665,62 @@ var unzipComponent = function (compName, compPath) {
 	});
 };
 
+var _deployOneComponentREST = function (server, folder, folderId, zipfile, name, publish) {
+	return new Promise(function (resolve, reject) {
+		var fileName = name + '.zip;'
+		// upload file
+		serverRest.createFile({
+				server: server,
+				parentID: folderId,
+				filename: fileName,
+				contents: fs.readFileSync(zipfile)
+			}).then(function (result) {
+				if (!result || !result.id) {
+					return Promise.reject();
+				}
+				console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + result.version);
+				var fileId = result.id;
+				return sitesRest.importComponent({
+					server: server,
+					name: name,
+					fileId: fileId
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+				console.log(' - component ' + name + ' imported');
+				var publishpromises = [];
+				if (publish) {
+					publishpromises.push(sitesRest.publishComponent({
+						server: server,
+						name: name
+					}));
+				}
+
+				return Promise.all(publishpromises);
+			})
+			.then(function (results) {
+				if (publish) {
+					if (results && results[0] && results[0].err) {
+						return Promise.reject();
+					} else {
+						console.log(' - component ' + name + ' published/republished');
+						resolve({});
+					}
+				} else {
+					resolve({});
+				}
+			})
+			.catch((error) => {
+				resolve({
+					err: 'err',
+					name: name
+				});
+			});
+	});
+};
 
 /**
  * Import component
@@ -686,13 +790,16 @@ module.exports.downloadComponent = function (argv, done) {
 var _downloadComponents = function (serverName, server, componentNames, done) {
 	var request = serverUtils.getRequest();
 
-	var localServer;
-
 	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
+			return;
+		}
+
+		if (server.useRest) {
+			_downloadComponentsREST(server, componentNames, done);
 			return;
 		}
 
@@ -922,10 +1029,10 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 								return Promise.all(deleteFilePromises);
 							})
 							.then(function (results) {
-								_cmdEnd(done, localServer, downloadSuccess);
+								_cmdEnd(done, downloadSuccess);
 							})
 							.catch((error) => {
-								_cmdEnd(done, localServer);
+								_cmdEnd(done);
 							});
 					}
 				});
@@ -1007,6 +1114,133 @@ var _downloadComponentFile = function (server, compName, fileName, fFileGUID) {
 	});
 };
 
+var _downloadComponentsREST = function (server, componentNames, done) {
+
+	var compPromises = [];
+	for (var i = 0; i < componentNames.length; i++) {
+		compPromises.push(sitesRest.getComponent({
+			server: server,
+			name: componentNames[i]
+		}));
+	}
+
+	var comps;
+	var exportedComps = [];
+	var exportSuccess = false;
+	Promise.all(compPromises).then(function (results) {
+			comps = results || [];
+			for (var i = 0; i < componentNames.length; i++) {
+				var found = false;
+				var compName = componentNames[i];
+				for (var j = 0; j < comps.length; j++) {
+					if (comps[j].name && compName.toLowerCase() === comps[j].name.toLowerCase()) {
+						found = true;
+						break;
+					}
+				}
+
+				if (!found) {
+					console.log('ERROR: component ' + compName + ' does not exist');
+					return Promise.reject();
+				}
+			}
+			// console.log(' - get components');
+			var exportPromises = [];
+			for (var i = 0; i < comps.length; i++) {
+				exportPromises.push(sitesRest.exportComponent({
+					server: server,
+					id: comps[i].id
+				}));
+			}
+
+			return Promise.all(exportPromises);
+
+		})
+		.then(function (results) {
+			var exportFiles = results || [];
+			var prefix = '/documents/api/1.2/files/';
+			for (var i = 0; i < comps.length; i++) {
+				var exported = false;
+				for (var j = 0; j < exportFiles.length; j++) {
+					if (comps[i].id === exportFiles[j].id && exportFiles[j].file) {
+						exported = true;
+						var fileId = exportFiles[j].file;
+						fileId = fileId.substring(fileId.indexOf(prefix) + prefix.length);
+						fileId = fileId.substring(0, fileId.lastIndexOf('/'));
+						// console.log(' - comp ' + comps[i].name + ' export file id ' + fileId);
+						exportedComps.push({
+							id: comps[i].id,
+							name: comps[i].name,
+							fileId: fileId,
+						})
+
+					}
+				}
+
+				if (!exported) {
+					console.log('ERROR: failed tp export component ' + comps[i].name);
+				}
+			}
+			if (exportedComps.length === 0) {
+				return Promise.reject();
+			}
+
+			var downloadPromises = [];
+			for (var i = 0; i < exportedComps.length; i++) {
+				downloadPromises.push(serverRest.downloadFile({
+					server: server,
+					fFileGUID: exportedComps[i].fileId
+				}));
+			}
+
+			return Promise.all(downloadPromises);
+		})
+		.then(function (results) {
+
+			var destdir = path.join(projectDir, 'dist');
+			if (!fs.existsSync(destdir)) {
+				fs.mkdirSync(destdir);
+			}
+
+			var unzipPromises = [];
+			for (var i = 0; i < exportedComps.length; i++) {
+				for (var j = 0; j < results.length; j++) {
+					if (exportedComps[i].fileId === results[j].id) {
+						var targetFile = path.join(destdir, exportedComps[i].name + '.zip');
+						fs.writeFileSync(targetFile, results[i].data);
+						console.log(' - save file ' + targetFile);
+						exportSuccess = true;
+						unzipPromises.push(unzipComponent(exportedComps[i].name, targetFile));
+					}
+				}
+			}
+			return Promise.all(unzipPromises);
+		})
+		.then(function (results) {
+			for (var i = 0; i < results.length; i++) {
+				if (results[i].comp) {
+					console.log(' - import component to ' + path.join(componentsSrcDir, results[i].comp));
+				}
+			}
+
+			var deleteFilePromises = [];
+			for (var i = 0; i < exportedComps.length; i++) {
+				deleteFilePromises.push(serverRest.deleteFile({
+					server: server,
+					fFileGUID: exportedComps[i].fileId
+				}));
+			}
+			// delete the zip file on the server
+			return Promise.all(deleteFilePromises);
+		})
+		.then(function (results) {
+			done(exportSuccess);
+		})
+		.catch((error) => {
+			done();
+		});
+};
+
 /**
  * control components on server
  */
@@ -1040,13 +1274,17 @@ module.exports.controlComponent = function (argv, done) {
 var _controlComponents = function (serverName, server, action, componentNames, done) {
 
 	var request = serverUtils.getRequest();
-	var localServer;
 
 	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
+			return;
+		}
+
+		if (server.useRest) {
+			_controlComponentsREST(server, componentNames, done);
 			return;
 		}
 
@@ -1193,10 +1431,10 @@ var _controlComponents = function (serverName, server, action, componentNames, d
 										success = false;
 									}
 								}
-								_cmdEnd(done, localServer, success);
+								_cmdEnd(done, success);
 							})
 							.catch((error) => {
-								_cmdEnd(done, localServer);
+								_cmdEnd(done);
 							});
 					}
 				});
@@ -1238,4 +1476,63 @@ var _publishComponentSCS = function (request, localhost, compId, compName) {
 			});
 		});
 	});
+};
+
+var _controlComponentsREST = function (server, componentNames, done) {
+
+	var compPromises = [];
+	for (var i = 0; i < componentNames.length; i++) {
+		compPromises.push(sitesRest.getComponent({
+			server: server,
+			name: componentNames[i]
+		}));
+	}
+
+	var comps;
+	var publishedComps = [];
+	var publishSuccess = false;
+	Promise.all(compPromises).then(function (results) {
+			comps = results || [];
+			for (var i = 0; i < componentNames.length; i++) {
+				var found = false;
+				var compName = componentNames[i];
+				for (var j = 0; j < comps.length; j++) {
+					if (comps[j].name && compName.toLowerCase() === comps[j].name.toLowerCase()) {
+						found = true;
+						break;
+					}
+				}
+
+				if (!found) {
+					console.log('ERROR: component ' + compName + ' does not exist');
+					return Promise.reject();
+				}
+			}
+
+			var publishPromises = [];
+			for (var i = 0; i < comps.length; i++) {
+				publishPromises.push(sitesRest.publishComponent({
+					server: server,
+					id: comps[i].id,
+					name: comps[i].name
+				}));
+			}
+
+			return Promise.all(publishPromises);
+		})
+		.then(function (results) {
+
+			var success = false;
+			for (var i = 0; i < results.length; i++) {
+				if (results[i].id) {
+					console.log(' - publish ' + results[i].name + ' finished');
+					success = true;
+				}
+			}
+
+			done(success);
+		})
+		.catch((error) => {
+			done();
+		});
 };

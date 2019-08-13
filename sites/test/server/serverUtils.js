@@ -1079,8 +1079,11 @@ var _getOAuthTokenFromIDCS = function (request, server) {
 					err: 'err'
 				});
 			} else {
+				var token = data.token_type + ' ' + data.access_token;
+				server.oauthtoken = token;
 				return resolve({
-					oauthtoken: data.token_type + ' ' + data.access_token
+					status: true,
+					oauthtoken: token
 				});
 			}
 		});
@@ -2173,8 +2176,24 @@ module.exports.loginToServer = function (server, request) {
 };
 var _loginToServer = function (server, request) {
 	var env = server.env || 'pod_ec';
-	var loginPromise = env === 'dev_osso' ? _loginToSSOServer(server) : (env === 'dev_ec' ? _loginToDevServer(server, request) : _loginToPODServer(server));
-	return loginPromise;
+	if (env === 'dev_ec' && server.useRest) {
+		return Promise.resolve({
+			status: true
+		});
+	} else if (env === 'pod_ec' && server.idcs_url && server.client_id && server.client_secret && server.scope) {
+		_getOAuthTokenFromIDCS(request, server).then(function (result) {
+			var status = result.err ? false : true;
+			if (result.oauthtoken) {
+				server.oauthtoken = result.oauthtoken;
+			}
+			return Promise.resolve({
+				status: status
+			});
+		});
+	} else {
+		var loginPromise = env === 'dev_osso' ? _loginToSSOServer(server) : (env === 'dev_ec' ? _loginToDevServer(server, request) : _loginToPODServer(server));
+		return loginPromise;
+	}
 };
 
 /**
@@ -3007,8 +3026,11 @@ var _getSiteGUID = function (server, site) {
 
 		var request = _getRequest();
 
-		var loginPromise = _loginToServer(server, request);
-		loginPromise.then(function (result) {
+		var loginPromises = [];
+		if (!server.login) {
+			loginPromises.push(_loginToServer(server, request));
+		}
+		Promise.all(loginPromises).then(function (result) {
 			var auth = _getRequestAuth(server);
 
 			var options = {
@@ -3051,6 +3073,7 @@ var _getSiteGUID = function (server, site) {
 				var siteDetails = sites[site];
 				return resolve({
 					siteGUID: siteDetails && siteDetails.fFolderGUID,
+					id: siteDetails && siteDetails.fFolderGUID,
 					siteDetails: siteDetails
 				});
 			});
@@ -3060,6 +3083,10 @@ var _getSiteGUID = function (server, site) {
 };
 module.exports.getSiteFolder = function (currPath, site, registeredServerName) {
 	var server = registeredServerName ? _getRegisteredServer(currPath, registeredServerName) : _getConfiguredServer(currPath);
+	return _getSiteGUID(server, site);
+};
+module.exports.getSiteFolderAfterLogin = function (server, site) {
+	server['login'] = true;
 	return _getSiteGUID(server, site);
 };
 

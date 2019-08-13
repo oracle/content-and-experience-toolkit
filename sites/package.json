@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "19.3.2b",
+	"version": "19.3.2c",
 	"license": "UPL-1.0",
 	"description": "Content and Experience Cloud custom components build system",
 	"main": "index.js",
@@ -8,7 +8,7 @@
 		"test": "test"
 	},
 	"scripts": {
-		"postinstall": "gulp --gulpfile bin/gulpfile.js copy-libs && npm install bin/cec --no-save",
+		"postinstall": "gulp --gulpfile bin/gulpfile.js copy-libs && npm install bin/cec --no-save || npm install bin\\cec --no-save",
 		"start": "node test/server.js",
 		"start-sync": "node test/sync-server.js",
 		"debug": "node --inspect --debug-brk test/server.js",
@@ -53,6 +53,8 @@
 		"list": "gulp -LL --gulpfile bin/gulpfile.js list ",
 		"create-site": "gulp -LL --gulpfile bin/gulpfile.js create-site ",
 		"control-site": "gulp -LL --gulpfile bin/gulpfile.js control-site ",
+		"share-site": "gulp -LL --gulpfile bin/gulpfile.js share-site ",
+		"unshare-site": "gulp -LL --gulpfile bin/gulpfile.js unshare-site ",
 		"update-site": "gulp -LL --gulpfile bin/gulpfile.js update-site ",
 		"validate-site": "gulp -LL --gulpfile bin/gulpfile.js validate-site ",
 		"index-site": "gulp  -LL --gulpfile bin/gulpfile.js index-site ",

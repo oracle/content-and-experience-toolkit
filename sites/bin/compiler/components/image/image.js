@@ -103,25 +103,10 @@ Image.prototype.computeImageUrl = function () {
 	var viewModel = this,
 		imageUrl = viewModel.imageUrl,
 		contentId = viewModel.contentId,
-		contentViewing = viewModel.contentViewing,
 		rendition = viewModel.rendition,
-		options = {};
+		digitalAsset = contentId + (rendition ? ',' + rendition : '');
 
-	options.approvalState = contentViewing || 'draft';
-
-	// add renditon type and format when available
-	// 	rendion value may include format, needs to split the string with identifier('~')
-	if (rendition) {
-		var index = rendition.indexOf('~');
-
-		options.type = rendition;
-
-		if (index !== -1) {
-			options.type = rendition.split('~')[0];
-			options.format = rendition.split('~')[1];
-		}
-	}
-
-	return contentId ? compCtx.caasApi.getAssetUrl(contentId, options) : imageUrl;
+	// turn any digital asset reference into a macro to be expanded by the compiler
+	return contentId ? '[!--$SCS_DIGITAL_ASSET--]' + digitalAsset + '[/!--$SCS_DIGITAL_ASSET--]' : imageUrl;
 };
 module.exports = Image;

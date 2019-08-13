@@ -1,6 +1,5 @@
 var fs = require('fs'),
 	path = require('path'),
-	contentSDK = require('../../../../test/server/npm/contentSDK.js'),
 	serverUtils = require('../../../../test/server/serverUtils.js');
 
 var serverURL = 'http://localhost:8085',
@@ -131,12 +130,7 @@ ContentItem.prototype.compile = function (args) {
 				var CustomLayoutCompiler = require(compileFile);
 
 				// now get the content 
-				var contentClient = contentSDK.createPreviewClient({
-					contentServer: serverURL,
-					contentType: 'published',
-					contentVersion: 'v1.1',
-					channelToken: SCSCompileAPI.channelAccessToken || ''
-				});
+				var contentClient = SCSCompileAPI.getContentClient();
 
 				var contentId = args.compVM.contentId;
 				if (!contentId) {
@@ -167,7 +161,7 @@ ContentItem.prototype.compile = function (args) {
 									SCSCompileAPI: SCSCompileAPI,
 									contentTriggerFunction: 'SCSRenderAPI.getComponentById(\'' + args.compVM.id + '\').raiseContentTrigger',
 									detailPageLink: detailPageURL,
-									showPublishedContent: true // ToDo: drive this from component settings
+									showPublishedContent: args.compVM.contentViewing === 'published' ? true : contentClient.getInfo().contentType === 'published' 
 								}
 							},
 							custComp = new CustomLayoutCompiler(compileArgs);
@@ -185,7 +179,9 @@ ContentItem.prototype.compile = function (args) {
 						});
 					}).catch(function (e) {
 						console.log('Error: failed to compile content item: ' + contentId + '. The component will render in the client.');
-						console.log(e);
+						if (e) {
+							console.log('statusCode: ' + e.statusCode + '. statusMessage: ' + e.statusMessage + '. ');
+						}
 						return resolve({
 							content: ''
 						});

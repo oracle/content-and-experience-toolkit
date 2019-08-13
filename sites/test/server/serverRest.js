@@ -109,6 +109,62 @@ module.exports.findOrCreateFolder = function (args) {
 	return _findOrCreateFolder(_utils.getServer(args.currPath, args.registeredServerName), args.parentID, args.foldername);
 };
 
+var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
+	return new Promise(function (resolve, reject) {
+		var folderPromises = [],
+			parentGUID;
+		var folderPath = folderPathStr ? folderPathStr.split('/') : [];
+		folderPath.forEach(function (foldername) {
+			if (foldername) {
+				folderPromises.push(function (parentID) {
+					return _findFile(server, parentID, foldername, true, 'folder');
+				});
+			}
+		});
+
+		// get the folders in sequence
+		var doFindFolder = folderPromises.reduce(function (previousPromise, nextPromise) {
+				return previousPromise.then(function (folderDetails) {
+					// store the parent
+					if (folderDetails) {
+						if (folderDetails.id !== rootParentId) {
+							console.log(' - find ' + folderDetails.type + ' ' + folderDetails.name + ' (Id: ' + folderDetails.id + ')');
+						}
+						parentGUID = folderDetails.id;
+
+						// wait for the previous promise to complete and then return a new promise for the next 
+						return nextPromise(parentGUID);
+					}
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise passing in the home folder id as the parentID
+			Promise.resolve({
+				id: rootParentId
+			}));
+
+		doFindFolder.then(function (parentFolder) {
+			if (parentFolder) {
+				if (parentFolder.id !== rootParentId) {
+					console.log(' - find ' + parentFolder.type + ' ' + parentFolder.name + ' (Id: ' + parentFolder.id + ')');
+				}
+			}
+			resolve(parentFolder);
+		})
+	});
+};
+/**
+ * Find folder hierarchy on server by folder name
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.parentID The DOCS GUID for the folder where the new file should be created.
+ * @param {string} args.folderPath The path of the folder.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.findFolderHierarchy = function (args) {
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _findFolderHierarchy(server, args.parentID, args.folderPath);
+};
 
 // Delete Folder on server
 var _deleteFolder = function (server, fFolderGUID) {
@@ -226,7 +282,8 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.findFile = function (args) {
-	return _findFile(_utils.getServer(args.currPath, args.registeredServerName), args.parentID, args.filename, true, args.itemtype);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _findFile(server, args.parentID, args.filename, true, args.itemtype);
 };
 
 
@@ -282,7 +339,8 @@ var _createFile = function (server, parentID, filename, contents) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createFile = function (args) {
-	return _createFile(_utils.getServer(args.currPath, args.registeredServerName), args.parentID, args.filename, args.contents);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _createFile(server, args.parentID, args.filename, args.contents);
 };
 
 
@@ -314,7 +372,57 @@ var _readFile = function (server, fFileGUID) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.readFile = function (args) {
-	return _readFile(_utils.getServer(args.currPath, args.registeredServerName), args.fFileGUID);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _readFile(server, args.fFileGUID);
+};
+
+var _downloadFile = function (server, fFileGUID) {
+	return new Promise(function (resolve, reject) {
+		var auth = {
+			user: server.username,
+			password: server.password
+		};
+		url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data/';
+		var options = {
+			url: url,
+			auth: auth,
+			encoding: null
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to download file');
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			if (response && response.statusCode === 200) {
+				resolve({
+					id: fFileGUID,
+					data: body
+				});
+			} else {
+				console.log('ERROR: failed to download file: ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: 'err'
+				});
+			}
+
+		});
+	});
+};
+
+/**
+ * Download file from server by file id
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {string} args.fFileGUID The DOCS GUID for the file to update
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.downloadFile = function (args) {
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _downloadFile(server, args.fFileGUID);
 };
 
 // Update file on server
@@ -382,7 +490,8 @@ var _deleteFile = function (server, fFileGUID) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.deleteFile = function (args) {
-	return _deleteFile(_utils.getServer(args.currPath, args.registeredServerName), args.fFileGUID);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _deleteFile(server, args.fFileGUID);
 };
 
 // Get file versions from server
@@ -1576,6 +1685,7 @@ var _getFolderUsers = function (server, folderId) {
 				if (data && data.items && data.items.length > 0) {
 					for (var i = 0; i < data.items.length; i++) {
 						users.push({
+							id: data.items[i].user.id,
 							name: data.items[i].user.loginName || data.items[i].user.displayName,
 							type: data.items[i].user.type,
 							role: data.items[i].role
@@ -1605,4 +1715,89 @@ var _getFolderUsers = function (server, folderId) {
 module.exports.getFolderUsers = function (args) {
 	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
 	return _getFolderUsers(server, args.id);
+};
+
+var _shareFolder = function (server, folderId, userId, role, createNew) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			url = server.url + '/documents/api/1.2/shares/' + folderId,
+			args = {
+				headers: {
+					"Content-Type": "application/json"
+				},
+				data: {
+					'userID': userId,
+					'role': role
+				}
+			};
+
+		if (createNew) {
+			client.post(url, args, function (data, response) {
+				resolve(data);
+			});
+		} else {
+			url = url + '/role';
+			client.put(url, args, function (data, response) {
+				resolve(data);
+			});
+		}
+	});
+};
+/**
+ * Share folder with a user on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
+ * @param {string} args.id The id of the folder
+ * @param {string} args.userId the user id
+ * @param {string} args.role the role
+ * @param {boolean} args.create the flag to indicate create new sharing otherwise update exising
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.shareFolder = function (args) {
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _shareFolder(server, args.id, args.userId, args.role, args.create === undefined ? true : args.create);
+};
+
+var _unshareFolder = function (server, folderId, userId) {
+	return new Promise(function (resolve, reject) {
+		var client = new Client({
+				user: server.username,
+				password: server.password
+			}),
+			url = server.url + '/documents/api/1.2/shares/' + folderId + '/user',
+			args = {
+				headers: {
+					"Content-Type": "application/json"
+				},
+				data: {
+					'userID': userId
+				}
+			};
+
+		client.delete(url, args, function (data, response) {
+			resolve(data);
+		});
+
+	});
+};
+/**
+ * Unshare folder with a user on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
+ * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
+ * @param {string} args.id The id of the folder
+ * @param {string} args.userId the user id
+ * @param {string} args.role the role
+ * @param {boolean} args.create the flag to indicate create new sharing otherwise update exising
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.unshareFolder = function (args) {
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _unshareFolder(server, args.id, args.userId);
 };

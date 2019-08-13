@@ -19,7 +19,7 @@ var fs = require('fs'),
 	path = require('path'),
 	constants = require('../common/component-constants'),
 	Base = require('../base/base'),
-	isNumeric = function(value) {
+	isNumeric = function (value) {
 		return !isNaN(parseFloat(value)) && isFinite(value);
 	};
 
@@ -35,13 +35,13 @@ Socialbar.prototype.compile = function () {
 	this.computedStyle = this.encodeCSS(this.computeStyle());
 	this.computedContentStyle = this.encodeCSS(this.computeContentStyle());
 	this.computedImages = this.computeImages();
-	this.hasVisualData = function () { 
-		return this.computedImages.length > 0; 
+	this.hasVisualData = function () {
+		return this.computedImages.length > 0;
 	};
 
-    // render the content
-	var content = ''; 
-	
+	// render the content
+	var content = '';
+
 	if (this.hasVisualData()) {
 		content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'socialbar.html'), 'utf8'));
 	}
@@ -57,11 +57,11 @@ Socialbar.prototype.computeStyle = function () {
 	var viewModel = this,
 		computedStyle = '';
 
-    if (viewModel.useStyleClass === 'false') {
-        computedStyle += 'background-color:' + viewModel.backgroundColor + ';background-clip:content-box;';
-    }
+	if (viewModel.useStyleClass === 'false') {
+		computedStyle += 'background-color:' + viewModel.backgroundColor + ';background-clip:content-box;';
+	}
 
-    computedStyle += viewModel.computeBorderStyle;
+	computedStyle += viewModel.computeBorderStyle;
 
 	return computedStyle;
 };
@@ -109,30 +109,12 @@ Socialbar.prototype.computeImages = function () {
 	return viewModel.images.map(function (img, i, images) {
 		var image = Object.assign({}, img),
 			rendition = image.rendition,
-			options = {};
+			imageUrl = image.source,
+			contentId = image.contentId,
+			digitalAsset = contentId + (rendition ? ',' + rendition : '');
 
-		// TODO: Keeping the following block for review only.
-		//       I suppose the following should be done in hydrate.
-		/*
-		options.approvalState = compCtx.env.getCaaSVersion(image.contentViewing);
-
-		// add renditon type and format when available
-		// 	rendion value may include format, needs to split the string with identifier('~')
-		if (rendition) {
-			var index = rendition.indexOf('~');
-
-			options.type = rendition;
-
-			if (index !== -1) {
-				options.type = rendition.split('~')[0];
-				options.format = rendition.split('~')[1];
-			}
-		}
-
-		image.imageURL = image.contentId ? compCtx.caasApi.getAssetUrl(image.contentId, options) : image.source;
-		*/
-
-		image.imageURL = image.source;
+		// turn any digital asset reference into a macro to be expanded by the compiler
+		image.imageURL = contentId ? '[!--$SCS_DIGITAL_ASSET--]' + digitalAsset + '[/!--$SCS_DIGITAL_ASSET--]' : imageUrl;
 
 		if (!image.imageURL) {
 			image.imageURL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
@@ -154,7 +136,7 @@ Socialbar.prototype.computeImages = function () {
 			margin = i < (images.length - 1) ? viewModel.encodeCSS(viewModel.computeIconMargin()) : '';
 
 			image.style = 'width: ' + width + '; height: ' + height + '; display: ' + display + ';' +
-			 (margin ? ' margin: ' + margin + ';' : '');
+				(margin ? ' margin: ' + margin + ';' : '');
 		}
 
 		return image;

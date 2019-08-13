@@ -15,9 +15,6 @@ To learn about developing components for Content and Experience Cloud, see the l
 ```
 cd  <download-path>/content-and-experience-toolkit/sites
 npm install
-
-On Windows, also run:
-npm install bin\cec
 ```
 
 * Put `cec` on your path:

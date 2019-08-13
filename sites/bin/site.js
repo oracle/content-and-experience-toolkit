@@ -9,6 +9,7 @@ var fs = require('fs'),
 	path = require('path'),
 	sprintf = require('sprintf-js').sprintf,
 	serverRest = require('../test/server/serverRest.js'),
+	sitesRest = require('../test/server/sitesRest.js'),
 	serverUtils = require('../test/server/serverUtils.js');
 
 var projectDir,
@@ -29,7 +30,8 @@ var verifyRun = function (argv) {
 	return true;
 }
 
-var _cmdEnd = function (done, localServer, success) {
+var localServer;
+var _cmdEnd = function (done, success) {
 	done(success);
 	if (localServer) {
 		localServer.close();
@@ -492,7 +494,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 
 			});
 
-			var localServer = app.listen(0, function () {
+			localServer = app.listen(0, function () {
 				port = localServer.address().port;
 				localhost = 'http://localhost:' + port;
 
@@ -592,10 +594,10 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 										var actionPromise = _postOneIdcService(request, localhost, server, 'SCS_COPY_SITES', 'create site', idcToken);
 										actionPromise.then(function (result) {
 											if (result.err) {
-												_cmdEnd(done, localServer);
+												_cmdEnd(done);
 											} else {
 												console.log(' - site created');
-												_cmdEnd(done, localServer, true);
+												_cmdEnd(done, true);
 											}
 										});
 
@@ -675,22 +677,22 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 												var actionPromise = _postOneIdcService(request, localhost, server, 'SCS_COPY_SITES', 'create site', idcToken);
 												actionPromise.then(function (result) {
 													if (result.err) {
-														_cmdEnd(done, localServer);
+														_cmdEnd(done);
 													} else {
 														console.log(' - site created');
-														_cmdEnd(done, localServer, true);
+														_cmdEnd(done, true);
 													}
 												});
 
 											})
 											.catch((error) => {
-												_cmdEnd(done, localServer);
+												_cmdEnd(done);
 											});
 
 									} // enterprise site
 								})
 								.catch((error) => {
-									_cmdEnd(done, localServer);
+									_cmdEnd(done);
 								});
 						}
 					}); // idc token
@@ -705,7 +707,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 
 
 /**
- * create site
+ * control site
  */
 module.exports.controlSite = function (argv, done) {
 	'use strict';
@@ -983,7 +985,7 @@ var _IdcControlSite = function (request, server, action, siteId) {
 				}
 			});
 
-			var localServer = app.listen(0, function () {
+			localServer = app.listen(0, function () {
 				port = localServer.address().port;
 				localhost = 'http://localhost:' + port;
 
@@ -1158,7 +1160,7 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 
 		});
 
-		var localServer = app.listen(0, function () {
+		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
 
@@ -1241,7 +1243,7 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 								var actionPromise = _postOneIdcService(request, localhost, server, service, action, idcToken);
 								actionPromise.then(function (result) {
 									if (result.err) {
-										_cmdEnd(done, localServer);
+										_cmdEnd(done);
 										return;
 									}
 
@@ -1252,11 +1254,11 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 									} else {
 										console.log(' - ' + action + ' ' + siteName + ' finished');
 									}
-									_cmdEnd(done, localServer, true);
+									_cmdEnd(done, true);
 								});
 							})
 							.catch((error) => {
-								_cmdEnd(done, localServer);
+								_cmdEnd(done);
 							});
 					}
 				}); // idc token request
@@ -1364,6 +1366,293 @@ var _getOneIdcService = function (request, localhost, server, service, params) {
 
 
 /**
+ * share site
+ */
+module.exports.shareSite = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		_cmdEnd(done);
+		return;
+	}
+
+	try {
+		var serverName = argv.server;
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			_cmdEnd(done);
+			return;
+		}
+
+		// console.log('server: ' + server.url);
+		var name = argv.name;
+		var userNames = argv.users.split(',');
+		var role = argv.role;
+
+		var siteId;
+		var users = [];
+
+		var request = serverUtils.getRequest();
+
+		var loginPromise = serverUtils.loginToServer(server, request);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
+
+			var sitePromise = server.useRest ? sitesRest.getSite({
+				server: server,
+				name: name
+			}) : serverUtils.getSiteFolderAfterLogin(server, name);
+			sitePromise.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (!result.id) {
+						console.log(' - site ' + name + ' does not exist');
+						return Promise.reject();
+					}
+					siteId = result.id;
+					console.log(' - verify site');
+
+					var usersPromises = [];
+					for (var i = 0; i < userNames.length; i++) {
+						usersPromises.push(serverRest.getUser({
+							currPath: projectDir,
+							registeredServerName: serverName,
+							name: userNames[i]
+						}));
+					}
+
+					return Promise.all(usersPromises);
+				})
+				.then(function (results) {
+					var allUsers = [];
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].items) {
+							allUsers = allUsers.concat(results[i].items);
+						}
+					}
+					console.log(' - verify users');
+					// verify users
+					for (var k = 0; k < userNames.length; k++) {
+						var found = false;
+						for (var i = 0; i < allUsers.length; i++) {
+							if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+								users.push(allUsers[i]);
+								found = true;
+								break;
+							}
+							if (found) {
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						}
+					}
+
+					if (users.length === 0) {
+						return Promise.reject();
+					}
+
+					return serverRest.getFolderUsers({
+						server: server,
+						id: siteId
+					});
+				})
+				.then(function (result) {
+					var existingMembers = result.data || [];
+
+					var sharePromises = [];
+					for (var i = 0; i < users.length; i++) {
+						var newMember = true;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (existingMembers[j].id === users[i].id) {
+								newMember = false;
+								break;
+							}
+						}
+						// console.log(' - user: ' + users[i].loginName + ' new grant: ' + newMember);
+						sharePromises.push(serverRest.shareFolder({
+							server: server,
+							id: siteId,
+							userId: users[i].id,
+							role: role,
+							create: newMember
+						}));
+					}
+					return Promise.all(sharePromises);
+				})
+				.then(function (results) {
+					var shared = false;
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].errorCode === '0') {
+							shared = true;
+							console.log(' - user ' + results[i].user.loginName + ' granted "' +
+								results[i].role + '" on site ' + name);
+						} else {
+							console.log('ERROR: ' + results[i].title);
+						}
+					}
+					_cmdEnd(done, shared);
+				})
+				.catch((error) => {
+					_cmdEnd(done);
+				});
+		}); // login
+	} catch (e) {
+		_cmdEnd(done);
+	}
+};
+
+/**
+ * share site
+ */
+module.exports.unshareSite = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		_cmdEnd(done);
+		return;
+	}
+
+	try {
+		var serverName = argv.server;
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			_cmdEnd(done);
+			return;
+		}
+
+		// console.log('server: ' + server.url);
+		var name = argv.name;
+		var userNames = argv.users.split(',');
+
+		var siteId;
+		var users = [];
+
+		var request = serverUtils.getRequest();
+
+		var loginPromise = serverUtils.loginToServer(server, request);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
+
+			var sitePromise = server.useRest ? sitesRest.getSite({
+				server: server,
+				name: name
+			}) : serverUtils.getSiteFolderAfterLogin(server, name);
+			sitePromise.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (!result.id) {
+						console.log(' - site ' + name + ' does not exist');
+						return Promise.reject();
+					}
+					siteId = result.id;
+					console.log(' - verify site');
+
+					var usersPromises = [];
+					for (var i = 0; i < userNames.length; i++) {
+						usersPromises.push(serverRest.getUser({
+							currPath: projectDir,
+							registeredServerName: serverName,
+							name: userNames[i]
+						}));
+					}
+
+					return Promise.all(usersPromises);
+				})
+				.then(function (results) {
+					var allUsers = [];
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].items) {
+							allUsers = allUsers.concat(results[i].items);
+						}
+					}
+					console.log(' - verify users');
+					// verify users
+					for (var k = 0; k < userNames.length; k++) {
+						var found = false;
+						for (var i = 0; i < allUsers.length; i++) {
+							if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+								users.push(allUsers[i]);
+								found = true;
+								break;
+							}
+							if (found) {
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						}
+					}
+
+					if (users.length === 0) {
+						return Promise.reject();
+					}
+
+					return serverRest.getFolderUsers({
+						server: server,
+						id: siteId
+					});
+				})
+				.then(function (result) {
+					var existingMembers = result.data || [];
+					var revokePromises = [];
+					for (var i = 0; i < users.length; i++) {
+						var existingUser = false;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (users[i].id === existingMembers[j].id) {
+								existingUser = true;
+								break;
+							}
+						}
+
+						if (existingUser) {
+							revokePromises.push(serverRest.unshareFolder({
+								server: server,
+								id: siteId,
+								userId: users[i].id
+							}));
+						} else {
+							console.log(' - user ' + users[i].loginName + ' has no access to the site');
+						}
+					}
+
+					return Promise.all(revokePromises);
+				})
+				.then(function (results) {
+					var unshared = false;
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].errorCode === '0') {
+							unshared = true;
+							console.log(' - user ' + results[i].user.loginName + '\'s access to the site removed');
+						} else {
+							console.log('ERROR: ' + results[i].title);
+						}
+					}
+					_cmdEnd(done, unshared);
+				})
+				.catch((error) => {
+					_cmdEnd(done);
+				});
+		}); // login
+	} catch (e) {
+		_cmdEnd(done);
+	}
+};
+
+
+/**
  * validate site
  */
 module.exports.validateSite = function (argv, done) {
@@ -1440,7 +1729,7 @@ module.exports.validateSite = function (argv, done) {
 				}
 			});
 
-			var localServer = app.listen(0, function () {
+			localServer = app.listen(0, function () {
 				port = localServer.address().port;
 				localhost = 'http://localhost:' + port;
 

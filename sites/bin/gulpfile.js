@@ -843,6 +843,29 @@ gulp.task('control-site', function (done) {
 	});
 });
 
+/**
+ * Share site
+ */
+gulp.task('share-site', function (done) {
+	'use strict';
+
+	sitelib.shareSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Unshare site
+ */
+gulp.task('unshare-site', function (done) {
+	'use strict';
+
+	sitelib.unshareSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
 
 /**
  * update site
