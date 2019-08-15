@@ -7,6 +7,7 @@
 
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
+	sitesRest = require('../test/server/sitesRest.js'),
 	decompress = require('decompress'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
@@ -64,7 +65,7 @@ module.exports.controlTheme = function (argv, done) {
 };
 
 var _controlTheme = function (serverName, server, action, themeName, done) {
-	
+
 	var request = serverUtils.getRequest();
 
 	var loginPromise = serverUtils.loginToServer(server, request);
@@ -72,6 +73,11 @@ var _controlTheme = function (serverName, server, action, themeName, done) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
+			return;
+		}
+
+		if (server.useRest) {
+			_controlThemeREST(server, action, themeName, done);
 			return;
 		}
 
@@ -251,7 +257,7 @@ var _publishThemeSCS = function (request, localhost, server, themeName, idcToken
 							clearInterval(inter);
 							console.log(data);
 							// try to get error message
-							console.log('ERROR: publish them failed: ' + (data && data.JobMessage));
+							console.log('ERROR: publish theme failed: ' + (data && data.JobMessage));
 							return resolve({
 								err: 'err'
 							});
@@ -275,4 +281,37 @@ var _publishThemeSCS = function (request, localhost, server, themeName, idcToken
 			}
 		});
 	});
+};
+
+/**
+ * Publish a theme on server using REST APIs
+ * 
+ * @param {*} server 
+ * @param {*} action 
+ * @param {*} themeName 
+ * @param {*} done 
+ */
+var _controlThemeREST = function (server, action, themeName, done) {
+
+	sitesRest.getTheme({
+			server: server,
+			name: themeName
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			return sitesRest.publishTheme({server: server, name: themeName});
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+			console.log(' - publish theme ' + themeName + ' finished');
+			done(true);
+		})
+		.catch((error) => {
+			done();
+		});
 };

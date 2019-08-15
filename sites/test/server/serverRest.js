@@ -1125,7 +1125,8 @@ var _getLocalizationPolicies = function (server) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getLocalizationPolicies = function (args) {
-	return _getLocalizationPolicies(_utils.getServer(args.currPath, args.registeredServerName));
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _getLocalizationPolicies(server);
 };
 
 // Get a localization policy from server
@@ -1164,7 +1165,8 @@ var _getLocalizationPolicy = function (server, id) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getLocalizationPolicy = function (args) {
-	return _getLocalizationPolicy(_utils.getServer(args.currPath, args.registeredServerName), args.id);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _getLocalizationPolicy(server, args.id);
 };
 
 // Create localization policy on server
@@ -1266,7 +1268,8 @@ var _getRepositories = function (server) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getRepositories = function (args) {
-	return _getRepositories(_utils.getServer(args.currPath, args.registeredServerName));
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _getRepositories(server);
 };
 
 // Get a repository from server
@@ -1299,7 +1302,8 @@ var _getRepository = function (server, repoId) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getRepository = function (args) {
-	return _getRepository(_utils.getServer(args.currPath, args.registeredServerName), args.id);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _getRepository(server, args.id);
 };
 
 // Get a repository from server

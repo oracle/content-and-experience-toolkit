@@ -68,311 +68,12 @@ module.exports.createSite = function (argv, done) {
 	var sitePrefix = argv.sitePrefix || name.toLowerCase();
 	sitePrefix = sitePrefix.substring(0, 15);
 
-	_createSiteSCS(request, server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, done);
 
-	/** wait till sites management API released
-	 * 
-	var template, repositoryId, tempLocalizationPolicy;
-
-	var format = '   %-20s %-s';
-
-	var tokenPromises = [];
-	if (server.env === 'pod_ec') {
-		tokenPromises.push(serverUtils.getOAuthTokenFromIDCS(request, server));
+	if (server.useRest) {
+		_createSiteREST(request, server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, done);
+	} else {
+		_createSiteSCS(request, server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, done);
 	}
-	Promise.all(tokenPromises).then(function (result) {
-		if (result.length > 0 && result[0].err) {
-			_cmdEnd(done);
-		}
-
-		// save the OAuth token
-		if (result.length > 0) {
-			server.oauthtoken = result[0].oauthtoken;
-		}
-
-		//
-		// validate the site name
-		//
-		var getSitePromise = serverUtils.getSiteFromServer(request, server, name);
-		getSitePromise.then(function (result) {
-				if (result.err) {
-					_cmdEnd(done);
-				}
-
-				if (result && result.data && result.data.id) {
-					console.log('ERROR: site ' + name + ' already exists');
-					_cmdEnd(done);
-				}
-
-				return serverUtils.getTemplateFromServer(request, server, templateName);
-			})
-			.then(function (result) {
-				if (result.err) {
-					_cmdEnd(done);
-				}
-
-				template = result.data;
-
-				if (!template || !template.id) {
-					console.log('ERROR: template ' + templateName + ' does not exist');
-					_cmdEnd(done);
-				}
-
-				console.log(' - get template');
-				tempLocalizationPolicy = template.localizationPolicy;
-
-				if (template.isEnterprise && !repositoryName) {
-					console.log('ERROR: repository is required to create enterprise site');
-					_cmdEnd(done);
-				}
-				var createEnterprise = repositoryName ? true : false;
-
-				if (createEnterprise && (!tempLocalizationPolicy || !tempLocalizationPolicy.id) && !localizationPolicyName) {
-					console.log('ERROR: localization policy is required to create enterprise site');
-					_cmdEnd(done);
-				}
-				// Remove this condition when defaultLanguage returned from API /templates 
-				if (createEnterprise && !defaultLanguage) {
-					console.log('ERROR: default language is required to create enterprise site');
-					_cmdEnd(done);
-				}
-
-				if (!createEnterprise) {
-					console.log(' - creating standard site ...');
-					console.log(sprintf(format, 'name', name));
-					console.log(sprintf(format, 'template', templateName));
-					var sitePromise = _createSite(request, server, template.id, false, name, description, sitePrefix);
-					sitePromise.then(function (result) {
-						_cmdEnd(done);
-					});
-				} else {
-					var repositoryPromise = serverUtils.getRepositoryFromServer(request, server, repositoryName);
-					repositoryPromise.then(function (result) {
-							//
-							// validate repository
-							//
-							if (!result || result.err) {
-								_cmdEnd(done);
-							}
-
-							var repository = result.data;
-							if (!repository || !repository.id) {
-								console.log('ERROR: repository ' + repositoryName + ' does not exist');
-								_cmdEnd(done);
-							}
-							repositoryId = repository.id;
-							console.log(' - get repository');
-
-							var policyPromises = [];
-							if (localizationPolicyName) {
-								policyPromises.push(serverUtils.getLocalizationPolicyFromServer(request, server, localizationPolicyName));
-							}
-							return Promise.all(policyPromises);
-						})
-						.then(function (results) {
-							//
-							// validate localization policy
-							//
-							var localizationPolicy;
-							if (localizationPolicyName) {
-								var result = results.length > 0 ? results[0] : undefined;
-								if (!result || result.err) {
-									_cmdEnd(done);
-								}
-
-								var policy = result.data;
-								if (!policy || !policy.id) {
-									console.log('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
-									_cmdEnd(done);
-								}
-
-								localizationPolicy = policy;
-								console.log(' - get localization policy');
-							} else {
-								if (!tempLocalizationPolicy || !tempLocalizationPolicy.id) {
-									console.log('ERROR: no localization policy is found in template');
-									_cmdEnd(done);
-								}
-								console.log(' - use localization policy ' + tempLocalizationPolicy.name);
-								localizationPolicy = tempLocalizationPolicy;
-							}
-
-							//
-							// validate default language
-							//
-
-							var requiredLanguages = localizationPolicy.requiredValues;
-							if (!requiredLanguages.includes(defaultLanguage)) {
-								console.log('ERROR: language ' + defaultLanguage + ' is not in localization policy ' + localizationPolicy.name);
-								_cmdEnd(done);
-							}
-
-							//
-							// create enterprise site
-							//
-							console.log(' - creating enterprise site ...');
-							console.log(sprintf(format, 'name', name));
-							console.log(sprintf(format, 'template', templateName));
-							console.log(sprintf(format, 'site prefix', sitePrefix));
-							console.log(sprintf(format, 'repository', repositoryName));
-							console.log(sprintf(format, 'localization policy', localizationPolicy.name));
-							console.log(sprintf(format, 'default language', defaultLanguage));
-							var sitePromise = _createSite(request, server, template.id, true, name, description, sitePrefix,
-								repositoryId, localizationPolicy.id, defaultLanguage);
-							sitePromise.then(function (result) {
-								_cmdEnd(done);
-							});
-
-						});
-
-				} // enterprise site
-
-			}); // get template
-
-	}); // get token 
-	*/
-}
-
-var _createSite = function (request, server, templateId, isEnterprise, name, description, sitePrefix, repositoryId, localizationPolicyId, defaultLanguage) {
-	var createPromise = new Promise(function (resolve, reject) {
-		var auth = {
-			user: server.username,
-			password: server.password
-		};
-
-		var url = server.url + '/sites/management/api/v1/sites';
-
-		var formData = {
-			template: templateId,
-			name: name
-		}
-		if (description) {
-			formData.description = description;
-		}
-		if (isEnterprise) {
-			if (sitePrefix) {
-				formData.sitePrefix = sitePrefix;
-			}
-			formData.repository = repositoryId;
-			formData.localizationPolicy = localizationPolicyId;
-			formData.defaultLanguage = defaultLanguage;
-		}
-		// console.log(formData);
-		var headers = {
-			'Content-Type': 'application/json',
-			'prefer': 'respond-async'
-		};
-		var options = {
-			method: 'POST',
-			url: url,
-			headers: headers,
-			body: JSON.stringify(formData)
-		};
-
-		if (server.env === 'pod_ec') {
-			headers.Authorization = server.oauthtoken;
-			options.headers = headers;
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
-
-		request(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to create site ' + err);
-				resolve({
-					err: 'err'
-				});
-			}
-
-			if (response.statusCode === 202) {
-				var statusUrl = response.headers && response.headers.location || '';
-
-				// wait request to finish
-				var inter = setInterval(function () {
-					var statusPromise = _getSiteRequestStatus(request, server, statusUrl);
-					statusPromise.then(function (data) {
-						if (!data || data.progress === 'failed') {
-							clearInterval(inter);
-							console.log('ERROR: ' + data.error.detail);
-							resolve({
-								err: 'err'
-							});
-						}
-						if (data.completed && data.progress === 'succeeded') {
-							console.log(' - site created');
-							resolve({});
-						} else {
-							console.log(' - creating, percentage ' + data.completedPercentage);
-						}
-					});
-				}, 5000);
-
-			} else {
-				var data;
-				try {
-					data = JSON.parse(body);
-				} catch (error) {};
-
-				var msg = data ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to create site ' + msg);
-				resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-	return createPromise;
-};
-
-var _getSiteRequestStatus = function (request, server, statusUrl) {
-	var statusPromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-
-		var options = {
-			url: statusUrl
-		};
-		if (server.env === 'pod_ec') {
-			options.headers = {
-				Authorization: server.oauthtoken
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
-
-		request(options, function (error, response, body) {
-			var result = {};
-
-			if (error) {
-				console.log('ERROR: failed to get status:');
-				console.log(error);
-				resolve({
-					err: error
-				});
-			}
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
-				resolve(data);
-			} else {
-				console.log('ERROR: failed to get status: ' + (response ? (response.statusMessage || response.statusCode) : ''));
-				resolve({
-					err: (response ? (response.statusMessage || response.statusCode) : 'err')
-				});
-			}
-
-		});
-	});
-	return statusPromise;
 };
 
 
@@ -705,6 +406,196 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 	}
 };
 
+/**
+ * Create a site using REST APIs
+ * @param {*} request 
+ * @param {*} server 
+ * @param {*} name 
+ * @param {*} templateName 
+ * @param {*} repositoryName 
+ * @param {*} localizationPolicyName 
+ * @param {*} defaultLanguage 
+ * @param {*} description 
+ * @param {*} sitePrefix 
+ * @param {*} done 
+ */
+var _createSiteREST = function (request, server, name, templateName, repositoryName, localizationPolicyName,
+	defaultLanguage, description, sitePrefix, done) {
+	var template, templateGUID;
+	var repositoryId, localizationPolicyId;
+	var createEnterprise;
+
+	var format = '   %-20s %-s';
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		sitesRest.resourceExist({
+				server: server,
+				type: 'sites',
+				name: name
+			}).then(function (result) {
+				if (!result.err) {
+					console.log('ERROR: site ' + name + ' already exists');
+					return Promise.reject();
+				}
+
+				return sitesRest.getTemplate({
+					server: server,
+					name: templateName,
+					expand: 'localizationPolicy'
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				template = result;
+
+				if (template.isEnterprise && !repositoryName) {
+					console.log('ERROR: repository is required to create enterprise site');
+					return Promise.reject();
+				}
+
+				createEnterprise = repositoryName ? true : false;
+
+				if (createEnterprise && !template.localizationPolicy && !localizationPolicyName) {
+					console.log('ERROR: localization policy is required to create enterprise site');
+					return Promise.reject();
+				}
+				// Remove this condition when defaultLanguage returned from API /templates 
+				if (createEnterprise && !defaultLanguage) {
+					console.log('ERROR: default language is required to create enterprise site');
+					return Promise.reject();
+				}
+
+				if (!createEnterprise) {
+					console.log(' - creating standard site ...');
+					console.log(sprintf(format, 'name', name));
+					console.log(sprintf(format, 'template', templateName));
+
+					sitesRest.createSite({
+							server: server,
+							name: name,
+							templateId: template.id,
+							templateName: templateName
+						})
+						.then(function (result) {
+							if (result.err) {
+								done();
+							} else {
+								console.log(' - site created');
+								done(true)
+							}
+						});
+
+				} else {
+
+					serverRest.getRepositories({
+							server: server
+						})
+						.then(function (result) {
+							var repositories = result || [];
+							for (var i = 0; i < repositories.length; i++) {
+								if (repositories[i].name.toLowerCase() === repositoryName.toLowerCase()) {
+									repositoryId = repositories[i].id;
+									break;
+								}
+							}
+
+							if (!repositoryId) {
+								console.log('ERROR: repository ' + repositoryName + ' does not exist');
+								return Promise.reject();
+							}
+							console.log(' - get repository');
+
+							return serverRest.getLocalizationPolicies({
+								server: server
+							});
+						})
+						.then(function (result) {
+							var policies = result || [];
+							var policy;
+							if (localizationPolicyName) {
+								for (var i = 0; i < policies.length; i++) {
+									if (policies[i].name === localizationPolicyName) {
+										policy = policies[i];
+										localizationPolicyId = policies[i].id;
+										break;
+									}
+								}
+								if (!localizationPolicyId) {
+									console.log('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
+									return Promise.reject();
+								}
+								console.log(' - get localization policy');
+							} else {
+								for (var i = 0; i < policies.length; i++) {
+									if (policies[i].id === template.localizationPolicy.id) {
+										policy = policies[i];
+										localizationPolicyId = policies[i].id;
+										break;
+									}
+								}
+								if (!localizationPolicyId) {
+									console.log('ERROR: localization policy in template does not exist');
+									return Promise.reject();
+								}
+								console.log(' - use localization policy from template: ' + policy.name);
+							}
+
+							var requiredLanguages = policy.requiredValues;
+							if (!requiredLanguages.includes(defaultLanguage)) {
+								console.log('ERROR: language ' + defaultLanguage + ' is not in localization policy ' + policy.name);
+								return Promise.reject();
+							}
+
+							//
+							// create enterprise site
+							//
+							console.log(' - creating enterprise site ...');
+							console.log(sprintf(format, 'name', name));
+							console.log(sprintf(format, 'template', templateName));
+							console.log(sprintf(format, 'site prefix', sitePrefix));
+							console.log(sprintf(format, 'repository', repositoryName));
+							console.log(sprintf(format, 'localization policy', policy.name));
+							console.log(sprintf(format, 'default language', defaultLanguage));
+
+							return sitesRest.createSite({
+								server: server,
+								name: name,
+								description: description,
+								sitePrefix: sitePrefix,
+								templateName: templateName,
+								templateId: template.id,
+								repositoryId: repositoryId,
+								localizationPolicyId: localizationPolicyId,
+								defaultLanguage: defaultLanguage
+							});
+						})
+						.then(function (result) {
+							if (result.err) {
+								return Promise.reject();
+							}
+
+							console.log(' - site created');
+							done(true);
+						})
+						.catch((error) => {
+							done();
+						});
+				}
+			})
+			.catch((error) => {
+				done();
+			});
+	});
+};
 
 /**
  * control site
@@ -733,9 +624,11 @@ module.exports.controlSite = function (argv, done) {
 
 		var request = serverUtils.getRequest();
 
-		var site;
-
-		_controlSiteSCS(request, server, action, siteName, done);
+		if (server.useRest) {
+			_controlSiteREST(request, server, action, siteName, done);
+		} else {
+			_controlSiteSCS(request, server, action, siteName, done);
+		}
 
 		/** wait sites management API to be released
 		
@@ -1364,6 +1257,107 @@ var _getOneIdcService = function (request, localhost, server, service, params) {
 	});
 };
 
+/**
+ * Control site using REST APIs
+ * @param {*} request 
+ * @param {*} server 
+ * @param {*} action 
+ * @param {*} siteName 
+ * @param {*} done 
+ */
+var _controlSiteREST = function (request, server, action, siteName, done) {
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		sitesRest.getSite({
+				server: server,
+				name: siteName
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				var site = result;
+				var runtimeStatus = site.runtimeStatus;
+				var publishStatus = site.publishStatus;
+				console.log(' - get site: runtimeStatus: ' + runtimeStatus + '  publishStatus: ' + publishStatus);
+
+				if (action === 'take-offline' && runtimeStatus === 'offline') {
+					console.log(' - site is already offline');
+					return Promise.reject();
+				}
+				if (action === 'bring-online' && runtimeStatus === 'online') {
+					console.log(' - site is already online');
+					return Promise.reject();
+				}
+				if (action === 'bring-online' && publishStatus === 'unpublished') {
+					console.log('ERROR: site ' + siteName + ' is draft, publish it first');
+					return Promise.reject();
+				}
+
+				if (action === 'unpublish' && runtimeStatus === 'online') {
+					console.log('ERROR: site ' + siteName + ' is online, take it offline first');
+					return Promise.reject();
+				}
+				if (action === 'unpublish' && publishStatus === 'unpublished') {
+					console.log('ERROR: site ' + siteName + ' is draft');
+					return Promise.reject();
+				}
+
+				var actionPromise;
+				if (action === 'publish') {
+					actionPromise = sitesRest.publishSite({
+						server: server,
+						name: siteName
+					});
+				} else if (action === 'unpublish') {
+					actionPromise = sitesRest.unpublishSite({
+						server: server,
+						name: siteName
+					})
+				} else if (action === 'bring-online') {
+					actionPromise = sitesRest.activateSite({
+						server: server,
+						name: siteName
+					});
+				} else if (action === 'take-offline') {
+					actionPromise = sitesRest.deactivateSite({
+						server: server,
+						name: siteName
+					});
+				} else {
+					console.log('ERROR: invalid action ' + action);
+					return Promise.reject();
+				}
+
+				return actionPromise;
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				if (action === 'bring-online') {
+					console.log(' - site ' + siteName + ' is online now');
+				} else if (action === 'take-offline') {
+					console.log(' - site ' + siteName + ' is offline now');
+				} else {
+					console.log(' - ' + action + ' ' + siteName + ' finished');
+				}
+
+				done(true);
+			})
+			.catch((error) => {
+				done();
+			});
+	});
+};
 
 /**
  * share site

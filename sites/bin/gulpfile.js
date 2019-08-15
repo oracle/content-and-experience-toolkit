@@ -68,6 +68,18 @@ var verifyRun = function () {
 gulp.task('install-src', function (done) {
 	'use strict';
 
+	var nodeVersion = process.version;
+	console.log('Node version ' + nodeVersion);
+	var version0 = nodeVersion.split('.')[0];
+	if (version0.startsWith('v')) {
+		version0 = version0.substring(1);
+	}
+	if (version0 < 8) {
+		console.log('ERROR: requires Node version 8 or above, please upgrade')
+		done();
+		return;
+	}
+
 	projectDir = argv.projectDir || projectDir;
 
 	// existing setup

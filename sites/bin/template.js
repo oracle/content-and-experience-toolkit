@@ -931,7 +931,7 @@ module.exports.deleteTemplate = function (argv, done) {
 		app.post('/documents/web', function (req, res) {
 			// console.log('POST: ' + req.url);
 			if (req.url.indexOf('FLD_MOVE_TO_TRASH') > 0) {
-				var url = server.url + '/documents/web?IdcService=FLD_MOVE_TO_TRASH';
+				var url = server.url + '/documents/web?IdcService=SCS_MOVE_TO_TRASH';
 				var formData = {
 					'idcToken': idcToken,
 					'items': 'fFolderGUID:' + templateGUID
@@ -1107,65 +1107,6 @@ module.exports.createTemplateFromSite = function (argv, done) {
 			_createTemplateFromSiteSCS(server, name, siteName, includeUnpublishedAssets, done);
 		}
 
-		/**
-		 * wait till sites management API released
-		 *
-		 *
-		var request = serverUtils.getRequest();
-
-		var tokenPromises = [];
-		if (server.env === 'pod_ec') {
-			tokenPromises.push(serverUtils.getOAuthTokenFromIDCS(request, server));
-		}
-		Promise.all(tokenPromises).then(function (result) {
-				if (result.length > 0 && result[0].err) {
-					_cmdEnd(done);
-				}
-
-				// save the OAuth token
-				if (result.length > 0) {
-					server.oauthtoken = result[0].oauthtoken;
-				}
-
-				// verify template
-				return serverUtils.getTemplateFromServer(request, server, name);
-			})
-			.then(function (result) {
-				if (result.err) {
-					_cmdEnd(done);
-				}
-
-				if (result && result.data && result.data.id) {
-					console.log('ERROR: template ' + name + ' already exists');
-					_cmdEnd(done);
-				}
-				console.log(' - get template');
-
-				// verify site
-				return serverUtils.getSiteFromServer(request, server, siteName);
-			})
-			.then(function (result) {
-				if (result.err) {
-					_cmdEnd(done);
-				}
-
-				if (!result || !result.data || !result.data.id) {
-					console.log('ERROR: site ' + siteName + ' does not exist');
-					_cmdEnd(done);
-				}
-				site = result.data;
-				console.log(' - get site');
-
-				// create template (using IdcService for now)
-				var exportPublishedAssets = includeUnpublishedAssets ? 0 : 1;
-				return _IdcCopySites(request, server, name, site.id, 1, exportPublishedAssets);
-			})
-			.then(function (result) {
-
-				_cmdEnd(done);
-
-			});
-			*/
 	} catch (err) {
 		console.log(err);
 		_cmdEnd(done)
@@ -1710,13 +1651,25 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate) {
 var _importTemplate = function (server, name, folder, zipfile, done) {
 	console.log(' - deploy template ' + name);
 
-	var request = require('request');
-	request = request.defaults({
-		jar: true,
-		proxy: null
-	});
+	var request = serverUtils.getRequest();
 
-	if (server.env !== 'dev_ec') {
+	if (server.useRest) {
+		serverUtils.loginToServer(server, request).then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
+
+			_importTemplateToServerRest(server, name, folder, zipfile).then(function (result) {
+				if (result.err) {
+					done();
+				} else {
+					done(true);
+				}
+			});
+		});
+	} else if (server.env !== 'dev_ec') {
 		var loginPromise = server.env === 'dev_osso' ? serverUtils.loginToSSOServer(server) : serverUtils.loginToPODServer(server);
 
 		loginPromise.then(function (result) {
@@ -2763,4 +2716,61 @@ var _downloadTemplateREST = function (server, name, done) {
 		.catch((error) => {
 			done();
 		});
+};
+
+var _importTemplateToServerRest = function (server, name, folder, zipfile) {
+	var fileName = zipfile.substring(zipfile.lastIndexOf('/') + 1);
+	return new Promise(function (resolve, reject) {
+		var folderPromises = [];
+		if (folder) {
+			folderPromises.push(serverRest.findFolderHierarchy({
+				server: server,
+				parentID: 'self',
+				folderPath: folder
+			}));
+		}
+		Promise.all(folderPromises)
+			.then(function (results) {
+				if (folder && (!results || results.length === 0 || !results[0] || !results[0].id)) {
+					return Promise.reject();
+				}
+
+				var folderId = folder ? results[0].id : 'self';
+
+				// upload file
+				return serverRest.createFile({
+					server: server,
+					parentID: folderId,
+					filename: fileName,
+					contents: fs.readFileSync(zipfile)
+				});
+
+			}).then(function (result) {
+				if (!result || !result.id) {
+					return Promise.reject();
+				}
+				console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + result.version);
+				var fileId = result.id;
+
+				return sitesRest.importTemplate({
+					server: server,
+					name: name,
+					fileId: fileId
+				});
+			})
+			.then(function (results) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - template ' + name + ' imported');
+
+				resolve({});
+			})
+			.catch((error) => {
+				resolve({
+					err: 'err'
+				});
+			});
+	});
 };

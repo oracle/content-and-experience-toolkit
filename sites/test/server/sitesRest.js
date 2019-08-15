@@ -94,7 +94,7 @@ module.exports.getSites = function (args) {
 	return _getResources(server, 'sites', args.expand);
 };
 
-var _getResource = function (server, type, id, name, showError) {
+var _getResource = function (server, type, id, name, expand, showError) {
 	return new Promise(function (resolve, reject) {
 		var request = siteUtils.getRequest();
 
@@ -107,6 +107,9 @@ var _getResource = function (server, type, id, name, showError) {
 		console.log(' - get ' + url);
 
 		url = url + '?links=none';
+		if (expand) {
+			url = url + '&expand=' + expand;
+		}
 		var options = {
 			url: server.url + url
 		};
@@ -165,7 +168,7 @@ var _getResource = function (server, type, id, name, showError) {
  */
 module.exports.getSite = function (args) {
 	var server = args.server;
-	return _getResource(server, 'sites', args.id, args.name, true);
+	return _getResource(server, 'sites', args.id, args.name, args.expand, true);
 };
 
 /**
@@ -178,7 +181,7 @@ module.exports.getSite = function (args) {
  */
 module.exports.getTemplate = function (args) {
 	var server = args.server;
-	return _getResource(server, 'templates', args.id, args.name, true);
+	return _getResource(server, 'templates', args.id, args.name, args.expand, true);
 };
 
 /**
@@ -191,7 +194,7 @@ module.exports.getTemplate = function (args) {
  */
 module.exports.getTheme = function (args) {
 	var server = args.server;
-	return _getResource(server, 'themes', args.id, args.name, true);
+	return _getResource(server, 'themes', args.id, args.name, args.expand, true);
 };
 
 /**
@@ -204,7 +207,7 @@ module.exports.getTheme = function (args) {
  */
 module.exports.getComponent = function (args) {
 	var server = args.server;
-	return _getResource(server, 'components', args.id, args.name, true);
+	return _getResource(server, 'components', args.id, args.name, args.expand, true);
 };
 
 /**
@@ -218,7 +221,7 @@ module.exports.getComponent = function (args) {
  */
 module.exports.resourceExist = function (args) {
 	var server = args.server;
-	return _getResource(server, args.type, args.id, args.name, false);
+	return _getResource(server, args.type, args.id, args.name, args.expand, false);
 };
 
 var _exportResource = function (server, type, id, name) {
@@ -377,6 +380,342 @@ var _publishResource = function (server, type, id, name) {
 module.exports.publishComponent = function (args) {
 	var server = args.server;
 	return _publishResource(server, 'components', args.id, args.name);
+};
+
+var _publishResourceAsync = function (server, type, id, name) {
+	return new Promise(function (resolve, reject) {
+		var request = siteUtils.getRequest();
+
+		var url = '/sites/management/api/v1/' + type + '/';
+		if (id) {
+			url = url + id
+		} else if (name) {
+			url = url + 'name:' + name;
+		}
+		url = url + '/publish';
+		console.log(' - post ' + url);
+		var options = {
+			method: 'POST',
+			headers: {
+				Prefer: 'respond-async'
+			},
+			url: server.url + url
+		};
+		if (server.env !== 'dev_ec') {
+			options.headers['Authorization'] = server.oauthtoken;
+
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+		// console.log(options);
+		var resTitle = type.substring(0, type.length - 1);
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to publish ' + resTitle + ' ' + (name || id) + ' : ');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+			
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			
+			if (response && response.statusCode === 202) {
+				var statusLocation = response.headers && response.headers.location;
+				var inter = setInterval(function () {
+					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
+					jobPromise.then(function (data) {
+						// console.log(data);
+						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+							clearInterval(inter);
+							var msg = data && data.error ? (data.error.detail || data.error.title) : '';
+							console.log('ERROR: failed to publish ' + resTitle + ' ' + (name || id) + ' : ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						} else if (data.completed && data.progress === 'succeeded') {
+							clearInterval(inter);
+
+							return resolve({});
+						} else {
+							console.log(' - publish in process: percentage ' + data.completedPercentage);
+						}
+					});
+				}, 5000);
+			} else {
+				var msg = data && typeof data === 'object' ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to publish ' + resTitle + ' ' + (name || id) + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Publish a theme on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} id the id of the theme or
+ * @param {string} name the name of the theme
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.publishTheme = function (args) {
+	var server = args.server;
+	return _publishResourceAsync(server, 'themes', args.id, args.name);
+};
+
+/**
+ * Publish a site on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} id the id of the site or
+ * @param {string} name the name of the site
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.publishSite = function (args) {
+	var server = args.server;
+	return _publishResourceAsync(server, 'sites', args.id, args.name);
+};
+
+var _unpublishResource = function (server, type, id, name) {
+	return new Promise(function (resolve, reject) {
+		var request = siteUtils.getRequest();
+
+		var url = '/sites/management/api/v1/' + type + '/';
+		if (id) {
+			url = url + id
+		} else if (name) {
+			url = url + 'name:' + name;
+		}
+		url = url + '/unpublish';
+		console.log(' - post ' + url);
+		var options = {
+			method: 'POST',
+			url: server.url + url
+		};
+		if (server.env !== 'dev_ec') {
+			options.headers = {
+				Authorization: server.oauthtoken
+			};
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+		// console.log(options);
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to unpublish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 303) {
+				resolve({
+					id: id,
+					name: name
+				});
+			} else {
+				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to unpublish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Unpublish a site on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} id the id of the site or
+ * @param {string} name the name of the site
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.unpublishSite = function (args) {
+	var server = args.server;
+	return _unpublishResource(server, 'sites', args.id, args.name);
+};
+
+var _unpublishResource = function (server, type, id, name) {
+	return new Promise(function (resolve, reject) {
+		var request = siteUtils.getRequest();
+
+		var url = '/sites/management/api/v1/' + type + '/';
+		if (id) {
+			url = url + id
+		} else if (name) {
+			url = url + 'name:' + name;
+		}
+		url = url + '/unpublish';
+		console.log(' - post ' + url);
+		var options = {
+			method: 'POST',
+			url: server.url + url
+		};
+		if (server.env !== 'dev_ec') {
+			options.headers = {
+				Authorization: server.oauthtoken
+			};
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+		// console.log(options);
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to unpublish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 303) {
+				resolve({
+					id: id,
+					name: name
+				});
+			} else {
+				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to unpublish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Unpublish a site on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} id the id of the site or
+ * @param {string} name the name of the site
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.unpublishSite = function (args) {
+	var server = args.server;
+	return _unpublishResource(server, 'sites', args.id, args.name);
+};
+
+var _setSiteOnlineStatus = function (server, id, name, status) {
+	return new Promise(function (resolve, reject) {
+		var request = siteUtils.getRequest();
+		
+		var url = '/sites/management/api/v1/sites/';
+		if (id) {
+			url = url + id
+		} else if (name) {
+			url = url + 'name:' + name;
+		}
+		var action = status === 'online' ? 'activate' : 'deactivate';
+		url = url + '/' + action;
+
+		console.log(' - post ' + url);
+		var options = {
+			method: 'POST',
+			url: server.url + url
+		};
+		if (server.env !== 'dev_ec') {
+			options.headers = {
+				Authorization: server.oauthtoken
+			};
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+		// console.log(options);
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to ' + action + ' site ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 303) {
+				resolve({
+					id: id,
+					name: name
+				});
+			} else {
+				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to ' + action + ' site ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Activate a site on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} id the id of the site or
+ * @param {string} name the name of the site
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.activateSite = function (args) {
+	var server = args.server;
+	return _setSiteOnlineStatus(server, args.id, args.name, 'online');
+};
+
+/**
+ * Deactivate a site on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} id the id of the site or
+ * @param {string} name the name of the site
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deactivateSite = function (args) {
+	var server = args.server;
+	return _setSiteOnlineStatus(server, args.id, args.name, 'offline');
 };
 
 var _softDeleteResource = function (server, type, id, name) {
@@ -560,7 +899,6 @@ var _importComponent = function (server, name, fileId) {
 					name: name
 				});
 			} else {
-				console.log(data.componentConflicts[0].conflicts);
 				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to import component ' + name + ' : ' + msg);
 				resolve({
@@ -680,9 +1018,10 @@ var _createTemplateFromSite = function (server, name, siteName, exportPublishedA
 					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
 					jobPromise.then(function (data) {
 						// console.log(data);
-						if (!data || data.err || !data.progress || data.progress === 'failed') {
+						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
 							clearInterval(inter);
-							console.log('ERROR: create template failed: ');
+							var msg = data && data.error ? (data.error.detail || data.error.title) : '';
+							console.log('ERROR: create template failed: ' + msg);
 							return resolve({
 								err: 'err'
 							});
@@ -718,4 +1057,207 @@ var _createTemplateFromSite = function (server, name, siteName, exportPublishedA
 module.exports.createTemplateFromSite = function (args) {
 	var server = args.server;
 	return _createTemplateFromSite(server, args.name, args.siteName, args.exportPublishedAssets);
+};
+
+var _importTemplate = function (server, name, fileId) {
+	return new Promise(function (resolve, reject) {
+		var request = siteUtils.getRequest();
+
+		var url = '/sites/management/api/v1/templates';
+		console.log(' - post ' + url);
+		var options = {
+			method: 'POST',
+			headers: {
+				Prefer: 'respond-async'
+			},
+			url: server.url + url,
+			body: {
+				file: fileId,
+				template: {
+					resolution: 'overwrite'
+				},
+				theme: {
+					resolution: 'overwrite'
+				},
+				components: {
+					resolution: 'overwrite'
+				}
+			},
+			json: true
+		};
+		if (server.env !== 'dev_ec') {
+			options.headers['Authorization'] = server.oauthtoken;
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+		// console.log(options);
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to import template ' + name);
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 202) {
+				var statusLocation = response.headers && response.headers.location;
+				var inter = setInterval(function () {
+					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
+					jobPromise.then(function (data) {
+						// console.log(data);
+						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+							clearInterval(inter);
+							var msg = data && data.error ? (data.error.detail || data.error.title) : '';
+							console.log('ERROR: import template failed: ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						} else if (data.completed && data.progress === 'succeeded') {
+							clearInterval(inter);
+
+							return resolve(data.template);
+						} else {
+							console.log(' - importing template: percentage ' + data.completedPercentage);
+						}
+					});
+				}, 5000);
+
+			} else {
+				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to import template ' + name + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Import a template on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} name the name of the component
+ * @param {string} fileId the file id of the zip file
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.importTemplate = function (args) {
+	var server = args.server;
+	return _importTemplate(server, args.name, args.fileId);
+};
+
+var _createSite = function (server, name, description, sitePrefix, templateName, templateId, repositoryId, localizationPolicyId, defaultLanguage) {
+	return new Promise(function (resolve, reject) {
+		var request = siteUtils.getRequest();
+
+		var url = '/sites/management/api/v1/sites';
+		console.log(' - post ' + url);
+		var body = {
+			name: name,
+			description: description || '',
+			template: templateId
+		};
+		if (sitePrefix) {
+			body.sitePrefix = sitePrefix;
+		}
+		if (repositoryId) {
+			body.repository = repositoryId;
+		}
+		if (localizationPolicyId) {
+			body.localizationPolicy = localizationPolicyId;
+		}
+		if (defaultLanguage) {
+			body.defaultLanguage = defaultLanguage;
+		}
+		
+		var options = {
+			method: 'POST',
+			url: server.url + url,
+			headers: {
+				Prefer: 'respond-async'
+			},
+			body: body,
+			json: true
+		};
+		if (server.env !== 'dev_ec') {
+			options.headers['Authorization'] = server.oauthtoken;
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+		// console.log(options);
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to create site ' + name + ' from template ' + templateName);
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 202) {
+				var statusLocation = response.headers && response.headers.location;
+				var inter = setInterval(function () {
+					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
+					jobPromise.then(function (data) {
+						// console.log(data);
+						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+							clearInterval(inter);
+							var msg = data && data.error ? (data.error.detail || data.error.title) : '';
+							console.log('ERROR: create site failed: ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						} else if (data.completed && data.progress === 'succeeded') {
+							clearInterval(inter);
+
+							return resolve({});
+						} else {
+							console.log(' - creating site: percentage ' + data.completedPercentage);
+						}
+					});
+				}, 5000);
+			} else {
+				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to create site ' + name + ' from template ' + templateName + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Create site from a template
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} name the name of the site
+ * @param {string} templateName the name of the site
+ * @param {boolean} exportPublishedAssets 
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createSite = function (args) {
+	var server = args.server;
+	return _createSite(server, args.name, args.description, args.sitePrefix,
+		args.templateName, args.templateId, args.repositoryId, args.localizationPolicyId, args.defaultLanguage);
 };

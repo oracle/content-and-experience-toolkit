@@ -252,7 +252,12 @@ var _verifyServer = function (serverName, currPath) {
 
 	server = serverName ? _getRegisteredServer(currPath, serverName) : _getConfiguredServer(currPath);
 	if (!serverName) {
-		console.log(' - configuration file: ' + server.fileloc);
+		if (server.fileexist) {
+			console.log(' - configuration file: ' + server.fileloc);
+		} else {
+			console.log('ERROR: no server is configured');
+			return server;
+		}
 	}
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured in ' + server.fileloc);
@@ -457,7 +462,7 @@ var _getRegisteredServer = function (projectDir, name) {
 /**
  * get request 
  */
-module.exports.getRequest = function (projectDir) {
+module.exports.getRequest = function () {
 	"use strict";
 	return _getRequest();
 };
@@ -2181,15 +2186,7 @@ var _loginToServer = function (server, request) {
 			status: true
 		});
 	} else if (env === 'pod_ec' && server.idcs_url && server.client_id && server.client_secret && server.scope) {
-		_getOAuthTokenFromIDCS(request, server).then(function (result) {
-			var status = result.err ? false : true;
-			if (result.oauthtoken) {
-				server.oauthtoken = result.oauthtoken;
-			}
-			return Promise.resolve({
-				status: status
-			});
-		});
+		return _getOAuthTokenFromIDCS(request, server);
 	} else {
 		var loginPromise = env === 'dev_osso' ? _loginToSSOServer(server) : (env === 'dev_ec' ? _loginToDevServer(server, request) : _loginToPODServer(server));
 		return loginPromise;

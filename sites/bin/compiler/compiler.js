@@ -318,10 +318,10 @@ function compileThemeLayout(themeName, layoutName, pageData) {
 	var compilerName = layoutName.replace(/\.(htm|html)$/i, '') + '-compile.js',
 		compileFile = path.join(themesFolder, themeName, "layouts", compilerName);
 
-	try { 
+	try {
 		// verify if we can load the file
 		require.resolve(compileFile);
-			
+
 		// ok, file's there, load it in
 		var pageCompiler = require(compileFile);
 
@@ -329,8 +329,12 @@ function compileThemeLayout(themeName, layoutName, pageData) {
 		if (typeof pageCompiler.compile === 'function') {
 			trace('compileThemeLayout: custom compiler using: ' + compileFile);
 			return pageCompiler.compile({
-				layoutMarkup: layoutMarkup, 
+				layoutMarkup: layoutMarkup,
 				SCSCompileAPI: compiler.getSCSCompileAPI()
+			}).catch(function (e) {
+				console.log('compileThemeLayout: error trying to compile page layout with: ' + compileFile);
+				console.log(e);
+				return Promise.resolve(layoutMarkup);
 			});
 		} else {
 			trace('compileThemeLayout: no compile() function in page compiler for page layout: ' + compileFile);
@@ -384,24 +388,52 @@ function resolveLinks(pageModel, context, sitePrefix) {
 	}
 
 	var omitFinalSlash = function (str) {
-		var ret = str.replace(/\/+$/, function () { return ''; });
+		var ret = str.replace(/\/+$/, function () {
+			return '';
+		});
 		return ret;
 	};
 
 	// tempVar = tempVar.replace(regExpContentUrl2, function(){ return SCS.sitePrefix + "content"; });
-	tempVar = tempVar.replace(regExpContentUrl, function () { return sitePrefix + siteCacheKey + "content"; });
-	tempVar = tempVar.replace(regExpCatalogUrl, function () { return sitePrefix + componentCacheKey + '_compdelivery'; });
-	tempVar = tempVar.replace(regExpDistFolder, function () { return getProductUrl({ sitePrefix: sitePrefix }); });
-	tempVar = tempVar.replace(regExpDistImgFldr, function () { return getProductUrl({ sitePrefix: sitePrefix }) + '/renderer'; });
-	tempVar = tempVar.replace(regRendererPath, function () { return getProductUrl({ sitePrefix: sitePrefix }) + '/renderer'; });
+	tempVar = tempVar.replace(regExpContentUrl, function () {
+		return sitePrefix + siteCacheKey + "content";
+	});
+	tempVar = tempVar.replace(regExpCatalogUrl, function () {
+		return sitePrefix + componentCacheKey + '_compdelivery';
+	});
+	tempVar = tempVar.replace(regExpDistFolder, function () {
+		return getProductUrl({
+			sitePrefix: sitePrefix
+		});
+	});
+	tempVar = tempVar.replace(regExpDistImgFldr, function () {
+		return getProductUrl({
+			sitePrefix: sitePrefix
+		}) + '/renderer';
+	});
+	tempVar = tempVar.replace(regRendererPath, function () {
+		return getProductUrl({
+			sitePrefix: sitePrefix
+		}) + '/renderer';
+	});
 
-	tempVar = tempVar.replace(regSitePath, function () { return omitFinalSlash(sitePrefix + siteCacheKey); });
+	tempVar = tempVar.replace(regSitePath, function () {
+		return omitFinalSlash(sitePrefix + siteCacheKey);
+	});
 
-	tempVar = tempVar.replace(regThemeRoot, function () { return sitePrefix + themeCacheKey + "_themesdelivery/" + encodeURIComponent(context.siteInfo.properties.themeName); });
-	tempVar = tempVar.replace(regDesignName2, function () { return encodeURIComponent(context.siteInfo.properties.designName || 'default'); });
+	tempVar = tempVar.replace(regThemeRoot, function () {
+		return sitePrefix + themeCacheKey + "_themesdelivery/" + encodeURIComponent(context.siteInfo.properties.themeName);
+	});
+	tempVar = tempVar.replace(regDesignName2, function () {
+		return encodeURIComponent(context.siteInfo.properties.designName || 'default');
+	});
 
-	tempVar = tempVar.replace(regThemeName, function () { return encodeURIComponent(context.siteInfo.properties.themeName); });
-	tempVar = tempVar.replace(regDesignName, function () { return encodeURIComponent(context.siteInfo.properties.designName || 'default'); });
+	tempVar = tempVar.replace(regThemeName, function () {
+		return encodeURIComponent(context.siteInfo.properties.themeName);
+	});
+	tempVar = tempVar.replace(regDesignName, function () {
+		return encodeURIComponent(context.siteInfo.properties.designName || 'default');
+	});
 
 	// Also fix up [!--$SCS_PAGE--]42[/!--$SCS_PAGE--] links that might appear in inline component data
 	// Also handle params [!--$SCS_PAGE--]42|param1=firstParam&amp;param2=secondParam[/!--$SCS_PAGE--] 
@@ -640,7 +672,9 @@ function resolveTokens(layoutMarkup, pageModel, context, sitePrefix) {
 		}) + "$2");
 
 	// Now do the path-based fixups and the token fixups
-	pageMarkup = pageMarkup.replace(/(["'])\/_sitescloud\//g, "$1" + getProductUrl({ sitePrefix: sitePrefix }) + "/");
+	pageMarkup = pageMarkup.replace(/(["'])\/_sitescloud\//g, "$1" + getProductUrl({
+		sitePrefix: sitePrefix
+	}) + "/");
 	pageMarkup = pageMarkup.replace(/(["'])\/_themes\//g, "$1" + sitePrefix + "_themesdelivery/");
 	pageMarkup = resolveLinks(pageMarkup, context, sitePrefix);
 
@@ -685,7 +719,7 @@ var compiler = {
 		self.navigationCurr = args.navigationCurr;
 		self.structureMap = args.structureMap;
 		self.siteInfo = args.siteInfo;
-		self.reportedMessages = {}; 
+		self.reportedMessages = {};
 
 		// define the list of supported component compilers
 		self.componentCompilers = {};
@@ -708,14 +742,14 @@ var compiler = {
 			siteInfo: self.siteInfo,
 			channelAccessToken: channelAccessToken,
 			getContentClient: function (type) {
-				var contentType = type === 'published' ? 'published' : defaultContentType, 
+				var contentType = type === 'published' ? 'published' : defaultContentType,
 					contentSDK = require('../../test/server/npm/contentSDK.js'),
 					beforeSend = function () {
 						return true;
 					};
 
 				// get/create the content client cache
-				self.contentClients = self.contentClients || {}; 
+				self.contentClients = self.contentClients || {};
 
 				// create the content client if it doesn't exist in the cache
 				if (!self.contentClients[type]) {
@@ -745,15 +779,15 @@ var compiler = {
 					}
 
 					self.contentClients[type] = contentSDK.createPreviewClient({
-							contentServer: serverURL,
-							authorization: authorization,
-							contentType: contentType,
-							beforeSend: beforeSend,
-							contentVersion: 'v1.1',
-							channelToken: channelAccessToken || '',
-							isCompiler: true
+						contentServer: serverURL,
+						authorization: authorization,
+						contentType: contentType,
+						beforeSend: beforeSend,
+						contentVersion: 'v1.1',
+						channelToken: channelAccessToken || '',
+						isCompiler: true
 					});
-				} 
+				}
 				return self.contentClients[type];
 			},
 			getComponentInstanceData: function (instanceId) {
@@ -786,6 +820,13 @@ var compiler = {
 	compileComponentInstance: function (compId, compInstance) {
 		var self = this;
 		return new Promise(function (resolve, reject) {
+			// if component is marked as "render on access", we're done
+			if (compInstance.data && compInstance.data.renderOnAccess) {
+				console.log('Component: "' + compId + '" of type "' + compInstance.type + '" marked as "render on access", will not be compiled.');
+				return resolve();
+			}
+
+			// try to compile the component
 			var ComponentCompiler = self.componentCompilers[compInstance.type];
 			if (ComponentCompiler) {
 				var component = new ComponentCompiler(compId, compInstance, componentsFolder);
@@ -799,18 +840,22 @@ var compiler = {
 					}
 					// store the compiled component
 					self.compiledComponents[compId] = compiledComp;
-					resolve();
+					return resolve();
+				}).catch(function (e) {
+					console.log('Error compiling component: "' + compId + '" of type "' + compInstance.type + '" - it will render dynamically at runtime');
+					console.log(e);
+					return resolve();
 				});
 			} else {
 				// inline components are handled separately
-				if (['scs-inline-text', 'scs-inline-image'].indexOf(compInstance.type) === -1) { 
-					var message = 'No component compiler for: ' + compInstance.type; 
-					if (!self.reportedMessages[message]) { 
-						self.reportedMessages[message] = 'done'; 
-						console.log(message); 
-					} 
+				if (['scs-inline-text', 'scs-inline-image'].indexOf(compInstance.type) === -1) {
+					var message = 'No component compiler for: ' + compInstance.type;
+					if (!self.reportedMessages[message]) {
+						self.reportedMessages[message] = 'done';
+						console.log(message);
+					}
 				}
-				resolve();
+				return resolve();
 			}
 		});
 	},
@@ -879,7 +924,9 @@ var compiler = {
 						}
 
 						// Write the component markup into the component's div
-						tempMarkup = replaceTagContent(tempSlotMarkup, componentId, content, { append: true });
+						tempMarkup = replaceTagContent(tempSlotMarkup, componentId, content, {
+							append: true
+						});
 						if (typeof tempMarkup === 'string') {
 							compiledComponentIds.push(componentId);
 							tempSlotMarkup = tempMarkup;
@@ -893,7 +940,9 @@ var compiler = {
 							// Some components, like Component Groups, want to set class names into the component div tag
 							parentClasses = self.compiledComponents[componentId].parentClasses;
 							if (Array.isArray(parentClasses) && (parentClasses.length > 0)) {
-								tempMarkup = replaceTagAttributes(tempSlotMarkup, componentId, { class: parentClasses.join(' ') });
+								tempMarkup = replaceTagAttributes(tempSlotMarkup, componentId, {
+									class: parentClasses.join(' ')
+								});
 								if (typeof tempMarkup === 'string') {
 									tempSlotMarkup = tempMarkup;
 								}
@@ -935,7 +984,10 @@ function resolveSlots(pageMarkup, pageModel, sitePrefix) {
 
 					slotInfo = compiler.compileSlot(slotId);
 					if (slotInfo) {
-						tempPageLayout = replaceTagContent(newPageLayout, slotId, slotInfo.slotMarkup, { append: true, verifyClass: 'scs-slot' });
+						tempPageLayout = replaceTagContent(newPageLayout, slotId, slotInfo.slotMarkup, {
+							append: true,
+							verifyClass: 'scs-slot'
+						});
 						if (typeof tempPageLayout === 'string') {
 							newPageLayout = tempPageLayout;
 
@@ -1222,8 +1274,7 @@ function replaceTagAttributes(layout, id, attributes) {
 				tempLayout += layout.substring(startTagPos + tagStart.length + tagAttributes.length);
 			}
 		}
-	}
-	catch (e) {
+	} catch (e) {
 		trace('Failed to replace attributes: ' + e.message);
 	}
 
@@ -1277,10 +1328,10 @@ function parseTagAttributes(attString) {
 		if (char != "=") {
 			parsedAttributes[name] = undefined;
 			start = pos;
-			continue;	// this was an attribute with no value
+			continue; // this was an attribute with no value
 		}
 
-		pos += 1;	// skip past the "="
+		pos += 1; // skip past the "="
 
 		// look for the start of the value...
 		for (; pos < limit; pos++) {
@@ -1293,8 +1344,7 @@ function parseTagAttributes(attString) {
 		if (char == "'" || char == '"') {
 			delim = char;
 			pos += 1;
-		}
-		else {
+		} else {
 			delim = " ";
 		}
 
@@ -1311,7 +1361,7 @@ function parseTagAttributes(attString) {
 
 		parsedAttributes[name] = value;
 
-		pos++;	// skip past the delim
+		pos++; // skip past the delim
 	}
 
 	return parsedAttributes;
@@ -1367,8 +1417,7 @@ function replaceTagContent(layout, id, value, options) {
 				}
 			}
 		}
-	}
-	catch (e) {
+	} catch (e) {
 		trace('Failed to replace content: ' + e.message);
 	}
 
@@ -1396,7 +1445,7 @@ function findEndTag(layout, tagName, startPos) {
 			reStartTag = new RegExp('<' + tagName + '\\s*>', 'gi');
 			reStartTag.lastIndex = startPos;
 
-			do {	// Look for another instance of our start tag
+			do { // Look for another instance of our start tag
 				matchStartResult = reStartTag.exec(layout);
 				if (matchStartResult) {
 					startTagPos = matchStartResult.index;
@@ -1413,8 +1462,7 @@ function findEndTag(layout, tagName, startPos) {
 				}
 			} while (matchStartResult && matchEndResult);
 		}
-	}
-	catch (e) {
+	} catch (e) {
 		trace('Failed to find end tag: ' + e.message);
 	}
 
@@ -1590,8 +1638,7 @@ function getLayoutSlotIds(layoutName, layoutMarkup) {
 		try {
 			var layoutInfo = JSON.parse(json);
 			slotIds = layoutInfo.slotIds;
-		} catch (e) {
-		}
+		} catch (e) {}
 
 		return "";
 	});
@@ -1684,7 +1731,7 @@ function createPage(context, pageInfo) {
 				var pageDatas = getPageData(context, pageInfo.id);
 				var pageData = pageDatas.pageData;
 				var layoutName = (pageData.base || pageData).properties.pageLayout;
-				var sitePrefix = computeSitePrefix(context, pageInfo.pageUrl); 
+				var sitePrefix = computeSitePrefix(context, pageInfo.pageUrl);
 
 				// setup the compiler for this page
 				var pageId = pageInfo.id;
@@ -1698,13 +1745,13 @@ function createPage(context, pageInfo) {
 					"siteInfo": context.siteInfo
 				});
 
-				compileThemeLayout(context.themeName, layoutName, pageData).then(function (layoutMarkup) { 
-					pageData = fixupPageDataWithSlotReuseData(context, pageData, layoutName, layoutMarkup); 
+				compileThemeLayout(context.themeName, layoutName, pageData).then(function (layoutMarkup) {
+					pageData = fixupPageDataWithSlotReuseData(context, pageData, layoutName, layoutMarkup);
 					// now fixup the page 
-					fixupPage(pageInfo.id, pageInfo.pageUrl, layoutMarkup, (pageData.base || pageData), pageDatas.localePageData, context, sitePrefix).then(function (pageMarkup) { 
-						var pagePrefix = context.locale ? (context.locale + '/') : ''; 
-						writePage(pagePrefix + pageInfo.pageUrl, pageMarkup); 
-						resolve(); 
+					fixupPage(pageInfo.id, pageInfo.pageUrl, layoutMarkup, (pageData.base || pageData), pageDatas.localePageData, context, sitePrefix).then(function (pageMarkup) {
+						var pagePrefix = context.locale ? (context.locale + '/') : '';
+						writePage(pagePrefix + pageInfo.pageUrl, pageMarkup);
+						resolve();
 					});
 				});
 			}
@@ -1807,12 +1854,12 @@ function copyComponentsDeliveryDirectory() {
 	}
 }
 
-function getPagesToCompile (context, pages, recurse) {
+function getPagesToCompile(context, pages, recurse) {
 	var pagesToCompile = context.structure.pages,
 		pageIds = pages ? pages.toString().split(',') : [];
 
 	var findPages = function (pageId) {
-		var pages = []; 
+		var pages = [];
 
 		// get the requested page
 		var page = context.structure.pages.find(function (entry) {
@@ -1835,7 +1882,7 @@ function getPagesToCompile (context, pages, recurse) {
 	};
 
 	if (pageIds.length > 0) {
-		var requestedPages = []; 
+		var requestedPages = [];
 
 		pageIds.forEach(function (pageId) {
 			requestedPages = requestedPages.concat(findPages(pageId));
@@ -1844,7 +1891,7 @@ function getPagesToCompile (context, pages, recurse) {
 		pagesToCompile = requestedPages;
 		if (requestedPages.length === 0) {
 			console.log('Failed to find any specified pages. Nothing to compile');
-		} 
+		}
 	}
 
 	return pagesToCompile;
@@ -1918,22 +1965,17 @@ var compileSite = function (args) {
 
 	// execute page promises serially
 	var doCreatePages = createPagePromises.reduce(function (previousPromise, nextPromise) {
-		return previousPromise.then(function () {
-			// wait for the previous promise to complete and then call the function to start executing the next promise
-			return nextPromise();
-		});
-	},
+			return previousPromise.then(function () {
+				// wait for the previous promise to complete and then call the function to start executing the next promise
+				return nextPromise();
+			});
+		},
 		// Start with a previousPromise value that is a resolved promise 
 		Promise.resolve());
 
 	// wait until all pages have been created
 	return doCreatePages.then(function () {
 		console.log('All page creation calls complete.');
-
-		//copySiteContentDirectory();
-		//copySiteCloudDeliveryDirectory();
-		//copyThemesDeliveryDirectory();
-		//copyComponentsDeliveryDirectory();
 		return Promise.resolve();
 	}).catch(function (e) {
 		console.log(e);

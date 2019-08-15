@@ -8,6 +8,18 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.3.2d
+
+**Fixed**
+- `cec delete-template` - properly removes template from trash
+
+**Added**
+- `Anchor` - new sample section layout that will scroll into view if URL has matching # fragment.
+
+**Updated**
+- `cec install` - does a check for minimum required version of node
+- `cec *` - no longer reports connection missing in gradle.properties
+
 # New in Release 19.3.2c
 
 - `cec share-site` - share site with users or groups on a CEC server
