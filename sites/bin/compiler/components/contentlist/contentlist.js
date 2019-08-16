@@ -152,6 +152,17 @@ ContentList.prototype.createSectionLayoutInstance = function (args, contentItems
 		return contentItem.id;
 	});
 
+	// add in the componentFactory for any ootb section layouts
+	var ootbSectionLayouts = {
+		'scs-sl-horizontal': 'scs-sl-horizontal',
+		'scs-sl-slider': 'scs-slider',
+		'scs-sl-tabs': 'scs-tabs',
+		'scs-sl-three-columns': 'scs-three-columns',
+		'scs-sl-two-columns': 'scs-two-columns',
+		'scs-sl-vertical': 'scs-vertical'
+	};
+	sectionLayoutInstance.data.componentFactory = sectionLayoutInstance.data.componentFactory || ootbSectionLayouts[sectionLayoutInstance.id];
+
 	return sectionLayoutInstance;
 };
 

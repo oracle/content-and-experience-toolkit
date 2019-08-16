@@ -113,7 +113,7 @@ ContentItem.prototype.getContentLayout = function (SCSCompileAPI, contentType, c
 			return Promise.resolve(compileFile);
 		} catch (e) {
 			// unable to load the content layout
-			console.log('No custom content layout compiler for: "' + (compileFile ? compileFile + '.js' : contentLayoutName) + '"');
+			console.log('no custom content layout compiler for: "' + (compileFile ? compileFile + '.js' : contentLayoutName) + '"');
 			return Promise.resolve('');
 		}
 	});

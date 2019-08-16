@@ -441,11 +441,11 @@ module.exports.deployTemplate = function (argv, done) {
 			return;
 		}
 		total += 1;
-		if (total >= 10) {
+		if (total >= 20) {
 			clearInterval(inter);
 			console.log('ERROR: file ' + zipfile + ' does not exist');
 		}
-	}, 2000);
+	}, 3000);
 };
 
 module.exports.describeTemplate = function (argv, done) {
@@ -749,6 +749,7 @@ module.exports.downloadTemplate = function (argv, done) {
 		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
+			localServer.setTimeout(0);
 
 			var total = 0;
 			var inter = setInterval(function () {
@@ -777,6 +778,7 @@ module.exports.downloadTemplate = function (argv, done) {
 
 								templateGUID = result.templateGUID;
 								// console.log(' - template GUID: ' + templateGUID);
+								console.log(' - get template');
 
 								return serverUtils.queryFolderId(request, server, localhost);
 							})
@@ -998,6 +1000,7 @@ module.exports.deleteTemplate = function (argv, done) {
 		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
+			localServer.setTimeout(0);
 
 			var total = 0;
 			var success = false;
@@ -1014,55 +1017,79 @@ module.exports.deleteTemplate = function (argv, done) {
 						clearInterval(inter);
 						console.log(' - establish user session');
 
-						var templatePromise = _getServerTemplate(request, localhost, name);
-						templatePromise.then(function (result) {
-								if (result.err) {
-									return Promise.reject();
-								}
-
-								if (!result.templateGUID) {
-									console.log('ERROR: template ' + name + ' does not exist');
-									return Promise.reject();
-								}
-
-								templateGUID = result.templateGUID;
-								console.log(' - template GUID: ' + templateGUID);
-
-								return _moveToTrash(request, localhost);
-							})
+						_getServerTemplateFromTrash(request, localhost, name)
 							.then(function (result) {
-								if (result.err) {
-									return Promise.reject();
-								}
-								console.log(' - template deleted');
-								if (!permanent) {
-									success = true;
-									return Promise.reject();
-								}
-
-								// remove from trash
-								var transItemPromise = _getFolderFromTrash(request, localhost, templateGUID);
-								transItemPromise.then(function (result) {
-										if (result.err) {
-											return Promise.reject();
-										}
-
-										templateGUIDInTrash = result.folderGUIDInTrash;
-										return _deleteFromTrash(request, localhost);
-									})
-									.then(function (result) {
-										if (!result.err) {
-											console.log(' - template deleted permanently');
-										}
-										_cmdEnd(done, true);
-									})
-									.catch((error) => {
+								if (result && result.templateGUID) {
+									if (!permanent) {
+										console.log(' - template is in Trash, please run \'cec delete-template ' + name + ' --permanent\' to delete it permanently');
 										_cmdEnd(done);
-									});
+										return;
+									} else {
+										templateGUIDInTrash = result.templateFolderGUID;
+										_deleteFromTrash(request, localhost).then(function (result) {
+											if (!result.err) {
+												console.log(' - template deleted permanently');
+												_cmdEnd(done, true);
+												return;
+											} else {
+												_cmdEnd(done);
+												return;
+											}
+										});
+									}
+								} else {
+
+									var templatePromise = _getServerTemplate(request, localhost, name);
+									templatePromise.then(function (result) {
+											if (result.err) {
+												return Promise.reject();
+											}
+
+											if (!result.templateGUID) {
+												console.log('ERROR: template ' + name + ' does not exist');
+												return Promise.reject();
+											}
+
+											templateGUID = result.templateGUID;
+											console.log(' - template GUID: ' + templateGUID);
+
+											return _moveToTrash(request, localhost);
+										})
+										.then(function (result) {
+											if (result.err) {
+												return Promise.reject();
+											}
+											console.log(' - template deleted');
+											if (!permanent) {
+												success = true;
+												return Promise.reject();
+											}
+
+											// remove from trash
+											var transItemPromise = _getFolderFromTrash(request, localhost, templateGUID);
+											transItemPromise.then(function (result) {
+													if (result.err) {
+														return Promise.reject();
+													}
+
+													templateGUIDInTrash = result.folderGUIDInTrash;
+													return _deleteFromTrash(request, localhost);
+												})
+												.then(function (result) {
+													if (!result.err) {
+														console.log(' - template deleted permanently');
+													}
+													_cmdEnd(done, true);
+												})
+												.catch((error) => {
+													_cmdEnd(done);
+												});
+										})
+										.catch((error) => {
+											_cmdEnd(done, success);
+										});
+								}
 							})
-							.catch((error) => {
-								_cmdEnd(done, success);
-							});
 					}
 					total += 1;
 					if (total >= 10) {
@@ -1820,14 +1847,72 @@ var _getServerTemplate = function (request, localhost, name) {
 	return sitesPromise;
 };
 
+var _getServerTemplateFromTrash = function (request, localhost, name) {
+	return new Promise(function (resolve, reject) {
+		var url = localhost + '/documents/web?IdcService=FLD_BROWSE_TRASH';
+		url = url + '&fApplication=framework.site.template';
+		request.get(url, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get template from trash');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get template from trash' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.fields || [];
+			var rows = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.rows;
+			var sites = []
+			for (var j = 0; j < rows.length; j++) {
+				sites.push({});
+			}
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				for (var j = 0; j < rows.length; j++) {
+					sites[j][attr] = rows[j][i];
+				}
+			}
+			var tempGUID, tempFolderGUID;
+			for (var i = 0; i < sites.length; i++) {
+				if (sites[i]['fFolderName'] === name) {
+					tempGUID = sites[i]['fRealItemGUID'];
+					tempFolderGUID = sites[i]['fFolderGUID'];
+					break;
+				}
+			}
+			return resolve({
+				templateGUID: tempGUID,
+				templateFolderGUID: tempFolderGUID
+			});
+		});
+	});
+};
+
 var _exportServerTemplate = function (request, localhost) {
 	var exportPromise = new Promise(function (resolve, reject) {
 		var url = localhost + '/documents/web?IdcService=SCS_EXPORT_TEMPLATE_PACKAGE';
 
-		request.post(url, function (err, response, body) {
+		var options = {
+			url: url,
+			timeout: 300000
+		};
+		request.post(options, function (err, response, body) {
 			if (err) {
+				console.log('ERROR: Failed to export template:');
+				console.log(err);
 				return resolve({
-					'err': err
+					err: 'err'
 				});
 			}
 
@@ -2146,7 +2231,8 @@ var _IdcCopySites = function (request, server, name, fFolderGUID, doCopyToTempla
 			localServer = app.listen(0, function () {
 				port = localServer.address().port;
 				localhost = 'http://localhost:' + port;
-
+				localServer.setTimeout(0);
+				
 				var inter = setInterval(function () {
 					// console.log(' - getting login user: ' + total);
 					var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
@@ -2332,6 +2418,7 @@ var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpubl
 		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
+			localServer.setTimeout(0);
 
 			var inter = setInterval(function () {
 				// console.log(' - getting login user: ' + total);

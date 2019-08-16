@@ -7,6 +7,7 @@
 
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
+	sitesRest = require('../test/server/sitesRest.js'),
 	fs = require('fs'),
 	Mustache = require('mustache'),
 	path = require('path'),
@@ -111,6 +112,12 @@ var _createRSSFeed = function (server, argv, done) {
 			return;
 		}
 
+		if (server.useRest) {
+			_createRSSFeedREST(request, server, siteName, argv.url, tempPath,
+				rssFile, query, limit, orderby, language, publish, argv.title, argv.description, argv.ttl, done);
+			return;
+		}
+
 		var express = require('express');
 		var app = express();
 
@@ -160,6 +167,7 @@ var _createRSSFeed = function (server, argv, done) {
 		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
+			localServer.setTimeout(0);
 
 			var inter = setInterval(function () {
 				// console.log(' - getting login user: ' + total);
@@ -262,7 +270,7 @@ var _createRSSFeed = function (server, argv, done) {
 									console.log(' - create RSS file ' + rssFile);
 
 									if (publish) {
-										_pubishRSSFile(argv.server, server, request, siteUrl, siteName, rssFile, done);
+										_pubishRSSFile(server, siteUrl, siteName, rssFile, done);
 									} else {
 										_cmdEnd(done, true);
 									}
@@ -315,7 +323,7 @@ var _getOneIdcService = function (request, localhost, service, params, errorMsg)
 	});
 };
 
-var _getContentItems = function (request, localhost, channelToken, query, limit, orderby, language) {
+var _getContentItems = function (request, host, channelToken, query, limit, orderby, language, server) {
 	return new Promise(function (resolve, reject) {
 		var url = '/content/published/api/v1.1/items';
 		var q = language ? (query + ' and (language eq "' + language + '" or translatable eq "false")') : query;
@@ -326,8 +334,16 @@ var _getContentItems = function (request, localhost, channelToken, query, limit,
 		url = url + '&channelToken=' + channelToken + '&fields=all';
 
 		console.log(' - query: ' + url);
-
-		request.get(localhost + url, function (err, response, body) {
+		var options = {
+			url: host + url,
+		};
+		if (server) {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get content');
 				console.log(err);
@@ -468,37 +484,32 @@ var _getRSSDate = function (date) {
 	return parts.join(' ');
 }
 
-var _pubishRSSFile = function (serverName, server, request, siteUrl, siteName, rssFile, done) {
+var _pubishRSSFile = function (server, siteUrl, siteName, rssFile, done) {
 
 	var filename = rssFile;
 	filename = filename.substring(filename.lastIndexOf('/') + 1);
-	
-	var sitePromise = serverUtils.browseSitesOnServer(request, server);
+
+	var sitePromise = server.useRest ? sitesRest.getSite({
+		server: server,
+		name: siteName
+	}) : serverUtils.getSiteFolderAfterLogin(server, siteName);
 	sitePromise.then(function (result) {
 			if (result.err) {
 				return Promise.reject();
 			}
 
-			var sites = result.data || [];
-			var site;
-			for (var i = 0; i < sites.length; i++) {
-				if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-					site = sites[i];
-					break;
-				}
-			}
-			if (!site || !site.fFolderGUID) {
+			var siteId = result.id;
+			if (!siteId) {
 				console.log('ERROR: failed to get site id');
 				return Promise.reject();
 			}
 
-			// console.log(' - site id: ' + site.fFolderGUID);
+			// console.log(' - site id: ' + siteId);
 
 			// get settings folder 
 			return serverRest.findFile({
-				registeredServerName: serverName,
-				currPath: projectDir,
-				parentID: site.fFolderGUID,
+				server: server,
+				parentID: siteId,
 				filename: 'settings'
 			});
 		})
@@ -511,8 +522,7 @@ var _pubishRSSFile = function (serverName, server, request, siteUrl, siteName, r
 
 			// get seo folder 
 			return serverRest.findFile({
-				registeredServerName: serverName,
-				currPath: projectDir,
+				server: server,
 				parentID: settingsFolderId,
 				filename: 'seo'
 			});
@@ -526,8 +536,7 @@ var _pubishRSSFile = function (serverName, server, request, siteUrl, siteName, r
 
 			// upload file
 			return serverRest.createFile({
-				registeredServerName: serverName,
-				currPath: projectDir,
+				server: server,
 				parentID: seoFolderId,
 				filename: filename,
 				contents: fs.readFileSync(rssFile)
@@ -545,5 +554,134 @@ var _pubishRSSFile = function (serverName, server, request, siteUrl, siteName, r
 		})
 		.catch((error) => {
 			_cmdEnd(done);
+		});
+};
+
+/**
+ * Create RSS feed using REST APIs
+ * @param {*} server 
+ * @param {*} tempPath 
+ * @param {*} rssFile 
+ * @param {*} query 
+ * @param {*} limit 
+ * @param {*} orderby 
+ * @param {*} language 
+ * @param {*} publish 
+ * @param {*} done 
+ */
+var _createRSSFeedREST = function (request, server, siteName, url, tempPath, rssFile,
+	query, limit, orderby, language, publish, title, description, ttl, done) {
+	var site;
+	var channelId, channelToken;
+	var defaultDetailPage;
+	var items;
+
+	sitesRest.getSite({
+			server: server,
+			name: siteName,
+			expand: 'channel'
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			site = result;
+			if (!site.isEnterprise) {
+				console.log(' - site ' + siteName + ' is not an enterprise site');
+				return Promise.reject();
+			}
+
+			if (site.channel) {
+				channelId = site.channel.id;
+
+				var tokens = site.channel.channelTokens;
+				for (var i = 0; i < tokens.length; i++) {
+					if (tokens[i].name === 'defaultToken') {
+						channelToken = tokens[i].token;
+						break;
+					}
+				}
+				if (!channelToken && tokens.length > 0) {
+					channelToken = tokens[0].value;
+				}
+			}
+			if (!channelId || !channelToken) {
+				console.log(' - no channel found for site ' + siteName);
+				return Promise.reject();
+			}
+
+			console.log(' - get site (channelToken: ' + channelToken + ')');
+
+			return _getContentItems(request, server.url, channelToken, query, limit, orderby, language, server);
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			items = result.data;
+			if (items.length === 0) {
+				console.log(' - no items');
+				return Promise.reject();
+			}
+			console.log(' - find ' + items.length + ' ' + (items.length > 1 ? 'items' : 'item'));
+
+			return serverRest.findFile({
+				server: server,
+				parentID: site.id,
+				filename: 'structure.json',
+				itemtype: 'file'
+			});
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			var fileId = result.id;
+			return serverRest.readFile({
+				server: server,
+				fFileGUID: fileId
+			});
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			var pages = result && result.pages;
+
+			var defaultDetailPageId = _getDefaultDetailPageId(pages);
+			if (defaultDetailPageId) {
+				for (var i = 0; i < pages.length; i++) {
+					if (pages[i].id.toString() === defaultDetailPageId) {
+						defaultDetailPage = pages[i];
+						break;
+					}
+				}
+				console.log(' - default detail page: ' + defaultDetailPage.name);
+			}
+
+			var siteUrl = url;
+			if (siteUrl.substring(siteUrl.length - 1) === '/') {
+				siteUrl = siteUrl.substring(0, siteUrl.length - 1);
+			}
+
+			if (_generateRSSFile(siteUrl, items, language, defaultDetailPage, tempPath,
+					title, description, ttl, rssFile)) {
+				console.log(' - create RSS file ' + rssFile);
+
+				if (publish) {
+					_pubishRSSFile(server, siteUrl, siteName, rssFile, done);
+				} else {
+					done(true);
+				}
+			} else {
+				done();
+			}
+		})
+		.catch((error) => {
+			done();
 		});
 };

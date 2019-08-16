@@ -475,6 +475,7 @@ const compileTemplate = {
 	command: 'compile-template <source>',
 	alias: 'cmpt',
 	name: 'compile-template',
+	debugName: 'compile-template-debug',
 	usage: {
 		'short': 'Compiles the site within the template.',
 		'long': (function () {
@@ -492,6 +493,7 @@ const compileTemplate = {
 		['cec compile-template Temp1 -c channelToken', 'Compiles the site in template Temp1 using the given channelToken for any content URLs.'],
 		['cec compile-template Temp1 -c channelToken -s UAT -t draft', 'Compiles the site in template Temp1 retrieving draft content from the specified server.'],
 		['cec compile-template Temp1 -p 104,112,183 -r', 'Compiles the specified pages in the site in template Temp1 including all child pages.'],
+		['cec compile-template Temp1 -d', 'Waits for the debugger to be attached.  Once attached, compiles the site in template Temp1.']
 	]
 };
 
@@ -1838,6 +1840,10 @@ const argv = yargs.usage(_usage)
 					alias: 'r',
 					description: 'Compile all child pages of those specifed in the page list'
 				})
+				.option('debug', {
+					alias: 'd',
+					description: 'Start the compiler with "--inspect-brk" option to debug compilation'
+				})
 				.check((argv) => {
 					if (argv.type && argv.type !== 'draft' && argv.type !== 'published') {
 						throw new Error(`${argv.type} is a not a valid value for <type>`);
@@ -1853,6 +1859,7 @@ const argv = yargs.usage(_usage)
 				.example(...compileTemplate.example[1])
 				.example(...compileTemplate.example[2])
 				.example(...compileTemplate.example[3])
+				.example(...compileTemplate.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3569,7 +3576,8 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	});
 
 } else if (argv._[0] === compileTemplate.name || argv._[0] === compileTemplate.alias) {
-	let compileTemplateArgs = ['run', '-s', compileTemplate.name, '--prefix', appRoot,
+	let runCommand = argv.debug ? compileTemplate.debugName : compileTemplate.name;
+	let compileTemplateArgs = ['run', '-s', runCommand, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
 		'--source', argv.source

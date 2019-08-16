@@ -198,6 +198,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 			localServer = app.listen(0, function () {
 				port = localServer.address().port;
 				localhost = 'http://localhost:' + port;
+				localServer.setTimeout(0);
 
 				var inter = setInterval(function () {
 					// console.log(' - getting login user: ' + total);
@@ -881,6 +882,7 @@ var _IdcControlSite = function (request, server, action, siteId) {
 			localServer = app.listen(0, function () {
 				port = localServer.address().port;
 				localhost = 'http://localhost:' + port;
+				localServer.setTimeout(0);
 
 				var inter = setInterval(function () {
 					// console.log(' - getting login user: ' + total);
@@ -1056,6 +1058,7 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
+			localServer.setTimeout(0);
 
 			var inter = setInterval(function () {
 				// console.log(' - getting login user: ' + total);
@@ -1726,6 +1729,7 @@ module.exports.validateSite = function (argv, done) {
 			localServer = app.listen(0, function () {
 				port = localServer.address().port;
 				localhost = 'http://localhost:' + port;
+				localServer.setTimeout(0);
 
 				var inter = setInterval(function () {
 					// console.log(' - getting login user: ' + total);

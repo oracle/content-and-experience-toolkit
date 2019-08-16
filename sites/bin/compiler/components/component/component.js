@@ -245,10 +245,10 @@ Component.prototype.compileComponent = function (args) {
 						});
 					} else {
 						var message;
-						if (viewModel.custComp === 'scs-contentitem') {
-							message = 'failed to compile content item with layout that maps to category: ' + viewModel.contentLayoutCategory;
+						if (['scsCaaSLayout', 'scs-contentitem'].indexOf(viewModel.custComp) !== -1) {
+							message = 'failed to compile content item with layout that maps to category: "' + viewModel.contentLayoutCategory + '"';
 						} else {
-							message = 'failed to compile component with: ' + custComp;
+							message = 'failed to compile component with: ' + compileFile;
 						}
 						if (!reportedFiles[message]) {
 							reportedFiles[message] = 'done';
@@ -280,18 +280,22 @@ Component.prototype.compileComponent = function (args) {
 					console.log('require failed to load: "' + compileFile + '.js" due to:');
 					console.log(e);
 				} else {
-					// don't report on ootb component sectionLayout compilers
-					// these are temporary "components" for content lists that aren't compiled at this point so ignore them
-					var ootbSectionLayouts = [
-						'scs-sl-horizontal',
-						'scs-sl-slider',
-						'scs-sl-tabs',
-						'scs-sl-three-columns',
-						'scs-sl-two-columns',
-						'scs-sl-vertical'
-					];
-					if (ootbSectionLayouts.indexOf(viewModel.custComp) === -1) {
-						console.log('No custom component compiler for: "' + compileFile + '.js"');
+					// don't report on placeholder components
+					var placeHolder = (viewModel.custComp === 'scs-component') && (viewModel.contentPlaceholder);
+					if (!placeHolder) {
+						// don't report on ootb component sectionLayout compilers
+						// these are temporary "components" for content lists that aren't compiled at this point so ignore them
+						var ootbSectionLayouts = [
+							'scs-sl-horizontal',
+							'scs-sl-slider',
+							'scs-sl-tabs',
+							'scs-sl-three-columns',
+							'scs-sl-two-columns',
+							'scs-sl-vertical'
+						];
+						if (ootbSectionLayouts.indexOf(viewModel.custComp) === -1) {
+							console.log('no custom component compiler for: "' + compileFile + '.js"');
+						}
 					}
 				}
 			}

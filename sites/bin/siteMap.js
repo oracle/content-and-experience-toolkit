@@ -1913,6 +1913,7 @@ module.exports.createSiteMap = function (argv, done) {
 		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
+			localServer.setTimeout(0);
 
 			// console.log('localhost: ' + localhost);
 			_createSiteMap(server, serverName, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, languages, toppagepriority, done);

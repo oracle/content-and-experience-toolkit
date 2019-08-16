@@ -1635,8 +1635,10 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 					method: 'POST',
 					url: uploadUrl,
 					'auth': auth,
+					timeout: 600000,
 					'formData': formData
 				};
+				console.log(' - uploading file ' + fileName);
 				request(postData).on('response', function (response) {
 						// fix headers for cross-domain and capitalization issues
 						_fixHeaders(response, res);
@@ -1653,6 +1655,7 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 		var localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
+			localServer.setTimeout(600000);
 			// console.log(' - listening on port: '  + port);
 
 			// get the personal folder id
@@ -2280,6 +2283,7 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 					},
 					'formData': formData
 				};
+				console.log(' - uploading file ' + fileName);
 				request(postData).on('response', function (response) {
 						// fix headers for cross-domain and capitalization issues
 						_fixHeaders(response, res);
@@ -2396,6 +2400,8 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 		var localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
+			localServer.setTimeout(0);
+			
 			// console.log(' - start ' + localhost + ' for import...');
 			console.log(' - establishing user session');
 			var total = 0;
@@ -2494,7 +2500,6 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 				}); // query folder
 			}; // _import
 		});
-		localServer.setTimeout(0);
 
 	});
 
@@ -2599,6 +2604,8 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 										success = true;
 										console.log(' - template ' + name + ' imported (' + _timeUsed(startTime, new Date()) + ')');
 									}
+								} else {
+									console.log(' - failed to import ' + name);
 								}
 								return success ? resolve({}) : resolve({
 									err: 'err'
@@ -3104,47 +3111,28 @@ var _sleep = function (delay) {
  */
 var _getTemplateImportStatus = function (request, host, jobId) {
 	var importStatusPromise = new Promise(function (resolve, reject) {
-		var gap = 5000;
-		var limit = 50;
-		var trials = [];
-		for (var i = 0; i < limit; i++) {
-			if (limit > 22) {
-				gap = 7000;
-			}
-			trials.push({
-				request: request,
-				host: host,
-				jobId: jobId,
-				index: i + 1,
-				delay: gap
-			});
-		}
+		var inter = setInterval(function () {
 
-		var initialTask = _getBackgroundServiceStatus(request, host, jobId);
-
-		trials.reduce(function (jobStatusPromise, nextParam) {
-			return jobStatusPromise.then(function (result) {
+			var jobStatusPromise = _getBackgroundServiceStatus(request, host, jobId);
+			jobStatusPromise.then(function (result) {
 				// console.log(result);
 				if (!result || result.err) {
-
+					clearInterval(inter);
+					return resolve({
+						err: 'err'
+					});
 				} else if (result.status === 'COMPLETE' || result.status === 'FAILED') {
+					clearInterval(inter);
 					return resolve({
 						status: result.status,
 						LocalData: result.LocalData
 					});
 				} else {
-					var trail = '';
-					for (var i = 0; i < nextParam.index; i++) {
-						trail += '.';
-					}
-					var msg = result.status === 'PROCESSING' ? (result.status + ' percentage: ' + result.percentage) : (result.status + ' ' + trail);
+					var msg = result.status === 'PROCESSING' ? (result.status + ' percentage: ' + result.percentage) : (result.status);
 					console.log(' - importing: ' + msg);
-
-					_sleep(nextParam.delay);
-					return _getBackgroundServiceStatus(nextParam.request, nextParam.host, nextParam.jobId);
 				}
 			});
-		}, initialTask);
+		}, 5000);
 	});
 	return importStatusPromise;
 };

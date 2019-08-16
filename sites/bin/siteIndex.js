@@ -2588,6 +2588,7 @@ module.exports.indexSite = function (argv, done) {
 		localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
+			localServer.setTimeout(0);
 
 			var total = 0;
 			var inter = setInterval(function () {
