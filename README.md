@@ -12,6 +12,7 @@ Templates and resources for development platforms.
 
 **Fixed**
 - `cec upload-template` - can now handle very large templates
+- `cec download-template` - can now handle very large templates
 
 # New in Release 19.3.2d
 
