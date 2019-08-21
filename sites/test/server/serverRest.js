@@ -625,7 +625,8 @@ var _createChannel = function (server, name, channelType, description, publishPo
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createChannel = function (args) {
-	return _createChannel(_utils.getServer(args.currPath, args.registeredServerName), args.name, args.channelType,
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _createChannel(server, args.name, args.channelType,
 		args.description, args.publishPolicy, args.localizationPolicy);
 };
 
@@ -675,7 +676,8 @@ var _deleteChannel = function (server, id) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.deleteChannel = function (args) {
-	return _deleteChannel(_utils.getServer(args.currPath, args.registeredServerName), args.id);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _deleteChannel(server, args.id);
 };
 
 // Add channel to repository
@@ -757,7 +759,8 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.addChannelToRepository = function (args) {
-	return _addChannelToRepository(_utils.getServer(args.currPath, args.registeredServerName), args.id, args.name, args.repository);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _addChannelToRepository(server, args.id, args.name, args.repository);
 };
 
 
@@ -796,7 +799,8 @@ var _getChannels = function (server) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getChannels = function (args) {
-	return _getChannels(_utils.getServer(args.currPath, args.registeredServerName));
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _getChannels(server);
 };
 
 // Get channel from server
@@ -829,7 +833,8 @@ var _getChannel = function (server, channelId) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getChannel = function (args) {
-	return _getChannel(_utils.getServer(args.currPath, args.registeredServerName), args.id);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _getChannel(server, args.id);
 };
 
 
@@ -991,7 +996,8 @@ var _opChannelItems = function (server, operation, channelIds, itemIds, queryStr
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.publishChannelItems = function (args) {
-	return _opChannelItems(_utils.getServer(args.currPath, args.registeredServerName), 'publish', [args.channelId], args.itemIds);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _opChannelItems(server, 'publish', [args.channelId], args.itemIds);
 };
 
 /**
@@ -1004,7 +1010,8 @@ module.exports.publishChannelItems = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.unpublishChannelItems = function (args) {
-	return _opChannelItems(_utils.getServer(args.currPath, args.registeredServerName), 'unpublish', [args.channelId], args.itemIds);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _opChannelItems(server, 'unpublish', [args.channelId], args.itemIds);
 };
 
 /**
@@ -1017,7 +1024,8 @@ module.exports.unpublishChannelItems = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.removeItemsFromChanel = function (args) {
-	return _opChannelItems(_utils.getServer(args.currPath, args.registeredServerName), 'removeChannels', [args.channelId], args.itemIds);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _opChannelItems(server, 'removeChannels', [args.channelId], args.itemIds);
 };
 
 /**
@@ -1030,7 +1038,8 @@ module.exports.removeItemsFromChanel = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.addItemsToChanel = function (args) {
-	return _opChannelItems(_utils.getServer(args.currPath, args.registeredServerName), 'addChannels', [args.channelId], args.itemIds);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _opChannelItems(server, 'addChannels', [args.channelId], args.itemIds);
 };
 
 /**
@@ -1042,7 +1051,8 @@ module.exports.addItemsToChanel = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.deleteItems = function (args) {
-	return _opChannelItems(_utils.getServer(args.currPath, args.registeredServerName), 'deleteItems', [], args.itemIds);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _opChannelItems(server, 'deleteItems', [], args.itemIds);
 };
 
 /**
@@ -1055,7 +1065,8 @@ module.exports.deleteItems = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.validateChannelItems = function (args) {
-	return _opChannelItems(_utils.getServer(args.currPath, args.registeredServerName), 'validatePublish', [args.channelId], args.itemIds);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _opChannelItems(server, 'validatePublish', [args.channelId], args.itemIds);
 };
 
 var _getItemOperationStatus = function (server, statusId) {
@@ -1087,7 +1098,8 @@ var _getItemOperationStatus = function (server, statusId) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getItemOperationStatus = function (args) {
-	return _getItemOperationStatus(_utils.getServer(args.currPath, args.registeredServerName), args.statusId);
+	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
+	return _getItemOperationStatus(server, args.statusId);
 };
 
 // Get localization policies from server

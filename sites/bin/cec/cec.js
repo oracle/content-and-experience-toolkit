@@ -595,7 +595,7 @@ const uploadContent = {
 	usage: {
 		'short': 'Uploads local content to a repository on CEC server.',
 		'long': (function () {
-			let desc = 'Uploads local content from channel <name> or template <name> to repository <repository> on CEC server. Specify -c <channel> to add the template content to channel. Optionally specify specify -l <collection> to add the content to collection. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Uploads local content from channel <name>, template <name> or local file <name> to repository <repository> on CEC server. Specify -c <channel> to add the template content to channel. Optionally specify specify -l <collection> to add the content to collection. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -604,7 +604,8 @@ const uploadContent = {
 		['cec upload-content Site1Channel -r Repo1 -u', 'Upload content to repository Repo1, updating existing content to create new versions, and add to channel Site1Channel'],
 		['cec upload-content Site1Channel -r Repo1 -l Site1Collection', 'Upload content to repository Repo1 and add to collection Site1Collection and channel Site1Channel'],
 		['cec upload-content Site1Channel -r Repo1 -s UAT', 'Upload content to repository Repo1 on server UAT and add to channel Site1Channel'],
-		['cec upload-content Template1 -t -r Repo1 -c channel1', 'Upload content from template Template1 to repository Repo1 and add to channel channel1']
+		['cec upload-content Template1 -t -r Repo1 -c channel1', 'Upload content from template Template1 to repository Repo1 and add to channel channel1'],
+		['cec upload-content ~/Downloads/content.zip -f -r Repo1 -c channel1', 'Upload content from file ~/Downloads/content.zip to repository Repo1 and add to channel channel1']
 	]
 };
 
@@ -1190,7 +1191,8 @@ const startTranslationConnector = {
 	},
 	example: [
 		['cec start-translation-connector connector1'],
-		['cec start-translation-connector connector1 -p 7777']
+		['cec start-translation-connector connector1 -p 7777'],
+		['cec start-translation-connector connector1 -d', 'Start the translation connector server with "--inspect" option to allow debugger to be attached.']
 	]
 };
 
@@ -1206,7 +1208,7 @@ const registerTranslationConnector = {
 		})()
 	},
 	example: [
-		['cec register-translation-connector connector1-auto -c connector1 -s http://localhost:8084/connector/rest/api -u admin -p Welcome1 -f "BearerToken:Bearer token1,WorkflowId:machine-workflow-id"']
+		['cec register-translation-connector connector1-auto -c connector1 -s http://localhost:8084/connector/rest/api -u admin -p Welcome1 -f "X-CEC-BearerToken:Bearer token1,X-CEC-WorkflowId:machine-workflow-id"']
 	]
 };
 
@@ -2041,6 +2043,10 @@ const argv = yargs.usage(_usage)
 					alias: 't',
 					description: 'Flag to indicate the content is from template'
 				})
+				.option('file', {
+					alias: 'f',
+					description: 'Flag to indicate the content is from file'
+				})
 				.option('channel', {
 					alias: 'c',
 					description: '<channel> The channel to add the content'
@@ -2069,6 +2075,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadContent.example[2])
 				.example(...uploadContent.example[3])
 				.example(...uploadContent.example[4])
+				.example(...uploadContent.example[5])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2887,8 +2894,13 @@ const argv = yargs.usage(_usage)
 					alias: 'p',
 					description: 'Set <port>. Defaults to 8084.'
 				})
+				.option('debug', {
+					alias: 'd',
+					description: 'Start the translation connector server with "--inspect" option'
+				})
 				.example(...startTranslationConnector.example[0])
 				.example(...startTranslationConnector.example[1])
+				.example(...startTranslationConnector.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3187,6 +3199,10 @@ const argv = yargs.usage(_usage)
 				.option('server', {
 					alias: 's',
 					description: 'The registered CEC server'
+				})
+				.option('debug', {
+					alias: 'd',
+					description: 'Start the server with "--inspect"'
 				})
 				.example(...develop.example[0])
 				.example(...develop.example[1])
@@ -3708,6 +3724,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.template) {
 		uploadContentArgs.push(...['--template', argv.template]);
+	}
+	if (argv.file) {
+		uploadContentArgs.push(...['--file', argv.file]);
 	}
 	if (argv.update) {
 		uploadContentArgs.push(...['--update', argv.update]);
@@ -4319,6 +4338,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.port) {
 		startTranslationConnectorArgs.push(...['--port', argv.port]);
 	}
+	if (argv.debug) {
+		startTranslationConnectorArgs.push(...['--debug']);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, startTranslationConnectorArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -4490,6 +4512,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		developArgs.push(...['--server', argv.server]);
+	}
+	if (argv.debug) {
+		developArgs.push(...['--debug']);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, developArgs, {
 		cwd,

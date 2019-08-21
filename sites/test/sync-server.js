@@ -33,26 +33,28 @@ var destServerName = process.env.CEC_TOOLKIT_SYNC_DEST;
 
 if (!srcServerName) {
 	console.log('ERROR: sync source server is not specified');
-	process.exit(0);
+	process.exit(1);
 };
 if (!fs.existsSync(path.join(serversDir, srcServerName, 'server.json'))) {
 	console.log('ERROR: sync source server ' + srcServerName + ' does not exist');
-	process.exit(0);
+	process.exit(1);
+};
+var srcServer = serverUtils.verifyServer(srcServerName, projectDir);
+if (!srcServer || !srcServer.valid) {
+	process.exit(1);
 };
 if (!destServerName) {
 	console.log('ERROR: sync destination server is not specified');
-	process.exit(0);
+	process.exit(1);
 };
 if (!fs.existsSync(path.join(serversDir, destServerName, 'server.json'))) {
 	console.log('ERROR: sync destination server ' + destServerName + ' does not exist');
-	process.exit(0);
+	process.exit(1);
 };
-
-var srcServer = serverUtils.getRegisteredServer(projectDir, srcServerName);
-console.log('Source server: ' + srcServer.url);
-
-var destServer = serverUtils.getRegisteredServer(projectDir, destServerName);
-console.log('Destination server: ' + destServer.url);
+var destServer = serverUtils.verifyServer(destServerName, projectDir);
+if (!destServer || !destServer.valid) {
+	process.exit(1);
+};
 
 var keyPath = process.env.CEC_TOOLKIT_SYNC_HTTPS_KEY;
 var certPath = process.env.CEC_TOOLKIT_SYNC_HTTPS_CERTIFICATE;
@@ -71,7 +73,9 @@ request = request.defaults({
 
 app.get('/*', function (req, res) {
 	console.log('GET: ' + req.url);
-	res.writeHead(200, {'Content-Type': 'text/plain'});
+	res.writeHead(200, {
+		'Content-Type': 'text/plain'
+	});
 	res.write('CEC toolkit sync server');
 	res.end();
 });
@@ -79,27 +83,24 @@ app.get('/*', function (req, res) {
 app.post('/*', function (req, res) {
 	console.log('POST: ' + req.url);
 
-	if (!req.headers.authorization || req.headers.authorization.indexOf('Basic ') < 0) {
-		res.writeHead(401, {
-			'Content-Type': 'text/plain'
-		});
-		res.end('Missing Authorization Header' + os.EOL);
-		return;
+	console.log(req.headers);
+	if (req.headers.authorization && req.headers.authorization.indexOf('Basic ') >= 0) {
+		const base64Credentials = req.headers.authorization.split(' ')[1];
+		const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
+		if (!credentials || credentials !== username + ':' + password) {
+			res.writeHead(401, {
+				'Content-Type': 'text/plain'
+			});
+			res.end('Invalid Authentication Credentials' + os.EOL);
+			console.log('ERROR: Invalid Authentication Credentials');
+			return;
+		}
 	}
-
-	const base64Credentials = req.headers.authorization.split(' ')[1];
-	const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
-	if (!credentials || credentials !== username + ':' + password) {
-		res.writeHead(401, {
-			'Content-Type': 'text/plain'
-		});
-		res.end('Invalid Authentication Credentials' + os.EOL);
-		return;
-	}
-
+	console.log(req.body);
 	var action = req.body.eventAction;
 	var type = req.body.objectType;
 	var objectId = req.body.objectId;
+	var objectName = req.body.objectName;
 	console.log('*** action: ' + action + ' type: ' + type + ' Id: ' + objectId);
 
 	if (!action) {
@@ -107,6 +108,7 @@ app.post('/*', function (req, res) {
 			'Content-Type': 'text/plain'
 		});
 		res.end('Missing event action' + os.EOL);
+		console.log('ERROR: Missing event action');
 		return;
 	}
 	if (!type) {
@@ -114,6 +116,7 @@ app.post('/*', function (req, res) {
 			'Content-Type': 'text/plain'
 		});
 		res.end('Missing object type' + os.EOL);
+		console.log('ERROR: Missing object type');
 		return;
 	}
 	if (!objectId) {
@@ -121,103 +124,79 @@ app.post('/*', function (req, res) {
 			'Content-Type': 'text/plain'
 		});
 		res.end('Missing object id' + os.EOL);
+		console.log('ERROR: Missing object id');
 		return;
 	}
-	if (action === 'PUBLISH' && type === 'CHANNEL') {
-		var contentGuids = req.body.contentGuids;
+	if (action === 'PUBLISHED' && type === 'CONTENTITEM') {
+		// return immediately, webhook has a 5s timout
+		res.writeHead(200, {
+			'Content-Type': 'text/plain'
+		});
+		res.end();
 
-		if (!contentGuids || contentGuids.length === 0) {
-			res.writeHead(400, {
-				'Content-Type': 'text/plain'
-			});
-			res.end('No content item found' + os.EOL);
-			return;
-		}
+		var repositoryId = req.body.repositoryId;
+		var channelId = req.body.channelId;
+
 		var args = {
 			projectDir: projectDir,
-			server: srcServerName,
-			destination: destServerName,
-			channel: objectId,
-			contentGuids: contentGuids
+			server: srcServer,
+			destination: destServer,
+			id: objectId,
+			name: objectName,
+			repositoryId: repositoryId,
+			channelId: channelId
 		};
 
-		var logName = 'sync-publish-items.log';
-		var defaultLog = process.stdout.write;
-		var cLog = fs.createWriteStream(logName);
-		process.stdout.write = cLog.write.bind(cLog);
-		contentLib.syncPublishItems(args, function () {
-			cLog.end(function () {
-				process.stdout.write = defaultLog;
-				var log = fs.readFileSync(logName).toString();
-				console.log(log);
-				var statusCode = log.indexOf('ERROR') >= 0 ? 500 : 200;
-				res.writeHead(statusCode, {
-					'Content-Type': 'text/plain'
-				});
-				res.end(log);
-				console.log('*** status: ' + statusCode);
-			});
+		contentLib.syncPublishItem(args, function (success) {
+			console.log('*** action finished');
 		});
 
-	} else if ((action === 'CREATE' || action === 'UPDATE') && type === 'CONTENTITEM') {
+	} else if ((action === 'CREATED' || action === 'UPDATED') && type === 'CONTENTITEM') {
+		// return immediately, webhook has a 5s timout
+		res.writeHead(200, {
+			'Content-Type': 'text/plain'
+		});
+		res.end();
+
 		var repositoryId = req.body.repositoryId;
 		var args = {
 			projectDir: projectDir,
-			server: srcServerName,
-			destination: destServerName,
+			server: srcServer,
+			destination: destServer,
 			action: action,
 			id: objectId,
 			repositoryId: repositoryId
 		};
 
-		var logName = path.join(projectDir, 'sync-' + action.toLowerCase() + '-item.log');
-		var defaultLog = process.stdout.write;
-		var cLog = fs.createWriteStream(logName);
-		process.stdout.write = cLog.write.bind(cLog);
-		contentLib.syncCreateUpdateItem(args, function () {
-			cLog.end(function () {
-				process.stdout.write = defaultLog;
-				var log = fs.readFileSync(logName).toString();
-				console.log(log);
-				var statusCode = log.indexOf('ERROR') >= 0 ? 500 : 200;
-				res.writeHead(statusCode, {
-					'Content-Type': 'text/plain'
-				});
-				res.end(log);
-				console.log('*** status: ' + statusCode);
-			});
+		contentLib.syncCreateUpdateItem(args, function (success) {
+			console.log('*** action finished');
 		});
-	} else if (action === 'DELETE' && type === 'CONTENTITEM') {
-		var args = {
-			projectDir: projectDir,
-			server: srcServerName,
-			destination: destServerName,
-			action: action,
-			id: objectId
-		};
 
-		var logName = path.join(projectDir, 'sync-' + action.toLowerCase() + '-item.log');
-		var defaultLog = process.stdout.write;
-		var cLog = fs.createWriteStream(logName);
-		process.stdout.write = cLog.write.bind(cLog);
-		contentLib.syncDeleteItem(args, function () {
-			cLog.end(function () {
-				process.stdout.write = defaultLog;
-				var log = fs.readFileSync(logName).toString();
-				console.log(log);
-				var statusCode = log.indexOf('ERROR') >= 0 ? 500 : 200;
-				res.writeHead(statusCode, {
-					'Content-Type': 'text/plain'
-				});
-				res.end(log);
-				console.log('*** status: ' + statusCode);
-			});
-		});
-	} else {
-		res.writeHead(400, {
+	} else if (action === 'DELETED' && type === 'CONTENTITEM') {
+		res.writeHead(200, {
 			'Content-Type': 'text/plain'
 		});
-		res.end('action ' + action + ' not supported yet' + os.EOL);
+		res.end();
+
+		var args = {
+			projectDir: projectDir,
+			server: srcServer,
+			destination: destServer,
+			action: action,
+			id: objectId,
+			name: objectName
+		};
+
+		contentLib.syncDeleteItem(args, function (success) {
+			console.log('*** action finished');
+		});
+
+	} else {
+		res.writeHead(200, {
+			'Content-Type': 'text/plain'
+		});
+		res.end();
+		console.log('ERROR: action ' + action + ' not supported yet');
 	}
 
 

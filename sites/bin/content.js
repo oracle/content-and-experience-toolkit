@@ -508,11 +508,32 @@ var _checkJobStatus = function (request, server, jobId) {
 };
 
 var _uploadContentFromZip = function (args) {
+	var contentpath = args.contentpath,
+		contentfilename = args.contentfilename;
+	return new Promise(function (resolve, reject) {
+		//
+		// create the content zip file
+		// 
+
+		gulp.src([contentpath + '/**', '!export.zip'])
+			.pipe(zip(contentfilename))
+			.pipe(gulp.dest(path.join(projectDir, 'dist')))
+			.on('end', function () {
+				var zippath = path.join(projectDir, 'dist', contentfilename);
+				console.log(' - created content file ' + zippath);
+				args.zippath =zippath;
+				_uploadContentFromZipFile(args).then(function (result) {
+					return resolve(result);
+				});
+			});
+	});
+};
+
+var _uploadContentFromZipFile = function (args) {
 	var server = args.server,
-		serverName = args.serverName,
 		contentpath = args.contentpath,
 		contentfilename = args.contentfilename,
-		projectDir = args.projectDir,
+		zippath = args.zippath,
 		repositoryName = args.repositoryName,
 		repositoryId = args.repositoryId,
 		channelName = args.channelName,
@@ -525,85 +546,71 @@ var _uploadContentFromZip = function (args) {
 	var request = _getRequest();
 
 	return new Promise(function (resolve, reject) {
-		//
-		// create the content zip file
+
 		// 
+		// upload content zip file
+		//
+		var createFilePromise = serverRest.createFile({
+			server: server,
+			parentID: 'self',
+			filename: contentfilename,
+			contents: fs.readFileSync(zippath)
+		});
 
-		gulp.src([contentpath + '/**', '!export.zip'])
-			.pipe(zip(contentfilename))
-			.pipe(gulp.dest(path.join(projectDir, 'dist')))
-			.on('end', function () {
-				var zippath = path.join(projectDir, 'dist', contentfilename);
-				console.log(' - created content file ' + zippath);
+		var contentZipFileId;
 
-				// 
-				// upload content zip file
-				//
-				var createFilePromise = serverRest.createFile({
-					currPath: projectDir,
-					registeredServerName: serverName,
-					parentID: 'self',
-					filename: contentfilename,
-					contents: fs.readFileSync(zippath)
-				});
+		createFilePromise.then(function (result) {
+				if (!result || !result.id) {
+					errorMessage = 'Error: failed to upload zip file to server.';
+					console.log(errorMessage);
+					return resolve({
+						err: errorMessage
+					});
+				}
 
-				var contentZipFileId;
+				contentZipFileId = result.id;
+				// console.log(' - file uploaded, id: ' + contentZipFileId + ' version: ' + result.version);
+				console.log(' - upload content file ' + zippath);
 
-				createFilePromise.then(function (result) {
-						if (!result || !result.id) {
-							errorMessage = 'Error: failed to upload zip file to server.';
-							console.log(errorMessage);
-							return resolve({
-								err: errorMessage
-							});
+				return serverUtils.getCaasCSRFToken(server);
+			})
+			.then(function (result) {
+				if (result.err) {
+					return resolve(result);
+				}
+				var token = result && result.token;
+				console.log(' - get CSRF token');
+
+				var importPromise = _importContent(request, server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent);
+				var importSuccess = false;
+				importPromise.then(function (result) {
+					if (!result.err) {
+						console.log(' - content imported:');
+						var format = '   %-15s %-s';
+						if (typeof repositoryName === 'string') {
+							console.log(sprintf(format, 'repository', repositoryName));
 						}
-
-						contentZipFileId = result.id;
-						// console.log(' - file uploaded, id: ' + contentZipFileId + ' version: ' + result.version);
-						console.log(' - upload content file');
-
-						return serverUtils.getCaasCSRFToken(server);
-					})
-					.then(function (result) {
-						if (result.err) {
-							return resolve(result);
+						if (typeof collectionName === 'string') {
+							console.log(sprintf(format, 'collection', collectionName));
 						}
-						var token = result && result.token;
-						console.log(' - get CSRF token');
-
-						var importPromise = _importContent(request, server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent);
-						var importSuccess = false;
-						importPromise.then(function (result) {
-							if (!result.err) {
-								console.log(' - content imported:');
-								var format = '   %-15s %-s';
-								if (typeof repositoryName === 'string') {
-									console.log(sprintf(format, 'repository', repositoryName));
-								}
-								if (typeof collectionName === 'string') {
-									console.log(sprintf(format, 'collection', collectionName));
-								}
-								if (typeof channelName === 'string') {
-									console.log(sprintf(format, 'channel', channelName));
-								}
-								importSuccess = true;
-							}
-							// delete the zip file
-							var deleteFilePromise = serverRest.deleteFile({
-								currPath: projectDir,
-								registeredServerName: serverName,
-								fFileGUID: contentZipFileId
-							});
-							deleteFilePromise.then(function (result) {
-								// all done
-								return importSuccess ? resolve({}) : resolve({
-									err: 'err'
-								});
-							});
+						if (typeof channelName === 'string') {
+							console.log(sprintf(format, 'channel', channelName));
+						}
+						importSuccess = true;
+					}
+					// delete the zip file
+					var deleteFilePromise = serverRest.deleteFile({
+						server: server,
+						fFileGUID: contentZipFileId
+					});
+					deleteFilePromise.then(function (result) {
+						// all done
+						return importSuccess ? resolve({}) : resolve({
+							err: 'err'
 						});
 					});
-
-			}); // create zip
+				});
+			});
 	});
 };
 module.exports.uploadContent = function (argv, done) {
@@ -628,7 +635,25 @@ module.exports.uploadContent = function (argv, done) {
 	var contentfilename;
 
 	var isTemplate = typeof argv.template === 'string' && argv.template.toLowerCase() === 'true';
-	if (isTemplate) {
+	var isFile = typeof argv.file === 'string' && argv.file.toLowerCase() === 'true';
+	var filePath, fileChannelName;
+	if (isFile) {
+		filePath = name;
+		if (!path.isAbsolute(filePath)) {
+			filePath = path.join(projectDir, filePath);
+		}
+		filePath = path.resolve(filePath);
+
+		if (!fs.existsSync(filePath)) {
+			console.log('ERROR: file ' + filePath + ' does not exist');
+			done();
+			return;
+		}
+		contentpath = filePath.substring(0, filePath.lastIndexOf('/'));
+		contentfilename = filePath.substring(filePath.lastIndexOf('/') + 1);
+		fileChannelName = contentfilename.substring(0, contentfilename.indexOf('.'));
+
+	} else if (isTemplate) {
 		var templatepath = path.join(templatesSrcDir, name);
 		if (!fs.existsSync(templatepath)) {
 			console.log('ERROR: template folder ' + templatepath + ' does not exist');
@@ -655,11 +680,12 @@ module.exports.uploadContent = function (argv, done) {
 	}
 
 	var repositoryName = argv.repository;
-	var channelName = argv.channel || name;
+	var channelName = argv.channel || (isFile ? fileChannelName : name);
 	var collectionName = argv.collection;
 	var updateContent = typeof argv.update === 'string' && argv.update.toLowerCase() === 'true';
 
-	_uploadContent(server, serverName, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename)
+	var createZip = isFile ? false : true;
+	_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip)
 		.then(function (result) {
 			if (result && result.err) {
 				done();
@@ -669,7 +695,7 @@ module.exports.uploadContent = function (argv, done) {
 		});
 };
 
-var _uploadContent = function (server, serverName, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename) {
+var _uploadContent = function (server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip) {
 	return new Promise(function (resolve, reject) {
 		var request = _getRequest();
 
@@ -748,8 +774,7 @@ var _uploadContent = function (server, serverName, repositoryName, collectionNam
 				if (!channelId) {
 					// need to create the channel first
 					createChannelPromises.push(serverRest.createChannel({
-						currPath: projectDir,
-						registeredServerName: serverName,
+						server: server,
 						name: channelName
 					}));
 				} else {
@@ -783,8 +808,7 @@ var _uploadContent = function (server, serverName, repositoryName, collectionNam
 
 				if (!channelInRepository) {
 					addChannelToRepositoryPromises.push(serverRest.addChannelToRepository({
-						currPath: projectDir,
-						registeredServerName: serverName,
+						server: server,
 						id: channelId,
 						name: channelName,
 						repository: repository
@@ -805,11 +829,11 @@ var _uploadContent = function (server, serverName, repositoryName, collectionNam
 					console.log(' - add channel ' + channelName + ' to repository ' + repositoryName);
 				}
 
-				_uploadContentFromZip({
+				var args = {
 					server: server,
-					serverName: serverName,
 					contentpath: contentpath,
 					contentfilename: contentfilename,
+					zippath: path.join(contentpath, contentfilename),
 					projectDir: projectDir,
 					repositoryName: repositoryName,
 					repositoryId: repositoryId,
@@ -818,7 +842,10 @@ var _uploadContent = function (server, serverName, repositoryName, collectionNam
 					collectionName: collectionName,
 					collectionId: collectionId,
 					updateContent: updateContent
-				}).then(function (result) {
+				};
+				var uploadPromize = createZip ? _uploadContentFromZip(args) : _uploadContentFromZipFile(args);
+
+				uploadPromize.then(function (result) {
 					if (result.err) {
 						return resolve({
 							err: 'err'
@@ -970,7 +997,6 @@ module.exports.uploadContentFromTemplate = function (args) {
 
 	return _uploadContentFromZip({
 		server: server,
-		serverName: registeredServerName,
 		contentpath: contentpath,
 		contentfilename: contentfilename,
 		projectDir: projectDir,
@@ -1020,8 +1046,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 		var hasPublishedItems = false;
 
 		var chanelsPromise = serverRest.getChannels({
-			registeredServerName: serverName,
-			currPath: projectDir
+			server: server
 		});
 		chanelsPromise.then(function (result) {
 				if (result.err) {
@@ -1046,8 +1071,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 				// get channel detail
 				//
 				return serverRest.getChannel({
-					registeredServerName: serverName,
-					currPath: projectDir,
+					server: server,
 					id: channelId
 				});
 			})
@@ -1074,8 +1098,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 				// get items in the channel
 				//
 				return serverRest.getChannelItems({
-					registeredServerName: serverName,
-					currPath: projectDir,
+					server: server,
 					channelToken: channelToken,
 					fields: 'isPublished,status'
 				});
@@ -1131,7 +1154,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 				}
 
 				if (action === 'publish') {
-					var opPromise = _performOneOp(serverName, action, channel.id, toPublishItemIds, true);
+					var opPromise = _performOneOp(server, action, channel.id, toPublishItemIds, true);
 					opPromise.then(function (result) {
 						if (result.err) {
 							return cmdEnd(done);
@@ -1141,7 +1164,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					});
 
 				} else if (action === 'unpublish') {
-					var opPromise = _performOneOp(serverName, action, channel.id, itemIds, true);
+					var opPromise = _performOneOp(server, action, channel.id, itemIds, true);
 					opPromise.then(function (result) {
 						if (result.err) {
 							return cmdEnd(done);
@@ -1153,11 +1176,11 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 				} else if (action === 'remove') {
 					var unpublishPromises = [];
 					if (hasPublishedItems) {
-						unpublishPromises.push(_performOneOp(serverName, 'unpublish', channel.id, itemIds, false));
+						unpublishPromises.push(_performOneOp(server, 'unpublish', channel.id, itemIds, false));
 					}
 					Promise.all(unpublishPromises).then(function (result) {
 						// continue to remove
-						var removePromise = _performOneOp(serverName, action, channel.id, itemIds, true);
+						var removePromise = _performOneOp(server, action, channel.id, itemIds, true);
 						removePromise.then(function (result) {
 							if (result.err) {
 								console.log('ERROR: removing items from channel');
@@ -1182,27 +1205,24 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 	}
 };
 
-var _performOneOp = function (serverName, action, channelId, itemIds, showerror) {
+var _performOneOp = function (server, action, channelId, itemIds, showerror) {
 	return new Promise(function (resolve, reject) {
 		var opPromise;
 		if (action === 'publish') {
 			opPromise = serverRest.publishChannelItems({
-				registeredServerName: serverName,
-				currPath: projectDir,
+				server: server,
 				channelId: channelId,
 				itemIds: itemIds
 			});
 		} else if (action === 'unpublish') {
 			opPromise = serverRest.unpublishChannelItems({
-				registeredServerName: serverName,
-				currPath: projectDir,
+				server: server,
 				channelId: channelId,
 				itemIds: itemIds
 			});
 		} else {
 			opPromise = serverRest.removeItemsFromChanel({
-				registeredServerName: serverName,
-				currPath: projectDir,
+				server: server,
 				channelId: channelId,
 				itemIds: itemIds
 			});
@@ -1232,8 +1252,7 @@ var _performOneOp = function (serverName, action, channelId, itemIds, showerror)
 
 				var inter = setInterval(function () {
 					var jobPromise = serverRest.getItemOperationStatus({
-						registeredServerName: serverName,
-						currPath: projectDir,
+						server: server,
 						statusId: statusId
 					});
 					jobPromise.then(function (data) {
@@ -1295,7 +1314,7 @@ var _displayValidation = function (validations, action) {
 			}
 		}
 	}
-	console.log('Failed to ' + action + ' the following items:');
+	console.log('Failed to ' + action + ' the following items: ' + policyValidation.error);
 	var format = '  %-36s  %-60s  %-s';
 	console.log(sprintf(format, 'Id', 'Name', 'Message'));
 	for (var i = 0; i < blockingItems.length; i++) {
@@ -1304,7 +1323,7 @@ var _displayValidation = function (validations, action) {
 
 };
 
-module.exports.syncPublishItems = function (argv, done) {
+module.exports.syncPublishItem = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
@@ -1312,28 +1331,14 @@ module.exports.syncPublishItems = function (argv, done) {
 		return;
 	}
 
-	var srcServerName = argv.server;
-	if (!fs.existsSync(path.join(serversSrcDir, srcServerName, 'server.json'))) {
-		console.log('ERROR: source server ' + srcServerName + ' does not exist');
-		done();
-		return;
-	};
-
-	var destServerName = argv.destination;
-	if (!fs.existsSync(path.join(serversSrcDir, destServerName, 'server.json'))) {
-		console.log('ERROR: destination server ' + destServerName + ' does not exist');
-		done();
-		return;
-	};
-
-	var srcServer = serverUtils.getRegisteredServer(projectDir, srcServerName);
+	var srcServer = argv.server;
 	console.log(' - source server: ' + srcServer.url);
 
-	var destServer = serverUtils.getRegisteredServer(projectDir, destServerName);
+	var destServer = argv.destination;
 	console.log(' - destination server: ' + destServer.url);
 
-	var channel = argv.channel;
-	var contentGuids = argv.contentGuids;
+	var id = argv.id;
+	var channelId = argv.channelId;
 
 	var channelName, channelIdSrc, channelIdDest;
 
@@ -1345,7 +1350,7 @@ module.exports.syncPublishItems = function (argv, done) {
 
 			var channels = result.channels || [];
 			for (var i = 0; i < channels.length; i++) {
-				if (channels[i].id === channel || channels[i].name.toLowerCase() === channel.toLowerCase()) {
+				if (channels[i].id === channelId) {
 					channelIdSrc = channels[i].id;
 					channelName = channels[i].name;
 					break;
@@ -1353,7 +1358,7 @@ module.exports.syncPublishItems = function (argv, done) {
 			}
 
 			if (!channelIdSrc) {
-				console.log('ERROR: channel ' + channel + ' does not exist on server ' + srcServerName);
+				console.log('ERROR: channel ' + channel + ' does not exist on server ' + srcServer.name);
 				return Promise.reject();
 			}
 
@@ -1371,13 +1376,14 @@ module.exports.syncPublishItems = function (argv, done) {
 			}
 
 			if (!channelIdDest) {
-				console.log('ERROR: channel ' + channelName + ' does not exist on server ' + destServerName);
+				console.log('ERROR: channel ' + channelName + ' does not exist on server ' + destServer.name);
 				return Promise.reject();
 			}
 
 			console.log(' - validate channel on destination server: ' + channelName + '(Id: ' + channelIdDest + ')');
 
-			return _performOneOp(destServerName, 'publish', channelIdDest, contentGuids, true);
+			var contentGuids = [id];
+			return _performOneOp(destServer, 'publish', channelIdDest, contentGuids, true);
 
 		})
 		.then(function (result) {
@@ -1385,7 +1391,7 @@ module.exports.syncPublishItems = function (argv, done) {
 				return Promise.reject();
 			}
 
-			console.log(' - items published to channel ' + channelName + ' on server ' + destServerName);
+			console.log(' - items published to channel ' + channelName + ' on server ' + destServer.name);
 			done();
 		})
 		.catch((error) => {
@@ -1402,24 +1408,10 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 		return;
 	}
 
-	var srcServerName = argv.server;
-	if (!fs.existsSync(path.join(serversSrcDir, srcServerName, 'server.json'))) {
-		console.log('ERROR: source server ' + srcServerName + ' does not exist');
-		done();
-		return;
-	};
-
-	var destServerName = argv.destination;
-	if (!fs.existsSync(path.join(serversSrcDir, destServerName, 'server.json'))) {
-		console.log('ERROR: destination server ' + destServerName + ' does not exist');
-		done();
-		return;
-	};
-
-	var srcServer = serverUtils.getRegisteredServer(projectDir, srcServerName);
+	var srcServer = argv.server;
 	console.log(' - source server: ' + srcServer.url);
 
-	var destServer = serverUtils.getRegisteredServer(projectDir, destServerName);
+	var destServer = argv.destination;
 	console.log(' - destination server: ' + destServer.url);
 
 	var id = argv.id;
@@ -1430,8 +1422,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 
 	// Verify item
 	serverRest.getItem({
-			registeredServerName: srcServerName,
-			currPath: projectDir,
+			server: srcServer,
 			id: id
 		})
 		.then(function (result) {
@@ -1442,8 +1433,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 			console.log(' - validate item on source server: name: ' + item.name + ' (type: ' + item.type + ' id: ' + item.id + ')');
 
 			return serverRest.getRepositories({
-				registeredServerName: srcServerName,
-				currPath: projectDir
+				server: srcServer
 			});
 		})
 		.then(function (result) {
@@ -1456,15 +1446,14 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 			}
 
 			if (!srcRepository || !srcRepository.id) {
-				console.log('ERROR: repository ' + repositoryId + ' does not exist on server ' + srcServerName);
+				console.log('ERROR: repository ' + repositoryId + ' does not exist on server ' + srcServer.name);
 				return Promise.reject();
 			}
 
 			console.log(' - validate repository on source server: ' + srcRepository.name + ' (id: ' + srcRepository.id + ')');
 
 			return serverRest.getRepositories({
-				registeredServerName: destServerName,
-				currPath: projectDir
+				server: destServer
 			});
 		})
 		.then(function (result) {
@@ -1477,7 +1466,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 			}
 
 			if (!destRepository || !destRepository.id) {
-				console.log('ERROR: repository ' + srcRepository.name + ' does not exist on server ' + destServerName);
+				console.log('ERROR: repository ' + srcRepository.name + ' does not exist on server ' + destServer.name);
 				return Promise.reject();
 			}
 
@@ -1486,8 +1475,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 			// create a new channel to export the item
 			var channelName = 'SyncItemChannel' + serverUtils.createGUID();
 			return serverRest.createChannel({
-				currPath: projectDir,
-				registeredServerName: srcServerName,
+				server: srcServer,
 				name: channelName
 			});
 
@@ -1501,8 +1489,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 			console.log(' - create channel ' + srcChannel.name);
 
 			return serverRest.addChannelToRepository({
-				currPath: projectDir,
-				registeredServerName: srcServerName,
+				server: srcServer,
 				id: srcChannel.id,
 				name: srcChannel.name,
 				repository: srcRepository
@@ -1518,8 +1505,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 
 			// add item to the channel
 			return serverRest.addItemsToChanel({
-				registeredServerName: srcServerName,
-				currPath: projectDir,
+				server: srcServer,
 				channelId: srcChannel.id,
 				itemIds: [id]
 			});
@@ -1539,24 +1525,22 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 			if (result.err) {
 				return Promise.reject();
 			}
-
 			// delete the channel
 			return serverRest.deleteChannel({
-				registeredServerName: srcServerName,
-				currPath: projectDir,
+				server: srcServer,
 				id: srcChannel.id
 			});
 		})
 		.then(function (result) {
 			if (!result.err) {
-				console.log(' - delete channel ' + srcChannel.name + ' on server ' + srcServerName);
+				console.log(' - delete channel ' + srcChannel.name + ' on server ' + srcServer.name);
 			}
 
 			// upload content to destination 
 			var updateContent = true;
 			var contentpath = path.join(contentSrcDir, srcChannel.name);
 			var contentfilename = srcChannel.name + '.zip';
-			return _uploadContent(destServer, destServerName, destRepository.name, '', srcChannel.name, updateContent, contentpath, contentfilename);
+			return _uploadContent(destServer, destRepository.name, '', srcChannel.name, updateContent, contentpath, contentfilename, true);
 
 		})
 		.then(function (result) {
@@ -1566,8 +1550,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 			fse.removeSync(path.join(projectDir, 'dist', srcChannel.name + '_export.zip'));
 
 			return serverRest.getChannels({
-				registeredServerName: destServerName,
-				currPath: projectDir
+				server: destServer
 			});
 		})
 		.then(function (result) {
@@ -1581,20 +1564,19 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 			}
 			if (channelId) {
 				serverRest.deleteChannel({
-					registeredServerName: destServerName,
-					currPath: projectDir,
+					server: destServer,
 					id: channelId
 				}).then(function (result) {
 					if (!result.err) {
-						console.log(' - delete channel ' + srcChannel.name + ' on server ' + destServerName);
+						console.log(' - delete channel ' + srcChannel.name + ' on server ' + destServer.name);
 					}
 
-					console.log(' - item ' + item.name + (argv.action === 'CREATE' ? ' created ' : ' updated ') + ' on server ' + destServerName);
-					done();
+					console.log(' - item ' + item.name + (argv.action === 'CREATE' ? ' created ' : ' updated ') + ' on server ' + destServer.name);
+					done(true);
 				})
 			} else {
-				console.log(' - item ' + item.name + (argv.action === 'CREATE' ? ' created ' : ' updated ') + ' on server ' + destServerName);
-				done();
+				console.log(' - item ' + item.name + (argv.action === 'CREATE' ? ' created ' : ' updated ') + ' on server ' + destServer.name);
+				done(true);
 			}
 		})
 		.catch((error) => {
@@ -1612,63 +1594,19 @@ module.exports.syncDeleteItem = function (argv, done) {
 		return;
 	}
 
-	var srcServerName = argv.server;
-	if (!fs.existsSync(path.join(serversSrcDir, srcServerName, 'server.json'))) {
-		console.log('ERROR: source server ' + srcServerName + ' does not exist');
-		done();
-		return;
-	};
-
-	var destServerName = argv.destination;
-	if (!fs.existsSync(path.join(serversSrcDir, destServerName, 'server.json'))) {
-		console.log('ERROR: destination server ' + destServerName + ' does not exist');
-		done();
-		return;
-	};
-
-	var srcServer = serverUtils.getRegisteredServer(projectDir, srcServerName);
+	var srcServer = argv.server;
 	console.log(' - source server: ' + srcServer.url);
 
-	var destServer = serverUtils.getRegisteredServer(projectDir, destServerName);
+	var destServer = argv.destination;
 	console.log(' - destination server: ' + destServer.url);
 
 	var id = argv.id;
+	var name = argv.name;
 
-	var item, destItem;
-
-	// Verify item
-	serverRest.getItem({
-			registeredServerName: srcServerName,
-			currPath: projectDir,
-			id: id
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			item = result;
-			console.log(' - validate item on source server: name: ' + item.name + ' (type: ' + item.type + ' id: ' + item.id + ')');
-
-			return serverRest.getItem({
-				registeredServerName: destServerName,
-				currPath: projectDir,
-				id: id
-			});
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			destItem = result;
-			console.log(' - validate item on source server: name: ' + destItem.name +
-				' (type: ' + destItem.type + ' id: ' + destItem.id + ' status: ' + destItem.status + ')');
-
-			// delete
-			return serverRest.deleteItems({
-				registeredServerName: destServerName,
-				currPath: projectDir,
-				itemIds: [destItem.id]
-			});
+	// delete
+	serverRest.deleteItems({
+			server: destServer,
+			itemIds: [id]
 		})
 		.then(function (result) {
 			if (result.err) {
@@ -1677,10 +1615,11 @@ module.exports.syncDeleteItem = function (argv, done) {
 			var failedItems = result && result.data && result.data.operations && result.data.operations.deleteItems && result.data.operations.deleteItems.failedItems || [];
 			if (failedItems.length > 0) {
 				console.log('ERROR: failed to delete the item - ' + failedItems[0].message);
+				done();
 			} else {
-				console.log(' - item ' + destItem.name + ' deleted on server ' + destServerName);
+				console.log(' - item ' + (name || id) + ' deleted on server ' + destServer.name);
+				done(true);
 			}
-			done();
 		})
 		.catch((error) => {
 			done();

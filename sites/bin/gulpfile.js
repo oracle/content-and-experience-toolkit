@@ -177,7 +177,7 @@ gulp.task('develop', function (done) {
 	process.env['CEC_TOOLKIT_SERVER'] = argv.server || '';
 	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
 
-	var args = ['run', 'start', '--prefix', cecDir];
+	var args = argv.debug ?  ['run', '--node-options', '--inspect', 'start', '--prefix', cecDir] : ['run', 'start', '--prefix', cecDir];
 	var spawnCmd = childProcess.spawnSync(npmCmd, args, {
 		projectDir,
 		stdio: 'inherit'
@@ -781,6 +781,7 @@ gulp.task('control-component', function (done) {
  */
 gulp.task('copy-libs', function (done) {
 	'use strict';
+	var cec_path;
 	if (config && config.build && config.build.libs && config.build.libs.length > 0) {
 		const libs = config.build.libs;
 		const paths = libs.map((lib) => '../node_modules/' + lib + '/**/*');
@@ -802,11 +803,12 @@ gulp.task('copy-libs', function (done) {
 			gulp.src(path).pipe(gulp.dest('../src/libs/' + libs[index] + '/'));
 		});
 	}
-	console.log("\nTo use the CEC command line util, run the following command:");
+	console.log("\nTo use the CEC command line util, add the following directory to your PATH:\n");
+	cec_path = path.resolve(__dirname + path.sep + '..');
 	if (/^darwin/.test(process.platform)) {
-		console.log("\t sudo npm run install-cec \n");
+		console.log("\t"+ cec_path + "/node_modules/.bin\n");
 	} else {
-		console.log("\t npm run install-cec \n");
+		console.log("\t"+ cec_path + "\\node_modules\\.bin\n");
 	}
 	done();
 });

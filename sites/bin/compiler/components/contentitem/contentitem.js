@@ -87,6 +87,13 @@ ContentItem.prototype.getContentLayoutName = function (SCSCompileAPI, args) {
 			}
 
 			// resolve with the layout name or use the system default layout
+			if (!layoutName) {
+				var message = 'failed to find content layout map entry for: ' + contentType + ':' + contentLayoutCategory + '. Will compile using the system default layout.';
+				if (!reportedFiles[message]) {
+					console.log(message);
+					reportedFiles[message] = 'done';
+				}
+			}
 			return resolve(layoutName || SYSTEM_DEFAULT_LAYOUT);
 		});
 	});
@@ -99,23 +106,26 @@ ContentItem.prototype.getContentLayout = function (SCSCompileAPI, contentType, c
 		contentLayoutCategory: contentLayoutCategory
 	}).then(function (contentLayoutName) {
 		var compileFile = '';
-		try {
-			if (contentLayoutName === SYSTEM_DEFAULT_LAYOUT) {
-				compileFile = './' + SYSTEM_DEFAULT_LAYOUT;
-			} else {
-				compileFile = path.normalize(compVM.componentsFolder + '/' + contentLayoutName + '/assets/compile');
+		if (contentLayoutName) {
+			try {
+				if (contentLayoutName === SYSTEM_DEFAULT_LAYOUT) {
+					compileFile = './' + SYSTEM_DEFAULT_LAYOUT;
+				} else {
+					compileFile = path.normalize(compVM.componentsFolder + '/' + contentLayoutName + '/assets/compile');
+				}
+
+				// verify if we can load the file
+				require.resolve(compileFile);
+				foundComponentFile = true;
+
+				return Promise.resolve(compileFile);
+			} catch (e) {
+				console.log('no custom content layout compiler for: "' + (compileFile ? compileFile + '.js' : contentLayoutName) + '"');
 			}
-
-			// verify if we can load the file
-			require.resolve(compileFile);
-			foundComponentFile = true;
-
-			return Promise.resolve(compileFile);
-		} catch (e) {
-			// unable to load the content layout
-			console.log('no custom content layout compiler for: "' + (compileFile ? compileFile + '.js' : contentLayoutName) + '"');
-			return Promise.resolve('');
 		}
+
+		// unable to load the content layout
+		return Promise.resolve('');
 	});
 };
 
@@ -161,7 +171,7 @@ ContentItem.prototype.compile = function (args) {
 									SCSCompileAPI: SCSCompileAPI,
 									contentTriggerFunction: 'SCSRenderAPI.getComponentById(\'' + args.compVM.id + '\').raiseContentTrigger',
 									detailPageLink: detailPageURL,
-									showPublishedContent: args.compVM.contentViewing === 'published' ? true : contentClient.getInfo().contentType === 'published' 
+									showPublishedContent: args.compVM.contentViewing === 'published' ? true : contentClient.getInfo().contentType === 'published'
 								}
 							},
 							custComp = new CustomLayoutCompiler(compileArgs);

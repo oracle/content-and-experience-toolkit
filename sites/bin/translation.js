@@ -2405,7 +2405,8 @@ module.exports.startTranslationConnector = function (argv, done) {
 	process.env['CECLSP_PORT'] = port;
 
 	var connectPath = path.join(connectorsSrcDir, name);
-	var args = ['start', '--prefix', connectPath];
+	var args = argv.debug ? ['start', '--node-options', '--inspect', '--prefix', connectPath] : ['start', '--prefix', connectPath];
+
 	var spawnCmd = childProcess.spawnSync(npmCmd, args, {
 		projectDir,
 		stdio: 'inherit'

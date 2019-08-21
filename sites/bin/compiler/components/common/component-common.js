@@ -279,7 +279,7 @@
                             } else {
                                 // NOTE: doesn't do a deep merge
                                 // not currently required but if that changes, this needs to be updated
-                                Object.extend(item, nlsArray[i]);
+                                Object.assign(item, nlsArray[i]);
                             }
                             // note that at least one "id" match was found
                             idMatchFound = true;

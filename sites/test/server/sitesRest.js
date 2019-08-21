@@ -1134,7 +1134,7 @@ var _importTemplate = function (server, name, fileId) {
 				}, 5000);
 
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = data ? (data.detail || data.title || data) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to import template ' + name + ' : ' + msg);
 				resolve({
 					err: msg || 'err'

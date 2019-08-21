@@ -31,7 +31,8 @@ Sample Invocation:
 // Requires
 //*********************************************
 var fs = require('fs'),
-	path = require('path');
+	path = require('path'),
+	merge = require('deepmerge');
 
 var componentsEnabled = true;
 if (componentsEnabled) {
@@ -63,6 +64,7 @@ var useSharedRequireJS = false;
 var useOriginalRequireJS = false;
 var rootStructure;
 var rootSiteInfo;
+var outputAlternateHierarchy = true; // Emit to /folder/_files/<filename> structure
 
 //*********************************************
 // Other root vars
@@ -715,6 +717,8 @@ var compiler = {
 
 		self.sitePrefix = args.sitePrefix;
 		self.pageModel = args.pageModel;
+		self.localePageModel = args.localePageModel;
+		self.pageLocale = args.pageLocale;
 		self.navigationRoot = args.navigationRoot;
 		self.navigationCurr = args.navigationCurr;
 		self.structureMap = args.structureMap;
@@ -803,7 +807,7 @@ var compiler = {
 				return getDefaultPage(self.structureMap, self.navigationRoot, 'isDetailPage');
 			},
 			getPageLinkData: function (pageId) {
-				return getPageLinkData(pageId, self.sitePrefix, self.structureMap, self.localePageModel);
+				return getPageLinkData(pageId, self.sitePrefix, self.structureMap, self.pageLocale);
 			},
 			getPageURL: function (pageId) {
 				var linkData = this.getPageLinkData(pageId),
@@ -865,7 +869,43 @@ var compiler = {
 
 		if (componentsEnabled && self.pageModel.componentInstances) {
 			Object.keys(self.pageModel.componentInstances).forEach(function (compId) {
-				compilePromises.push(self.compileComponentInstance(compId, self.pageModel.componentInstances[compId]));
+				var compInstance = JSON.parse(JSON.stringify(self.pageModel.componentInstances[compId]));
+				if (self.localePageModel) {
+					var localeCompInstance = self.localePageModel.componentInstances[compId];
+
+					if (localeCompInstance) {
+						// apply the locale page model to the component instance
+						var emptyTarget = function (value) {
+							return Array.isArray(value) ? [] : {};
+						};
+						var clone = function (value, options) {
+							return merge(emptyTarget(value), value, options);
+						};
+
+						var combineMerge = function (target, source, options) {
+							var destination = target.slice();
+
+							source.forEach(function (item, index) {
+								if (typeof destination[index] === 'undefined') {
+									var cloneRequested = options.clone !== false;
+									var shouldClone = cloneRequested && options.isMergeableObject(item);
+									destination[index] = shouldClone ? clone(item, options) : item;
+								} else if (options.isMergeableObject(item)) {
+									destination[index] = merge(target[index], item, options);
+								} else if (target.indexOf(item) === -1) {
+									destination.push(item);
+								}
+							});
+							return destination;
+						};
+
+
+						compInstance = merge(compInstance, localeCompInstance, {
+							arrayMerge: combineMerge
+						});
+					}
+				}
+				compilePromises.push(self.compileComponentInstance(compId, compInstance));
 			});
 		}
 
@@ -1638,7 +1678,7 @@ function getLayoutSlotIds(layoutName, layoutMarkup) {
 		try {
 			var layoutInfo = JSON.parse(json);
 			slotIds = layoutInfo.slotIds;
-		} catch (e) {}
+		} catch (e) { }
 
 		return "";
 	});
@@ -1684,6 +1724,11 @@ function createDirectory(dirName) {
 function writePage(pageUrl, pageMarkup) {
 	trace('writePage: pageUrl=' + pageUrl + ', pageMarkup=' + pageMarkup);
 
+	if (outputAlternateHierarchy) {
+		// Add an extra "_files" folder into the path just before the file name
+		pageUrl = pageUrl.replace(/(\/?)([^/]+)$/m, "$1_files/$2");
+	}
+
 	var filePath = path.join(outputFolder, pageUrl);
 	trace('writePage: filePath=' + filePath);
 
@@ -1695,15 +1740,13 @@ function writePage(pageUrl, pageMarkup) {
 	});
 }
 
-function computeSitePrefix(context, pageUrl) {
+function computeSitePrefix(context, pageUrl, pageInfo) {
 	// Compute the site prefix (./ or ../../../../).  It must end with a /
-	var sitePrefix = "./";
+	var sitePrefix = "";
 	var i;
 
 	var slashes = pageUrl.split('/');
 	if (slashes && (slashes.length > 1)) {
-		sitePrefix = "";
-
 		for (i = 1; i < slashes.length; i++) {
 			sitePrefix += "../";
 		}
@@ -1711,6 +1754,17 @@ function computeSitePrefix(context, pageUrl) {
 
 	if (context.pageLocale) {
 		sitePrefix = '../' + sitePrefix;
+	}
+
+	if (pageInfo && pageInfo.isDetailPage) {
+		// Assume that the /detail-page/<slug> format will be used to address the detail page,
+		// so add an extra relative segment for the slug.  (Were we to allow the other detail
+		// page formats, we would not know how many extra relative segments to add.)
+		sitePrefix = '../' + sitePrefix;
+	}
+
+	if (sitePrefix === '') {
+		sitePrefix = './';
 	}
 
 	trace('computeSitePrefix: pageUrl=' + pageUrl + ', sitePrefix=' + sitePrefix);
@@ -1726,18 +1780,19 @@ function createPage(context, pageInfo) {
 				console.log('createPage: Bypassing pageId ' + pageInfo.id + ' having external URL: ' + pageInfo.linkUrl);
 				resolve();
 			} else {
-				console.log('createPage: Processing pageId ' + pageInfo.id + ' at the URL: ' + (outputURL ? outputURL : '') + pageInfo.pageUrl + ": CONTEXT: " + context.locale);
+				console.log('createPage: Processing pageId ' + pageInfo.id + ' at the URL: ' + (outputURL ? outputURL : '') + (context.pageLocale ? context.pageLocale + '/' : '') + pageInfo.pageUrl + ": CONTEXT: " + context.locale);
 
 				var pageDatas = getPageData(context, pageInfo.id);
 				var pageData = pageDatas.pageData;
 				var layoutName = (pageData.base || pageData).properties.pageLayout;
-				var sitePrefix = computeSitePrefix(context, pageInfo.pageUrl);
+				var sitePrefix = computeSitePrefix(context, pageInfo.pageUrl, pageInfo);
 
 				// setup the compiler for this page
 				var pageId = pageInfo.id;
 				compiler.setup({
 					"sitePrefix": sitePrefix,
 					"pageModel": (pageData.base || pageData),
+					"pageLocale": context.pageLocale,
 					"localePageModel": pageDatas.localePageData,
 					"navigationRoot": context.navRoot,
 					"navigationCurr": (pageId && typeof pageId == 'string') ? parseInt(pageId) : pageId,

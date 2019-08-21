@@ -18,6 +18,8 @@ var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), ''),
 	defaultLibsDir = cecDir + '/src/libs';
 var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
 
+var supportedLocales = ["af", "sq", "am", "ar", "ar-DZ", "ar-BH", "ar-EG", "ar-IQ", "ar-JO", "ar-KW", "ar-LB", "ar-LY", "ar-MA", "ar-OM", "ar-QA", "ar-SA", "ar-SY", "ar-TN", "ar-AE", "ar-YE", "hy", "as", "az", "az-AZ", "az-Cyrl-AZ", "az-Latn-AZ", "eu", "be", "bn", "bs", "bg", "my", "ca", "zh", "zh-CN", "zh-HK", "zh-MO", "zh-SG", "zh-TW", "hr", "cs", "da", "dv", "nl", "nl-BE", "nl-NL", "en", "en-CB", "en-AU", "en-BZ", "en-CA", "en-IN", "en-IE", "en-JM", "en-NZ", "en-PH", "en-ZA", "en-TT", "en-GB", "en-US", "et", "fo", "fi", "fr", "fr-BE", "fr-CA", "fr-FR", "fr-LU", "fr-CH", "gl", "ka", "de", "de-AT", "de-DE", "de-LI", "de-LU", "de-CH", "el", "gn", "gu", "he", "hi", "hu", "is", "id", "it", "it-IT", "it-CH", "ja", "kn", "ks", "kk", "km", "ko", "lo", "la", "lv", "lt", "mk", "ms", "ms-BN", "ms-MY", "ml", "mt", "mi", "mr", "mn", "ne", "zxx", "no", "no-NO", "nb", "nn", "or", "pa", "fa", "pl", "pt", "pt-BR", "pt-PT", "rm", "ro", "ro-MO", "ru", "ru-MO", "sa", "gd", "gd-IE", "sr", "sr-SP", "sr-RS", "sr-Cyrl-RS", "sr-Latn-RS", "sd", "si", "sk", "sl", "so", "es", "es-AR", "es-BO", "es-CL", "es-CO", "es-CR", "es-DO", "es-EC", "es-SV", "es-GT", "es-HN", "es-MX", "es-NI", "es-PA", "es-PY", "es-PE", "es-PR", "es-ES", "es-UY", "es-VE", "sw", "sv", "sv-FI", "sv-SE", "tg", "ta", "tt", "te", "th", "bo", "ts", "tn", "tr", "tk", "uk", "und", "ur", "uz", "uz-UZ", "uz-Cyrl-UZ", "uz-Latn-UZ", "vi", "cy", "xh", "yi", "zu"]; 
+
 // console.log('templateRouter: cecDir: ' + cecDir + ' projectDir: ' + projectDir);
 
 var templatesDir,
@@ -149,14 +151,23 @@ router.get('/*', (req, res) => {
 		// if the file exists under settings/misc, return it first
 		var urlBits = filePathSuffix.split('/'),
 			templateName = urlBits.shift(),
-			pageURL = urlBits.join('/'),
+			pageName = urlBits.pop(),
+			pagePath = urlBits.join('/') + '/_files/' + pageName,
 			sitePage;
-		filePath = path.resolve(templatesDir + '/' + templateName + '/settings/misc/' + pageURL);
+		filePath = path.resolve(templatesDir + '/' + templateName + '/settings/misc/' + pagePath);
 		if (existsAndIsFile(filePath)) {
 			// it may be a page, see if we can match it with the structure.json
 			var structurePath = path.join(templatesDir, templateName, 'structure.json');
 			try {
 				var siteStructure = JSON.parse(fs.readFileSync(structurePath, 'utf8'));
+
+				// remove the template and locale for match in the site structure
+				var pageURLbits = filePathSuffix.split('/');
+				pageURLbits.shift();
+				if (supportedLocales.indexOf(pageURLbits[0]) !== -1) {
+					pageURLbits.shift();
+				}
+				pageURL = pageURLbits.join('/');
 
 				sitePage = (siteStructure.pages || []).find(function (page) {
 					return page.pageUrl === pageURL;

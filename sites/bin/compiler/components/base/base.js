@@ -30,6 +30,11 @@ var Base = function () {};
 Base.prototype = Object.create(ComponentCommon.prototype);
 
 Base.prototype.init = function (compType, compId, compInstance) {
+	// apply any NLS properties to the component instance
+	this.applyNLS({
+		scsComponent: compInstance
+	}, compType, 'compile');
+
 	var compConfig = compReg.definitions[compType].config,
 		properties = compConfig.properties,
 		defaults = compConfig.defaultValues || '';

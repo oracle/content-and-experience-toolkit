@@ -68,6 +68,14 @@ ContentList.prototype.compile = function (args) {
 			self.fetchData(args).then(function (results) {
 				// compile all the content items
 				self.compileContentItems(args, results).then(function (contentItems) {
+					// if no content items, then render the content list dynamically
+					if (contentItems.length === 0) {
+						return resolve({
+							hydrate: false,
+							content: ''
+						});
+					}
+
 					// compile the section layout
 					self.compileSectionLayout(args, contentItems).then(function (compiledContentList) {
 						if (compiledContentList) {
@@ -233,7 +241,25 @@ ContentList.prototype.compileContentItems = function (args, results) {
 		Promise.resolve());
 
 	return doCompileItems.then(function (compiledItem) {
-		return Promise.resolve(compiledItems);
+		// if no items rendered, then we need to compile the default for the content list
+		if (compiledItems.length === 0) {
+			// ToDo: - for now content item will render dynamically
+			return Promise.resolve([]);
+		} else {
+			// all items must have been compiled or no items are compiled and let the list render dynamically
+			var nonCompiledItem = compiledItems.find(function (item) {
+				// failed to compile if no content
+				return !item.content;
+			});
+
+			// if there was at least one non-compiled item, then render the content list dynamically
+			if (nonCompiledItem) {
+				console.log('at least one item failed to compile in the content list, the content list will render dynamically');
+				return Promise.resolve([]);
+			} else {
+				return Promise.resolve(compiledItems);
+			}
+		}
 	});
 };
 

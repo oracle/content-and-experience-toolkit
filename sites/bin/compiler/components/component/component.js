@@ -246,7 +246,7 @@ Component.prototype.compileComponent = function (args) {
 					} else {
 						var message;
 						if (['scsCaaSLayout', 'scs-contentitem'].indexOf(viewModel.custComp) !== -1) {
-							message = 'failed to compile content item with layout that maps to category: "' + viewModel.contentLayoutCategory + '"';
+							message = 'failed to compile content item with layout that maps to category: "' + (viewModel.contentLayoutCategory || 'default') + '"';
 						} else {
 							message = 'failed to compile component with: ' + compileFile;
 						}

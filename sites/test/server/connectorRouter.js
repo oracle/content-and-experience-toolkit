@@ -86,6 +86,7 @@ router.get('/*', (req, res) => {
 		}
 		var failed = false;
 		var result = {};
+		var responseHeaders = {}; 
 		result['options'] = options;
 
 		request(options).on('response', function (response) {
@@ -100,6 +101,17 @@ router.get('/*', (req, res) => {
 					res.write(JSON.stringify(result));
 					res.status(response.statusCode).end();
 				}
+				// get the headers
+				if (response.headers['content-disposition']) {
+					responseHeaders['content-disposition'] = response.headers['content-disposition'];
+				}
+				if (response.headers['content-type']) {
+					responseHeaders['content-type'] = response.headers['content-type'];
+				}
+				if (response.headers['content-length']) {
+					responseHeaders['content-length'] = response.headers['content-length'];
+				}
+				console.log(response.headers);
 			})
 			.on('error', function (err) {
 				console.log(' - connector request error: ' + err);
@@ -113,9 +125,8 @@ router.get('/*', (req, res) => {
 			.pipe(fs.createWriteStream(targetFile))
 			.on('finish', function () {
 				if (!failed) {
-					result['data'] = {
-						message: 'translation saved to ' + targetFile
-					};
+					responseHeaders.message = 'translation saved to ' + targetFile;
+					result['data'] = responseHeaders;
 					res.write(JSON.stringify(result));
 					res.end();
 				}

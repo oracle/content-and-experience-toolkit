@@ -8,6 +8,11 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.3.2f
+
+**Fixed**
+- `cec upload-folder` - correctly recurses folders on windows
+
 # New in Release 19.3.2e
 
 **Fixed**
