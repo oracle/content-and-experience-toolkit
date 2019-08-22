@@ -187,7 +187,7 @@ ContentList.prototype.compileSectionLayout = function (args, contentItems) {
 	}
 
 	// compile the content items into the section layout
-	return sectionLayout.compile().then(function (compiledSectionLayout) {
+	return sectionLayout.compile(args).then(function (compiledSectionLayout) {
 		var content = compiledSectionLayout && compiledSectionLayout.content;
 		if (!content) {
 			console.log('Section layout in content list failed to compile: ' + slInstance.id);

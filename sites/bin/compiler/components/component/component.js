@@ -201,6 +201,11 @@ Component.prototype.compileComponent = function (args) {
 				componentLayout: viewModel.componentLayout,
 				customSettingsData: viewModel.customSettingsData || {}
 			};
+			if (typeof custComp.compile !== 'function') {
+				return resolve({
+					customContent: ''
+				});
+			}
 			custComp.compile(compileArgs).then(function (compiledComp) {
 				try {
 					// make sure there is something to render

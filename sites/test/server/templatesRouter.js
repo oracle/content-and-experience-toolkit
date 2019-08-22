@@ -148,13 +148,13 @@ router.get('/*', (req, res) => {
 		return;
 
 	} else {
-		// if the file exists under settings/misc, return it first
+		// if the file exists under '<template>/static', return it first
 		var urlBits = filePathSuffix.split('/'),
 			templateName = urlBits.shift(),
 			pageName = urlBits.pop(),
 			pagePath = urlBits.join('/') + '/_files/' + pageName,
 			sitePage;
-		filePath = path.resolve(templatesDir + '/' + templateName + '/settings/misc/' + pagePath);
+		filePath = path.resolve(templatesDir + '/' + templateName + '/static/' + pagePath);
 		if (existsAndIsFile(filePath)) {
 			// it may be a page, see if we can match it with the structure.json
 			var structurePath = path.join(templatesDir, templateName, 'structure.json');

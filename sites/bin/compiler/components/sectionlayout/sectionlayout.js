@@ -145,13 +145,19 @@ SectionLayout.prototype = {
 					}
 
 					if (compileFile) {
-						compileFile = path.normalize(compileFile);
+						var SectionLayoutImpl;
+						try {
+							compileFile = path.normalize(compileFile);
 
-						// verify if we can load the file
-						require.resolve(compileFile);
+							// verify if we can load the file
+							require.resolve(compileFile);
 
-						// ok, file's there, load it in
-						var SectionLayoutImpl = require(compileFile);
+							// ok, file's there, load it in
+							SectionLayoutImpl = require(compileFile);
+						} catch (e) {
+							console.log('no compiler found for section layout: ' + sectionLayoutName);
+							return resolve({});
+						}
 
 						var logic = new SectionLayoutImpl(self.componentId, self.componentInstanceObject, self.componentsFolder);
 						if (logic && (typeof logic.compile === 'function')) {
@@ -166,15 +172,19 @@ SectionLayout.prototype = {
 								return resolve({});
 							});
 						} else {
+							console.log('no compile function found for section layout: ' + sectionLayoutName);
 							return resolve({});
 						}
 					} else {
+						console.log('no compiler found for section layout: ' + sectionLayoutName);
 						return resolve({});
 					}
 				} else {
 					return resolve({});
 				}
 			} catch (e) {
+				console.log('error compiling section layout: ' + (instanceObject && instanceObject.id));
+				console.log(e);
 				return resolve({});
 			}
 		});

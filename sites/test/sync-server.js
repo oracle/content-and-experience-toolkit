@@ -71,6 +71,26 @@ request = request.defaults({
 	proxy: null
 });
 
+var eventsFilePath = path.join(projectDir, 'events.json');
+var hasUnprocessedEvent = false;
+if (!fs.existsSync(eventsFilePath)) {
+	fs.writeFileSync(eventsFilePath, '[]');
+} else {
+	var str = fs.readFileSync(eventsFilePath).toString();
+	if (str) {
+		var unprocessedEvents = [];
+		events = JSON.parse(str);
+		for (var i = 0; i < events.length; i++) {
+			if (!events[i].__processed) {
+				unprocessedEvents.push(events[i]);
+				hasUnprocessedEvent = true;
+			}
+		}
+		fs.writeFileSync(eventsFilePath, unprocessedEvents);
+	}
+}
+
+
 app.get('/*', function (req, res) {
 	console.log('GET: ' + req.url);
 	res.writeHead(200, {
@@ -81,126 +101,76 @@ app.get('/*', function (req, res) {
 });
 
 app.post('/*', function (req, res) {
-	console.log('POST: ' + req.url);
+	// console.log('POST: ' + req.url);
 
-	console.log(req.headers);
+	// return immediately, otherwise webhook will resend the event 2 more times
+	res.writeHead(200, {
+		'Content-Type': 'text/plain'
+	});
+	res.end();
+
+	// console.log(req.headers);
 	if (req.headers.authorization && req.headers.authorization.indexOf('Basic ') >= 0) {
 		const base64Credentials = req.headers.authorization.split(' ')[1];
 		const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
 		if (!credentials || credentials !== username + ':' + password) {
-			res.writeHead(401, {
-				'Content-Type': 'text/plain'
-			});
-			res.end('Invalid Authentication Credentials' + os.EOL);
 			console.log('ERROR: Invalid Authentication Credentials');
 			return;
 		}
 	}
-	console.log(req.body);
+	// console.log(req.body);
 	var action = req.body.eventAction;
 	var type = req.body.objectType;
 	var objectId = req.body.objectId;
-	var objectName = req.body.objectName;
-	console.log('*** action: ' + action + ' type: ' + type + ' Id: ' + objectId);
 
 	if (!action) {
-		res.writeHead(400, {
-			'Content-Type': 'text/plain'
-		});
-		res.end('Missing event action' + os.EOL);
 		console.log('ERROR: Missing event action');
 		return;
 	}
 	if (!type) {
-		res.writeHead(400, {
-			'Content-Type': 'text/plain'
-		});
-		res.end('Missing object type' + os.EOL);
 		console.log('ERROR: Missing object type');
 		return;
 	}
 	if (!objectId) {
-		res.writeHead(400, {
-			'Content-Type': 'text/plain'
-		});
-		res.end('Missing object id' + os.EOL);
 		console.log('ERROR: Missing object id');
 		return;
 	}
-	if (action === 'PUBLISHED' && type === 'CONTENTITEM') {
-		// return immediately, webhook has a 5s timout
-		res.writeHead(200, {
-			'Content-Type': 'text/plain'
-		});
-		res.end();
+	
+	if (type === 'CONTENTITEM' && (action === 'CREATED' || action === 'UPDATED' ||
+			action === 'PUBLISHED' || action === 'DELETED')) {
+		var events = [];
+		if (fs.existsSync(eventsFilePath)) {
+			var str = fs.readFileSync(eventsFilePath).toString();
+			if (str) {
+				events = JSON.parse(str);
+			}
+		}
 
-		var repositoryId = req.body.repositoryId;
-		var channelId = req.body.channelId;
-
-		var args = {
-			projectDir: projectDir,
-			server: srcServer,
-			destination: destServer,
-			id: objectId,
-			name: objectName,
-			repositoryId: repositoryId,
-			channelId: channelId
-		};
-
-		contentLib.syncPublishItem(args, function (success) {
-			console.log('*** action finished');
-		});
-
-	} else if ((action === 'CREATED' || action === 'UPDATED') && type === 'CONTENTITEM') {
-		// return immediately, webhook has a 5s timout
-		res.writeHead(200, {
-			'Content-Type': 'text/plain'
-		});
-		res.end();
-
-		var repositoryId = req.body.repositoryId;
-		var args = {
-			projectDir: projectDir,
-			server: srcServer,
-			destination: destServer,
-			action: action,
-			id: objectId,
-			repositoryId: repositoryId
-		};
-
-		contentLib.syncCreateUpdateItem(args, function (success) {
-			console.log('*** action finished');
-		});
-
-	} else if (action === 'DELETED' && type === 'CONTENTITEM') {
-		res.writeHead(200, {
-			'Content-Type': 'text/plain'
-		});
-		res.end();
-
-		var args = {
-			projectDir: projectDir,
-			server: srcServer,
-			destination: destServer,
-			action: action,
-			id: objectId,
-			name: objectName
-		};
-
-		contentLib.syncDeleteItem(args, function (success) {
-			console.log('*** action finished');
-		});
-
+		console.log('!!! Queue event: action: ' + action + ' type: ' + type + ' Id: ' + objectId);
+		var event = req.body;
+		event['__id'] = serverUtils.createGUID();
+		event['__processed'] = false;
+		events.push(event);
+		console.log('  total event: ' + events.length);
+		fs.writeFileSync(eventsFilePath, JSON.stringify(events, null, 4));
 	} else {
-		res.writeHead(200, {
-			'Content-Type': 'text/plain'
-		});
-		res.end();
 		console.log('ERROR: action ' + action + ' not supported yet');
 	}
-
-
 });
+
+var __active = false;
+
+// This function is used to monitor the message text file data change.
+var _watchEvents = function () {
+	// This is the fs watch function.
+	fs.watch(eventsFilePath, function (event, filename) {
+		// If data change then send new text back to client.
+		if (event === "change" && !__active) {
+			// console.log('File ' + eventsFilePath + ' changed...');
+			_processEvent();
+		}
+	});
+};
 
 // Handle startup errors
 process.on('uncaughtException', function (err) {
@@ -224,10 +194,125 @@ if (keyPath && fs.existsSync(keyPath) && certPath && fs.existsSync(certPath)) {
 	var localhost = 'https://localhost:' + port;
 	https.createServer(httpsOptions, app).listen(port, function () {
 		console.log('Server starts: ' + localhost);
+		if (hasUnprocessedEvent) {
+			_processEvent();
+		}
+		_watchEvents();
 	});
 } else {
 	var localhost = 'http://localhost:' + port;
 	var localServer = app.listen(port, function () {
 		console.log('Server starts: ' + localhost + ' (WARNING: Not Secure)');
+		if (hasUnprocessedEvent) {
+			_processEvent();
+		}
+		_watchEvents();
 	});
 }
+
+var _updateEvent = function (eventId) {
+	var events = [];
+	if (fs.existsSync(eventsFilePath)) {
+		var str = fs.readFileSync(eventsFilePath).toString();
+		if (str) {
+			events = JSON.parse(str);
+		}
+		var found = false;
+		for (var i = 0; i < events.length; i++) {
+			if (eventId === events[i].__id) {
+				events[i].__processed = true;
+				found = true;
+			}
+		}
+		if (found) {
+			fs.writeFileSync(eventsFilePath, JSON.stringify(events, null, 4));
+			// console.log('updated events.json');
+			// console.log(events);
+			__active = false;
+		}
+	} else {
+		__active = false;
+	}
+};
+var _processEvent = function () {
+	var events = [];
+	if (fs.existsSync(eventsFilePath)) {
+		var str = fs.readFileSync(eventsFilePath).toString();
+		if (str) {
+			events = JSON.parse(str);
+		}
+	}
+
+	var event;
+	for (var i = 0; i < events.length; i++) {
+		if (!events[i].__processed) {
+			event = events[i];
+			break;
+		}
+	}
+	if (event) {
+		// start processing
+		__active = true;
+
+		var action = event.eventAction;
+		var type = event.objectType;
+		var objectId = event.objectId;
+		var objectName = event.objectName;
+		console.log('*** action: ' + action + ' type: ' + type + ' Id: ' + objectId);
+
+		if (action === 'PUBLISHED' && type === 'CONTENTITEM') {
+
+			var repositoryId = event.repositoryId;
+			var channelId = event.channelId;
+
+			var args = {
+				projectDir: projectDir,
+				server: srcServer,
+				destination: destServer,
+				id: objectId,
+				name: objectName,
+				repositoryId: repositoryId,
+				channelId: channelId
+			};
+
+			contentLib.syncPublishItem(args, function (success) {
+				console.log('*** action finished');
+				_updateEvent(event.__id);
+			});
+
+		} else if ((action === 'CREATED' || action === 'UPDATED') && type === 'CONTENTITEM') {
+
+			var repositoryId = event.repositoryId;
+			var args = {
+				projectDir: projectDir,
+				server: srcServer,
+				destination: destServer,
+				action: action,
+				id: objectId,
+				repositoryId: repositoryId
+			};
+
+			contentLib.syncCreateUpdateItem(args, function (success) {
+				console.log('*** action finished');
+				_updateEvent(event.__id);
+			});
+
+		} else if (action === 'DELETED' && type === 'CONTENTITEM') {
+
+			var args = {
+				projectDir: projectDir,
+				server: srcServer,
+				destination: destServer,
+				action: action,
+				id: objectId,
+				name: objectName
+			};
+
+			contentLib.syncDeleteItem(args, function (success) {
+				console.log('*** action finished');
+				_updateEvent(event.__id);
+			});
+
+		} 
+	}
+};

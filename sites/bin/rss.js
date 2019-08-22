@@ -104,6 +104,8 @@ var _createRSSFeed = function (server, argv, done) {
 
 	var publish = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
 
+	var newlink = typeof argv.newlink === 'string' && argv.newlink.toLowerCase() === 'true';
+
 	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
 		if (!result.status) {
@@ -114,7 +116,7 @@ var _createRSSFeed = function (server, argv, done) {
 
 		if (server.useRest) {
 			_createRSSFeedREST(request, server, siteName, argv.url, tempPath,
-				rssFile, query, limit, orderby, language, publish, argv.title, argv.description, argv.ttl, done);
+				rssFile, query, limit, orderby, language, publish, argv.title, argv.description, argv.ttl, newlink, done);
 			return;
 		}
 
@@ -266,7 +268,7 @@ var _createRSSFeed = function (server, argv, done) {
 									siteUrl = siteUrl.substring(0, siteUrl.length - 1);
 								}
 								if (_generateRSSFile(siteUrl, items, language, defaultDetailPage, tempPath,
-										argv.title, argv.description, argv.ttl, rssFile)) {
+										argv.title, argv.description, argv.ttl, rssFile, newlink)) {
 									console.log(' - create RSS file ' + rssFile);
 
 									if (publish) {
@@ -417,7 +419,7 @@ var _getDefaultDetailPageId = function (pages) {
 	});
 };
 
-var _generateRSSFile = function (siteUrl, items, language, detailPage, tempPath, title, description, ttl, rssFilePath) {
+var _generateRSSFile = function (siteUrl, items, language, detailPage, tempPath, title, description, ttl, rssFilePath, newlink) {
 
 	var itemValues = [];
 	for (var i = 0; i < items.length; i++) {
@@ -433,7 +435,12 @@ var _generateRSSFile = function (siteUrl, items, language, detailPage, tempPath,
 			var detailPageUrl = detailPage.pageUrl;
 			var detailPagePrefix = detailPageUrl.replace('.html', '');
 			detailPageUrl = siteUrl + '/' + (language ? (language + '/') : '') + detailPageUrl;
-			detailLink = siteUrl + '/' + (language ? (language + '/') : '') + detailPagePrefix + '/' + item.type + '/' + item.id + '/' + item.slug;
+			if (newlink) {
+				detailLink = siteUrl + '/' + (language ? (language + '/') : '') + detailPagePrefix + '/' + item.slug;
+			} else {
+				detailLink = siteUrl + '/' + (language ? (language + '/') : '') + detailPagePrefix + '/' + item.type + '/' + item.id + '/' + item.slug;
+
+			}
 		}
 		item['detailLink'] = detailLink;
 		item['detailPageUrl'] = detailPageUrl;
@@ -570,7 +577,7 @@ var _pubishRSSFile = function (server, siteUrl, siteName, rssFile, done) {
  * @param {*} done 
  */
 var _createRSSFeedREST = function (request, server, siteName, url, tempPath, rssFile,
-	query, limit, orderby, language, publish, title, description, ttl, done) {
+	query, limit, orderby, language, publish, title, description, ttl, newlink, done) {
 	var site;
 	var channelId, channelToken;
 	var defaultDetailPage;
@@ -669,7 +676,7 @@ var _createRSSFeedREST = function (request, server, siteName, url, tempPath, rss
 			}
 
 			if (_generateRSSFile(siteUrl, items, language, defaultDetailPage, tempPath,
-					title, description, ttl, rssFile)) {
+					title, description, ttl, rssFile, newlink)) {
 				console.log(' - create RSS file ' + rssFile);
 
 				if (publish) {

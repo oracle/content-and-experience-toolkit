@@ -2392,6 +2392,14 @@ const argv = yargs.usage(_usage)
 					alias: 's',
 					description: '<server> The registered CEC server'
 				})
+				.option('newlink', {
+					alias: 'n',
+					description: 'Generate new 19.3.3 detail page link'
+				})
+				.option('noDefaultDetailPageLink', {
+					alias: 'o',
+					description: 'Do not generate detail page link for items/content lists that use the default detail page'
+				})
 				.check((argv) => {
 					if (!argv.url) {
 						throw new Error('Please specify site URL');
@@ -2467,6 +2475,10 @@ const argv = yargs.usage(_usage)
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered CEC server'
+				})
+				.option('newlink', {
+					alias: 'n',
+					description: 'Generate new 19.3.3 detail page link'
 				})
 				.check((argv) => {
 					if (!Number.isInteger(argv.limit) || argv.limit <= 0) {
@@ -3971,6 +3983,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.toppagepriority) {
 		createSiteMapArgs.push(...['--toppagepriority', argv.toppagepriority]);
 	}
+	if (argv.newlink) {
+		createSiteMapArgs.push(...['--newlink', argv.newlink]);
+	}
+	if (argv.noDefaultDetailPageLink) {
+		createSiteMapArgs.push(...['--noDefaultDetailPageLink', argv.noDefaultDetailPageLink]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createSiteMapArgs.push(...['--server', argv.server]);
 	}
@@ -4010,6 +4028,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.publish) {
 		createRSSFeedArgs.push(...['--publish', argv.publish]);
+	}
+	if (argv.newlink) {
+		createRSSFeedArgs.push(...['--newlink', argv.newlink]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createRSSFeedArgs.push(...['--server', argv.server]);

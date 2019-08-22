@@ -8,6 +8,18 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.3.2g
+
+**Updated**
+- `cec create-site-map` - use --newlink to generate 19.3.3 style detail page links with slug.  For use when 19.3.3 is released.
+- `cec create-site-map` - use --noDefaultDetailPageLink to stop the creation of detail pages for items and content lists where no specific detail page has been chosen.
+- `cec create-site-map` - now checks that content types are supported on the target detail page before creating a detail page link.
+
+- `cec create-rss-feed` - use --newlink to generate 19.3.3 style detail page links with slug.  For use when 19.3.3 is released.
+
+**Fixed**
+- `cec create-site-map` - correctly finds SEO information for pages when there are no detail pages in the site.
+
 # New in Release 19.3.2f
 
 **Fixed**

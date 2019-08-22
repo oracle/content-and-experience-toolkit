@@ -2601,11 +2601,12 @@ module.exports.compileTemplate = function (argv, done) {
 
 	console.log('Compile Template: compiling template ' + tempName);
 
-	var compiler = require('./compiler/compiler');
+	var compiler = require('./compiler/compiler'),
+		outputFolder = path.join(templatesSrcDir, tempName, 'static');
 
 	compiler.compileSite({
 		siteFolder: path.join(templatesSrcDir, tempName),
-		outputFolder: path.join(templatesSrcDir, tempName, 'settings', 'misc'),
+		outputFolder: outputFolder,
 		themesFolder: themesSrcDir,
 		sitesCloudRuntimeFolder: undefined,
 		componentsFolder: componentsSrcDir,
@@ -2620,7 +2621,7 @@ module.exports.compileTemplate = function (argv, done) {
 		outputURL: serverURL + '/templates/' + tempName + '/'
 	}).then(function (result) {
 		console.log(' *** compiled template is ready to test');
-		console.log(' *** remove compiled files from under "src/templates/' + tempName + '/settings/misc" to render non-compiled template pages');
+		console.log(' *** to render non-compiled pages, remove compiled files from under: ' + outputFolder);
 		done(true);
 	}).catch(function (error) {
 		console.log(' *** failed to template');

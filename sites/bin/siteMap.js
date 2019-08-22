@@ -377,10 +377,10 @@ var _getDetailPageContentTypes = function (pageData) {
 		if (detailPageIdx >= 0) {
 			var pageContentTypes = [];
 			var componentInstances = pageData[i].data.componentInstances || {};
-
 			Object.keys(componentInstances).forEach(key => {
+				var type = componentInstances[key].type
 				var data = componentInstances[key].data;
-				if (data && data.contentPlaceholder && data.contentTypes && data.contentTypes.length > 0) {
+				if (data && (data.contentPlaceholder || type === 'scs-contentlist') && data.contentTypes && data.contentTypes.length > 0) {
 					for (var j = 0; j < data.contentTypes.length; j++) {
 						if (!pageContentTypes.includes(data.contentTypes[j])) {
 							pageContentTypes.push(data.contentTypes[j]);
@@ -691,7 +691,8 @@ var _getMasterPageData = function (pageid) {
  * @param {*} siteInfo 
  * @param {*} pages 
  */
-var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq, toppagepriority, siteMapFile) {
+var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq, toppagepriority, 
+	siteMapFile, newlink, noDefaultDetailPageLink) {
 
 	var prefix = siteUrl;
 	if (prefix.substring(prefix.length - 1) === '/') {
@@ -767,62 +768,68 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 	if (_hasDetailPage) {
 		var addedUrls = [];
 		for (var i = 0; i < items.length; i++) {
-
-			// get page's priority
-			var pageId = items[i].pageId;
-			var itemPriority;
-			var itemChangefreq;
-			for (var j = 0; j < pagePriority.length; j++) {
-				if (pageId === pagePriority[j].id) {
-					itemPriority = pagePriority[j].priority;
-					itemChangefreq = pagePriority[j].changefreq;
-					break;
-				}
-			}
-
-			var detailPageUrl;
-			var detailPage = _getPage(items[i].detailPageId) || _defaultDetailPage;
-			var detailPageUrl = detailPage.pageUrl;
-
-			var pageItems = items[i].data || [];
-			for (var j = 0; j < pageItems.length; j++) {
-				var item = pageItems[j];
-				if (item && item.id) {
-
-					// verify if the detail page allows the content type
-					var detailPageAllowed = false;
-					for (var k = 0; k < _detailPages.length; k++) {
-						if (_detailPages[k].page.id.toString() === detailPage.id.toString() &&
-							(_detailPages[k].contentTypes.length === 0 || _detailPages[k].contentTypes.includes(item.type))) {
-							detailPageAllowed = true;
-							break;
-						}
+			if (!noDefaultDetailPageLink || items[i].detailPageId) {
+				// get page's priority
+				var pageId = items[i].pageId;
+				var itemPriority;
+				var itemChangefreq;
+				for (var j = 0; j < pagePriority.length; j++) {
+					if (pageId === pagePriority[j].id) {
+						itemPriority = pagePriority[j].priority;
+						itemChangefreq = pagePriority[j].changefreq;
+						break;
 					}
-
-					if (detailPageAllowed && detailPageUrl) {
-						var detailPagePrefix = detailPageUrl.replace('.html', '');
-						var itemlanguage = item.language || items[i].locale;
-						var locale = itemlanguage && itemlanguage !== _SiteInfo.defaultLanguage ? (itemlanguage + '/') : '';
-						// trailing / is required
-						var url = prefix + '/' + locale + detailPagePrefix + '/' + item.type + '/' + item.id + '/' + item.slug;
-						// console.log(item);
-						var lastmod = _getLastmod(item.updatedDate.value);
-
-						// no duplicate url
-						if (!addedUrls.includes(url)) {
-							// console.log('item: ' + item.name + ' page: ' + pageId + ' priority: ' + itemPriority + ' lastmod: ' + lastmod);
-							urls.push({
-								loc: url,
-								lastmod: lastmod,
-								priority: itemPriority,
-								changefreq: itemChangefreq
-							});
-
-							addedUrls.push(url);
-						}
-					} // has detail for the item
 				}
-			} // all items on the page
+
+				var detailPageUrl;
+				var detailPage = _getPage(items[i].detailPageId) || _defaultDetailPage;
+				var detailPageUrl = detailPage.pageUrl;
+
+				var pageItems = items[i].data || [];
+				for (var j = 0; j < pageItems.length; j++) {
+					var item = pageItems[j];
+					if (item && item.id) {
+
+						// verify if the detail page allows the content type
+						var detailPageAllowed = false;
+						for (var k = 0; k < _detailPages.length; k++) {
+							if (_detailPages[k].page.id.toString() === detailPage.id.toString() &&
+								(_detailPages[k].contentTypes.length === 0 || _detailPages[k].contentTypes.includes(item.type))) {
+								detailPageAllowed = true;
+								break;
+							}
+						}
+
+						if (detailPageAllowed && detailPageUrl) {
+							var detailPagePrefix = detailPageUrl.replace('.html', '');
+							var itemlanguage = item.language || items[i].locale;
+							var locale = itemlanguage && itemlanguage !== _SiteInfo.defaultLanguage ? (itemlanguage + '/') : '';
+							// trailing / is required
+							var url;
+							if (newlink) {
+								url = prefix + '/' + locale + detailPagePrefix + '/' + item.slug;
+							} else {
+								url = prefix + '/' + locale + detailPagePrefix + '/' + item.type + '/' + item.id + '/' + item.slug;
+							}
+							// console.log(item);
+							var lastmod = _getLastmod(item.updatedDate.value);
+
+							// no duplicate url
+							if (!addedUrls.includes(url)) {
+								// console.log('item: ' + item.name + ' page: ' + pageId + ' priority: ' + itemPriority + ' lastmod: ' + lastmod);
+								urls.push({
+									loc: url,
+									lastmod: lastmod,
+									priority: itemPriority,
+									changefreq: itemChangefreq
+								});
+
+								addedUrls.push(url);
+							}
+						} // has detail for the item
+					}
+				} // all items on the page
+			}
 		} // all items
 	} // has detail page
 
@@ -1380,9 +1387,8 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 				}
 
 				var pageDataPromises = [];
-				if (_hasDetailPage) {
-					pageDataPromises = _getPageDataPromise(request, localhost, site, pages);
-				}
+				pageDataPromises = _getPageDataPromise(request, localhost, site, pages);
+
 				return Promise.all(pageDataPromises);
 			})
 			.then(function (values) {
@@ -1529,7 +1535,6 @@ var _getSiteDataWithLocale = function (server, request, localhost, site, locale,
 						items: items
 					});
 				}
-
 			}); // page files
 
 		}); // site structure
@@ -1542,7 +1547,8 @@ var _getSiteDataWithLocale = function (server, request, localhost, site, locale,
  * Main entry
  * 
  */
-var _createSiteMap = function (server, serverName, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, languages, toppagepriority, done) {
+var _createSiteMap = function (server, serverName, request, localhost, site, siteUrl, changefreq,
+	publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink, done) {
 
 	//
 	// get site info and other metadata
@@ -1619,7 +1625,7 @@ var _createSiteMap = function (server, serverName, request, localhost, site, sit
 			//
 			// create site map
 			//
-			_generateSiteMapXML(siteUrl, allPages, allPageFiles, allItems, changefreq, toppagepriority, siteMapFile);
+			_generateSiteMapXML(siteUrl, allPages, allPageFiles, allItems, changefreq, toppagepriority, siteMapFile, newlink, noDefaultDetailPageLink);
 
 			if (publish) {
 				// Upload site map to the server
@@ -1717,7 +1723,7 @@ var _calculatePageChangeFraq = function (serverName, allPageFiles) {
 								} else {
 									calculatedChangefreq = 'never';
 								}
-								
+
 								/*
 								console.log(' - page : ' + versions[0].name + ' versions: ' + versions.length +
 									' oldest update: ' + versions[oldestVersionIdx].modifiedTime +
@@ -1809,6 +1815,10 @@ module.exports.createSiteMap = function (argv, done) {
 	}
 
 	var publish = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
+
+	var newlink = typeof argv.newlink === 'string' && argv.newlink.toLowerCase() === 'true';
+
+	var noDefaultDetailPageLink = typeof argv.noDefaultDetailPageLink === 'string' && argv.noDefaultDetailPageLink.toLowerCase() === 'true';
 
 	var languages = argv.languages ? argv.languages.split(',') : [];
 
@@ -1916,7 +1926,8 @@ module.exports.createSiteMap = function (argv, done) {
 			localServer.setTimeout(0);
 
 			// console.log('localhost: ' + localhost);
-			_createSiteMap(server, serverName, request, localhost, site, siteUrl, changefreq, publish, siteMapFile, languages, toppagepriority, done);
+			_createSiteMap(server, serverName, request, localhost, site, siteUrl, changefreq,
+				publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink, done);
 		});
 		localServer.on('error', function (e) {
 			console.log('ERROR: ');
