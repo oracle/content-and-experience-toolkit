@@ -12,7 +12,6 @@ Templates and resources for development platforms.
 
 **Added**
 - `cec set-site-security` - set site as public or secure and define type of runtime access
-- `cec delete-folder` - delete folders on the CEC server
 
 **Updated**
 - `cec develop` - use of `--server <server>` will direct content queries to the CEC server specified.
