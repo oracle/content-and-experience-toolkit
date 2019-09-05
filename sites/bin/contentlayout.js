@@ -317,11 +317,13 @@ module.exports.addContentLayoutMapping = function (argv, done) {
 		return;
 	}
 
-	var mappingfile = path.join(templatesSrcDir, templatename, 'caas_contenttypemap.json'),
+	var summaryfile = path.join(templatesSrcDir, templatename, 'assets', 'contenttemplate', 'summary.json'),
+		summaryjson = {},
 		mappings = [],
 		foundtype = false;
-	if (fs.existsSync(mappingfile)) {
-		mappings = JSON.parse(fs.readFileSync(mappingfile));
+	if (fs.existsSync(summaryfile)) {
+		summaryjson = JSON.parse(fs.readFileSync(summaryfile));
+		mappings = summaryjson["categoryLayoutMappings"] || [];
 		// check if the content type is in the mappings
 		for (var i = 0; i < mappings.length; i++) {
 			if (mappings[i].type === contenttypename) {
@@ -374,21 +376,17 @@ module.exports.addContentLayoutMapping = function (argv, done) {
 			}
 		}
 	}
-	fs.writeFileSync(mappingfile, JSON.stringify(mappings));
-
-	// also update summary.json
-	var summaryfile = path.join(templatesSrcDir, templatename, 'assets', 'contenttemplate', 'summary.json');
-	if (fs.existsSync(summaryfile)) {
-		var summaryjson = JSON.parse(fs.readFileSync(summaryfile));
-		summaryjson["categoryLayoutMappings"] = mappings;
-		if (summaryjson.hasOwnProperty("layoutComponents") && summaryjson.layoutComponents.indexOf(layoutname) < 0) {
-			summaryjson.layoutComponents[summaryjson.layoutComponents.length] = layoutname;
-		} else {
-			summaryjson["layoutComponents"] = [layoutname];
-		}
-
-		fs.writeFileSync(summaryfile, JSON.stringify(summaryjson));
+	summaryjson["categoryLayoutMappings"] = mappings;
+	if (summaryjson.hasOwnProperty("layoutComponents") && summaryjson.layoutComponents.indexOf(layoutname) < 0) {
+		summaryjson.layoutComponents[summaryjson.layoutComponents.length] = layoutname;
+	} else {
+		summaryjson["layoutComponents"] = [layoutname];
 	}
+	fs.writeFileSync(summaryfile, JSON.stringify(summaryjson));
+
+	// also update caas_contenttypemap.json
+	var mappingfile = path.join(templatesSrcDir, templatename, 'caas_contenttypemap.json');
+	fs.writeFileSync(mappingfile, JSON.stringify(mappings));
 
 	console.log('Content layout ' + layoutname + ' is set to use by type ' + contenttypename + ' for template ' + templatename);
 	done(true);
@@ -464,12 +462,14 @@ module.exports.removeContentLayoutMapping = function (argv, done) {
 		}
 	}
 
-	var mappingfile = path.join(templatesSrcDir, templatename, 'caas_contenttypemap.json');
 	if (mobile && layoutstyle) {
 		layoutstyle = layoutstyle + '|mobile';
 	}
-	if (fs.existsSync(mappingfile)) {
-		var mappings = JSON.parse(fs.readFileSync(mappingfile));
+	var summaryfile = path.join(templatesSrcDir, templatename, 'assets', 'contenttemplate', 'summary.json');
+	if (fs.existsSync(summaryfile)) {
+		var summaryjson = JSON.parse(fs.readFileSync(summaryfile));
+		var mappings = summaryjson["categoryLayoutMappings"];
+
 		if (layoutstyle && layoutname) {
 			for (var i = 0; i < mappings.length; i++) {
 				var catelist = mappings[i].categoryList;
@@ -506,20 +506,17 @@ module.exports.removeContentLayoutMapping = function (argv, done) {
 				}
 			}
 		}
-		fs.writeFileSync(mappingfile, JSON.stringify(mappings));
 
-		// also update summary.json
-		var summaryfile = path.join(templatesSrcDir, templatename, 'assets', 'contenttemplate', 'summary.json');
-		if (fs.existsSync(summaryfile)) {
-			var summaryjson = JSON.parse(fs.readFileSync(summaryfile));
-			summaryjson["categoryLayoutMappings"] = mappings;
-			if (layoutname && summaryjson.hasOwnProperty("layoutComponents") &&
-				summaryjson.layoutComponents.indexOf(layoutname) >= 0) {
-				summaryjson.layoutComponents.splice(summaryjson.layoutComponents.indexOf(layoutname), 1);
-			}
-
-			fs.writeFileSync(summaryfile, JSON.stringify(summaryjson));
+		summaryjson["categoryLayoutMappings"] = mappings;
+		if (layoutname && summaryjson.hasOwnProperty("layoutComponents") &&
+			summaryjson.layoutComponents.indexOf(layoutname) >= 0) {
+			summaryjson.layoutComponents.splice(summaryjson.layoutComponents.indexOf(layoutname), 1);
 		}
+		fs.writeFileSync(summaryfile, JSON.stringify(summaryjson));
+
+		// also update caas_contenttypemap.json
+		var mappingfile = path.join(templatesSrcDir, templatename, 'caas_contenttypemap.json');
+		fs.writeFileSync(mappingfile, JSON.stringify(mappings));
 	}
 
 	if (layoutstyle) {

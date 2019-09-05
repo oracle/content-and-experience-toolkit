@@ -9,9 +9,6 @@ var request = require('request'),
 	siteUtils = require('./serverUtils');
 
 var _utils = {
-	getServer: function (currPath, registeredServerName) {
-		return registeredServerName ? siteUtils.getRegisteredServer(currPath, registeredServerName) : siteUtils.getConfiguredServer(currPath);
-	},
 	getAuth: function (server) {
 		var auth = server.env !== 'dev_ec' ? {
 			bearer: server.oauthtoken
@@ -64,14 +61,13 @@ var _createFolder = function (server, parentID, foldername) {
 /**
  * Create folder on server by folder name
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.parentID The DOCS GUID for the folder where the new file should be created.
  * @param {string} args.foldername The name of the folder to create.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createFolder = function (args) {
-	return _createFolder(_utils.getServer(args.currPath, args.registeredServerName), args.parentID, args.foldername);
+	return _createFolder(args.server, args.parentID, args.foldername);
 };
 
 // Find or Create Folder on server
@@ -80,7 +76,7 @@ var _findOrCreateFolder = function (server, parentID, foldername) {
 		// try to find the folder
 		_findFile(server, parentID, foldername, false).then(function (existingFolder) {
 			// if we've found the folder, return it
-			if (existingFolder) {
+			if (existingFolder && existingFolder.id) {
 				return resolve(existingFolder);
 			}
 
@@ -99,14 +95,13 @@ var _findOrCreateFolder = function (server, parentID, foldername) {
 /**
  * Find or Create folder on server by folder name
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.parentID The DOCS GUID for the folder where the new file should be created.
  * @param {string} args.foldername The name of the folder to create.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.findOrCreateFolder = function (args) {
-	return _findOrCreateFolder(_utils.getServer(args.currPath, args.registeredServerName), args.parentID, args.foldername);
+	return _findOrCreateFolder(args.server, args.parentID, args.foldername);
 };
 
 var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
@@ -126,7 +121,7 @@ var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
 		var doFindFolder = folderPromises.reduce(function (previousPromise, nextPromise) {
 				return previousPromise.then(function (folderDetails) {
 					// store the parent
-					if (folderDetails) {
+					if (folderDetails && folderDetails.id) {
 						if (folderDetails.id !== rootParentId) {
 							console.log(' - find ' + folderDetails.type + ' ' + folderDetails.name + ' (Id: ' + folderDetails.id + ')');
 						}
@@ -143,7 +138,7 @@ var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
 			}));
 
 		doFindFolder.then(function (parentFolder) {
-			if (parentFolder) {
+			if (parentFolder && parentFolder.id) {
 				if (parentFolder.id !== rootParentId) {
 					console.log(' - find ' + parentFolder.type + ' ' + parentFolder.name + ' (Id: ' + parentFolder.id + ')');
 				}
@@ -155,15 +150,13 @@ var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
 /**
  * Find folder hierarchy on server by folder name
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.parentID The DOCS GUID for the folder where the new file should be created.
  * @param {string} args.folderPath The path of the folder.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.findFolderHierarchy = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _findFolderHierarchy(server, args.parentID, args.folderPath);
+	return _findFolderHierarchy(args.server, args.parentID, args.folderPath);
 };
 
 // Delete Folder on server
@@ -181,7 +174,9 @@ var _deleteFolder = function (server, fFolderGUID) {
 			} else {
 				console.log('Failed to delete Folder: ' + fFileGUID);
 				// continue
-				resolve();
+				resolve({
+					err: 'err'
+				});
 			}
 		});
 	});
@@ -189,13 +184,12 @@ var _deleteFolder = function (server, fFolderGUID) {
 /**
  * Delete Folder from server by folder GUID
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.fFolderGUID The DOCS GUID for the folder to delete
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.deleteFolder = function (args) {
-	return _deleteFolder(_utils.getServer(args.currPath, args.registeredServerName), args.fFolderGUID);
+	return _deleteFolder(args.server, args.fFolderGUID);
 };
 
 // Get child items with the parent folder
@@ -228,14 +222,13 @@ var _getChildItems = function (server, parentID, limit) {
 /**
  * Get child items from server under the given parent
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.parentID The DOCS GUID for the folder to search
  * @param {string} args.limit the maximum number of items to return
  * @returns {array} The array of data object returned by the server.
  */
 module.exports.getChildItems = function (args) {
-	return _getChildItems(_utils.getServer(args.currPath, args.registeredServerName), args.parentID, args.limit);
+	return _getChildItems(args.server, args.parentID, args.limit);
 };
 
 // Find file by name with the parent folder
@@ -261,29 +254,33 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 
 			// folder not found
 			if (showError) {
-				console.log('ERROR: failed to find ' + (itemtype ? itemtype : ' File') + ': ' + filename);
+				var msg = data.title || data.errorMessage || '';
+				console.log('ERROR: failed to find ' + (itemtype ? itemtype : ' File') + ': ' + filename + ' ' + msg);
 			}
-			return resolve();
+			return resolve({
+				err: data.errorCode || 'err'
+			});
 		});
 		req.on('error', function (err) {
 			console.log('ERROR: ' + err);
-			resolve();
+			resolve({
+				err: 'err'
+			});
 		});
 	});
 };
 /**
  * Find the file from server under the given parent
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.parentID The DOCS GUID for the folder to search
  * @param {string} args.filename The name of the folder to find
  * @param {string} args.itemtype The type of item ti find, folder or file
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.findFile = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _findFile(server, args.parentID, args.filename, true, args.itemtype);
+	var showError = args.showError === undefined ? true : args.showError;
+	return _findFile(args.server, args.parentID, args.filename, showError, args.itemtype);
 };
 
 
@@ -331,16 +328,14 @@ var _createFile = function (server, parentID, filename, contents) {
 /**
  * Create file from server by file name
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.parentID The DOCS GUID for the folder where the new file should be created.
  * @param {string} args.filename The name of the file to create.
  * @param {stream} args.contents The filestream to upload.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createFile = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _createFile(server, args.parentID, args.filename, args.contents);
+	return _createFile(args.server, args.parentID, args.filename, args.contents);
 };
 
 
@@ -366,14 +361,12 @@ var _readFile = function (server, fFileGUID) {
 /**
  * Read file from server by file name
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.fFileGUID The DOCS GUID for the file to update
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.readFile = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _readFile(server, args.fFileGUID);
+	return _readFile(args.server, args.fFileGUID);
 };
 
 var _downloadFile = function (server, fFileGUID) {
@@ -415,14 +408,12 @@ var _downloadFile = function (server, fFileGUID) {
 /**
  * Download file from server by file id
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.fFileGUID The DOCS GUID for the file to update
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.downloadFile = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _downloadFile(server, args.fFileGUID);
+	return _downloadFile(args.server, args.fFileGUID);
 };
 
 // Update file on server
@@ -451,14 +442,13 @@ var _updateFile = function (server, fFileGUID, contents) {
 /**
  * Update file from server by file GUID
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.fFileGUID The DOCS GUID for the file to update
  * @param {stream} args.contents The filestream to upload
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.updateFile = function (args) {
-	return _updateFile(_utils.getServer(args.currPath, args.registeredServerName), args.fFileGUID, args.contents);
+	return _updateFile(args.server, args.fFileGUID, args.contents);
 };
 
 // Delete file from server
@@ -484,14 +474,12 @@ var _deleteFile = function (server, fFileGUID) {
 /**
  * Delete file from server by file GUID
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.fFileGUID The DOCS GUID for the file to delete
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.deleteFile = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _deleteFile(server, args.fFileGUID);
+	return _deleteFile(args.server, args.fFileGUID);
 };
 
 // Get file versions from server
@@ -517,13 +505,12 @@ var _getFileVersions = function (server, fFileGUID) {
 /**
  * Get file versions from server by file id
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.fFileGUID The DOCS GUID for the file to query
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getFileVersions = function (args) {
-	return _getFileVersions(_utils.getServer(args.currPath, args.registeredServerName), args.fFileGUID);
+	return _getFileVersions(args.server, args.fFileGUID);
 };
 
 var _getItem = function (server, id, expand) {
@@ -552,15 +539,12 @@ var _getItem = function (server, id, expand) {
  * Get an item on server 
  * @param {object} args JavaScript object containing parameters. 
  * @param {string} args.server the server object
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
  * @param {string} args.id The id of the item to query.
  * @param {string} args.expand The comma-separated list of field names or all to get child resources.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getItem = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _getItem(server, args.id, args.expand);
+	return _getItem(args.server, args.id, args.expand);
 };
 
 // Create channel on server
@@ -615,8 +599,7 @@ var _createChannel = function (server, name, channelType, description, publishPo
 /**
  * Create channel on server by channel name
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.name The name of the channel to create.
  * @param {string} args.description The description of the channel to create.
  * @param {string} args.channelType The type of the channel, defaults to public.
@@ -625,8 +608,7 @@ var _createChannel = function (server, name, channelType, description, publishPo
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createChannel = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _createChannel(server, args.name, args.channelType,
+	return _createChannel(args.server, args.name, args.channelType,
 		args.description, args.publishPolicy, args.localizationPolicy);
 };
 
@@ -670,14 +652,12 @@ var _deleteChannel = function (server, id) {
 /**
  * Delete channel on server by channel id
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.id The id of the channel to delete
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.deleteChannel = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _deleteChannel(server, args.id);
+	return _deleteChannel(args.server, args.id);
 };
 
 // Add channel to repository
@@ -751,16 +731,14 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 /**
  * Add channel to repository on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.id The id of the channel to add.
  * @param {string} args.name The naem of the channel.
  * @param {object} repository JavaScript object containing repository
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.addChannelToRepository = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _addChannelToRepository(server, args.id, args.name, args.repository);
+	return _addChannelToRepository(args.server, args.id, args.name, args.repository);
 };
 
 
@@ -794,13 +772,11 @@ var _getChannels = function (server) {
 /**
  * Get all channels on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getChannels = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _getChannels(server);
+	return _getChannels(args.server);
 };
 
 // Get channel from server
@@ -827,14 +803,12 @@ var _getChannel = function (server, channelId) {
 /**
  * Get a channel on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.id The id of the channel to query.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getChannel = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _getChannel(server, args.id);
+	return _getChannel(args.server, args.id);
 };
 
 
@@ -866,15 +840,12 @@ var _getChannelItems = function (server, channelToken, fields) {
  * Get all items in a channel on server 
  * @param {object} args JavaScript object containing parameters. 
  * @param {string} args.server the server object
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
  * @param {string} args.channelToken The token of the channel to query.
  * @param {string} args.fields The extral fields returned from the query.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getChannelItems = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _getChannelItems(server, args.channelToken, args.fields);
+	return _getChannelItems(args.server, args.channelToken, args.fields);
 };
 
 // perform bulk operation on items in a channel from server
@@ -989,84 +960,72 @@ var _opChannelItems = function (server, operation, channelIds, itemIds, queryStr
 /**
  * Publish items in a channel on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.channelId The id of the channel to publish items.
  * @param {array} args.itemIds The id of items to publish
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.publishChannelItems = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _opChannelItems(server, 'publish', [args.channelId], args.itemIds);
+	return _opChannelItems(args.server, 'publish', [args.channelId], args.itemIds);
 };
 
 /**
  * Unpublish items in a channel on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.channelId The id of the channel to publish items.
  * @param {array} args.itemIds The id of items to publish
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.unpublishChannelItems = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _opChannelItems(server, 'unpublish', [args.channelId], args.itemIds);
+	return _opChannelItems(args.server, 'unpublish', [args.channelId], args.itemIds);
 };
 
 /**
  * Remove items from a channel on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.channelId The id of the channel to publish items.
  * @param {array} args.itemIds The id of items to publish
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.removeItemsFromChanel = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _opChannelItems(server, 'removeChannels', [args.channelId], args.itemIds);
+	return _opChannelItems(args.server, 'removeChannels', [args.channelId], args.itemIds);
 };
 
 /**
  * Add items to a channel on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.channelId The id of the channel to add items.
  * @param {array} args.itemIds The id of items 
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.addItemsToChanel = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _opChannelItems(server, 'addChannels', [args.channelId], args.itemIds);
+	return _opChannelItems(args.server, 'addChannels', [args.channelId], args.itemIds);
 };
 
 /**
  * Delete items (translatable items with all tts variations) on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {array} args.itemIds The id of items 
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.deleteItems = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _opChannelItems(server, 'deleteItems', [], args.itemIds);
+	return _opChannelItems(args.server, 'deleteItems', [], args.itemIds);
 };
 
 /**
  * Validate items from a channel on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.channelId The id of the channel to validate items.
  * @param {array} args.itemIds The id of items to publish
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.validateChannelItems = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _opChannelItems(server, 'validatePublish', [args.channelId], args.itemIds);
+	return _opChannelItems(args.server, 'validatePublish', [args.channelId], args.itemIds);
 };
 
 var _getItemOperationStatus = function (server, statusId) {
@@ -1092,14 +1051,12 @@ var _getItemOperationStatus = function (server, statusId) {
 /**
  * Get item bulk operation status
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.statusId The id of operation status
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getItemOperationStatus = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _getItemOperationStatus(server, args.statusId);
+	return _getItemOperationStatus(args.server, args.statusId);
 };
 
 // Get localization policies from server
@@ -1132,13 +1089,11 @@ var _getLocalizationPolicies = function (server) {
 /**
  * Get all localization policies on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getLocalizationPolicies = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _getLocalizationPolicies(server);
+	return _getLocalizationPolicies(args.server);
 };
 
 // Get a localization policy from server
@@ -1171,14 +1126,12 @@ var _getLocalizationPolicy = function (server, id) {
 /**
  * Get a localization policy on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.id The id of the localization policy to query
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getLocalizationPolicy = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _getLocalizationPolicy(server, args.id);
+	return _getLocalizationPolicy(args.server, args.id);
 };
 
 // Create localization policy on server
@@ -1230,8 +1183,7 @@ var _createLocalizationPolicy = function (server, name, description, requiredLan
 /**
  * Create localization policy on server by channel name
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.name The name of the localization policy to create.
  * @param {string} args.description The description of the localization policy.
  * @param {string} args.defaultLanguage The default language of the localization policy.
@@ -1240,7 +1192,7 @@ var _createLocalizationPolicy = function (server, name, description, requiredLan
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createLocalizationPolicy = function (args) {
-	return _createLocalizationPolicy(_utils.getServer(args.currPath, args.registeredServerName), args.name, args.description,
+	return _createLocalizationPolicy(args.server, args.name, args.description,
 		args.requiredLanguages, args.defaultLanguage, args.optionalLanguages);
 };
 
@@ -1275,13 +1227,11 @@ var _getRepositories = function (server) {
 /**
  * Get all repositories on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getRepositories = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _getRepositories(server);
+	return _getRepositories(args.server);
 };
 
 // Get a repository from server
@@ -1308,14 +1258,12 @@ var _getRepository = function (server, repoId) {
 /**
  * Get a repository on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.id The id of the repository to query.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getRepository = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _getRepository(server, args.id);
+	return _getRepository(args.server, args.id);
 };
 
 // Get a repository from server
@@ -1347,15 +1295,12 @@ var _getResourcePermissions = function (server, id, type) {
  * Get all permissions of a resource on a ron server 
  * @param {object} args JavaScript object containing parameters. 
  * @param {string} server the server object
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
  * @param {string} args.id The id of the resource to query.
  * @param {string} args.type The type of the resource to query [repository | type]
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getResourcePermissions = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _getResourcePermissions(server, args.id, args.type);
+	return _getResourcePermissions(args.server, args.id, args.type);
 };
 
 // Create repository on server
@@ -1412,8 +1357,7 @@ var _createRepository = function (server, name, description, contentTypes, chann
 /**
  * Create channel on server by channel name
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.name The name of the repository to create.
  * @param {string} args.description The description of the repository.
  * @param {string} args.defaultLanguage The default language of the repository.
@@ -1422,7 +1366,7 @@ var _createRepository = function (server, name, description, contentTypes, chann
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createRepository = function (args) {
-	return _createRepository(_utils.getServer(args.currPath, args.registeredServerName), args.name, args.description,
+	return _createRepository(args.server, args.name, args.description,
 		args.contentTypes, args.channels, args.defaultLanguage);
 };
 
@@ -1489,15 +1433,14 @@ var _updateRepository = function (server, repository, contentTypes, channels) {
 /**
  * Update repository on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {object} repository JavaScript object containing repository
  * @param {array} args.contentTypes The list of content types.
  * @param {array} args.channels The list of channels.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.updateRepository = function (args) {
-	return _updateRepository(_utils.getServer(args.currPath, args.registeredServerName), args.repository, args.contentTypes, args.channels);
+	return _updateRepository(args.server, args.repository, args.contentTypes, args.channels);
 };
 
 var _performPermissionOperation = function (server, operation, resourceId, resourceName, resourceType, role, users) {
@@ -1609,8 +1552,7 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 /**
  * Share/Unshare a resource
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {String} operation share | unshare
  * @param {String} args.resourceId the id of the resource
  * @param {String} args.resourceType the type of the resource
@@ -1620,7 +1562,7 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.performPermissionOperation = function (args) {
-	return _performPermissionOperation(_utils.getServer(args.currPath, args.registeredServerName),
+	return _performPermissionOperation(args.server,
 		args.operation, args.resourceId, args.resourceName, args.resourceType, args.role, args.users);
 };
 
@@ -1648,13 +1590,12 @@ var _getContentType = function (server, typeName) {
 /**
  * Get a content type on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.name The name of the type to query.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getContentType = function (args) {
-	return _getContentType(_utils.getServer(args.currPath, args.registeredServerName), args.name);
+	return _getContentType(args.server, args.name);
 };
 
 var _getUser = function (server, userName) {
@@ -1678,13 +1619,12 @@ var _getUser = function (server, userName) {
 /**
  * Get user info on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.name The name of user.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getUser = function (args) {
-	return _getUser(_utils.getServer(args.currPath, args.registeredServerName), args.name);
+	return _getUser(args.server, args.name);
 };
 
 var _getFolderUsers = function (server, folderId) {
@@ -1723,14 +1663,12 @@ var _getFolderUsers = function (server, folderId) {
 /**
  * Get shared folder users on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
+ * @param {object} args.server the server object
  * @param {string} args.id The id of the folder
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getFolderUsers = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _getFolderUsers(server, args.id);
+	return _getFolderUsers(args.server, args.id);
 };
 
 var _shareFolder = function (server, folderId, userId, role, createNew) {
@@ -1765,8 +1703,6 @@ var _shareFolder = function (server, folderId, userId, role, createNew) {
 /**
  * Share folder with a user on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
  * @param {object} args.server the server object
  * @param {string} args.id The id of the folder
  * @param {string} args.userId the user id
@@ -1775,8 +1711,7 @@ var _shareFolder = function (server, folderId, userId, role, createNew) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.shareFolder = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _shareFolder(server, args.id, args.userId, args.role, args.create === undefined ? true : args.create);
+	return _shareFolder(server.server, args.id, args.userId, args.role, args.create === undefined ? true : args.create);
 };
 
 var _unshareFolder = function (server, folderId, userId) {
@@ -1804,8 +1739,6 @@ var _unshareFolder = function (server, folderId, userId) {
 /**
  * Unshare folder with a user on server 
  * @param {object} args JavaScript object containing parameters. 
- * @param {string} [args.registeredServerName=''] Name of the server to use. If not specified, will use server in cec.properties file
- * @param {string} [args.currPath=''] Location of the project source. This is used to get the registered server.
  * @param {object} args.server the server object
  * @param {string} args.id The id of the folder
  * @param {string} args.userId the user id
@@ -1814,6 +1747,5 @@ var _unshareFolder = function (server, folderId, userId) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.unshareFolder = function (args) {
-	var server = args.server || _utils.getServer(args.currPath, args.registeredServerName);
-	return _unshareFolder(server, args.id, args.userId);
+	return _unshareFolder(args.server, args.id, args.userId);
 };

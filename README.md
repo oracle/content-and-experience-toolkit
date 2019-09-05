@@ -8,6 +8,19 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.3.2h
+
+**Added**
+- `cec set-site-security` - set site as public or secure and define type of runtime access
+- `cec delete-folder` - delete folders on the CEC server
+
+**Updated**
+- `cec develop` - use of `--server <server>` will direct content queries to the CEC server specified.
+- `Content List` - can now order by custom fields
+
+**Fixed**
+- `cec add-contentlayout-mapping` - summary.json in template which is used by SERVER on template upload. 
+
 # New in Release 19.3.2g
 
 **Updated**

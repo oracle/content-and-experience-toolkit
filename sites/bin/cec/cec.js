@@ -160,6 +160,16 @@ var getServerTypes = function () {
 	return roles;
 };
 
+var getSiteSignIn = function () {
+	const roles = ['yes', 'no'];
+	return roles;
+};
+
+var getSiteAccessNames = function () {
+	var names = ['Cloud users', 'Visitors', 'Service users', 'Specific users'];
+	return names;
+};
+
 /*********************
  * Command definitions
  **********************/
@@ -778,6 +788,31 @@ const unshareSite = {
 	]
 };
 
+const setSiteSecurity = {
+	command: 'set-site-security <name>',
+	alias: 'sss',
+	name: 'set-site-security',
+	usage: {
+		'short': 'Set site security on CEC server.',
+		'long': (function () {
+			let desc = 'Make the site publicly available to anyone, restrict the site to registered users, or restrict the site to specific users.  ' +
+				'Specify the server with -r <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -a <access> to set who can access the site. ' +
+				'The valid group names are\n\n';
+			return getSiteAccessNames().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return desc;
+		})()
+	},
+	example: [
+		['cec set-site-security Site1 -s no', 'make the site publicly available to anyone'],
+		['cec set-site-security Site1 -s no -r UAT', 'make the site publicly available to anyone on server UAT'],
+		['cec set-site-security Site1 -s yes', 'Require everyone to sign in to access this site and any authenticated user can access'],
+		['cec set-site-security Site1 -s yes -a "Visitors,Service users"', 'Require everyone to sign in to access this site and all service visitors and users can access'],
+		['cec set-site-security Site1 -s yes -a "Specific users" -u user1,user2', 'Require everyone to sign in to access this site and only user1 and user2 can access'],
+		['cec set-site-security Site1 -s yes -d user1', 'Remove user1\'s access from the site']
+	]
+};
+
 const validateSite = {
 	command: 'validate-site <name>',
 	alias: 'vs',
@@ -1312,6 +1347,25 @@ const uploadFolder = {
 	]
 };
 
+const deleteFolder = {
+	command: 'delete-folder <path>',
+	alias: '',
+	name: 'delete-folder',
+	usage: {
+		'short': 'Deletes folder on CEC server.',
+		'long': (function () {
+			let desc = 'Deletes folder and all its content on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -p to permanently delete the folder.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec delete-folder Import/docs'],
+		['cec delete-folder Import/docs -s UAT'],
+		['cec delete-folder Import/docs -p']
+	]
+};
+
 const uploadFile = {
 	command: 'upload-file <file>',
 	alias: 'ulf',
@@ -1489,6 +1543,7 @@ _usage = _usage + os.EOL + 'Documents' + os.EOL +
 	_getCmdHelp(unshareFolder) + os.EOL +
 	_getCmdHelp(downloadFolder) + os.EOL +
 	_getCmdHelp(uploadFolder) + os.EOL +
+	// _getCmdHelp(deleteFolder) + os.EOL +
 	_getCmdHelp(downloadFile) + os.EOL +
 	_getCmdHelp(uploadFile) + os.EOL;
 
@@ -1525,6 +1580,7 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(controlSite) + os.EOL +
 	_getCmdHelp(shareSite) + os.EOL +
 	_getCmdHelp(unshareSite) + os.EOL +
+	_getCmdHelp(setSiteSecurity) + os.EOL +
 	_getCmdHelp(indexSite) + os.EOL +
 	_getCmdHelp(createSiteMap) + os.EOL +
 	_getCmdHelp(createRSSFeed) + os.EOL +
@@ -1577,7 +1633,7 @@ const argv = yargs.usage(_usage)
 				})
 				.check((argv) => {
 					if (argv.from && !getComponentSources().includes(argv.from)) {
-						throw new Error(`${argv.from} is a not a valid value for <source>`);
+						throw new Error(`${argv.from} is not a valid value for <source>`);
 					} else {
 						return true;
 					}
@@ -1715,7 +1771,7 @@ const argv = yargs.usage(_usage)
 			yargs
 				.check((argv) => {
 					if (argv.action && !getComponentActions().includes(argv.action)) {
-						throw new Error(`${argv.action} is a not a valid value for <action>`);
+						throw new Error(`${argv.action} is not a valid value for <action>`);
 					} else {
 						return true;
 					}
@@ -1745,7 +1801,7 @@ const argv = yargs.usage(_usage)
 				})
 				.check((argv) => {
 					if (argv.from && !getTemplateSources().includes(argv.from)) {
-						throw new Error(`${argv.from} is a not a valid value for <source>`);
+						throw new Error(`${argv.from} is not a valid value for <source>`);
 					} else {
 						return true;
 					}
@@ -1848,7 +1904,7 @@ const argv = yargs.usage(_usage)
 				})
 				.check((argv) => {
 					if (argv.type && argv.type !== 'draft' && argv.type !== 'published') {
-						throw new Error(`${argv.type} is a not a valid value for <type>`);
+						throw new Error(`${argv.type} is not a valid value for <type>`);
 					} else if (argv.server && !argv.channelToken) {
 						throw new Error(`Specifying calls to <server>: ${argv.server} for content queries also requires <channelToken> to also be specified.`);
 					} else if (argv.type && argv.type !== 'published' && !argv.server) {
@@ -2086,7 +2142,7 @@ const argv = yargs.usage(_usage)
 			yargs
 				.check((argv) => {
 					if (argv.action && !getContentActions().includes(argv.action)) {
-						throw new Error(`${argv.action} is a not a valid value for <action>`);
+						throw new Error(`${argv.action} is not a valid value for <action>`);
 					} else {
 						return true;
 					}
@@ -2145,7 +2201,7 @@ const argv = yargs.usage(_usage)
 			yargs
 				.check((argv) => {
 					if (argv.action && !getThemeActions().includes(argv.action)) {
-						throw new Error(`${argv.action} is a not a valid value for <action>`);
+						throw new Error(`${argv.action} is not a valid value for <action>`);
 					} else {
 						return true;
 					}
@@ -2230,7 +2286,7 @@ const argv = yargs.usage(_usage)
 			yargs
 				.check((argv) => {
 					if (argv.action && !getSiteActions().includes(argv.action)) {
-						throw new Error(`${argv.action} is a not a valid value for <action>`);
+						throw new Error(`${argv.action} is not a valid value for <action>`);
 					} else {
 						return true;
 					}
@@ -2272,7 +2328,7 @@ const argv = yargs.usage(_usage)
 				})
 				.check((argv) => {
 					if (argv.role && !getFolderRoles().includes(argv.role)) {
-						throw new Error(`${argv.role} is a not a valid value for <role>`);
+						throw new Error(`${argv.role} is not a valid value for <role>`);
 					} else {
 						return true;
 					}
@@ -2301,6 +2357,54 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${unshareSite.command}\n\n${unshareSite.usage.long}`);
+		})
+	.command([setSiteSecurity.command, setSiteSecurity.alias], false,
+		(yargs) => {
+			yargs.option('signin', {
+					alias: 's',
+					description: 'If require sign in to access site: ' + getSiteSignIn().join(' | '),
+					demandOption: true
+				})
+				.option('access', {
+					alias: 'a',
+					description: 'The comma separated list of group names'
+				})
+				.option('addusers', {
+					alias: 'u',
+					description: 'The comma separated list of users to access the site'
+				})
+				.option('deleteusers', {
+					alias: 'd',
+					description: 'The comma separated list of users to remove access from the site'
+				})
+				.option('server', {
+					alias: 'r',
+					description: '<server> The registered CEC server'
+				})
+				.check((argv) => {
+					if (argv.signin && !getSiteSignIn().includes(argv.signin)) {
+						throw new Error(`${argv.signin} is not a valid value for <signin>`);
+					}
+					if (argv.access) {
+						var accessArray = argv.access.split(',');
+						for (var i = 0; i < accessArray.length; i++) {
+							if (!getSiteAccessNames().includes(accessArray[i])) {
+								throw new Error(`"${accessArray[i]}" is not a valid value for <access>`);
+							}
+						}
+					}
+					return true;
+				})
+				.example(...setSiteSecurity.example[0])
+				.example(...setSiteSecurity.example[1])
+				.example(...setSiteSecurity.example[2])
+				.example(...setSiteSecurity.example[3])
+				.example(...setSiteSecurity.example[4])
+				.example(...setSiteSecurity.example[5])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${setSiteSecurity.command}\n\n${setSiteSecurity.usage.long}`);
 		})
 	.command([updateSite.command, updateSite.alias], false,
 		(yargs) => {
@@ -2404,7 +2508,7 @@ const argv = yargs.usage(_usage)
 					if (!argv.url) {
 						throw new Error('Please specify site URL');
 					} else if (argv.changefreq && !getSiteMapChangefreqValues().includes(argv.changefreq)) {
-						throw new Error(`${argv.changefreq} is a not a valid value for <changefreq>`);
+						throw new Error(`${argv.changefreq} is not a valid value for <changefreq>`);
 					} else if (argv.toppagepriority !== undefined && (argv.toppagepriority <= 0 || argv.toppagepriority >= 1)) {
 						throw new Error('Value for toppagepriority should be greater than 0 and less than 1');
 					} else {
@@ -2557,7 +2661,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.check((argv) => {
 					if (argv.action && !getRepositoryActions().includes(argv.action)) {
-						throw new Error(`${argv.action} is a not a valid value for <action>`);
+						throw new Error(`${argv.action} is not a valid value for <action>`);
 					} else if ((argv.action === 'add-type' || argv.action === 'remove-type') && !argv.contenttypes) {
 						throw new Error(`<contenttypes> is required for ${argv.action}`);
 					} else if ((argv.action === 'add-channel' || argv.action === 'remove-channel') && !argv.channels) {
@@ -2619,9 +2723,9 @@ const argv = yargs.usage(_usage)
 				})
 				.check((argv) => {
 					if (argv.role && !getResourceRoles().includes(argv.role)) {
-						throw new Error(`${argv.role} is a not a valid value for <role>`);
+						throw new Error(`${argv.role} is not a valid value for <role>`);
 					} else if (argv.typerole && !getResourceRoles().includes(argv.typerole)) {
-						throw new Error(`${argv.typerole} is a not a valid value for <typerole>`);
+						throw new Error(`${argv.typerole} is not a valid value for <typerole>`);
 					} else {
 						return true;
 					}
@@ -2676,7 +2780,7 @@ const argv = yargs.usage(_usage)
 				})
 				.check((argv) => {
 					if (argv.role && !getResourceRoles().includes(argv.role)) {
-						throw new Error(`${argv.role} is a not a valid value for <role>`);
+						throw new Error(`${argv.role} is not a valid value for <role>`);
 					} else {
 						return true;
 					}
@@ -2730,9 +2834,9 @@ const argv = yargs.usage(_usage)
 				})
 				.check((argv) => {
 					if (argv.type && argv.type !== 'public' && argv.type !== 'secure') {
-						throw new Error(`${argv.type} is a not a valid value for <type>`);
+						throw new Error(`${argv.type} is not a valid value for <type>`);
 					} else if (argv.publishpolicy && argv.publishpolicy !== 'anythingPublished' && argv.publishpolicy !== 'onlyApproved') {
-						throw new Error(`${argv.publishpolicy} is a not a valid value for <publishpolicy>`);
+						throw new Error(`${argv.publishpolicy} is not a valid value for <publishpolicy>`);
 					} else {
 						return true;
 					}
@@ -2814,7 +2918,7 @@ const argv = yargs.usage(_usage)
 				})
 				.check((argv) => {
 					if (argv.type && !getTranslationJobExportTypes().includes(argv.type)) {
-						throw new Error(`${argv.type} is a not a valid value for <type>`);
+						throw new Error(`${argv.type} is not a valid value for <type>`);
 					} else {
 						return true;
 					}
@@ -2995,7 +3099,7 @@ const argv = yargs.usage(_usage)
 				})
 				.check((argv) => {
 					if (argv.role && !getFolderRoles().includes(argv.role)) {
-						throw new Error(`${argv.role} is a not a valid value for <role>`);
+						throw new Error(`${argv.role} is not a valid value for <role>`);
 					} else {
 						return true;
 					}
@@ -3070,6 +3174,24 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${uploadFolder.command}\n\n${uploadFolder.usage.long}`);
+		})
+	.command([deleteFolder.command, deleteFolder.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.option('permanent', {
+					alias: 'p',
+					description: 'Delete the folder permanently'
+				})
+				.example(...deleteFolder.example[0])
+				.example(...deleteFolder.example[1])
+				.example(...deleteFolder.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${deleteFolder.command}\n\n${deleteFolder.usage.long}`);
 		})
 	.command([uploadFile.command, uploadFile.alias], false,
 		(yargs) => {
@@ -3168,7 +3290,7 @@ const argv = yargs.usage(_usage)
 				*/
 				.check((argv) => {
 					if (argv.type && !getServerTypes().includes(argv.type) && argv.type.indexOf('dev_ec:') < 0) {
-						throw new Error(`${argv.type} is a not a valid value for <type>`);
+						throw new Error(`${argv.type} is not a valid value for <type>`);
 						/*
 					} else if (!argv.type || argv.type === 'pod_ec') {
 						if (!argv.idcsurl) {
@@ -3914,6 +4036,30 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === setSiteSecurity.name || argv._[0] === setSiteSecurity.alias) {
+	let setSiteSecurityArgs = ['run', '-s', setSiteSecurity.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--signin', argv.signin
+	];
+	if (argv.access) {
+		setSiteSecurityArgs.push(...['--access', argv.access]);
+	}
+	if (argv.addusers) {
+		setSiteSecurityArgs.push(...['--addusers', argv.addusers]);
+	}
+	if (argv.deleteusers) {
+		setSiteSecurityArgs.push(...['--deleteusers', argv.deleteusers]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		setSiteSecurityArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, setSiteSecurityArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === updateSite.name || argv._[0] === updateSite.alias) {
 	let updateSiteArgs = ['run', '-s', updateSite.name, '--prefix', appRoot,
 		'--',
@@ -4442,6 +4588,23 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		uploadFolderArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, uploadFolderArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === deleteFolder.name || argv._[0] === deleteFolder.alias) {
+	let deleteFolderArgs = ['run', '-s', deleteFolder.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--path', argv.path
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		deleteFolderArgs.push(...['--server', argv.server]);
+	}
+	if (argv.permanent) {
+		deleteFolderArgs.push(...['--permanent', argv.permanent]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, deleteFolderArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

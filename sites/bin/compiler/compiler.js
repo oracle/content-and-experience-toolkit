@@ -59,6 +59,7 @@ var siteFolder, // Z:/sitespublish/SiteC/
 // Global Variables
 var layoutInfoRE = /<!--\s*SCS Layout Information:\s*(\{[\s\S]*?\})\s*-->/;
 var styleShim = "";
+var generateCacheKeys = true; // Manufacture cache keys for this compilation run
 var cacheKeys = {};
 var useSharedRequireJS = false;
 var useOriginalRequireJS = false;
@@ -80,6 +81,21 @@ function trace(msg) {
 	// ["log", "info", "warn", "error"]
 	if (logLevel === "trace") {
 		console.log(msg);
+	}
+}
+
+function initialize() {
+	if (generateCacheKeys) {
+		// Generate cache keys for this run of the compiler.  Similar to the server,
+		// manufacture a 4 character HEX key for the suffix, like "_cache_7e9f".
+		var cacheKey = '_cache_' + Math.floor(Math.random() * (Math.floor(0xFFFF) + 1)).toString(16);
+		cacheKeys = {
+			product: cacheKey,
+			site: cacheKey,
+			theme: cacheKey,
+			component: cacheKey,
+			caas: cacheKey
+		};
 	}
 }
 
@@ -1982,6 +1998,7 @@ var compileSite = function (args) {
 	console.log("    -logLevel                = " + logLevel);
 	console.log("");
 
+	initialize();
 	readStyleShim();
 	readRootStructure();
 

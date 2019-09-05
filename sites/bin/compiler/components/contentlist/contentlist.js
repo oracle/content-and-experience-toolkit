@@ -21,9 +21,10 @@ var fs = require('fs'),
 	contentSDK = require('../../../../test/server/npm/contentSDK.js'),
 	Component = require('../component/component'),
 	SectionLayout = require('../sectionlayout/sectionlayout'),
-	contentItem = require('../contentitem/contentitem');
+	ContentItem = require('../contentitem/contentitem');
 
-var serverURL = 'http://localhost:8085',
+var contentItem = new ContentItem(),
+	serverURL = 'http://localhost:8085',
 	siteURLPrefix = serverURL + '/templates';
 
 var ContentList = function (compId, compInstance, componentsFolder) {

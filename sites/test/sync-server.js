@@ -136,8 +136,8 @@ app.post('/*', function (req, res) {
 		return;
 	}
 	
-	if (type === 'CONTENTITEM' && (action === 'CREATED' || action === 'UPDATED' ||
-			action === 'PUBLISHED' || action === 'DELETED')) {
+	if ((type === 'CONTENTITEM' && (action === 'CREATED' || action === 'UPDATED' || action === 'PUBLISHED' || action === 'DELETED')) || 
+		(type === 'CHANNEL' && (action === 'ASSETPUBLISHED' || action === 'ASSETUNPUBLISHED'))) {
 		var events = [];
 		if (fs.existsSync(eventsFilePath)) {
 			var str = fs.readFileSync(eventsFilePath).toString();
@@ -148,7 +148,7 @@ app.post('/*', function (req, res) {
 
 		console.log('!!! Queue event: action: ' + action + ' type: ' + type + ' Id: ' + objectId);
 		var event = req.body;
-		event['__id'] = serverUtils.createGUID();
+		event['__id'] = event.eventId;
 		event['__processed'] = false;
 		events.push(event);
 		console.log('  total event: ' + events.length);
@@ -260,27 +260,7 @@ var _processEvent = function () {
 		var objectName = event.objectName;
 		console.log('*** action: ' + action + ' type: ' + type + ' Id: ' + objectId);
 
-		if (action === 'PUBLISHED' && type === 'CONTENTITEM') {
-
-			var repositoryId = event.repositoryId;
-			var channelId = event.channelId;
-
-			var args = {
-				projectDir: projectDir,
-				server: srcServer,
-				destination: destServer,
-				id: objectId,
-				name: objectName,
-				repositoryId: repositoryId,
-				channelId: channelId
-			};
-
-			contentLib.syncPublishItem(args, function (success) {
-				console.log('*** action finished');
-				_updateEvent(event.__id);
-			});
-
-		} else if ((action === 'CREATED' || action === 'UPDATED') && type === 'CONTENTITEM') {
+		if ((action === 'CREATED' || action === 'UPDATED') && type === 'CONTENTITEM') {
 
 			var repositoryId = event.repositoryId;
 			var args = {
@@ -313,6 +293,25 @@ var _processEvent = function () {
 				_updateEvent(event.__id);
 			});
 
+		} else if ((action === 'ASSETPUBLISHED' || action === 'ASSETUNPUBLISHED') && type === 'CHANNEL') {
+			var contentGuids = event.contentGuids;
+
+			var args = {
+				projectDir: projectDir,
+				server: srcServer,
+				destination: destServer,
+				action: action === 'ASSETPUBLISHED' ? 'publish' : 'unpublish',
+				id: objectId,
+				name: objectName,
+				contentGuids: contentGuids
+			};
+
+			contentLib.syncPublishUnpublishItems(args, function (success) {
+				console.log('*** action finished');
+				_updateEvent(event.__id);
+			});
+
 		} 
-	}
+
+	} // event exists
 };

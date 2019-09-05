@@ -2355,6 +2355,7 @@ module.exports.createTranslationConnector = function (argv, done) {
 
 	var connectorZip = path.join(connectorsDataDir, 'translation-connector.zip');
 	var connectorSrcPath = path.join(connectorsSrcDir, name);
+
 	extract(connectorZip, {
 		dir: connectorSrcPath
 	}, function (err) {
@@ -2367,11 +2368,11 @@ module.exports.createTranslationConnector = function (argv, done) {
 		console.log(` - translation connector ${name} created at ${connectorSrcPath}`);
 
 		console.log(' - install connector');
-		var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', connectorSrcPath], {
+		var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', connectorSrcPath, connectorSrcPath], {
 			projectDir,
 			stdio: 'inherit'
 		});
-
+	
 		console.log('Start the connector: cec start-translation-connector ' + name + ' [-p <port>]');
 		done(true);
 	});

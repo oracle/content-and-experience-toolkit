@@ -389,6 +389,18 @@ gulp.task('upload-folder', function (done) {
 });
 
 /**
+ * Delete folder
+ */
+gulp.task('delete-folder', function (done) {
+	'use strict';
+
+	doclib.deleteFolder(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
  * Upload file
  */
 gulp.task('upload-file', function (done) {
@@ -876,6 +888,18 @@ gulp.task('unshare-site', function (done) {
 	'use strict';
 
 	sitelib.unshareSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Set site security
+ */
+gulp.task('set-site-security', function (done) {
+	'use strict';
+
+	sitelib.setSiteSecurity(argv, function (success) {
 		process.exitCode = success ? 0 : 1;
 		done();
 	});

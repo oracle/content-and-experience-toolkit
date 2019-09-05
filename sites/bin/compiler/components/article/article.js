@@ -3,12 +3,17 @@ var fs = require('fs'),
     mustache = require('mustache');
 
 
-var Article = function () {};
+var Article = function (args) {
+    this.componentId = args.componentId; 
+    this.componentInstanceObject = args.componentInstanceObject; 
+    this.componentsFolder = args.componentsFolder;
+    this.compData = this.componentInstanceObject.data;
+};
 
-Article.prototype.compile = function (args) {
-    var compId = args.compId,
-        customSettingsData = args.customSettingsData,
-        alignImage = args.componentLayout  === 'right' ? 'right' : 'left';
+Article.prototype.compile = function () {
+    var compId = this.componentId ,
+        customSettingsData = this.compData.customSettingsData,
+        alignImage = this.compData.componentLayout  === 'right' ? 'right' : 'left';
 
     return new Promise(function (resolve, reject) {
         try {
@@ -17,7 +22,7 @@ Article.prototype.compile = function (args) {
                 template = fs.readFileSync(templateFile, 'utf8');
 
             var model = {
-				contentId: compId + '_content_' + args.viewMode,
+				contentId: compId + '_content_runtime',
 				alignCssClass: 'scs-align-' + alignImage,
 				imageStyle: 'width:' + customSettingsData.width || '200px',
 				alignImage: alignImage,
@@ -43,4 +48,4 @@ Article.prototype.compile = function (args) {
 };
 
 
-module.exports = new Article();
+module.exports = Article;

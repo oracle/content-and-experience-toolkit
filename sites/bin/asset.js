@@ -56,8 +56,7 @@ module.exports.createRepository = function (argv, done) {
 	var contentTypes = [];
 
 	serverRest.getRepositories({
-			registeredServerName: serverName,
-			currPath: projectDir
+			server: server
 		})
 		.then(function (result) {
 			if (result.err) {
@@ -77,8 +76,7 @@ module.exports.createRepository = function (argv, done) {
 			var typePromises = [];
 			for (var i = 0; i < typeNames.length; i++) {
 				typePromises.push(serverRest.getContentType({
-					registeredServerName: serverName,
-					currPath: projectDir,
+					server: server,
 					name: typeNames[i]
 				}));
 			}
@@ -99,8 +97,7 @@ module.exports.createRepository = function (argv, done) {
 			var channelPromises = [];
 			if (channelNames.length > 0) {
 				channelPromises.push(serverRest.getChannels({
-					registeredServerName: serverName,
-					currPath: projectDir
+					server: server
 				}));
 			}
 
@@ -111,7 +108,7 @@ module.exports.createRepository = function (argv, done) {
 			for (var i = 0; i < channelNames.length; i++) {
 				var found = false;
 				for (var j = 0; j < allChannels.length; j++) {
-					if (channelNames[i].toLowerCase() === allChannels[j].name) {
+					if (channelNames[i].toLowerCase() === allChannels[j].name.toLowerCase()) {
 						found = true;
 						channels.push({
 							id: allChannels[j].id,
@@ -136,8 +133,7 @@ module.exports.createRepository = function (argv, done) {
 			}
 
 			return serverRest.createRepository({
-				registeredServerName: serverName,
-				currPath: projectDir,
+				server: server,
 				name: name,
 				description: desc,
 				defaultLanguage: defaultLanguage,
@@ -187,8 +183,7 @@ module.exports.controlRepository = function (argv, done) {
 	var types = [];
 
 	serverRest.getRepositories({
-			registeredServerName: serverName,
-			currPath: projectDir
+			server: server
 		})
 		.then(function (result) {
 			if (result.err) {
@@ -211,8 +206,7 @@ module.exports.controlRepository = function (argv, done) {
 			var typePromises = [];
 			for (var i = 0; i < typeNames.length; i++) {
 				typePromises.push(serverRest.getContentType({
-					registeredServerName: serverName,
-					currPath: projectDir,
+					server: server,
 					name: typeNames[i]
 				}));
 				types.push({
@@ -236,8 +230,7 @@ module.exports.controlRepository = function (argv, done) {
 			var channelPromises = [];
 			if (channelNames.length > 0) {
 				channelPromises.push(serverRest.getChannels({
-					registeredServerName: serverName,
-					currPath: projectDir
+					server: server
 				}));
 			}
 
@@ -248,7 +241,7 @@ module.exports.controlRepository = function (argv, done) {
 			for (var i = 0; i < channelNames.length; i++) {
 				var found = false;
 				for (var j = 0; j < allChannels.length; j++) {
-					if (channelNames[i].toLowerCase() === allChannels[j].name) {
+					if (channelNames[i].toLowerCase() === allChannels[j].name.toLowerCase()) {
 						found = true;
 						channels.push({
 							id: allChannels[j].id,
@@ -301,8 +294,7 @@ module.exports.controlRepository = function (argv, done) {
 			}
 
 			return serverRest.updateRepository({
-				registeredServerName: serverName,
-				currPath: projectDir,
+				server: server,
 				repository: repository,
 				contentTypes: finalTypes,
 				channels: finalChannels
@@ -359,8 +351,7 @@ module.exports.shareRepository = function (argv, done) {
 	var typeNames = [];
 
 	serverRest.getRepositories({
-			registeredServerName: serverName,
-			currPath: projectDir
+			server: server
 		})
 		.then(function (result) {
 			if (result.err) {
@@ -396,8 +387,7 @@ module.exports.shareRepository = function (argv, done) {
 			var usersPromises = [];
 			for (var i = 0; i < userNames.length; i++) {
 				usersPromises.push(serverRest.getUser({
-					currPath: projectDir,
-					registeredServerName: serverName,
+					server: server,
 					name: userNames[i]
 				}));
 			}
@@ -437,8 +427,7 @@ module.exports.shareRepository = function (argv, done) {
 			}
 
 			return serverRest.performPermissionOperation({
-				registeredServerName: serverName,
-				currPath: projectDir,
+				server: server,
 				operation: 'share',
 				resourceId: repository.id,
 				resourceType: 'repository',
@@ -457,8 +446,7 @@ module.exports.shareRepository = function (argv, done) {
 				var typePromises = [];
 				for (var i = 0; i < typeNames.length; i++) {
 					typePromises.push(serverRest.getContentType({
-						registeredServerName: serverName,
-						currPath: projectDir,
+						server: server,
 						name: typeNames[i]
 					}));
 				}
@@ -467,8 +455,7 @@ module.exports.shareRepository = function (argv, done) {
 						for (var i = 0; i < results.length; i++) {
 							if (results[i].id) {
 								shareTypePromises.push(serverRest.performPermissionOperation({
-									registeredServerName: serverName,
-									currPath: projectDir,
+									server: server,
 									operation: 'share',
 									resourceName: results[i].name,
 									resourceType: 'type',
@@ -529,8 +516,7 @@ module.exports.unShareRepository = function (argv, done) {
 	var typeNames = [];
 
 	serverRest.getRepositories({
-			registeredServerName: serverName,
-			currPath: projectDir
+			server: server
 		})
 		.then(function (result) {
 			if (result.err) {
@@ -566,8 +552,7 @@ module.exports.unShareRepository = function (argv, done) {
 			var usersPromises = [];
 			for (var i = 0; i < userNames.length; i++) {
 				usersPromises.push(serverRest.getUser({
-					currPath: projectDir,
-					registeredServerName: serverName,
+					server: server,
 					name: userNames[i]
 				}));
 			}
@@ -607,8 +592,7 @@ module.exports.unShareRepository = function (argv, done) {
 			}
 			
 			return serverRest.performPermissionOperation({
-				registeredServerName: serverName,
-				currPath: projectDir,
+				server: server,
 				operation: 'unshare',
 				resourceId: repository.id,
 				resourceType: 'repository',
@@ -626,8 +610,7 @@ module.exports.unShareRepository = function (argv, done) {
 				var typePromises = [];
 				for (var i = 0; i < typeNames.length; i++) {
 					typePromises.push(serverRest.getContentType({
-						registeredServerName: serverName,
-						currPath: projectDir,
+						server: server,
 						name: typeNames[i]
 					}));
 				}
@@ -636,8 +619,7 @@ module.exports.unShareRepository = function (argv, done) {
 						for (var i = 0; i < results.length; i++) {
 							if (results[i].id) {
 								shareTypePromises.push(serverRest.performPermissionOperation({
-									registeredServerName: serverName,
-									currPath: projectDir,
+									server: server,
 									operation: 'unshare',
 									resourceName: results[i].name,
 									resourceType: 'type',
@@ -695,8 +677,7 @@ module.exports.shareType = function (argv, done) {
 	var goodUserName = [];
 
 	serverRest.getContentType({
-			registeredServerName: serverName,
-			currPath: projectDir,
+			server: server,
 			name: name
 		}).then(function (result) {
 			if (result.err) {
@@ -708,8 +689,7 @@ module.exports.shareType = function (argv, done) {
 			var usersPromises = [];
 			for (var i = 0; i < userNames.length; i++) {
 				usersPromises.push(serverRest.getUser({
-					currPath: projectDir,
-					registeredServerName: serverName,
+					server: server,
 					name: userNames[i]
 				}));
 			}
@@ -749,8 +729,7 @@ module.exports.shareType = function (argv, done) {
 			}
 
 			return serverRest.performPermissionOperation({
-				registeredServerName: serverName,
-				currPath: projectDir,
+				server: server,
 				operation: 'share',
 				resourceName: name,
 				resourceType: 'type',
@@ -796,8 +775,7 @@ module.exports.unshareType = function (argv, done) {
 	var goodUserName = [];
 
 	serverRest.getContentType({
-			registeredServerName: serverName,
-			currPath: projectDir,
+			server: server,
 			name: name
 		}).then(function (result) {
 			if (result.err) {
@@ -809,8 +787,7 @@ module.exports.unshareType = function (argv, done) {
 			var usersPromises = [];
 			for (var i = 0; i < userNames.length; i++) {
 				usersPromises.push(serverRest.getUser({
-					currPath: projectDir,
-					registeredServerName: serverName,
+					server: server,
 					name: userNames[i]
 				}));
 			}
@@ -850,8 +827,7 @@ module.exports.unshareType = function (argv, done) {
 			}
 
 			return serverRest.performPermissionOperation({
-				registeredServerName: serverName,
-				currPath: projectDir,
+				server: server,
 				operation: 'unshare',
 				resourceName: name,
 				resourceType: 'type',
@@ -897,8 +873,7 @@ module.exports.createChannel = function (argv, done) {
 	var localizationId;
 
 	serverRest.getChannels({
-			registeredServerName: serverName,
-			currPath: projectDir
+			server: server
 		})
 		.then(function (result) {
 			if (result.err) {
@@ -915,8 +890,7 @@ module.exports.createChannel = function (argv, done) {
 			var localizationPolicyPromises = [];
 			if (localizationPolicyName) {
 				localizationPolicyPromises.push(serverRest.getLocalizationPolicies({
-					registeredServerName: serverName,
-					currPath: projectDir
+					server: server
 				}));
 			}
 			return Promise.all(localizationPolicyPromises)
@@ -939,8 +913,7 @@ module.exports.createChannel = function (argv, done) {
 			}
 
 			return serverRest.createChannel({
-				registeredServerName: serverName,
-				currPath: projectDir,
+				server: server,
 				name: name,
 				description: desc,
 				channelType: channelType,
@@ -986,8 +959,7 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 	var optionalLanguages = argv.optionallanguages ? argv.optionallanguages.split(',') : [];
 
 	serverRest.getLocalizationPolicies({
-			registeredServerName: serverName,
-			currPath: projectDir
+			server: server
 		})
 		.then(function (result) {
 			if (result.err) {
@@ -1006,8 +978,7 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 			console.log(' - verify localization policy name');
 
 			return serverRest.createLocalizationPolicy({
-				registeredServerName: serverName,
-				currPath: projectDir,
+				server: server,
 				name: name,
 				description: desc,
 				defaultLanguage: defaultLanguage,

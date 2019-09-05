@@ -26,6 +26,14 @@ var Component = function (compId, compInstance, componentsFolder) {
 	this.init('scs-component', compId, compInstance);
 	this.custComp = compInstance.id;
 	this.componentsFolder = componentsFolder;
+	this.componentId = compId;
+	this.componentInstanceObject = compInstance;
+
+	// note if this is a section layout and whether it has children
+	if (this.componentInstanceObject && this.componentInstanceObject.data && this.componentInstanceObject.data.components) {
+		this.isSectionLayout = true;
+		this.sectionLayoutHasChildren = Array.isArray(this.componentInstanceObject.data.components) && this.componentInstanceObject.data.components.length > 0;
+	}
 };
 Component.prototype = Object.create(Base.prototype);
 
@@ -161,7 +169,8 @@ Component.prototype.getSeededCompFile = function (compName) {
 };
 
 Component.prototype.compileComponent = function (args) {
-	var viewModel = this,
+	var self = this,
+		viewModel = this,
 		isSeeded = false;
 
 	// make sure we can compile
@@ -190,17 +199,23 @@ Component.prototype.compileComponent = function (args) {
 			foundComponentFile = true;
 
 			// ok, file's there, load it in
-			var custComp = require(compileFile);
+			var CustCompImpl = require(compileFile);
+			var custComp = new CustCompImpl({
+				componentId: self.componentId,
+				componentInstanceObject: self.componentInstanceObject,
+				componentsFolder: self.componentsFolder,
+				SCSCompileAPI: args.SCSCompileAPI
+			});
 
-			// compile the component
+			// passing these in to compile as well for backwards compability
 			var compileArgs = {
-				//contentSDK: contentSDK,
 				SCSCompileAPI: args.SCSCompileAPI,
 				compVM: viewModel,
 				compId: viewModel.id,
 				componentLayout: viewModel.componentLayout,
 				customSettingsData: viewModel.customSettingsData || {}
 			};
+			// compile the component
 			if (typeof custComp.compile !== 'function') {
 				return resolve({
 					customContent: ''
@@ -253,9 +268,12 @@ Component.prototype.compileComponent = function (args) {
 						if (['scsCaaSLayout', 'scs-contentitem'].indexOf(viewModel.custComp) !== -1) {
 							message = 'failed to compile content item with layout that maps to category: "' + (viewModel.contentLayoutCategory || 'default') + '"';
 						} else {
-							message = 'failed to compile component with: ' + compileFile;
+							// don't report for section layouts without children
+							if (!self.isSectionLayout || self.sectionLayoutHasChildren) {
+								message = 'failed to compile component with: ' + compileFile;
+							}
 						}
-						if (!reportedFiles[message]) {
+						if (message && !reportedFiles[message]) {
 							reportedFiles[message] = 'done';
 							console.log(message);
 						}
@@ -266,6 +284,7 @@ Component.prototype.compileComponent = function (args) {
 				} catch (e) {
 					// unable to compile the custom component, js
 					console.log('Error: failed to render nested components for : ' + viewModel.id + ' into the page. The component will render in the client.');
+					console.log(e);
 					return resolve({
 						customContent: ''
 					});

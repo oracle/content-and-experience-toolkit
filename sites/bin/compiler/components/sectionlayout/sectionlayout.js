@@ -132,6 +132,7 @@ SectionLayout.prototype = {
 					var sectionLayoutName = instanceObject.id;
 					var compileFile;
 					var directoryName;
+					var ootbSectionLayout = false;
 
 					if (instanceObject.data.componentFactory) {
 						// Compute the path to the out-of-the-box or custom section layout
@@ -139,6 +140,7 @@ SectionLayout.prototype = {
 						if (directoryName) {
 							compileFile = __dirname + '/' + directoryName + '/compile';
 						}
+						ootbSectionLayout = true;
 					} else {
 						// Compute the path to the custom section layout
 						compileFile = self.componentsFolder + '/' + sectionLayoutName + '/assets/compile';
@@ -159,7 +161,16 @@ SectionLayout.prototype = {
 							return resolve({});
 						}
 
-						var logic = new SectionLayoutImpl(self.componentId, self.componentInstanceObject, self.componentsFolder);
+						var logic;
+						if (ootbSectionLayout) {
+							logic = new SectionLayoutImpl(self.componentId, self.componentInstanceObject, self.componentsFolder);
+						} else {
+							logic = new SectionLayoutImpl({
+								componentId: self.componentId,
+								componentInstanceObject: self.componentInstanceObject,
+								componentsFolder: self.componentsFolder
+							});
+						}
 						if (logic && (typeof logic.compile === 'function')) {
 							logic.compile(parameters).then(function (compileData) {
 								// Return the supplied data to the caller

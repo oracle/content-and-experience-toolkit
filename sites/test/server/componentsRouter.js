@@ -68,6 +68,8 @@ router.get('/*', (req, res) => {
 		// component render
 		//
 		var compFile = req.path.replace(/\/_compdelivery\//, '').replace(/\/$/, '');
+		// remove any cache
+		compFile = compFile.replace(/_cache_(....|.....)\//, '');
 		compName = compFile.substring(0, compFile.indexOf('/'));
 		filePath = path.resolve(componentsDir + '/' + compFile);
 		app.locals.currentComponent = compName;

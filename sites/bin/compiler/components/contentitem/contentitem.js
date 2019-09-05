@@ -7,7 +7,7 @@ var serverURL = 'http://localhost:8085',
 
 var SYSTEM_DEFAULT_LAYOUT = 'system-default-layout';
 
-var ContentItem = function () {};
+var ContentItem = function (args) {};
 
 var reportedFiles = {};
 
@@ -225,4 +225,4 @@ ContentItem.prototype.getContentItem = function (args) {
 };
 
 
-module.exports = new ContentItem();
+module.exports = ContentItem;

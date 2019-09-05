@@ -304,8 +304,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				console.log(' - query site');
 
 				return serverRest.getFolderUsers({
-					registeredServerName: serverName,
-					currPath: projectDir,
+					server: server,
 					id: site.fFolderGUID
 				});
 			})
@@ -316,8 +315,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				var policyPromises = [];
 				if (siteInfo && siteInfo.localizationPolicy) {
 					policyPromises.push(serverRest.getLocalizationPolicy({
-						registeredServerName: serverName,
-						currPath: projectDir,
+						server: server,
 						id: siteInfo.localizationPolicy
 					}));
 				}
@@ -363,8 +361,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				if (template) {
 					tempUserPromises.push(
 						serverRest.getFolderUsers({
-							registeredServerName: serverName,
-							currPath: projectDir,
+							server: server,
 							id: template.fFolderGUID
 						}));
 				} else {
@@ -401,8 +398,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				}
 
 				return serverRest.getFolderUsers({
-					registeredServerName: serverName,
-					currPath: projectDir,
+					server: server,
 					id: theme.fFolderGUID
 				});
 			})
@@ -413,8 +409,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				var repoPromises = [];
 				if (siteInfo.repositoryId) {
 					repoPromises.push(serverRest.getRepository({
-						registeredServerName: serverName,
-						currPath: projectDir,
+						server: server,
 						id: siteInfo.repositoryId
 					}));
 				}
@@ -439,8 +434,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				var repoPermissionPromises = [];
 				if (siteInfo.repositoryId) {
 					repoPermissionPromises.push(serverRest.getResourcePermissions({
-						registeredServerName: serverName,
-						currPath: projectDir,
+						server: server,
 						id: siteInfo.repositoryId,
 						type: 'repository'
 					}));
@@ -457,8 +451,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				var channelPromises = [];
 				if (siteInfo.channelId) {
 					channelPromises.push(serverRest.getChannel({
-						registeredServerName: serverName,
-						currPath: projectDir,
+						server: server,
 						id: siteInfo.channelId
 					}));
 				}
@@ -491,8 +484,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 						'Only approved items can be published';
 
 					policyPromises.push(serverRest.getLocalizationPolicy({
-						registeredServerName: serverName,
-						currPath: projectDir,
+						server: server,
 						id: channel.localizationPolicy
 					}));
 				}
@@ -764,8 +756,7 @@ var _getSitePages = function (server, serverName, siteId) {
 		var structureFileId;
 		console.log(' - query site pages');
 		serverRest.getChildItems({
-				registeredServerName: serverName,
-				currPath: projectDir,
+				server: server,
 				parentID: siteId
 			}).then(function (result) {
 				var items = result && result.items || [];
@@ -784,8 +775,7 @@ var _getSitePages = function (server, serverName, siteId) {
 				}
 
 				return serverRest.readFile({
-					registeredServerName: serverName,
-					currPath: projectDir,
+					server: server,
 					fFileGUID: structureFileId
 				});
 			})
@@ -795,8 +785,7 @@ var _getSitePages = function (server, serverName, siteId) {
 				// console.log(structurePages);
 
 				return serverRest.getChildItems({
-					registeredServerName: serverName,
-					currPath: projectDir,
+					server: server,
 					parentID: pagesFolderId,
 					limit: 9999
 				});

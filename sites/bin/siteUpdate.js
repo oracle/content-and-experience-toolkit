@@ -18,7 +18,7 @@ var gulp = require('gulp'),
 
 
 var SITE_INFO_FILE = 'siteinfo.json',
-	registeredServerName; // name of server passed through on the command line
+	server = {};
 
 var SiteUpdate = function () {};
 
@@ -102,7 +102,7 @@ var _recreateFolder = function (siteGUID, folderPath) {
 			folderPath.forEach(function (foldername) {
 				folderPromises.push(function (parentID) {
 					return serverRest.findOrCreateFolder({
-						registeredServerName: registeredServerName,
+						server: server,
 						parentID: parentID,
 						foldername: foldername
 					});
@@ -128,12 +128,12 @@ var _recreateFolder = function (siteGUID, folderPath) {
 			doFindFolder.then(function (folderDetails) {
 				// delete the current folder
 				serverRest.deleteFolder({
-					registeredServerName: registeredServerName,
+					server: server,
 					fFolderGUID: folderDetails.id
 				}).then(function (result) {
 					// create a new folder and return it's GUID 
 					serverRest.createFolder({
-						registeredServerName: registeredServerName,
+						server: server,
 						parentID: parentGUID,
 						foldername: folderPath[folderPath.length - 1]
 					}).then(function (newFolder) {
@@ -208,7 +208,7 @@ SiteUpdate.prototype.updateSiteFolder = function (argv, siteEntry, updateStep, f
 
 					// create the file
 					return serverRest.createFile({
-						registeredServerName: registeredServerName,
+						server: server,
 						parentID: folderGUID,
 						filename: file.fileName,
 						contents: contents
@@ -311,17 +311,17 @@ SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
 
 			// get the file from the server
 			serverRest.findFile({
-				registeredServerName: registeredServerName,
+				server: server,
 				parentID: siteEntry.siteGUID,
 				filename: SITE_INFO_FILE
 			}).then(function (fileDetails) {
-				if (!fileDetails) {
+				if (!fileDetails || fileDetails.err) {
 					console.log('Error: failed to locate siteinfo file for site');
 					return resolve(false);
 				}
 
 				serverRest.readFile({
-					registeredServerName: registeredServerName,
+					server: server,
 					fFileGUID: fileDetails.id
 				}).then(function (fileContent) {
 					if (!fileContent) {
@@ -336,7 +336,7 @@ SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
 					});
 
 					serverRest.createFile({
-						registeredServerName: registeredServerName,
+						server: server,
 						parentID: siteEntry.siteGUID,
 						filename: SITE_INFO_FILE,
 						contents: JSON.stringify(currSiteInfo)
@@ -483,8 +483,7 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 				try {
 					// make sure there are no items in the channel
 					serverRest.getChannelItems({
-						registeredServerName: argv.server,
-						currPath: projectDir,
+						server: server,
 						channelToken: channelToken,
 						fields: 'isPublished,status'
 					}).then(function (results) {
@@ -563,12 +562,18 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 			results = [];
 
 		// store the registered server
-		registeredServerName = argv.server;
+		var serverName = argv.server;
+		server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			done();
+			return;
+		}
+		console.log(' - server: ' + server.url);
 
 		// logon and get the site folder GUID and Site info for the Channel/Repository/Collection details
 		console.log('Updating site: ' + siteName);
-		var serverDetailsPromise = serverUtils.getSiteFolder(projectDir, siteName, registeredServerName),
-			serverInfoPromise = serverUtils.getSiteInfo(projectDir, siteName, registeredServerName);
+		var serverDetailsPromise = serverUtils.getSiteFolder(server, siteName),
+			serverInfoPromise = serverUtils.getSiteInfo(server, siteName);
 
 		Promise.all([serverDetailsPromise, serverInfoPromise]).then(function (siteResults) {
 			var siteEntry = siteResults[0],

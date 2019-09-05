@@ -3,12 +3,17 @@ var fs = require('fs'),
     mustache = require('mustache');
 
 
-var Headline = function () {};
+var Headline = function (args) {
+    this.componentId = args.componentId; 
+    this.componentInstanceObject = args.componentInstanceObject; 
+    this.componentsFolder = args.componentsFolder;
+    this.compData = this.componentInstanceObject.data;
+};
 
-Headline.prototype.compile = function (args) {
-    var compId = args.compId,
-        customSettingsData = args.customSettingsData,
-        alignImage = args.componentLayout  === 'right' ? 'right' : 'left';
+Headline.prototype.compile = function () {
+    var compId = this.componentId,
+        customSettingsData = this.compData.customSettingsData,
+        alignImage = this.compData.componentLayout  === 'right' ? 'right' : 'left';
 
     return new Promise(function (resolve, reject) {
         try {
@@ -17,7 +22,7 @@ Headline.prototype.compile = function (args) {
                 template = fs.readFileSync(templateFile, 'utf8');
 
             var model = {
-				contentId: compId + '_content_' + args.viewMode,
+				contentId: compId + '_content_runtime',
 				alignCssClass: 'scs-align-' + alignImage,
 				imageStyle: 'flex-basis:' + customSettingsData.width || '200px',
 				alignImage: alignImage,
@@ -42,5 +47,5 @@ Headline.prototype.compile = function (args) {
 };
 
 
-module.exports = new Headline();
+module.exports = Headline;
 

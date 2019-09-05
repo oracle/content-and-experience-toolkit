@@ -1417,8 +1417,7 @@ module.exports.shareSite = function (argv, done) {
 					var usersPromises = [];
 					for (var i = 0; i < userNames.length; i++) {
 						usersPromises.push(serverRest.getUser({
-							currPath: projectDir,
-							registeredServerName: serverName,
+							server: server,
 							name: userNames[i]
 						}));
 					}
@@ -1559,8 +1558,7 @@ module.exports.unshareSite = function (argv, done) {
 					var usersPromises = [];
 					for (var i = 0; i < userNames.length; i++) {
 						usersPromises.push(serverRest.getUser({
-							currPath: projectDir,
-							registeredServerName: serverName,
+							server: server,
 							name: userNames[i]
 						}));
 					}
@@ -1832,8 +1830,7 @@ module.exports.validateSite = function (argv, done) {
 
 									// query channel items
 									return serverRest.getChannelItems({
-										registeredServerName: serverName,
-										currPath: projectDir,
+										server: server,
 										channelToken: channelToken
 									});
 								})
@@ -1853,8 +1850,7 @@ module.exports.validateSite = function (argv, done) {
 
 									// validate assets
 									return serverRest.validateChannelItems({
-										registeredServerName: serverName,
-										currPath: projectDir,
+										server: server,
 										channelId: channelId,
 										itemIds: itemIds
 									});
@@ -1951,4 +1947,449 @@ var _displayAssetValidation = function (validations) {
 		console.log('  is valid: ' + valid);
 	}
 
+};
+
+/**
+ * set site security
+ */
+module.exports.setSiteSecurity = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		_cmdEnd(done);
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		_cmdEnd(done);
+		return;
+	}
+
+	// console.log('server: ' + server.url);
+	var name = argv.name;
+	var signin = argv.signin;
+	var access = argv.access;
+	var addUserNames = argv.addusers ? argv.addusers.split(',') : [];
+	var deleteUserNames = argv.deleteusers ? argv.deleteusers.split(',') : [];
+
+	if (signin === 'no') {
+		if (access) {
+			console.log(' - ignore argument <access>');
+		}
+		if (addUserNames.length > 0) {
+			console.log(' - ignore argument <addusers>')
+		}
+		if (deleteUserNames.length > 0) {
+			console.log(' - ignore argument <deleteusers>')
+		}
+	} else {
+		for (var i = 0; i < deleteUserNames.length; i++) {
+			for (var j = 0; j < addUserNames.length; j++) {
+				if (deleteUserNames[i].toLowerCase() === addUserNames[j].toLowerCase()) {
+					console.log('ERROR: user ' + deleteUserNames[i] + ' in both <addusers> and <deleteusers>');
+					_cmdEnd(done);
+					return;
+				}
+			}
+		}
+	}
+
+	_setSiteSecuritySCS(server, name, signin, access, addUserNames, deleteUserNames, done);
+
+};
+
+var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, deleteUserNames, done) {
+	try {
+		var request = serverUtils.getRequest();
+
+		var loginPromise = serverUtils.loginToServer(server, request);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
+
+			var express = require('express');
+			var app = express();
+
+			var port = '9191';
+			var localhost = 'http://localhost:' + port;
+
+			var dUser = '';
+			var idcToken;
+
+			var auth = serverUtils.getRequestAuth(server);
+
+			var site, siteId;
+			var siteUsers = [];
+			var siteSecured;
+			var xScsIsSecureSiteNew;
+			var users = [];
+
+			app.get('/*', function (req, res) {
+				// console.log('GET: ' + req.url);
+				if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
+					var url = server.url + req.url;
+
+					var options = {
+						url: url,
+					};
+
+					options['auth'] = auth;
+
+					request(options).on('response', function (response) {
+							// fix headers for cross-domain and capitalization issues
+							serverUtils.fixHeaders(response, res);
+						})
+						.on('error', function (err) {
+							console.log('ERROR: GET request failed: ' + req.url);
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						})
+						.pipe(res);
+
+				} else {
+					console.log('ERROR: GET request not supported: ' + req.url);
+					res.write({});
+					res.end();
+				}
+			});
+			app.post('/documents/web', function (req, res) {
+				// console.log('POST: ' + req.url);
+				var url = server.url + req.url;
+
+				var userList = '';
+				for (var i = 0; i < users.length; i++) {
+					var action = users[i].action === 'add' ? 'A' : 'D';
+					if (userList) {
+						userList = userList + ',';
+					}
+					userList = userList + users[i].loginName + ':' + action;
+				}
+				var formData = {
+					'idcToken': idcToken,
+					'item': 'fFolderGUID:' + siteId,
+					'xScsIsSecureSite': xScsIsSecureSiteNew
+				};
+				if (userList) {
+					formData['userList'] = userList;
+				}
+				var postData = {
+					method: 'POST',
+					url: url,
+					auth: auth,
+					formData: formData
+				};
+
+				request(postData).on('response', function (response) {
+						// fix headers for cross-domain and capitalization issues
+						serverUtils.fixHeaders(response, res);
+					})
+					.on('error', function (err) {
+						console.log('ERROR: Failed to update site security settings');
+						console.log(error);
+						return resolve({
+							err: 'err'
+						});
+					})
+					.pipe(res)
+					.on('finish', function (err) {
+						res.end();
+					});
+
+			});
+
+			localServer = app.listen(0, function () {
+				port = localServer.address().port;
+				localhost = 'http://localhost:' + port;
+				localServer.setTimeout(0);
+
+				var inter = setInterval(function () {
+					// console.log(' - getting login user: ');
+					var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
+
+					request.get(url, function (err, response, body) {
+						var data = JSON.parse(body);
+						dUser = data && data.LocalData && data.LocalData.dUser;
+						idcToken = data && data.LocalData && data.LocalData.idcToken;
+						if (dUser && dUser !== 'anonymous' && idcToken) {
+							// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
+							clearInterval(inter);
+							console.log(' - establish user session');
+
+							// verify site 
+							var sitePromise = serverUtils.browseSitesOnServer(request, server);
+							sitePromise.then(function (result) {
+									if (result.err) {
+										return Promise.reject();
+									}
+									var sites = result.data || [];
+									for (var i = 0; i < sites.length; i++) {
+										if (name.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
+											site = sites[i];
+											break;
+										}
+									}
+
+									if (!site || !site.fFolderGUID) {
+										console.log('ERROR: site ' + name + ' does not exist');
+										return Promise.reject();
+									}
+
+									siteId = site.fFolderGUID;
+									var siteOnline = site.xScsIsSiteActive === '1' ? true : false;
+									siteSecured = !site.xScsIsSecureSite || site.xScsIsSecureSite === '' || site.xScsIsSecureSite === '0' ? false : true;
+									console.log(' - get site: runtimeStatus: ' + (siteOnline ? 'online' : 'offline') + ' securityStatus: ' + (siteSecured ? 'secured' : 'public'));
+
+									if (signin === 'no' && !siteSecured) {
+										console.log(' - site is already publicly available to anyone');
+										return Promise.reject();
+									}
+									if (siteOnline) {
+										console.log('ERROR: site is currently online. In order to change the security setting you must first bring this site offline.');
+										return Promise.reject();
+									}
+
+									var usersPromises = [];
+									if (signin === 'yes') {
+										// console.log(' - add user: ' + addUserNames);
+										// console.log(' - delete user: ' + deleteUserNames);
+										for (var i = 0; i < addUserNames.length; i++) {
+											usersPromises.push(serverRest.getUser({
+												server: server,
+												name: addUserNames[i]
+											}));
+										}
+										for (var i = 0; i < deleteUserNames.length; i++) {
+											usersPromises.push(serverRest.getUser({
+												server: server,
+												name: deleteUserNames[i]
+											}));
+										}
+									}
+									return Promise.all(usersPromises);
+
+								})
+								.then(function (results) {
+									if (signin === 'yes') {
+										if (addUserNames.length > 0 || deleteUserNames.length > 0) {
+											var allUsers = [];
+											for (var i = 0; i < results.length; i++) {
+												if (results[i].items) {
+													allUsers = allUsers.concat(results[i].items);
+												}
+											}
+
+											console.log(' - verify users');
+											// verify users
+											for (var k = 0; k < addUserNames.length; k++) {
+												var found = false;
+												for (var i = 0; i < allUsers.length; i++) {
+													if (allUsers[i].loginName.toLowerCase() === addUserNames[k].toLowerCase()) {
+														var user = allUsers[i];
+														user['action'] = 'add';
+														users.push(allUsers[i]);
+														found = true;
+														break;
+													}
+													if (found) {
+														break;
+													}
+												}
+												if (!found) {
+													console.log('ERROR: user ' + addUserNames[k] + ' does not exist');
+												}
+											}
+											for (var k = 0; k < deleteUserNames.length; k++) {
+												var found = false;
+												for (var i = 0; i < allUsers.length; i++) {
+													if (allUsers[i].loginName.toLowerCase() === deleteUserNames[k].toLowerCase()) {
+														var user = allUsers[i];
+														user['action'] = 'delete';
+														users.push(allUsers[i]);
+														found = true;
+														break;
+													}
+													if (found) {
+														break;
+													}
+												}
+												if (!found) {
+													console.log('ERROR: user ' + deleteUserNames[k] + ' does not exist');
+												}
+											}
+
+											if (users.length === 0) {
+												return Promise.reject();
+											}
+										}
+									}
+									// console.log(users);
+
+									xScsIsSecureSiteNew = signin === 'no' ? 0 : (!siteSecured || access ? _setSiteAccessValue(access) : parseInt(site.xScsIsSecureSite));
+									// console.log(' - site.xScsIsSecureSite: ' + site.xScsIsSecureSite + ' new access code ' + xScsIsSecureSiteNew);
+									return _postOneIdcService(request, localhost, server, 'SCS_EDIT_SECURE_SITE', 'update site security setting', idcToken);
+
+								})
+								.then(function (results) {
+									if (result.err) {
+										return Promise.reject();
+									}
+
+									var params = 'item=fFolderGUID:' + siteId;
+									var getSiteUsersPromises = [];
+									if (signin === 'yes') {
+										getSiteUsersPromises.push(_getOneIdcService(request, localhost, server, 'SCS_GET_SECURE_SITE_USERS', params));
+									}
+
+									return Promise.all(getSiteUsersPromises);
+								})
+								.then(function (results) {
+									if (signin === 'yes' && results.length > 0) {
+										var data = results[0];
+										var fields = data.ResultSets && data.ResultSets.SecureSiteUsers && data.ResultSets.SecureSiteUsers.fields || [];
+										var rows = data.ResultSets && data.ResultSets.SecureSiteUsers && data.ResultSets.SecureSiteUsers.rows || [];
+
+										for (var j = 0; j < rows.length; j++) {
+											siteUsers.push({});
+										}
+
+										for (var i = 0; i < fields.length; i++) {
+											var attr = fields[i].name;
+											for (var j = 0; j < rows.length; j++) {
+												siteUsers[j][attr] = rows[j][i];
+											}
+										}
+										// console.log(siteUsers);
+
+										var siteUserNames = [];
+										for (var i = 0; i < siteUsers.length; i++) {
+											siteUserNames.push(siteUsers[i].dUserIDLoginName);
+										}
+									}
+
+									console.log(' - site security settings updated:');
+									var format = '   %-50s %-s';
+									console.log(sprintf(format, 'Site', name));
+									console.log(sprintf(format, 'Require everyone to sign in to access', signin));
+									if (signin === 'yes') {
+										console.log(sprintf(format, 'Who can access this site when it goes online', ''));
+										var accessValues = _getSiteAccessValues(xScsIsSecureSiteNew);
+										var format2 = '           %-2s  %-s';
+										var access = 'Cloud users';
+										var checked = accessValues.indexOf(access) >= 0 ? '√' : '';
+										console.log(sprintf(format2, checked, access));
+
+										access = 'Visitors';
+										checked = accessValues.indexOf(access) >= 0 ? '√' : '';
+										console.log(sprintf(format2, checked, access));
+
+										var access = 'Service users';
+										var checked = accessValues.indexOf(access) >= 0 ? '√' : '';
+										console.log(sprintf(format2, checked, access));
+
+										var access = 'Specific users';
+										var checked = accessValues.indexOf(access) >= 0 ? '√' : '';
+										console.log(sprintf(format2, checked, access));
+
+										if (accessValues.indexOf('Specific users') >= 0) {
+											console.log(sprintf(format, 'Published site viewers', ''));
+											console.log(sprintf('           %-s', siteUserNames.length === 0 ? '' : siteUserNames.join(', ')));
+										}
+									}
+
+									_cmdEnd(done, true);
+								})
+								.catch((error) => {
+									_cmdEnd(done);
+								});
+						}
+					}); // idc token
+				}, 1000);
+			}); // local
+		});
+	} catch (e) {
+		console.log(e);
+		_cmdEnd(done);
+	}
+};
+
+var siteAccessMap = [{
+		code: 30,
+		groups: ['Cloud users', 'Visitors', 'Service users', 'Specific users']
+	},
+	{
+		code: 22,
+		groups: ['Visitors', 'Service users', 'Specific users']
+	}, {
+		code: 6,
+		groups: ['Visitors', 'Service users']
+	}, {
+		code: 18,
+		groups: ['Visitors', 'Specific users']
+	}, {
+		code: 20,
+		groups: ['Service users', 'Specific users']
+	}, {
+		code: 2,
+		groups: ['Visitors']
+	},
+	{
+		code: 4,
+		groups: ['Service users']
+	}, {
+		code: 16,
+		groups: ['Specific users']
+	}
+];
+
+var _getSiteAccessValues = function (xScsIsSecureSite) {
+	var code = parseInt(xScsIsSecureSite);
+	var groups = [];
+	for (var i = 0; i < siteAccessMap.length; i++) {
+		if (siteAccessMap[i].code === code) {
+			groups = siteAccessMap[i].groups;
+			break;
+		}
+	}
+	if (groups && groups.length > 0) {
+		return groups.join(', ');
+	} else {
+		console.log('ERROR: invalid site security value: ' + xScsIsSecureSite);
+		return '';
+	}
+};
+
+var _setSiteAccessValue = function (siteAccess) {
+	val = 30;
+	if (!siteAccess) {
+		return val;
+	}
+	var accessArray = [];
+	if (siteAccess.indexOf('Cloud users') >= 0) {
+		accessArray.push('Cloud users');
+	}
+	if (siteAccess.indexOf('Visitors') >= 0) {
+		accessArray.push('Visitors');
+	}
+	if (siteAccess.indexOf('Service users') >= 0) {
+		accessArray.push('Service users');
+	}
+	if (siteAccess.indexOf('Specific users') >= 0) {
+		accessArray.push('Specific users');
+	}
+	var accStr = accessArray.join(',');
+	for (var i = 0; i < siteAccessMap.length; i++) {
+		if (siteAccessMap[i].groups.join(',') === accStr) {
+			val = siteAccessMap[i].code;
+			break;
+		}
+	}
+	// console.log(' - access: ' + siteAccess + ' code: ' + val);
+	return val;
 };

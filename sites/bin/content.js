@@ -514,8 +514,8 @@ var _uploadContentFromZip = function (args) {
 		//
 		// create the content zip file
 		// 
-
-		gulp.src([contentpath + '/**', '!export.zip'])
+		var exportzippath = path.join(contentpath, 'export.zip');
+		gulp.src([contentpath + '/**', '!' + exportzippath])
 			.pipe(zip(contentfilename))
 			.pipe(gulp.dest(path.join(projectDir, 'dist')))
 			.on('end', function () {
@@ -968,7 +968,12 @@ module.exports.uploadContentFromTemplate = function (args) {
 		projectDir: projectDir
 	});
 
-	var server = registeredServerName ? serverUtils.getRegisteredServer(projectDir, registeredServerName) : serverUtils.getConfiguredServer(projectDir);
+	var server = serverUtils.verifyServer(registeredServerName, projectDir);
+	if (!server || !server.valid) {
+		return Promise.resolve({
+			err: 'Invalid server'
+		});
+	}
 
 	var contentpath;
 	var contentfilename;
@@ -1323,7 +1328,11 @@ var _displayValidation = function (validations, action) {
 
 };
 
-module.exports.syncPublishItem = function (argv, done) {
+//////////////////////////////////////////////////////////////////////////
+//    Sync server event handlers
+//////////////////////////////////////////////////////////////////////////
+
+module.exports.syncPublishUnpublishItems = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
@@ -1337,8 +1346,9 @@ module.exports.syncPublishItem = function (argv, done) {
 	var destServer = argv.destination;
 	console.log(' - destination server: ' + destServer.url);
 
-	var id = argv.id;
-	var channelId = argv.channelId;
+	var channelId = argv.id;
+	var contentGuids = argv.contentGuids;
+	var action = argv.action || 'publish';
 
 	var channelName, channelIdSrc, channelIdDest;
 
@@ -1382,8 +1392,7 @@ module.exports.syncPublishItem = function (argv, done) {
 
 			console.log(' - validate channel on destination server: ' + channelName + '(Id: ' + channelIdDest + ')');
 
-			var contentGuids = [id];
-			return _performOneOp(destServer, 'publish', channelIdDest, contentGuids, true);
+			return _performOneOp(destServer, action, channelIdDest, contentGuids, true);
 
 		})
 		.then(function (result) {
@@ -1391,7 +1400,7 @@ module.exports.syncPublishItem = function (argv, done) {
 				return Promise.reject();
 			}
 
-			console.log(' - items published to channel ' + channelName + ' on server ' + destServer.name);
+			console.log(' - items ' + (action === 'publish' ? 'published to channel ' : 'unpublished from channel ') + channelName + ' on server ' + destServer.name);
 			done();
 		})
 		.catch((error) => {

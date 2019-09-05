@@ -78,8 +78,8 @@ var _getSourceFolder = function (currPath) {
 	if (!fs.existsSync(path.join(srcfolder, 'templates'))) {
 		fse.mkdirSync(path.join(srcfolder, 'templates'));
 	}
-	if (!fs.existsSync(path.join(srcfolder, 'theme'))) {
-		fse.mkdirSync(path.join(srcfolder, 'theme'));
+	if (!fs.existsSync(path.join(srcfolder, 'themes'))) {
+		fse.mkdirSync(path.join(srcfolder, 'themes'));
 	}
 	if (!fs.existsSync(path.join(srcfolder, 'translationJobs'))) {
 		fse.mkdirSync(path.join(srcfolder, 'translationJobs'));
@@ -3010,8 +3010,7 @@ var _getSiteInfo = function (server, site) {
 	});
 	return sitesPromise;
 };
-module.exports.getSiteInfo = function (currPath, site, registeredServerName) {
-	var server = registeredServerName ? _getRegisteredServer(currPath, registeredServerName) : _getConfiguredServer(currPath);
+module.exports.getSiteInfo = function (server, site) {
 	return _getSiteInfo(server, site);
 };
 module.exports.getSiteInfoWithToken = function (server, site) {
@@ -3085,8 +3084,7 @@ var _getSiteGUID = function (server, site) {
 	});
 	return sitesPromise;
 };
-module.exports.getSiteFolder = function (currPath, site, registeredServerName) {
-	var server = registeredServerName ? _getRegisteredServer(currPath, registeredServerName) : _getConfiguredServer(currPath);
+module.exports.getSiteFolder = function (server, site) {
 	return _getSiteGUID(server, site);
 };
 module.exports.getSiteFolderAfterLogin = function (server, site) {

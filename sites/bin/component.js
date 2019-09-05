@@ -957,8 +957,7 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 									console.log(' - export component ' + components[i].name);
 
 									getCompZipPromises.push(serverRest.findFile({
-										registeredServerName: serverName,
-										currPath: projectDir,
+										server: server,
 										parentID: homeFolderGUID,
 										filename: components[i].filename
 									}));
@@ -1019,8 +1018,7 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 								var deleteFilePromises = [];
 								for (var i = 0; i < deleteFileGUIDs.length; i++) {
 									deleteFilePromises.push(serverRest.deleteFile({
-										currPath: projectDir,
-										registeredServerName: serverName,
+										server: server,
 										fFileGUID: deleteFileGUIDs[i]
 									}));
 								}

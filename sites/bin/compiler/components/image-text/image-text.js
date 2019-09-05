@@ -3,12 +3,17 @@ var fs = require('fs'),
     mustache = require('mustache');
 
 
-var ImageText = function () {};
+var ImageText = function (args) {
+    this.componentId = args.componentId; 
+    this.componentInstanceObject = args.componentInstanceObject; 
+    this.componentsFolder = args.componentsFolder;
+    this.compData = this.componentInstanceObject.data;
+};
 
-ImageText.prototype.compile = function (args) {
-    var compId = args.compId,
-        customSettingsData = args.customSettingsData,
-		layout = args.componentLayout || 'default',
+ImageText.prototype.compile = function () {
+    var compId = this.componentId,
+        customSettingsData = this.compData.customSettingsData,
+		layout = this.compData.componentLayout || 'default',
 		alignImage = layout === 'default' ? 'left' : layout,
 		showStoryLayout = layout === 'default' || layout === 'right';
 
@@ -19,7 +24,7 @@ ImageText.prototype.compile = function (args) {
                 template = fs.readFileSync(templateFile, 'utf8');
 
             var model = {
-				contentId: compId + '_content_' + args.viewMode,
+				contentId: compId + '_content_runtime',
 				alignCssClass: 'scs-align-' + alignImage,
 				imageStyle: showStoryLayout ? 'width:' + customSettingsData.width : '',
 				alignImage: alignImage,
@@ -43,5 +48,5 @@ ImageText.prototype.compile = function (args) {
 };
 
 
-module.exports = new ImageText();
+module.exports = ImageText;
 

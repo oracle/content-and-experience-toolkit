@@ -7,12 +7,6 @@
 var request = require('request'),
 	siteUtils = require('./serverUtils');
 
-var _utils = {
-	getServer: function (currPath, registeredServerName) {
-		return registeredServerName ? siteUtils.getRegisteredServer(currPath, registeredServerName) : siteUtils.getConfiguredServer(currPath);
-	}
-};
-
 var _getResources = function (server, type, expand) {
 	return new Promise(function (resolve, reject) {
 		var request = siteUtils.getRequest();

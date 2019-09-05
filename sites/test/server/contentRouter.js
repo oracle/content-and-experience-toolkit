@@ -102,7 +102,10 @@ router.get('/*', (req, res) => {
 	// redirect the request to the server
 	//
 	var contentitem = app.locals.currentContentItem;
-	if ((contentitem && contentitem.id && contentitem.isRemote) || cntPath.indexOf('/content/management/api') === 0) {
+
+	if ((app.locals.useCAASServer && app.locals.currentTemplate) ||
+		(contentitem && contentitem.id && contentitem.isRemote) ||
+		cntPath.indexOf('/content/management/api') === 0) {
 		if (!app.locals.connectToServer) {
 			console.log('No remote server for remote traffic ', requestUrl);
 			res.writeHead(200, {});
@@ -112,6 +115,10 @@ router.get('/*', (req, res) => {
 		location = app.locals.serverURL + requestUrl;
 		// use management api 
 		location = location.replace('/published/', '/management/');
+		if (location.indexOf('channelToken=') > 0) {
+			// remove channel token
+			location = location.substring(0, location.indexOf('channelToken='));
+		}
 		console.log('Remote traffic:', location);
 		var options = {
 			url: location
@@ -414,7 +421,38 @@ router.get('/*', (req, res) => {
 						return orderBy === 'updateddate:des' ? y - x : x - y;
 					});
 					items = byDate;
-				} else if (orderBy) {
+				} else if (orderBy.startsWith('fields.')) {
+					var orderArr = orderBy.substring(7).split(':');
+					var customOrderByField = orderArr[0];
+					var customOrderByOrder = orderArr[1];
+
+					if (items.length > 0) {
+						if (items[0].fields.hasOwnProperty(customOrderByField)) {
+							var fieldType = typeof items[0].fields[customOrderByField];
+							console.log(' - custom orderBy: field: ' + customOrderByField + '(' + fieldType + ') order: ' + customOrderByOrder);
+							if (fieldType === 'object') {
+								var byDate = items.slice(0);
+								byDate.sort(function (a, b) {
+									var x = new Date(a.fields[customOrderByField] ? a.fields[customOrderByField].value : a.fields[customOrderByField].value);
+									var y = new Date(b.fields[customOrderByField] ? b.fields[customOrderByField].value : b.fields[customOrderByField].value);
+									return customOrderByOrder === 'des' ? y - x : x - y;
+								});
+								items = byDate;
+							} else {
+								var byNumber = items.slice(0);
+								byNumber.sort(function (a, b) {
+									var x = a.fields[customOrderByField];
+									var y = b.fields[customOrderByField];
+									return customOrderByOrder === 'des' ? (x < y ? 1 : x > y ? -1 : 0) : (x < y ? -1 : x > y ? 1 : 0);
+								});
+								items = byNumber;
+							}
+						} else {
+							console.log(' - item does not have field ' + customOrderByField);
+						}
+					}
+
+				} else {
 					console.log(' - invalid orderBy ' + orderBy);
 				}
 

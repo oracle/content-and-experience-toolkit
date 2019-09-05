@@ -381,8 +381,7 @@ module.exports.listServerResources = function (argv, done) {
 				}
 
 				promises = listLocalizationpolicies ? [serverRest.getLocalizationPolicies({
-					registeredServerName: serverName,
-					currPath: projectDir
+					server: server
 				})] : [];
 
 				return Promise.all(promises);
@@ -403,8 +402,7 @@ module.exports.listServerResources = function (argv, done) {
 				}
 
 				promises = listRepositories ? [serverRest.getRepositories({
-					registeredServerName: serverName,
-					currPath: projectDir
+					server: server
 				})] : [];
 
 				return Promise.all(promises);
@@ -590,8 +588,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 				}
 
 				promises = listLocalizationpolicies ? [serverRest.getLocalizationPolicies({
-					registeredServerName: serverName,
-					currPath: projectDir
+					server: server
 				})] : [];
 
 				return Promise.all(promises);
@@ -612,8 +609,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 				}
 
 				promises = listRepositories ? [serverRest.getRepositories({
-					registeredServerName: serverName,
-					currPath: projectDir
+					server: server
 				})] : [];
 
 				return Promise.all(promises);
@@ -698,9 +694,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 var _getChannels = function (serverName, server) {
 	return new Promise(function (resolve, reject) {
 		var chanelsPromise = serverRest.getChannels({
-			registeredServerName: serverName,
-			server: server,
-			currPath: projectDir
+			server: server
 		});
 		chanelsPromise.then(function (result) {
 				if (result.err) {
@@ -711,9 +705,7 @@ var _getChannels = function (serverName, server) {
 				var channelPromises = [];
 				for (var i = 0; i < channels.length; i++) {
 					channelPromises.push(serverRest.getChannel({
-						registeredServerName: serverName,
 						server: server,
-						currPath: projectDir,
 						id: channels[i].id
 					}));
 				}

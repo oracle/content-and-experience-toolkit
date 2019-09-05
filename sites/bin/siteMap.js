@@ -1616,7 +1616,7 @@ var _createSiteMap = function (server, serverName, request, localhost, site, sit
 				}
 			}
 
-			var changefreqPromises = changefreq === 'auto' ? [_calculatePageChangeFraq(serverName, allPageFiles)] : [];
+			var changefreqPromises = changefreq === 'auto' ? [_calculatePageChangeFraq(server, serverName, allPageFiles)] : [];
 
 			return Promise.all(changefreqPromises);
 		})
@@ -1643,7 +1643,7 @@ var _createSiteMap = function (server, serverName, request, localhost, site, sit
 		});
 };
 
-var _calculatePageChangeFraq = function (serverName, allPageFiles) {
+var _calculatePageChangeFraq = function (server, serverName, allPageFiles) {
 	return new Promise(function (resolve, reject) {
 		var total = allPageFiles.length;
 		console.log(' - total number of pages: ' + total);
@@ -1676,8 +1676,7 @@ var _calculatePageChangeFraq = function (serverName, allPageFiles) {
 					var versionPromises = [];
 					for (var i = param.start; i <= param.end; i++) {
 						versionPromises.push(serverRest.getFileVersions({
-							registeredServerName: serverName,
-							currPath: projectDir,
+							server: server,
 							fFileGUID: allPageFiles[i].id
 						}));
 					}

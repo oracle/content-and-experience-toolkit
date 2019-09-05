@@ -44,6 +44,7 @@ if (serverName && !fs.existsSync(path.join(srcfolder, 'servers', serverName, 'se
 	console.log('ERROR: server ' + serverName + ' does not exist');
 	process.exit(1);
 };
+var useCAASServer = serverName ? true : false;
 var server = serverUtils.verifyServer(serverName, projectDir);
 if (serverName && (!server || !server.valid)) {
 	process.exit(1);
@@ -58,6 +59,7 @@ app.locals.projectDir = projectDir;
 app.locals.port = port;
 app.locals.server = server;
 app.locals.serverURL = app.locals.server.url;
+app.locals.useCAASServer = useCAASServer;
 app.locals.connectToServer = false;
 app.locals.currentTemplate = '';
 app.locals.currentComponent = '';
