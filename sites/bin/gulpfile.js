@@ -177,7 +177,7 @@ gulp.task('develop', function (done) {
 	process.env['CEC_TOOLKIT_SERVER'] = argv.server || '';
 	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
 
-	var args = argv.debug ?  ['run', '--node-options', '--inspect', 'start', '--prefix', cecDir] : ['run', 'start', '--prefix', cecDir];
+	var args = argv.debug ? ['run', '--node-options', '--inspect', 'start', '--prefix', cecDir] : ['run', 'start', '--prefix', cecDir];
 	var spawnCmd = childProcess.spawnSync(npmCmd, args, {
 		projectDir,
 		stdio: 'inherit'
@@ -818,9 +818,9 @@ gulp.task('copy-libs', function (done) {
 	console.log("\nTo use the CEC command line util, add the following directory to your PATH:\n");
 	cec_path = path.resolve(__dirname + path.sep + '..');
 	if (/^darwin/.test(process.platform)) {
-		console.log("\t"+ cec_path + "/node_modules/.bin\n");
+		console.log("\t" + cec_path + "/node_modules/.bin\n");
 	} else {
-		console.log("\t"+ cec_path + "\\node_modules\\.bin\n");
+		console.log("\t" + cec_path + "\\node_modules\\.bin\n");
 	}
 	done();
 });
@@ -1204,27 +1204,35 @@ gulp.task('check-version', function (done) {
 
 	projectDir = argv.projectDir || projectDir;
 
-	var server = serverUtils.getConfiguredServer(projectDir);
-	if (!server.url || !server.username || !server.password) {
-		// console.log(' - no server is configured in ' + server.fileloc);
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir, false);
+	if (!server || !server.valid) {
 		done();
 		return;
 	}
 
-	var Client = require('node-rest-client').Client;
-	var client = new Client({
-		user: server.username,
-		password: server.password
-	});
-
 	var isPod = server.env !== 'dev_ec';
 	var url = server.url + (isPod ? '/content' : '/osn/social/api/v1/connections');
-	client.get(url, function (data, response) {
-		if (!response || response.statusCode !== 200) {
-			// console.log('ERROR: failed to query CEC version: ' + (response && response.statusMessage));
+	var options = {
+		method: 'GET',
+		url: url,
+		auth: serverUtils.getRequestAuth(server)
+	};
+	var request = serverUtils.getRequest();
+	request(options, function (error, response, body) {
+		if (error || !response || response.statusCode !== 200) {
+			console.log('ERROR: failed to query CEC version: ' + (response && response.statusMessage));
 			done();
 			return;
 		}
+
+		var data;
+		try {
+			data = JSON.parse(body);
+		} catch (e) {
+			data = body;
+		};
+
 		var cecVersion, cecVersion2;
 		if (isPod) {
 			cecVersion = data ? data.toString() : '';
@@ -1282,7 +1290,7 @@ gulp.task('check-version', function (done) {
 		}
 		arr = toolkitVersion.split('.');
 		var toolkitVersion2 = arr.length >= 2 ? arr[0] + '.' + arr[1] : (arr.length > 0 ? arr[0] : '');
-		// console.log('toolkit version ' + packagejsonpath + ' version: ' + toolkitVersion + ' version2: ' + toolkitVersion2);
+		// console.log(' toolkit version ' + packagejsonpath + ' version: ' + toolkitVersion + ' version2: ' + toolkitVersion2);
 
 		if (cecVersion2 && toolkitVersion2 && semver.gt(semver.coerce(cecVersion2), semver.coerce(toolkitVersion2))) {
 			var format = '%-1s %-50s  %-s';

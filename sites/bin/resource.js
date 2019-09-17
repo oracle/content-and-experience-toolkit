@@ -129,9 +129,9 @@ module.exports.registerServer = function (argv, done) {
 			useRest = true;
 		}
 		type = 'dev_ec';
-	} else if (idcs_url && client_id && client_secret && scope) {
+	} /* else if (idcs_url && client_id && client_secret && scope) {
 		useRest = true;
-	}
+	} */
 	var savedPassword = password;
 	if (keyFile) {
 		try {
@@ -505,20 +505,16 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 	var format2 = '  %-36s  %-36s';
 	var format3 = '  %-36s  %-36s  %-s';
 
+	var request = serverUtils.getRequest();
 
 	var tokenPromises = [];
 	if (server.env === 'pod_ec') {
-		tokenPromises.push(serverUtils.getOAuthTokenFromIDCS(request, server));
+		tokenPromises.push(serverUtils.getOAuthTokenFromIDCS(server));
 	}
 	Promise.all(tokenPromises).then(function (result) {
-		if (result.length > 0 && result[0].err) {
+		if (!server.oauthtoken) {
 			done();
 			return;
-		}
-
-		// save the OAuth token
-		if (result.length > 0) {
-			server.oauthtoken = result[0].oauthtoken;
 		}
 
 		var promises = (listChannels || listRepositories) ? [_getChannels(serverName, server)] : [];

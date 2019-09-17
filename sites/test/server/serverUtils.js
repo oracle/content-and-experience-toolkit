@@ -204,6 +204,7 @@ var _getConfiguredServer = function (currPath) {
 				server.password = password;
 				server.env = env || 'pod_ec';
 				server.oauthtoken = '';
+				server.tokentype = '';
 				server.idcs_url = idcs_url;
 				server.client_id = client_id;
 				server.client_secret = client_secret;
@@ -226,7 +227,7 @@ module.exports.getRequestAuth = function (server) {
 	return _getRequestAuth(server);
 };
 var _getRequestAuth = function (server) {
-	var auth = server.env === 'dev_ec' ? {
+	var auth = server.env === 'dev_ec' || !server.oauthtoken ? {
 		user: server.username,
 		password: server.password
 	} : {
@@ -235,17 +236,20 @@ var _getRequestAuth = function (server) {
 	return auth;
 };
 
-module.exports.verifyServer = function (serverName, currPath) {
-	return _verifyServer(serverName, currPath);
+module.exports.verifyServer = function (serverName, currPath, showError) {
+	return _verifyServer(serverName, currPath, showError);
 };
-var _verifyServer = function (serverName, currPath) {
+var _verifyServer = function (serverName, currPath, showError) {
 	var server = {};
+	var toShowError = showError === undefined || showError === true;
 	if (serverName) {
 		_setupSourceDir(currPath);
 
 		var serverpath = path.join(serversDir, serverName, 'server.json');
 		if (!fs.existsSync(serverpath)) {
-			console.log('ERROR: server ' + serverName + ' does not exist');
+			if (toShowError) {
+				console.log('ERROR: server ' + serverName + ' does not exist');
+			}
 			return server;
 		}
 	}
@@ -253,18 +257,26 @@ var _verifyServer = function (serverName, currPath) {
 	server = serverName ? _getRegisteredServer(currPath, serverName) : _getConfiguredServer(currPath);
 	if (!serverName) {
 		if (server.fileexist) {
-			console.log(' - configuration file: ' + server.fileloc);
+			if (toShowError) {
+				console.log(' - configuration file: ' + server.fileloc);
+			}
 		} else {
-			console.log('ERROR: no server is configured');
+			if (toShowError) {
+				console.log('ERROR: no server is configured');
+			}
 			return server;
 		}
 	}
 	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured in ' + server.fileloc);
+		if (toShowError) {
+			console.log('ERROR: no server is configured in ' + server.fileloc);
+		}
 		return server;
 	}
 	if (server.key && !fs.existsSync(server.key)) {
-		console.log('ERROR: missing key file ' + server.key);
+		if (toShowError) {
+			console.log('ERROR: missing key file ' + server.key);
+		}
 		return server;
 	}
 
@@ -851,18 +863,35 @@ module.exports.getContentTypesFromServer = function (server) {
 			});
 		}
 
-		var client = new Client({
-			user: server.username,
-			password: server.password
-		});
+		var request = _getRequest();
 		var url = server.url + '/content/management/api/v1.1/types?limit=99999';
-		client.get(url, function (data, response) {
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: _getRequestAuth(server)
+		};
+
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get types');
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to query content types - ' + (response.statusMessage || response.statusCode));
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get types  : ' + msg);
 				resolve({
-					err: 'failed to query content types: ' + response.statusCode
+					err: 'err'
 				});
 			}
 		});
@@ -880,18 +909,35 @@ module.exports.getContentTypeFromServer = function (server, typename) {
 				err: 'no server'
 			});
 		}
-		var client = new Client({
-			user: server.username,
-			password: server.password
-		});
+
+		var request = _getRequest();
 		var url = server.url + '/content/management/api/v1.1/types/' + typename;
-		client.get(url, function (data, response) {
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: _getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get type ' + typeName);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				// console.log('status=' + response.statusCode);
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get type ' + typeName + ' : ' + msg);
 				resolve({
-					err: 'type ' + typename + ' does not exist'
+					err: 'err'
 				});
 			}
 		});
@@ -903,39 +949,72 @@ module.exports.getContentTypeFromServer = function (server, typename) {
 /**
  * Get all fields of a content types from server
  */
-module.exports.getContentTypeFieldsFromServer = function (server, typename, callback) {
+module.exports.getContentTypeFieldsFromServer = function (server, typeName, callback) {
 	if (!server.url || !server.username || !server.password) {
 		console.log('ERROR: no server is configured');
 		return;
 	}
-	var client = new Client({
-		user: server.username,
-		password: server.password
-	});
-	var url = server.url + '/content/management/api/v1.1/types/' + typename;
-	client.get(url, function (data, response) {
+
+	var request = _getRequest();
+	var url = server.url + '/content/management/api/v1.1/types/' + typeName;
+	var options = {
+		method: 'GET',
+		url: url,
+		auth: _getRequestAuth(server)
+	};
+
+	request(options, function (error, response, body) {
 		var fields = [];
-		if (response && response.statusCode === 200 && data && data.fields) {
-			fields = data.fields;
-		} else {
-			// console.log('status=' + response.statusCode + ' err=' + err);
+		if (error) {
+			console.log('ERROR: failed to get type ' + typeName);
+			console.log(error);
+			callback(fields);
 		}
-		callback(fields);
+		var data;
+		try {
+			data = JSON.parse(body);
+		} catch (e) {
+			data = body;
+		};
+		if (response && response.statusCode === 200) {
+			fields = data && data.fields;
+			callback(fields);
+		} else {
+			var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+			console.log('ERROR: failed to get type ' + typeName + ' : ' + msg);
+			callback(fields);
+		}
 	});
 };
 
 module.exports.getCaasCSRFToken = function (server) {
 	var csrfTokenPromise = new Promise(function (resolve, reject) {
-		var client = new Client({
-			user: server.username,
-			password: server.password
-		});
+		var request = _getRequest();
 		var url = server.url + '/content/management/api/v1.1/token';
-		client.get(url, function (data, response) {
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: _getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get CSRF token');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
 				return resolve(data);
 			} else {
-				console.log('ERROR: Failed to get CSRF token, status=' + response.statusCode);
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get CSRF token ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -944,6 +1023,44 @@ module.exports.getCaasCSRFToken = function (server) {
 	});
 	return csrfTokenPromise;
 };
+
+module.exports.getIdcToken = function (server) {
+	var idcTokenPromise = new Promise(function (resolve, reject) {
+		var request = _getRequest();
+		var url = server.url + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: _getRequestAuth(server)
+		};
+		var total = 0;
+		var inter = setInterval(function () {
+			request(options, function (error, response, body) {
+				var data = JSON.parse(body);
+				dUser = data && data.LocalData && data.LocalData.dUser;
+				idcToken = data && data.LocalData && data.LocalData.idcToken;
+				if (dUser && dUser !== 'anonymous' && idcToken) {
+					// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
+					clearInterval(inter);
+					console.log(' - establish user session');
+					resolve({
+						idcToken: idcToken
+					});
+				}
+				total += 1;
+				if (total >= 10) {
+					clearInterval(inter);
+					console.log('ERROR: disconnect from the server, try again');
+					resolve({
+						err: 'err'
+					});
+				}
+			});
+		}, 2000);
+	});
+	return idcTokenPromise;
+};
+
 
 /**
  * Get translation connectors in src/connectors/
@@ -1000,11 +1117,11 @@ module.exports.getTranslationConnections = function (projectDir) {
 /**
  * Get OAuth token from IDCS
  */
-module.exports.getOAuthTokenFromIDCS = function (request, server) {
-	return _getOAuthTokenFromIDCS(request, server);
+module.exports.getOAuthTokenFromIDCS = function (server) {
+	return _getOAuthTokenFromIDCS(server);
 };
 
-var _getOAuthTokenFromIDCS = function (request, server) {
+var _getOAuthTokenFromIDCS = function (server) {
 	var tokenPromise = new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -1060,7 +1177,7 @@ var _getOAuthTokenFromIDCS = function (request, server) {
 			body: formData.toString(),
 			json: true
 		};
-
+		var request = _getRequest();
 		request(postData, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get OAuth token');
@@ -1069,7 +1186,6 @@ var _getOAuthTokenFromIDCS = function (request, server) {
 					err: 'err'
 				});
 			}
-
 			var data;
 			try {
 				data = JSON.parse(body);
@@ -1084,8 +1200,9 @@ var _getOAuthTokenFromIDCS = function (request, server) {
 					err: 'err'
 				});
 			} else {
-				var token = data.token_type + ' ' + data.access_token;
+				var token = data.access_token;
 				server.oauthtoken = token;
+				server.tokentype = data.token_type;
 				return resolve({
 					status: true,
 					oauthtoken: token
@@ -1096,142 +1213,6 @@ var _getOAuthTokenFromIDCS = function (request, server) {
 	return tokenPromise;
 };
 
-/**
- * Get template from server
- */
-module.exports.getTemplateFromServer = function (request, server, templateName) {
-	var templatePromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
-
-		var url = server.url + '/sites/management/api/v1/templates?expand=localizationPolicy&expansionErrors=ignore';
-
-		var options = {
-			url: url
-		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: server.oauthtoken
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
-
-		request(options, function (error, response, body) {
-			var result = {};
-
-			if (error) {
-				console.log('ERROR: failed to get template:');
-				console.log(error);
-				resolve({
-					err: error
-				});
-			}
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
-				var items = data && data.items;
-				// console.log(items);
-				var template;
-				for (var i = 0; i < items.length; i++) {
-					if (items[i].name.toLowerCase() === templateName.toLowerCase()) {
-						template = items[i];
-					}
-				}
-				resolve({
-					data: template
-				});
-			} else {
-				console.log('ERROR: failed to get template: ' + (response ? (response.statusMessage || response.statusCode) : ''));
-				resolve({
-					err: (response ? (response.statusMessage || response.statusCode) : 'err')
-				});
-			}
-
-		});
-	});
-	return templatePromise;
-};
-
-/**
- * Get site from server
- */
-module.exports.getSiteFromServer = function (request, server, siteName) {
-	var sitePromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
-
-		var url = server.url + '/sites/management/api/v1/sites';
-		var options = {
-			url: url
-		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: server.oauthtoken
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
-
-		request(options, function (error, response, body) {
-			var result = {};
-
-			if (error) {
-				console.log('ERROR: failed to get site:');
-				console.log(error);
-				resolve({
-					err: error
-				});
-			}
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
-				var items = data && data.items;
-				// console.log(items);
-				var site;
-				for (var i = 0; i < items.length; i++) {
-					if (items[i].name.toLowerCase() === siteName.toLowerCase()) {
-						site = items[i];
-					}
-				}
-				resolve({
-					data: site
-				});
-			} else {
-				console.log('ERROR: failed to get site: ' + (response ? (response.statusMessage || response.statusCode) : ''));
-				resolve({
-					err: (response ? (response.statusMessage || response.statusCode) : 'err')
-				});
-			}
-
-		});
-	});
-	return sitePromise;
-};
 
 /**
  * Get repository from server
@@ -1245,10 +1226,7 @@ module.exports.getRepositoryFromServer = function (request, server, repositoryNa
 			});
 		}
 
-		var auth = {
-			user: server.username,
-			password: server.password
-		};
+		var auth = _getRequestAuth(server);
 
 		var url = server.url + '/content/management/api/v1.1/repositories?fields=all&includeAdditionalData=true';
 
@@ -1300,10 +1278,7 @@ module.exports.getRepositoryCollections = function (request, server, repositoryI
 			});
 		}
 
-		var auth = {
-			user: server.username,
-			password: server.password
-		};
+		var auth = _getRequestAuth(server);
 
 		var url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections';
 
@@ -1354,10 +1329,7 @@ module.exports.getLocalizationPolicyFromServer = function (request, server, poli
 			});
 		}
 
-		var auth = {
-			user: server.username,
-			password: server.password
-		};
+		var auth = _getRequestAuth(server);
 
 		var url = server.url + '/content/management/api/v1.1/policy';
 
@@ -1655,7 +1627,7 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 		var localServer = app.listen(0, function () {
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
-			localServer.setTimeout(600000);
+			localServer.setTimeout();
 			// console.log(' - listening on port: '  + port);
 
 			// get the personal folder id
@@ -2189,7 +2161,7 @@ var _loginToServer = function (server, request) {
 			status: true
 		});
 	} else if (env === 'pod_ec' && server.idcs_url && server.client_id && server.client_secret && server.scope) {
-		return _getOAuthTokenFromIDCS(request, server);
+		return _getOAuthTokenFromIDCS(server);
 	} else {
 		var loginPromise = env === 'dev_osso' ? _loginToSSOServer(server) : (env === 'dev_ec' ? _loginToDevServer(server, request) : _loginToPODServer(server));
 		return loginPromise;
@@ -2401,7 +2373,7 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 			port = localServer.address().port;
 			localhost = 'http://localhost:' + port;
 			localServer.setTimeout(0);
-			
+
 			// console.log(' - start ' + localhost + ' for import...');
 			console.log(' - establishing user session');
 			var total = 0;
@@ -2519,7 +2491,6 @@ var _timeUsed = function (start, end) {
 var _importOneObjectToPodServer = function (localhost, request, type, name, folder, folderId, fileId, filePath, publishComponent) {
 	var importOnePromise = new Promise(function (resolve, reject) {
 		var startTime;
-
 		// Upload the zip file first
 		var fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
 		var url = localhost + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
@@ -2533,8 +2504,14 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 					err: 'err'
 				});
 			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			
 			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
 				var version = data && data.LocalData && data.LocalData.dRevLabel;
 				var uploadedFileName = data && data.LocalData && data.LocalData.dOriginalName;
 				console.log(' - file ' + uploadedFileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + version + ' (' + _timeUsed(startTime, new Date()) + ')');
@@ -2685,7 +2662,8 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 					});
 				}
 			} else {
-				console.log(' - failed to upload ' + filePath + ': ' + response && response.statusCode);
+				var msg = data && data.LocalData ? (data.LocalData.StatusMessage || data.LocalData.StatusCode) : (response.statusMessage || response.statusCode);
+				console.log(' - failed to upload ' + filePath + ': ' + msg);
 				return resolve({
 					err: 'err'
 				});

@@ -594,7 +594,8 @@ const downloadContent = {
 	example: [
 		['cec download-content Site1Channel', 'Download all assets in channel Site1Channel'],
 		['cec download-content Site1Channel -p', 'Download published assets in channel Site1Channel'],
-		['cec download-content Site1Channel -s UAT']
+		['cec download-content Site1Channel -s UAT', 'Download all assets in channel Site1Channel on server UAT'],
+		['cec download-content Site1Channel -a GUID1,GUID2', 'Download asset GUID1 and GUID2 and all their dependencies in chanel Site1Channel']
 	]
 };
 
@@ -683,8 +684,8 @@ const controlTheme = {
 		})()
 	},
 	example: [
-		['cec control-theme publish -c Theme1', 'Publish theme Theme1 on the server specified in cec.properties file'],
-		['cec control-theme publish -c Theme1 -s UAT', 'Publish theme Theme1 on the registered server UAT']
+		['cec control-theme publish -t Theme1', 'Publish theme Theme1 on the server specified in cec.properties file'],
+		['cec control-theme publish -t Theme1 -s UAT', 'Publish theme Theme1 on the registered server UAT']
 	]
 };
 
@@ -1440,12 +1441,12 @@ const registerServer = {
 				'Optionally specify -t <type> to set the server type. The valid values for <type> are:\n\n';
 			desc = getServerTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc) +
 				'\nand the default value is pod_ec.';
-			// desc = desc + os.EOL + os.EOL + 'For pod_ec server, option <idcsurl>, <clientid>, <clientsecret> and <scope> are required. ';
+			desc = desc + os.EOL + os.EOL + 'For pod_ec server, optionlly specify <idcsurl>, <clientid>, <clientsecret> and <scope> for headless commands. ';
 			return desc;
 		})()
 	},
 	example: [
-		// ['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -i http://idcs1.com -c clientid -s clientsecret -o https://primary-audience-and-scope', 'The server is a tenant on Oracle Public cloud'],
+		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -i http://idcs1.com -c clientid -s clientsecret -o https://primary-audience-and-scope', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.git.oraclecorp.com.com -u user1 -p Welcome1 -t dev_ec', 'The server is a standalone development instance'],
 		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -k ~/.ceckey', 'The password will be encrypted']
@@ -1523,6 +1524,9 @@ var _checkVersion = function () {
 		'--',
 		'--projectDir', cwd
 	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		checkVersionArgs.push(...['--server', argv.server]);
+	}
 	var checkVersion = childProcess.spawnSync(npmCmd, checkVersionArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -1902,6 +1906,10 @@ const argv = yargs.usage(_usage)
 					alias: 'd',
 					description: 'Start the compiler with "--inspect-brk" option to debug compilation'
 				})
+				.option('noDefaultDetailPageLink', {
+					alias: 'o',
+					description: 'Do not generate compiled detail page for items/content lists that use the default detail page'
+				})
 				.check((argv) => {
 					if (argv.type && argv.type !== 'draft' && argv.type !== 'published') {
 						throw new Error(`${argv.type} is not a valid value for <type>`);
@@ -2072,17 +2080,22 @@ const argv = yargs.usage(_usage)
 		})
 	.command([downloadContent.command, downloadContent.alias], false,
 		(yargs) => {
-			yargs.option('server', {
-					alias: 's',
-					description: '<server> The registered CEC server'
-				})
-				.option('publishedassets', {
+			yargs.option('publishedassets', {
 					alias: 'p',
-					description: 'flag to indicate published assets only'
+					description: 'The flag to indicate published assets only'
+				})
+				.option('assets', {
+					alias: 'a',
+					description: 'The comma separated list of asset GUIDS'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
 				})
 				.example(...downloadContent.example[0])
 				.example(...downloadContent.example[1])
 				.example(...downloadContent.example[2])
+				.example(...downloadContent.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3270,7 +3283,6 @@ const argv = yargs.usage(_usage)
 					alias: 't',
 					description: '<type> Server type'
 				})
-				/*
 				.option('idcsurl', {
 					alias: 'i',
 					description: '<idcsurl> Oracle Identity Cloud Service Instance URL'
@@ -3287,30 +3299,29 @@ const argv = yargs.usage(_usage)
 					alias: 'o',
 					description: '<clientsecret> Scope'
 				})
-				*/
 				.check((argv) => {
 					if (argv.type && !getServerTypes().includes(argv.type) && argv.type.indexOf('dev_ec:') < 0) {
 						throw new Error(`${argv.type} is not a valid value for <type>`);
-						/*
 					} else if (!argv.type || argv.type === 'pod_ec') {
-						if (!argv.idcsurl) {
-							throw new Error('Please specify Oracle Identity Cloud Service Instance URL <idcsurl>');
-						} else if (!argv.clientid) {
-							throw new Error('Please specify client id <clientid>');
-						} else if (!argv.clientsecret) {
-							throw new Error('Please specify client secret <clientsecret>');
-						} else if (!argv.scope) {
-							throw new Error('Please specify scope <scope>');
-						} else {
-							return true;
+						var useIDCS = argv.idcsurl || argv.clientid || argv.clientsecret || argv.scope;
+						if (useIDCS) {
+							if (!argv.idcsurl) {
+								throw new Error('Please specify Oracle Identity Cloud Service Instance URL <idcsurl>');
+							} else if (!argv.clientid) {
+								throw new Error('Please specify client id <clientid>');
+							} else if (!argv.clientsecret) {
+								throw new Error('Please specify client secret <clientsecret>');
+							} else if (!argv.scope) {
+								throw new Error('Please specify scope <scope>');
+							}
 						}
-						*/
-					} else
-						return true;
+					}
+					return true;
 				})
 				.example(...registerServer.example[0])
 				.example(...registerServer.example[1])
 				.example(...registerServer.example[2])
+				.example(...registerServer.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3750,6 +3761,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.recurse) {
 		compileTemplateArgs.push(...['--recurse', argv.recurse]);
 	}
+	if (argv.noDefaultDetailPageLink) {
+		compileTemplateArgs.push(...['--noDefaultDetailPageLink', argv.noDefaultDetailPageLink]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, compileTemplateArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -3834,6 +3848,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.publishedassets) {
 		downloadContentArgs.push(...['--publishedassets', argv.publishedassets]);
+	}
+	if (argv.assets && typeof argv.assets !== 'boolean') {
+		downloadContentArgs.push(...['--assets', argv.assets]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, downloadContentArgs, {
 		cwd,

@@ -19,8 +19,6 @@ var gulp = require('gulp'),
 	argv = require('yargs').argv,
 	zip = require('gulp-zip');
 
-var Client = require('node-rest-client').Client;
-
 var cecDir = path.join(__dirname, ".."),
 	templatesDataDir = path.join(cecDir, 'data', 'templates'),
 	serverURL = 'http://' + (process.env.CEC_TOOLKIT_SERVER || 'localhost') + ':' + (process.env.CEC_TOOLKIT_PORT || '8085');
@@ -812,7 +810,7 @@ module.exports.downloadTemplate = function (argv, done) {
 								// console.log(' - template zip file ' + templateZipFile);
 								// console.log(' - template zip file GUID: ' + templateZipFileGUID);
 
-								return _downloadServerFile(server, templateZipFileGUID);
+								return _downloadServerFile(request, server, templateZipFileGUID);
 
 							})
 							.then(function (result) {
@@ -1697,7 +1695,7 @@ var _importTemplate = function (server, name, folder, zipfile, done) {
 			});
 		});
 	} else if (server.env !== 'dev_ec') {
-		var loginPromise = server.env === 'dev_osso' ? serverUtils.loginToSSOServer(server) : serverUtils.loginToPODServer(server);
+		var loginPromise = serverUtils.loginToServer(server, request);
 
 		loginPromise.then(function (result) {
 			if (!result.status) {
@@ -1985,23 +1983,33 @@ var _getHomeFolderFile = function (request, localhost, fileName) {
 	return filesPromise;
 };
 
-var _downloadServerFile = function (server, fFileGUID) {
+var _downloadServerFile = function (request, server, fFileGUID) {
 	var downloadPromise = new Promise(function (resolve, reject) {
-		var client = new Client({
-			user: server.username,
-			password: server.password
-		});
+		var auth = serverUtils.getRequestAuth(server);
 		var url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data';
-		client.get(url, function (data, response) {
+		var options = {
+			url: url,
+			auth: auth,
+			encoding: null
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to download file ' + fileName);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
 			if (response && response.statusCode === 200) {
 				resolve({
-					data: data
+					data: body
 				});
 			} else {
 				var result;
 				try {
-					result = JSON.parse(data);
-				} catch (error) {};
+					result = JSON.parse(body);
+				} catch (e) {}
+
 				var msg = response.statusCode;
 				if (result && result.errorMessage) {
 					msg = result.errorMessage;
@@ -2012,7 +2020,7 @@ var _downloadServerFile = function (server, fFileGUID) {
 						msg = 'File id is not found';
 					}
 				}
-				console.log('ERROR: failed to download job: ' + msg);
+				console.log('ERROR: failed to download file ' + fileName + ' - ' + msg);
 				resolve({
 					err: 'err'
 				});
@@ -2232,7 +2240,7 @@ var _IdcCopySites = function (request, server, name, fFolderGUID, doCopyToTempla
 				port = localServer.address().port;
 				localhost = 'http://localhost:' + port;
 				localServer.setTimeout(0);
-				
+
 				var inter = setInterval(function () {
 					// console.log(' - getting login user: ' + total);
 					var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
@@ -2564,6 +2572,7 @@ module.exports.compileTemplate = function (argv, done) {
 
 	var pages = argv.pages,
 		recurse = typeof argv.recurse === 'boolean' ? argv.recurse : argv.recurse === 'true',
+		noDefaultDetailPageLink = typeof argv.noDefaultDetailPageLink === 'boolean' ? argv.noDefaultDetailPageLink : argv.noDefaultDetailPageLink === 'true',
 		contentType = argv.type,
 		server;
 	if (argv.server) {
@@ -2617,6 +2626,7 @@ module.exports.compileTemplate = function (argv, done) {
 		type: contentType,
 		pages: pages,
 		recurse: recurse,
+		noDefaultDetailPageLink: noDefaultDetailPageLink,
 		logLevel: 'log',
 		outputURL: serverURL + '/templates/' + tempName + '/'
 	}).then(function (result) {
@@ -2714,7 +2724,8 @@ var _createTemplateFromSiteREST = function (server, name, siteName, includeUnpub
 				return sitesRest.createTemplateFromSite({
 					server: server,
 					name: name,
-					siteName: siteName
+					siteName: siteName,
+					includeUnpublishedAssets: includeUnpublishedAssets
 				});
 			})
 			.then(function (result) {

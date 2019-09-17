@@ -19,9 +19,9 @@ var path = require('path'),
 	childProcess = require('child_process'),
 	sprintf = require('sprintf-js').sprintf,
 	zip = require('gulp-zip'),
+	serverRest = require('../test/server/serverRest.js'),
 	serverUtils = require('../test/server/serverUtils.js');
 
-var Client = require('node-rest-client').Client;
 
 var cecDir = path.join(__dirname, ".."),
 	connectorsDataDir = path.join(cecDir, 'data', 'connectors');
@@ -121,22 +121,37 @@ var _getIdcToken = function (request, server) {
  */
 var _getTranslationJobs = function (server, jobType) {
 	var jobPromise = new Promise(function (resolve, reject) {
-		var client = new Client({
-			user: server.username,
-			password: server.password
-		});
 		var url = server.url + '/content/management/api/v1.1/translationJobs?jobType=' + jobType + '&limit=99999&offset=0&orderBy=name:asc';
-		client.get(url, function (data, response) {
-			var jobs = [];
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		var request = serverUtils.getRequest();
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to query translation jobs');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
-				jobs = data && data.items || [];
+				var jobs = data && data.items || [];
 				resolve({
 					jobType: jobType,
 					jobs: jobs
 				});
 			} else {
-				console.log('ERROR: failed to query translation jobs: ' + response.statusCode);
-				resolve({
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to query translation jobs  : ' + msg);
+				return resolve({
 					err: 'err'
 				});
 			}
@@ -153,21 +168,36 @@ var _getTranslationJobs = function (server, jobType) {
  */
 var _getTranslationJob = function (server, jobId) {
 	var jobPromise = new Promise(function (resolve, reject) {
-		var client = new Client({
-			user: server.username,
-			password: server.password
-		});
 		var url = server.url + '/content/management/api/v1.1/translationJobs/' + jobId;
-		client.get(url, function (data, response) {
-			var jobs = [];
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		var request = serverUtils.getRequest();
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to query translation job ' + jobId);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
 				resolve({
 					id: jobId,
 					job: data
 				});
 			} else {
-				console.log('ERROR: failed to query translation job: ' + response.statusCode);
-				resolve({
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to query translation job ' + jobId + '  : ' + msg);
+				return resolve({
 					err: 'err'
 				});
 			}
@@ -176,48 +206,6 @@ var _getTranslationJob = function (server, jobId) {
 	return jobPromise;
 };
 
-/**
- * Download file from server
- * 
- * @param {*} server 
- * @param {*} fFileGUID 
- */
-var _downloadFile = function (server, fFileGUID, jobName) {
-	var downloadPromise = new Promise(function (resolve, reject) {
-		var client = new Client({
-			user: server.username,
-			password: server.password
-		});
-		var url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data';
-		client.get(url, function (data, response) {
-			if (response && response.statusCode === 200) {
-				resolve({
-					data: data
-				});
-			} else {
-				var result;
-				try {
-					result = JSON.parse(data);
-				} catch (error) {};
-				var msg = response.statusCode;
-				if (result && result.errorMessage) {
-					msg = result.errorMessage;
-				} else {
-					if (response.statusCode === 403) {
-						msg = 'No read permission';
-					} else if (response.statusCode === 404) {
-						msg = 'File id is not found';
-					}
-				}
-				console.log('ERROR: failed to download job: ' + msg);
-				resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-	return downloadPromise;
-};
 
 var _updateTranslationJobStatus = function (server, csrfToken, job, status) {
 	var updatePromise = new Promise(function (resolve, reject) {
@@ -231,10 +219,7 @@ var _updateTranslationJobStatus = function (server, csrfToken, job, status) {
 		var url = server.url + '/content/management/api/v1.1/translationJobs/' + job.id;
 		job.status = status;
 		var formDataStr = JSON.stringify(job);
-		var auth = {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 		var postData = {
 			method: 'PUT',
 			url: url,
@@ -317,10 +302,7 @@ var _validateTranslationJob = function (request, server, translationJobType, job
 		};
 		console.log(formData);
 		var formDataStr = JSON.stringify(formData);
-		var auth = {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 		var postData = {
 			method: 'POST',
 			url: url,
@@ -382,10 +364,7 @@ var _deployTranslationJob = function (request, server, translationJobType, job, 
 		};
 		// console.log(formData);
 		var formDataStr = JSON.stringify(formData);
-		var auth = {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 		var postData = {
 			method: 'POST',
 			url: url,
@@ -1646,7 +1625,10 @@ module.exports.downloadTranslationJob = function (argv, done) {
 		}
 		// console.log(job);
 		var fFileGUID = job.fFileGUID;
-		var downloadPromise = _downloadFile(server, job.fFileGUID, jobName);
+		var downloadPromise = serverRest.downloadFile({
+			server: server,
+			fFileGUID: job.fFileGUID
+		});
 		downloadPromise.then(function (result) {
 			if (result.err) {
 				done();
@@ -2372,7 +2354,7 @@ module.exports.createTranslationConnector = function (argv, done) {
 			projectDir,
 			stdio: 'inherit'
 		});
-	
+
 		console.log('Start the connector: cec start-translation-connector ' + name + ' [-p <port>]');
 		done(true);
 	});

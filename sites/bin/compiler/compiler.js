@@ -32,7 +32,8 @@ Sample Invocation:
 //*********************************************
 var fs = require('fs'),
 	path = require('path'),
-	merge = require('deepmerge');
+	merge = require('deepmerge'),
+	request = require('request');
 
 var componentsEnabled = true;
 if (componentsEnabled) {
@@ -45,6 +46,7 @@ if (componentsEnabled) {
 
 // Configured Variables
 var siteFolder, // Z:/sitespublish/SiteC/
+	templateName, // name of the template being compiled
 	themesFolder, // Z:/themespublish/
 	componentsFolder, // Z:/componentspublish/
 	sitesCloudRuntimeFolder, // Z:/sitescloudruntime/
@@ -54,7 +56,9 @@ var siteFolder, // Z:/sitespublish/SiteC/
 	sitesCloudCDN = '', // 'https://cdn.cec.oraclecorp.com/cdn/cec/v19.3.2.31';
 	channelAccessToken = '', // channel access token for the site
 	defaultContentType, // type of content to fetch ['draft' | 'published'] if querying from server
-	server; // server to use for any content calls
+	server, // server to use for any content calls
+	useDefaultDetailPageLink; // whether to compile a detail page using the default detail page if no detail page specified
+
 
 // Global Variables
 var layoutInfoRE = /<!--\s*SCS Layout Information:\s*(\{[\s\S]*?\})\s*-->/;
@@ -66,6 +70,10 @@ var useOriginalRequireJS = false;
 var rootStructure;
 var rootSiteInfo;
 var outputAlternateHierarchy = true; // Emit to /folder/_files/<filename> structure
+var pagesToCompile; // list of pages that will be compiled
+
+// track detail pages to create after all the pages are created
+var detailPageList = {};
 
 //*********************************************
 // Other root vars
@@ -739,6 +747,7 @@ var compiler = {
 		self.navigationCurr = args.navigationCurr;
 		self.structureMap = args.structureMap;
 		self.siteInfo = args.siteInfo;
+		self.detailContentItem = args.detailContentItem;
 		self.reportedMessages = {};
 
 		// define the list of supported component compilers
@@ -760,55 +769,81 @@ var compiler = {
 			navigationCurr: self.navigationCurr,
 			structureMap: self.structureMap,
 			siteInfo: self.siteInfo,
+			siteFolder: siteFolder,
+			pageLocale: self.pageLocale,
+			detailContentItem: self.detailContentItem,
 			channelAccessToken: channelAccessToken,
 			getContentClient: function (type) {
-				var contentType = type === 'published' ? 'published' : defaultContentType,
-					contentSDK = require('../../test/server/npm/contentSDK.js'),
-					beforeSend = function () {
-						return true;
-					};
+				return new Promise(function (resolve, reject) {
+					var contentType = type === 'published' ? 'published' : defaultContentType,
+						clientKey = type || 'default',
+						contentSDK = require('../../test/server/npm/contentSDK.js'),
+						beforeSend = function () {
+							return true;
+						},
+						getLocalTemplateURL = '';
 
-				// get/create the content client cache
-				self.contentClients = self.contentClients || {};
+					// get/create the content client cache
+					self.contentClients = self.contentClients || {};
 
-				// create the content client if it doesn't exist in the cache
-				if (!self.contentClients[type]) {
-					var serverURL,
-						authorization = '';
+					// create the content client if it doesn't exist in the cache
+					if (!self.contentClients[clientKey]) {
+						var serverURL,
+							authorization = '';
 
-					if (server && server.username && server.password) {
-						// use the configured server
-						serverURL = server.url;
+						if (server && server.username && server.password) {
+							// use the configured server
+							serverURL = server.url;
 
-						if (server.username && server.password) {
-							authorization = 'Basic ' + Buffer.from(server.username + ':' + server.password).toString('base64');
+							if (server.username && server.password) {
+								authorization = 'Basic ' + Buffer.from(server.username + ':' + server.password).toString('base64');
+							}
+							// set the header
+							beforeSend = function (options) {
+								options.headers = options.headers || {};
+								options.headers.authorization = authorization;
+							};
+						} else if (process.env.CEC_TOOLKIT_SERVER) {
+							// no server, use the environment server
+							serverURL = 'http://' + process.env.CEC_TOOLKIT_SERVER + ':' + (process.env.CEC_TOOLKIT_PORT || '8085');
+							contentType = 'published'; // only support published URLs on local server
+
+							// set the template to use for the local server requests
+							getLocalTemplateURL = serverURL + '/templates/' + templateName;
+						} else {
+							// no server available, default
+							serverURL = 'http://localhost:8085';
+							contentType = 'published'; // only support published URLs on local server
+
+							// set the template to use for the local server requests
+							getLocalTemplateURL = serverURL + '/templates/' + templateName;
 						}
-						// set the header
-						beforeSend = function (options) {
-							options.headers = options.headers || {};
-							options.headers.authorization = authorization;
-						};
-					} else if (process.env.CEC_TOOLKIT_SERVER) {
-						// no server, use the local server
-						serverURL = 'http://' + process.env.CEC_TOOLKIT_SERVER + ':' + (process.env.CEC_TOOLKIT_PORT || '8085');
-						contentType = 'published'; // only support published URLs on local server
-					} else {
-						// no server available, default
-						serverURL = 'http://localhost:8085';
-						contentType = 'published'; // only support published URLs on local server
+
+						self.contentClients[type || 'default'] = contentSDK.createPreviewClient({
+							contentServer: serverURL,
+							authorization: authorization,
+							contentType: contentType,
+							beforeSend: beforeSend,
+							contentVersion: 'v1.1',
+							channelToken: channelAccessToken || '',
+							isCompiler: true
+						});
 					}
 
-					self.contentClients[type] = contentSDK.createPreviewClient({
-						contentServer: serverURL,
-						authorization: authorization,
-						contentType: contentType,
-						beforeSend: beforeSend,
-						contentVersion: 'v1.1',
-						channelToken: channelAccessToken || '',
-						isCompiler: true
-					});
-				}
-				return self.contentClients[type];
+					if (getLocalTemplateURL) {
+						// do a get on the template before proceeding to setup the template to use
+						// this is required so that the content REST calls know which template to query against
+						var options = {
+							url: getLocalTemplateURL
+						};
+						request(options, function (error, response, body) {
+							// this is just to wait for the template name to inserted into the server context via the URL, no need to check response
+							resolve(self.contentClients[clientKey]);
+						});
+					} else {
+						resolve(self.contentClients[clientKey]);
+					}
+				});
 			},
 			getComponentInstanceData: function (instanceId) {
 				return self.pageModel.componentInstances[instanceId];
@@ -824,6 +859,36 @@ var compiler = {
 			},
 			getPageLinkData: function (pageId) {
 				return getPageLinkData(pageId, self.sitePrefix, self.structureMap, self.pageLocale);
+			},
+			compileDetailPage: function (detailPageId, contentItem) {
+				var pageId = detailPageId;
+
+				// find the default detail page if no detail page defined
+				if (!pageId && useDefaultDetailPageLink) {
+					pageId = this.getDetailPageId();
+				}
+
+				if (pageId) {
+					// make sure we can create a link to this detail page before we add it to list to compile
+					var pageLinkData = this.getPageLinkData(pageId);
+					if (pageLinkData) {
+						// add by language
+						var language = this.pageLocale;
+						detailPageList[language] = detailPageList[language] || [];
+
+						// make sure we're not already compiling this page
+						var existingPage = detailPageList[language].find(function (entry) {
+							return entry.contentItem.id === contentItem.id;
+						});
+
+						if (!existingPage) {
+							detailPageList[language].push({
+								detailPageId: pageId,
+								contentItem: contentItem
+							});
+						}
+					}
+				}
 			},
 			getPageURL: function (pageId) {
 				var linkData = this.getPageLinkData(pageId),
@@ -1694,7 +1759,7 @@ function getLayoutSlotIds(layoutName, layoutMarkup) {
 		try {
 			var layoutInfo = JSON.parse(json);
 			slotIds = layoutInfo.slotIds;
-		} catch (e) { }
+		} catch (e) {}
 
 		return "";
 	});
@@ -1772,12 +1837,14 @@ function computeSitePrefix(context, pageUrl, pageInfo) {
 		sitePrefix = '../' + sitePrefix;
 	}
 
+	/*
 	if (pageInfo && pageInfo.isDetailPage) {
 		// Assume that the /detail-page/<slug> format will be used to address the detail page,
 		// so add an extra relative segment for the slug.  (Were we to allow the other detail
 		// page formats, we would not know how many extra relative segments to add.)
 		sitePrefix = '../' + sitePrefix;
 	}
+	*/
 
 	if (sitePrefix === '') {
 		sitePrefix = './';
@@ -1796,7 +1863,7 @@ function createPage(context, pageInfo) {
 				console.log('createPage: Bypassing pageId ' + pageInfo.id + ' having external URL: ' + pageInfo.linkUrl);
 				resolve();
 			} else {
-				console.log('createPage: Processing pageId ' + pageInfo.id + ' at the URL: ' + (outputURL ? outputURL : '') + (context.pageLocale ? context.pageLocale + '/' : '') + pageInfo.pageUrl + ": CONTEXT: " + context.locale);
+				console.log('createPage: Processing ' + (pageInfo.contentItem ? 'detail ' : '') + 'pageId ' + pageInfo.id + ' at the URL: ' + (outputURL ? outputURL : '') + (context.pageLocale ? context.pageLocale + '/' : '') + pageInfo.pageUrl + ": CONTEXT: " + context.locale);
 
 				var pageDatas = getPageData(context, pageInfo.id);
 				var pageData = pageDatas.pageData;
@@ -1813,7 +1880,8 @@ function createPage(context, pageInfo) {
 					"navigationRoot": context.navRoot,
 					"navigationCurr": (pageId && typeof pageId == 'string') ? parseInt(pageId) : pageId,
 					"structureMap": context.navMap,
-					"siteInfo": context.siteInfo
+					"siteInfo": context.siteInfo,
+					"detailContentItem": pageInfo.contentItem
 				});
 
 				compileThemeLayout(context.themeName, layoutName, pageData).then(function (layoutMarkup) {
@@ -1968,14 +2036,88 @@ function getPagesToCompile(context, pages, recurse) {
 	return pagesToCompile;
 }
 
+function createDetailPage(context, detailPage) {
+	var detailPageId = detailPage.detailPageId,
+		contentItem = detailPage.contentItem,
+		slug = contentItem.slug;
+
+	// find the detail page - it must exist since it was found in: SCSCompileAPI.compileDetailPage() when added to the list
+	var detailPageInfo = context.structure.pages.find(function (entry) {
+		return entry.id.toString() === detailPageId.toString();
+	});
+
+	// we need to update the detail page information to reflect this instance of the detail page and the URL that will be used to access it
+	var pageInfo = JSON.parse(JSON.stringify(detailPageInfo));
+	pageInfo.contentItem = contentItem;
+	pageInfo.pageUrl = pageInfo.pageUrl.replace(/\.htm(|l)$/, '') + '/' + slug;
+
+	// create the detail page
+	return createPage(context, pageInfo);
+}
+
+function createDetailPages() {
+	var createDetailPagePromises = [];
+
+	Object.keys(detailPageList).forEach(function (language) {
+		// Initialize the context for this set of pages
+		var context = setupContext(language);
+
+		// get the array of pages to compile
+		pagesToCompile = detailPageList[language];
+
+		// create the array of functions that will execute the createPage promise when called
+		pagesToCompile.forEach(function (pageInfo) {
+			createDetailPagePromises.push(function () {
+				return createDetailPage(context, pageInfo);
+			});
+		});
+	});
+
+	// execute page promises serially
+	var doCreateDetailPages = createDetailPagePromises.reduce(function (previousPromise, nextPromise) {
+			return previousPromise.then(function () {
+				// wait for the previous promise to complete and then call the function to start executing the next promise
+				return nextPromise();
+			});
+		},
+		// Start with a previousPromise value that is a resolved promise 
+		Promise.resolve());
+
+	// create all the detail pages
+	return doCreateDetailPages;
+}
+
+function setupContext(language) {
+	var context = readStructure(language);
+	readSlotReuseData(context);
+	produceSiteNavigationStructure(context);
+
+	// update the context with the locale
+	context.locale = language;
+	context.pageLocale = language;
+
+	// include the default channelAccessToken entry if provided
+	if (channelAccessToken && context.siteInfo.properties) {
+		context.siteInfo.properties.channelAccessTokens = context.siteInfo.properties.channelAccessTokens || [];
+		context.siteInfo.properties.channelAccessTokens.push({
+			'name': 'defaultToken',
+			'value': channelAccessToken
+		});
+	}
+
+	return context;
+}
+
 var compileSite = function (args) {
 	siteFolder = args.siteFolder;
+	templateName = siteFolder && path.basename(siteFolder);
 	themesFolder = args.themesFolder;
 	componentsFolder = args.componentsFolder;
 	sitesCloudRuntimeFolder = args.sitesCloudRuntimeFolder;
 	outputFolder = args.outputFolder;
 	pages = args.pages;
 	recurse = args.recurse;
+	useDefaultDetailPageLink = !(args.noDefaultDetailPageLink);
 	logLevel = args.logLevel;
 	sitesCloudCDN = args.sitesCloudCDN || '';
 	outputURL = args.outputURL;
@@ -2007,25 +2149,10 @@ var compileSite = function (args) {
 	var languages = getAvailableLanguages();
 	languages.forEach(function (language) {
 		// Initialize the context for this set of pages
-		var context = readStructure(language, pages, recurse);
-		readSlotReuseData(context);
-		produceSiteNavigationStructure(context);
-
-		// update the context with the locale
-		context.locale = language;
-		context.pageLocale = language;
-
-		// include the default channelAccessToken entry if provided
-		if (channelAccessToken && context.siteInfo.properties) {
-			context.siteInfo.properties.channelAccessTokens = context.siteInfo.properties.channelAccessTokens || [];
-			context.siteInfo.properties.channelAccessTokens.push({
-				'name': 'defaultToken',
-				'value': channelAccessToken
-			});
-		}
+		var context = setupContext(language);
 
 		// get the array of pages to compile
-		var pagesToCompile = getPagesToCompile(context, pages, recurse);
+		pagesToCompile = getPagesToCompile(context, pages, recurse);
 
 		// create the array of functions that will execute the createPage promise when called
 		pagesToCompile.forEach(function (pageInfo) {
@@ -2048,7 +2175,18 @@ var compileSite = function (args) {
 	// wait until all pages have been created
 	return doCreatePages.then(function () {
 		console.log('All page creation calls complete.');
-		return Promise.resolve();
+
+		// create detail pages as well if they were found during page compilation
+		if (Object.keys(detailPageList).length > 0) {
+			console.log('');
+			console.log('Creating detail pages:');
+			return createDetailPages().then(function () {
+				console.log('All detail page creation calls complete.');
+				return Promise.resolve();
+			});
+		} else {
+			return Promise.resolve();
+		}
 	}).catch(function (e) {
 		console.log(e);
 		return Promise.reject();

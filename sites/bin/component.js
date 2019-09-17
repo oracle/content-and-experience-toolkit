@@ -17,8 +17,6 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	sprintf = require('sprintf-js').sprintf,
 	zip = require('gulp-zip');
 
-var Client = require('node-rest-client').Client;
-
 const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
 
 var cecDir = path.join(__dirname, ".."),
@@ -977,7 +975,7 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 											components[j]['fileGUID'] = results[i].id;
 											found = true;
 											downloadFilePromises.push(_downloadComponentFile(
-												server, components[j].name, components[j].filename, components[j].fileGUID
+												request, server, components[j].name, components[j].filename, components[j].fileGUID
 											));
 										}
 									}
@@ -1075,24 +1073,34 @@ var _exportComponentSCS = function (request, localhost, compId, compName) {
 	});
 };
 
-var _downloadComponentFile = function (server, compName, fileName, fFileGUID) {
+var _downloadComponentFile = function (request, server, compName, fileName, fFileGUID) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-			user: server.username,
-			password: server.password
-		});
+		var auth = serverUtils.getRequestAuth(server);
 		var url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data';
-		client.get(url, function (data, response) {
+		var options = {
+			url: url,
+			auth: auth,
+			encoding: null
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to download file ' + fileName);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
 			if (response && response.statusCode === 200) {
 				resolve({
 					comp: compName,
-					data: data
+					data: body
 				});
 			} else {
 				var result;
 				try {
-					result = JSON.parse(data);
-				} catch (error) {};
+					result = JSON.parse(body);
+				} catch (e) {}
+
 				var msg = response.statusCode;
 				if (result && result.errorMessage) {
 					msg = result.errorMessage;

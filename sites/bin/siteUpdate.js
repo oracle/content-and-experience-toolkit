@@ -14,6 +14,7 @@ var gulp = require('gulp'),
 	contentLib = require('./content.js'),
 	fs = require('fs'),
 	readline = require('readline'),
+	documentUtils = require('./document.js').utils,
 	path = require('path');
 
 
@@ -157,7 +158,7 @@ var _recreateFolder = function (siteGUID, folderPath) {
  * @param {Array.<object>} files array of files from the template to use
  * @returns {Promise.<boolean>} true on successful upload of all pages
  */
-SiteUpdate.prototype.updateSiteFolder = function (argv, siteEntry, updateStep, folderPath, excludedFiles, filesFunc) {
+SiteUpdate.prototype.updateSiteFiles = function (argv, siteEntry, updateStep, folderPath, excludedFiles, filesFunc) {
 	var projectDir = argv.projectDir || path.join(__dirname, ".."),
 		siteName = argv.site,
 		templateName = argv.template,
@@ -354,6 +355,43 @@ SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
 	});
 };
 
+SiteUpdate.prototype.updateSiteFolder = function (argv, siteEntry, stepName, folder) {
+	var projectDir = argv.projectDir || path.join(__dirname, ".."),
+		templateName = argv.template,
+		siteFolder = 'site:' + siteEntry.site,
+		projectFolder = serverUtils.getSourceFolder(projectDir),
+		folderPath = path.join(projectFolder, 'templates', templateName, folder);
+
+	// make sure the folder exists
+	if (fs.existsSync(folderPath)) {
+		// delete the current site folder on the server
+		return documentUtils.deleteFolder({
+			path: siteFolder + '/' + folder
+		}, server).then(function () {
+			// upload the new folder to the site on the server
+			return documentUtils.uploadFolder({
+				path: folderPath,
+				folder: siteFolder
+			}, server).then(function () {
+				return Promise.resolve({
+					name: stepName,
+					errors: 0
+				});
+			});
+		}).catch(function (e) {
+			var error = 'Error: failed to update site folder: ' + folder + '. Previous versions can be re-stored from trash on the server.';
+			console.log(error);
+			return Promise.resolve({
+				name: stepName,
+				error: error,
+				errors: 1
+			});
+		});
+	} else {
+		console.log(' - folder does not exist for update step: "' + stepName + '". Changes to the folder will not be propagated');
+	}
+};
+
 /**
  * Refresh all the content in the site with those from the template. 
  * @param {object} argv command line arguments
@@ -361,8 +399,7 @@ SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
  * @returns {Promise.<boolean>} true on successful upload of all files
  */
 SiteUpdate.prototype.updateContent = function (argv, siteEntry) {
-	var stepName = 'Embedded Content';
-	return this.updateSiteFolder(argv, siteEntry, stepName, ['content'], [], _getContentFromTemplate);
+	return this.updateSiteFolder(argv, siteEntry, "Embedded Content", 'content');
 };
 
 /**
@@ -371,8 +408,25 @@ SiteUpdate.prototype.updateContent = function (argv, siteEntry) {
  * @returns {Promise.<boolean>} true on successful upload of all files
  */
 SiteUpdate.prototype.updatePages = function (argv, siteEntry) {
-	var stepName = 'Site Pages';
-	return this.updateSiteFolder(argv, siteEntry, stepName, ['pages'], [], _getPagesFromTemplate);
+	return this.updateSiteFolder(argv, siteEntry, "Site Pages", 'pages');
+};
+
+/**
+ * Refresh all the compiled static files in the site with those from the template. 
+ * @param {object} argv command line arguments
+ * @returns {Promise.<boolean>} true on successful upload of all files
+ */
+SiteUpdate.prototype.updateStaticFiles = function (argv, siteEntry) {
+	return this.updateSiteFolder(argv, siteEntry, "Static Files", 'static');
+};
+
+/**
+ * Refresh all the site settings files in the site with those from the template. 
+ * @param {object} argv command line arguments
+ * @returns {Promise.<boolean>} true on successful upload of all files
+ */
+SiteUpdate.prototype.updateSettingsFiles = function (argv, siteEntry) {
+	return this.updateSiteFolder(argv, siteEntry, "Settings Files", 'settings');
 };
 
 /**
@@ -391,7 +445,7 @@ SiteUpdate.prototype.updateSystemFiles = function (argv, siteEntry) {
 	// Merge the siteinfo template file with that on the server
 	return self.updateSiteInfoFile(argv, siteEntry).then(function (siteInfoUpdated) {
 		// Now continue as before and update all the system files
-		return self.updateSiteFolder(argv, siteEntry, stepName, [], excludeFiles, _getSystemFromTemplate).then(function (result) {
+		return self.updateSiteFiles(argv, siteEntry, stepName, [], excludeFiles, _getSystemFromTemplate).then(function (result) {
 			// if siteinfo not included, increase the reported error count 
 			if (!siteInfoUpdated) {
 				result.errors = 1;
@@ -401,50 +455,6 @@ SiteUpdate.prototype.updateSystemFiles = function (argv, siteEntry) {
 	});
 };
 
-
-/**
- * Refresh all the site settings files in the site with those from the template. 
- * @param {object} argv command line arguments
- * @returns {Promise.<boolean>} true on successful upload of all files
- */
-SiteUpdate.prototype.updateSettingsFiles = function (argv, siteEntry) {
-	var self = this,
-		settingsFolders = ['controller', 'favicons', 'misc', 'seo', 'system'],
-		settingsPromises = [],
-		numErrors = 0,
-		stepName = 'Settings Files';
-
-	settingsFolders.forEach(function (folder) {
-		settingsPromises.push(function () {
-			return self.updateSiteFolder(argv, siteEntry, stepName, ['settings', folder], [], _getSettingsFolderFromTemplate);
-		});
-	});
-
-	// run through each of the settings promises
-	var doSettingsUpdates = settingsPromises.reduce(function (previousPromise, nextPromise) {
-			return previousPromise.then(function (result) {
-				// add in any errors from this step
-				if (result) {
-					numErrors += result.errors;
-				}
-
-				// wait for the previous promise to complete and then return a new promise for the next 
-				return nextPromise();
-			});
-		},
-		// Start with a previousPromise value that is a resolved promise 
-		Promise.resolve());
-
-	// collate and return the final number of errors
-	return doSettingsUpdates.then(function (result) {
-		numErrors += result.errors;
-
-		return Promise.resolve({
-			errors: numErrors,
-			name: stepName
-		});
-	});
-};
 
 /**
  * Update the content in the site.
@@ -586,12 +596,18 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 				return;
 			}
 
+			// add in the site name
+			siteEntry.site = siteName;
+
 			//
 			// Include all the steps to update the site
 			// Note: Running steps serially to avoid overloading the server.  Could be run in parallel depending on performance/load impact.
 			// 
 			updateSitePromises.push(function () {
 				return self.updatePages(argv, siteEntry);
+			});
+			updateSitePromises.push(function () {
+				return self.updateStaticFiles(argv, siteEntry);
 			});
 			updateSitePromises.push(function () {
 				return self.updateContent(argv, siteEntry);

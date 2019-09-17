@@ -6,6 +6,8 @@ To learn about developing components for Content and Experience Cloud, see the l
 
 [Test to Production](doc/T2P.md) – Use the OCE toolkit for Test to Production
 
+[Headless CLI](doc/IDCS-App.md) - Setup IDCS Application for headless CLI (No popup Chromium for authentication)
+
 ## Setup
 
 * Make sure `node` and `npm` are in your `PATH`.  Use NodeJS 8.0.0 or later.
@@ -81,4 +83,6 @@ cec_env=pod_ec
 export CEC_PROPERTIES=~/my.properties
 ```
 
+## Using an IDCS Application to access CEC Instance to have a CLI without Chromium popup for Authentication
+Instructions on how to setup the IDCS for headless CLI are [here](doc/IDCS-App.md)
 

@@ -340,10 +340,7 @@ var _getContentItems = function (request, host, channelToken, query, limit, orde
 			url: host + url,
 		};
 		if (server) {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
+			options.auth = serverUtils.getRequestAuth(server);
 		}
 		request.get(options, function (err, response, body) {
 			if (err) {

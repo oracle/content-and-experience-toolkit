@@ -5,24 +5,7 @@
 /* global module, process */
 /* jshint esversion: 6 */
 var request = require('request'),
-	Client = require('node-rest-client').Client,
-	siteUtils = require('./serverUtils');
-
-var _utils = {
-	getAuth: function (server) {
-		var auth = server.env !== 'dev_ec' ? {
-			bearer: server.oauthtoken
-		} : {
-			user: server.username,
-			password: server.password
-		};
-
-		return {
-			user: server.username,
-			password: server.password
-		};
-	}
-};
+	serverUtils = require('./serverUtils');
 
 //
 // Folder CRUD
@@ -31,29 +14,37 @@ var _utils = {
 // Create Folder on server
 var _createFolder = function (server, parentID, foldername) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/documents/api/1.2/folders/' + parentID,
-			args = {
-				headers: {
-					"Content-Type": "application/json"
-				},
-				data: {
-					'name': foldername,
-					'description': ''
-				}
-			};
+		var options = {
+			method: 'POST',
+			url: server.url + '/documents/api/1.2/folders/' + parentID,
+			auth: serverUtils.getRequestAuth(server),
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: {
+				'name': foldername,
+				'description': ''
+			},
+			json: true
+		};
 
-		client.post(url, args, function (data, response) {
-			if (response && response.statusCode >= 200 && response.statusCode < 300) {
-				resolve(data);
-			} else {
-				console.log('Failed to create Folder: ' + foldername);
-				// continue
-				resolve();
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to create folder ' + foldername);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
 			}
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve(body);
+			} else {
+				console.log('ERROR: failed to create folder ' + foldername + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: 'err'
+				});
+			}
+
 		});
 	});
 };
@@ -162,22 +153,29 @@ module.exports.findFolderHierarchy = function (args) {
 // Delete Folder on server
 var _deleteFolder = function (server, fFolderGUID) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/documents/api/1.2/folders/' + fFolderGUID;
+		var options = {
+			method: 'DELETE',
+			url: server.url + '/documents/api/1.2/folders/' + fFolderGUID,
+			auth: serverUtils.getRequestAuth(server)
+		};
 
-		client.delete(url, function (data, response) {
-			if (response && response.statusCode >= 200 && response.statusCode < 300) {
-				resolve(data);
-			} else {
-				console.log('Failed to delete Folder: ' + fFileGUID);
-				// continue
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to delete folder ' + fFolderGUID);
+				console.log(error);
 				resolve({
 					err: 'err'
 				});
 			}
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve(body);
+			} else {
+				console.log('ERROR: failed to delete folder ' + foldername + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: 'err'
+				});
+			}
+
 		});
 	});
 };
@@ -195,28 +193,39 @@ module.exports.deleteFolder = function (args) {
 // Get child items with the parent folder
 var _getChildItems = function (server, parentID, limit) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/documents/api/1.2/folders/' + parentID + '/items';
+		var url = server.url + '/documents/api/1.2/folders/' + parentID + '/items';
 		if (limit) {
 			url = url + '?limit=' + limit;
 		}
-
-		var req = client.get(url, function (data, response) {
-			// try to find the requested folder
-			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get folder child items ' + parentID);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to get folder child items: ' + (response.statusMessage || response.statusCode));
-				return resolve();
+				console.log('ERROR: failed to get folder items ' + parentID + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: 'err'
+				});
 			}
 		});
-		req.on('error', function (err) {
-			console.log('ERROR: ' + err);
-			resolve();
-		});
+
 	});
 };
 /**
@@ -234,15 +243,27 @@ module.exports.getChildItems = function (args) {
 // Find file by name with the parent folder
 var _findFile = function (server, parentID, filename, showError, itemtype) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/documents/api/1.2/folders/' + parentID + '/items';
-
-		var req = client.get(url, function (data, response) {
-			// try to find the requested folder
-			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+		var url = server.url + '/documents/api/1.2/folders/' + parentID + '/items';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get folder child items ' + parentID);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
 				// find the requested folder
 				var items = (data && data.items || []);
 				for (var i = 0; i < items.length; i++) {
@@ -251,7 +272,6 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 					}
 				}
 			}
-
 			// folder not found
 			if (showError) {
 				var msg = data.title || data.errorMessage || '';
@@ -259,12 +279,6 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 			}
 			return resolve({
 				err: data.errorCode || 'err'
-			});
-		});
-		req.on('error', function (err) {
-			console.log('ERROR: ' + err);
-			resolve({
-				err: 'err'
 			});
 		});
 	});
@@ -294,10 +308,7 @@ var _createFile = function (server, parentID, filename, contents) {
 		var options = {
 			method: 'POST',
 			url: server.url + '/documents/api/1.2/files/data/',
-			auth: {
-				user: server.username,
-				password: server.password
-			},
+			auth: serverUtils.getRequestAuth(server),
 			headers: {
 				'Content-Type': 'multipart/form-data'
 			},
@@ -314,13 +325,28 @@ var _createFile = function (server, parentID, filename, contents) {
 			}
 		};
 
-		request(options, function (data, response) {
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to create file ' + filename);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
-				resolve(JSON.parse(response.body));
+				resolve(data);
 			} else {
-				console.log('Failed to create file: ' + filename);
-				// continue 
-				resolve();
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to create file ' + filename + ' : ' + msg);
+				resolve({
+					err: 'err'
+				});
 			}
 		});
 	});
@@ -342,20 +368,36 @@ module.exports.createFile = function (args) {
 // Read file from server
 var _readFile = function (server, fFileGUID) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data/';
-
-		client.get(url, function (data, response) {
-			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+		var url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data/';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to read file ' + fFileGUID);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				// continue 
-				resolve();
+				console.log('ERROR: failed to read file ' + fFileGUID + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: 'err'
+				});
 			}
 		});
+
 	});
 };
 /**
@@ -371,11 +413,8 @@ module.exports.readFile = function (args) {
 
 var _downloadFile = function (server, fFileGUID) {
 	return new Promise(function (resolve, reject) {
-		var auth = {
-			user: server.username,
-			password: server.password
-		};
-		url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data/';
+		var auth = serverUtils.getRequestAuth(server);
+		var url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data/';
 		var options = {
 			url: url,
 			auth: auth,
@@ -416,58 +455,31 @@ module.exports.downloadFile = function (args) {
 	return _downloadFile(args.server, args.fFileGUID);
 };
 
-// Update file on server
-var _updateFile = function (server, fFileGUID, contents) {
-	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data/',
-			args = {
-				data: contents
-			};
-
-		client.post(url, args, function (data, response) {
-			if (response && response.statusCode >= 200 && response.statusCode < 300) {
-				resolve(data);
-			} else {
-				console.log('Failed to update file: ' + fFileGUID);
-				// continue 
-				resolve();
-			}
-		});
-	});
-};
-/**
- * Update file from server by file GUID
- * @param {object} args JavaScript object containing parameters. 
- * @param {object} args.server the server object
- * @param {string} args.fFileGUID The DOCS GUID for the file to update
- * @param {stream} args.contents The filestream to upload
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.updateFile = function (args) {
-	return _updateFile(args.server, args.fFileGUID, args.contents);
-};
-
 // Delete file from server
 var _deleteFile = function (server, fFileGUID) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/documents/api/1.2/files/' + fFileGUID;
-
-		client.delete(url, function (data, response) {
-			if (response && response.statusCode >= 200 && response.statusCode < 300) {
-				resolve(data);
-			} else {
-				console.log('Failed to delete file: ' + fFileGUID);
-				// continue 
-				resolve();
+		var options = {
+			method: 'DELETE',
+			url: server.url + '/documents/api/1.2/files/' + fFileGUID,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to delete file ' + fFileGUID);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
 			}
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve(body);
+			} else {
+				console.log('ERROR: failed to delete file ' + fFileGUID + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: 'err'
+				});
+			}
+
 		});
 	});
 };
@@ -485,18 +497,29 @@ module.exports.deleteFile = function (args) {
 // Get file versions from server
 var _getFileVersions = function (server, fFileGUID) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/versions';
-
-		client.get(url, function (data, response) {
-			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+		var url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/versions';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get file version ' + fFileGUID);
+				console.log(error);
+				resolve();
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
-				// continue 
-				console.log('ERROR: file ' + fFileGUID + ' ' + response.statusMessage);
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get file version ' + fFileGUID + ' : ' + msg);
 				resolve();
 			}
 		});
@@ -515,20 +538,35 @@ module.exports.getFileVersions = function (args) {
 
 var _getItem = function (server, id, expand) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/content/management/api/v1.1/items/' + id;
+		var url = server.url + '/content/management/api/v1.1/items/' + id;
 		if (expand) {
 			url = url + '?expand=' + expand;
 		}
-		client.get(url, function (data, response) {
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get item ' + id);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
-				resolve(data);
+				return resolve(data);
 			} else {
-				console.log('ERROR: failed to get item: ' + (response.statusMessage || response.statusCode));
-				resolve({
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get item ' + id + ' : ' + msg);
+				return resolve({
 					err: 'err'
 				});
 			}
@@ -550,7 +588,7 @@ module.exports.getItem = function (args) {
 // Create channel on server
 var _createChannel = function (server, name, channelType, description, publishPolicy, localizationPolicy) {
 	return new Promise(function (resolve, reject) {
-		siteUtils.getCaasCSRFToken(server).then(function (result) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
 				resolve(result);
 			} else {
@@ -566,26 +604,39 @@ var _createChannel = function (server, name, channelType, description, publishPo
 					payload.localizationPolicy = localizationPolicy
 				}
 
-				var client = new Client({
-						user: server.username,
-						password: server.password
-					}),
-					url = server.url + '/content/management/api/v1.1/channels',
-					args = {
-						headers: {
-							'Content-Type': 'application/json',
-							'X-CSRF-TOKEN': csrfToken,
-							'X-REQUESTED-WITH': 'XMLHttpRequest'
-						},
-						data: payload
-					};
+				var url = server.url + '/content/management/api/v1.1/channels';
+				var auth = serverUtils.getRequestAuth(server);
+				var postData = {
+					method: 'POST',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					body: payload,
+					json: true
+				};
 
-				client.post(url, args, function (data, response) {
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to create channel ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (error) {
+						data = body;
+					};
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to create channel: ' + name + ' - ' + response.statusMessage);
-						// continue
+						console.log('Failed to create channel ' + name + ' : ' + (response.statusMessage || response.statusCode));
 						resolve({
 							err: 'err'
 						});
@@ -615,31 +666,42 @@ module.exports.createChannel = function (args) {
 // Delete channel on server
 var _deleteChannel = function (server, id) {
 	return new Promise(function (resolve, reject) {
-		siteUtils.getCaasCSRFToken(server).then(function (result) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
 				resolve(result);
 			} else {
 				var csrfToken = result && result.token;
+				var url = server.url + '/content/management/api/v1.1/channels/' + id;
+				var auth = serverUtils.getRequestAuth(server);
+				var postData = {
+					method: 'DELETE',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					}
+				};
 
-				var client = new Client({
-						user: server.username,
-						password: server.password
-					}),
-					url = server.url + '/content/management/api/v1.1/channels/' + id,
-					args = {
-						headers: {
-							'Content-Type': 'application/json',
-							'X-CSRF-TOKEN': csrfToken,
-							'X-REQUESTED-WITH': 'XMLHttpRequest'
-						}
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to delete channel ' + id);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (error) {
+						data = body;
 					};
-
-				client.delete(url, args, function (data, response) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to delete channel: ' + id + ' - ' + response.statusMessage);
-						// continue
+						console.log('Failed to delete channel ' + id + ' : ' + (response.statusMessage || response.statusCode));
 						resolve({
 							err: 'err'
 						});
@@ -663,7 +725,7 @@ module.exports.deleteChannel = function (args) {
 // Add channel to repository
 var _addChannelToRepository = function (server, channelId, channelName, repository) {
 	return new Promise(function (resolve, reject) {
-		siteUtils.getCaasCSRFToken(server).then(function (result) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
 				resolve(result);
 			} else {
@@ -682,11 +744,7 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 
 				var request = require('request');
 				var url = server.url + '/content/management/api/v1.1/repositories/' + repository.id;
-
-				var auth = {
-					user: server.username,
-					password: server.password
-				};
+				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'PUT',
 					url: url,
@@ -708,16 +766,18 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 							err: 'err'
 						});
 					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (error) {
+						data = body;
+					};
+					
 					if (response && response.statusCode === 200) {
-						var data;
-						try {
-							data = JSON.parse(body);
-						} catch (error) {};
-						resolve({
-							data
-						});
+						resolve(data);
 					} else {
-						console.log('Failed to add channel ' + channelName + ' to repository ' + repository.name + ' ' + response.statusMessage);
+						var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+						console.log('Failed to add channel ' + channelName + ' to repository ' + repository.name + ' : ' + msg);
 						resolve({
 							err: 'err'
 						});
@@ -745,28 +805,36 @@ module.exports.addChannelToRepository = function (args) {
 // Get channels from server
 var _getChannels = function (server) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/content/management/api/v1.1/channels?limit=99999&fields=all';
-
-		var req = client.get(url, function (data, response) {
+		var url = server.url + '/content/management/api/v1.1/channels?limit=99999&fields=all';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get channels');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
-				console.log('ERROR: failed to get channels: ' + (response.statusMessage || response.statusCode));
-				resolve({
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get channels  : ' + msg);
+				return resolve({
 					err: 'err'
 				});
 			}
 		});
-		req.on('error', function (err) {
-			console.log('ERROR: ' + err);
-			resolve({
-				err: 'err'
-			});
-		})
 	});
 };
 /**
@@ -782,18 +850,32 @@ module.exports.getChannels = function (args) {
 // Get channel from server
 var _getChannel = function (server, channelId) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/content/management/api/v1.1/channels/' + channelId;
-
-		client.get(url, function (data, response) {
+		var url = server.url + '/content/management/api/v1.1/channels/' + channelId;
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get channel ' + channelId);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to get channel: ' + (response.statusMessage || response.statusCode));
-				resolve({
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get channel ' + channelId + '  : ' + msg);
+				return resolve({
 					err: 'err'
 				});
 			}
@@ -815,21 +897,35 @@ module.exports.getChannel = function (args) {
 // Get all items in a channel from server
 var _getChannelItems = function (server, channelToken, fields) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/content/management/api/v1.1/items?limit=9999&channelToken=' + channelToken;
+		var url = server.url + '/content/management/api/v1.1/items?limit=9999&channelToken=' + channelToken;
 		if (fields) {
 			url = url + '&fields=' + fields;
 		}
-
-		client.get(url, function (data, response) {
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get channel items');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
-				console.log('ERROR: failed to get channel items: ' + (response.statusMessage || response.statusCode));
-				resolve({
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get channel items  : ' + msg);
+				return resolve({
 					err: 'err'
 				});
 			}
@@ -851,14 +947,14 @@ module.exports.getChannelItems = function (args) {
 // perform bulk operation on items in a channel from server
 var _opChannelItems = function (server, operation, channelIds, itemIds, queryString) {
 	return new Promise(function (resolve, reject) {
-		siteUtils.getCaasCSRFToken(server).then(function (result) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
 				resolve(result);
 			} else {
 
 				var csrfToken = result && result.token;
 
-				var request = siteUtils.getRequest();
+				var request = serverUtils.getRequest();
 
 				var q = '';
 				if (queryString) {
@@ -881,10 +977,7 @@ var _opChannelItems = function (server, operation, channelIds, itemIds, queryStr
 
 				var url = server.url + '/content/management/api/v1.1/bulkItemsOperations';
 
-				var auth = {
-					user: server.username,
-					password: server.password
-				};
+				var auth = serverUtils.getRequestAuth(server);
 
 				var operations = {};
 				if (operation === 'deleteItems') {
@@ -1030,18 +1123,32 @@ module.exports.validateChannelItems = function (args) {
 
 var _getItemOperationStatus = function (server, statusId) {
 	return statusPromise = new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/content/management/api/v1.1/bulkItemsOperations/' + statusId;
-
-		client.get(url, function (data, response) {
+		var url = server.url + '/content/management/api/v1.1/bulkItemsOperations/' + statusId;
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: get channel operation status');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to get channel operation status ' + (response.statusMessage || response.statusCode));
-				resolve({
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get channel operation status' + '  : ' + msg);
+				return resolve({
 					err: 'err'
 				});
 			}
@@ -1062,28 +1169,36 @@ module.exports.getItemOperationStatus = function (args) {
 // Get localization policies from server
 var _getLocalizationPolicies = function (server) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/content/management/api/v1.1/localizationPolicies?limit=99999';
-
-		var req = client.get(url, function (data, response) {
+		var url = server.url + '/content/management/api/v1.1/localizationPolicies?limit=99999';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to localization policies');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
-				console.log('ERROR: failed to get localization policies: ' + (response.statusMessage || response.statusCode));
-				resolve({
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get localization policies : ' + msg);
+				return resolve({
 					err: 'err'
 				});
 			}
 		});
-		req.on('error', function (err) {
-			console.log('ERROR: ' + err);
-			resolve({
-				err: 'err'
-			});
-		})
 	});
 };
 /**
@@ -1099,28 +1214,36 @@ module.exports.getLocalizationPolicies = function (args) {
 // Get a localization policy from server
 var _getLocalizationPolicy = function (server, id) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/content/management/api/v1.1/localizationPolicies/' + id;
-
-		var req = client.get(url, function (data, response) {
+		var url = server.url + '/content/management/api/v1.1/localizationPolicies/' + id;
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get localization policy ' + id);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
-				resolve(data);
+				return resolve(data);
 			} else {
-				console.log('ERROR: failed to get localization policy: ' + (response.statusMessage || response.statusCode));
-				resolve({
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get localization policy ' + id + ' : ' + msg);
+				return resolve({
 					err: 'err'
 				});
 			}
 		});
-		req.on('error', function (err) {
-			console.log('ERROR: ' + err);
-			resolve({
-				err: 'err'
-			});
-		})
 	});
 };
 /**
@@ -1137,40 +1260,53 @@ module.exports.getLocalizationPolicy = function (args) {
 // Create localization policy on server
 var _createLocalizationPolicy = function (server, name, description, requiredLanguages, defaultLanguage, optionalLanguages) {
 	return new Promise(function (resolve, reject) {
-		siteUtils.getCaasCSRFToken(server).then(function (result) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
 				resolve(result);
 			} else {
 				var csrfToken = result && result.token;
 
-				var client = new Client({
-						user: server.username,
-						password: server.password
-					}),
-					url = server.url + '/content/management/api/v1.1/localizationPolicies',
-					payload = {};
-
+				var payload = {};
 				payload.name = name;
 				payload.description = description || '';
 				payload.requiredValues = requiredLanguages;
 				payload.defaultValue = defaultLanguage;
 				payload.optionalValues = optionalLanguages || [];
 
-				var args = {
+				var url = server.url + '/content/management/api/v1.1/localizationPolicies';
+				var auth = serverUtils.getRequestAuth(server);
+				var postData = {
+					method: 'POST',
+					url: url,
+					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
 						'X-REQUESTED-WITH': 'XMLHttpRequest'
 					},
-					data: payload
+					body: payload,
+					json: true
 				};
 
-				client.post(url, args, function (data, response) {
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to create localization policy ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (error) {
+						data = body;
+					};
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('ERROR: failed to create localization policy: ' + name + ' - ' + (data && data.detail ? data.detail : response.statusMessage));
-						// continue
+						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
+						console.log('Failed to create localization policy ' + name + ' : ' + msg);
 						resolve({
 							err: 'err'
 						});
@@ -1199,29 +1335,36 @@ module.exports.createLocalizationPolicy = function (args) {
 // Get repositories from server
 var _getRepositories = function (server) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/content/management/api/v1.1/repositories?limit=99999&fields=all';
-
-		var req = client.get(url, function (data, response) {
+		var url = server.url + '/content/management/api/v1.1/repositories?limit=99999&fields=all';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get repositories');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
-				console.log('ERROR: failed to get repositories: ' + (response.statusMessage || response.statusCode));
-				resolve({
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get repositories : ' + msg);
+				return resolve({
 					err: 'err'
 				});
 			}
 		});
-		req.on('error', function (err) {
-			console.log('ERROR: ' + err);
-			resolve({
-				err: 'err'
-			});
-		})
-
 	});
 };
 /**
@@ -1237,18 +1380,32 @@ module.exports.getRepositories = function (args) {
 // Get a repository from server
 var _getRepository = function (server, repoId) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/content/management/api/v1.1/repositories/' + repoId;
-
-		client.get(url, function (data, response) {
+		var url = server.url + '/content/management/api/v1.1/repositories/' + repoId;
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get repository ' + repoId);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to get repository: ' + (response.statusMessage || response.statusCode));
-				resolve({
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get repository ' + repoId + ' : ' + msg);
+				return resolve({
 					err: 'err'
 				});
 			}
@@ -1269,13 +1426,27 @@ module.exports.getRepository = function (args) {
 // Get a repository from server
 var _getResourcePermissions = function (server, id, type) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			resourceType = type === 'repository' ? 'repositories' : (type === 'type' ? 'types' : type),
+		var resourceType = type === 'repository' ? 'repositories' : (type === 'type' ? 'types' : type),
 			url = server.url + '/content/management/api/v1.1/' + resourceType + '/' + id + '/permissions';
-		client.get(url, function (data, response) {
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get ' + type + ' permissions for ' + id);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
 				resolve({
 					resource: id,
@@ -1283,8 +1454,9 @@ var _getResourcePermissions = function (server, id, type) {
 					permissions: data && data.items
 				});
 			} else {
-				console.log('ERROR: failed to get ' + type + ' permissions for ' + id + ' : ' + (response.statusMessage || response.statusCode));
-				resolve({
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get ' + type + ' permissions for ' + id + ' : ' + msg);
+				return resolve({
 					err: 'err'
 				});
 			}
@@ -1306,18 +1478,13 @@ module.exports.getResourcePermissions = function (args) {
 // Create repository on server
 var _createRepository = function (server, name, description, contentTypes, channels, defaultLanguage) {
 	return new Promise(function (resolve, reject) {
-		siteUtils.getCaasCSRFToken(server).then(function (result) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
 				resolve(result);
 			} else {
 				var csrfToken = result && result.token;
 
-				var client = new Client({
-						user: server.username,
-						password: server.password
-					}),
-					url = server.url + '/content/management/api/v1.1/repositories',
-					payload = {};
+				var payload = {};
 				payload.name = name;
 				payload.description = description || '';
 				payload.defaultLanguage = defaultLanguage || 'en-US';
@@ -1330,21 +1497,40 @@ var _createRepository = function (server, name, description, contentTypes, chann
 					payload.channels = channels;
 				}
 
-				var args = {
+				var url = server.url + '/content/management/api/v1.1/repositories';
+				var auth = serverUtils.getRequestAuth(server);
+				var postData = {
+					method: 'POST',
+					url: url,
+					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
 						'X-REQUESTED-WITH': 'XMLHttpRequest'
 					},
-					data: payload
+					body: payload,
+					json: true
 				};
 
-				client.post(url, args, function (data, response) {
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to create repository ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (error) {
+							data = body;
+						};
 						resolve(data);
 					} else {
-						console.log('ERROR: failed to create repository: ' + name + ' - ' + (data && data.detail ? data.detail : response.statusMessage));
-						// continue
+						var msg = data && data.detail ? data.detail : response.statusMessage || response.statusCode;
+						console.log('Failed to create repository ' + name + ' - ' + msg);
 						resolve({
 							err: 'err'
 						});
@@ -1373,7 +1559,7 @@ module.exports.createRepository = function (args) {
 // Update repository
 var _updateRepository = function (server, repository, contentTypes, channels) {
 	return new Promise(function (resolve, reject) {
-		siteUtils.getCaasCSRFToken(server).then(function (result) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
 				resolve(result);
 			} else {
@@ -1383,13 +1569,8 @@ var _updateRepository = function (server, repository, contentTypes, channels) {
 				data.contentTypes = contentTypes;
 				data.channels = channels;
 
-				var request = require('request');
 				var url = server.url + '/content/management/api/v1.1/repositories/' + repository.id;
-
-				var auth = {
-					user: server.username,
-					password: server.password
-				};
+				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'PUT',
 					url: url,
@@ -1445,20 +1626,16 @@ module.exports.updateRepository = function (args) {
 
 var _performPermissionOperation = function (server, operation, resourceId, resourceName, resourceType, role, users) {
 	return new Promise(function (resolve, reject) {
-		siteUtils.getCaasCSRFToken(server).then(function (result) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
 				resolve(result);
 			} else {
 				var csrfToken = result && result.token;
 
-				var request = siteUtils.getRequest();
+				var request = serverUtils.getRequest();
 
 				var url = server.url + '/content/management/api/v1.1/permissionOperations';
-
-				var auth = {
-					user: server.username,
-					password: server.password
-				};
+				var auth = serverUtils.getRequestAuth(server);
 
 				var userArr = [];
 				for (var i = 0; i < users.length; i++) {
@@ -1569,18 +1746,32 @@ module.exports.performPermissionOperation = function (args) {
 // Get typefrom server
 var _getContentType = function (server, typeName) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/content/management/api/v1.1/types/' + typeName;
-
-		client.get(url, function (data, response) {
+		var url = server.url + '/content/management/api/v1.1/types/' + typeName;
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get type ' + typeName);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to get type ' + typeName + ' : ' + (response.statusMessage || response.statusCode));
-				resolve({
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get type ' + typeName + ' : ' + msg);
+				return resolve({
 					err: 'err'
 				});
 			}
@@ -1600,18 +1791,34 @@ module.exports.getContentType = function (args) {
 
 var _getUser = function (server, userName) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/documents/api/1.2/users/items?info=' + userName;
-
-		client.get(url, function (data, response) {
-			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+		var url = server.url + '/documents/api/1.2/users/items?info=' + userName;
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get user ' + userName);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				// continue 
-				resolve();
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get user ' + userName + ' : ' + msg);
+				return resolve({
+					err: 'err'
+				});
 			}
 		});
 	});
@@ -1629,14 +1836,27 @@ module.exports.getUser = function (args) {
 
 var _getFolderUsers = function (server, folderId) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/documents/api/1.2/shares/' + folderId + '/items';
-
-		client.get(url, function (data, response) {
-			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+		var url = server.url + '/documents/api/1.2/shares/' + folderId + '/items';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get folder users ' + folderId);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
 				var users = [];
 				if (data && data.items && data.items.length > 0) {
 					for (var i = 0; i < data.items.length; i++) {
@@ -1652,10 +1872,12 @@ var _getFolderUsers = function (server, folderId) {
 					id: folderId,
 					data: users
 				});
-
 			} else {
-				// continue 
-				resolve();
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get folder users ' + folderId + ' : ' + msg);
+				return resolve({
+					err: 'err'
+				});
 			}
 		});
 	});
@@ -1673,31 +1895,40 @@ module.exports.getFolderUsers = function (args) {
 
 var _shareFolder = function (server, folderId, userId, role, createNew) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/documents/api/1.2/shares/' + folderId,
-			args = {
-				headers: {
-					"Content-Type": "application/json"
-				},
-				data: {
-					'userID': userId,
-					'role': role
-				}
-			};
-
-		if (createNew) {
-			client.post(url, args, function (data, response) {
-				resolve(data);
-			});
-		} else {
+		var url = server.url + '/documents/api/1.2/shares/' + folderId;
+		if (!createNew) {
 			url = url + '/role';
-			client.put(url, args, function (data, response) {
-				resolve(data);
-			});
 		}
+		var options = {
+			method: createNew ? 'POST' : 'PUT',
+			url: url,
+			auth: serverUtils.getRequestAuth(server),
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: {
+				'userID': userId,
+				'role': role
+			},
+			json: true
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to share folder ' + folderId);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve(body);
+			} else {
+				console.log('ERROR: failed to share folder ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: 'err'
+				});
+			}
+		});
 	});
 };
 /**
@@ -1711,27 +1942,41 @@ var _shareFolder = function (server, folderId, userId, role, createNew) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.shareFolder = function (args) {
-	return _shareFolder(server.server, args.id, args.userId, args.role, args.create === undefined ? true : args.create);
+	return _shareFolder(args.server, args.id, args.userId, args.role, (args.create === undefined ? true : args.create));
 };
 
 var _unshareFolder = function (server, folderId, userId) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/documents/api/1.2/shares/' + folderId + '/user',
-			args = {
-				headers: {
-					"Content-Type": "application/json"
-				},
-				data: {
-					'userID': userId
-				}
-			};
+		var url = server.url + '/documents/api/1.2/shares/' + folderId + '/user';
+		var options = {
+			method: 'DELETE',
+			url: url,
+			auth: serverUtils.getRequestAuth(server),
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: {
+				'userID': userId
+			},
+			json: true
+		};
 
-		client.delete(url, args, function (data, response) {
-			resolve(data);
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to unshare folder ' + folderId);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve(body);
+			} else {
+				console.log('ERROR: failed to unshare folder ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: 'err'
+				});
+			}
 		});
 
 	});

@@ -631,93 +631,6 @@ module.exports.controlSite = function (argv, done) {
 			_controlSiteSCS(request, server, action, siteName, done);
 		}
 
-		/** wait sites management API to be released
-		
-		var tokenPromises = [];
-		if (server.env === 'pod_ec') {
-			tokenPromises.push(serverUtils.getOAuthTokenFromIDCS(request, server));
-		}
-
-		Promise.all(tokenPromises).then(function (result) {
-			if (result.length > 0 && result[0].err) {
-				_cmdEnd(done);
-			}
-
-			// save the OAuth token
-			if (result.length > 0) {
-				server.oauthtoken = result[0].oauthtoken;
-			}
-
-			//
-			// validate the site name
-			//
-			var getSitePromise = serverUtils.getSiteFromServer(request, server, siteName);
-			getSitePromise.then(function (result) {
-				if (result.err) {
-					_cmdEnd(done);
-				}
-
-				if (!result || !result.data || !result.data.id) {
-					console.log('ERROR: site ' + siteName + ' does not exist');
-					_cmdEnd(done);
-				}
-				site = result.data;
-
-				var runtimeStatus = site.runtimeStatus;
-				var publishStatus = site.publishStatus;
-				console.log(' - get site: runtimeStatus: ' + runtimeStatus + '  publishStatus: ' + publishStatus);
-
-				if (action === 'take-offline' && runtimeStatus === 'offline') {
-					console.log(' - site is already offline');
-					_cmdEnd(done);
-				}
-				if (action === 'bring-online' && runtimeStatus === 'online') {
-					console.log(' - site is already online');
-					_cmdEnd(done);
-				}
-				if (action === 'bring-online' && publishStatus === 'unpublished') {
-					console.log('ERROR: site ' + siteName + ' is draft, publish it first');
-					_cmdEnd(done);
-				}
-
-				if (action === 'unpublish' && runtimeStatus === 'online') {
-					console.log('ERROR: site ' + siteName + ' is online, take it offline first');
-					_cmdEnd(done);
-				}
-				if (action === 'unpublish' && publishStatus === 'unpublished') {
-					console.log('ERROR: site ' + siteName + ' is draft');
-					_cmdEnd(done);
-				}
-
-				if (action === 'publish' || action === 'unpublish') {
-					var controlPromise = _IdcControlSite(request, server, action, site.id);
-					controlPromise.then(function (result) {
-						if (result.err) {
-							_cmdEnd(done);
-						}
-
-						console.log(' - ' + action + ' ' + siteName + ' finished');
-						_cmdEnd(done);
-					});
-				} else {
-					var controlPromise = _setSiteRuntimeStatus(request, server, action, site.id);
-					controlPromise.then(function (result) {
-						if (result.err) {
-							_cmdEnd(done);
-						}
-
-						if (action === 'bring-online') {
-							console.log(' - site ' + siteName + ' is online now');
-						} else {
-							console.log(' - site ' + siteName + ' is offline now');
-						}
-						_cmdEnd(done);
-					});
-				}
-			});
-		});
-		*/
-
 	} catch (e) {
 		console.log(e);
 		done();
@@ -1200,7 +1113,7 @@ var _postOneIdcService = function (request, localhost, server, service, action, 
 					jobPromise.then(function (data) {
 						if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
 							clearInterval(inter);
-							console.log(data);
+							// console.log(data);
 							// try to get error message
 							console.log('ERROR: ' + action + ' failed: ' + (data && data.JobMessage));
 							return resolve({

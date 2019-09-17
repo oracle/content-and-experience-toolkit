@@ -158,6 +158,9 @@ Component.prototype.getSeededCompFile = function (compName) {
 			'scs-contentitem': {
 				compileFile: 'contentitem/contentitem'
 			},
+			'scs-contentplaceholder': {
+				compileFile: 'contentplaceholder/contentplaceholder'
+			},
 			'scsCaaSLayout': {
 				// scs-contentitem when used in a content list
 				compileFile: 'contentitem/contentitem'

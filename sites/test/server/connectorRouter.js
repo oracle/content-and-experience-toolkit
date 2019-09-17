@@ -216,8 +216,12 @@ router.post('/*', (req, res) => {
 		console.log(' - send file: ' + filePath);
 	} else if (req.url.indexOf('/connector/rest/api/v1/job') === 0) {
 		// Create job
-		formData['name'] = params.jobName;
-		options['form'] = formData;
+		//formData['name'] = params.jobName;
+		//options['form'] = formData;
+		options.json = true;
+		options.body = {
+			"name": params.jobName
+		};
 	}
 
 	// console.log(options);
@@ -228,7 +232,7 @@ router.post('/*', (req, res) => {
 			result['data'] = error;
 		}
 		if (response && response.statusCode === 200) {
-			result['data'] = body ? JSON.parse(body) : {};
+			result['data'] = (body && typeof body === 'string') ? JSON.parse(body) : (body || {});
 		} else {
 			result['err'] = 'Failed to get job: ' + (response ? (response.statusMessage || response.statusCode) : '');
 		}

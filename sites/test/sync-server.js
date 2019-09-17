@@ -79,14 +79,27 @@ if (!fs.existsSync(eventsFilePath)) {
 	var str = fs.readFileSync(eventsFilePath).toString();
 	if (str) {
 		var unprocessedEvents = [];
-		events = JSON.parse(str);
+		try {
+			events = JSON.parse(str);
+		} catch (e) {
+			events = [];
+			fs.writeFileSync(eventsFilePath, '[]');
+		}
 		for (var i = 0; i < events.length; i++) {
 			if (!events[i].__processed) {
 				unprocessedEvents.push(events[i]);
 				hasUnprocessedEvent = true;
+			} else {
+				// save processed events for 7 days
+				var currTime = (new Date()).getTime();
+				var processTime = (new Date(events[i].__processed_date)).getTime();
+				var days = (currTime - processTime) / (1000 * 60 * 60 * 24);
+				if (days <= 7) {
+					unprocessedEvents.push(events[i]);
+				}
 			}
 		}
-		fs.writeFileSync(eventsFilePath, unprocessedEvents);
+		fs.writeFileSync(eventsFilePath, JSON.stringify(unprocessedEvents, null, 4));
 	}
 }
 
@@ -119,25 +132,26 @@ app.post('/*', function (req, res) {
 		}
 	}
 	// console.log(req.body);
-	var action = req.body.eventAction;
-	var type = req.body.objectType;
-	var objectId = req.body.objectId;
+	var action = req.body.event.name;
+	var objectId = req.body.entity.id;
 
 	if (!action) {
 		console.log('ERROR: Missing event action');
-		return;
-	}
-	if (!type) {
-		console.log('ERROR: Missing object type');
 		return;
 	}
 	if (!objectId) {
 		console.log('ERROR: Missing object id');
 		return;
 	}
-	
-	if ((type === 'CONTENTITEM' && (action === 'CREATED' || action === 'UPDATED' || action === 'PUBLISHED' || action === 'DELETED')) || 
-		(type === 'CHANNEL' && (action === 'ASSETPUBLISHED' || action === 'ASSETUNPUBLISHED'))) {
+
+	if (action === 'CONTENTITEM_CREATED' ||
+		action === 'CONTENTITEM_UPDATED' ||
+		action === 'CONTENTITEM_DELETED' ||
+		action === 'DIGITALASSET_CREATED' ||
+		action === 'DIGITALASSET_UPDATED' ||
+		action === 'DIGITALASSET_DELETED' ||
+		action === 'CHANNEL_ASSETPUBLISHED' ||
+		action === 'CHANNEL_ASSETUNPUBLISHED') {
 		var events = [];
 		if (fs.existsSync(eventsFilePath)) {
 			var str = fs.readFileSync(eventsFilePath).toString();
@@ -146,13 +160,15 @@ app.post('/*', function (req, res) {
 			}
 		}
 
-		console.log('!!! Queue event: action: ' + action + ' type: ' + type + ' Id: ' + objectId);
 		var event = req.body;
-		event['__id'] = event.eventId;
+		event['__id'] = event.event.id;
 		event['__processed'] = false;
 		events.push(event);
-		console.log('  total event: ' + events.length);
+
+		console.log('!!! Queue event: action: ' + action + ' Id: ' + objectId + ' (total: ' + events.length + ')');
+
 		fs.writeFileSync(eventsFilePath, JSON.stringify(events, null, 4));
+
 	} else {
 		console.log('ERROR: action ' + action + ' not supported yet');
 	}
@@ -210,22 +226,50 @@ if (keyPath && fs.existsSync(keyPath) && certPath && fs.existsSync(certPath)) {
 	});
 }
 
-var _updateEvent = function (eventId) {
+var _updateEvent = function (eventId, success, retry) {
 	var events = [];
 	if (fs.existsSync(eventsFilePath)) {
 		var str = fs.readFileSync(eventsFilePath).toString();
 		if (str) {
 			events = JSON.parse(str);
 		}
+
+		var newList = [];
+		var theEvent;
 		var found = false;
 		for (var i = 0; i < events.length; i++) {
 			if (eventId === events[i].__id) {
-				events[i].__processed = true;
 				found = true;
+				events[i]['__processed_date'] = new Date();
+				events[i]['__success'] = success === undefined ? false : success;
+
+				if (retry === undefined || !retry) {
+					// done for this event
+					events[i].__processed = true;
+					newList.push(events[i]);
+				} else {
+					// check if need retry
+					if (events[i].__retry !== undefined &&  events[i].__retry > 10) {
+						console.log(' -- already tried ' + events[i].__retry + ' times, give up');
+						events[i].__processed = true;
+						newList.push(events[i]);
+					} else {
+						console.log(' -- will retey');
+						serverUtils.sleep(6000);
+						events[i]['__retry'] = events[i].__retry ? (events[i].__retry + 1) : 1;
+						theEvent = events[i];
+					}
+				}
+			} else {
+				newList.push(events[i]);
 			}
 		}
+		if (theEvent) {
+			// move to the end
+			newList.push(theEvent);
+		}
 		if (found) {
-			fs.writeFileSync(eventsFilePath, JSON.stringify(events, null, 4));
+			fs.writeFileSync(eventsFilePath, JSON.stringify(newList, null, 4));
 			// console.log('updated events.json');
 			// console.log(events);
 			__active = false;
@@ -239,7 +283,9 @@ var _processEvent = function () {
 	if (fs.existsSync(eventsFilePath)) {
 		var str = fs.readFileSync(eventsFilePath).toString();
 		if (str) {
-			events = JSON.parse(str);
+			try {
+				events = JSON.parse(str);
+			} catch (e) {}
 		}
 	}
 
@@ -254,15 +300,17 @@ var _processEvent = function () {
 		// start processing
 		__active = true;
 
-		var action = event.eventAction;
-		var type = event.objectType;
-		var objectId = event.objectId;
-		var objectName = event.objectName;
-		console.log('*** action: ' + action + ' type: ' + type + ' Id: ' + objectId);
+		var action = event.event.name;
+		var objectId = event.entity.id;
+		var objectName = event.entity.name;
+		console.log('*** action: ' + action + ' Id: ' + objectId);
 
-		if ((action === 'CREATED' || action === 'UPDATED') && type === 'CONTENTITEM') {
+		if (action === 'CONTENTITEM_CREATED' ||
+			action === 'CONTENTITEM_UPDATED' ||
+			action === 'DIGITALASSET_CREATED' ||
+			action == 'DIGITALASSET_UPDATED') {
 
-			var repositoryId = event.repositoryId;
+			var repositoryId = event.entity.repositoryId;
 			var args = {
 				projectDir: projectDir,
 				server: srcServer,
@@ -274,10 +322,10 @@ var _processEvent = function () {
 
 			contentLib.syncCreateUpdateItem(args, function (success) {
 				console.log('*** action finished');
-				_updateEvent(event.__id);
+				_updateEvent(event.__id, success);
 			});
 
-		} else if (action === 'DELETED' && type === 'CONTENTITEM') {
+		} else if (action === 'CONTENTITEM_DELETED' || action === 'DIGITALASSET_DELETED') {
 
 			var args = {
 				projectDir: projectDir,
@@ -288,19 +336,22 @@ var _processEvent = function () {
 				name: objectName
 			};
 
-			contentLib.syncDeleteItem(args, function (success) {
+			contentLib.syncDeleteItem(args, function (success, retry) {
 				console.log('*** action finished');
-				_updateEvent(event.__id);
+				_updateEvent(event.__id, success, retry);
 			});
 
-		} else if ((action === 'ASSETPUBLISHED' || action === 'ASSETUNPUBLISHED') && type === 'CHANNEL') {
-			var contentGuids = event.contentGuids;
-
+		} else if (action === 'CHANNEL_ASSETPUBLISHED' || action === 'CHANNEL_ASSETUNPUBLISHED') {
+			var contentGuids = [];
+			var items = event.entity.items || [];
+			for (var i = 0; i < items.length; i++) {
+				contentGuids.push(items[i].id);
+			}
 			var args = {
 				projectDir: projectDir,
 				server: srcServer,
 				destination: destServer,
-				action: action === 'ASSETPUBLISHED' ? 'publish' : 'unpublish',
+				action: action === 'CHANNEL_ASSETPUBLISHED' ? 'publish' : 'unpublish',
 				id: objectId,
 				name: objectName,
 				contentGuids: contentGuids
@@ -308,10 +359,10 @@ var _processEvent = function () {
 
 			contentLib.syncPublishUnpublishItems(args, function (success) {
 				console.log('*** action finished');
-				_updateEvent(event.__id);
+				_updateEvent(event.__id, success);
 			});
 
-		} 
+		}
 
 	} // event exists
 };

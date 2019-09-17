@@ -7,7 +7,7 @@
 
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
-	Client = require('node-rest-client').Client,
+	sitesRest = require('../test/server/sitesRest.js'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	path = require('path'),
@@ -86,7 +86,8 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 	var isEnterprise;
 	var templateName, template;
 	var themeName, theme;
-	var repository, channel;
+	var repositoryId, repository;
+	var channelId, channel;
 
 	var itemIds = [];
 	var pageItems;
@@ -262,44 +263,83 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 		}
 		server['login'] = true;
 
-		serverUtils.browseSitesOnServer(request, server).then(function (result) {
-				var sites = result.data || [];
-				for (var i = 0; i < sites.length; i++) {
-					if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-						site = sites[i];
-						break;
+		var sitePromise = server.useRest ? sitesRest.getSite({
+			server: server,
+			name: siteName,
+			expand: 'ownedBy,repository,channel'
+		}) : serverUtils.browseSitesOnServer(request, server);
+		sitePromise.then(function (result) {
+				if (server.useRest) {
+					if (result.err) {
+						return Promise.reject();
 					}
+					site = result;
+					// console.log(site);
+					site['fFolderGUID'] = site.id;
+
+					sitejson['id'] = site.id;
+					sitejson['name'] = site.name;
+					sitejson['type'] = site.isEnterprise ? 'Enterprise' : 'Standard';
+					sitejson['slug'] = site.sitePrefix;
+					sitejson['defaultLanguage'] = site.defaultLanguage;
+					sitejson['siteTemplate'] = site.templateName;
+					sitejson['theme'] = site.themeName;
+					sitejson['owner'] = site.ownedBy && site.ownedBy.userName;
+
+					templateName = site.templateName;
+					themeName = site.themeName;
+					repositoryId = site.repository && site.repository.id;
+					channelId = site.channel && site.channel.id;
+
+					isEnterprise = site.isEnterprise;
+				} else {
+					var sites = result.data || [];
+					for (var i = 0; i < sites.length; i++) {
+						if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
+							site = sites[i];
+							break;
+						}
+					}
+
+					if (!site || !site.fFolderGUID) {
+						console.log('ERROR: site ' + siteName + ' does not exist');
+						return Promise.reject();
+					}
+
+					// console.log(site);
+					sitejson['id'] = site.fFolderGUID;
+					sitejson['name'] = site.fFolderName;
+					sitejson['type'] = site.xScsIsEnterprise === '1' ? 'Enterprise' : 'Standard';
+					sitejson['slug'] = site.xScsSlugPrefix;
+					sitejson['defaultLanguage'] = site.xScsSiteDefaultLanguage;
+					sitejson['siteTemplate'] = site.xScsSiteTemplate;
+					sitejson['owner'] = site.fCreatorFullName;
+
+					templateName = site.xScsSiteTemplate;
+
+					isEnterprise = site.xScsIsEnterprise === '1';
+				}
+				var siteInfoPromises = [];
+				if (!server.useRest) {
+					siteInfoPromises.push(serverUtils.getSiteInfoWithToken(server, siteName));
 				}
 
-				if (!site || !site.fFolderGUID) {
-					console.log('ERROR: site ' + siteName + ' does not exist');
-					return Promise.reject();
-				}
-
-				// console.log(site);
-				sitejson['id'] = site.fFolderGUID;
-				sitejson['name'] = site.fFolderName;
-				sitejson['type'] = site.xScsIsEnterprise === '1' ? 'Enterprise' : 'Standard';
-				sitejson['slug'] = site.xScsSlugPrefix;
-				sitejson['defaultLanguage'] = site.xScsSiteDefaultLanguage;
-				sitejson['siteTemplate'] = site.xScsSiteTemplate;
-				sitejson['owner'] = site.fCreatorFullName;
-				templateName = site.xScsSiteTemplate;
-
-				isEnterprise = site.xScsIsEnterprise === '1';
-
-				return serverUtils.getSiteInfoWithToken(server, siteName);
+				return Promise.all(siteInfoPromises);
 			})
-			.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
+			.then(function (results) {
+				if (!server.useRest) {
+					if (!results || results.length < 1 || results[0].err) {
+						return Promise.reject();
+					}
 
-				siteInfo = result && result.siteInfo;
-				// console.log(siteInfo);
-				if (siteInfo) {
-					sitejson['theme'] = siteInfo.themeName;
-					themeName = siteInfo.themeName;
+					siteInfo = results[0] && results[0].siteInfo;
+					// console.log(siteInfo);
+					if (siteInfo) {
+						sitejson['theme'] = siteInfo.themeName;
+						themeName = siteInfo.themeName;
+						repositoryId = siteInfo.repositoryId;
+						channelId = siteInfo.channelId;
+					}
 				}
 				console.log(' - query site');
 
@@ -312,51 +352,42 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				sitejson['members'] = result && result.data || [];
 				console.log(' - query site members');
 
-				var policyPromises = [];
-				if (siteInfo && siteInfo.localizationPolicy) {
-					policyPromises.push(serverRest.getLocalizationPolicy({
-						server: server,
-						id: siteInfo.localizationPolicy
-					}));
-				}
-				return Promise.all(policyPromises);
-			})
-			.then(function (results) {
-				console.log(' - query site localization policy');
-				var policy = results.length > 0 ? results[0] : undefined;
-				if (policy && policy.id) {
-					sitepolicyjson['id'] = policy.id;
-					sitepolicyjson['name'] = policy.name;
-					sitepolicyjson['defaultLanguage'] = policy.defaultValue;
-					sitepolicyjson['requiredLanguages'] = policy.requiredValues;
-					sitepolicyjson['optionalLanguages'] = policy.optionalValues;
+				var templatePromise = server.useRest ? sitesRest.getTemplate({
+					server: server,
+					name: templateName,
+					expand: 'ownedBy'
+				}) : serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
 
-					if (!policy.defaultValue) {
-						issues.push('Localization policy ' + policy.name + ' does not have default language');
-					}
-				}
-
-				return serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
+				return templatePromise;
 			})
 			.then(function (result) {
-				//
-				// list templates
-				//
-				console.log(' - query site template');
+				if (server.useRest) {
+					if (result && !result.err) {
+						template = result;
+						template['fFolderGUID'] = template.id;
+						templatejson['id'] = template.id;
+						templatejson['name'] = template.name;
+						templatejson['owner'] = template.ownedBy && template.ownedBy.userName;
+					}
+				} else {
+					//
+					// list templates
+					//
+					console.log(' - query site template');
 
-				var templates = result.data || [];
+					var templates = result.data || [];
 
-				for (var i = 0; i < templates.length; i++) {
-					var temp = templates[i];
-					if (temp.fFolderName.toLowerCase() === templateName.toLowerCase()) {
-						template = temp;
-						templatejson['id'] = temp.fFolderGUID;
-						templatejson['name'] = temp.fFolderName;
-						templatejson['owner'] = temp.fCreatorFullName;
-						break;
+					for (var i = 0; i < templates.length; i++) {
+						var temp = templates[i];
+						if (temp.fFolderName.toLowerCase() === templateName.toLowerCase()) {
+							template = temp;
+							templatejson['id'] = temp.fFolderGUID;
+							templatejson['name'] = temp.fFolderName;
+							templatejson['owner'] = temp.fCreatorFullName;
+							break;
+						}
 					}
 				}
-
 				var tempUserPromises = [];
 				if (template) {
 					tempUserPromises.push(
@@ -376,27 +407,43 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				}
 
 				var params = 'doBrowseStarterThemes=1';
-				return serverUtils.browseThemesOnServer(request, server, params);
+
+				var themePromise = server.useRest ? sitesRest.getTheme({
+					server: server,
+					name: themeName,
+					expand: 'ownedBy'
+				}) : serverUtils.browseThemesOnServer(request, server, params);
+
+				return themePromise;
 
 			})
 			.then(function (result) {
-				//
-				// list themes
-				//
-				console.log(' - query theme');
-				var themes = result.data || [];
+				if (server.useRest) {
+					if (result && !result.err) {
+						theme = result;
+						theme['fFolderGUID'] = template.id;
+						themejson['id'] = theme.id;
+						themejson['name'] = theme.name;
+						themejson['owner'] = theme.ownedBy && theme.ownedBy.userName;
+					}
+				} else {
+					//
+					// list themes
+					//
+					console.log(' - query theme');
+					var themes = result.data || [];
 
-				for (var i = 0; i < themes.length; i++) {
-					if (themes[i].fFolderName.toLowerCase() === themeName.toLowerCase()) {
-						theme = themes[i];
-						// console.log(theme);
-						themejson['id'] = theme.fFolderGUID;
-						themejson['name'] = theme.fFolderName;
-						themejson['owner'] = theme.fCreatorFullName;
-						break;
+					for (var i = 0; i < themes.length; i++) {
+						if (themes[i].fFolderName.toLowerCase() === themeName.toLowerCase()) {
+							theme = themes[i];
+							// console.log(theme);
+							themejson['id'] = theme.fFolderGUID;
+							themejson['name'] = theme.fFolderName;
+							themejson['owner'] = theme.fCreatorFullName;
+							break;
+						}
 					}
 				}
-
 				return serverRest.getFolderUsers({
 					server: server,
 					id: theme.fFolderGUID
@@ -407,10 +454,10 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				themejson['members'] = result && result.data || [];
 
 				var repoPromises = [];
-				if (siteInfo.repositoryId) {
+				if (repositoryId) {
 					repoPromises.push(serverRest.getRepository({
 						server: server,
-						id: siteInfo.repositoryId
+						id: repositoryId
 					}));
 				}
 
@@ -432,10 +479,10 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				}
 
 				var repoPermissionPromises = [];
-				if (siteInfo.repositoryId) {
+				if (repositoryId) {
 					repoPermissionPromises.push(serverRest.getResourcePermissions({
 						server: server,
-						id: siteInfo.repositoryId,
+						id: repositoryId,
 						type: 'repository'
 					}));
 				}
@@ -449,10 +496,10 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				}
 
 				var channelPromises = [];
-				if (siteInfo.channelId) {
+				if (channelId) {
 					channelPromises.push(serverRest.getChannel({
 						server: server,
-						id: siteInfo.channelId
+						id: channelId
 					}));
 				}
 
@@ -571,7 +618,14 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 
 				var compPromises = [];
 				if (compNames.length > 0) {
-					compPromises.push(serverUtils.browseComponentsOnServer(request, server));
+					if (server.useRest) {
+						compPromises.push(sitesRest.getComponents({
+							server: server,
+							expand: 'ownedBy'
+						}));
+					} else {
+						compPromises.push(serverUtils.browseComponentsOnServer(request, server));
+					}
 				}
 
 				return Promise.all(compPromises);
@@ -579,29 +633,58 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			})
 			.then(function (results) {
 				console.log(' - query components');
-				allComponents = results.length > 0 && results[0] ? results[0].data : [];
-				if (allComponents.length > 0 && compNames.length > 0) {
-					for (var j = 0; j < compNames.length; j++) {
-						var comp = undefined;
-						for (var k = 0; k < allComponents.length; k++) {
+				if (server.useRest) {
+					allComponents = results.length > 0 && results[0] ? results[0] : [];
+					if (allComponents.length > 0 && compNames.length > 0) {
+						for (var j = 0; j < compNames.length; j++) {
+							var comp = undefined;
+							for (var k = 0; k < allComponents.length; k++) {
 
-							if (compNames[j].toLowerCase() === allComponents[k].fFolderName.toLowerCase()) {
-								comp = allComponents[k];
-								var id = allComponents[k].fFolderGUID;
-								if (!compIds.includes(id)) {
-									compIds.push(id);
+								if (compNames[j].toLowerCase() === allComponents[k].name.toLowerCase()) {
+									comp = allComponents[k];
+									var id = allComponents[k].id;
+									if (!compIds.includes(id)) {
+										compIds.push(id);
+									}
+									break;
 								}
-								break;
+							}
+							pageComponents.push({
+								name: compNames[j],
+								id: comp ? comp.id : '',
+								owner: comp ? comp.fCreatorFullName : '',
+								members: []
+							});
+							if (!comp) {
+								issues.push('Component ' + compNames[j] + ' does not exist or user ' + server.username + ' has no access');
 							}
 						}
-						pageComponents.push({
-							name: compNames[j],
-							id: comp ? comp.fFolderGUID : '',
-							owner: comp ? comp.fCreatorFullName : '',
-							members: []
-						});
-						if (!comp) {
-							issues.push('Component ' + compNames[j] + ' does not exist or user ' + server.username + ' has no access');
+					}
+				} else {
+					allComponents = results.length > 0 && results[0] ? results[0].data : [];
+					if (allComponents.length > 0 && compNames.length > 0) {
+						for (var j = 0; j < compNames.length; j++) {
+							var comp = undefined;
+							for (var k = 0; k < allComponents.length; k++) {
+
+								if (compNames[j].toLowerCase() === allComponents[k].fFolderName.toLowerCase()) {
+									comp = allComponents[k];
+									var id = allComponents[k].fFolderGUID;
+									if (!compIds.includes(id)) {
+										compIds.push(id);
+									}
+									break;
+								}
+							}
+							pageComponents.push({
+								name: compNames[j],
+								id: comp ? comp.fFolderGUID : '',
+								owner: comp ? (comp.ownedBy && comp.ownedBy.userName) : '',
+								members: []
+							});
+							if (!comp) {
+								issues.push('Component ' + compNames[j] + ' does not exist or user ' + server.username + ' has no access');
+							}
 						}
 					}
 				}
@@ -881,22 +964,36 @@ var _getPageFiles = function (server, pages) {
 
 var _readFile = function (server, id, fileName) {
 	return new Promise(function (resolve, reject) {
-		var client = new Client({
-				user: server.username,
-				password: server.password
-			}),
-			url = server.url + '/documents/api/1.2/files/' + id + '/data/';
-
-		client.get(url, function (data, response) {
-			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+		var auth = serverUtils.getRequestAuth(server);
+		var url = server.url + '/documents/api/1.2/files/' + id + '/data/';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth
+		};
+		var request = serverUtils.getRequest();
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to download file ' + fileName);
+				console.log(error);
+				resolve();
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
 				resolve({
 					file: fileName,
 					data: data
 				});
 			} else {
-				// continue 
+				console.log('ERROR: failed to download file: ' + fileName + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 				resolve();
 			}
+
 		});
 	});
 };

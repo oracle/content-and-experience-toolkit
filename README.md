@@ -8,6 +8,12 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.3.3
+
+**Added**
+
+- `cec register-server` - register using IDCS Application client id, secret, scope for HEADLESS cli -- I.e. no popup browser window for authentication during CLI calls.
+
 # New in Release 19.3.2h
 
 **Added**

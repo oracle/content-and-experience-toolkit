@@ -98,8 +98,12 @@ ContentList.prototype.compile = function (args) {
 					});
 				});
 			}).catch(function (e) {
-				console.log('ContentList: failed to execute query during compile');
-				console.log(e);
+				console.log('ContentList: failed to execute query during compile - check the server is up and that the channelToken and query are correct');
+				if (e.statusCode) {
+					console.log('Response - ' + e.statusCode + ':' + e.statusMessage);
+				} else {
+					console.log(e);
+				}
 				return resolve({
 					hydrate: true,
 					content: ''
@@ -269,41 +273,35 @@ ContentList.prototype.fetchData = function (args) {
 		SCSCompileAPI = args.SCSCompileAPI;
 
 	// now get the content 
-	var contentClient = contentSDK.createPreviewClient({
-		contentServer: serverURL,
-		contentType: 'published',
-		contentVersion: 'v1.1',
-		channelToken: SCSCompileAPI.channelAccessToken || ''
-	});
+	return SCSCompileAPI.getContentClient().then(function (contentClient) {
+		// generate query string from options, ignoring ones without a value
+		var getQueryString = function (options) {
+			var query = Object.keys(options.searchOptions).filter(function (key) {
+				return options.searchOptions[key];
+			}).map(function (key) {
+				return encodeURIComponent(key) + '=' + encodeURIComponent(options.searchOptions[key]);
+			}).join('&');
 
+			// Append the additional query parameters, if any
+			if (options.queryString) {
+				query = query + "&" + options.queryString;
+			}
 
-	// generate query string from options, ignoring ones without a value
-	var getQueryString = function (options) {
-		var query = Object.keys(options.searchOptions).filter(function (key) {
-			return options.searchOptions[key];
-		}).map(function (key) {
-			return encodeURIComponent(key) + '=' + encodeURIComponent(options.searchOptions[key]);
-		}).join('&');
+			return query;
+		};
 
-		// Append the additional query parameters, if any
-		if (options.queryString) {
-			query = query + "&" + options.queryString;
-		}
-
-		return query;
-	};
-
-	return contentClient.queryItems({
-		'types': viewModel.contentTypes,
-		'search': getQueryString({
-			searchOptions: {
-				'fields': 'ALL',
-				'limit': viewModel.maxResults,
-				'orderBy': viewModel.computeSortOrder(viewModel),
-				'default': viewModel.computeDefaultString(viewModel)
-			},
-			queryString: viewModel.scimQueryString(viewModel)
-		})
+		return contentClient.queryItems({
+			'types': viewModel.contentTypes,
+			'search': getQueryString({
+				searchOptions: {
+					'fields': 'ALL',
+					'limit': viewModel.maxResults,
+					'orderBy': viewModel.computeSortOrder(viewModel),
+					'default': viewModel.computeDefaultString(viewModel)
+				},
+				queryString: viewModel.scimQueryString(viewModel)
+			})
+		});
 	});
 };
 

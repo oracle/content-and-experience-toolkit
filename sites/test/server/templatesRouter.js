@@ -153,36 +153,16 @@ router.get('/*', (req, res) => {
 			templateName = urlBits.shift(),
 			pageName = urlBits.pop(),
 			pagePath = urlBits.join('/') + '/_files/' + pageName,
-			sitePage;
+			isSitePage = false;
 		filePath = path.resolve(templatesDir + '/' + templateName + '/static/' + pagePath);
 		if (existsAndIsFile(filePath)) {
-			// it may be a page, see if we can match it with the structure.json
-			var structurePath = path.join(templatesDir, templateName, 'structure.json');
-			try {
-				var siteStructure = JSON.parse(fs.readFileSync(structurePath, 'utf8'));
+			isSitePage = true;
 
-				// remove the template and locale for match in the site structure
-				var pageURLbits = filePathSuffix.split('/');
-				pageURLbits.shift();
-				if (supportedLocales.indexOf(pageURLbits[0]) !== -1) {
-					pageURLbits.shift();
-				}
-				pageURL = pageURLbits.join('/');
-
-				sitePage = (siteStructure.pages || []).find(function (page) {
-					return page.pageUrl === pageURL;
-				});
-
-				if (sitePage) {
-					// set the mime-type - may be required if can't be derived from file extension (e.g.: page file doesn't have an extension)
-					contentType = 'text/html';
-				} else {}
-			} catch (e) {
-				console.log(' - misc file: ' + filePathSuffix + ' failed to load and parse structure.json: ' + structurePath);
-			}
+			// set the mime-type - may be required if can't be derived from file extension (e.g.: page file doesn't have an extension)
+			contentType = 'text/html';
 		}
 
-		if (!sitePage) {
+		if (!isSitePage) {
 			// not a page, try to access it directly
 			filePath = path.resolve(templatesDir + '/' + filePathSuffix);
 			if (!existsAndIsFile(filePath)) {

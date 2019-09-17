@@ -11,7 +11,7 @@ var ContentItem = function (args) {};
 
 var reportedFiles = {};
 
-var getDetailPageUrl = function (pageUrl, options) {
+ContentItem.prototype.getDetailPageUrl = function (pageUrl, options) {
 	var dotPos = pageUrl.lastIndexOf('.');
 	var slashPos = pageUrl.lastIndexOf('/');
 
@@ -48,54 +48,55 @@ var getDetailPageUrl = function (pageUrl, options) {
 ContentItem.prototype.getContentLayoutName = function (SCSCompileAPI, args) {
 	// ToDo: Handle mobile generation
 	var contentType = args.contentType,
-		contentLayoutCategory = (args.contentLayoutCategory || 'default').toLowerCase();
+		contentLayoutCategory = (args.contentLayoutCategory || 'default').toLowerCase(),
+		siteFolder = SCSCompileAPI.siteFolder;
 
 	return new Promise(function (resolve, reject) {
-		// get the content layout map
-		// ToDo: Add support for querying the map against a real server
-		var contentTypeMapURL = siteURLPrefix + '/' + SCSCompileAPI.getSiteId() + '/caas_contenttypemap.json';
+		// get the content layout map file from the content export
+		var contentSummaryFile = path.join(siteFolder, 'assets', 'contenttemplate', 'summary.json'),
+			layoutName;
 
-		// get the content map
-		var request = serverUtils.getRequest();
-		request.get(contentTypeMapURL, function (err, response, body) {
-			if (err) {
-				console.log(' - failed to retrieve content layout map ' + contentTypeMapURL);
-				return resolve({});
-			}
-
-			var layoutName = '',
-				data = {};
+		// if the content summary file exists, get the layout map
+		if (fs.existsSync(contentSummaryFile)) {
 			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				console.log(' - failed to parse content layout map ' + contentTypeMapURL);
-			}
+				// get the content layout mappings
+				var categoryLayoutMappings = JSON.parse(fs.readFileSync(contentSummaryFile, {
+					encoding: 'utf8'
+				})).categoryLayoutMappings;
 
-			// now locate the layout
-			if (Array.isArray(data)) {
-				var typeEntry = data.find(function (entry) {
-					return entry.type === contentType;
-				});
-
-				if (typeEntry && Array.isArray(typeEntry.categoryList)) {
-					var layoutEntry = typeEntry.categoryList.find(function (entry) {
-						return entry.categoryName.toLowerCase() === contentLayoutCategory;
+				// now locate the layout
+				if (Array.isArray(categoryLayoutMappings)) {
+					var typeEntry = categoryLayoutMappings.find(function (entry) {
+						return entry.type === contentType;
 					});
 
-					layoutName = layoutEntry && layoutEntry.layoutName;
-				}
-			}
+					if (typeEntry && Array.isArray(typeEntry.categoryList)) {
+						var layoutEntry = typeEntry.categoryList.find(function (entry) {
+							return entry.categoryName.toLowerCase() === contentLayoutCategory;
+						});
 
-			// resolve with the layout name or use the system default layout
-			if (!layoutName) {
-				var message = 'failed to find content layout map entry for: ' + contentType + ':' + contentLayoutCategory + '. Will compile using the system default layout.';
-				if (!reportedFiles[message]) {
-					console.log(message);
-					reportedFiles[message] = 'done';
+						layoutName = layoutEntry && layoutEntry.layoutName;
+					}
+				}
+			} catch (e) {
+				// failed to read mapping file,
+				var fileError = 'failed to read or parse content layout map entry in file: ' + contentSummaryFile;
+				if (!reportedFiles[fileError]) {
+					console.log(fileError);
+					reportedFiles[fileError] = 'done';
 				}
 			}
-			return resolve(layoutName || SYSTEM_DEFAULT_LAYOUT);
-		});
+		}
+
+		// resolve with the layout name or use the system default layout
+		if (!layoutName) {
+			var message = 'failed to find content layout map entry for: ' + contentType + ':' + contentLayoutCategory + '. Will compile using the system default layout.';
+			if (!reportedFiles[message]) {
+				console.log(message);
+				reportedFiles[message] = 'done';
+			}
+		}
+		return resolve(layoutName || SYSTEM_DEFAULT_LAYOUT);
 	});
 };
 
@@ -129,6 +130,14 @@ ContentItem.prototype.getContentLayout = function (SCSCompileAPI, contentType, c
 	});
 };
 
+ContentItem.prototype.isComponentValid = function (id, contentId) {
+	if (!contentId) {
+		console.log('Error: component has no contentId: ' + id);
+		return false; 
+	} else {
+		return true;
+	}
+};
 ContentItem.prototype.compile = function (args) {
 	var self = this,
 		SCSCompileAPI = args.SCSCompileAPI;
@@ -140,63 +149,66 @@ ContentItem.prototype.compile = function (args) {
 				var CustomLayoutCompiler = require(compileFile);
 
 				// now get the content 
-				var contentClient = SCSCompileAPI.getContentClient();
+				SCSCompileAPI.getContentClient().then(function (contentClient) {
+					var contentId = args.compVM.contentId;
+					if (!self.isComponentValid(args.compVM.id, contentId)) {
+						return resolve({
+							content: ''
+						});
+					} else {
+						self.getContentItem({
+							contentClient: contentClient,
+							contentId: contentId,
+							compVM: args.compVM,
+							template: SCSCompileAPI.getSiteId()
+						}).then(function (content) {
+							var detailPageId = args.compVM.detailPageId || SCSCompileAPI.getDetailPageId(),
+								detailPageURL = self.getDetailPageUrl(SCSCompileAPI.getPageURL(detailPageId), {
+									contentType: content.type,
+									contentId: content.id,
+									contentSlug: content.slug
+								});
 
-				var contentId = args.compVM.contentId;
-				if (!contentId) {
-					console.log('Error: component has no contentId: ' + args.compVM.id);
-					return resolve({
-						content: ''
-					});
-				} else {
-					self.getContentItem({
-						contentClient: contentClient,
-						contentId: contentId,
-						compVM: args.compVM,
-						template: SCSCompileAPI.getSiteId()
-					}).then(function (content) {
-						var detailPageId = args.compVM.detailPageId || SCSCompileAPI.getDetailPageId(),
-							detailPageURL = getDetailPageUrl(SCSCompileAPI.getPageURL(detailPageId), {
-								contentType: content.type,
-								contentId: content.id,
-								contentSlug: content.slug
-							});
+							// compile the content layout with the data
+							var compileArgs = {
+									contentItemData: content,
+									contentClient: contentClient,
+									scsData: {
+										id: args.compVM.id,
+										SCSCompileAPI: SCSCompileAPI,
+										contentTriggerFunction: 'SCSRenderAPI.getComponentById(\'' + args.compVM.id + '\').raiseContentTrigger',
+										detailPageLink: detailPageURL,
+										showPublishedContent: args.compVM.contentViewing === 'published' ? true : contentClient.getInfo().contentType === 'published'
+									}
+								},
+								custComp = new CustomLayoutCompiler(compileArgs);
 
-						// compile the content layout with the data
-						var compileArgs = {
-								contentItemData: content,
-								contentClient: contentClient,
-								scsData: {
-									id: args.compVM.id,
-									SCSCompileAPI: SCSCompileAPI,
-									contentTriggerFunction: 'SCSRenderAPI.getComponentById(\'' + args.compVM.id + '\').raiseContentTrigger',
-									detailPageLink: detailPageURL,
-									showPublishedContent: args.compVM.contentViewing === 'published' ? true : contentClient.getInfo().contentType === 'published'
-								}
-							},
-							custComp = new CustomLayoutCompiler(compileArgs);
+							custComp.compile().then(function (compiledComp) {
+								// add in the detail page to compile as well
+								SCSCompileAPI.compileDetailPage(args.compVM.detailPageId, content);
 
-						custComp.compile().then(function (compiledComp) {
-							return resolve({
-								content: compiledComp && compiledComp.content,
-								hydrate: compiledComp && compiledComp.hydrate
+								// we're done
+								return resolve({
+									content: compiledComp && compiledComp.content,
+									hydrate: compiledComp && compiledComp.hydrate
+								});
+							}).catch(function (e) {
+								console.log('Error: failed to compile component: ' + viewModel.id + ' into the page. The component will render in the client.');
+								return resolve({
+									content: ''
+								});
 							});
 						}).catch(function (e) {
-							console.log('Error: failed to compile component: ' + viewModel.id + ' into the page. The component will render in the client.');
+							console.log('Error: failed to compile content item: ' + contentId + '. The component will render in the client.');
+							if (e) {
+								console.log('statusCode: ' + e.statusCode + '. statusMessage: ' + e.statusMessage + '. ');
+							}
 							return resolve({
 								content: ''
 							});
 						});
-					}).catch(function (e) {
-						console.log('Error: failed to compile content item: ' + contentId + '. The component will render in the client.');
-						if (e) {
-							console.log('statusCode: ' + e.statusCode + '. statusMessage: ' + e.statusMessage + '. ');
-						}
-						return resolve({
-							content: ''
-						});
-					});
-				}
+					}
+				});
 			} else {
 				// can't find content layout compiler
 				return resolve({

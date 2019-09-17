@@ -18,8 +18,6 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	sprintf = require('sprintf-js').sprintf,
 	zip = require('gulp-zip');
 
-var Client = require('node-rest-client').Client;
-
 var projectDir,
 	contentSrcDir,
 	serversSrcDir,
@@ -71,7 +69,9 @@ module.exports.downloadContent = function (argv, done) {
 		return;
 	}
 
-	_downloadContent(server, channel, publishedassets).then(function (result) {
+	var assetGUIDS = argv.assets ? argv.assets.split(',') : [];
+	
+	_downloadContent(server, channel, publishedassets, assetGUIDS).then(function (result) {
 		if (result && result.err) {
 			done();
 		} else {
@@ -80,7 +80,7 @@ module.exports.downloadContent = function (argv, done) {
 	});
 };
 
-var _downloadContent = function (server, channel, publishedassets) {
+var _downloadContent = function (server, channel, publishedassets, assetGUIDS) {
 	return new Promise(function (resolve, reject) {
 		var destdir = path.join(projectDir, 'dist');
 		if (!fs.existsSync(destdir)) {
@@ -117,7 +117,7 @@ var _downloadContent = function (server, channel, publishedassets) {
 
 			var exportfilepath = path.join(destdir, channelName + '_export.zip');
 
-			var exportPromise = _exportChannelContent(request, server, channelId, channelName, publishedassets, exportfilepath);
+			var exportPromise = _exportChannelContent(request, server, channelId, channelName, publishedassets, assetGUIDS, exportfilepath);
 			exportPromise.then(function (result) {
 				if (result.err) {
 					return resolve({
@@ -184,123 +184,59 @@ var _getChannelsFromServer = function (server) {
 				err: 'err'
 			});
 		}
-		var client = new Client({
-			user: server.username,
-			password: server.password
-		});
-		var url = server.url + '/content/management/api/v1.1/channels?limit=99999';
-		client.get(url, function (data, response) {
-			if (response && response.statusCode === 200 && data) {
-				var channels = [];
-				if (data.channels) {
-					for (var i = 0; i < data.channels.length; i++) {
-						var channel = data.channels[i];
-						var tokens = channel.tokens;
-						var token;
-						if (tokens && tokens.length > 0) {
-							if (tokens.length === 1) {
-								token = tokens[0].channelToken;
-							} else if (tokens.length > 0)
+		serverRest.getChannels({
+				server: server
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var values = result || [];
+					var channels = [];
+					for (var i = 0; i < values.length; i++) {
+						var channel = values[i];
+						if (channel && channel.channelTokens) {
+							var token;
+							var tokens = channel.channelTokens;
+							if (tokens && tokens.length === 1) {
+								token = tokens[0].token;
+							} else if (tokens && tokens.length > 0) {
 								for (var j = 0; j < tokens.length; j++) {
-									if (tokens[j].tokenName === 'defaultToken') {
-										token = tokens[j].channelToken;
+									if (tokens[j].name === 'defaultToken') {
+										token = tokens[j].token;
 										break;
 									}
 								}
-							if (!token) {
-								token = tokens[0].channelToken;
+								if (!token) {
+									token = tokens[0].channelToken;
+								}
 							}
+
+							channels.push({
+								'id': channel.id,
+								'name': channel.name,
+								'token': token
+							});
 						}
-						channels.push({
-							'id': channel.id,
-							'name': channel.name,
-							'token': token
-						});
 					}
+
 					return resolve({
 						channels
 					});
-				} else if (data.items) {
-					var channelPromises = [];
-					for (var i = 0; i < data.items.length; i++) {
-						channelPromises[i] = _getChannelDetailsFromServer(server, data.items[i].id);
-					}
-					Promise.all(channelPromises).then(function (values) {
-						for (var i = 0; i < values.length; i++) {
-							var channel = values[i];
-							if (channel && channel.channelTokens) {
-								var token;
-								var tokens = channel.channelTokens;
-								if (tokens && tokens.length === 1) {
-									token = tokens[0].token;
-								} else if (tokens && tokens.length > 0) {
-									for (var j = 0; j < tokens.length; j++) {
-										if (tokens[j].name === 'defaultToken') {
-											token = tokens[j].token;
-											break;
-										}
-									}
-									if (!token) {
-										token = tokens[0].channelToken;
-									}
-								}
-
-								channels.push({
-									'id': channel.id,
-									'name': channel.name,
-									'token': token
-								});
-							}
-						}
-
-						return resolve({
-							channels
-						});
-					});
 				}
-
-			} else {
-				console.log('status=' + response && response.statusCode);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-
+			});
 	});
 	return channelsPromise;
 };
 
 
-
-var _getChannelDetailsFromServer = function (server, channelId) {
-	var channelPromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			return resolve({});
-		}
-		var client = new Client({
-			user: server.username,
-			password: server.password
-		});
-		var url = server.url + '/content/management/api/v1.1/channels/' + channelId;
-		client.get(url, function (data, response) {
-			if (response && response.statusCode === 200 && data) {
-				return resolve(data);
-			} else {
-				// console.log(' - ' + (data ? (data.detail || data.title) : 'failed to get channel: id=' + channelId));
-				return resolve({});
-			}
-		});
-	});
-	return channelPromise;
-};
-
 /**
  * Call CAAS to create and export content template
  * @param {*} channelId 
  */
-var _exportChannelContent = function (request, server, channelId, channelName, publishedassets, exportfilepath) {
+var _exportChannelContent = function (request, server, channelId, channelName, publishedassets, assetGUIDS, exportfilepath) {
 	var exportPromise = new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -309,10 +245,7 @@ var _exportChannelContent = function (request, server, channelId, channelName, p
 			});
 		}
 
-		var auth = {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 		// Get CSRF token
 		var csrfTokenPromise = new Promise(function (resolve, reject) {
 			var tokenUrl = server.url + '/content/management/api/v1.1/token';
@@ -361,6 +294,12 @@ var _exportChannelContent = function (request, server, channelId, channelName, p
 				'exportPublishedItems': publishedassets ? 'true' : 'false'
 			};
 
+			if (assetGUIDS && assetGUIDS.length > 0) {
+				postData['items'] = {
+					'contentItems': assetGUIDS
+				};
+			}
+
 			var options = {
 				method: 'POST',
 				url: url,
@@ -382,8 +321,13 @@ var _exportChannelContent = function (request, server, channelId, channelName, p
 						err: 'err'
 					});
 				}
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (e) {
+					data = body;
+				}
 				if (response && (response.statusCode === 200 || response.statusCode === 201)) {
-					var data = JSON.parse(body);
 					var jobId = data && data.jobId;
 					if (!jobId) {
 						return resolve({
@@ -456,8 +400,8 @@ var _exportChannelContent = function (request, server, channelId, channelName, p
 					}, 5000);
 
 				} else {
-					console.log(' - failed to export: ' + response.statusCode);
-					console.log(body);
+					var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
+					console.log('ERROR: failed to export: ' + msg);
 					return resolve({
 						err: 'err'
 					});
@@ -474,10 +418,7 @@ var _exportChannelContent = function (request, server, channelId, channelName, p
 var _checkJobStatus = function (request, server, jobId) {
 	var checkExportStatusPromise = new Promise(function (resolve, reject) {
 		var statusUrl = server.url + '/content/management/api/v1.1/content-templates/exportjobs/' + jobId;
-		var auth = {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 		var options = {
 			url: statusUrl,
 			'auth': auth
@@ -521,7 +462,7 @@ var _uploadContentFromZip = function (args) {
 			.on('end', function () {
 				var zippath = path.join(projectDir, 'dist', contentfilename);
 				console.log(' - created content file ' + zippath);
-				args.zippath =zippath;
+				args.zippath = zippath;
 				_uploadContentFromZipFile(args).then(function (result) {
 					return resolve(result);
 				});
@@ -868,10 +809,7 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 	var importPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/content-templates/importjobs';
 
-		var auth = {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 
 		var postData = {
 			'exportDocId': contentZipFileId,
@@ -1401,7 +1339,7 @@ module.exports.syncPublishUnpublishItems = function (argv, done) {
 			}
 
 			console.log(' - items ' + (action === 'publish' ? 'published to channel ' : 'unpublished from channel ') + channelName + ' on server ' + destServer.name);
-			done();
+			done(true);
 		})
 		.catch((error) => {
 			done();
@@ -1624,7 +1562,8 @@ module.exports.syncDeleteItem = function (argv, done) {
 			var failedItems = result && result.data && result.data.operations && result.data.operations.deleteItems && result.data.operations.deleteItems.failedItems || [];
 			if (failedItems.length > 0) {
 				console.log('ERROR: failed to delete the item - ' + failedItems[0].message);
-				done();
+				var retry = failedItems[0].message && failedItems[0].message.indexOf('referred by other') >= 0;
+				done(false, retry);
 			} else {
 				console.log(' - item ' + (name || id) + ' deleted on server ' + destServer.name);
 				done(true);

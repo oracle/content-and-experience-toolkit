@@ -383,7 +383,7 @@ var _getPageData = function (request, localhost, site, pageIds) {
 var _getPageDataPromise = function (request, localhost, site, pages, locale, isMaster) {
 
 	var pageIdList = [];
-	var limit = 50;
+	var limit = 20;
 	var pageIds = '';
 	for (var i = 0; i < pages.length; i++) {
 		if (pageIds) {
@@ -2182,10 +2182,7 @@ var _indexSite = function (server, request, localhost, site, contenttype, publis
 var _getCSRFToken = function (server, request) {
 	var csrfTokenPromise = new Promise(function (resolve, reject) {
 		var tokenUrl = server.url + '/content/management/api/v1.1/token';
-		var auth = {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 		var options = {
 			url: tokenUrl,
 			'auth': auth
@@ -2332,10 +2329,7 @@ module.exports.indexSite = function (argv, done) {
 				}
 
 				var formDataStr = JSON.stringify(formData);
-				var auth = {
-					user: server.username,
-					password: server.password
-				};
+				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'POST',
 					url: url,
@@ -2445,10 +2439,7 @@ module.exports.indexSite = function (argv, done) {
 					};
 				}
 				var formDataStr = JSON.stringify(formData);
-				var auth = {
-					user: server.username,
-					password: server.password
-				};
+				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'POST',
 					url: url,
@@ -2489,10 +2480,7 @@ module.exports.indexSite = function (argv, done) {
 				var itemName = indexData.name;
 				var url = server.url + '/content/management/api/v1.1/items/' + id;
 				var formDataStr = JSON.stringify(indexData);
-				var auth = {
-					user: server.username,
-					password: server.password
-				};
+				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'PUT',
 					url: url,
@@ -2547,10 +2535,7 @@ module.exports.indexSite = function (argv, done) {
 					ids: ids
 				};
 				var formDataStr = JSON.stringify(formData);
-				var auth = {
-					user: server.username,
-					password: server.password
-				};
+				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'POST',
 					url: url,

@@ -138,6 +138,15 @@ module.exports.uploadFile = function (argv, done) {
 	}
 	console.log(' - server: ' + server.url);
 
+	_uploadFile(argv, server).then(function () {
+		done(true);
+	}).catch(function (error) {
+		done();
+	});
+};
+
+var _uploadFile = function (argv, server) {
+
 	var filePath = argv.file;
 	if (!path.isAbsolute(filePath)) {
 		filePath = path.join(projectDir, filePath);
@@ -147,13 +156,11 @@ module.exports.uploadFile = function (argv, done) {
 
 	if (!fs.existsSync(filePath)) {
 		console.log('ERROR: file ' + filePath + ' does not exist');
-		done();
-		return;
+		return Promise.reject();
 	}
 	if (fs.statSync(filePath).isDirectory()) {
 		console.log('ERROR: ' + filePath + ' is not a file');
-		done();
-		return;
+		return Promise.reject();
 	}
 
 	var inputPath = argv.folder === '/' ? '' : serverUtils.trimString(argv.folder, '/');
@@ -194,11 +201,10 @@ module.exports.uploadFile = function (argv, done) {
 		loginPromises.push(serverUtils.loginToServer(server, request));
 	}
 
-	Promise.all(loginPromises).then(function (results) {
+	return Promise.all(loginPromises).then(function (results) {
 		if (resourceFolder && (!results || results.length === 0 || !results[0].status)) {
 			console.log(' - failed to connect to the server');
-			done();
-			return;
+			return Promise.reject();
 		}
 
 		var resourcePromises = [];
@@ -221,7 +227,7 @@ module.exports.uploadFile = function (argv, done) {
 			}
 		}
 
-		Promise.all(resourcePromises).then(function (results) {
+		return Promise.all(resourcePromises).then(function (results) {
 				var rootParentId = 'self';
 				if (resourceFolder) {
 					var resourceGUID;
@@ -256,17 +262,17 @@ module.exports.uploadFile = function (argv, done) {
 				});
 			})
 			.then(function (result) {
-				if (result) {
+				if (result && !result.err) {
 					console.log(' - file ' + fileName + ' uploaded to ' +
 						(argv.folder ? ('folder ' + argv.folder) : 'Home folder') +
 						' (Id: ' + result.id + ' version:' + result.version + ')');
-					done(true);
+					return Promise.resolve(true);
 				} else {
-					done();
+					return Promise.reject();
 				}
 			})
 			.catch((error) => {
-				done();
+				return Promise.reject();
 			});
 	}); // login
 };
@@ -316,7 +322,7 @@ var _findFolder = function (server, rootParentId, folderPath, showError) {
 				}
 			}
 			resolve(parentFolder);
-		})
+		});
 	});
 };
 
@@ -751,10 +757,7 @@ module.exports.unshareFolder = function (argv, done) {
 var _readFile = function (server, fFileGUID, fileName, folderPath) {
 	return new Promise(function (resolve, reject) {
 
-		var auth = {
-			user: server.username,
-			password: server.password
-		};
+		var auth = serverUtils.getRequestAuth(server);
 
 		url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data/';
 
@@ -1084,162 +1087,190 @@ module.exports.uploadFolder = function (argv, done) {
 	}
 	console.log(' - server: ' + server.url);
 
-	var srcPath = argv.path;
-	var contentOnly = serverUtils.endsWith(srcPath, path.sep);
-
-	if (!path.isAbsolute(srcPath)) {
-		srcPath = path.join(projectDir, srcPath);
-	}
-	srcPath = path.resolve(srcPath);
-
-	if (!fs.existsSync(srcPath)) {
-		console.log('ERROR: file ' + srcPath + ' does not exist');
+	_uploadFolder(argv, server).then(function () {
+		done(true);
+	}).catch(function (error) {
 		done();
-		return;
-	}
-	if (!fs.statSync(srcPath).isDirectory()) {
-		console.log('ERROR: ' + srcPath + ' is not a folder');
-		done();
-		return;
-	}
-
-	// remove drive on windows
-	if (srcPath.indexOf(path.sep) > 0) {
-		srcPath = srcPath.substring(srcPath.indexOf(path.sep));
-	}
-
-	var folderName = contentOnly ? '' : srcPath.substring(srcPath.lastIndexOf(path.sep) + 1);
-	// console.log(' - path=' + argv.path + ' srcPath=' + srcPath + ' contentOnly=' + contentOnly + ' folderName=' + folderName);
-
-	var inputPath = argv.folder === '/' ? '' : serverUtils.trimString(argv.folder, '/');
-	var resourceFolder = false;
-	var resourceName;
-	var resourceType;
-	var resourceLabel;
-	if (inputPath && (inputPath.indexOf('site:') === 0 || inputPath.indexOf('theme:') === 0 || inputPath.indexOf('component:') === 0)) {
-		resourceFolder = true;
-		if (inputPath.indexOf('site:') === 0) {
-			inputPath = inputPath.substring(5);
-			resourceType = 'site';
-			resourceLabel = 'Sites';
-		} else if (inputPath.indexOf('theme:') === 0) {
-			inputPath = inputPath.substring(6);
-			resourceType = 'theme';
-			resourceLabel = 'Themes';
-		} else {
-			inputPath = inputPath.substring(10);
-			resourceType = 'component';
-			resourceLabel = 'Components';
-		}
-		if (inputPath.indexOf('/') > 0) {
-			resourceName = inputPath.substring(0, inputPath.indexOf('/'));
-			inputPath = inputPath.substring(inputPath.indexOf('/') + 1);
-		} else {
-			resourceName = inputPath;
-			inputPath = '';
-		}
-	}
-	// console.log('argv.folder=' + argv.folder + ' inputPath=' + inputPath + ' siteName=' + siteName);
-	var folderPath = !argv.folder || argv.folder === '/' || !inputPath ? [] : inputPath.split(path.sep);
-	if (folderName) {
-		folderPath.push(folderName);
-	}
-	console.log(' - target folder: ' + (resourceFolder ? (resourceLabel + ' > ' + resourceName) : 'Documents') + ' > ' + folderPath.join(' > '));
-
-	// get all files to upload
-	var folderContent = [];
-	dir.files(srcPath, function (err, files) {
-		if (err) {
-			console.log(err);
-			done();
-		} else {
-			// group files under the same folder
-			for (var i = 0; i < files.length; i++) {
-				var src = files[i];
-				src = src.substring(srcPath.length + 1);
-				var fileFolder = src.indexOf(path.sep) > 0 ? src.substring(0, src.lastIndexOf(path.sep)) : '';
-
-				var found = false;
-				for (var j = 0; j < folderContent.length; j++) {
-					if (folderContent[j].fileFolder === fileFolder) {
-						found = true;
-						folderContent[j].files.push(files[i]);
-						break;
-					}
-				}
-				if (!found) {
-					folderContent.push({
-						fileFolder: fileFolder,
-						files: [files[i]]
-					});
-				}
-			}
-			// console.log(folderContent);
-
-			var request = serverUtils.getRequest();
-			var loginPromises = [];
-
-			if (resourceFolder) {
-				loginPromises.push(serverUtils.loginToServer(server, request));
-			}
-
-			Promise.all(loginPromises).then(function (results) {
-				if (resourceFolder && (!results || results.length === 0 || !results[0].status)) {
-					console.log(' - failed to connect to the server');
-					done();
-					return;
-				}
-
-				var resourcePromises = [];
-				if (resourceFolder) {
-					if (resourceType === 'site') {
-						resourcePromises.push(server.useRest ? sitesRest.getSite({
-							server: server,
-							name: resourceName
-						}) : serverUtils.getSiteFolderAfterLogin(server, resourceName));
-					} else if (resourceType === 'theme') {
-						resourcePromises.push(server.useRest ? sitesRest.getTheme({
-							server: server,
-							name: resourceName
-						}) : _getThemeGUID(request, server, resourceName));
-					} else {
-						resourcePromises.push(server.useRest ? sitesRest.getComponent({
-							server: server,
-							name: resourceName
-						}) : _getComponentGUID(request, server, resourceName));
-					}
-				}
-
-				Promise.all(resourcePromises).then(function (results) {
-						var rootParentId = 'self';
-						if (resourceFolder) {
-							var resourceGUID;
-							if (results.length > 0 && results[0]) {
-								resourceGUID = results[0].id;
-							}
-
-							if (!resourceGUID) {
-								console.log('ERROR: invalid ' + resourceType + ' ' + resourceName);
-								return Promise.reject();
-							}
-							rootParentId = resourceGUID;
-						}
-						return _createFolderUploadFiles(server, rootParentId, folderPath, folderContent);
-					})
-					.then(function (result) {
-						done(true);
-					})
-					.catch((error) => {
-						done();
-					});
-			}); // login
-		}
 	});
 };
 
-var _createFolderUploadFiles = function (server, rootParentId, folderPath, folderContent) {
+var _uploadFolder = function (argv, server) {
 	return new Promise(function (resolve, reject) {
-		format = '   %-48s  %-7s  %-s';
+		var srcPath = argv.path;
+		var contentOnly = serverUtils.endsWith(srcPath, path.sep);
+
+		if (!path.isAbsolute(srcPath)) {
+			srcPath = path.join(projectDir, srcPath);
+		}
+		srcPath = path.resolve(srcPath);
+
+		if (!fs.existsSync(srcPath)) {
+			console.log('ERROR: file ' + srcPath + ' does not exist');
+			return reject();
+		}
+		if (!fs.statSync(srcPath).isDirectory()) {
+			console.log('ERROR: ' + srcPath + ' is not a folder');
+			return reject();
+		}
+
+		// remove drive on windows
+		if (srcPath.indexOf(path.sep) > 0) {
+			srcPath = srcPath.substring(srcPath.indexOf(path.sep));
+		}
+
+		var folderName = contentOnly ? '' : srcPath.substring(srcPath.lastIndexOf(path.sep) + 1);
+		// console.log(' - path=' + argv.path + ' srcPath=' + srcPath + ' contentOnly=' + contentOnly + ' folderName=' + folderName);
+
+		var inputPath = argv.folder === '/' ? '' : serverUtils.trimString(argv.folder, '/');
+		var resourceFolder = false;
+		var resourceName;
+		var resourceType;
+		var resourceLabel;
+		if (inputPath && (inputPath.indexOf('site:') === 0 || inputPath.indexOf('theme:') === 0 || inputPath.indexOf('component:') === 0)) {
+			resourceFolder = true;
+			if (inputPath.indexOf('site:') === 0) {
+				inputPath = inputPath.substring(5);
+				resourceType = 'site';
+				resourceLabel = 'Sites';
+			} else if (inputPath.indexOf('theme:') === 0) {
+				inputPath = inputPath.substring(6);
+				resourceType = 'theme';
+				resourceLabel = 'Themes';
+			} else {
+				inputPath = inputPath.substring(10);
+				resourceType = 'component';
+				resourceLabel = 'Components';
+			}
+			if (inputPath.indexOf('/') > 0) {
+				resourceName = inputPath.substring(0, inputPath.indexOf('/'));
+				inputPath = inputPath.substring(inputPath.indexOf('/') + 1);
+			} else {
+				resourceName = inputPath;
+				inputPath = '';
+			}
+		}
+		// console.log('argv.folder=' + argv.folder + ' inputPath=' + inputPath + ' resourceName=' + resourceName);
+		var folderPath = !argv.folder || argv.folder === '/' || !inputPath ? [] : inputPath.split(path.sep);
+		if (folderName) {
+			folderPath.push(folderName);
+		}
+		console.log(' - target folder: ' + (resourceFolder ? (resourceLabel + ' > ' + resourceName) : 'Documents') + ' > ' + folderPath.join(' > '));
+
+		var rootParentFolderLabel = resourceFolder ? resourceName : 'Home folder';
+
+		// get all files to upload
+		var folderContent = [];
+		dir.paths(srcPath, function (err, paths) {
+			if (err) {
+				console.log(err);
+				return reject();
+			} else {
+				// the top level folder
+				if (folderName) {
+					folderContent.push({
+						fileFolder: '',
+						files: []
+					});
+				}
+				// get all sub folders including empty ones
+				var subdirs = paths.dirs;
+				for (var i = 0; i < subdirs.length; i++) {
+					var subdir = subdirs[i];
+					subdir = subdir.substring(srcPath.length + 1);
+					folderContent.push({
+						fileFolder: subdir,
+						files: []
+					});
+				}
+
+				var files = paths.files;
+				// group files under the same folder
+				for (var i = 0; i < files.length; i++) {
+					var src = files[i];
+					src = src.substring(srcPath.length + 1);
+					var fileFolder = src.indexOf(path.sep) > 0 ? src.substring(0, src.lastIndexOf(path.sep)) : '';
+
+					var found = false;
+					for (var j = 0; j < folderContent.length; j++) {
+						if (folderContent[j].fileFolder === fileFolder) {
+							found = true;
+							folderContent[j].files.push(files[i]);
+							break;
+						}
+					}
+					if (!found) {
+						folderContent.push({
+							fileFolder: fileFolder,
+							files: [files[i]]
+						});
+					}
+				}
+				// console.log(folderContent);
+
+				var request = serverUtils.getRequest();
+				var loginPromises = [];
+
+				if (resourceFolder) {
+					loginPromises.push(serverUtils.loginToServer(server, request));
+				}
+
+				Promise.all(loginPromises).then(function (results) {
+					if (resourceFolder && (!results || results.length === 0 || !results[0].status)) {
+						console.log(' - failed to connect to the server');
+						return reject();
+					}
+
+					var resourcePromises = [];
+					if (resourceFolder) {
+						if (resourceType === 'site') {
+							resourcePromises.push(server.useRest ? sitesRest.getSite({
+								server: server,
+								name: resourceName
+							}) : serverUtils.getSiteFolderAfterLogin(server, resourceName));
+						} else if (resourceType === 'theme') {
+							resourcePromises.push(server.useRest ? sitesRest.getTheme({
+								server: server,
+								name: resourceName
+							}) : _getThemeGUID(request, server, resourceName));
+						} else {
+							resourcePromises.push(server.useRest ? sitesRest.getComponent({
+								server: server,
+								name: resourceName
+							}) : _getComponentGUID(request, server, resourceName));
+						}
+					}
+
+					Promise.all(resourcePromises).then(function (results) {
+							var rootParentId = 'self';
+							if (resourceFolder) {
+								var resourceGUID;
+								if (results.length > 0 && results[0]) {
+									resourceGUID = results[0].id;
+								}
+
+								if (!resourceGUID) {
+									console.log('ERROR: invalid ' + resourceType + ' ' + resourceName);
+									return Promise.reject();
+								}
+								rootParentId = resourceGUID;
+							}
+							return _createFolderUploadFiles(server, rootParentId, folderPath, folderContent, rootParentFolderLabel);
+						})
+						.then(function (result) {
+							return resolve(true);
+						})
+						.catch((error) => {
+							return reject();
+						});
+				}); // login
+			}
+		});
+	});
+};
+
+var _createFolderUploadFiles = function (server, rootParentId, folderPath, folderContent, rootParentFolderLabel) {
+	return new Promise(function (resolve, reject) {
+		format = '   %-8s  %-s';
 		var doCreateFolders = folderContent.reduce(function (createPromise, param) {
 				return createPromise.then(function (result) {
 					var folders = folderPath;
@@ -1250,6 +1281,10 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 					return _createFolder(server, rootParentId, folders, false).then(function (parentFolder) {
 
 						if (parentFolder) {
+							var folders2 = folders.slice(0);
+							folders2.pop();
+							var folderStr = rootParentFolderLabel + '/' + (folders2.length > 0 ? folders2.join('/') : '');
+							console.log(sprintf(format, 'Folder', folderStr + (folderStr.endsWith('/') ? '' : '/') + parentFolder.name));
 							var filePromises = [];
 							for (var i = 0; i < param.files.length; i++) {
 								var filePath = param.files[i];
@@ -1263,11 +1298,11 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 							}
 
 							return Promise.all(filePromises).then(function (results) {
-								var folderStr = folders.length > 0 ? folders.join('/') : 'Home folder';
+								var folderStr = rootParentFolderLabel + '/' + (folders.length > 0 ? folders.join('/') : '');
 								for (var i = 0; i < results.length; i++) {
 									var file = results[i];
-									if (file) {
-										console.log(sprintf(format, file.name, file.version, folderStr));
+									if (file && !file.err) {
+										console.log(sprintf(format, 'File', folderStr + '/' + file.name + ' (Version: ' + file.version + ')'));
 									}
 								}
 							});
@@ -1278,12 +1313,13 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 			// Start with a previousPromise value that is a resolved promise 
 			Promise.resolve({}));
 		console.log(' - folder uploaded:');
-		console.log(sprintf(format, 'File', 'Version', 'Folder'));
+		console.log(sprintf(format, 'Type', 'Path'));
 		doCreateFolders.then(function (result) {
 			resolve();
 		});
 	});
 };
+
 
 var _getThemeGUID = function (request, server, themeName) {
 	return new Promise(function (resolve, reject) {
@@ -1352,6 +1388,15 @@ module.exports.deleteFolder = function (argv, done) {
 	}
 	console.log(' - server: ' + server.url);
 
+	_deleteFolder(argv, server).then(function () {
+		done(true);
+	}).catch(function (error) {
+		done();
+	});
+};
+
+var _deleteFolder = function (argv, server) {
+
 	var inputPath = argv.path === '/' ? '' : serverUtils.trimString(argv.path, '/');
 	var resourceFolder = false;
 	var resourceName;
@@ -1386,8 +1431,7 @@ module.exports.deleteFolder = function (argv, done) {
 
 	if (folderPath.length === 0) {
 		console.log('ERROR: no folder is specified');
-		done();
-		return;
+		return Promise.reject();
 	}
 
 	var folderId;
@@ -1399,11 +1443,10 @@ module.exports.deleteFolder = function (argv, done) {
 		loginPromises.push(serverUtils.loginToServer(server, request));
 	}
 
-	Promise.all(loginPromises).then(function (results) {
+	return Promise.all(loginPromises).then(function (results) {
 		if (resourceFolder && (!results || results.length === 0 || !results[0].status)) {
 			console.log(' - failed to connect to the server');
-			done();
-			return;
+			return Promise.reject();
 		}
 
 		var resourcePromises = [];
@@ -1426,7 +1469,7 @@ module.exports.deleteFolder = function (argv, done) {
 			}
 		}
 
-		Promise.all(resourcePromises).then(function (results) {
+		return Promise.all(resourcePromises).then(function (results) {
 				var rootParentId = 'self';
 				if (resourceFolder) {
 					var resourceGUID;
@@ -1459,10 +1502,17 @@ module.exports.deleteFolder = function (argv, done) {
 				}
 
 				console.log(' - folder ' + argv.path + ' deleted');
-				done(true);
+				return Promise.resolve(true);
 			})
 			.catch((error) => {
-				done();
+				return Promise.reject();
 			});
 	}); // login
+};
+
+// export non "command line" utility functions
+module.exports.utils = {
+	uploadFolder: _uploadFolder,
+	deleteFolder: _deleteFolder,
+	uploadFile: _uploadFile
 };

@@ -7,6 +7,10 @@
 var request = require('request'),
 	siteUtils = require('./serverUtils');
 
+var _getAuthorization = function (server) {
+	return (server.tokentype || 'Bearer') + ' ' + server.oauthtoken;
+};
+
 var _getResources = function (server, type, expand) {
 	return new Promise(function (resolve, reject) {
 		var request = siteUtils.getRequest();
@@ -21,7 +25,7 @@ var _getResources = function (server, type, expand) {
 		};
 		if (server.env !== 'dev_ec') {
 			options.headers = {
-				Authorization: server.oauthtoken
+				Authorization: _getAuthorization(server)
 			};
 		} else {
 			options.auth = {
@@ -109,7 +113,7 @@ var _getResource = function (server, type, id, name, expand, showError) {
 		};
 		if (server.env !== 'dev_ec') {
 			options.headers = {
-				Authorization: server.oauthtoken
+				Authorization: _getAuthorization(server)
 			};
 		} else {
 			options.auth = {
@@ -236,7 +240,7 @@ var _exportResource = function (server, type, id, name) {
 		};
 		if (server.env !== 'dev_ec') {
 			options.headers = {
-				Authorization: server.oauthtoken
+				Authorization: _getAuthorization(server)
 			};
 		} else {
 			options.auth = {
@@ -322,7 +326,7 @@ var _publishResource = function (server, type, id, name) {
 		};
 		if (server.env !== 'dev_ec') {
 			options.headers = {
-				Authorization: server.oauthtoken
+				Authorization: _getAuthorization(server)
 			};
 		} else {
 			options.auth = {
@@ -396,7 +400,7 @@ var _publishResourceAsync = function (server, type, id, name) {
 			url: server.url + url
 		};
 		if (server.env !== 'dev_ec') {
-			options.headers['Authorization'] = server.oauthtoken;
+			options.headers['Authorization'] = _getAuthorization(server);
 
 		} else {
 			options.auth = {
@@ -414,14 +418,14 @@ var _publishResourceAsync = function (server, type, id, name) {
 					err: error
 				});
 			}
-			
+
 			var data;
 			try {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
 			}
-			
+
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.headers && response.headers.location;
 				var inter = setInterval(function () {
@@ -499,7 +503,7 @@ var _unpublishResource = function (server, type, id, name) {
 		};
 		if (server.env !== 'dev_ec') {
 			options.headers = {
-				Authorization: server.oauthtoken
+				Authorization: _getAuthorization(server)
 			};
 		} else {
 			options.auth = {
@@ -571,7 +575,7 @@ var _unpublishResource = function (server, type, id, name) {
 		};
 		if (server.env !== 'dev_ec') {
 			options.headers = {
-				Authorization: server.oauthtoken
+				Authorization: _getAuthorization(server)
 			};
 		} else {
 			options.auth = {
@@ -628,7 +632,7 @@ module.exports.unpublishSite = function (args) {
 var _setSiteOnlineStatus = function (server, id, name, status) {
 	return new Promise(function (resolve, reject) {
 		var request = siteUtils.getRequest();
-		
+
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
 			url = url + id
@@ -645,7 +649,7 @@ var _setSiteOnlineStatus = function (server, id, name, status) {
 		};
 		if (server.env !== 'dev_ec') {
 			options.headers = {
-				Authorization: server.oauthtoken
+				Authorization: _getAuthorization(server)
 			};
 		} else {
 			options.auth = {
@@ -730,7 +734,7 @@ var _softDeleteResource = function (server, type, id, name) {
 		};
 		if (server.env !== 'dev_ec') {
 			options.headers = {
-				Authorization: server.oauthtoken
+				Authorization: _getAuthorization(server)
 			};
 		} else {
 			options.auth = {
@@ -789,7 +793,7 @@ var _hardDeleteResource = function (server, type, id, name) {
 		};
 		if (server.env !== 'dev_ec') {
 			options.headers = {
-				Authorization: server.oauthtoken
+				Authorization: _getAuthorization(server)
 			};
 		} else {
 			options.auth = {
@@ -863,7 +867,7 @@ var _importComponent = function (server, name, fileId) {
 		};
 		if (server.env !== 'dev_ec') {
 			options.headers = {
-				Authorization: server.oauthtoken
+				Authorization: _getAuthorization(server)
 			};
 		} else {
 			options.auth = {
@@ -923,7 +927,7 @@ var _getBackgroundServiceJobStatus = function (server, url) {
 		};
 		if (server.env !== 'dev_ec') {
 			options.headers = {
-				Authorization: server.oauthtoken
+				Authorization: _getAuthorization(server)
 			};
 		} else {
 			options.auth = {
@@ -964,7 +968,7 @@ var _getBackgroundServiceJobStatus = function (server, url) {
 	});
 };
 
-var _createTemplateFromSite = function (server, name, siteName, exportPublishedAssets) {
+var _createTemplateFromSite = function (server, name, siteName, includeUnpublishedAssets) {
 	return new Promise(function (resolve, reject) {
 		var request = siteUtils.getRequest();
 
@@ -977,12 +981,13 @@ var _createTemplateFromSite = function (server, name, siteName, exportPublishedA
 				Prefer: 'respond-async'
 			},
 			body: {
-				name: name
+				name: name,
+				includeUnpublished: includeUnpublishedAssets
 			},
 			json: true
 		};
 		if (server.env !== 'dev_ec') {
-			options.headers['Authorization'] = server.oauthtoken;
+			options.headers['Authorization'] = _getAuthorization(server);
 		} else {
 			options.auth = {
 				user: server.username,
@@ -1050,7 +1055,7 @@ var _createTemplateFromSite = function (server, name, siteName, exportPublishedA
  */
 module.exports.createTemplateFromSite = function (args) {
 	var server = args.server;
-	return _createTemplateFromSite(server, args.name, args.siteName, args.exportPublishedAssets);
+	return _createTemplateFromSite(server, args.name, args.siteName, args.includeUnpublishedAssets);
 };
 
 var _importTemplate = function (server, name, fileId) {
@@ -1080,7 +1085,7 @@ var _importTemplate = function (server, name, fileId) {
 			json: true
 		};
 		if (server.env !== 'dev_ec') {
-			options.headers['Authorization'] = server.oauthtoken;
+			options.headers['Authorization'] = _getAuthorization(server);
 		} else {
 			options.auth = {
 				user: server.username,
@@ -1174,7 +1179,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 		if (defaultLanguage) {
 			body.defaultLanguage = defaultLanguage;
 		}
-		
+
 		var options = {
 			method: 'POST',
 			url: server.url + url,
@@ -1185,7 +1190,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 			json: true
 		};
 		if (server.env !== 'dev_ec') {
-			options.headers['Authorization'] = server.oauthtoken;
+			options.headers['Authorization'] = _getAuthorization(server);
 		} else {
 			options.auth = {
 				user: server.username,
