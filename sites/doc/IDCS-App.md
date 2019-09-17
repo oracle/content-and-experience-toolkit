@@ -9,30 +9,30 @@ Go to your MyServices Dashboard - the URL will be like this:
 
 Click **Identity Cloud** link
 
-![](file:///Users/sburns/Dev/webclient/developer/sites-toolkit/doc/images/IDCS-ic.png)
+![](images/IDCS-ic.png)
 
 Copy the **Service Instance URL** for later, and then click on the **Service Instance URL** link
 
 Your **Service Instance URL** will be like: https://idcs-1234123412341234123412341234.identity.oraclecloud.com:443/ui/v1/adminconsole
 
-![](file:///Users/sburns/Dev/webclient/developer/sites-toolkit/doc/images/IDCS-si.png)
+![](images/IDCS-si.png)
 
 Click on the **Applications** tile to create a new Application
 
-![](file:///Users/sburns/Dev/webclient/developer/sites-toolkit/doc/images/IDCS-at.png)
+![](images/IDCS-at.png)
 
 Pick a **Confidential Application**
 
-![](file:///Users/sburns/Dev/webclient/developer/sites-toolkit/doc/images/IDCS-ca.png)
+![](images/IDCS-ca.png)
 
 Name the application - e.g. oce-toolkit
 
-![](file:///Users/sburns/Dev/webclient/developer/sites-toolkit/doc/images/IDCS-an.png)
+![](images/IDCS-an.png)
 
 Click **Next** and choose option: **Configure this application as a client now**.  Select '**Resource Owner**' and '**JWT Assertion**'
 Select: Authorized Resources:  **All**
 
-![](file:///Users/sburns/Dev/webclient/developer/sites-toolkit/doc/images/IDCS-cl.png)
+![](images/IDCS-cl.png)
 
 Click **Next** to Resource tab, do nothing
 Click **Next** to Web Tier Policy, do nothing
@@ -45,29 +45,29 @@ They will be like:
 **Client ID**: idididididididididididididid
 **Client Secret**: secret-secret-secret-secret-secret
 
-![](file:///Users/sburns/Dev/webclient/developer/sites-toolkit/doc/images/IDCS-cs.png)
+![](images/IDCS-cs.png)
 
 Go back to the **Configuration** tab and expand **Client Configuration**
 
-![](file:///Users/sburns/Dev/webclient/developer/sites-toolkit/doc/images/IDCS-ct.png)
+![](images/IDCS-ct.png)
 
 Scroll down to the **Token Issuance Policy** section and click **+ Add Scope**
 
-![](file:///Users/sburns/Dev/webclient/developer/sites-toolkit/doc/images/IDCS-as.png)
+![](images/IDCS-as.png)
 
 In the **Select Scope** Dialog, find your CEC Instance and click the **>** button.
 
-![](file:///Users/sburns/Dev/webclient/developer/sites-toolkit/doc/images/IDCS-ss.png)
+![](images/IDCS-ss.png)
 
 Select the scope that has the url with **/urn:opc:...** and then click **Add**
 
-![](file:///Users/sburns/Dev/webclient/developer/sites-toolkit/doc/images/IDCS-au.png)
+![](images/IDCS-au.png)
 
 Copy down the **Scope** URL, it will be something like this:
 
 [https://SCOPESCOPESCOPESCOPE.cec.ocp.oraclecloud.com:443/urn:opc:cec:all](https://SCOPESCOPESCOPESCOPE.cec.ocp.oraclecloud.com:443/urn:opc:cec:all)
 
-![](file:///Users/sburns/Dev/webclient/developer/sites-toolkit/doc/images/IDCS-cc.png)
+![](images/IDCS-cc.png)
 
 Click **Save** and Click **Activate**
 
