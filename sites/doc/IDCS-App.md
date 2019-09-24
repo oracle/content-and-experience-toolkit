@@ -13,7 +13,7 @@ Click **Identity Cloud** link
 
 Copy the **Service Instance URL** for later, and then click on the **Service Instance URL** link
 
-Your **Service Instance URL** will be like: https://idcs-1234123412341234123412341234.identity.oraclecloud.com:443/ui/v1/adminconsole
+Your **Service Instance URL** will be like: https://idcs-1234123412341234123412341234.identity.oraclecloud.com
 
 ![](images/IDCS-si.png)
 
@@ -77,7 +77,7 @@ You will need your:
 
 * **OCE Instance URL**: e.g. https://ocepm-oce1234.cec.ocp.oraclecloud.com
 * **Username and Password** for your OCE Instance URL
-* **Identity Service Instance URL**: e.g: https://idcs-1234123412341234123412341234.identity.oraclecloud.com:443/ui/v1/adminconsole
+* **Identity Service Instance URL**: e.g: https://idcs-1234123412341234123412341234.identity.oraclecloud.com
 * **Client ID**: idididididididididididididid
 * **Client Secret**: secret-secret-secret-secret-secret
 * **Scope URL**:  e.g: https://SCOPESCOPESCOPESCOPE.cec.ocp.oraclecloud.com:443/urn:opc:cec:all
