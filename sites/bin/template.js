@@ -1902,8 +1902,7 @@ var _exportServerTemplate = function (request, localhost) {
 		var url = localhost + '/documents/web?IdcService=SCS_EXPORT_TEMPLATE_PACKAGE';
 
 		var options = {
-			url: url,
-			timeout: 300000
+			url: url
 		};
 		request.post(options, function (err, response, body) {
 			if (err) {
@@ -2572,7 +2571,9 @@ module.exports.compileTemplate = function (argv, done) {
 
 	var pages = argv.pages,
 		recurse = typeof argv.recurse === 'boolean' ? argv.recurse : argv.recurse === 'true',
+		verbose = typeof argv.verbose === 'boolean' ? argv.verbose : argv.verbose === 'true',
 		noDefaultDetailPageLink = typeof argv.noDefaultDetailPageLink === 'boolean' ? argv.noDefaultDetailPageLink : argv.noDefaultDetailPageLink === 'true',
+		contentLayoutSnippet = typeof argv.contentLayoutSnippet === 'boolean' ? argv.contentLayoutSnippet : argv.contentLayoutSnippet === 'true',
 		contentType = argv.type,
 		server;
 	if (argv.server) {
@@ -2626,7 +2627,9 @@ module.exports.compileTemplate = function (argv, done) {
 		type: contentType,
 		pages: pages,
 		recurse: recurse,
+		verbose: verbose,
 		noDefaultDetailPageLink: noDefaultDetailPageLink,
+		contentLayoutSnippet: contentLayoutSnippet,
 		logLevel: 'log',
 		outputURL: serverURL + '/templates/' + tempName + '/'
 	}).then(function (result) {
@@ -2634,7 +2637,7 @@ module.exports.compileTemplate = function (argv, done) {
 		console.log(' *** to render non-compiled pages, remove compiled files from under: ' + outputFolder);
 		done(true);
 	}).catch(function (error) {
-		console.log(' *** failed to template');
+		console.log(' *** failed to compile template');
 		done(false);
 	});
 };

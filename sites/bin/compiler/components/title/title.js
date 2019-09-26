@@ -19,6 +19,8 @@ var fs = require('fs'),
     Base = require('../base/base');
 
 
+var compilationReporter = require('../../reporter.js');
+
 var Title = function (compId, compInstance) {
     this.init(compInstance.type, compId, compInstance);
 };

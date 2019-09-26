@@ -14,7 +14,9 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	gulp = require('gulp'),
+	os = require('os'),
 	path = require('path'),
+	readline = require('readline'),
 	sprintf = require('sprintf-js').sprintf,
 	zip = require('gulp-zip');
 
@@ -69,9 +71,21 @@ module.exports.downloadContent = function (argv, done) {
 		return;
 	}
 
+	var name = argv.name;
+
+	var repositoryName = argv.repository;
+	var collectionName = argv.collection;
+	if (collectionName && !repositoryName) {
+		console.log('ERROR: no repository is specified');
+		done();
+		return;
+	}
+
+	var query = argv.query;
+
 	var assetGUIDS = argv.assets ? argv.assets.split(',') : [];
-	
-	_downloadContent(server, channel, publishedassets, assetGUIDS).then(function (result) {
+
+	_downloadContent(server, channel, name, publishedassets, repositoryName, collectionName, query, assetGUIDS).then(function (result) {
 		if (result && result.err) {
 			done();
 		} else {
@@ -80,7 +94,7 @@ module.exports.downloadContent = function (argv, done) {
 	});
 };
 
-var _downloadContent = function (server, channel, publishedassets, assetGUIDS) {
+var _downloadContent = function (server, channel, name, publishedassets, repositoryName, collectionName, query, assetGUIDS) {
 	return new Promise(function (resolve, reject) {
 		var destdir = path.join(projectDir, 'dist');
 		if (!fs.existsSync(destdir)) {
@@ -89,72 +103,211 @@ var _downloadContent = function (server, channel, publishedassets, assetGUIDS) {
 
 		var request = _getRequest();
 
+		var channelId = '';
+		var channelName = '';
+		var repository, collection;
+		var q = '';
+
 		var channelsPromise = _getChannelsFromServer(server);
 		channelsPromise.then(function (result) {
-			// console.log(result);
-			var channels = result && result.channels || [];
-			var channelId = '';
-			var channelName = '';
-			var channelToken = '';
-			for (var i = 0; i < channels.length; i++) {
-				// supports channel id or name
-				if (channels[i].id === channel || channels[i].name.toLowerCase() === channel.toLowerCase()) {
-					channelId = channels[i].id;
-					channelName = channels[i].name;
-					channelToken = channels[i].token;
-					break;
+				// console.log(result);
+				var channels = result && result.channels || [];
+				for (var i = 0; i < channels.length; i++) {
+					// supports channel id or name
+					if (channels[i].id === channel || channels[i].name.toLowerCase() === channel.toLowerCase()) {
+						channelId = channels[i].id;
+						channelName = channels[i].name;
+						channelToken = channels[i].token;
+						break;
+					}
 				}
-			}
 
-			if (!channelId) {
-				console.log('ERROR: channel ' + channel + ' does not exist');
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			console.log(' - validate channel ' + channelName + ' (id: ' + channelId + ')');
-
-			var exportfilepath = path.join(destdir, channelName + '_export.zip');
-
-			var exportPromise = _exportChannelContent(request, server, channelId, channelName, publishedassets, assetGUIDS, exportfilepath);
-			exportPromise.then(function (result) {
-				if (result.err) {
+				if (!channelId) {
+					console.log('ERROR: channel ' + channel + ' does not exist');
 					return resolve({
-						err: result.err
+						err: 'err'
 					});
 				}
 
-				if (!fs.existsSync(contentSrcDir)) {
-					fs.mkdirSync(contentSrcDir);
+				console.log(' - validate channel ' + channelName + ' (id: ' + channelId + ')');
+
+				var repositoryPromises = [];
+				if (repositoryName) {
+					repositoryPromises.push(serverRest.getRepositories({
+						server: server
+					}));
 				}
 
-				// unzip to src/content
-				var contentPath = path.join(contentSrcDir, channelName);
-				if (fs.existsSync(contentPath)) {
-					fse.removeSync(contentPath);
-				}
-				fs.mkdirSync(contentPath);
+				return Promise.all(repositoryPromises);
+			})
+			.then(function (results) {
+				var collectionPromises = [];
 
-				extract(exportfilepath, {
-					dir: contentPath
-				}, function (err) {
-					if (err) {
+				if (repositoryName) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
+
+					var repositories = results[0];
+					for (var i = 0; i < repositories.length; i++) {
+						if (repositories[i].name.toLowerCase() === repositoryName.toLowerCase()) {
+							repository = repositories[i];
+							break;
+						}
+					}
+
+					if (!repository) {
+						console.log('ERROR: repository ' + repositoryName + ' not found');
+						return Promise.reject();
+					}
+
+					console.log(' - validate repository');
+					collectionPromises.push(serverRest.getCollections({
+						server: server,
+						repositoryId: repository.id
+					}));
+				}
+
+				return Promise.all(collectionPromises);
+
+			})
+			.then(function (results) {
+
+				if (collectionName) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
+
+					var collections = results[0];
+					for (var i = 0; i < collections.length; i++) {
+						if (collections[i].name.toLowerCase() === collectionName.toLowerCase()) {
+							collection = collections[i];
+							break;
+						}
+					}
+
+					if (!collection) {
+						console.log('ERROR: collection ' + collectionName + ' not found in repository ' + repositoryName);
+						return Promise.reject();
+					}
+
+					console.log(' - validate collection');
+				}
+
+				var queryItemPromises = [];
+				if (query || repository || collection) {
+					q = '';
+					if (repository) {
+						q = '(repositoryId eq "' + repository.id + '")';
+					}
+					if (collection) {
+						if (q) {
+							q = ' AND ';
+						}
+						q = '(collections co "' + collection.id + '")';
+					}
+					if (query) {
+						if (q) {
+							q = ' AND ';
+						}
+						q = q + '(' + query + ')';
+					}
+					q = q + ' AND (channels co "' + channelId + '")';
+					console.log(' - query: ' + q);
+
+					queryItemPromises.push(serverRest.queryItems({
+						server: server,
+						q: q
+					}));
+				}
+
+				return Promise.all(queryItemPromises);
+
+			})
+			.then(function (results) {
+				var guids = [];
+				if (query || repository || collection) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
+					var items = results[0];
+					console.log(' - total items from query: ' + items.length);
+
+					// the export items have to be in both query result and specified item list
+					for (var i = 0; i < items.length; i++) {
+						var add = true;
+						if (assetGUIDS && assetGUIDS.length > 0) {
+							add = false;
+							for (var j = 0; j < assetGUIDS.length; j++) {
+								if (items[i].id === assetGUIDS[j]) {
+									add = true;
+									break;
+								}
+							}
+						}
+
+						if (add) {
+							guids.push(items[i].id);
+						}
+					}
+				} else {
+					guids = assetGUIDS;
+				}
+				if (assetGUIDS && assetGUIDS.length > 0 || q) {
+					if (q) {
+						console.log(' - total items to export: ' + guids.length);
+					}
+					if (guids.length === 0) {
+						console.log('ERROR: no asset to export');
+						return Promise.reject();
+					}
+				}
+
+				var exportfilepath = path.join(destdir, (name || channelName) + '_export.zip');
+
+				var exportPromise = _exportChannelContent(request, server, channelId, publishedassets, guids, exportfilepath);
+				exportPromise.then(function (result) {
+					if (result.err) {
 						return resolve({
-							err: 'err'
-						});
-					} else {
-						console.log(' - ' + (publishedassets ? 'published' : 'all') + ' assets from channel ' + channelName + ' are available at ' + contentPath);
-						resolve({
-							channelId: channelId,
-							channeName: channelName
+							err: result.err
 						});
 					}
+
+					if (!fs.existsSync(contentSrcDir)) {
+						fs.mkdirSync(contentSrcDir);
+					}
+
+					// unzip to src/content
+					var contentPath = path.join(contentSrcDir, (name || channelName));
+					if (fs.existsSync(contentPath)) {
+						fse.removeSync(contentPath);
+					}
+					fs.mkdirSync(contentPath);
+
+					extract(exportfilepath, {
+						dir: contentPath
+					}, function (err) {
+						if (err) {
+							return resolve({
+								err: 'err'
+							});
+						} else {
+							console.log(' - the assets from channel ' + channelName + ' are available at ' + contentPath);
+							resolve({
+								channelId: channelId,
+								channeName: channelName
+							});
+						}
+					});
+
 				});
 
+			})
+			.catch((error) => {
+				resolve({
+					err: 'err'
+				});
 			});
-
-		});
 	});
 };
 
@@ -236,7 +389,7 @@ var _getChannelsFromServer = function (server) {
  * Call CAAS to create and export content template
  * @param {*} channelId 
  */
-var _exportChannelContent = function (request, server, channelId, channelName, publishedassets, assetGUIDS, exportfilepath) {
+var _exportChannelContent = function (request, server, channelId, publishedassets, assetGUIDS, exportfilepath) {
 	var exportPromise = new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -857,6 +1010,7 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 				console.log(' - submit import job' + (updateContent ? ', updating content' : ''));
 
 				// Wait for job to finish
+				var count = [];
 				var inter = setInterval(function () {
 					var checkImportStatusPromise = _checkJobStatus(request, server, jobId);
 					checkImportStatusPromise.then(function (result) {
@@ -871,20 +1025,25 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 
 						if (status && status === 'SUCCESS') {
 							clearInterval(inter);
+							process.stdout.write(os.EOL);
 							return resolve({});
 						} else if (!status || status === 'FAILED') {
 							clearInterval(inter);
+							process.stdout.write(os.EOL);
 							console.log('ERROR: import failed: ' + data.errorDescription);
 							return resolve({
 								err: 'err'
 							});
 						} else if (status && status === 'INPROGRESS') {
-							console.log(' - import job in progress...');
+							count.push('.');
+							process.stdout.write(' - import job in progress ' + count.join(''));
+							readline.cursorTo(process.stdout, 0);
 						}
 					});
 
 				}, 5000);
 			} else {
+				process.stdout.write(os.EOL);
 				console.log(' - failed to import: ' + response.statusCode);
 				console.log(body);
 				return resolve({
@@ -1192,7 +1351,8 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror) {
 				}
 
 				console.log(' - submit operation ' + action);
-
+				var count = [];
+				var needNewLine = false;
 				var inter = setInterval(function () {
 					var jobPromise = serverRest.getItemOperationStatus({
 						server: server,
@@ -1201,6 +1361,9 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror) {
 					jobPromise.then(function (data) {
 						if (!data || data.error || data.progress === 'failed') {
 							clearInterval(inter);
+							if (needNewLine) {
+								process.stdout.write(os.EOL);
+							}
 							var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
 							if (showerror) {
 								console.log('ERROR: ' + action + ' failed: ' + msg);
@@ -1214,10 +1377,16 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror) {
 						}
 						if (data.completed) {
 							clearInterval(inter);
+							if (needNewLine) {
+								process.stdout.write(os.EOL);
+							}
 							console.log(' - ' + action + 'ed ' + itemIds.length + ' items');
 							return resolve({});
 						} else {
-							console.log(' - ' + action + ' in process: percentage ' + data.completedPercentage);
+							count.push('.');
+							process.stdout.write(' - ' + action + ' in process ' + count.join(''));
+							readline.cursorTo(process.stdout, 0);
+							needNewLine = true;
 						}
 					});
 				}, 6000);

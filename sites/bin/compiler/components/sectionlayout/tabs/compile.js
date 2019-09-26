@@ -18,6 +18,8 @@ var fs = require('fs'),
 	path = require('path'),
 	cheerio = require('cheerio');
 
+var compilationReporter = require('../../../reporter.js');
+
 var defaultTabClass = 'sl-tabs-tab',
 	activeTabClass = 'sl-tabs-active',
 	inactiveTabClass = 'sl-tabs-inactive',
@@ -165,7 +167,10 @@ SectionLayout.prototype = {
 				attachEventHandlers();
 			}*/
 		} catch (e) {
-			console.error(e);
+			compilationReporter.error({
+				message: 'failed to compile scs-tabs section layout',
+				error: e
+			});
 			content = '';
 		}
 

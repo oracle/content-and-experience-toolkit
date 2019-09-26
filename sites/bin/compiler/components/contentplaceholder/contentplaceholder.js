@@ -1,4 +1,5 @@
 var ContentItem = require('../contentitem/contentitem.js');
+var compilationReporter = require('../../reporter.js');
 
 var ContentPlaceholder = function (args) {
 	this.componentId = args.componentId;
@@ -13,7 +14,9 @@ ContentPlaceholder.prototype = Object.create(ContentItem.prototype);
 
 ContentPlaceholder.prototype.isComponentValid = function (id, contentId) {
 	if (!this.contentItem) {
-		console.log(' - no content item specified for placeholder: ' + id + ' component will render at runtime.');
+		compilationReporter.info({ 
+			message: 'no content item specified for placeholder: ' + id + ' component will render at runtime.'
+		});
 		return false; 
 	} else {
 		return true;
@@ -23,5 +26,10 @@ ContentPlaceholder.prototype.isComponentValid = function (id, contentId) {
 ContentPlaceholder.prototype.getContentItem = function (args) {
 	return Promise.resolve(this.contentItem);
 };
+
+ContentPlaceholder.prototype.getContentType = function (args) {
+	return this.contentItem ? this.contentItem.type : this.componentInstanceObject.data.contentTypes[0];
+};
+
 
 module.exports = ContentPlaceholder;

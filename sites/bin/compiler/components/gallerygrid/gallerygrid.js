@@ -21,6 +21,7 @@ var fs = require('fs'),
 	Base = require('../base/base'),
 	Image = require('../image/image');
 
+var compilationReporter = require('../../reporter.js');
 
 var Gallerygrid = function (compId, compInstance) {
 	this.init('scs-gallerygrid', compId, compInstance);
@@ -157,7 +158,10 @@ Gallerygrid.prototype.computeImages = function () {
 			});
 			resolve(imageContent);
 		}).catch(function (error) {
-			console.log('computeImages failed', error);
+			compilationReporter.error({
+				message: 'computeImages failed',
+				error: error
+			});
 			reject(error);
 		});
 	});

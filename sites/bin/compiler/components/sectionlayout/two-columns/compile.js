@@ -17,6 +17,8 @@
 var fs = require('fs'),
 	path = require('path');
 
+var compilationReporter = require('../../../reporter.js');
+
 var styleClasses = ['left', 'right'];
 
 var SectionLayout = function (componentId, componentInstanceObject, componentsFolder) {
@@ -101,7 +103,10 @@ SectionLayout.prototype = {
 			html += '</div>';
 
 		} catch (e) {
-			console.error(e);
+			compilationReporter.error({
+				message: 'failed to compile scs-two-column section layout',
+				error: e
+			});
 			html = '';
 		}
 

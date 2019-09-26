@@ -17,6 +17,7 @@ var express = require('express'),
 	fse = require('fs-extra'),
 	path = require('path'),
 	ps = require('ps-node'),
+	readline = require('readline'),
 	uuid4 = require('uuid/v4'),
 	puppeteer = require('puppeteer'),
 	btoa = require('btoa'),
@@ -1191,10 +1192,10 @@ var _getOAuthTokenFromIDCS = function (server) {
 				data = JSON.parse(body);
 			} catch (error) {
 				data = body;
-			};
+			}
 
 			if (!data || response.statusCode !== 200) {
-				var msg = data ? (data.error + ':' + data.error_description) : (response.statusMessage || response.statusCode);
+				var msg = (data && (data.error || data.error_description)) ? (data.error_description || data.error) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: Failed to get OAuth token - ' + msg);
 				return resolve({
 					err: 'err'
@@ -2049,7 +2050,7 @@ var _loginToSSOServer = function (server) {
 		var url = server.url + '/documents',
 			usernameid = '#sso_username',
 			passwordid = '#ssopassword',
-			submitid = '.submit_btn',
+			submitid = '[value~=Sign]',
 			username = server.username,
 			password = server.password;
 		/* jshint ignore:start */
@@ -2151,10 +2152,10 @@ var _loginToSSOServer = function (server) {
 };
 module.exports.loginToSSOServer = _loginToSSOServer;
 
-module.exports.loginToServer = function (server, request) {
-	return _loginToServer(server, request);
+module.exports.loginToServer = function (server, request, restCall) {
+	return _loginToServer(server, request, restCall);
 };
-var _loginToServer = function (server, request) {
+var _loginToServer = function (server, request, restCall) {
 	var env = server.env || 'pod_ec';
 	if (env === 'dev_ec' && server.useRest) {
 		return Promise.resolve({
@@ -2162,9 +2163,23 @@ var _loginToServer = function (server, request) {
 		});
 	} else if (env === 'pod_ec' && server.idcs_url && server.client_id && server.client_secret && server.scope) {
 		return _getOAuthTokenFromIDCS(server);
+	} else if (env === 'dev_osso') {
+		if (server.oauthtoken) {
+			return Promise.resolve({
+				status: true
+			});
+		} else {
+			return _loginToSSOServer(server);
+		}
 	} else {
-		var loginPromise = env === 'dev_osso' ? _loginToSSOServer(server) : (env === 'dev_ec' ? _loginToDevServer(server, request) : _loginToPODServer(server));
-		return loginPromise;
+		if (restCall) {
+			return Promise.resolve({
+				status: true
+			});
+		} else {
+			var loginPromise = env === 'dev_ec' ? _loginToDevServer(server, request) : _loginToPODServer(server);
+			return loginPromise;
+		}
 	}
 };
 
@@ -2510,7 +2525,7 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 			} catch (e) {
 				data = body;
 			}
-			
+
 			if (response && response.statusCode === 200) {
 				var version = data && data.LocalData && data.LocalData.dRevLabel;
 				var uploadedFileName = data && data.LocalData && data.LocalData.dOriginalName;
@@ -2531,6 +2546,7 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 						try {
 							data = JSON.parse(body);
 						} catch (e) {}
+
 						if (!data || data.err || !data.LocalData || data.LocalData.StatusCode !== '0') {
 							console.log(' - failed to import ' + (data && data.LocalData ? ('- ' + data.LocalData.StatusMessage) : err));
 							return resolve({
@@ -2566,6 +2582,12 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 								err: 'err'
 							});
 						}
+						// update idcToken
+						if (data && data.LocalData && data.LocalData.idcToken) {
+							console.log(' - refresh token');
+							idcToken = data.LocalData.idcToken;
+						}
+
 						if (type === 'template') {
 							var jobId = data.LocalData.JobID;
 							var importTempStatusPromise = _getTemplateImportStatus(request, localhost, jobId);
@@ -3087,17 +3109,23 @@ var _sleep = function (delay) {
  */
 var _getTemplateImportStatus = function (request, host, jobId) {
 	var importStatusPromise = new Promise(function (resolve, reject) {
+		var count = [];
+		var totalDots = 0;
+		var currPercentage;
+		var msgCount = 0;
 		var inter = setInterval(function () {
 
 			var jobStatusPromise = _getBackgroundServiceStatus(request, host, jobId);
 			jobStatusPromise.then(function (result) {
 				// console.log(result);
 				if (!result || result.err) {
+					process.stdout.write(os.EOL);
 					clearInterval(inter);
 					return resolve({
 						err: 'err'
 					});
 				} else if (result.status === 'COMPLETE' || result.status === 'FAILED') {
+					process.stdout.write(os.EOL);
 					clearInterval(inter);
 					return resolve({
 						status: result.status,
@@ -3105,10 +3133,36 @@ var _getTemplateImportStatus = function (request, host, jobId) {
 					});
 				} else {
 					var msg = result.status === 'PROCESSING' ? (result.status + ' percentage: ' + result.percentage) : (result.status);
-					console.log(' - importing: ' + msg);
+					if (currPercentage === result.percentage) {
+						count.push('.');
+						totalDots += 1;
+						msg = result.status === 'PROCESSING' ? (result.status + ' percentage: ' + result.percentage + ' ' + count.join('')) : (result.status);
+						if (totalDots < 50) {
+							readline.cursorTo(process.stdout, 0);
+							process.stdout.write(' - importing: ' + msg);
+						} else {
+							if (count.length === 50) {
+								count = [];
+								count.push('.');
+								process.stdout.write(os.EOL);
+							}
+							readline.cursorTo(process.stdout, 0);
+							process.stdout.write(count.join(''));
+						}
+						msgCount += 1;
+					} else {
+						currPercentage = result.percentage;
+						count = [];
+						totalDots = 0;
+						if (msgCount > 0) {
+							process.stdout.write(os.EOL);
+						}
+						process.stdout.write(' - importing: ' + msg);
+						msgCount += 1;
+					}
 				}
 			});
-		}, 5000);
+		}, 6000);
 	});
 	return importStatusPromise;
 };

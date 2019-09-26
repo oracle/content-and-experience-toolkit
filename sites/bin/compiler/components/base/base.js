@@ -21,6 +21,8 @@ var fs = require('fs'),
 	ComponentCommon = require('../common/component-common').ComponentCommon,
 	serverUtils = require('../../../../test/server/serverUtils.js');
 
+var compilationReporter = require('../../reporter.js');
+
 var serverURL = 'http://localhost:8085',
 	siteURLPrefix = serverURL + '/templates',
 	SYSTEM_DEFAULT_LAYOUT = 'system-default-layout';
@@ -143,8 +145,10 @@ Base.prototype.renderMustacheTemplate = function (template) {
 		try {
 			markup = mustache.render(template, this);
 		} catch (e) {
-			console.log('failed to expand template');
-			console.log(e);
+			compilationReporter.error({
+				message: 'failed to expand template',
+				error: e
+			});
 		}
 	}
 	return markup;

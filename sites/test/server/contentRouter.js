@@ -10,8 +10,8 @@
 var express = require('express'),
 	serverUtils = require('./serverUtils.js'),
 	router = express.Router(),
+	dir = require('node-dir'),
 	fs = require('fs'),
-	argv = require('yargs').argv,
 	path = require('path'),
 	url = require('url');
 
@@ -81,6 +81,28 @@ var _returnSlugItems = function (res, slug) {
 		res.end();
 		return;
 	}
+};
+
+_findItemBySlug = function (contentdir, slug) {
+	var srcPath = path.join(contentdir, 'ContentItems');
+	var item;
+
+	var files = dir.files(srcPath, {
+		sync: true
+	});
+	for (var i = 0; i < files.length; i++) {
+		var slugJson;
+		try {
+			slugJson = JSON.parse(fs.readFileSync(files[i]));
+		} catch (e) {}
+
+		if (slugJson && slugJson.slug === slug) {
+			item = slugJson;
+			break;
+		}
+	}
+
+	return item;
 };
 
 //
@@ -593,6 +615,12 @@ router.get('/*', (req, res) => {
 				}
 			} else {
 				console.log(' - item type not found for ' + ids[i]);
+				// could be slug
+				console.log(' - query item with slug ' + ids[i]);
+				var item = _findItemBySlug(contentdir, ids[i]);
+				if (item) {
+					items.push(item);
+				}
 			}
 		}
 		//console.log(items);

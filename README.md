@@ -8,6 +8,15 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.3.3a
+
+**Fixed**
+- `cec download-content` - fixed issue hitting timeout on long download
+- `cec upload-template` - fixed issue hitting expired token if zip upload phase takes a long time
+
+**Updated**
+- `cec control-content` - Now shows indeterminate progress instead of percentate: 0
+
 # New in Release 19.3.3
 
 **Added**

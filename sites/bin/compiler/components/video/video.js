@@ -19,6 +19,7 @@ var fs = require('fs'),
 	constants = require('../common/component-constants'),
 	Base = require('../base/base');
 
+var compilationReporter = require('../../reporter.js');
 
 var Video = function (compId, compInstance) {
 	this.init('scs-video', compId, compInstance);
@@ -93,6 +94,6 @@ Video.prototype.computeHtml = function () {
 		t += '></video>';
 
 		return t;
-	},
+	};
 
 	module.exports = Video;

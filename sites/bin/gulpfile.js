@@ -425,6 +425,18 @@ gulp.task('download-file', function (done) {
 });
 
 /**
+ * Delete file
+ */
+gulp.task('delete-file', function (done) {
+	'use strict';
+
+	doclib.deleteFile(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
  * Create component
  * Unzip the zip file of the seeded component and place into the /src
  */
@@ -1078,6 +1090,30 @@ gulp.task('create-localization-policy', function (done) {
 });
 
 /**
+ * List assets on server
+ */
+gulp.task('list-assets', function (done) {
+	'use strict';
+
+	assetlib.listAssets(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * List assets on server
+ */
+gulp.task('create-asset-usage-report', function (done) {
+	'use strict';
+
+	reportlib.createAssetUsageReport(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
  * Download a translation job from the server
  */
 gulp.task('download-translation-job', function (done) {
@@ -1329,6 +1365,18 @@ gulp.task('register-server', function (done) {
 	'use strict';
 
 	resourcelib.registerServer(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Set OAuth token
+ */
+gulp.task('set-oauth-token', function (done) {
+	'use strict';
+
+	resourcelib.setOAuthToken(argv, function (success) {
 		process.exitCode = success ? 0 : 1;
 		done();
 	});

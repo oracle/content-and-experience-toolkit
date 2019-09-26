@@ -22,6 +22,7 @@ var fs = require('fs'),
 	Base = require('../base/base'),
 	Image = require('../image/image');
 
+var compilationReporter = require('../../reporter.js');
 
 var Gallery = function (compId, compInstance) {
 	this.init('scs-gallery', compId, compInstance);
@@ -60,8 +61,10 @@ Gallery.prototype.compile = function () {
 		try {
 			content = self.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'gallery.html'), 'utf8'));
 		} catch (e) {
-			console.log('failed to render gallery component');
-			console.log(e);
+			compilationReporter.error({
+				message: 'failed to render gallery component',
+				error: e
+			});
 		}
 
 		resolve({

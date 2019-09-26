@@ -23,6 +23,8 @@ var fs = require('fs'),
 		return !isNaN(parseFloat(value)) && isFinite(value);
 	};
 
+var compilationReporter = require('../../reporter.js');
+
 
 var Socialbar = function (compId, compInstance) {
 	this.init('scs-socialbar', compId, compInstance);

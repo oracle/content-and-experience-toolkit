@@ -18,6 +18,7 @@ var fs = require('fs'),
 	path = require('path'),
 	cheerio = require('cheerio');
 
+var compilationReporter = require('../../reporter.js');
 /* globals SCSRenderAPI, require */
 
 var applyStyles = function ($div, cgData) {

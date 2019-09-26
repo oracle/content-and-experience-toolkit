@@ -17,10 +17,10 @@
 var fs = require('fs'),
 	path = require('path'),
 	mustache = require('mustache'),
-	Base = require(path.normalize('../base/base'));
+	Base = require('../base/base'),
+	compilationReporter = require('../../reporter.js');
 
 
-var reportedFiles = {};
 
 var Component = function (compId, compInstance, componentsFolder) {
 	this.init('scs-component', compId, compInstance);
@@ -39,10 +39,15 @@ Component.prototype = Object.create(Base.prototype);
 
 Component.prototype.compile = function (args) {
 	var self = this;
+
 	// extend the model with any divider specific values
 	self.customComponentDiv = self.id + 'customComponentDiv';
 	self.computedStyle = self.computeStyle();
 	self.computedContentStyle = self.computeContentStyle();
+
+	self.snippetOnly = args.SCSCompileAPI.snippetOnly; // handle Eloqua generation
+	self.outputChrome = !self.snippetOnly;
+
 
 	// load the custom component's compile.js file
 	// if the file doesn't exist, the component doesn't support compile and will be rendered at runtime
@@ -188,7 +193,8 @@ Component.prototype.compileComponent = function (args) {
 		//
 		// compile in the referenced component
 		//
-		var compileFile = viewModel.getSeededCompFile(viewModel.custComp);
+		var custCompEntry = viewModel.custComp === 'scs-component' && viewModel.contentPlaceholder ? 'scs-contentplaceholder' : viewModel.custComp;
+		var compileFile = viewModel.getSeededCompFile(custCompEntry);
 		if (compileFile) {
 			isSeeded = true;
 		} else {
@@ -259,8 +265,10 @@ Component.prototype.compileComponent = function (args) {
 									hydrate: compiledComp.hydrate
 								});
 							} catch (e) {
-								console.log(type + ': failed to expand template');
-								console.log(e);
+								compilationReporter.error({
+									message: type + ': failed to expand template',
+									error: e
+								});
 								return resolve({
 									customContent: ''
 								});
@@ -269,16 +277,17 @@ Component.prototype.compileComponent = function (args) {
 					} else {
 						var message;
 						if (['scsCaaSLayout', 'scs-contentitem'].indexOf(viewModel.custComp) !== -1) {
-							message = 'failed to compile content item with layout that maps to category: "' + (viewModel.contentLayoutCategory || 'default') + '"';
+							compilationReporter.warn({
+								message: 'failed to compile content item with layout that maps to category: "' + (viewModel.contentLayoutCategory || 'default') + '"'
+							});
 						} else {
-							// don't report for section layouts without children
-							if (!self.isSectionLayout || self.sectionLayoutHasChildren) {
-								message = 'failed to compile component with: ' + compileFile;
+							// don't report if it's a placeholder
+							// or if it's section layouts without children
+							if (!self.contentPlaceholder && (!self.isSectionLayout || self.sectionLayoutHasChildren)) {
+								compilationReporter.warn({
+									message: 'failed to compile component with: ' + compileFile
+								});
 							}
-						}
-						if (message && !reportedFiles[message]) {
-							reportedFiles[message] = 'done';
-							console.log(message);
 						}
 						return resolve({
 							customContent: ''
@@ -286,43 +295,48 @@ Component.prototype.compileComponent = function (args) {
 					}
 				} catch (e) {
 					// unable to compile the custom component, js
-					console.log('Error: failed to render nested components for : ' + viewModel.id + ' into the page. The component will render in the client.');
-					console.log(e);
+					compilationReporter.error({
+						message: 'failed to render nested components for : ' + viewModel.id + ' into the page. The component will render in the client.',
+						error: e
+					});
 					return resolve({
 						customContent: ''
 					});
 				}
 			}).catch(function (e) {
-				console.log('Error: failed to compile component: ' + viewModel.id + ' into the page. The component will render in the client.');
+				compilationReporter.error({
+					message: ' failed to compile component: ' + viewModel.id + ' into the page. The component will render in the client.',
+					error: e
+				});
 				return resolve({
 					customContent: ''
 				});
 			});
 		} catch (e) {
 			// unable to compile the custom component, js
-			if (!reportedFiles[compileFile]) {
-				reportedFiles[compileFile] = 'done';
-
-				if (foundComponentFile) {
-					console.log('require failed to load: "' + compileFile + '.js" due to:');
-					console.log(e);
-				} else {
-					// don't report on placeholder components
-					var placeHolder = (viewModel.custComp === 'scs-component') && (viewModel.contentPlaceholder);
-					if (!placeHolder) {
-						// don't report on ootb component sectionLayout compilers
-						// these are temporary "components" for content lists that aren't compiled at this point so ignore them
-						var ootbSectionLayouts = [
-							'scs-sl-horizontal',
-							'scs-sl-slider',
-							'scs-sl-tabs',
-							'scs-sl-three-columns',
-							'scs-sl-two-columns',
-							'scs-sl-vertical'
-						];
-						if (ootbSectionLayouts.indexOf(viewModel.custComp) === -1) {
-							console.log('no custom component compiler for: "' + compileFile + '.js"');
-						}
+			if (foundComponentFile) {
+				compilationReporter.error({
+					message: 'require failed to load: "' + compileFile + '.js"',
+					error: e
+				});
+			} else {
+				// don't report on placeholder components
+				var placeHolder = (viewModel.custComp === 'scs-component') && (viewModel.contentPlaceholder);
+				if (!placeHolder) {
+					// don't report on ootb component sectionLayout compilers
+					// these are temporary "components" for content lists that aren't compiled at this point so ignore them
+					var ootbSectionLayouts = [
+						'scs-sl-horizontal',
+						'scs-sl-slider',
+						'scs-sl-tabs',
+						'scs-sl-three-columns',
+						'scs-sl-two-columns',
+						'scs-sl-vertical'
+					];
+					if (ootbSectionLayouts.indexOf(viewModel.custComp) === -1) {
+						compilationReporter.warn({
+							message: 'no custom component compiler for: "' + compileFile + '.js"'
+						});
 					}
 				}
 			}

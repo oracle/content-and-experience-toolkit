@@ -17,6 +17,8 @@
 var fs = require('fs'),
 	path = require('path');
 
+var compilationReporter = require('../../../reporter.js');
+
 var isValidWidth = function (value) {
 	var widthRegEx = /^\\s*(([+-]?([0-9]+|[0-9]*\\.[0-9]+)(cap|ch|em|ex|ic|lh|rem|rlh|vh|vw|vi|vb|vmin|vmax|px|cm|mm|Q|in|pc|pt))|auto|0|([+]?([0-9]+|[0-9]*\\.[0-9]+)%))\\s*$/;
 	var isValid = (typeof value === 'string') && widthRegEx.test(value);
@@ -75,7 +77,10 @@ SectionLayout.prototype = {
 				html += '</div>';
 			}
 		} catch (e) {
-			console.error(e);
+			compilationReporter.error({
+				message: 'failed to compile horizontal section layout',
+				error: e
+			});
 			html = '';
 		}
 
@@ -86,5 +91,3 @@ SectionLayout.prototype = {
 };
 
 module.exports = SectionLayout;
-
-

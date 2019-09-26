@@ -23,6 +23,8 @@ var fs = require('fs'),
 	SectionLayout = require('../sectionlayout/sectionlayout'),
 	ContentItem = require('../contentitem/contentitem');
 
+var compilationReporter = require('../../reporter.js');
+
 var contentItem = new ContentItem(),
 	serverURL = 'http://localhost:8085',
 	siteURLPrefix = serverURL + '/templates';
@@ -49,7 +51,9 @@ ContentList.prototype.compile = function (args) {
 	return new Promise(function (resolve, reject) {
 		// can't compile if it requires pagination or is a recommendation
 		if ((self.loadType === 'showPagination') || (self.isRecommendation)) {
-			console.log('Cannot compile content lists that leverage pagination or use recommendations.');
+			compilationReporter.warn({
+				message: 'Cannot compile content lists that leverage pagination or use recommendations.'
+			});
 			return resolve({
 				hydrate: true,
 				content: ''
@@ -98,12 +102,11 @@ ContentList.prototype.compile = function (args) {
 					});
 				});
 			}).catch(function (e) {
-				console.log('ContentList: failed to execute query during compile - check the server is up and that the channelToken and query are correct');
-				if (e.statusCode) {
-					console.log('Response - ' + e.statusCode + ':' + e.statusMessage);
-				} else {
-					console.log(e);
-				}
+				var reportingOptions = {
+					message: 'ContentList: failed to execute query during compile - check the server is up and that the channelToken and query are correct',
+					error: (e && e.statusCode) ? 'Response - ' + e.statusCode + ':' + e.statusMessage : e
+				};
+				compilationReporter.error(reportingOptions);
 				return resolve({
 					hydrate: true,
 					content: ''
@@ -195,7 +198,9 @@ ContentList.prototype.compileSectionLayout = function (args, contentItems) {
 	return sectionLayout.compile(args).then(function (compiledSectionLayout) {
 		var content = compiledSectionLayout && compiledSectionLayout.content;
 		if (!content) {
-			console.log('Section layout in content list failed to compile: ' + slInstance.id);
+			compilationReporter.warn({
+				message: 'Section layout in content list failed to compile: ' + slInstance.id
+			});
 			return Promise.resolve('');
 		}
 
@@ -259,7 +264,9 @@ ContentList.prototype.compileContentItems = function (args, results) {
 
 			// if there was at least one non-compiled item, then render the content list dynamically
 			if (nonCompiledItem) {
-				console.log('at least one item failed to compile in the content list, the content list will render dynamically');
+				compilationReporter.warn({
+					message: 'at least one item failed to compile in the content list, the content list will render dynamically'
+				});
 				return Promise.resolve([]);
 			} else {
 				return Promise.resolve(compiledItems);

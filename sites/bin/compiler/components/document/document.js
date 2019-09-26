@@ -20,6 +20,8 @@ var fs = require('fs'),
 	compReg = require('../component-registration')['component-registration'],
 	Base = require('../base/base');
 
+var compilationReporter = require('../../reporter.js');
+
 
 var Document = function (compId, compInstance) {
 	this.init('scs-document', compId, compInstance);
@@ -82,8 +84,10 @@ Document.prototype.compile = function () {
 		try {
 			content = self.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'document.html'), 'utf8'));
 		} catch (e) {
-			console.log('failed to render document component');
-			console.log(e);
+			compilationReporter.error({
+				message: 'failed to render document component',
+				error: e
+			});
 		}
 
 		resolve({

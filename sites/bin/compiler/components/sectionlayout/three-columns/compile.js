@@ -17,6 +17,8 @@
 var fs = require('fs'),
 	path = require('path');
 
+var compilationReporter = require('../../../reporter.js');
+
 var styleClasses = ['left', 'center', 'right'];
 
 var SectionLayout = function (componentId, componentInstanceObject, componentsFolder) {
@@ -94,7 +96,10 @@ SectionLayout.prototype = {
 			html += '</div>';
 
 		} catch (e) {
-			console.error(e);
+			compilationReporter.error({
+				message: 'failed to compile scs-three-columns section layout',
+				error: e
+			});
 			html = '';
 		}
 

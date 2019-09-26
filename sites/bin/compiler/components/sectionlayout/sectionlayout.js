@@ -18,6 +18,8 @@ var fs = require('fs'),
 	path = require('path'),
 	cheerio = require('cheerio');
 
+var compilationReporter = require('../../reporter.js');
+
 var factoryToNameMap = {
 	"scs-horizontal": "horizontal",
 	"scs-slider": "slider",
@@ -157,7 +159,10 @@ SectionLayout.prototype = {
 							// ok, file's there, load it in
 							SectionLayoutImpl = require(compileFile);
 						} catch (e) {
-							console.log('no compiler found for section layout: ' + sectionLayoutName);
+							compilationReporter.error({
+								message: 'no compiler found for section layout: ' + sectionLayoutName,
+								error: e
+							});
 							return resolve({});
 						}
 
@@ -183,19 +188,25 @@ SectionLayout.prototype = {
 								return resolve({});
 							});
 						} else {
-							console.log('no compile function found for section layout: ' + sectionLayoutName);
+							compilationReporter.warn({
+								message: 'no compile function found for section layout: ' + sectionLayoutName
+							});
 							return resolve({});
 						}
 					} else {
-						console.log('no compiler found for section layout: ' + sectionLayoutName);
+						compilationReporter.warn({
+							message: 'no compiler found for section layout: ' + sectionLayoutName
+						});
 						return resolve({});
 					}
 				} else {
 					return resolve({});
 				}
 			} catch (e) {
-				console.log('error compiling section layout: ' + (instanceObject && instanceObject.id));
-				console.log(e);
+				compilationReporter.error({
+					message: 'error compiling section layout: ' + (instanceObject && instanceObject.id),
+					error: e
+				});
 				return resolve({});
 			}
 		});

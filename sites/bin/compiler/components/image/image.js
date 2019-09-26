@@ -18,6 +18,7 @@ var fs = require('fs'),
 	path = require('path'),
 	Base = require(path.normalize('../base/base'));
 
+var compilationReporter = require('../../reporter.js');
 
 var Image = function (compId, compInstance) {
 	this.init('scs-image', compId, compInstance);

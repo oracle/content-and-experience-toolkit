@@ -893,7 +893,7 @@ function authenticateUserOnOSSO(params) {
 	var url = app.locals.serverURL + '/documents',
 		usernameid = '#sso_username',
 		passwordid = '#ssopassword',
-		submitid = '.submit_btn',
+		submitid = '[value~=Sign]',
 		username = app.locals.server.username,
 		password = app.locals.server.password;
 

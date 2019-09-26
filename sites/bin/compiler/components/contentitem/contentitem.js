@@ -1,6 +1,7 @@
 var fs = require('fs'),
 	path = require('path'),
-	serverUtils = require('../../../../test/server/serverUtils.js');
+	serverUtils = require('../../../../test/server/serverUtils.js'),
+	compilationReporter = require('../../reporter.js');
 
 var serverURL = 'http://localhost:8085',
 	siteURLPrefix = serverURL + '/templates';
@@ -80,21 +81,18 @@ ContentItem.prototype.getContentLayoutName = function (SCSCompileAPI, args) {
 				}
 			} catch (e) {
 				// failed to read mapping file,
-				var fileError = 'failed to read or parse content layout map entry in file: ' + contentSummaryFile;
-				if (!reportedFiles[fileError]) {
-					console.log(fileError);
-					reportedFiles[fileError] = 'done';
-				}
+				compilationReporter.error({
+					message: 'failed to read or parse content layout map entry in file: ' + contentSummaryFile,
+					error: e
+				});
 			}
 		}
 
 		// resolve with the layout name or use the system default layout
 		if (!layoutName) {
-			var message = 'failed to find content layout map entry for: ' + contentType + ':' + contentLayoutCategory + '. Will compile using the system default layout.';
-			if (!reportedFiles[message]) {
-				console.log(message);
-				reportedFiles[message] = 'done';
-			}
+			compilationReporter.warn({
+				message: 'failed to find content layout map entry for: ' + contentType + ':' + contentLayoutCategory + '. Will compile using the system default layout.'
+			});
 		}
 		return resolve(layoutName || SYSTEM_DEFAULT_LAYOUT);
 	});
@@ -121,7 +119,9 @@ ContentItem.prototype.getContentLayout = function (SCSCompileAPI, contentType, c
 
 				return Promise.resolve(compileFile);
 			} catch (e) {
-				console.log('no custom content layout compiler for: "' + (compileFile ? compileFile + '.js' : contentLayoutName) + '"');
+				compilationReporter.warn({
+					message: 'no custom content layout compiler for: "' + (compileFile ? compileFile + '.js' : contentLayoutName) + '"'
+				});
 			}
 		}
 
@@ -132,8 +132,10 @@ ContentItem.prototype.getContentLayout = function (SCSCompileAPI, contentType, c
 
 ContentItem.prototype.isComponentValid = function (id, contentId) {
 	if (!contentId) {
-		console.log('Error: component has no contentId: ' + id);
-		return false; 
+		compilationReporter.error({
+			message: ' component has no contentId: ' + id
+		});
+		return false;
 	} else {
 		return true;
 	}
@@ -143,7 +145,7 @@ ContentItem.prototype.compile = function (args) {
 		SCSCompileAPI = args.SCSCompileAPI;
 
 	return new Promise(function (resolve, reject) {
-		self.getContentLayout(SCSCompileAPI, args.compVM.contentTypes[0], args.compVM.contentLayoutCategory, args.compVM).then(function (compileFile) {
+		self.getContentLayout(SCSCompileAPI, self.getContentType(args), args.compVM.contentLayoutCategory, args.compVM).then(function (compileFile) {
 			if (compileFile) {
 				// ok, file's there, load it in
 				var CustomLayoutCompiler = require(compileFile);
@@ -193,16 +195,20 @@ ContentItem.prototype.compile = function (args) {
 									hydrate: compiledComp && compiledComp.hydrate
 								});
 							}).catch(function (e) {
-								console.log('Error: failed to compile component: ' + viewModel.id + ' into the page. The component will render in the client.');
+								compilationReporter.error({
+									message: 'failed to compile component: ' + self.id + ' into the page. The component will render in the client.',
+									error: e
+								});
 								return resolve({
 									content: ''
 								});
 							});
 						}).catch(function (e) {
-							console.log('Error: failed to compile content item: ' + contentId + '. The component will render in the client.');
-							if (e) {
-								console.log('statusCode: ' + e.statusCode + '. statusMessage: ' + e.statusMessage + '. ');
-							}
+							var error = e ? 'statusCode: ' + e.statusCode + '. statusMessage: ' + e.statusMessage + '. ' : '';
+							compilationReporter.error({
+								message: 'failed to compile content item: ' + contentId + '. The component will render in the client.',
+								error: error
+							});
 							return resolve({
 								content: ''
 							});
@@ -234,6 +240,10 @@ ContentItem.prototype.getContentItem = function (args) {
 			template: args.template
 		});
 	}
+};
+
+ContentItem.prototype.getContentType = function (args) {
+	return args.compVM.contentTypes[0];
 };
 
 

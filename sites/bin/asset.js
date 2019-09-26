@@ -7,10 +7,7 @@
 
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
-	extract = require('extract-zip'),
-	fs = require('fs'),
-	fse = require('fs-extra'),
-	gulp = require('gulp'),
+	sprintf = require('sprintf-js').sprintf,
 	path = require('path');
 
 var projectDir,
@@ -590,7 +587,7 @@ module.exports.unShareRepository = function (argv, done) {
 			if (users.length === 0) {
 				return Promise.reject();
 			}
-			
+
 			return serverRest.performPermissionOperation({
 				server: server,
 				operation: 'unshare',
@@ -998,4 +995,221 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 		.catch((error) => {
 			done();
 		});
+};
+
+module.exports.listAssets = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	console.log(' - server: ' + server.url);
+
+	var channelName = argv.channel;
+	var query = argv.query;
+	var repositoryName = argv.repository;
+	var collectionName = argv.collection;
+	if (collectionName && !repositoryName) {
+		console.log('ERROR: no repository is specified');
+		done();
+		return;
+	}
+
+	var total;
+	var repository, collection, channel;
+
+	var repositoryPromises = [];
+	if (repositoryName) {
+		repositoryPromises.push(serverRest.getRepositoryWithName({
+			server: server,
+			name: repositoryName
+		}));
+	}
+	Promise.all(repositoryPromises).then(function (results) {
+			if (repositoryName) {
+				if (!results || !results[0] || results[0].err) {
+					return Promise.reject();
+				} else if (!results[0].data) {
+					console.log('ERROR: repository ' + repositoryName + ' not found');
+					return Promise.reject();
+				}
+				repository = results[0].data;
+				console.log(' - validate repository (Id: ' + repository.id + ')');
+			}
+
+			var collectionPromises = [];
+			if (collectionName) {
+				collectionPromises.push(serverRest.getCollectionWithName({
+					server: server,
+					repositoryId: repository.id,
+					name: collectionName
+				}));
+			}
+
+			return Promise.all(collectionPromises);
+		})
+		.then(function (results) {
+			if (collectionName) {
+				if (!results || !results[0] || results[0].err) {
+					return Promise.reject();
+				} else if (!results[0].data) {
+					console.log('ERROR: collection ' + collectionName + ' not found');
+					return Promise.reject();
+				}
+				collection = results[0].data;
+				console.log(' - validate collection (Id: ' + collection.id + ')');
+			}
+
+			var channelPromises = [];
+			if (channelName) {
+				channelPromises.push(serverRest.getChannelWithName({
+					server: server,
+					name: channelName
+				}));
+			}
+
+			return Promise.all(channelPromises);
+		})
+		.then(function (results) {
+			if (channelName) {
+				if (!results || !results[0] || results[0].err) {
+					return Promise.reject();
+				} else if (!results[0].data) {
+					console.log('ERROR: channel ' + channelName + ' not found');
+					return Promise.reject();
+				}
+				channel = results[0].data;
+				console.log(' - validate channel (Id: ' + channel.id + ')');
+			}
+
+			// query items
+			var q = '';
+			if (repository) {
+				q = '(repositoryId eq "' + repository.id + '")';
+			}
+			if (collection) {
+				if (q) {
+					q = q + ' AND ';
+				}
+				q = q + '(collections co "' + collection.id + '")';
+			}
+			if (channel) {
+				if (q) {
+					q = q + ' AND ';
+				}
+				q = q + '(channels co "' + channel.id + '")';
+			}
+			if (query) {
+				if (q) {
+					q = q + ' AND ';
+				}
+				q = q + '(' + query + ')';
+			}
+
+			if (q) {
+				console.log(' - query: ' + q);
+			} else {
+				console.log(' - query all assets');
+			}
+
+			return serverRest.queryItems({
+				server: server,
+				q: q,
+				fields: 'name,status'
+			});
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			var items = result || [];
+			total = items.length;
+
+			console.log(' - total items: ' + total);
+
+			if (total > 0) {
+				_displayAssets(repository, collection, channel, items);
+			}
+
+			done(true);
+		})
+		.catch((error) => {
+			done();
+		});
+};
+
+var _displayAssets = function (repository, collection, channel, items) {
+	var types = [];
+	for (var i = 0; i < items.length; i++) {
+		if (!types.includes(items[i].type)) {
+			types.push(items[i].type);
+		}
+	}
+
+	// sort types
+	var byType = types.slice(0);
+	byType.sort(function (a, b) {
+		var x = a;
+		var y = b;
+		return (x < y ? -1 : x > y ? 1 : 0);
+	});
+	types = byType;
+
+	var list = [];
+	for (var i = 0; i < types.length; i++) {
+		list.push({
+			type: types[i],
+			items: []
+		});
+	}
+
+	for (var i = 0; i < items.length; i++) {
+		for (var j = 0; j < list.length; j++) {
+			if (items[i].type === list[j].type) {
+				list[j].items.push(items[i]);
+			}
+		}
+	}
+
+	// sort name
+	for (var i = 0; i < list.length; i++) {
+		var byName = list[i].items.slice(0);
+		byName.sort(function (a, b) {
+			var x = a.name;
+			var y = b.name;
+			return (x < y ? -1 : x > y ? 1 : 0);
+		});
+		list[i].items = byName;
+	}
+
+	var format = '   %-15s %-s';
+	if (repository) {
+		console.log(sprintf(format, 'Repository:', repository.name));
+	}
+	if (collection) {
+		console.log(sprintf(format, 'Collection:', collection.name));
+	}
+	if (channel) {
+		console.log(sprintf(format, 'Channel:', channel.name));
+	}
+	console.log(sprintf(format, 'Items:', ''));
+
+	var format2 = '   %-38s %-38s %-11s %-s';
+	console.log(sprintf(format2, 'Type', 'Id', 'Status', 'Name'));
+	for (var i = 0; i < list.length; i++) {
+		for (var j = 0; j < list[i].items.length; j++) {
+			var item = list[i].items[j];
+			var typeLabel = j === 0 ? item.type : '';
+			console.log(sprintf(format2, typeLabel, item.id, item.status, item.name));
+		}
+	}
 };

@@ -18,6 +18,8 @@ var fs = require('fs'),
     path = require('path'),
     Base = require(path.normalize('../base/base'));
 
+var compilationReporter = require('../../reporter.js');
+
 
 var Divider = function (compId, compInstance) {
     this.init('scs-divider', compId, compInstance);

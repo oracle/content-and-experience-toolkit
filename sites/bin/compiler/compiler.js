@@ -57,7 +57,8 @@ var siteFolder, // Z:/sitespublish/SiteC/
 	channelAccessToken = '', // channel access token for the site
 	defaultContentType, // type of content to fetch ['draft' | 'published'] if querying from server
 	server, // server to use for any content calls
-	useDefaultDetailPageLink; // whether to compile a detail page using the default detail page if no detail page specified
+	useDefaultDetailPageLink, // whether to compile a detail page using the default detail page if no detail page specified
+	detailPageContentLayoutSnippet; // whether to only output the content layout snippet for compiled detail page (used for Eloqua integration)
 
 
 // Global Variables
@@ -72,8 +73,13 @@ var rootSiteInfo;
 var outputAlternateHierarchy = true; // Emit to /folder/_files/<filename> structure
 var pagesToCompile; // list of pages that will be compiled
 
+
+// create a reporter object to output any required information during compile and then a summary report at the end
+var compilationReporter = require('./reporter.js');
+
 // track detail pages to create after all the pages are created
 var detailPageList = {};
+var creatingDetailPages = false; // note whether we're compiling a detail page:   .../{detailPage}/{slug}
 
 //*********************************************
 // Other root vars
@@ -329,7 +335,7 @@ function getPageData(context, pageId) {
 	};
 }
 
-function compileThemeLayout(themeName, layoutName, pageData) {
+function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 	trace('compileThemeLayout: themeName=' + themeName + ', layoutName=' + layoutName);
 
 	var filePath = path.join(themesFolder, themeName, "layouts", layoutName);
@@ -358,16 +364,22 @@ function compileThemeLayout(themeName, layoutName, pageData) {
 				layoutMarkup: layoutMarkup,
 				SCSCompileAPI: compiler.getSCSCompileAPI()
 			}).catch(function (e) {
-				console.log('compileThemeLayout: error trying to compile page layout with: ' + compileFile);
-				console.log(e);
+				compilationReporter.error({
+					message: 'compileThemeLayout: error trying to compile page layout with: ' + compileFile,
+					error: e
+				});
 				return Promise.resolve(layoutMarkup);
 			});
 		} else {
-			trace('compileThemeLayout: no compile() function in page compiler for page layout: ' + compileFile);
+			compilationReporter.warn({
+				message: 'compileThemeLayout: no compile() function in page compiler for page layout: ' + compileFile
+			});
 			return Promise.resolve(layoutMarkup);
 		}
 	} catch (e) {
-		trace('compileThemeLayout: no page compiler found: ' + compileFile);
+		compilationReporter.info({
+			message: 'compileThemeLayout: no page compiler found: ' + compileFile
+		});
 		return Promise.resolve(layoutMarkup);
 	}
 }
@@ -747,8 +759,8 @@ var compiler = {
 		self.navigationCurr = args.navigationCurr;
 		self.structureMap = args.structureMap;
 		self.siteInfo = args.siteInfo;
+		self.pageInfo = args.pageInfo;
 		self.detailContentItem = args.detailContentItem;
-		self.reportedMessages = {};
 
 		// define the list of supported component compilers
 		self.componentCompilers = {};
@@ -773,6 +785,7 @@ var compiler = {
 			pageLocale: self.pageLocale,
 			detailContentItem: self.detailContentItem,
 			channelAccessToken: channelAccessToken,
+			snippetOnly: creatingDetailPages && detailPageContentLayoutSnippet,
 			getContentClient: function (type) {
 				return new Promise(function (resolve, reject) {
 					var contentType = type === 'published' ? 'published' : defaultContentType,
@@ -876,9 +889,9 @@ var compiler = {
 						var language = this.pageLocale;
 						detailPageList[language] = detailPageList[language] || [];
 
-						// make sure we're not already compiling this page
+						// make sure we're not already compiling this item with this detail page
 						var existingPage = detailPageList[language].find(function (entry) {
-							return entry.contentItem.id === contentItem.id;
+							return (entry.contentItem.id === contentItem.id) && (entry.detailPageId === pageId);
 						});
 
 						if (!existingPage) {
@@ -907,7 +920,9 @@ var compiler = {
 		return new Promise(function (resolve, reject) {
 			// if component is marked as "render on access", we're done
 			if (compInstance.data && compInstance.data.renderOnAccess) {
-				console.log('Component: "' + compId + '" of type "' + compInstance.type + '" marked as "render on access", will not be compiled.');
+				compilationReporter.info({
+					message: 'Component: "' + compId + '" of type "' + compInstance.type + '" marked as "render on access", will not be compiled.'
+				});
 				return resolve();
 			}
 
@@ -925,20 +940,31 @@ var compiler = {
 					}
 					// store the compiled component
 					self.compiledComponents[compId] = compiledComp;
+
+					// if nothing was returned, let the user know
+					if (false && !compiledComp.content) {
+						// don't warn for content placeholders
+						if (!(compInstance.data && compInstance.data.contentPlaceholder)) {
+							compilationReporter.warn({
+								message: 'Compiling component: "' + compId + '" of type "' + compInstance.type + '" resulted in no content - it will render dynamically at runtime',
+							});
+						}
+					}
+
 					return resolve();
 				}).catch(function (e) {
-					console.log('Error compiling component: "' + compId + '" of type "' + compInstance.type + '" - it will render dynamically at runtime');
-					console.log(e);
+					compilationReporter.error({
+						message: 'Error compiling component: "' + compId + '" of type "' + compInstance.type + '" - it will render dynamically at runtime',
+						error: e
+					});
 					return resolve();
 				});
 			} else {
 				// inline components are handled separately
 				if (['scs-inline-text', 'scs-inline-image'].indexOf(compInstance.type) === -1) {
-					var message = 'No component compiler for: ' + compInstance.type;
-					if (!self.reportedMessages[message]) {
-						self.reportedMessages[message] = 'done';
-						console.log(message);
-					}
+					compilationReporter.warn({
+						message: 'No component compiler for: ' + compInstance.type
+					});
 				}
 				return resolve();
 			}
@@ -991,6 +1017,19 @@ var compiler = {
 		}
 
 		return Promise.all(compilePromises);
+	},
+	renderComponents: function () {
+		var self = this;
+
+		// simply output all the components
+		var renderedComponents = '<div>';
+		Object.keys(self.compiledComponents).forEach(function (key) {
+			var compiledComponent = self.compiledComponents[key];
+			renderedComponents += compiledComponent.content;
+		});
+		renderedComponents += '</div>';
+
+		return renderedComponents;
 	},
 	getSlotDataFromPageModel: function (id) {
 		if (this.pageModel.slots && this.pageModel.slots[id]) {
@@ -1133,6 +1172,14 @@ function resolveSlots(pageMarkup, pageModel, sitePrefix) {
 	return pageMarkup;
 }
 
+function resolveComponents(pageMarkup) {
+	if (componentsEnabled) {
+		pageMarkup += compiler.renderComponents();
+	}
+
+	return pageMarkup;
+}
+
 function fixupPage(pageId, pageUrl, layoutMarkup, pageModel, localePageModel, context, sitePrefix) {
 	trace('fixupPage: pageUrl=' + pageUrl + ', layoutMarkup=' + layoutMarkup);
 
@@ -1141,10 +1188,18 @@ function fixupPage(pageId, pageUrl, layoutMarkup, pageModel, localePageModel, co
 
 	// compile all the components asynchronously
 	return compiler.compileComponents().then(function () {
-		// now we have the compiled components, resolve the page markup 
-		pageMarkup = resolveSlots(pageMarkup, pageModel, sitePrefix);
-		pageMarkup = resolveTokens(pageMarkup, pageModel, context, sitePrefix);
-		pageMarkup = resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, context, sitePrefix);
+		if (creatingDetailPages && detailPageContentLayoutSnippet) {
+			// Eloqua integration
+			// for detail pages, we only want the custom component for the content layout
+			// output all the compiled components only
+			pageMarkup = '';
+			pageMarkup = resolveComponents(pageMarkup);
+		} else {
+			// now we have the compiled components, resolve the page markup 
+			pageMarkup = resolveSlots(pageMarkup, pageModel, sitePrefix);
+			pageMarkup = resolveTokens(pageMarkup, pageModel, context, sitePrefix);
+			pageMarkup = resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, context, sitePrefix);
+		}
 
 		return Promise.resolve(pageMarkup);
 	});
@@ -1693,10 +1748,10 @@ function getWebAnalyticsMarkup(pageModel, context) {
 	pageModel = pageModel || {};
 
 	// If this page has the "overrideWebAnalytics" flag set, then use the page's webAnalyticsScript
-	if (pageModel && pageModel.properties && (pageModel.properties['overrideWebAnalytics'] === true)) {
-		markup = pageModel.properties['webAnalyticsScript'];
-	} else if (context.siteInfo && context.siteInfo.properties && (context.siteInfo.properties['isWebAnalyticsEnabled'] === true)) {
-		markup = context.siteInfo.properties['webAnalyticsScript'];
+	if (pageModel && pageModel.properties && (pageModel.properties.overrideWebAnalytics === true)) {
+		markup = pageModel.properties.webAnalyticsScript;
+	} else if (context.siteInfo && context.siteInfo.properties && (context.siteInfo.properties.isWebAnalyticsEnabled === true)) {
+		markup = context.siteInfo.properties.webAnalyticsScript;
 	}
 
 	return markup;
@@ -1837,14 +1892,17 @@ function computeSitePrefix(context, pageUrl, pageInfo) {
 		sitePrefix = '../' + sitePrefix;
 	}
 
-	/*
 	if (pageInfo && pageInfo.isDetailPage) {
 		// Assume that the /detail-page/<slug> format will be used to address the detail page,
 		// so add an extra relative segment for the slug.  (Were we to allow the other detail
 		// page formats, we would not know how many extra relative segments to add.)
-		sitePrefix = '../' + sitePrefix;
+
+		// This only applies when compiling the detail page itself.  
+		// When compiling an instance of the detail page, we don't need this. 
+		if (!creatingDetailPages) {
+			sitePrefix = '../' + sitePrefix;
+		}
 	}
-	*/
 
 	if (sitePrefix === '') {
 		sitePrefix = './';
@@ -1869,9 +1927,12 @@ function createPage(context, pageInfo) {
 				var pageData = pageDatas.pageData;
 				var layoutName = (pageData.base || pageData).properties.pageLayout;
 				var sitePrefix = computeSitePrefix(context, pageInfo.pageUrl, pageInfo);
+				var pageId = pageInfo.id;
+
+				// setup the reporter for this page
+				compilationReporter.setPageContext(pageId);
 
 				// setup the compiler for this page
-				var pageId = pageInfo.id;
 				compiler.setup({
 					"sitePrefix": sitePrefix,
 					"pageModel": (pageData.base || pageData),
@@ -1881,10 +1942,11 @@ function createPage(context, pageInfo) {
 					"navigationCurr": (pageId && typeof pageId == 'string') ? parseInt(pageId) : pageId,
 					"structureMap": context.navMap,
 					"siteInfo": context.siteInfo,
-					"detailContentItem": pageInfo.contentItem
+					"detailContentItem": pageInfo.contentItem,
+					"pageInfo": pageInfo
 				});
 
-				compileThemeLayout(context.themeName, layoutName, pageData).then(function (layoutMarkup) {
+				compileThemeLayout(context.themeName, layoutName, pageData, pageInfo).then(function (layoutMarkup) {
 					pageData = fixupPageDataWithSlotReuseData(context, pageData, layoutName, layoutMarkup);
 					// now fixup the page 
 					fixupPage(pageInfo.id, pageInfo.pageUrl, layoutMarkup, (pageData.base || pageData), pageDatas.localePageData, context, sitePrefix).then(function (pageMarkup) {
@@ -1895,8 +1957,10 @@ function createPage(context, pageInfo) {
 				});
 			}
 		} catch (e) {
-			console.log('Failed to create page: ' + pageInfo.id);
-			console.log(e);
+			compilationReporter.error({
+				message: 'Failed to create page: ' + pageInfo.id,
+				error: e
+			});
 
 			// continue to the next page
 			resolve({
@@ -2117,7 +2181,9 @@ var compileSite = function (args) {
 	outputFolder = args.outputFolder;
 	pages = args.pages;
 	recurse = args.recurse;
+	verbose = args.verbose;
 	useDefaultDetailPageLink = !(args.noDefaultDetailPageLink);
+	detailPageContentLayoutSnippet = !!(args.contentLayoutSnippet);
 	logLevel = args.logLevel;
 	sitesCloudCDN = args.sitesCloudCDN || '';
 	outputURL = args.outputURL;
@@ -2143,6 +2209,11 @@ var compileSite = function (args) {
 	initialize();
 	readStyleShim();
 	readRootStructure();
+
+	// setup the reporting level
+	if (verbose) {
+		compilationReporter.setReportingLevel('verbose');
+	}
 
 	var createPagePromises = [];
 
@@ -2180,12 +2251,23 @@ var compileSite = function (args) {
 		if (Object.keys(detailPageList).length > 0) {
 			console.log('');
 			console.log('Creating detail pages:');
+			creatingDetailPages = true;
 			return createDetailPages().then(function () {
 				console.log('All detail page creation calls complete.');
-				return Promise.resolve();
+				compilationReporter.renderReport();
+				if (compilationReporter.wereErrorsReported) {
+					return Promise.reject();
+				} else {
+					return Promise.resolve();
+				}
 			});
 		} else {
-			return Promise.resolve();
+			compilationReporter.renderReport();
+			if (compilationReporter.wereErrorsReported) {
+				return Promise.reject();
+			} else {
+				return Promise.resolve();
+			}
 		}
 	}).catch(function (e) {
 		console.log(e);

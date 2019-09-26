@@ -10,7 +10,6 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	os = require('os'),
 	readline = require('readline'),
-	request = require('request'),
 	dir = require('node-dir'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
@@ -52,15 +51,25 @@ module.exports.createFolder = function (argv, done) {
 	}
 	console.log(' - server: ' + server.url);
 
-	var name = argv.name;
-	var folderPath = name.split('/');
+	var request = serverUtils.getRequest();
 
-	_createFolder(server, 'self', folderPath, true).then(function (result) {
-			done(true);
-		})
-		.catch((error) => {
+	serverUtils.loginToServer(server, request, true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
 			done();
-		});
+			return;
+		}
+
+		var name = argv.name;
+		var folderPath = name.split('/');
+
+		_createFolder(server, 'self', folderPath, true).then(function (result) {
+				done(true);
+			})
+			.catch((error) => {
+				done();
+			});
+	});
 };
 
 var _createFolder = function (server, rootParentId, folderPath, showMessage) {
@@ -353,7 +362,6 @@ module.exports.downloadFile = function (argv, done) {
 	var resourceFolder = false;
 	var resourceName;
 	var resourceType;
-	var resourceLabel;
 	if (folderPathStr && (folderPathStr.indexOf('site:') === 0 || folderPathStr.indexOf('theme:') === 0 || folderPathStr.indexOf('component:') === 0)) {
 		resourceFolder = true;
 		if (folderPathStr.indexOf('site:') === 0) {
@@ -532,106 +540,113 @@ module.exports.shareFolder = function (argv, done) {
 	}
 	console.log(' - server: ' + server.url);
 
-	var name = argv.name;
-	var folderPath = name.split('/');
-	var folderId;
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+		var name = argv.name;
+		var folderPath = name.split('/');
+		var folderId;
 
-	var userNames = argv.users.split(',');
-	var role = argv.role;
+		var userNames = argv.users.split(',');
+		var role = argv.role;
 
-	var users = [];
+		var users = [];
 
-	_findFolder(server, 'self', folderPath).then(function (result) {
-			if (folderPath.length > 0 && !result) {
-				return Promise.reject();
-			}
-
-			if (result.id !== 'self' && (!result.type || result.type !== 'folder')) {
-				console.log('ERROR: invalid folder ' + argv.name);
-				return Promise.reject();
-			}
-			folderId = result.id;
-
-			var usersPromises = [];
-			for (var i = 0; i < userNames.length; i++) {
-				usersPromises.push(serverRest.getUser({
-					server: server,
-					name: userNames[i]
-				}));
-			}
-
-			return Promise.all(usersPromises);
-		})
-		.then(function (results) {
-			var allUsers = [];
-			for (var i = 0; i < results.length; i++) {
-				if (results[i].items) {
-					allUsers = allUsers.concat(results[i].items);
-				}
-			}
-			// verify users
-			for (var k = 0; k < userNames.length; k++) {
-				var found = false;
-				for (var i = 0; i < allUsers.length; i++) {
-					if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
-						users.push(allUsers[i]);
-						found = true;
-						break;
-					}
-					if (found) {
-						break;
-					}
-				}
-				if (!found) {
-					console.log('ERROR: user ' + userNames[k] + ' does not exist');
+		_findFolder(server, 'self', folderPath).then(function (result) {
+				if (folderPath.length > 0 && !result) {
 					return Promise.reject();
 				}
-			}
 
-			return serverRest.getFolderUsers({
-				server: server,
-				id: folderId
-			});
-		})
-		.then(function (result) {
-			var existingMembers = result.data || [];
+				if (result.id !== 'self' && (!result.type || result.type !== 'folder')) {
+					console.log('ERROR: invalid folder ' + argv.name);
+					return Promise.reject();
+				}
+				folderId = result.id;
 
-			var sharePromises = [];
-			for (var i = 0; i < users.length; i++) {
-				var newMember = true;
-				for (var j = 0; j < existingMembers.length; j++) {
-					if (existingMembers[j].id === users[i].id) {
-						newMember = false;
-						break;
+				var usersPromises = [];
+				for (var i = 0; i < userNames.length; i++) {
+					usersPromises.push(serverRest.getUser({
+						server: server,
+						name: userNames[i]
+					}));
+				}
+
+				return Promise.all(usersPromises);
+			})
+			.then(function (results) {
+				var allUsers = [];
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].items) {
+						allUsers = allUsers.concat(results[i].items);
 					}
 				}
-				// console.log(' - user: ' + users[i].loginName + ' new grant: ' + newMember);
-				sharePromises.push(serverRest.shareFolder({
-					server: server,
-					id: folderId,
-					userId: users[i].id,
-					role: role,
-					create: newMember
-				}));
-			}
-			return Promise.all(sharePromises);
-		})
-		.then(function (results) {
-			var shared = false;
-			for (var i = 0; i < results.length; i++) {
-				if (results[i].errorCode === '0') {
-					shared = true;
-					console.log(' - user ' + results[i].user.loginName + ' granted "' +
-						results[i].role + '" on folder ' + name);
-				} else {
-					console.log('ERROR: ' + results[i].title);
+				// verify users
+				for (var k = 0; k < userNames.length; k++) {
+					var found = false;
+					for (var i = 0; i < allUsers.length; i++) {
+						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+							users.push(allUsers[i]);
+							found = true;
+							break;
+						}
+						if (found) {
+							break;
+						}
+					}
+					if (!found) {
+						console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						return Promise.reject();
+					}
 				}
-			}
-			done(shared);
-		})
-		.catch((error) => {
-			done();
-		});
+
+				return serverRest.getFolderUsers({
+					server: server,
+					id: folderId
+				});
+			})
+			.then(function (result) {
+				var existingMembers = result.data || [];
+
+				var sharePromises = [];
+				for (var i = 0; i < users.length; i++) {
+					var newMember = true;
+					for (var j = 0; j < existingMembers.length; j++) {
+						if (existingMembers[j].id === users[i].id) {
+							newMember = false;
+							break;
+						}
+					}
+					// console.log(' - user: ' + users[i].loginName + ' new grant: ' + newMember);
+					sharePromises.push(serverRest.shareFolder({
+						server: server,
+						id: folderId,
+						userId: users[i].id,
+						role: role,
+						create: newMember
+					}));
+				}
+				return Promise.all(sharePromises);
+			})
+			.then(function (results) {
+				var shared = false;
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].errorCode === '0') {
+						shared = true;
+						console.log(' - user ' + results[i].user.loginName + ' granted "' +
+							results[i].role + '" on folder ' + name);
+					} else {
+						console.log('ERROR: ' + results[i].title);
+					}
+				}
+				done(shared);
+			})
+			.catch((error) => {
+				done();
+			});
+	});
 };
 
 
@@ -651,105 +666,112 @@ module.exports.unshareFolder = function (argv, done) {
 	}
 	console.log(' - server: ' + server.url);
 
-	var name = argv.name;
-	var folderPath = name.split('/');
-	var folderId;
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+		var name = argv.name;
+		var folderPath = name.split('/');
+		var folderId;
 
-	var userNames = argv.users.split(',');
-	var users = [];
+		var userNames = argv.users.split(',');
+		var users = [];
 
-	_findFolder(server, 'self', folderPath).then(function (result) {
-			if (folderPath.length > 0 && !result) {
-				return Promise.reject();
-			}
-
-			if (result.id !== 'self' && (!result.type || result.type !== 'folder')) {
-				console.log('ERROR: invalid folder ' + argv.name);
-				return Promise.reject();
-			}
-			folderId = result.id;
-
-			var usersPromises = [];
-			for (var i = 0; i < userNames.length; i++) {
-				usersPromises.push(serverRest.getUser({
-					server: server,
-					name: userNames[i]
-				}));
-			}
-
-			return Promise.all(usersPromises);
-		})
-		.then(function (results) {
-			var allUsers = [];
-			for (var i = 0; i < results.length; i++) {
-				if (results[i].items) {
-					allUsers = allUsers.concat(results[i].items);
-				}
-			}
-			// verify users
-			for (var k = 0; k < userNames.length; k++) {
-				var found = false;
-				for (var i = 0; i < allUsers.length; i++) {
-					if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
-						users.push(allUsers[i]);
-						found = true;
-						break;
-					}
-					if (found) {
-						break;
-					}
-				}
-				if (!found) {
-					console.log('ERROR: user ' + userNames[k] + ' does not exist');
+		_findFolder(server, 'self', folderPath).then(function (result) {
+				if (folderPath.length > 0 && !result) {
 					return Promise.reject();
 				}
-			}
 
-			return serverRest.getFolderUsers({
-				server: server,
-				id: folderId
-			});
-		})
-		.then(function (result) {
-			var existingMembers = result.data || [];
-			var revokePromises = [];
-			for (var i = 0; i < users.length; i++) {
-				var existingUser = false;
-				for (var j = 0; j < existingMembers.length; j++) {
-					if (users[i].id === existingMembers[j].id) {
-						existingUser = true;
-						break;
+				if (result.id !== 'self' && (!result.type || result.type !== 'folder')) {
+					console.log('ERROR: invalid folder ' + argv.name);
+					return Promise.reject();
+				}
+				folderId = result.id;
+
+				var usersPromises = [];
+				for (var i = 0; i < userNames.length; i++) {
+					usersPromises.push(serverRest.getUser({
+						server: server,
+						name: userNames[i]
+					}));
+				}
+
+				return Promise.all(usersPromises);
+			})
+			.then(function (results) {
+				var allUsers = [];
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].items) {
+						allUsers = allUsers.concat(results[i].items);
+					}
+				}
+				// verify users
+				for (var k = 0; k < userNames.length; k++) {
+					var found = false;
+					for (var i = 0; i < allUsers.length; i++) {
+						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+							users.push(allUsers[i]);
+							found = true;
+							break;
+						}
+						if (found) {
+							break;
+						}
+					}
+					if (!found) {
+						console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						return Promise.reject();
 					}
 				}
 
-				if (existingUser) {
-					revokePromises.push(serverRest.unshareFolder({
-						server: server,
-						id: folderId,
-						userId: users[i].id
-					}));
-				} else {
-					console.log(' - user ' + users[i].loginName + ' has no access to the folder');
-				}
-			}
+				return serverRest.getFolderUsers({
+					server: server,
+					id: folderId
+				});
+			})
+			.then(function (result) {
+				var existingMembers = result.data || [];
+				var revokePromises = [];
+				for (var i = 0; i < users.length; i++) {
+					var existingUser = false;
+					for (var j = 0; j < existingMembers.length; j++) {
+						if (users[i].id === existingMembers[j].id) {
+							existingUser = true;
+							break;
+						}
+					}
 
-			return Promise.all(revokePromises);
-		})
-		.then(function (results) {
-			var unshared = false;
-			for (var i = 0; i < results.length; i++) {
-				if (results[i].errorCode === '0') {
-					unshared = true;
-					console.log(' - user ' + results[i].user.loginName + '\'s access to the folder removed');
-				} else {
-					console.log('ERROR: ' + results[i].title);
+					if (existingUser) {
+						revokePromises.push(serverRest.unshareFolder({
+							server: server,
+							id: folderId,
+							userId: users[i].id
+						}));
+					} else {
+						console.log(' - user ' + users[i].loginName + ' has no access to the folder');
+					}
 				}
-			}
-			done(unshared);
-		})
-		.catch((error) => {
-			done();
-		});
+
+				return Promise.all(revokePromises);
+			})
+			.then(function (results) {
+				var unshared = false;
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].errorCode === '0') {
+						unshared = true;
+						console.log(' - user ' + results[i].user.loginName + '\'s access to the folder removed');
+					} else {
+						console.log('ERROR: ' + results[i].title);
+					}
+				}
+				done(unshared);
+			})
+			.catch((error) => {
+				done();
+			});
+	});
 };
 
 
@@ -766,6 +788,7 @@ var _readFile = function (server, fFileGUID, fileName, folderPath) {
 			auth: auth,
 			encoding: null
 		};
+		var request = serverUtils.getRequest();
 		request(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get file ' + fileName);
@@ -1087,10 +1110,17 @@ module.exports.uploadFolder = function (argv, done) {
 	}
 	console.log(' - server: ' + server.url);
 
-	_uploadFolder(argv, server).then(function () {
-		done(true);
-	}).catch(function (error) {
-		done();
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+		_uploadFolder(argv, server).then(function () {
+			done(true);
+		}).catch(function (error) {
+			done();
+		});
 	});
 };
 
@@ -1397,11 +1427,12 @@ module.exports.deleteFolder = function (argv, done) {
 
 var _deleteFolder = function (argv, server) {
 
+	var permanent = typeof argv.permanent === 'string' && argv.permanent.toLowerCase() === 'true';
+
 	var inputPath = argv.path === '/' ? '' : serverUtils.trimString(argv.path, '/');
 	var resourceFolder = false;
 	var resourceName;
 	var resourceType;
-	var resourceLabel;
 	if (inputPath && (inputPath.indexOf('site:') === 0 || inputPath.indexOf('theme:') === 0 || inputPath.indexOf('component:') === 0)) {
 		resourceFolder = true;
 		if (inputPath.indexOf('site:') === 0) {
@@ -1439,12 +1470,12 @@ var _deleteFolder = function (argv, server) {
 	var request = serverUtils.getRequest();
 	var loginPromises = [];
 
-	if (resourceFolder) {
+	if (resourceFolder || permanent) {
 		loginPromises.push(serverUtils.loginToServer(server, request));
 	}
 
 	return Promise.all(loginPromises).then(function (results) {
-		if (resourceFolder && (!results || results.length === 0 || !results[0].status)) {
+		if ((resourceFolder || permanent) && (!results || results.length === 0 || !results[0].status)) {
 			console.log(' - failed to connect to the server');
 			return Promise.reject();
 		}
@@ -1491,10 +1522,12 @@ var _deleteFolder = function (argv, server) {
 					return Promise.reject();
 				}
 				folderId = result.id;
-				return serverRest.deleteFolder({
+
+				var deletePromise = permanent ? _deletePermanentSCS(request, server, folderId, false) : serverRest.deleteFolder({
 					server: server,
 					fFolderGUID: folderId
 				});
+				return deletePromise;
 			})
 			.then(function (result) {
 				if (result && result.err) {
@@ -1502,7 +1535,384 @@ var _deleteFolder = function (argv, server) {
 				}
 
 				console.log(' - folder ' + argv.path + ' deleted');
-				return Promise.resolve(true);
+				if (!permanent) {
+					return Promise.resolve(true);
+				} else {
+					console.log(' - folder ' + argv.path + ' deleted permanently');
+					return Promise.resolve(true);
+				}
+			})
+			.catch((error) => {
+				return Promise.reject();
+			});
+	}); // login
+};
+
+var localServer;
+var _deleteDone = function (success, resolve) {
+	if (localServer) {
+		localServer.close();
+	};
+	return success ? resolve({}) : resolve({
+		err: 'err'
+	});
+};
+var _deletePermanentSCS = function (request, server, id, isFile) {
+	return new Promise(function (resolve, reject) {
+		var express = require('express');
+		var app = express();
+
+		var port = '9191';
+		var localhost = 'http://localhost:' + port;
+
+		var dUser = '';
+		var idcToken;
+
+		var auth = serverUtils.getRequestAuth(server);
+
+		var idInTrash;
+
+		app.get('/*', function (req, res) {
+			// console.log('GET: ' + req.url);
+			if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
+				var url = server.url + req.url;
+
+				var options = {
+					url: url,
+				};
+
+				options['auth'] = auth;
+
+				request(options).on('response', function (response) {
+						// fix headers for cross-domain and capitalization issues
+						serverUtils.fixHeaders(response, res);
+					})
+					.on('error', function (err) {
+						console.log('ERROR: GET request failed: ' + req.url);
+						console.log(error);
+						return resolve({
+							err: 'err'
+						});
+					})
+					.pipe(res);
+
+			} else {
+				console.log('ERROR: GET request not supported: ' + req.url);
+				res.write({});
+				res.end();
+			}
+		});
+		app.post('/documents/web', function (req, res) {
+			// console.log('POST: ' + req.url);
+			var url;
+			var action;
+			var formData;
+			if (req.url.indexOf('FLD_MOVE_TO_TRASH') > 0) {
+				url = server.url + '/documents/web?IdcService=FLD_MOVE_TO_TRASH';
+				action = 'delete';
+				formData = {
+					'idcToken': idcToken,
+					'items': (isFile ? 'fFileGUID:' : 'fFolderGUID:') + id
+				};
+			} else {
+				url = server.url + '/documents/web?IdcService=FLD_DELETE_FROM_TRASH';
+				action = 'delete from trash';
+				formData = {
+					'idcToken': idcToken,
+					'items': (isFile ? 'fFileGUID:' : 'fFolderGUID:') + idInTrash
+				};
+			}
+
+			var postData = {
+				method: 'POST',
+				url: url,
+				'auth': auth,
+				'formData': formData
+			};
+
+			request(postData).on('response', function (response) {
+					// fix headers for cross-domain and capitalization issues
+					serverUtils.fixHeaders(response, res);
+				})
+				.on('error', function (err) {
+					console.log('ERROR: Failed to ' + action);
+					console.log(error);
+					return resolve({
+						err: 'err'
+					});
+				})
+				.pipe(res)
+				.on('finish', function (err) {
+					res.end();
+				});
+		});
+
+		localServer = app.listen(0, function () {
+			port = localServer.address().port;
+			localhost = 'http://localhost:' + port;
+			localServer.setTimeout(0);
+
+			var inter = setInterval(function () {
+				// console.log(' - getting login user: ' + total);
+				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
+
+				request.get(url, function (err, response, body) {
+					var data = JSON.parse(body);
+					dUser = data && data.LocalData && data.LocalData.dUser;
+					idcToken = data && data.LocalData && data.LocalData.idcToken;
+					if (dUser && dUser !== 'anonymous' && idcToken) {
+						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
+						clearInterval(inter);
+						console.log(' - establish user session');
+
+						url = localhost + '/documents/web?IdcService=FLD_MOVE_TO_TRASH';
+
+						request.post(url, function (err, response, body) {
+							if (err) {
+								console.log('ERROR: Failed to delete');
+								console.log(err);
+								return resolve({
+									err: 'err'
+								});
+							}
+
+							var data;
+							try {
+								data = JSON.parse(body);
+							} catch (e) {}
+
+							if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+								console.log('ERROR: failed to delete  ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+								_deleteDone(false, resolve);
+							} else {
+								// query the GUID in the trash folder
+								url = localhost + '/documents/web?IdcService=FLD_BROWSE_TRASH';
+								request.get(url, function (err, response, body) {
+									var data = JSON.parse(body);
+									if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+										console.log('ERROR: failed to browse trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+										_deleteDone(false, resolve);
+									} else {
+										var fields;
+										var rows;
+										if (isFile) {
+											fields = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.fields || [];
+											rows = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.rows;
+										} else {
+											fields = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.fields || [];
+											rows = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.rows;
+										}
+										var items = []
+										for (var j = 0; j < rows.length; j++) {
+											items.push({});
+										}
+										for (var i = 0; i < fields.length; i++) {
+											var attr = fields[i].name;
+											for (var j = 0; j < rows.length; j++) {
+												items[j][attr] = rows[j][i];
+											}
+										}
+
+										for (var i = 0; i < items.length; i++) {
+											if (items[i]['fRealItemGUID'] === id) {
+												idInTrash = isFile ? items[i]['fFileGUID'] : items[i]['fFolderGUID'];
+												break;
+											}
+										}
+										console.log(' - find ' + (isFile ? 'file' : 'folder ') + ' in trash ' + idInTrash);
+
+										url = localhost + '/documents/web?IdcService=FLD_DELETE_FROM_TRASH';
+
+										request.post(url, function (err, response, body) {
+											if (err) {
+												console.log('ERROR: Failed to delete from trash');
+												console.log(err);
+												_deleteDone(false, resolve);
+											}
+
+											var data;
+											try {
+												data = JSON.parse(body);
+											} catch (e) {}
+
+											if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+												console.log('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+												_deleteDone(false, resolve);
+											} else {
+												_deleteDone(true, resolve);
+											}
+										}); // delete from trash
+									}
+								}); // browse trash
+							}
+						}); // delete
+					}
+				}); // idc token request
+
+			}, 6000);
+		});
+	});
+};
+
+module.exports.deleteFile = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	console.log(' - server: ' + server.url);
+
+	_deleteFile(argv, server).then(function () {
+		done(true);
+	}).catch(function (error) {
+		done();
+	});
+};
+
+var _deleteFile = function (argv, server) {
+
+	var permanent = typeof argv.permanent === 'string' && argv.permanent.toLowerCase() === 'true';
+
+	var filePath = argv.file;
+	var fileName = filePath;
+	if (fileName.indexOf('/') > 0) {
+		fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
+	}
+
+	var folderPathStr = filePath.indexOf('/') >= 0 ? filePath.substring(0, filePath.lastIndexOf('/')) : '';
+	var resourceFolder = false;
+	var resourceName;
+	var resourceType;
+	if (folderPathStr && (folderPathStr.indexOf('site:') === 0 || folderPathStr.indexOf('theme:') === 0 || folderPathStr.indexOf('component:') === 0)) {
+		resourceFolder = true;
+		if (folderPathStr.indexOf('site:') === 0) {
+			folderPathStr = folderPathStr.substring(5);
+			resourceType = 'site';
+			resourceLabel = 'Sites';
+		} else if (folderPathStr.indexOf('theme:') === 0) {
+			folderPathStr = folderPathStr.substring(6);
+			resourceType = 'theme';
+			resourceLabel = 'Themes';
+		} else {
+			folderPathStr = folderPathStr.substring(10);
+			resourceType = 'component';
+			resourceLabel = 'Components';
+		}
+		if (folderPathStr.indexOf('/') > 0) {
+			resourceName = folderPathStr.substring(0, folderPathStr.indexOf('/'));
+			folderPathStr = folderPathStr.substring(folderPathStr.indexOf('/') + 1);
+		} else {
+			resourceName = folderPathStr;
+			folderPathStr = '';
+		}
+	}
+
+	// console.log('argv.file=' + argv.file + ' folderPathStr=' + folderPathStr + ' resourceName=' + resourceName);
+
+	var folderPath = folderPathStr.split('/');
+
+	var folderId, fileId;
+
+	var request = serverUtils.getRequest();
+	var loginPromises = [];
+
+	if (resourceFolder || permanent) {
+		loginPromises.push(serverUtils.loginToServer(server, request));
+	}
+
+	return Promise.all(loginPromises).then(function (results) {
+		if ((resourceFolder || permanent) && (!results || results.length === 0 || !results[0].status)) {
+			console.log(' - failed to connect to the server');
+			return Promise.reject();
+		}
+
+		var resourcePromises = [];
+		if (resourceFolder) {
+			if (resourceType === 'site') {
+				resourcePromises.push(server.useRest ? sitesRest.getSite({
+					server: server,
+					name: resourceName
+				}) : serverUtils.getSiteFolderAfterLogin(server, resourceName));
+			} else if (resourceType === 'theme') {
+				resourcePromises.push(server.useRest ? sitesRest.getTheme({
+					server: server,
+					name: resourceName
+				}) : _getThemeGUID(request, server, resourceName));
+			} else {
+				resourcePromises.push(server.useRest ? sitesRest.getComponent({
+					server: server,
+					name: resourceName
+				}) : _getComponentGUID(request, server, resourceName));
+			}
+		}
+
+		return Promise.all(resourcePromises).then(function (results) {
+				var rootParentId = 'self';
+				if (resourceFolder) {
+					var resourceGUID;
+					if (results.length > 0 && results[0]) {
+						resourceGUID = results[0].id;
+					}
+
+					if (!resourceGUID) {
+						console.log('ERROR: invalid ' + resourceType + ' ' + resourceName);
+						return Promise.reject();
+					}
+					rootParentId = resourceGUID;
+				}
+
+				return _findFolder(server, rootParentId, folderPath);
+			})
+			.then(function (result) {
+				if (folderPath.length > 0 && !result) {
+					return Promise.reject();
+				}
+
+				if (resourceFolder && !result.id || !resourceFolder && result.id !== 'self' && (!result.type || result.type !== 'folder')) {
+					console.log('ERROR: invalid folder ' + folderPathStr);
+					return Promise.reject();
+				}
+				folderId = result.id;
+
+				return serverRest.findFile({
+					server: server,
+					parentID: result.id,
+					filename: fileName,
+					itemtype: 'file'
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+				fileId = result.id;
+
+				var deletePromise = permanent ? _deletePermanentSCS(request, server, fileId, true) : serverRest.deleteFile({
+					server: server,
+					fFileGUID: fileId
+				});
+				return deletePromise;
+			})
+			.then(function (result) {
+				if (result && result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - file ' + argv.file + ' deleted');
+				if (!permanent) {
+					return Promise.resolve(true);
+				} else {
+					console.log(' - file ' + argv.file + ' deleted permanently');
+					return Promise.resolve(true);
+				}
 			})
 			.catch((error) => {
 				return Promise.reject();
@@ -1514,5 +1924,6 @@ var _deleteFolder = function (argv, server) {
 module.exports.utils = {
 	uploadFolder: _uploadFolder,
 	deleteFolder: _deleteFolder,
-	uploadFile: _uploadFile
+	uploadFile: _uploadFile,
+	deleteFile: _deleteFile
 };

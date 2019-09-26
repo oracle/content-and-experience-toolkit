@@ -494,7 +494,9 @@ const compileTemplate = {
 				'Optionally specify -c <channelToken> to use this channelToken when generating any content URLs.\n' +
 				'Optionally specify -t <contentType> [draft | published] content to retrieve from the server type, defaults to published.\n' +
 				'Optionally specify -p <pages> the set of pages to compile.\n' +
-				'Optionally specify -r recurse through all child pages of specified pages.';
+				'Optionally specify -d to start the compilation with --inspect-brk flag.\n' +
+				'Optionally specify -r recurse through all child pages of specified pages.\n' +
+				'Optionally specify -v to display all warning messages during compilation.\n';
 			return desc;
 		})()
 	},
@@ -592,10 +594,14 @@ const downloadContent = {
 		})()
 	},
 	example: [
-		['cec download-content Site1Channel', 'Download all assets in channel Site1Channel'],
+		['cec download-content Site1Channel', 'Download all assets in channel Site1Channel and save to local folder src/content/Site1Channel'],
+		['cec download-content Site1Channel -n Site1Assets', 'Download all assets in channel Site1Channel and save to local folder src/content/Site1Assets'],
 		['cec download-content Site1Channel -p', 'Download published assets in channel Site1Channel'],
 		['cec download-content Site1Channel -s UAT', 'Download all assets in channel Site1Channel on server UAT'],
-		['cec download-content Site1Channel -a GUID1,GUID2', 'Download asset GUID1 and GUID2 and all their dependencies in chanel Site1Channel']
+		['cec download-content Site1Channel -a GUID1,GUID2', 'Download asset GUID1 and GUID2 and all their dependencies in chanel Site1Channel'],
+		['cec download-content Site1Channel -q \'fields.category eq "RECIPE"\'', 'Download assets from the channel Site1Channel, matching the query, plus any dependencies'],
+		['cec download-content Site1Channel -r Repo1 -c Collection1', 'Download assets from the repository Repo1, collection Collection1 and channel Site1Channel'],
+		['cec download-content Site1Channel -r Repo1 -c Collection1 -q \'fields.category eq "RECIPE"\'', 'Download assets from repository Repo1, collection Collection1 and channel Site1Channel, matching the query, plus any dependencies']
 	]
 };
 
@@ -606,7 +612,7 @@ const uploadContent = {
 	usage: {
 		'short': 'Uploads local content to a repository on CEC server.',
 		'long': (function () {
-			let desc = 'Uploads local content from channel <name>, template <name> or local file <name> to repository <repository> on CEC server. Specify -c <channel> to add the template content to channel. Optionally specify specify -l <collection> to add the content to collection. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Uploads local content from channel <name>, template <name> or local file <name> to repository <repository> on CEC server. Specify -c <channel> to add the template content to channel. Optionally specify -l <collection> to add the content to collection. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -759,9 +765,9 @@ const shareSite = {
 	alias: 'ss',
 	name: 'share-site',
 	usage: {
-		'short': 'Share site with users on CEC server.',
+		'short': 'Shares site with users on CEC server.',
 		'long': (function () {
-			let desc = 'Share site with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares site with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -777,9 +783,9 @@ const unshareSite = {
 	alias: 'uss',
 	name: 'unshare-site',
 	usage: {
-		'short': 'Delete the user\'s access to a site on CEC server.',
+		'short': 'Deletes the user\'s access to a site on CEC server.',
 		'long': (function () {
-			let desc = 'Delete the user\'s access to a site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes the user\'s access to a site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -794,9 +800,9 @@ const setSiteSecurity = {
 	alias: 'sss',
 	name: 'set-site-security',
 	usage: {
-		'short': 'Set site security on CEC server.',
+		'short': 'Sets site security on CEC server.',
 		'long': (function () {
-			let desc = 'Make the site publicly available to anyone, restrict the site to registered users, or restrict the site to specific users.  ' +
+			let desc = 'Makes the site publicly available to anyone, restrict the site to registered users, or restrict the site to specific users.  ' +
 				'Specify the server with -r <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -a <access> to set who can access the site. ' +
 				'The valid group names are\n\n';
@@ -915,9 +921,9 @@ const createAssetReport = {
 	alias: 'car',
 	name: 'create-asset-report',
 	usage: {
-		'short': 'Generate an asset usage report for site <site> on CEC server.',
+		'short': 'Generates an asset usage report for site <site> on CEC server.',
 		'long': (function () {
-			let desc = 'Generate an asset usage report for site <site> on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Generates an asset usage report for site <site> on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -o to save the report to a json file.';
 			return desc;
 		})()
@@ -978,9 +984,9 @@ const shareRepository = {
 	alias: 'sr',
 	name: 'share-repository',
 	usage: {
-		'short': 'Share repository with users on CEC server.',
+		'short': 'Shares repository with users on CEC server.',
 		'long': (function () {
-			let desc = 'Share repository with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares repository with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -t to also share the content types in the repository with the users. ' +
 				'Optionally specify -y <typerole> to share the types with different role. ' +
 				'The valid roles are\n\n';
@@ -1000,9 +1006,9 @@ const unshareRepository = {
 	alias: 'usr',
 	name: 'unshare-repository',
 	usage: {
-		'short': 'Delete the user\'s access to a repository on CEC server.',
+		'short': 'Deletes the user\'s access to a repository on CEC server.',
 		'long': (function () {
-			let desc = 'Delete the user\'s access to a repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Deletes the user\'s access to a repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -t to also delete the user\'s access to the content types in the repository.'
 			return desc;
 		})()
@@ -1019,9 +1025,9 @@ const shareType = {
 	alias: 'st',
 	name: 'share-type',
 	usage: {
-		'short': 'Share type with users on CEC server.',
+		'short': 'Shares type with users on CEC server.',
 		'long': (function () {
-			let desc = 'Share type with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares type with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getResourceRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1037,9 +1043,9 @@ const unshareType = {
 	alias: 'ust',
 	name: 'unshare-type',
 	usage: {
-		'short': 'Delete the user\'s access to a type on CEC server.',
+		'short': 'Deletes the user\'s access to a type on CEC server.',
 		'long': (function () {
-			let desc = 'Delete the user\'s access to a type on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes the user\'s access to a type on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1090,6 +1096,47 @@ const createLocalizationPolicy = {
 		['cec create-localization-policy en-fr -r en-US,fr-FR -l en-US'],
 		['cec create-localization-policy multi -r en-US,fr-FR -l en-US -o zh-CN -d "Policy for Blog" -s UAT']
 
+	]
+};
+
+const listAssets = {
+	command: 'list-assets',
+	alias: 'la',
+	name: 'list-assets',
+	usage: {
+		'short': 'Lists assets on CEC server.',
+		'long': (function () {
+			let desc = 'Lists assets on CEC server. Optionally specify -c <channel>, -r <repository>, -l <collection> or -q <query> to query assets. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec list-assets', 'List all assets'],
+		['cec list-assets -s UAT', 'List all assets on registered server UAT'],
+		['cec list-assets -r Repo1', 'List all assets from repository Repo1'],
+		['cec list-assets -c Channel1', 'List all assets from channel Channel1'],
+		['cec list-assets -r Repo1 -l Collection1', 'List all assets from collection Collection1 and repository Repo1'],
+		['cec list-assets -q \'fields.category eq "RECIPE"\'', 'List all assets matching the query']
+	]
+};
+
+const createAssetUsageReport = {
+	command: 'create-asset-usage-report <assets>',
+	alias: 'caur',
+	name: 'create-asset-usage-report',
+	usage: {
+		'short': 'Generates an asset usage report for assets on CEC server.',
+		'long': (function () {
+			let desc = 'Generates an asset usage report for assets on CEC server. Optionally specify -o to save the report to a json file. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-asset-usage-report GUID1'],
+		['cec create-asset-usage-report GUID1 -s UAT'],
+		['cec create-asset-usage-report GUID1 -o', 'The report will be saved to GUID1AssetUsage.json'],
+		['cec create-asset-usage-report GUID1,GUID2 -o', 'The report will be saved to GUID1_GUID2AssetUsage.json'],
+		['cec create-asset-usage-report GUID1,GUID2 -o ItemReport.json', 'The report will be saved to ItemReport.json']
 	]
 };
 
@@ -1271,9 +1318,9 @@ const shareFolder = {
 	alias: 'sfd',
 	name: 'share-folder',
 	usage: {
-		'short': 'Share folder with users on CEC server.',
+		'short': 'Shares folder with users on CEC server.',
 		'long': (function () {
-			let desc = 'Share folder with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are\n\n';
+			let desc = 'Shares folder with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1363,7 +1410,32 @@ const deleteFolder = {
 	example: [
 		['cec delete-folder Import/docs'],
 		['cec delete-folder Import/docs -s UAT'],
-		['cec delete-folder Import/docs -p']
+		['cec delete-folder Import/docs -p'],
+		['cec delete-folder site:blog1/docs'],
+		['cec delete-folder theme:blog1Theme/docs'],
+		['cec delete-folder component:Comp1/docs']
+	]
+};
+
+const deleteFile = {
+	command: 'delete-file <file>',
+	alias: '',
+	name: 'delete-file',
+	usage: {
+		'short': 'Deletes file on CEC server.',
+		'long': (function () {
+			let desc = 'Deletes file on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -p to permanently delete the file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec delete-file /docs/Projects.pdf'],
+		['cec delete-file /docs/Projects.pdf -s UAT'],
+		['cec delete-file /docs/Projects.pdf -p'],
+		['cec delete-file site:blog1/docs/Projects.pdf'],
+		['cec delete-file theme:blog1Theme/docs/Projects.pdf'],
+		['cec delete-file component:Comp1/docs/Projects.pdf']
 	]
 };
 
@@ -1450,6 +1522,22 @@ const registerServer = {
 		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.git.oraclecorp.com.com -u user1 -p Welcome1 -t dev_ec', 'The server is a standalone development instance'],
 		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -k ~/.ceckey', 'The password will be encrypted']
+	]
+};
+
+const setOAuthToken = {
+	command: 'set-oauth-token <token>',
+	alias: 'sot',
+	name: 'set-oauth-token',
+	usage: {
+		'short': 'Set OAuth token for a registered server.',
+		'long': (function () {
+			let desc = 'Set OAuth token for a registered server.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec set-oauth-token token1 -s UAT', 'Set OAuth token for server UAT, all CLI commands using UAT will be headless']
 	]
 };
 
@@ -1547,9 +1635,10 @@ _usage = _usage + os.EOL + 'Documents' + os.EOL +
 	_getCmdHelp(unshareFolder) + os.EOL +
 	_getCmdHelp(downloadFolder) + os.EOL +
 	_getCmdHelp(uploadFolder) + os.EOL +
-	// _getCmdHelp(deleteFolder) + os.EOL +
+	_getCmdHelp(deleteFolder) + os.EOL +
 	_getCmdHelp(downloadFile) + os.EOL +
-	_getCmdHelp(uploadFile) + os.EOL;
+	_getCmdHelp(uploadFile) + os.EOL +
+	_getCmdHelp(deleteFile) + os.EOL;
 
 _usage = _usage + os.EOL + 'Components' + os.EOL +
 	_getCmdHelp(createComponent) + os.EOL +
@@ -1607,7 +1696,9 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(createChannel) + os.EOL +
 	_getCmdHelp(createLocalizationPolicy) + os.EOL +
 	_getCmdHelp(shareType) + os.EOL +
-	_getCmdHelp(unshareType) + os.EOL;
+	_getCmdHelp(unshareType) + os.EOL +
+	_getCmdHelp(listAssets) + os.EOL;
+// _getCmdHelp(createAssetUsageReport) + os.EOL;
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(listTranslationJobs) + os.EOL +
@@ -1623,6 +1714,7 @@ _usage = _usage + os.EOL + 'Translation' + os.EOL +
 _usage = _usage + os.EOL + 'Local Environment' + os.EOL +
 	_getCmdHelp(createEncryptionKey) + os.EOL +
 	_getCmdHelp(registerServer) + os.EOL +
+	_getCmdHelp(setOAuthToken) + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
 	_getCmdHelp(install) + os.EOL +
 	_getCmdHelp(develop) + os.EOL;
@@ -1910,6 +2002,14 @@ const argv = yargs.usage(_usage)
 					alias: 'o',
 					description: 'Do not generate compiled detail page for items/content lists that use the default detail page'
 				})
+				.option('contentLayoutSnippet', {
+					alias: 'l',
+					description: 'Generate a compiled detail page that only has the compiled ContentLayout snippet'
+				})
+				.option('verbose', {
+					alias: 'v',
+					description: 'Run in verbose mode to display all warning messages during compilation.'
+				})
 				.check((argv) => {
 					if (argv.type && argv.type !== 'draft' && argv.type !== 'published') {
 						throw new Error(`${argv.type} is not a valid value for <type>`);
@@ -2084,18 +2184,44 @@ const argv = yargs.usage(_usage)
 					alias: 'p',
 					description: 'The flag to indicate published assets only'
 				})
+				.option('collection', {
+					alias: 'c',
+					description: 'Collection name'
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'Repository name, required when <collection> is specified'
+				})
+				.option('query', {
+					alias: 'q',
+					description: 'Query to fetch the assets'
+				})
 				.option('assets', {
 					alias: 'a',
 					description: 'The comma separated list of asset GUIDS'
+				})
+				.option('name', {
+					alias: 'n',
+					description: 'The name for this download, default to the channel name'
 				})
 				.option('server', {
 					alias: 's',
 					description: 'The registered CEC server'
 				})
+				.check((argv) => {
+					if (argv.collection && !argv.repository) {
+						throw new Error(`<repository> is required when <collection> is specified`);
+					}
+					return true;
+				})
 				.example(...downloadContent.example[0])
 				.example(...downloadContent.example[1])
 				.example(...downloadContent.example[2])
 				.example(...downloadContent.example[3])
+				.example(...downloadContent.example[4])
+				.example(...downloadContent.example[5])
+				.example(...downloadContent.example[6])
+				.example(...downloadContent.example[7])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2895,6 +3021,65 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${createLocalizationPolicy.command}\n\n${createLocalizationPolicy.usage.long}`);
 		})
+	.command([listAssets.command, listAssets.alias], false,
+		(yargs) => {
+			yargs.option('channel', {
+					alias: 'c',
+					description: 'Channel name'
+				})
+				.option('collection', {
+					alias: 'l',
+					description: 'Collection name'
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'Repository name, required when <collection> is specified'
+				})
+				.option('query', {
+					alias: 'q',
+					description: 'Query to fetch the assets'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.check((argv) => {
+					if (argv.collection && !argv.repository) {
+						throw new Error(`<repository> is required when <collection> is specified`);
+					}
+					return true;
+				})
+				.example(...listAssets.example[0])
+				.example(...listAssets.example[1])
+				.example(...listAssets.example[2])
+				.example(...listAssets.example[3])
+				.example(...listAssets.example[4])
+				.example(...listAssets.example[5])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${listAssets.command}\n\n${listAssets.usage.long}`);
+		})
+	.command([createAssetUsageReport.command, createAssetUsageReport.alias], false,
+		(yargs) => {
+			yargs.option('output', {
+					alias: 'o',
+					description: 'Output the report to a JSON file'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.example(...createAssetUsageReport.example[0])
+				.example(...createAssetUsageReport.example[1])
+				.example(...createAssetUsageReport.example[2])
+				.example(...createAssetUsageReport.example[3])
+				.example(...createAssetUsageReport.example[4])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createAssetUsageReport.command}\n\n${createAssetUsageReport.usage.long}`);
+		})
 	.command([listTranslationJobs.command, listTranslationJobs.alias], false,
 		(yargs) => {
 			yargs.option('server', {
@@ -3201,6 +3386,9 @@ const argv = yargs.usage(_usage)
 				.example(...deleteFolder.example[0])
 				.example(...deleteFolder.example[1])
 				.example(...deleteFolder.example[2])
+				.example(...deleteFolder.example[3])
+				.example(...deleteFolder.example[4])
+				.example(...deleteFolder.example[5])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3248,6 +3436,27 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${downloadFile.command}\n\n${downloadFile.usage.long}`);
+		})
+	.command([deleteFile.command, deleteFile.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.option('permanent', {
+					alias: 'p',
+					description: 'Delete the file permanently'
+				})
+				.example(...deleteFile.example[0])
+				.example(...deleteFile.example[1])
+				.example(...deleteFile.example[2])
+				.example(...deleteFile.example[3])
+				.example(...deleteFile.example[4])
+				.example(...deleteFile.example[5])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${deleteFile.command}\n\n${deleteFile.usage.long}`);
 		})
 	.command([createEncryptionKey.command, createEncryptionKey.alias], false,
 		(yargs) => {
@@ -3326,6 +3535,20 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${registerServer.command}\n\n${registerServer.usage.long}`);
+		})
+	.command([setOAuthToken.command, setOAuthToken.alias], false,
+		(yargs) => {
+			yargs
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server',
+					demandOption: true
+				})
+				.example(...setOAuthToken.example[0])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${setOAuthToken.command}\n\n${setOAuthToken.usage.long}`);
 		})
 	.command([install.command, install.alias], false,
 		(yargs) => {
@@ -3764,6 +3987,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.noDefaultDetailPageLink) {
 		compileTemplateArgs.push(...['--noDefaultDetailPageLink', argv.noDefaultDetailPageLink]);
 	}
+	if (argv.contentLayoutSnippet) {
+		compileTemplateArgs.push(...['--contentLayoutSnippet', argv.contentLayoutSnippet]);
+	}
+	if (argv.verbose) {
+		compileTemplateArgs.push(...['--verbose', argv.verbose]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, compileTemplateArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -3849,8 +4078,20 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.publishedassets) {
 		downloadContentArgs.push(...['--publishedassets', argv.publishedassets]);
 	}
+	if (argv.collection) {
+		downloadContentArgs.push(...['--collection', argv.collection]);
+	}
+	if (argv.repository) {
+		downloadContentArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.query) {
+		downloadContentArgs.push(...['--query', argv.query]);
+	}
 	if (argv.assets && typeof argv.assets !== 'boolean') {
 		downloadContentArgs.push(...['--assets', argv.assets]);
+	}
+	if (argv.name && typeof argv.name !== 'boolean') {
+		downloadContentArgs.push(...['--name', argv.name]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, downloadContentArgs, {
 		cwd,
@@ -3973,6 +4214,51 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		listArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, listArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === listAssets.name || argv._[0] === listAssets.alias) {
+	let listAssetsArgs = ['run', '-s', listAssets.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		listAssetsArgs.push(...['--server', argv.server]);
+	}
+	if (argv.channel) {
+		listAssetsArgs.push(...['--channel', argv.channel]);
+	}
+	if (argv.collection) {
+		listAssetsArgs.push(...['--collection', argv.collection]);
+	}
+	if (argv.repository) {
+		listAssetsArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.query) {
+		listAssetsArgs.push(...['--query', argv.query]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, listAssetsArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createAssetUsageReport.name || argv._[0] === createAssetUsageReport.alias) {
+	let createAssetUsageReportArgs = ['run', '-s', createAssetUsageReport.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--assets', argv.assets
+	];
+
+	if (argv.output) {
+		var outputVal = typeof argv.output === 'boolean' ? './' : argv.output;
+		createAssetUsageReportArgs.push(...['--output', outputVal]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createAssetUsageReportArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createAssetUsageReportArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -4660,6 +4946,23 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === deleteFile.name || argv._[0] === deleteFile.alias) {
+	let deleteFileArgs = ['run', '-s', deleteFile.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--file', argv.file
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		deleteFileArgs.push(...['--server', argv.server]);
+	}
+	if (argv.permanent) {
+		deleteFileArgs.push(...['--permanent', argv.permanent]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, deleteFileArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === createEncryptionKey.name || argv._[0] === createEncryptionKey.alias) {
 	let createEncryptionKeyArgs = ['run', '-s', createEncryptionKey.name, '--prefix', appRoot,
 		'--',
@@ -4699,6 +5002,19 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		registerServerArgs.push(...['--scope'], argv.scope);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, registerServerArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === setOAuthToken.name || argv._[0] === setOAuthToken.alias) {
+	let setOAuthTokenArgs = ['run', '-s', setOAuthToken.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--token', argv.token,
+		'--server', argv.server
+	];
+
+	spawnCmd = childProcess.spawnSync(npmCmd, setOAuthTokenArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

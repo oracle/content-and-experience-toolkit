@@ -129,9 +129,8 @@ module.exports.registerServer = function (argv, done) {
 			useRest = true;
 		}
 		type = 'dev_ec';
-	} /* else if (idcs_url && client_id && client_secret && scope) {
-		useRest = true;
-	} */
+	}
+	
 	var savedPassword = password;
 	if (keyFile) {
 		try {
@@ -175,6 +174,32 @@ module.exports.registerServer = function (argv, done) {
 	fs.writeFileSync(serverFile, JSON.stringify(serverjson));
 	console.log(' - server registered in ' + serverFile);
 	done(true);
+};
+
+module.exports.setOAuthToken = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var server = serverUtils.getRegisteredServer(projectDir, serverName);
+	if (server) {
+		server.oauthtoken = argv.token;
+		fs.writeFileSync(server.fileloc, JSON.stringify(server));
+		console.log(' - token saved to server ' + serverName);
+		done(true);
+	} else {
+		done();
+	}
 };
 
 module.exports.listLocalResources = function (argv, done) {

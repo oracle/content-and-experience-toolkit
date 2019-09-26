@@ -564,7 +564,7 @@ var _getItem = function (server, id, expand) {
 			if (response && response.statusCode === 200) {
 				return resolve(data);
 			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to get item ' + id + ' : ' + msg);
 				return resolve({
 					err: 'err'
@@ -583,6 +583,122 @@ var _getItem = function (server, id, expand) {
  */
 module.exports.getItem = function (args) {
 	return _getItem(args.server, args.id, args.expand);
+};
+
+var _getItemRelationships = function (server, id) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/items/' + id + '/relationships';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get item relationships ' + id);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
+				var referenceIds = [];
+				var referencedByIds = [];
+				if (data && data.data && data.data.references) {
+					for (var i = 0; i < data.data.references.length; i++) {
+						referenceIds.push(data.data.references[i].id);
+					}
+				}
+				if (data && data.data && data.data.referencedBy) {
+					for (var i = 0; i < data.data.referencedBy.length; i++) {
+						referencedByIds.push(data.data.referencedBy[i].id);
+					}
+				}
+				return resolve({
+					id: id,
+					references: referenceIds,
+					referencedBy: referencedByIds
+				});
+			} else {
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get item relationships ' + id + ' : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get an item on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} args.server the server object
+ * @param {string} args.id The id of the item to query.
+ * @param {string} args.expand The comma-separated list of field names or all to get child resources.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getItemRelationships = function (args) {
+	return _getItemRelationships(args.server, args.id);
+};
+
+var _queryItems = function (server, q, fields) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/items';
+		if (q) {
+			url = url + '?q=' + q + '&limit=9999';
+		} else {
+			url = url + '?limit=9999';
+		}
+		if (fields) {
+			url = url + '&fields=' + fields;
+		}
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to query items with ' + q);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
+				return resolve(data && data.items);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to query items with ' + q + ' : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get an item on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} args.server the server object
+ * @param {string} args.q The query expression
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.queryItems = function (args) {
+	return _queryItems(args.server, args.q, args.fields);
 };
 
 // Create channel on server
@@ -772,7 +888,7 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 					} catch (error) {
 						data = body;
 					};
-					
+
 					if (response && response.statusCode === 200) {
 						resolve(data);
 					} else {
@@ -828,7 +944,7 @@ var _getChannels = function (server) {
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to get channels  : ' + msg);
 				return resolve({
 					err: 'err'
@@ -891,6 +1007,45 @@ var _getChannel = function (server, channelId) {
  */
 module.exports.getChannel = function (args) {
 	return _getChannel(args.server, args.id);
+};
+
+
+/**
+ * Get a channel with name on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the channel to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getChannelWithName = function (args) {
+	return new Promise(function (resolve, reject) {
+		if (!args.name) {
+			resolve({
+				err: 'err'
+			});
+		}
+		_getChannels(args.server).then(function (result) {
+			if (result.err) {
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var channels = result || [];
+			var channel;
+			var name = args.name.toLowerCase();
+			for (var i = 0; i < channels.length; i++) {
+				if (name === channels[i].name.toLowerCase()) {
+					channel = channels[i];
+					break;
+				}
+			}
+
+			resolve({
+				data: channel
+			});
+		});
+	});
 };
 
 
@@ -1423,7 +1578,129 @@ module.exports.getRepository = function (args) {
 	return _getRepository(args.server, args.id);
 };
 
-// Get a repository from server
+/**
+ * Get a repository with name on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the repository to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getRepositoryWithName = function (args) {
+	return new Promise(function (resolve, reject) {
+		if (!args.name) {
+			resolve({
+				err: 'err'
+			});
+		}
+		_getRepositories(args.server).then(function (result) {
+			if (result.err) {
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var repositories = result || [];
+			var repository;
+			var name = args.name.toLowerCase();
+			for (var i = 0; i < repositories.length; i++) {
+				if (name === repositories[i].name.toLowerCase()) {
+					repository = repositories[i];
+					break;
+				}
+			}
+
+			resolve({
+				data: repository
+			});
+		});
+	});
+};
+
+// Get collections of a repository from server
+var _getCollections = function (server, repositoryId) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections?limit=9999';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get collections');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
+				resolve(data && data.items);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get collections : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get all collections of a repository on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.repositoryId the id of the repository
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getCollections = function (args) {
+	return _getCollections(args.server, args.repositoryId);
+};
+
+/**
+ * Get a collection with name on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the collection to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getCollectionWithName = function (args) {
+	return new Promise(function (resolve, reject) {
+		if (!args.name) {
+			resolve({
+				err: 'err'
+			});
+		}
+		_getCollections(args.server, args.repositoryId).then(function (result) {
+			if (result.err) {
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var collections = result || [];
+			var collection;
+			var name = args.name.toLowerCase();
+			for (var i = 0; i < collections.length; i++) {
+				if (name === collections[i].name.toLowerCase()) {
+					collection = collections[i];
+					break;
+				}
+			}
+
+			resolve({
+				data: collection
+			});
+		});
+	});
+};
+
+
 var _getResourcePermissions = function (server, id, type) {
 	return new Promise(function (resolve, reject) {
 		var resourceType = type === 'repository' ? 'repositories' : (type === 'type' ? 'types' : type),

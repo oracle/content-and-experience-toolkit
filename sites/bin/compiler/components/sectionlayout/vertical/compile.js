@@ -17,6 +17,8 @@
 var fs = require('fs'),
 	path = require('path');
 
+var compilationReporter = require('../../../reporter.js');
+
 var SectionLayout = function (componentId, componentInstanceObject, componentsFolder) {
 	this.componentId = componentId;
 	this.componentInstanceObject = componentInstanceObject;
@@ -39,7 +41,10 @@ SectionLayout.prototype = {
 				});
 			}
 		} catch (e) {
-			console.error(e);
+			compilationReporter.error({
+				message: 'failed to compile scs-vertical section layout',
+				error: e
+			});
 			html = '';
 		}
 

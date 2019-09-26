@@ -18,18 +18,20 @@ var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), ''),
 	defaultLibsDir = cecDir + '/src/libs';
 var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
 
-var supportedLocales = ["af", "sq", "am", "ar", "ar-DZ", "ar-BH", "ar-EG", "ar-IQ", "ar-JO", "ar-KW", "ar-LB", "ar-LY", "ar-MA", "ar-OM", "ar-QA", "ar-SA", "ar-SY", "ar-TN", "ar-AE", "ar-YE", "hy", "as", "az", "az-AZ", "az-Cyrl-AZ", "az-Latn-AZ", "eu", "be", "bn", "bs", "bg", "my", "ca", "zh", "zh-CN", "zh-HK", "zh-MO", "zh-SG", "zh-TW", "hr", "cs", "da", "dv", "nl", "nl-BE", "nl-NL", "en", "en-CB", "en-AU", "en-BZ", "en-CA", "en-IN", "en-IE", "en-JM", "en-NZ", "en-PH", "en-ZA", "en-TT", "en-GB", "en-US", "et", "fo", "fi", "fr", "fr-BE", "fr-CA", "fr-FR", "fr-LU", "fr-CH", "gl", "ka", "de", "de-AT", "de-DE", "de-LI", "de-LU", "de-CH", "el", "gn", "gu", "he", "hi", "hu", "is", "id", "it", "it-IT", "it-CH", "ja", "kn", "ks", "kk", "km", "ko", "lo", "la", "lv", "lt", "mk", "ms", "ms-BN", "ms-MY", "ml", "mt", "mi", "mr", "mn", "ne", "zxx", "no", "no-NO", "nb", "nn", "or", "pa", "fa", "pl", "pt", "pt-BR", "pt-PT", "rm", "ro", "ro-MO", "ru", "ru-MO", "sa", "gd", "gd-IE", "sr", "sr-SP", "sr-RS", "sr-Cyrl-RS", "sr-Latn-RS", "sd", "si", "sk", "sl", "so", "es", "es-AR", "es-BO", "es-CL", "es-CO", "es-CR", "es-DO", "es-EC", "es-SV", "es-GT", "es-HN", "es-MX", "es-NI", "es-PA", "es-PY", "es-PE", "es-PR", "es-ES", "es-UY", "es-VE", "sw", "sv", "sv-FI", "sv-SE", "tg", "ta", "tt", "te", "th", "bo", "ts", "tn", "tr", "tk", "uk", "und", "ur", "uz", "uz-UZ", "uz-Cyrl-UZ", "uz-Latn-UZ", "vi", "cy", "xh", "yi", "zu"]; 
+var supportedLocales = ["af", "sq", "am", "ar", "ar-DZ", "ar-BH", "ar-EG", "ar-IQ", "ar-JO", "ar-KW", "ar-LB", "ar-LY", "ar-MA", "ar-OM", "ar-QA", "ar-SA", "ar-SY", "ar-TN", "ar-AE", "ar-YE", "hy", "as", "az", "az-AZ", "az-Cyrl-AZ", "az-Latn-AZ", "eu", "be", "bn", "bs", "bg", "my", "ca", "zh", "zh-CN", "zh-HK", "zh-MO", "zh-SG", "zh-TW", "hr", "cs", "da", "dv", "nl", "nl-BE", "nl-NL", "en", "en-CB", "en-AU", "en-BZ", "en-CA", "en-IN", "en-IE", "en-JM", "en-NZ", "en-PH", "en-ZA", "en-TT", "en-GB", "en-US", "et", "fo", "fi", "fr", "fr-BE", "fr-CA", "fr-FR", "fr-LU", "fr-CH", "gl", "ka", "de", "de-AT", "de-DE", "de-LI", "de-LU", "de-CH", "el", "gn", "gu", "he", "hi", "hu", "is", "id", "it", "it-IT", "it-CH", "ja", "kn", "ks", "kk", "km", "ko", "lo", "la", "lv", "lt", "mk", "ms", "ms-BN", "ms-MY", "ml", "mt", "mi", "mr", "mn", "ne", "zxx", "no", "no-NO", "nb", "nn", "or", "pa", "fa", "pl", "pt", "pt-BR", "pt-PT", "rm", "ro", "ro-MO", "ru", "ru-MO", "sa", "gd", "gd-IE", "sr", "sr-SP", "sr-RS", "sr-Cyrl-RS", "sr-Latn-RS", "sd", "si", "sk", "sl", "so", "es", "es-AR", "es-BO", "es-CL", "es-CO", "es-CR", "es-DO", "es-EC", "es-SV", "es-GT", "es-HN", "es-MX", "es-NI", "es-PA", "es-PY", "es-PE", "es-PR", "es-ES", "es-UY", "es-VE", "sw", "sv", "sv-FI", "sv-SE", "tg", "ta", "tt", "te", "th", "bo", "ts", "tn", "tr", "tk", "uk", "und", "ur", "uz", "uz-UZ", "uz-Cyrl-UZ", "uz-Latn-UZ", "vi", "cy", "xh", "yi", "zu"];
 
 // console.log('templateRouter: cecDir: ' + cecDir + ' projectDir: ' + projectDir);
 
 var templatesDir,
-	themesDir;
+	themesDir,
+	compsDir;
 
 var _setupSourceDir = function () {
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
 	templatesDir = path.join(srcfolder, 'templates');
 	themesDir = path.join(srcfolder, 'themes');
+	compsDir = path.join(srcfolder, 'components');
 };
 
 //
@@ -61,7 +63,14 @@ router.get('/*', (req, res) => {
 	console.log('+++ Template: ' + req.url);
 	filePathSuffix = decodeURIComponent(filePathSuffix);
 
-	if (filePathSuffix.indexOf('/_themesdelivery/') > 0) {
+	if (filePathSuffix.indexOf('/_compdelivery/') > 0) {
+		// get the theme name 
+		var compName = filePathSuffix.substring(filePathSuffix.indexOf('/_compdelivery/') + '/_compdelivery/'.length),
+			compFile = '';
+		compName = compName.substring(0, compName.indexOf('/'));
+		compFile = filePathSuffix.substring(filePathSuffix.indexOf('/' + compName + '/') + compName.length + 2);
+		filePath = path.resolve(compsDir + '/' + compName + '/' + compFile);
+	} else if (filePathSuffix.indexOf('/_themesdelivery/') > 0) {
 		// get the theme name 
 		var themeName = filePathSuffix.substring(filePathSuffix.indexOf('/_themesdelivery/') + '/_themesdelivery/'.length),
 			themeFile = '';
@@ -153,11 +162,34 @@ router.get('/*', (req, res) => {
 			templateName = urlBits.shift(),
 			pageName = urlBits.pop(),
 			pagePath = urlBits.join('/') + '/_files/' + pageName,
+			detailPageName = urlBits.pop(),
+			detailPagePath = urlBits.join('/') + '/_files/' + detailPageName,
 			isSitePage = false;
+
+		// normal case, find the site file
 		filePath = path.resolve(templatesDir + '/' + templateName + '/static/' + pagePath);
 		if (existsAndIsFile(filePath)) {
 			isSitePage = true;
+		}
 
+		// see if it's a non-compiled detail page slug, then return the compiled detail page if it exists:   .../{detailpage}/{slug}
+		if (!isSitePage && detailPageName && pageName) {
+			if (!pageName.endsWith('.htm') && !pageName.endsWith('.html')) {
+				// check for following format for detail page: 
+				//   {detailPage}
+				//   {detailPage}.htm
+				//   {detailPage}.html
+				[detailPagePath, detailPagePath + '.htm', detailPagePath + '.html'].forEach(function (testPagePath) {
+					var testPath = path.resolve(templatesDir + '/' + templateName + '/static/' + testPagePath);
+					if (!isSitePage && existsAndIsFile(testPath)) {
+						filePath = testPath;
+						isSitePage = true;
+					}
+				});
+			}
+		}
+
+		if (isSitePage) {
 			// set the mime-type - may be required if can't be derived from file extension (e.g.: page file doesn't have an extension)
 			contentType = 'text/html';
 		}

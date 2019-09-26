@@ -18,6 +18,8 @@ var fs = require('fs'),
 	path = require('path'),
 	cheerio = require('cheerio');
 
+var compilationReporter = require('../../../reporter.js');
+
 var defaultTabClass = 'sl-tabs-tab',
 	activeTabClass = 'sl-tabs-active',
 	inactiveTabClass = 'sl-tabs-inactive',
@@ -62,20 +64,20 @@ SectionLayout.prototype = {
 			if (components.length > 0) {
 				// Create markup for the panels
 				for (i = 0; i < components.length; i++) {
-					html += '<div class="sl-slider-page" style="display: ' + ((i === 0) ? 'block' : 'none') +'">';
+					html += '<div class="sl-slider-page" style="display: ' + ((i === 0) ? 'block' : 'none') + '">';
 					html += '<div id="' + components[i] + '"></div></div>';
 				}
 
 				// Create markup for the arrows
 				html += '<span class="jssora02l sl-slider-arrow sl-slider-arrow-left"></span>';
 				html += '<span class="jssora02r sl-slider-arrow sl-slider-arrow-right"></span>';
-			/*
-			} else if (isEditMode) {
-				html += '<div class="sl-slider-watermark">';
-				html += '<div class="sl-slider-watermark-image">';
-				html += '</div>';
-				html += '</div>';
-			*/
+				/*
+				} else if (isEditMode) {
+					html += '<div class="sl-slider-watermark">';
+					html += '<div class="sl-slider-watermark-image">';
+					html += '</div>';
+					html += '</div>';
+				*/
 			}
 
 			html += '</div>'; // end of .sl-slider
@@ -105,22 +107,22 @@ SectionLayout.prototype = {
 				(typeof config.aspectRatio === 'string') && config.aspectRatio) {
 				ratio = config.aspectRatio.split(':')[1] / config.aspectRatio.split(':')[0];
 
-				html += '#'+idPrefix+' { position: relative; width: 100%;}';
-				html += '#'+idPrefix+' { padding-top: ' + ratio * 100 + '%;}';
+				html += '#' + idPrefix + ' { position: relative; width: 100%;}';
+				html += '#' + idPrefix + ' { padding-top: ' + ratio * 100 + '%;}';
 			} else if ((typeof config.height === 'number') && (config.height > 0)) {
-				html += '#'+idPrefix+' {min-height: ' + config.height + 'px;}';
+				html += '#' + idPrefix + ' {min-height: ' + config.height + 'px;}';
 			} else {
-				html += '#'+idPrefix+' {min-height: 240px;}';
+				html += '#' + idPrefix + ' {min-height: 240px;}';
 			}
 
 			// Show Indexer
 			var displayValue = config.showIndexer ? 'inline-block' : 'none';
-			html += '#'+self.componentId+' > .scs-container-styles > .scs-component-content > .sl-slider-buttons-wrapper .sl-slider-button { display: ' + displayValue + '; } ';
-			html += '#'+self.componentId+' > .scs-container-styles > .scs-component-content > .sl-slider-buttons-wrapper br { display: ' + displayValue + '; } ';
+			html += '#' + self.componentId + ' > .scs-container-styles > .scs-component-content > .sl-slider-buttons-wrapper .sl-slider-button { display: ' + displayValue + '; } ';
+			html += '#' + self.componentId + ' > .scs-container-styles > .scs-component-content > .sl-slider-buttons-wrapper br { display: ' + displayValue + '; } ';
 
 			// Show Prev/Next
 			displayValue = config.showPrevNext ? 'block' : 'none';
-			html += '#'+idPrefix+' > .sl-slider-arrow { display: ' + displayValue + '; } ';
+			html += '#' + idPrefix + ' > .sl-slider-arrow { display: ' + displayValue + '; } ';
 
 			// If we have a responsive breakpoint, then allow the indexer
 			// and prev/next buttons to be hidden.  However, if we are in 
@@ -133,27 +135,27 @@ SectionLayout.prototype = {
 					(typeof config.responsiveAspectRatio === 'string') && config.responsiveAspectRatio) {
 					ratio = config.responsiveAspectRatio.split(':')[1] / config.responsiveAspectRatio.split(':')[0];
 
-					html += '#'+idPrefix+' { position: relative; width: 100%;}';
-					html += '#'+idPrefix+' { padding-top: ' + ratio * 100 + '%;}';
+					html += '#' + idPrefix + ' { position: relative; width: 100%;}';
+					html += '#' + idPrefix + ' { padding-top: ' + ratio * 100 + '%;}';
 					// html += '#'+idPrefix+' { padding-top: calc(' + ratio * 100 + '% - 2 * 1px);}';
 
 					// Turn off values which may have been set in the non-responsive markup
-					html += '#'+idPrefix+' {min-height: auto;}';
+					html += '#' + idPrefix + ' {min-height: auto;}';
 				} else if ((typeof config.responsiveHeight === 'number') && (config.responsiveHeight > 0)) {
-					html += '#'+idPrefix+' {min-height: ' + config.responsiveHeight + 'px;}';
+					html += '#' + idPrefix + ' {min-height: ' + config.responsiveHeight + 'px;}';
 
 					// Turn off values which may have been set in the non-responsive markup
-					html += '#'+idPrefix+' { padding-top: 0px;}';
+					html += '#' + idPrefix + ' { padding-top: 0px;}';
 				}
 
 				// Responsive Hide Indexer
 				displayValue = config.responsiveShowIndexer ? 'inline-block' : 'none';
-				html += '#'+self.componentId+' > .scs-container-styles > .scs-component-content > .sl-slider-buttons-wrapper .sl-slider-button { display: ' + displayValue + '; } ';
-				html += '#'+self.componentId+' > .scs-container-styles > .scs-component-content > .sl-slider-buttons-wrapper br { display: ' + displayValue + '; } ';
+				html += '#' + self.componentId + ' > .scs-container-styles > .scs-component-content > .sl-slider-buttons-wrapper .sl-slider-button { display: ' + displayValue + '; } ';
+				html += '#' + self.componentId + ' > .scs-container-styles > .scs-component-content > .sl-slider-buttons-wrapper br { display: ' + displayValue + '; } ';
 
 				// Responsive Hide Prev/Next
 				displayValue = config.responsiveShowPrevNext ? 'block' : 'none';
-				html += '#'+idPrefix+' > .sl-slider-arrow { display: ' + displayValue + '; } ';
+				html += '#' + idPrefix + ' > .sl-slider-arrow { display: ' + displayValue + '; } ';
 
 				html += '}';
 			}
@@ -162,7 +164,10 @@ SectionLayout.prototype = {
 
 			content = markup + html;
 		} catch (e) {
-			console.error(e);
+			compilationReporter.error({
+				message: 'failed to compile scs-slider section layout',
+				error: e
+			});
 			content = '';
 		}
 
