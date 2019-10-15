@@ -28,14 +28,20 @@ var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
 
 var templatesDir,
 	themesDir,
-	componentsDir;
+	componentsDir,
+	customThemeName = '';
 
-var _setupSourceDir = function () {
+var _setupSourceDir = function (req, compName) {
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
 	templatesDir = path.join(srcfolder, 'templates');
 	themesDir = path.join(srcfolder, 'themes');
 	componentsDir = path.join(srcfolder, 'components');
+
+	// if the request is for the components page, then setup the custom theme if passed in as well
+	if (req.path === '/components/' + compName + '/') {
+		customThemeName = req.query.theme;
+	}
 };
 
 //
@@ -45,11 +51,11 @@ router.get('/*', (req, res) => {
 	let app = req.app,
 		request = app.locals.request;
 
-	_setupSourceDir();
-
 	var filePathSuffix = req.path.replace(/\/components\//, '').replace(/\/$/, ''),
 		filePath = '',
 		compName = filePathSuffix.indexOf('/') > 0 ? filePathSuffix.substring(0, filePathSuffix.indexOf('/')) : filePathSuffix;
+
+	_setupSourceDir(req, compName);
 
 	// console.log(' **** filePathSuffix=' + filePathSuffix + ' comp=' + compName);
 
@@ -89,6 +95,22 @@ router.get('/*', (req, res) => {
 		themeName = themeName.substring(0, themeName.indexOf('/'));
 		themeFile = filePathSuffix.substring(filePathSuffix.indexOf('/' + themeName + '/') + themeName.length + 2);
 		filePath = path.resolve(compThemeDir + '/' + themeFile);
+
+
+		// see if we want to override with a custom theme resource
+		var fixedResources = [
+				'layouts/index.html',
+				'assets/js/main.js',
+				'assets/css/main.css',
+				'assets/js/appController.js'
+			];
+		if (customThemeName && fixedResources.indexOf(themeFile) === -1) {
+			// see if the file exists under the referenced customTheme
+			var customThemeFilePath = path.resolve(path.join(themesDir, customThemeName, themeFile));
+			if (fs.existsSync(customThemeFilePath)) {
+				filePath = customThemeFilePath; 
+			}
+		}
 	} else if (filePathSuffix.indexOf('/_sitesclouddelivery/') > 0) {
 		var fpath = filePathSuffix.substring(filePathSuffix.indexOf('/_sitesclouddelivery/') + '/_sitesclouddelivery/'.length),
 			useServer = filePathSuffix.indexOf('/app/apps/') > 0;
@@ -209,10 +231,10 @@ router.get('/*', (req, res) => {
 				pagename = '/pages/200.json';
 				break;
 			case 'scs-app':
-				pagename = '/pages/100.json'
+				pagename = '/pages/100.json';
 				break;
 			case 'remote':
-				pagename = '/pages/100.json'
+				pagename = '/pages/100.json';
 				break;
 			default:
 				pagename = '/pages/1.json';
@@ -410,13 +432,22 @@ router.get('/*', (req, res) => {
 				themedesigns = '<select id="themedesign" class="themedesign-select" onchange="selectTheme()"><option value="none">None</option>';
 			for (var i = 0; i < themes.length; i++) {
 				if (fs.existsSync(path.join(themesDir, themes[i], '_folder.json'))) {
-					themedesigns = themedesigns + '<option value="' + themes[i] + '">' + themes[i] + '</option>';
+					themedesigns += '<option value="' + themes[i] + '"';
+					if (themes[i] === customThemeName) { 
+						themedesigns += ' selected="selected"';
+					}
+					themedesigns += '>' + themes[i] + '</option>';
 				} else {
 					console.log(' - ' + themes[i] + ' is not a theme');
 				}
 			}
 			themedesigns = themedesigns + '</select>';
+
+			// handle theme designs
 			buf = buf.replace('_devcs_theme_designs', themedesigns);
+
+			// handle theme resources
+			buf = buf.replace('_devcs_theme_resources', themedesigns.replace('selectTheme()', 'selectThemeResource()').replace('"themedesign"', '"themeresource"'));
 
 			res.write(buf);
 			res.end();
@@ -441,8 +472,13 @@ router.get('/*', (req, res) => {
 					console.log('status=' + response.statusCode + ' err=' + err);
 				}
 
-				var structurebuf = fs.readFileSync(filePath).toString(),
-					structurejson = JSON.parse(structurebuf);
+				var structurebuf = fs.readFileSync(filePath).toString();
+
+				if (customThemeName) {
+					structurebuf = structurebuf.replace('CompTheme', customThemeName);
+				}
+
+				var structurejson = JSON.parse(structurebuf);
 
 				structurejson.siteInfo.base.properties['siteConnections'] = {
 					VBCSConnection: vbcsconn

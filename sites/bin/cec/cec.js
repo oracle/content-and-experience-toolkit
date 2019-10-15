@@ -90,6 +90,12 @@ var getComponentSources = function () {
 	return validComponentSources;
 };
 
+var getTranslationConnectorSources = function () {
+	let connectorSources = fs.readdirSync(path.join(appRoot, 'data', 'connectors')).filter((item) => /\.zip$/.test(item)).map((zip) => zip.replace('.zip', ''));
+
+	return connectorSources;
+};
+
 var getTemplateSources = function () {
 	const seededTemplateSources = ['CafeSupremoLite', 'JETStarterTemplate', 'StarterTemplate'];
 
@@ -408,7 +414,7 @@ const deployTemplate = {
 		['cec deploy-template StarterTemplate -s UAT', 'Deploys the template StarterTemplate to the registered server UAT.'],
 		['cec deploy-template StarterTemplate -f Import/Templates', 'Uploads file StarterTemplate.zip to folder Import/Templates and imports the template StarterTemplate.'],
 		['cec deploy-template StarterTemplate -o', 'Optimizes and deploys the template StarterTemplate.'],
-		['cec upload-template StarterTemplate -x', 'Exclude the "Content Template" from the template upload. "Content Template" upload can be managed independently.']
+		['cec deploy-template StarterTemplate -x', 'Exclude the "Content Template" from the template upload. "Content Template" upload can be managed independently.']
 	]
 };
 
@@ -807,7 +813,6 @@ const setSiteSecurity = {
 				'Optionally specify -a <access> to set who can access the site. ' +
 				'The valid group names are\n\n';
 			return getSiteAccessNames().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			return desc;
 		})()
 	},
 	example: [
@@ -948,7 +953,7 @@ const createRepository = {
 				'Optionally specify -d <description> to set the description. ' +
 				'Optionally specify -t <contenttypes> to set the content types. ' +
 				'Optionally specify -c <channels> to set the publishing channels. ' +
-				'Optionally specify -l <defaultlanguage> to set the default language.'
+				'Optionally specify -l <defaultlanguage> to set the default language.';
 			return desc;
 		})()
 	},
@@ -1009,7 +1014,7 @@ const unshareRepository = {
 		'short': 'Deletes the user\'s access to a repository on CEC server.',
 		'long': (function () {
 			let desc = 'Deletes the user\'s access to a repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'Optionally specify -t to also delete the user\'s access to the content types in the repository.'
+				'Optionally specify -t to also delete the user\'s access to the content types in the repository.';
 			return desc;
 		})()
 	},
@@ -1064,7 +1069,7 @@ const createChannel = {
 			let desc = 'Creates a channel on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -t <type> to set the channel type [public | secure], defaults to public. ' +
 				'Optionally specify -p <publishpolicy> to set the publish policy [anythingPublished | onlyApproved], defaults to anythingPublished. ' +
-				'Optionally specify -l <localizationpolicy> to set the localization policy.'
+				'Optionally specify -l <localizationpolicy> to set the localization policy.';
 			return desc;
 		})()
 	},
@@ -1165,7 +1170,10 @@ const createTranslationJob = {
 	usage: {
 		'short': 'Creates a translation job <name> for a site on CEC server.',
 		'long': (function () {
-			let desc = 'Creates a translation job <name> for a site on CEC server. Specify the server with -r <server> or use the one specified in cec.properties file. Specify -l <languages> to set the target languages, use "all" to select all languages from the translation policy. Optionally specify -t <type> to set the content type. The valid values for <type> are:\n\n';
+			let desc = 'Creates a translation job <name> for a site on CEC server. Specify the server with -r <server> or use the one specified in cec.properties file. ' +
+				'Specify -l <languages> to set the target languages, use "all" to select all languages from the translation policy. ' +
+				'Optionally specify -c <connector> to set the translation connector. ' +
+				'Optionally specify -t <type> to set the content type. The valid values for <type> are:\n\n';
 			return getTranslationJobExportTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1173,7 +1181,8 @@ const createTranslationJob = {
 		['cec create-translation-job job1 -s Site1 -l all'],
 		['cec create-translation-job job1 -s Site1 -l all -r UAT'],
 		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT'],
-		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT, -t siteItems']
+		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT, -t siteItems'],
+		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT -c Lingotek'],
 	]
 };
 
@@ -1241,7 +1250,8 @@ const ingestTranslationJob = {
 		})()
 	},
 	example: [
-		['cec ingest-translation-job Site1Job1']
+		['cec ingest-translation-job Site1Job1', 'Ingest local translation job'],
+		['cec ingest-translation-job Site1Job1 -s DEV', 'Ingest translation job Site1Job1 on the registered server DEV']
 	]
 };
 
@@ -1251,9 +1261,11 @@ const createTranslationConnector = {
 	name: 'create-translation-connector',
 	usage: {
 		'short': 'Creates translation connector <name>.',
+
 		'long': (function () {
-			let desc = 'Creates translation connector <name>.';
-			return desc;
+			let desc = 'Creates the translation connector <name>. By default, it creates a mockTranslationConnector. Optionally specify -f <source> to create from a different source.\n\nValid values for <source> are: \n';
+
+			return getTranslationConnectorSources().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
@@ -1589,7 +1601,7 @@ const syncServer = {
 		'long': (function () {
 			let desc = 'Starts a sync server in the current folder to sync changes notified by web hook from <server> to <destination> server. Specify the source server with -s <server> and the destination server with -d <destination>. ' +
 				'Specify -u <username> and -w <password> for authenticating web hook events. Optionally specify -p <port> to set the port, default port is 8086. ' +
-				'To run the sync server over HTTPS, specify the key file with -k <key> and the certificate file with -c <certificate>.'
+				'To run the sync server over HTTPS, specify the key file with -k <key> and the certificate file with -c <certificate>.';
 			return desc;
 		})()
 	},
@@ -1697,8 +1709,8 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(createLocalizationPolicy) + os.EOL +
 	_getCmdHelp(shareType) + os.EOL +
 	_getCmdHelp(unshareType) + os.EOL +
-	_getCmdHelp(listAssets) + os.EOL;
-// _getCmdHelp(createAssetUsageReport) + os.EOL;
+	_getCmdHelp(listAssets) + os.EOL +
+	_getCmdHelp(createAssetUsageReport) + os.EOL;
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(listTranslationJobs) + os.EOL +
@@ -1717,8 +1729,8 @@ _usage = _usage + os.EOL + 'Local Environment' + os.EOL +
 	_getCmdHelp(setOAuthToken) + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
 	_getCmdHelp(install) + os.EOL +
-	_getCmdHelp(develop) + os.EOL;
-// _getCmdHelp(syncServer);
+	_getCmdHelp(develop) + os.EOL +
+	_getCmdHelp(syncServer);
 
 const argv = yargs.usage(_usage)
 	.command([createComponent.command, createComponent.alias], false,
@@ -3106,6 +3118,10 @@ const argv = yargs.usage(_usage)
 					description: '<languages> The comma separated list of languages used to create the translation job',
 					demandOption: true
 				})
+				.option('connector', {
+					alias: 'c',
+					description: 'The translation connector'
+				})
 				.option('type', {
 					alias: 't',
 					description: 'The type of translation job contents'
@@ -3125,6 +3141,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTranslationJob.example[1])
 				.example(...createTranslationJob.example[2])
 				.example(...createTranslationJob.example[3])
+				.example(...createTranslationJob.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3165,7 +3182,12 @@ const argv = yargs.usage(_usage)
 		})
 	.command([ingestTranslationJob.command, ingestTranslationJob.alias], false,
 		(yargs) => {
-			yargs.example(...ingestTranslationJob.example[0])
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.example(...ingestTranslationJob.example[0])
+				.example(...ingestTranslationJob.example[1])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3196,7 +3218,18 @@ const argv = yargs.usage(_usage)
 		})
 	.command([createTranslationConnector.command, createTranslationConnector.alias], false,
 		(yargs) => {
-			yargs.example(...createTranslationConnector.example[0])
+			yargs.option('from', {
+					alias: 'f',
+					description: '<source> to create from',
+				})
+				.check((argv) => {
+					if (argv.from && !getTranslationConnectorSources().includes(argv.from)) {
+						throw new Error(`${argv.from} is not a valid value for <source>`);
+					} else {
+						return true;
+					}
+				})
+				.example(...createTranslationConnector.example[0])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3896,7 +3929,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		deployTemplateArgs.push(...['--minify', argv.optimize]);
 	}
 	if (argv.excludecontenttemplate) {
-		uploadTemplateArgs.push(...['--excludecontenttemplate', argv.excludecontenttemplate]);
+		deployTemplateArgs.push(...['--excludecontenttemplate', argv.excludecontenttemplate]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, deployTemplateArgs, {
 		cwd,
@@ -4684,6 +4717,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--site', argv.site,
 		'--languages', argv.languages
 	];
+	if (argv.connector) {
+		createTranslationJobArgs.push(...['--connector', argv.connector]);
+	}
 	if (argv.type) {
 		createTranslationJobArgs.push(...['--type', argv.type]);
 	}
@@ -4763,7 +4799,10 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--name', argv.name
 	];
-
+	if (argv.server) {
+		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		ingestTranslationJobArgs.push(...['--server'], serverVal);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, ingestTranslationJobArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -4791,7 +4830,8 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	let createTranslationConnectorArgs = ['run', '-s', createTranslationConnector.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
-		'--name', argv.name
+		'--name', argv.name,
+		'--source', argv.from ? argv.from : 'mockTranslationConnector'
 	];
 
 	spawnCmd = childProcess.spawnSync(npmCmd, createTranslationConnectorArgs, {
@@ -5063,7 +5103,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		cwd,
 		stdio: 'inherit'
 	});
-};
+}
 
 // see if need to show deprecation warning
 _checkVersion();

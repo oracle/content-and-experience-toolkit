@@ -362,6 +362,7 @@ module.exports.downloadFile = function (argv, done) {
 	var resourceFolder = false;
 	var resourceName;
 	var resourceType;
+	var resourceLabel;
 	if (folderPathStr && (folderPathStr.indexOf('site:') === 0 || folderPathStr.indexOf('theme:') === 0 || folderPathStr.indexOf('component:') === 0)) {
 		resourceFolder = true;
 		if (folderPathStr.indexOf('site:') === 0) {
@@ -1433,6 +1434,7 @@ var _deleteFolder = function (argv, server) {
 	var resourceFolder = false;
 	var resourceName;
 	var resourceType;
+	var resourceLabel;
 	if (inputPath && (inputPath.indexOf('site:') === 0 || inputPath.indexOf('theme:') === 0 || inputPath.indexOf('component:') === 0)) {
 		resourceFolder = true;
 		if (inputPath.indexOf('site:') === 0) {
@@ -1791,6 +1793,7 @@ var _deleteFile = function (argv, server) {
 	var resourceFolder = false;
 	var resourceName;
 	var resourceType;
+	var resourceLabel;
 	if (folderPathStr && (folderPathStr.indexOf('site:') === 0 || folderPathStr.indexOf('theme:') === 0 || folderPathStr.indexOf('component:') === 0)) {
 		resourceFolder = true;
 		if (folderPathStr.indexOf('site:') === 0) {

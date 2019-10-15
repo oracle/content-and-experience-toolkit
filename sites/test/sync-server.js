@@ -205,7 +205,9 @@ process.on('uncaughtException', function (err) {
 if (keyPath && fs.existsSync(keyPath) && certPath && fs.existsSync(certPath)) {
 	var httpsOptions = {
 		key: fs.readFileSync(keyPath),
-		cert: fs.readFileSync(certPath)
+		cert: fs.readFileSync(certPath),
+		requestCert: false,
+		rejectUnauthorized: false
 	};
 	var localhost = 'https://localhost:' + port;
 	https.createServer(httpsOptions, app).listen(port, function () {

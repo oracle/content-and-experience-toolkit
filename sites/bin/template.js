@@ -12,12 +12,15 @@ var gulp = require('gulp'),
 	serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
+	childProcess = require('child_process'),
 	extract = require('extract-zip'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	path = require('path'),
 	argv = require('yargs').argv,
 	zip = require('gulp-zip');
+
+const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
 
 var cecDir = path.join(__dirname, ".."),
 	templatesDataDir = path.join(cecDir, 'data', 'templates'),
@@ -1444,6 +1447,16 @@ var unzipTemplate = function (tempName, tempPath, useNewGUID) {
 					siteinfojson.properties.siteName = tempName;
 					fs.writeFileSync(siteinfofile, JSON.stringify(siteinfojson));
 				}
+			} else {
+				// siteinfo.json does not exist (old templates), create one
+				var siteinfojson = {
+					properties: {
+						themeName: themeName,
+						siteName: tempName
+					}
+				};
+				console.log(' - create siteinfo.json and set themeName to ' + themeName);
+				fs.writeFileSync(siteinfofile, JSON.stringify(siteinfojson));
 			}
 
 			if (useNewGUID) {
@@ -1610,27 +1623,60 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate) {
 
 	// Optimize if requested
 	if (optimize) {
-		var files = getDirFiles(tempBuildDir);
+		let themeBuildDir = path.join(tempBuildDir, 'theme'),
+			themeGulpFile = path.join(themeBuildDir, 'gulpfile.js');
+		if (fs.existsSync(themeGulpFile)) {
+			// Run 'gulp' under the theme directory
+			var themeBuild = childProcess.spawnSync(npmCmd, ['run', 'gulp', themeGulpFile], {
+				stdio: 'inherit'
+			});
+			if (themeBuild.status) {
+				// something went wrong with the build
+				console.log(' - ERROR running theme gulp file: ' + themeGulpFile + ' status: ' + themeBuild.status);
+			}
+		} else {
+			var files = getDirFiles(tempBuildDir);
 
-		if (files) {
-			var uglifycss = require('uglifycss'),
-				uglifyjs = require("uglify-js");
-			files.forEach(function (name) {
-				if (name.endsWith('.css')) {
-					var uglified = uglifycss.processFiles([name]);
-					fs.writeFileSync(name, uglified);
-					// console.log(' - Optimized CSS File ' + name);
-				} else if (name.endsWith('.js')) {
-					var orig = fs.readFileSync(name, {
-							encoding: 'utf8'
-						}),
-						result = uglifyjs.minify(orig),
-						uglified = result.code;
-					if (result.error) {
-						console.log(' - ERROR optiomizing JS File ' + name + result.error);
-					} else {
+			if (files) {
+				var uglifycss = require('uglifycss'),
+					uglifyjs = require("uglify-js");
+				files.forEach(function (name) {
+					if (name.endsWith('.css')) {
+						var uglified = uglifycss.processFiles([name]);
 						fs.writeFileSync(name, uglified);
-						// console.log(' - Optimized JS File ' + name);
+						// console.log(' - Optimized CSS File ' + name);
+					} else if (name.endsWith('.js')) {
+						var orig = fs.readFileSync(name, {
+								encoding: 'utf8'
+							}),
+							result = uglifyjs.minify(orig),
+							uglified = result.code;
+						if (result.error) {
+							console.log(' - ERROR optiomizing JS File ' + name + result.error);
+						} else {
+							fs.writeFileSync(name, uglified);
+							// console.log(' - Optimized JS File ' + name);
+						}
+					}
+				});
+			}
+		}
+
+		// now run gulp on any component's gulp files
+		let componentsBuildDir = path.join(tempBuildDir, 'components');
+		if (fs.existsSync(componentsBuildDir)) {
+			// loop through each component and call the gulp file if it exists
+			var componentsFolders = fs.readdirSync(componentsBuildDir);
+			componentsFolders.forEach(function (component) {
+				var componentsGulpFile = path.join(componentsBuildDir, component, 'gulpfile.js');
+				if (fs.existsSync(componentsGulpFile)) {
+					// Run 'gulp' under the theme directory
+					var componentBuild = childProcess.spawnSync(npmCmd, ['run', 'gulp', componentsGulpFile], {
+						stdio: 'inherit'
+					});
+					if (componentBuild.status) {
+						// something went wrong with the build
+						console.log(' - ERROR running component gulp file: ' + componentsGulpFile + ' status: ' + componentBuild.status);
 					}
 				}
 			});
@@ -1649,7 +1695,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate) {
 
 	// remove the content directory if it exists and should be excluded
 	if (excludeContentTemplate && fs.existsSync(contentdir)) {
-		console.log(' - exluding content template');
+		console.log(' - excluding content template');
 		fse.removeSync(contentdir);
 	}
 

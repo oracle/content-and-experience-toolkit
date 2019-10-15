@@ -929,36 +929,44 @@ var compiler = {
 			// try to compile the component
 			var ComponentCompiler = self.componentCompilers[compInstance.type];
 			if (ComponentCompiler) {
-				var component = new ComponentCompiler(compId, compInstance, componentsFolder);
-				component.compile({
-					SCSCompileAPI: self.getSCSCompileAPI()
-				}).then(function (compiledComp) {
-					// make sure the component can be parsed
-					if (compiledComp.content) {
-						var $ = cheerio.load('<div>');
-						compiledComp.content = $('<div>' + compiledComp.content + '</div>').html();
-					}
-					// store the compiled component
-					self.compiledComponents[compId] = compiledComp;
-
-					// if nothing was returned, let the user know
-					if (false && !compiledComp.content) {
-						// don't warn for content placeholders
-						if (!(compInstance.data && compInstance.data.contentPlaceholder)) {
-							compilationReporter.warn({
-								message: 'Compiling component: "' + compId + '" of type "' + compInstance.type + '" resulted in no content - it will render dynamically at runtime',
-							});
+				try {
+					var component = new ComponentCompiler(compId, compInstance, componentsFolder);
+					component.compile({
+						SCSCompileAPI: self.getSCSCompileAPI()
+					}).then(function (compiledComp) {
+						// make sure the component can be parsed
+						if (compiledComp.content) {
+							var $ = cheerio.load('<div>');
+							compiledComp.content = $('<div>' + compiledComp.content + '</div>').html();
 						}
-					}
+						// store the compiled component
+						self.compiledComponents[compId] = compiledComp;
 
-					return resolve();
-				}).catch(function (e) {
+						// if nothing was returned, let the user know
+						if (false && !compiledComp.content) {
+							// don't warn for content placeholders
+							if (!(compInstance.data && compInstance.data.contentPlaceholder)) {
+								compilationReporter.warn({
+									message: 'Compiling component: "' + compId + '" of type "' + compInstance.type + '" resulted in no content - it will render dynamically at runtime',
+								});
+							}
+						}
+
+						return resolve();
+					}).catch(function (e) {
+						compilationReporter.error({
+							message: 'Error compiling component: "' + compId + '" of type "' + compInstance.type + '" - it will render dynamically at runtime',
+							error: e
+						});
+						return resolve();
+					});
+				} catch (e) {
 					compilationReporter.error({
-						message: 'Error compiling component: "' + compId + '" of type "' + compInstance.type + '" - it will render dynamically at runtime',
+						message: 'Error compiling component: "' + compId + '" of type "' + compInstance.type + '".  It will render dynamically at runtime',
 						error: e
 					});
 					return resolve();
-				});
+				}
 			} else {
 				// inline components are handled separately
 				if (['scs-inline-text', 'scs-inline-image'].indexOf(compInstance.type) === -1) {
@@ -1915,6 +1923,8 @@ function computeSitePrefix(context, pageUrl, pageInfo) {
 
 function createPage(context, pageInfo) {
 	return new Promise(function (resolve, reject) {
+		var errorPageName = creatingDetailPages ? 'detail page: ' + pageInfo.id + '/' + pageInfo.contentItem.slug : 'page: ' + pageInfo.id;
+
 		try {
 			if ((typeof pageInfo.linkUrl === "string") && (pageInfo.linkUrl.trim().length > 0)) {
 				// Don't emit a page for external links.
@@ -1947,18 +1957,33 @@ function createPage(context, pageInfo) {
 				});
 
 				compileThemeLayout(context.themeName, layoutName, pageData, pageInfo).then(function (layoutMarkup) {
-					pageData = fixupPageDataWithSlotReuseData(context, pageData, layoutName, layoutMarkup);
-					// now fixup the page 
-					fixupPage(pageInfo.id, pageInfo.pageUrl, layoutMarkup, (pageData.base || pageData), pageDatas.localePageData, context, sitePrefix).then(function (pageMarkup) {
-						var pagePrefix = context.locale ? (context.locale + '/') : '';
-						writePage(pagePrefix + pageInfo.pageUrl, pageMarkup);
-						resolve();
+
+						pageData = fixupPageDataWithSlotReuseData(context, pageData, layoutName, layoutMarkup);
+						// now fixup the page 
+						fixupPage(pageInfo.id, pageInfo.pageUrl, layoutMarkup, (pageData.base || pageData), pageDatas.localePageData, context, sitePrefix).then(function (pageMarkup) {
+								var pagePrefix = context.locale ? (context.locale + '/') : '';
+								writePage(pagePrefix + pageInfo.pageUrl, pageMarkup);
+								resolve();
+							})
+							.catch(function (err) {
+								compilationReporter.error({
+									message: 'Failed to write ' + errorPageName,
+									error: err
+								});
+								resolve(); // Resolve, instead of reject because we want to continue processing other pages
+							});
+					})
+					.catch(function (err) {
+						compilationReporter.error({
+							message: 'Failed to generate ' + errorPageName,
+							error: err
+						});
+						resolve(); // Resolve, instead of reject because we want to continue processing other pages
 					});
-				});
 			}
 		} catch (e) {
 			compilationReporter.error({
-				message: 'Failed to create page: ' + pageInfo.id,
+				message: 'Failed to create ' + errorPageName,
 				error: e
 			});
 
@@ -2123,18 +2148,25 @@ function createDetailPages() {
 	var createDetailPagePromises = [];
 
 	Object.keys(detailPageList).forEach(function (language) {
-		// Initialize the context for this set of pages
-		var context = setupContext(language);
+		try {
+			// Initialize the context for this set of pages
+			var context = setupContext(language);
 
-		// get the array of pages to compile
-		pagesToCompile = detailPageList[language];
+			// get the array of pages to compile
+			pagesToCompile = detailPageList[language];
 
-		// create the array of functions that will execute the createPage promise when called
-		pagesToCompile.forEach(function (pageInfo) {
-			createDetailPagePromises.push(function () {
-				return createDetailPage(context, pageInfo);
+			// create the array of functions that will execute the createPage promise when called
+			pagesToCompile.forEach(function (pageInfo) {
+				createDetailPagePromises.push(function () {
+					return createDetailPage(context, pageInfo);
+				});
 			});
-		});
+		} catch (e) {
+			compilationReporter.error({
+				message: 'failed to setup context for detail pages for language: "' + (language || 'default') + '".  Continuing with any other languages',
+				error: e
+			});
+		}
 	});
 
 	// execute page promises serially
@@ -2206,31 +2238,47 @@ var compileSite = function (args) {
 	console.log("    -logLevel                = " + logLevel);
 	console.log("");
 
-	initialize();
-	readStyleShim();
-	readRootStructure();
-
 	// setup the reporting level
 	if (verbose) {
 		compilationReporter.setReportingLevel('verbose');
+	}
+
+	// initialize the compilation environment
+	try {
+		initialize();
+		readStyleShim();
+		readRootStructure();
+	} catch (e) {
+		compilationReporter.error({
+			message: 'compilation initialization: failed to initialize template structure, no page compilation attempted.',
+			error: e
+		});
+		return Promise.reject();
 	}
 
 	var createPagePromises = [];
 
 	var languages = getAvailableLanguages();
 	languages.forEach(function (language) {
-		// Initialize the context for this set of pages
-		var context = setupContext(language);
+		try {
+			// Initialize the context for this set of pages
+			var context = setupContext(language);
 
-		// get the array of pages to compile
-		pagesToCompile = getPagesToCompile(context, pages, recurse);
+			// get the array of pages to compile
+			pagesToCompile = getPagesToCompile(context, pages, recurse);
 
-		// create the array of functions that will execute the createPage promise when called
-		pagesToCompile.forEach(function (pageInfo) {
-			createPagePromises.push(function () {
-				return createPage(context, pageInfo);
+			// create the array of functions that will execute the createPage promise when called
+			pagesToCompile.forEach(function (pageInfo) {
+				createPagePromises.push(function () {
+					return createPage(context, pageInfo);
+				});
 			});
-		});
+		} catch (e) {
+			compilationReporter.error({
+				message: 'failed to setup context for pages for language: "' + (language || 'default') + '".  Continuing with any other languages',
+				error: e
+			});
+		}
 	});
 
 	// execute page promises serially
@@ -2255,22 +2303,16 @@ var compileSite = function (args) {
 			return createDetailPages().then(function () {
 				console.log('All detail page creation calls complete.');
 				compilationReporter.renderReport();
-				if (compilationReporter.wereErrorsReported) {
-					return Promise.reject();
-				} else {
-					return Promise.resolve();
-				}
+				return compilationReporter.hasErrors ? Promise.reject() : Promise.resolve();
 			});
 		} else {
 			compilationReporter.renderReport();
-			if (compilationReporter.wereErrorsReported) {
-				return Promise.reject();
-			} else {
-				return Promise.resolve();
-			}
+			return compilationReporter.hasErrors ? Promise.reject() : Promise.resolve();
 		}
 	}).catch(function (e) {
-		console.log(e);
+		if (e) {
+			console.log(e);
+		}
 		return Promise.reject();
 	});
 };

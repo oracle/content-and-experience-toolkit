@@ -3556,3 +3556,72 @@ module.exports.browseThemesOnServer = function (request, server, params) {
 		});
 	});
 };
+
+/**
+ * Get translation connectors from server using IdcService
+ */
+module.exports.browseTranslationConnectorsOnServer = function (request, server) {
+	var transPromise = new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var auth = _getRequestAuth(server);
+
+		var url = server.url + '/documents/web?IdcService=GET_ALL_CONNECTOR_INSTANCES&type=translation';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth,
+		};
+
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get translation connectors');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get translation connector ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.ConnectorInstanceInfo && data.ResultSets.ConnectorInstanceInfo.fields || [];
+			var rows = data.ResultSets && data.ResultSets.ConnectorInstanceInfo && data.ResultSets.ConnectorInstanceInfo.rows;
+			var connectors = []
+			for (var j = 0; j < rows.length; j++) {
+				connectors.push({});
+			}
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				for (var j = 0; j < rows.length; j++) {
+					connectors[j][attr] = rows[j][i];
+				}
+			}
+
+			resolve({
+				data: connectors
+			});
+		});
+	});
+	return transPromise;
+};

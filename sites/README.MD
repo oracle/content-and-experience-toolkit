@@ -8,6 +8,10 @@ To learn about developing components for Content and Experience Cloud, see the l
 
 [Headless CLI](doc/IDCS-App.md) - Setup IDCS Application for headless CLI (No popup Chromium for authentication)
 
+[Build Test](doc/Build-Test.md) - Build, optimize and test updates for OCE source
+
+[Asset Sync](doc/AssetSync.md) - Synchronize asset create, update, delete, publish across OCE servers
+
 ## Setup
 
 * Make sure `node` and `npm` are in your `PATH`.  Use NodeJS 8.0.0 or later.

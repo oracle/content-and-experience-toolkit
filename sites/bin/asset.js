@@ -1131,7 +1131,7 @@ module.exports.listAssets = function (argv, done) {
 				return Promise.reject();
 			}
 
-			var items = result || [];
+			var items = result && result.data || [];
 			total = items.length;
 
 			console.log(' - total items: ' + total);

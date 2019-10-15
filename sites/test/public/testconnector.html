@@ -49,6 +49,13 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 					<a href="#" id="getJob" data-bind="click: getJob">Get the details on the job</a>
 				</li>
 				<li>
+					<div>
+					<a href="#" id="refreshTranslation" data-bind="click: refreshTranslation">Refesh (refetch) translated files from the LSP</a>
+					<br/>
+					<span class="disabledAPI"> Note: only applies after job status is 'TRANSLATED'</span>
+					</div>
+				</li>
+				<li>
 					<a href="#" id="getTranslation" data-bind="click: getTranslation">Get the translated job zip</a>
 				</li>
 				<li>
@@ -111,6 +118,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 
 			$('#sendZip').addClass('disabledAPI');
 			$('#getJob').addClass('disabledAPI');
+			$('#refreshTranslation').addClass('disabledAPI');
 			$('#getTranslation').addClass('disabledAPI');
 			$('#deleteJob').addClass('disabledAPI');
 
@@ -273,11 +281,48 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 						fileSent = true;
 						// enable get translation
 						$('#getTranslation').removeClass();
+
+						// enable refresh translation
+						$('#refreshTranslation').removeClass();
 					}
 					var msg = data ? JSON.stringify(data, null, '  ') : '';
 					displayResult(options, msg);
 				});
 			};
+
+			this.refreshTranslation = function (data) {
+				if (!self.jobId()) {
+					return;
+				}
+				selectedAPI('#refreshTranslation');
+				var url = '/connector/rest/api/v1/job/' + self.jobId() + '/refreshTranslation?connection=' + connectionName;
+				console.log('refreshTranslation: ' + self.jobId() + ' on ' + connectionName);
+				$.post(url, function (resultstr) {
+					var result;
+					var options = {},
+						data = {};
+					try {
+						result = JSON.parse(resultstr);
+						options = result.options;
+						data = result.data;
+					} catch (e) {};
+
+					self.statusMessage('');
+					if (!result || result.err) {
+						self.requestStatus('x');
+						self.statusCSS('statusFail');
+						if (data && JSON.stringify(data).indexOf('ECONNREFUSED') >= 0) {
+							self.statusMessage(connectorDownMsg);
+						}
+					} else {
+						self.requestStatus('√');
+						self.statusCSS('statusSuccess');
+					}
+					var msg = data ? JSON.stringify(data, null, '  ') : '';
+					displayResult(options, msg);
+				});
+			};
+
 
 			this.getTranslation = function (data) {
 				if (!self.jobId() || !fileSent) {
@@ -354,6 +399,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 							$('#sendZip').addClass('disabledAPI');
 							$('#getJob').addClass('disabledAPI');
 							$('#getTranslation').addClass('disabledAPI');
+							$('#refreshTranslation').addClass('disabledAPI');
 							$('#deleteJob').addClass('disabledAPI');
 						}
 					}

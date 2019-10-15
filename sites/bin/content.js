@@ -230,7 +230,7 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 					if (!results || !results[0] || results[0].err) {
 						return Promise.reject();
 					}
-					var items = results[0];
+					var items = results[0].data || [];
 					console.log(' - total items from query: ' + items.length);
 
 					// the export items have to be in both query result and specified item list

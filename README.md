@@ -6,7 +6,31 @@ Templates and resources for development platforms.
 
 [Test to Production](sites/doc/T2P.md) – Use the OCE toolkit for Test to Production
 
+[Build Test](sites/doc/Build-Test.md) - Build, optimize and test updates for OCE source
+
+[Asset Sync](sites/doc/AssetSync.md) - Synchronize asset create, update, delete, publish across OCE servers
+
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
+
+# New in Release 19.4.1
+
+**Added**
+
+`cec list-translation-jobs` - lists jobs sent to external language service providers (feature coming in 19.4.3)
+`cec create-translation-job` - can create jobs that use extenal language service providers
+`cec ingest-translation-job` - can ingest a job completed by an external language service provider
+
+**Added**
+
+`cec sync-server` - start a service which can sync asset create, update, delete, publish, unpublish across OCE servers using webhooks.
+
+`cec list-assets` - lists assets on a CEC server, useful for use with `create-asset-usage-report`
+
+`cec create-asset-usage-report` - starting with one or more asset IDs, report where the assets are used and their status
+
+**Added**
+
+`cec install` - adds build, optimize and test improvements to the source environment created
 
 # New in Release 19.3.3a
 

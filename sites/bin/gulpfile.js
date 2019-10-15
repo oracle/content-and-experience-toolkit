@@ -35,7 +35,9 @@ var gulp = require('gulp'),
 var serverUtils = require('../test/server/serverUtils.js');
 
 var cecDir = path.join(__dirname, ".."),
-	configDataDir = path.join(cecDir, 'data', 'config');
+	configDataDir = path.join(cecDir, 'data', 'config'),
+	buildDataDir = path.join(cecDir, 'data', 'build') ;
+	testDataDir = path.join(cecDir, 'data', 'test') ;
 
 var projectDir,
 	serversSrcDir;
@@ -75,7 +77,7 @@ gulp.task('install-src', function (done) {
 		version0 = version0.substring(1);
 	}
 	if (version0 < 8) {
-		console.log('ERROR: requires Node version 8 or above, please upgrade')
+		console.log('ERROR: requires Node version 8 or above, please upgrade');
 		done();
 		return;
 	}
@@ -96,6 +98,9 @@ gulp.task('install-src', function (done) {
 	// create the default package.json
 	if (!fs.existsSync(path.join(projectDir, 'package.json'))) {
 		fse.copySync(path.join(configDataDir, 'src-package.json'), path.join(projectDir, 'package.json'));
+	}
+	if (!fs.existsSync(path.join(projectDir, 'gulpfile.js'))) {
+		fse.copySync(path.join(buildDataDir, 'src-gulpfile.js'), path.join(projectDir, 'gulpfile.js'));
 	}
 
 	// create symlink to libs
@@ -123,9 +128,12 @@ gulp.task('install-src', function (done) {
 		fs.mkdirSync(path.join(srcFolder, 'themes'));
 	}
 
-	// ./dist/
+	// ./dist/ & ./test/
 	if (!fs.existsSync(path.join(projectDir, 'dist'))) {
 		fs.mkdirSync(path.join(projectDir, 'dist'));
+	}
+	if (!fs.existsSync(path.join(projectDir, 'test'))) {
+		fse.copySync(testDataDir, path.join(projectDir, 'test'));
 	}
 
 	// set the server in config with existing settings

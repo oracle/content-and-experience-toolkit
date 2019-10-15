@@ -61,6 +61,10 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			<span>Theme Design</span>
 			_devcs_theme_designs
 		</div>
+		<div class "themeresources">
+			<span>Theme Resources</span>
+			_devcs_theme_resources
+		</div>
 	</div>
 	<table border="1" width="100%">
 		<tr>
@@ -248,13 +252,18 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 		};
 		window.addEventListener("message", receiveMessage, false);
 
+		var selectThemeResource = function () {
+			// redirect to the selected theme
+			var theme = document.getElementById("themeresource").value;
+			console.log('select theme: ' + theme);
+
+			var newURL = window.location.href.replace(/\?.*/, '');
+			window.location.href = newURL + (theme === 'none' ? '' : '?theme=Temp2Theme');
+		};
 		var selectTheme = function () {
 			var theme = document.getElementById("themedesign").value;
 			console.log('select theme: ' + theme);
 			if (theme) {
-				// save to session
-				window.sessionStorage.setItem('currentComponentTheme', theme);
-
 				var cssfile = '/src/themes/' + theme + '/designs/default/design.css';
 				var head = document.getElementsByTagName('head')[0],
 					link = document.createElement('link');
@@ -295,14 +304,6 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 				}
 			}
 		};
-		var savedTheme = window.sessionStorage.getItem("currentComponentTheme");
-		if (savedTheme) {
-			console.log('Saved theme: ' + savedTheme);
-			var themeElement = document.getElementById("themedesign");
-			themeElement.value = savedTheme;
-			var event = new Event('change');
-			themeElement.dispatchEvent(event);
-		}
 	</script>
 	<script data-main="/_sitescloud/renderer/renderer.js" src="/libs/requirejs/require.js"></script>
 	<!--$SCS_PAGE_FOOTER-->

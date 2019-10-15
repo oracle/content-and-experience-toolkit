@@ -1,7 +1,7 @@
 # Setup for Test to Production (T2P) using OCE Toolkit
 OCE Toolkit supports test to production for Sites and Content via Git/SVN repository.
 
-![](https://github.com/oracle/content-and-experience-toolkit/blob/master/sites/doc/T2P-Graphic.jpg?raw=true)
+![](https://github.com/oracle/content-and-experience-toolkit/blob/master/sites/doc/images/T2P-Graphic.jpg?raw=true)
 
 Resources are created / edited in a Development OCE server, exported to the local file system using OCE Toolkit CLI, and propagated to a Test or Production OCE server using OCE Toolkit CLI.
 Some resources, like components, content layouts can be developed directly into the local file system and tested using a local server, and deployed to the DEV instance.  Also, the CLI commands are bi-directional, so updates can be moved from TEST back to DEV instance. 

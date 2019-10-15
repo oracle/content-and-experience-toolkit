@@ -563,9 +563,12 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 		if (hasRefItems) {
 			layoutzipfile = 'contentlayout.zip';
 		}
-	} else if (haslargetext) {
+	}
+	/* no need to call getItem() to get large text fields 
+	else if (haslargetext) {
 		layoutzipfile = 'contentlistlayout.zip';
 	}
+	*/
 
 	console.log(' - layoutstyle = ' + layoutstyle + ' haslargetext = ' + haslargetext + ' hasRefItems = ' + hasRefItems + ' hasMultiItems = ' + hasMultiItems + ' layoutzipfile = ' + layoutzipfile);
 	// Unzip the component and update metadata

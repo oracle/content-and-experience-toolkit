@@ -130,7 +130,7 @@ module.exports.registerServer = function (argv, done) {
 		}
 		type = 'dev_ec';
 	}
-	
+
 	var savedPassword = password;
 	if (keyFile) {
 		try {
@@ -192,9 +192,13 @@ module.exports.setOAuthToken = function (argv, done) {
 	}
 
 	var server = serverUtils.getRegisteredServer(projectDir, serverName);
-	if (server) {
-		server.oauthtoken = argv.token;
-		fs.writeFileSync(server.fileloc, JSON.stringify(server));
+	var serverPath = path.join(serversSrcDir, serverName, "server.json");
+	if (fs.existsSync(serverPath)) {
+		var serverstr = fs.readFileSync(serverPath).toString(),
+			serverjson = JSON.parse(serverstr);
+		serverjson.oauthtoken = argv.token;
+
+		fs.writeFileSync(serverPath, JSON.stringify(serverjson));
 		console.log(' - token saved to server ' + serverName);
 		done(true);
 	} else {
@@ -321,6 +325,7 @@ module.exports.listServerResources = function (argv, done) {
 	var listRepositories = types.length === 0 || types.includes('repositories')
 	var listSites = types.length === 0 || types.includes('sites')
 	var listTemplates = types.length === 0 || types.includes('templates')
+	var listTranslationConnectors = true;
 
 	if (!listChannels && !listComponents && !listLocalizationpolicies && !listRepositories && !listSites && !listTemplates) {
 		console.log('ERROR: invalid resource types: ' + argv.types);
@@ -328,9 +333,8 @@ module.exports.listServerResources = function (argv, done) {
 		return;
 	}
 
-	var format = '  %-36s';
-	var format2 = '  %-36s  %-36s';
-	var format3 = '  %-36s  %-36s  %-s';
+
+	var format3 = '  %-45s  %-36s  %-s';
 
 	var request = serverUtils.getRequest();
 
@@ -348,7 +352,7 @@ module.exports.listServerResources = function (argv, done) {
 				//
 				// List channels
 				//
-				var channelFormat = '  %-36s  %-36s  %-8s  %-s';
+				var channelFormat = '  %-45s  %-36s  %-8s  %-s';
 				channels = results.length > 0 ? results[0] : [];
 				if (listChannels) {
 					console.log('Channels:');
@@ -439,7 +443,7 @@ module.exports.listServerResources = function (argv, done) {
 				var repositories = results.length > 0 ? results[0] : [];
 				if (listRepositories) {
 					console.log('Repositories:');
-					var repoFormat = '  %-36s  %-16s  %-42s  %-s';
+					var repoFormat = '  %-45s  %-16s  %-42s  %-s';
 					console.log(sprintf(repoFormat, 'Name', 'Default Language', 'Channels', 'Content Types'));
 					for (var i = 0; i < repositories.length; i++) {
 						var repo = repositories[i];
@@ -469,7 +473,7 @@ module.exports.listServerResources = function (argv, done) {
 				//
 				var sites = results.length > 0 ? results[0].data : [];
 				if (listSites) {
-					var siteFormat = '  %-36s  %-36s  %-10s  %-10s  %-s';
+					var siteFormat = '  %-45s  %-36s  %-10s  %-10s  %-s';
 					console.log('Sites:');
 					console.log(sprintf(siteFormat, 'Name', 'Theme', 'Type', 'Published', 'Online'));
 
@@ -499,6 +503,24 @@ module.exports.listServerResources = function (argv, done) {
 						var temp = templates[i];
 						var type = temp.xScsIsEnterprise === '1' ? 'Enterprise' : 'Standard';
 						console.log(sprintf(format3, temp.fFolderName, temp.xScsSiteTheme, type));
+					}
+					console.log('');
+				}
+
+				return serverUtils.browseTranslationConnectorsOnServer(request, server);
+
+			})
+			.then(function (result) {
+				//
+				// list translation connectors
+				//
+				var connectors = result.data || [];
+				if (listTranslationConnectors) {
+					console.log('Translation Connectors:');
+					console.log(sprintf(format3, 'Id', 'Name', 'Enabled'));
+					for (var i = 0; i < connectors.length; i++) {
+						var conn = connectors[i];
+						console.log(sprintf(format3, conn.connectorId, conn.connectorName, (conn.isEnabled && conn.isEnabled.toLowerCase() === 'true' ? '   √' : '')));
 					}
 				}
 

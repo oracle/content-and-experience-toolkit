@@ -274,11 +274,11 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 			}
 			// folder not found
 			if (showError) {
-				var msg = data.title || data.errorMessage || '';
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to find ' + (itemtype ? itemtype : ' File') + ': ' + filename + ' ' + msg);
 			}
 			return resolve({
-				err: data.errorCode || 'err'
+				err: 'err'
 			});
 		});
 	});
@@ -411,6 +411,52 @@ module.exports.readFile = function (args) {
 	return _readFile(args.server, args.fFileGUID);
 };
 
+// Read file object
+var _getFile = function (server, id) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/api/1.2/files/' + id;
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get file ' + id);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				console.log('ERROR: failed to get file ' + id + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+
+	});
+};
+/**
+ * Read file from server by file name
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.id The DOCS GUID for the file
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getFile = function (args) {
+	return _getFile(args.server, args.id);
+};
+
 var _downloadFile = function (server, fFileGUID) {
 	return new Promise(function (resolve, reject) {
 		var auth = serverUtils.getRequestAuth(server);
@@ -503,6 +549,7 @@ var _getFileVersions = function (server, fFileGUID) {
 			url: url,
 			auth: serverUtils.getRequestAuth(server)
 		};
+		console.log(options);
 		request(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get file version ' + fFileGUID);
@@ -578,7 +625,6 @@ var _getItem = function (server, id, expand) {
  * @param {object} args JavaScript object containing parameters. 
  * @param {string} args.server the server object
  * @param {string} args.id The id of the item to query.
- * @param {string} args.expand The comma-separated list of field names or all to get child resources.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getItem = function (args) {
@@ -637,7 +683,7 @@ var _getItemRelationships = function (server, id) {
 	});
 };
 /**
- * Get an item on server 
+ * Get an item's relationships on server 
  * @param {object} args JavaScript object containing parameters. 
  * @param {string} args.server the server object
  * @param {string} args.id The id of the item to query.
@@ -648,17 +694,10 @@ module.exports.getItemRelationships = function (args) {
 	return _getItemRelationships(args.server, args.id);
 };
 
-var _queryItems = function (server, q, fields) {
+var _getItemVariations = function (server, id) {
 	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/items';
-		if (q) {
-			url = url + '?q=' + q + '&limit=9999';
-		} else {
-			url = url + '?limit=9999';
-		}
-		if (fields) {
-			url = url + '&fields=' + fields;
-		}
+		var url = server.url + '/content/management/api/v1.1/items/' + id + '/variations';
+
 		var options = {
 			method: 'GET',
 			url: url,
@@ -666,7 +705,7 @@ var _queryItems = function (server, q, fields) {
 		};
 		request(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to query items with ' + q);
+				console.log('ERROR: failed to get item variations ' + id);
 				console.log(error);
 				return resolve({
 					err: 'err'
@@ -679,10 +718,81 @@ var _queryItems = function (server, q, fields) {
 				data = body;
 			};
 			if (response && response.statusCode === 200) {
-				return resolve(data && data.items);
+				return resolve({
+					id: id,
+					data: data && data.data || []
+				});
+			} else {
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get item variations ' + id + ' : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get an item's variations on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} args.server the server object
+ * @param {string} args.id The id of the item to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getItemVariations = function (args) {
+	return _getItemVariations(args.server, args.id);
+};
+
+var _queryItems = function (server, q, fields, orderBy, limit, offset, channelToken) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/items';
+		var sep = '?';
+		if (q) {
+			url = url + sep + 'q=' + q;
+			sep = '&';
+		}
+		url = url + sep + 'limit=' + (limit || 9999);
+		if (offset) {
+			url = url + '&offset=' + offset;
+		}
+		if (orderBy) {
+			url = url + '&orderBy=' + orderBy;
+		}
+		if (channelToken) {
+			url = url + '&channelToken=' + channelToken;
+		}
+		if (fields) {
+			url = url + '&fields=' + fields;
+		}
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		var query = url.substring(url.indexOf('?') + 1);
+		// console.log(query);
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to query items with ' + query);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
+				return resolve({
+					data: data && data.items,
+					query: query
+				});
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to query items with ' + q + ' : ' + msg);
+				console.log('ERROR: failed to query items with ' + query + ' : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -698,7 +808,7 @@ var _queryItems = function (server, q, fields) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.queryItems = function (args) {
-	return _queryItems(args.server, args.q, args.fields);
+	return _queryItems(args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken);
 };
 
 // Create channel on server
