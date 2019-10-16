@@ -32,6 +32,12 @@ Templates and resources for development platforms.
 
 `cec install` - adds build, optimize and test improvements to the source environment created
 
+**Updated**
+
+`cec download-content` - can now download content template including specific assets, assets in a collection or assets found with a query
+
+`cec create-asset-report` - now reports on broken links where a site includes references to content items, documents, web pages that don't exist
+
 # New in Release 19.3.3a
 
 **Fixed**
