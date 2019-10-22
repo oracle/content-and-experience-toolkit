@@ -301,7 +301,7 @@ var _validateTranslationJob = function (request, server, translationJobType, job
 				validationMode: 'validateOnly'
 			}
 		};
-		console.log(formData);
+		// console.log(formData);
 		var formDataStr = JSON.stringify(formData);
 		var auth = serverUtils.getRequestAuth(server);
 		var postData = {
@@ -1215,6 +1215,55 @@ var _sendFileToConnector = function (request, translationconnector, jobId, fileP
 	return filePromise;
 };
 
+var _refreshConnectorJob = function (request, translationconnector, connection, jobId) {
+	var jobPromise = new Promise(function (resolve, reject) {
+		var url = translationconnector.url + '/v1/job/' + jobId + '/refreshTranslation?connection=' + connection;
+
+		var basicAuth = 'Basic ' + btoa(translationconnector.user + ':' + translationconnector.password);
+		var headers = {};
+		headers['Authorization'] = basicAuth;
+		for (var i = 0; i < translationconnector.fields.length; i++) {
+			headers[translationconnector.fields[i].name] = translationconnector.fields[i].value;
+		}
+
+		request({
+				method: 'POST',
+				url: url,
+				headers: headers
+			},
+			function (error, response, body) {
+				if (error) {
+					console.log('ERROR: failed to refresh job on the connector: ' + error);
+					return resolve({
+						err: 'err'
+					});
+				}
+
+				if (response.statusCode != 200) {
+					console.log('ERROR: failed to refresh job on the connector: ' + response.statusMessage);
+					return resolve({
+						err: 'err'
+					});
+				}
+
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (err) {}
+
+				if (!data || !data.properties) {
+					console.log('ERROR: failed to refresh job on the connector: no data returned');
+					return resolve({
+						err: 'err'
+					});
+				}
+				return resolve(data);
+			}
+		);
+	});
+	return jobPromise;
+};
+
 var _getJobFromConnector = function (request, translationconnector, jobId, jobName) {
 	var jobPromise = new Promise(function (resolve, reject) {
 		var url = translationconnector.url + '/v1/job/' + jobId;
@@ -1454,6 +1503,20 @@ var _listServerTranslationJobs = function (argv, done) {
 		return name;
 	};
 
+	var _getConnectorJobStatus = function (connectorJobs, jobName) {
+		var data = {};
+		for (var i = 0; i < connectorJobs.length; i++) {
+			if (jobName === connectorJobs[i].connectorJobTitle) {
+				data = {
+					status: connectorJobs[i].connectorJobStatus,
+					progress: connectorJobs[i].connectorJobProgress
+				};
+				break;
+			}
+		}
+		return data;
+	};
+
 	var request = serverUtils.getRequest();
 	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
@@ -1493,12 +1556,31 @@ var _listServerTranslationJobs = function (argv, done) {
 			})
 			.then(function (values) {
 				// merge the detail query result to the list
+				var connectorJobPromises = [];
 				for (var i = 0; i < values.length; i++) {
 					if (values[i].job) {
 						jobs.push(values[i].job);
+
+						if (values[i].job.id && values[i].job.connectorId) {
+							connectorJobPromises.push(serverUtils.getTranslationConnectorJobOnServer(request, server, values[i].job.id));
+						}
 					}
 				}
-				// console.log(jobs);
+
+				return Promise.all(connectorJobPromises);
+
+			})
+			.then(function (results) {
+				var connectorJobs = [];
+				if (results) {
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].data) {
+							connectorJobs.push(results[i].data);
+						}
+					}
+				}
+				// console.log(connectorJobs);
+
 				//
 				// display 
 				//
@@ -1514,7 +1596,8 @@ var _listServerTranslationJobs = function (argv, done) {
 							var targetlanguages = data && data.properties && data.properties.targetLanguages || '';
 							var connStr = '';
 							if (jobs[i].connectorId) {
-								connStr = _getConnectName(connectors, jobs[i].connectorId) + ' ' + jobs[i].connectorJobStatus;
+								var connData = _getConnectorJobStatus(connectorJobs, jobs[i].name);
+								connStr = _getConnectName(connectors, jobs[i].connectorId) + ' ' + connData.status;
 
 							}
 							console.log(sprintf(format, jobs[i].name, jobs[i].status, sourceLanguage, targetlanguages, jobs[i].assetPendingLanguages, connStr));
@@ -1532,7 +1615,8 @@ var _listServerTranslationJobs = function (argv, done) {
 							var targetlanguages = data && data.targetLanguages || '';
 							var connStr = '';
 							if (jobs[i].connectorId) {
-								connStr = _getConnectName(connectors, jobs[i].connectorId) + ' ' + jobs[i].connectorJobStatus;
+								var connData = _getConnectorJobStatus(connectorJobs, jobs[i].name);
+								connStr = _getConnectName(connectors, jobs[i].connectorId) + ' ' + connData.status;
 							}
 							console.log(sprintf(format, jobs[i].name, jobs[i].status, sourceLanguage, targetlanguages, jobs[i].sitePendingLanguages, connStr));
 						}
@@ -2347,11 +2431,23 @@ var _ingestServerTranslationJob = function (argv, done) {
 					console.log('ERROR: job ' + name + ' is not translated by translation connector');
 					return Promise.reject();
 				}
-				if (job.connectorJobStatus !== 'TRANSLATED') {
-					console.log('ERROR: job ' + name + ' is not ready to ingest yet: ' + job.connectorJobStatus);
+
+				return serverUtils.getTranslationConnectorJobOnServer(request, server, job.id);
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.data) {
 					return Promise.reject();
 				}
-				
+
+				var connJob = result.data;
+
+				if (connJob.connectorJobStatus !== 'TRANSLATED') {
+					console.log('ERROR: job ' + name + ' is not ready to ingest yet: ' + connJob.connectorJobStatus);
+					return Promise.reject();
+				}
+				console.log(' - verify job');
+
 				return _getIdcToken(request, server);
 			})
 			.then(function (result) {
@@ -2438,6 +2534,203 @@ var _ingestTranslationJobSCS = function (request, server, idcToken, jobId, conne
 		});
 	});
 	return importPromise;
+};
+
+var _refreshTranslationJobSCS = function (request, server, idcToken, jobId, connectorId) {
+	var refreshPromise = new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/web?IdcService=REFRESH_CONNECTOR_JOB';
+
+		var auth = serverUtils.getRequestAuth(server);
+		var formData = {
+			'idcToken': idcToken,
+			'jobId': jobId
+		};
+		var params = {
+			method: 'POST',
+			url: url,
+			auth: auth,
+			formData: formData
+		};
+		request(params, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: Failed to submit refresh translation job ' + job.jobName);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to submit refresh translation job ' + jobId + ' - ' + (data && data.LocalData ? data.LocalData.StatusMessage : (response.statusMessage || response.statusCode)));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			return resolve(data);
+
+		});
+	});
+	return refreshPromise;
+};
+var _refreshServerTranslationJob = function (argv, done) {
+	projectDir = argv.projectDir || projectDir;
+
+	var serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+
+	// console.log(' - server: ' + server.url);
+
+	var request = serverUtils.getRequest();
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+		var connectors;
+		var job;
+		var idcToken;
+		serverUtils.browseTranslationConnectorsOnServer(request, server)
+			.then(function (result) {
+				connectors = result && result.data || []
+
+				// verify the name
+				var jobPromises = [_getTranslationJobs(server, 'assets'), _getTranslationJobs(server, 'sites')];
+				return Promise.all(jobPromises);
+			})
+			.then(function (values) {
+				var found = false;
+				for (var i = 0; i < values.length; i++) {
+					for (var j = 0; j < values[i].jobs.length; j++) {
+						if (values[i].jobs[j].name === name) {
+							found = true;
+							job = values[i].jobs[j];
+							break;
+						}
+					}
+					if (found) {
+						break;
+					}
+				}
+				if (!found) {
+					console.log('ERROR: job ' + name + ' does not exist on server');
+					return Promise.reject();
+				}
+
+				// console.log(job);
+				if (!job.connectorId) {
+					console.log('ERROR: job ' + name + ' is not translated by translation connector');
+					return Promise.reject();
+				}
+
+				return _getIdcToken(request, server);
+			})
+			.then(function (result) {
+				idcToken = result.idcToken;
+
+				return _refreshTranslationJobSCS(request, server, idcToken, job.id, job.connectorId);
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+				console.log(' - send refresh request to connection, check status with command list-translation-jobs');
+				done(true);
+			})
+			.catch((error) => {
+				done();
+			});
+	});
+};
+
+/**
+ * Refresh translation job from translation connector
+ */
+module.exports.refreshTranslationJob = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	if (argv.server) {
+		_refreshServerTranslationJob(argv, done);
+		return;
+	}
+
+	var name = argv.name;
+
+	// verify the job exists
+	var jobs = fs.existsSync(transSrcDir) ? fs.readdirSync(transSrcDir) : [];
+	var jobExist = false;
+	for (var i = 0; i < jobs.length; i++) {
+		if (name === jobs[i]) {
+			jobExist = true;
+			break;
+		}
+	}
+	if (!jobExist) {
+		console.error('ERROR: translation job ' + name + ' does not exist');
+		done();
+		return;
+	}
+
+
+	// verify the connection
+	var jobConnectionInfo = _getJobConnectionInfo(name);
+	if (!jobConnectionInfo || !jobConnectionInfo.jobId) {
+		console.log('ERROR: job ' + name + ' has not been submmitted to translation connector yet');
+		done();
+		return;
+	}
+	if (!jobConnectionInfo.connection) {
+		console.log('ERROR: no connection found for job ' + name);
+		done();
+		return;
+	}
+
+	var connection = jobConnectionInfo.connection;
+	console.log(' - use connection ' + connection);
+
+	// get connection
+	var connectionjson = _getConnectionInfo(connection);
+	if (!connectionjson) {
+		done();
+		return;
+	}
+
+	var request = serverUtils.getRequest();
+	_refreshConnectorJob(request, connectionjson, jobConnectionInfo.connection, jobConnectionInfo.jobId)
+		.then(function (result) {
+			if (!result || result.err) {
+				done();
+				return;
+			}
+
+			jobConnectionInfo.status = '';
+
+			var connectionJobJsonPath = path.join(transSrcDir, name, 'connectionjob.json');
+			fs.writeFileSync(connectionJobJsonPath, JSON.stringify(jobConnectionInfo));
+
+			console.log(' - send refresh request to connection, check status with command list-translation-jobs');
+
+			done(true);
+		});
+
 };
 
 /**

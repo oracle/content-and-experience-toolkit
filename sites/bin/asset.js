@@ -337,14 +337,17 @@ module.exports.shareRepository = function (argv, done) {
 	console.log(' - server: ' + server.url);
 
 	var name = argv.name;
-	var userNames = argv.users.split(',');
+	var userNames = argv.users ? argv.users.split(',') : [];
+	var groupNames = argv.groups ? argv.groups.split(',') : [];
 	var role = argv.role;
 	var shareTypes = typeof argv.types === 'string' && argv.types.toLowerCase() === 'true';
 	var typeRole = argv.typerole || role;
 
 	var repository;
 	var users = [];
+	var groups = [];
 	var goodUserName = [];
+	var goodGroupNames = [];
 	var typeNames = [];
 
 	serverRest.getRepositories({
@@ -381,6 +384,35 @@ module.exports.shareRepository = function (argv, done) {
 				}
 			}
 
+			return serverRest.getGroups({
+				server: server
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+			if (groupNames.length > 0) {
+				console.log(' - verify groups');
+			}
+			// verify groups
+			var allGroups = result || [];
+			for (var i = 0; i < groupNames.length; i++) {
+				var found = false;
+				for (var j = 0; j < allGroups.length; j++) {
+					if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+						found = true;
+						groups.push(allGroups[j]);
+						goodGroupNames.push(groupNames[i]);
+						break;
+					}
+				}
+				if (!found) {
+					console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+					// return Promise.reject();
+				}
+			}
+
 			var usersPromises = [];
 			for (var i = 0; i < userNames.length; i++) {
 				usersPromises.push(serverRest.getUser({
@@ -398,8 +430,9 @@ module.exports.shareRepository = function (argv, done) {
 					allUsers = allUsers.concat(results[i].items);
 				}
 			}
-			console.log(' - verify users');
-
+			if (userNames.length > 0) {
+				console.log(' - verify users');
+			}
 			// verify users
 			for (var k = 0; k < userNames.length; k++) {
 				var found = false;
@@ -419,9 +452,42 @@ module.exports.shareRepository = function (argv, done) {
 				}
 			}
 
-			if (users.length === 0) {
+			if (users.length === 0 && groups.length === 0) {
 				return Promise.reject();
 			}
+
+			return serverRest.getResourcePermissions({
+				server: server,
+				id: repository.id,
+				type: 'repository'
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+
+			var existingPermissions = result && result.permissions || [];
+			var revokeGroups = [];
+			for (var i = 0; i < groups.length; i++) {
+				for (var j = 0; j < existingPermissions.length; j++) {
+					var perm = existingPermissions[j];
+					if (perm.type === 'group' && perm.fullName === groups[i].name) {
+						revokeGroups.push(groups[i]);
+						break;
+					}
+				}
+			}
+
+			return serverRest.performPermissionOperation({
+				server: server,
+				operation: 'unshare',
+				resourceId: repository.id,
+				resourceType: 'repository',
+				groups: revokeGroups
+			});
+		})
+		.then(function (result) {
 
 			return serverRest.performPermissionOperation({
 				server: server,
@@ -429,7 +495,8 @@ module.exports.shareRepository = function (argv, done) {
 				resourceId: repository.id,
 				resourceType: 'repository',
 				role: role,
-				users: users
+				users: users,
+				groups: groups
 			});
 		})
 		.then(function (result) {
@@ -437,9 +504,16 @@ module.exports.shareRepository = function (argv, done) {
 				return Promise.reject();
 			}
 
-			console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on repository ' + name);
+			if (goodUserName.length > 0) {
+				console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on repository ' + name);
+			}
+
+			if (goodGroupNames.length > 0) {
+				console.log(' - group ' + (goodGroupNames.join(', ')) + ' granted with role ' + role + ' on repository ' + name);
+			}
 
 			if (shareTypes && typeNames.length > 0) {
+				var goodTypeNames = [];
 				var typePromises = [];
 				for (var i = 0; i < typeNames.length; i++) {
 					typePromises.push(serverRest.getContentType({
@@ -447,38 +521,104 @@ module.exports.shareRepository = function (argv, done) {
 						name: typeNames[i]
 					}));
 				}
+				var success = true;
+
 				Promise.all(typePromises).then(function (results) {
-						var shareTypePromises = [];
 						for (var i = 0; i < results.length; i++) {
 							if (results[i].id) {
-								shareTypePromises.push(serverRest.performPermissionOperation({
-									server: server,
-									operation: 'share',
-									resourceName: results[i].name,
-									resourceType: 'type',
-									role: typeRole,
-									users: users
-								}));
+								goodTypeNames.push(results[i].name);
 							}
 						}
-						return Promise.all(shareTypePromises);
+
+						if (goodTypeNames.length === 0) {
+							return Promise.reject();
+						}
+
+						var typePermissionPromises = [];
+						for (var i = 0; i < goodTypeNames.length; i++) {
+							typePermissionPromises.push(serverRest.getResourcePermissions({
+								server: server,
+								id: goodTypeNames[i],
+								type: 'type'
+							}));
+						}
+
+						Promise.all(typePermissionPromises)
+							.then(function (results) {
+								var revokeGroups = [];
+								var unshareTypePromises = [];
+								for (var i = 0; i < results.length; i++) {
+									var resource = results[i].resource;
+									var perms = results[i] && results[i].permissions || [];
+									var revokeGroups = [];
+									for (var j = 0; j < perms.length; j++) {
+										if (perms[j].type === 'group') {
+											for (var k = 0; k < groups.length; k++) {
+												if (perms[j].fullName === groups[k].name) {
+													revokeGroups.push(groups[k]);
+													break;
+												}
+											}
+
+										}
+									}
+									if (revokeGroups.length > 0) {
+										unshareTypePromises.push(serverRest.performPermissionOperation({
+											server: server,
+											operation: 'unshare',
+											resourceName: resource,
+											resourceType: 'type',
+											groups: revokeGroups
+										}));
+									}
+								}
+
+								return Promise.all(unshareTypePromises);
+
+							})
+							.then(function (results) {
+
+								var shareTypePromises = [];
+								for (var i = 0; i < goodTypeNames.length; i++) {
+									shareTypePromises.push(serverRest.performPermissionOperation({
+										server: server,
+										operation: 'share',
+										resourceName: goodTypeNames[i],
+										resourceType: 'type',
+										role: typeRole,
+										users: users,
+										groups: groups
+									}));
+								}
+								return Promise.all(shareTypePromises);
+							})
+							.then(function (results) {
+								var sharedTypes = [];
+								for (var i = 0; i < results.length; i++) {
+									if (results[i].operations) {
+										var obj = results[i].operations.share;
+										if (obj.resource && obj.resource.name) {
+											sharedTypes.push(obj.resource.name);
+										}
+									}
+								}
+								if (sharedTypes.length > 0) {
+									if (goodUserName.length > 0) {
+										console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + typeRole + ' on type ' + sharedTypes.join(', '));
+									}
+									if (goodGroupNames.length > 0) {
+										console.log(' - group ' + (goodGroupNames.join(', ')) + ' granted with role ' + typeRole + ' on type ' + sharedTypes.join(', '));
+									}
+								}
+								done(true);
+
+
+							});
 					})
-					.then(function (results) {
-						var sharedTypes = [];
-						for (var i = 0; i < results.length; i++) {
-							var obj = results[i].operations.share;
-							if (obj.resource && obj.resource.name) {
-								sharedTypes.push(obj.resource.name);
-							}
-						}
-						if (sharedTypes.length > 0) {
-							console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + typeRole + ' on type ' + sharedTypes.join(', '));
-						}
-						done(true);
+					.catch((error) => {
+						done(success);
 					});
-			} else {
-				done(true);
-			}
+			} // types
 
 		})
 		.catch((error) => {
@@ -504,12 +644,15 @@ module.exports.unShareRepository = function (argv, done) {
 	console.log(' - server: ' + server.url);
 
 	var name = argv.name;
-	var userNames = argv.users.split(',');
+	var userNames = argv.users ? argv.users.split(',') : [];
+	var groupNames = argv.groups ? argv.groups.split(',') : [];
 	var unshareTypes = typeof argv.types === 'string' && argv.types.toLowerCase() === 'true';
 
 	var repository;
 	var users = [];
+	var groups = [];
 	var goodUserName = [];
+	var goodGroupNames = [];
 	var typeNames = [];
 
 	serverRest.getRepositories({
@@ -546,6 +689,35 @@ module.exports.unShareRepository = function (argv, done) {
 				}
 			}
 
+			return serverRest.getGroups({
+				server: server
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+			if (groupNames.length > 0) {
+				console.log(' - verify groups');
+			}
+			// verify groups
+			var allGroups = result || [];
+			for (var i = 0; i < groupNames.length; i++) {
+				var found = false;
+				for (var j = 0; j < allGroups.length; j++) {
+					if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+						found = true;
+						groups.push(allGroups[j]);
+						goodGroupNames.push(groupNames[i]);
+						break;
+					}
+				}
+				if (!found) {
+					console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+					// return Promise.reject();
+				}
+			}
+
 			var usersPromises = [];
 			for (var i = 0; i < userNames.length; i++) {
 				usersPromises.push(serverRest.getUser({
@@ -563,7 +735,9 @@ module.exports.unShareRepository = function (argv, done) {
 					allUsers = allUsers.concat(results[i].items);
 				}
 			}
-			console.log(' - verify users');
+			if (userNames.length > 0) {
+				console.log(' - verify users');
+			}
 
 			// verify users
 			for (var k = 0; k < userNames.length; k++) {
@@ -584,7 +758,7 @@ module.exports.unShareRepository = function (argv, done) {
 				}
 			}
 
-			if (users.length === 0) {
+			if (users.length === 0 && groups.length === 0) {
 				return Promise.reject();
 			}
 
@@ -593,7 +767,8 @@ module.exports.unShareRepository = function (argv, done) {
 				operation: 'unshare',
 				resourceId: repository.id,
 				resourceType: 'repository',
-				users: users
+				users: users,
+				groups: groups
 			});
 		})
 		.then(function (result) {
@@ -601,7 +776,12 @@ module.exports.unShareRepository = function (argv, done) {
 				return Promise.reject();
 			}
 
-			console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to repository ' + name + ' removed');
+			if (goodUserName.length > 0) {
+				console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to repository ' + name + ' removed');
+			}
+			if (goodGroupNames.length > 0) {
+				console.log(' - the access of group ' + (goodGroupNames.join(', ')) + ' to repository ' + name + ' removed');
+			}
 
 			if (unshareTypes && typeNames.length > 0) {
 				var typePromises = [];
@@ -620,7 +800,8 @@ module.exports.unShareRepository = function (argv, done) {
 									operation: 'unshare',
 									resourceName: results[i].name,
 									resourceType: 'type',
-									users: users
+									users: users,
+									groups: groups
 								}));
 							}
 						}
@@ -635,7 +816,12 @@ module.exports.unShareRepository = function (argv, done) {
 							}
 						}
 						if (unsharedTypes.length > 0) {
-							console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to type ' + unsharedTypes.join(', ') + ' removed');
+							if (goodUserName.length > 0) {
+								console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to type ' + unsharedTypes.join(', ') + ' removed');
+							}
+							if (goodGroupNames.length > 0) {
+								console.log(' - the access of group ' + (goodGroupNames.join(', ')) + ' to type ' + unsharedTypes.join(', ') + ' removed');
+							}
 						}
 						done(true);
 					});
@@ -667,11 +853,14 @@ module.exports.shareType = function (argv, done) {
 	console.log(' - server: ' + server.url);
 
 	var name = argv.name;
-	var userNames = argv.users.split(',');
+	var userNames = argv.users ? argv.users.split(',') : [];
+	var groupNames = argv.groups ? argv.groups.split(',') : [];
 	var role = argv.role;
 
 	var users = [];
+	var groups = [];
 	var goodUserName = [];
+	var goodGroupNames = [];
 
 	serverRest.getContentType({
 			server: server,
@@ -682,6 +871,34 @@ module.exports.shareType = function (argv, done) {
 			}
 
 			console.log(' - verify type');
+
+			return serverRest.getGroups({
+				server: server
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+			if (groupNames.length > 0) {
+				console.log(' - verify groups');
+			}
+			// verify groups
+			var allGroups = result || [];
+			for (var i = 0; i < groupNames.length; i++) {
+				var found = false;
+				for (var j = 0; j < allGroups.length; j++) {
+					if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+						found = true;
+						groups.push(allGroups[j]);
+						goodGroupNames.push(groupNames[i]);
+						break;
+					}
+				}
+				if (!found) {
+					console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+				}
+			}
 
 			var usersPromises = [];
 			for (var i = 0; i < userNames.length; i++) {
@@ -700,7 +917,9 @@ module.exports.shareType = function (argv, done) {
 					allUsers = allUsers.concat(results[i].items);
 				}
 			}
-			console.log(' - verify users');
+			if (userNames.length > 0) {
+				console.log(' - verify users');
+			}
 
 			// verify users
 			for (var k = 0; k < userNames.length; k++) {
@@ -721,9 +940,42 @@ module.exports.shareType = function (argv, done) {
 				}
 			}
 
-			if (users.length === 0) {
+			if (users.length === 0 && groups.length === 0) {
 				return Promise.reject();
 			}
+
+			return serverRest.getResourcePermissions({
+				server: server,
+				id: name,
+				type: 'type'
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+
+			var existingPermissions = result && result.permissions || [];
+			var revokeGroups = [];
+			for (var i = 0; i < groups.length; i++) {
+				for (var j = 0; j < existingPermissions.length; j++) {
+					var perm = existingPermissions[j];
+					if (perm.type === 'group' && perm.fullName === groups[i].name) {
+						revokeGroups.push(groups[i]);
+						break;
+					}
+				}
+			}
+
+			return serverRest.performPermissionOperation({
+				server: server,
+				operation: 'unshare',
+				resourceName: name,
+				resourceType: 'type',
+				groups: revokeGroups
+			})
+		})
+		.then(function (result) {
 
 			return serverRest.performPermissionOperation({
 				server: server,
@@ -731,15 +983,20 @@ module.exports.shareType = function (argv, done) {
 				resourceName: name,
 				resourceType: 'type',
 				role: role,
-				users: users
+				users: users,
+				groups: groups
 			});
 		})
 		.then(function (result) {
 			if (result.err) {
 				return Promise.reject();
 			}
-
-			console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on type ' + name);
+			if (goodUserName.length > 0) {
+				console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on type ' + name);
+			}
+			if (goodGroupNames.length > 0) {
+				console.log(' - group ' + (goodGroupNames.join(', ')) + ' granted with role ' + role + ' on type ' + name);
+			}
 			done(true);
 		})
 		.catch((error) => {
@@ -766,10 +1023,13 @@ module.exports.unshareType = function (argv, done) {
 	console.log(' - server: ' + server.url);
 
 	var name = argv.name;
-	var userNames = argv.users.split(',');
+	var userNames = argv.users ? argv.users.split(',') : [];
+	var groupNames = argv.groups ? argv.groups.split(',') : [];
 
 	var users = [];
+	var groups = [];
 	var goodUserName = [];
+	var goodGroupNames = [];
 
 	serverRest.getContentType({
 			server: server,
@@ -779,7 +1039,33 @@ module.exports.unshareType = function (argv, done) {
 				return Promise.reject();
 			}
 
-			console.log(' - verify type');
+			return serverRest.getGroups({
+				server: server
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+			if (groupNames.length > 0) {
+				console.log(' - verify groups');
+			}
+			// verify groups
+			var allGroups = result || [];
+			for (var i = 0; i < groupNames.length; i++) {
+				var found = false;
+				for (var j = 0; j < allGroups.length; j++) {
+					if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+						found = true;
+						groups.push(allGroups[j]);
+						goodGroupNames.push(groupNames[i]);
+						break;
+					}
+				}
+				if (!found) {
+					console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+				}
+			}
 
 			var usersPromises = [];
 			for (var i = 0; i < userNames.length; i++) {
@@ -798,7 +1084,9 @@ module.exports.unshareType = function (argv, done) {
 					allUsers = allUsers.concat(results[i].items);
 				}
 			}
-			console.log(' - verify users');
+			if (userNames.length > 0) {
+				console.log(' - verify users');
+			}
 
 			// verify users
 			for (var k = 0; k < userNames.length; k++) {
@@ -819,7 +1107,7 @@ module.exports.unshareType = function (argv, done) {
 				}
 			}
 
-			if (users.length === 0) {
+			if (users.length === 0 && groups.length === 0) {
 				return Promise.reject();
 			}
 
@@ -828,7 +1116,8 @@ module.exports.unshareType = function (argv, done) {
 				operation: 'unshare',
 				resourceName: name,
 				resourceType: 'type',
-				users: users
+				users: users,
+				groups: groups
 			});
 		})
 		.then(function (result) {
@@ -836,7 +1125,12 @@ module.exports.unshareType = function (argv, done) {
 				return Promise.reject();
 			}
 
-			console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to type ' + name + ' removed');
+			if (goodUserName.length > 0) {
+				console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to type ' + name + ' removed');
+			}
+			if (goodGroupNames.length > 0) {
+				console.log(' - the access of group ' + (goodGroupNames.join(', ')) + ' to type ' + name + ' removed');
+			}
 			done(true);
 		})
 		.catch((error) => {

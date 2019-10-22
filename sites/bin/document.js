@@ -551,10 +551,12 @@ module.exports.shareFolder = function (argv, done) {
 		var folderPath = name.split('/');
 		var folderId;
 
-		var userNames = argv.users.split(',');
+		var userNames = argv.users ? argv.users.split(',') : [];
+		var groupNames = argv.groups ? argv.groups.split(',') : [];
 		var role = argv.role;
 
 		var users = [];
+		var groups = [];
 
 		_findFolder(server, 'self', folderPath).then(function (result) {
 				if (folderPath.length > 0 && !result) {
@@ -566,6 +568,32 @@ module.exports.shareFolder = function (argv, done) {
 					return Promise.reject();
 				}
 				folderId = result.id;
+
+				return serverRest.getGroups({
+					server: server
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				// verify groups
+				var allGroups = result || [];
+				for (var i = 0; i < groupNames.length; i++) {
+					var found = false;
+					for (var j = 0; j < allGroups.length; j++) {
+						if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+							found = true;
+							groups.push(allGroups[j]);
+							break;
+						}
+					}
+					if (!found) {
+						console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						return Promise.reject();
+					}
+				}
 
 				var usersPromises = [];
 				for (var i = 0; i < userNames.length; i++) {
@@ -588,7 +616,7 @@ module.exports.shareFolder = function (argv, done) {
 				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
 					for (var i = 0; i < allUsers.length; i++) {
-						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+						if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 							users.push(allUsers[i]);
 							found = true;
 							break;
@@ -629,6 +657,25 @@ module.exports.shareFolder = function (argv, done) {
 						create: newMember
 					}));
 				}
+
+				for (var i = 0; i < groups.length; i++) {
+					var newMember = true;
+					for (var j = 0; j < existingMembers.length; j++) {
+						if (existingMembers[j].id === groups[i].groupID) {
+							newMember = false;
+							break;
+						}
+					}
+					// console.log(' - group: ' + (groups[i].displayName || groups[i].name) + ' new grant: ' + newMember);
+					sharePromises.push(serverRest.shareFolder({
+						server: server,
+						id: folderId,
+						userId: groups[i].groupID,
+						role: role,
+						create: newMember
+					}));
+				}
+
 				return Promise.all(sharePromises);
 			})
 			.then(function (results) {
@@ -636,7 +683,8 @@ module.exports.shareFolder = function (argv, done) {
 				for (var i = 0; i < results.length; i++) {
 					if (results[i].errorCode === '0') {
 						shared = true;
-						console.log(' - user ' + results[i].user.loginName + ' granted "' +
+						var typeLabel = results[i].user.loginName ? 'user' : 'group';
+						console.log(' - ' + typeLabel + ' ' + (results[i].user.loginName || results[i].user.displayName) + ' granted "' +
 							results[i].role + '" on folder ' + name);
 					} else {
 						console.log('ERROR: ' + results[i].title);
@@ -677,8 +725,10 @@ module.exports.unshareFolder = function (argv, done) {
 		var folderPath = name.split('/');
 		var folderId;
 
-		var userNames = argv.users.split(',');
+		var userNames = argv.users ? argv.users.split(',') : [];
+		var groupNames = argv.groups ? argv.groups.split(',') : [];
 		var users = [];
+		var groups = [];
 
 		_findFolder(server, 'self', folderPath).then(function (result) {
 				if (folderPath.length > 0 && !result) {
@@ -690,6 +740,32 @@ module.exports.unshareFolder = function (argv, done) {
 					return Promise.reject();
 				}
 				folderId = result.id;
+
+				return serverRest.getGroups({
+					server: server
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				// verify groups
+				var allGroups = result || [];
+				for (var i = 0; i < groupNames.length; i++) {
+					var found = false;
+					for (var j = 0; j < allGroups.length; j++) {
+						if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+							found = true;
+							groups.push(allGroups[j]);
+							break;
+						}
+					}
+					if (!found) {
+						console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						return Promise.reject();
+					}
+				}
 
 				var usersPromises = [];
 				for (var i = 0; i < userNames.length; i++) {
@@ -708,6 +784,7 @@ module.exports.unshareFolder = function (argv, done) {
 						allUsers = allUsers.concat(results[i].items);
 					}
 				}
+
 				// verify users
 				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
@@ -755,6 +832,26 @@ module.exports.unshareFolder = function (argv, done) {
 					}
 				}
 
+				for (var i = 0; i < groups.length; i++) {
+					var existingUser = false;
+					for (var j = 0; j < existingMembers.length; j++) {
+						if (existingMembers[j].id === groups[i].groupID) {
+							existingUser = true;
+							break;
+						}
+					}
+
+					if (existingUser) {
+						revokePromises.push(serverRest.unshareFolder({
+							server: server,
+							id: folderId,
+							userId: groups[i].groupID
+						}));
+					} else {
+						console.log(' - group ' + (groups[i].displayName || groups[i].name) + ' has no access to the folder');
+					}
+				}
+
 				return Promise.all(revokePromises);
 			})
 			.then(function (results) {
@@ -762,7 +859,8 @@ module.exports.unshareFolder = function (argv, done) {
 				for (var i = 0; i < results.length; i++) {
 					if (results[i].errorCode === '0') {
 						unshared = true;
-						console.log(' - user ' + results[i].user.loginName + '\'s access to the folder removed');
+						var typeLabel = results[i].user.loginName ? 'user' : 'group';
+						console.log(' - ' + typeLabel + ' ' + (results[i].user.loginName || results[i].user.displayName) + '\'s access to the folder removed');
 					} else {
 						console.log('ERROR: ' + results[i].title);
 					}

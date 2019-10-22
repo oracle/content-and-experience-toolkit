@@ -7,6 +7,7 @@
 
 var fs = require('fs'),
 	path = require('path'),
+	semver = require('semver'),
 	sprintf = require('sprintf-js').sprintf,
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
@@ -115,6 +116,8 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 			var repositoryId, localizationPolicyId;
 			var createEnterprise;
 
+			var cecVersion;
+
 			var format = '   %-20s %-s';
 
 			app.get('/*', function (req, res) {
@@ -151,13 +154,15 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 				// console.log('POST: ' + req.url);
 				var url = server.url + req.url;
 
+				var repositoryPrefix = cecVersion && semver.gte(semver.coerce(cecVersion), '19.4.3') ? 'arCaaSGUID' : 'fFolderGUID';
+				// console.log(' - CEC version: ' + cecVersion + ' repositoryPrefix: ' + repositoryPrefix);
 				var formData = createEnterprise ? {
 					'idcToken': idcToken,
 					'names': siteName,
 					'descriptions': description,
 					'items': 'fFolderGUID:' + templateGUID,
 					'isEnterprise': '1',
-					'repository': 'fFolderGUID:' + repositoryId,
+					'repository': repositoryPrefix + ':' + repositoryId,
 					'slugPrefix': sitePrefix,
 					'defaultLanguage': defaultLanguage,
 					'localizationPolicy': localizationPolicyId,
@@ -232,6 +237,11 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 										console.log('ERROR: site ' + siteName + ' already exists');
 										return Promise.reject();
 									}
+
+									return serverUtils.getServerVersion(request, server);
+								})
+								.then(function (result) {
+									cecVersion = result && result.version;
 
 									// Verify template
 									return serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
@@ -1296,11 +1306,13 @@ module.exports.shareSite = function (argv, done) {
 
 		// console.log('server: ' + server.url);
 		var name = argv.name;
-		var userNames = argv.users.split(',');
+		var userNames = argv.users ? argv.users.split(',') : [];
+		var groupNames = argv.groups ? argv.groups.split(',') : [];
 		var role = argv.role;
 
 		var siteId;
 		var users = [];
+		var groups = [];
 
 		var request = serverUtils.getRequest();
 
@@ -1327,6 +1339,33 @@ module.exports.shareSite = function (argv, done) {
 					siteId = result.id;
 					console.log(' - verify site');
 
+					return serverRest.getGroups({
+						server: server
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (groupNames.length > 0) {
+						console.log(' - verify groups');
+					}
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+
 					var usersPromises = [];
 					for (var i = 0; i < userNames.length; i++) {
 						usersPromises.push(serverRest.getUser({
@@ -1344,12 +1383,14 @@ module.exports.shareSite = function (argv, done) {
 							allUsers = allUsers.concat(results[i].items);
 						}
 					}
-					console.log(' - verify users');
+					if (userNames.length > 0) {
+						console.log(' - verify users');
+					}
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
 						var found = false;
 						for (var i = 0; i < allUsers.length; i++) {
-							if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+							if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 								users.push(allUsers[i]);
 								found = true;
 								break;
@@ -1363,7 +1404,7 @@ module.exports.shareSite = function (argv, done) {
 						}
 					}
 
-					if (users.length === 0) {
+					if (users.length === 0 && groups.length === 0) {
 						return Promise.reject();
 					}
 
@@ -1393,6 +1434,25 @@ module.exports.shareSite = function (argv, done) {
 							create: newMember
 						}));
 					}
+
+					for (var i = 0; i < groups.length; i++) {
+						var newMember = true;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (existingMembers[j].id === groups[i].groupID) {
+								newMember = false;
+								break;
+							}
+						}
+						// console.log(' - group: ' + (groups[i].displayName || groups[i].name) + ' new grant: ' + newMember);
+						sharePromises.push(serverRest.shareFolder({
+							server: server,
+							id: siteId,
+							userId: groups[i].groupID,
+							role: role,
+							create: newMember
+						}));
+					}
+
 					return Promise.all(sharePromises);
 				})
 				.then(function (results) {
@@ -1400,7 +1460,8 @@ module.exports.shareSite = function (argv, done) {
 					for (var i = 0; i < results.length; i++) {
 						if (results[i].errorCode === '0') {
 							shared = true;
-							console.log(' - user ' + results[i].user.loginName + ' granted "' +
+							var typeLabel = results[i].user.loginName ? 'user' : 'group';
+							console.log(' - ' + typeLabel + ' ' + (results[i].user.loginName || results[i].user.displayName) + ' granted "' +
 								results[i].role + '" on site ' + name);
 						} else {
 							console.log('ERROR: ' + results[i].title);
@@ -1438,10 +1499,12 @@ module.exports.unshareSite = function (argv, done) {
 
 		// console.log('server: ' + server.url);
 		var name = argv.name;
-		var userNames = argv.users.split(',');
+		var userNames = argv.users ? argv.users.split(',') : [];
+		var groupNames = argv.groups ? argv.groups.split(',') : [];
 
 		var siteId;
 		var users = [];
+		var groups = [];
 
 		var request = serverUtils.getRequest();
 
@@ -1468,6 +1531,33 @@ module.exports.unshareSite = function (argv, done) {
 					siteId = result.id;
 					console.log(' - verify site');
 
+					return serverRest.getGroups({
+						server: server
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (groupNames.length > 0) {
+						console.log(' - verify groups');
+					}
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+
 					var usersPromises = [];
 					for (var i = 0; i < userNames.length; i++) {
 						usersPromises.push(serverRest.getUser({
@@ -1485,7 +1575,9 @@ module.exports.unshareSite = function (argv, done) {
 							allUsers = allUsers.concat(results[i].items);
 						}
 					}
-					console.log(' - verify users');
+					if (userNames.length > 0) {
+						console.log(' - verify users');
+					}
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
 						var found = false;
@@ -1504,7 +1596,7 @@ module.exports.unshareSite = function (argv, done) {
 						}
 					}
 
-					if (users.length === 0) {
+					if (users.length === 0 && groups.length === 0) {
 						return Promise.reject();
 					}
 
@@ -1536,6 +1628,26 @@ module.exports.unshareSite = function (argv, done) {
 						}
 					}
 
+					for (var i = 0; i < groups.length; i++) {
+						var existingUser = false;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (existingMembers[j].id === groups[i].groupID) {
+								existingUser = true;
+								break;
+							}
+						}
+
+						if (existingUser) {
+							revokePromises.push(serverRest.unshareFolder({
+								server: server,
+								id: siteId,
+								userId: groups[i].groupID
+							}));
+						} else {
+							console.log(' - group ' + (groups[i].displayName || groups[i].name) + ' has no access to the site');
+						}
+					}
+
 					return Promise.all(revokePromises);
 				})
 				.then(function (results) {
@@ -1543,7 +1655,8 @@ module.exports.unshareSite = function (argv, done) {
 					for (var i = 0; i < results.length; i++) {
 						if (results[i].errorCode === '0') {
 							unshared = true;
-							console.log(' - user ' + results[i].user.loginName + '\'s access to the site removed');
+							var typeLabel = results[i].user.loginName ? 'user' : 'group';
+							console.log(' - ' + typeLabel + ' ' + (results[i].user.loginName || results[i].user.displayName) + '\'s access to the site removed');
 						} else {
 							console.log('ERROR: ' + results[i].title);
 						}
@@ -1589,6 +1702,11 @@ module.exports.validateSite = function (argv, done) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
 				done();
+				return;
+			}
+
+			if (server.useRest) {
+				_validateSiteREST(request, server, siteName, done);
 				return;
 			}
 
@@ -1860,6 +1978,110 @@ var _displayAssetValidation = function (validations) {
 		console.log('  is valid: ' + valid);
 	}
 
+};
+
+var _validateSiteREST = function (request, server, siteName, done) {
+	var siteId;
+	var repositoryId, channelId, channelToken;
+	sitesRest.getSite({
+			server: server,
+			name: siteName,
+			expand: 'channel,repository'
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+
+			var site = result;
+			if (!site.isEnterprise) {
+				console.log(' - site ' + siteName + ' is not an enterprise site');
+				return Promise.reject();
+			}
+			if (!site.defaultLanguage) {
+				console.log(' - site ' + siteName + ' is not configured with a default language')
+				return Promise.reject();
+			}
+
+			siteId = site.id;
+			repositoryId = site.repository && site.repository.id;
+			channelId = site.channel && site.channel.id;
+
+			var tokens = site.channel && site.channel.channelTokens || [];
+			for (var i = 0; i < tokens.length; i++) {
+				if (tokens[i].name === 'defaultToken') {
+					channelToken = tokens[i].token;
+					break;
+				}
+			}
+			if (!channelToken && tokens.length > 0) {
+				channelToken = tokens[0].value;
+			}
+
+			console.log(' - get site');
+			console.log('   repository: ' + repositoryId);
+			console.log('   channel: ' + channelId);
+			console.log('   channelToken: ' + channelToken);
+			console.log('   defaultLanguage: ' + site.defaultLanguage);
+
+			return sitesRest.validateSite({
+				server: server,
+				name: siteName
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+			var siteValidation = result;
+			console.log('Site Validation:');
+			_displaySiteValidation(siteValidation);
+
+			// query channel items
+			return serverRest.getChannelItems({
+				server: server,
+				channelToken: channelToken
+			});
+		})
+		.then(function (result) {
+			var items = result || [];
+			if (items.length === 0) {
+				console.log('Assets Validation:');
+				console.log('  no assets');
+				return Promise.reject();
+			}
+
+			var itemIds = [];
+			for (var i = 0; i < items.length; i++) {
+				var item = items[i];
+				itemIds.push(item.id);
+			}
+
+			// validate assets
+			return serverRest.validateChannelItems({
+				server: server,
+				channelId: channelId,
+				itemIds: itemIds
+			});
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			console.log('Assets Validation:');
+			if (result.data && result.data.operations && result.data.operations.validatePublish) {
+				var assetsValidation = result.data.operations.validatePublish.validationResults;
+				_displayAssetValidation(assetsValidation);
+			} else {
+				console.log('  no assets');
+			}
+
+			done(true);
+		})
+		.catch((error) => {
+			done();
+		});
 };
 
 /**

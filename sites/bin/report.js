@@ -1535,7 +1535,7 @@ var _verifyHrefLinks = function (server, pageLinks) {
 		var request = serverUtils.getRequest();
 		var links = [];
 		if (pageLinks.length === 0) {
-			resolve(items);
+			resolve(links);
 		} else {
 			var total = pageLinks.length;
 			console.log(' - total links: ' + total);

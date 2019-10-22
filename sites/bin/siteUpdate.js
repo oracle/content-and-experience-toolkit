@@ -580,6 +580,8 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 		}
 		console.log(' - server: ' + server.url);
 
+		var excludeContentTemplate = typeof argv.excludecontenttemplate === 'string' && argv.excludecontenttemplate.toLowerCase() === 'true';
+
 		// logon and get the site folder GUID and Site info for the Channel/Repository/Collection details
 		console.log('Updating site: ' + siteName);
 		var serverDetailsPromise = serverUtils.getSiteFolder(server, siteName),
@@ -618,9 +620,11 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 			updateSitePromises.push(function () {
 				return self.updateSettingsFiles(argv, siteEntry);
 			});
-			updateSitePromises.push(function () {
-				return self.updateSiteContent(argv, siteInfo);
-			});
+			if (!excludeContentTemplate) {
+				updateSitePromises.push(function () {
+					return self.updateSiteContent(argv, siteInfo);
+				});
+			}
 
 			// run through the update steps
 			var doUpdateSteps = updateSitePromises.reduce(function (previousPromise, nextPromise) {

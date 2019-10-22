@@ -1182,6 +1182,18 @@ gulp.task('submit-translation-job', function (done) {
 });
 
 /**
+ * refresh translation job from LSP server
+ */
+gulp.task('refresh-translation-job', function (done) {
+	'use strict';
+
+	translationlib.refreshTranslationJob(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
  * Ingest translatedjob 
  */
 gulp.task('ingest-translation-job', function (done) {
@@ -1265,7 +1277,7 @@ gulp.task('check-version', function (done) {
 	var request = serverUtils.getRequest();
 	request(options, function (error, response, body) {
 		if (error || !response || response.statusCode !== 200) {
-			console.log('ERROR: failed to query CEC version: ' + (response && response.statusMessage));
+			// console.log('ERROR: failed to query CEC version: ' + (response && response.statusMessage));
 			done();
 			return;
 		}

@@ -12,6 +12,25 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.4.1a
+
+**Updated**
+
+`cec share-site` - can now share with OCE Groups
+`cec unshare-site` - can now un-share with OCE Groups
+
+`cec share-repository` - can now share with OCE Groups
+`cec unshare-repository` - can now un-share with OCE Groups
+
+`cec share-type` - can now share with OCE Groups
+`cec unshare-type` - can now un-share with OCE Groups
+
+`cec share-folder` - can now share with OCE Groups
+`cec unshare-folder` - can now un-share with OCE Groups
+
+**Added**
+`cec refresh-translation-job` - for use in 19.4.3 to pull updated translations from a TMS through a connector before ingesting into OCE server
+
 # New in Release 19.4.1
 
 **Added**

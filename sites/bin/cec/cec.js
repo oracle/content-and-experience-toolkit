@@ -771,15 +771,16 @@ const shareSite = {
 	alias: 'ss',
 	name: 'share-site',
 	usage: {
-		'short': 'Shares site with users on CEC server.',
+		'short': 'Shares site with users and groups on CEC server.',
 		'long': (function () {
-			let desc = 'Shares site with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares site with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
 		['cec share-site Site1 -u user1,user2 -r manager', 'Share site Site1 with user user1 and user2 and assign Manager role to them'],
+		['cec share-site Site1 -u user1,user2 -g group1,group2 -r manager', 'Share site Site1 with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
 		['cec share-site Site1 -u user1,user2 -r manager -s UAT', 'Share site Site1 with user user1 and user2 and assign Manager role to them on the registered server UAT']
 	]
 };
@@ -797,6 +798,7 @@ const unshareSite = {
 	},
 	example: [
 		['cec unshare-site Site1 -u user1,user2'],
+		['cec unshare-site Site1 -u user1,user2 -g group1,group2'],
 		['cec unshare-site Site1 -u user1,user2 -s UAT']
 	]
 };
@@ -854,7 +856,8 @@ const updateSite = {
 		})()
 	},
 	example: [
-		['cec update-site Site1 -t Template1', 'Updates a site using the content from the template']
+		['cec update-site Site1 -t Template1', 'Updates site Site1 using the content from template Template1'],
+		['cec update-site Site1 -t Template1 -x', 'Updates site Site1 using the content from template Template1 excluding the "Content Template"']
 	]
 };
 
@@ -989,9 +992,9 @@ const shareRepository = {
 	alias: 'sr',
 	name: 'share-repository',
 	usage: {
-		'short': 'Shares repository with users on CEC server.',
+		'short': 'Shares repository with users and groups on CEC server.',
 		'long': (function () {
-			let desc = 'Shares repository with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares repository with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -t to also share the content types in the repository with the users. ' +
 				'Optionally specify -y <typerole> to share the types with different role. ' +
 				'The valid roles are\n\n';
@@ -1000,6 +1003,7 @@ const shareRepository = {
 	},
 	example: [
 		['cec share-repository Repo1 -u user1,user2 -r manager', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them'],
+		['cec share-repository Repo1 -u user1,user2 -g group1,group2 -r manager', 'Share repository Repo1 with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
 		['cec share-repository Repo1 -u user1,user2 -r manager -s UAT', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them on the registered server UAT'],
 		['cec share-repository Repo1 -u user1,user2 -r manager -t', 'Share repository Repo1 and all the types in Repo1 with user user1 and user2 and assign Manager role to them'],
 		['cec share-repository Repo1 -u user1,user2 -r manager -t -y contributor', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them, share all types in  Repo1 with user user1 and user2 and assign Contributor role to them']
@@ -1020,6 +1024,7 @@ const unshareRepository = {
 	},
 	example: [
 		['cec unshare-repository Repo1 -u user1,user2 '],
+		['cec unshare-repository Repo1 -u user1,user2 -g group1,group2'],
 		['cec unshare-repository Repo1 -u user1,user2 -s UAT'],
 		['cec unshare-repository Repo1 -u user1,user2 -t']
 	]
@@ -1030,15 +1035,16 @@ const shareType = {
 	alias: 'st',
 	name: 'share-type',
 	usage: {
-		'short': 'Shares type with users on CEC server.',
+		'short': 'Shares type with users and groups on CEC server.',
 		'long': (function () {
-			let desc = 'Shares type with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares type with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getResourceRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
 		['cec share-type BlogType -u user1,user2 -r manager', 'Share type BlogType with user user1 and user2 and assign Manager role to them'],
+		['cec share-type BlogType -u user1,user2 -g group1,group2 -r manager', 'Share type BlogType with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
 		['cec share-type BlogType -u user1,user2 -r manager -s UAT', 'Share type BlogType with user user1 and user2 and assign Manager role to them on the registered server UAT']
 	]
 };
@@ -1056,6 +1062,7 @@ const unshareType = {
 	},
 	example: [
 		['cec unshare-type BlogType -u user1,user2 '],
+		['cec unshare-type BlogType -u user1,user2 -g group1,group2'],
 		['cec unshare-type BlogType -u user1,user2 -s UAT']
 	]
 };
@@ -1238,6 +1245,23 @@ const submitTranslationJob = {
 	]
 };
 
+const refreshTranslationJob = {
+	command: 'refresh-translation-job <name>',
+	alias: 'rtj',
+	name: 'refresh-translation-job',
+	usage: {
+		'short': 'Refreshes translation job <name> from translation connection.',
+		'long': (function () {
+			let desc = 'Refreshes translation job <name> from translation connection.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec refresh-translation-job Site1Job1'],
+		['cec refresh-translation-job Site1Job1 -s UAT', 'Refresh translation job Site1Job1 on the registered server UAT']
+	]
+};
+
 const ingestTranslationJob = {
 	command: 'ingest-translation-job <name>',
 	alias: 'itj',
@@ -1330,14 +1354,16 @@ const shareFolder = {
 	alias: 'sfd',
 	name: 'share-folder',
 	usage: {
-		'short': 'Shares folder with users on CEC server.',
+		'short': 'Shares folder with users and groups on CEC server.',
 		'long': (function () {
-			let desc = 'Shares folder with users on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are\n\n';
+			let desc = 'Shares folder with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
 		['cec share-folder Projects/Blogs -u user1,user2 -r manager', 'Share folder Projects/Blogs with user user1 and user2 and assign Manager role to them'],
+		['cec share-folder Projects/Blogs -u user1,user2 -g group1 -r manager', 'Share folder Projects/Blogs with user user1, user2 and group group1 and assign Manager role to them'],
+		['cec share-folder Projects/Blogs -g group1,group2 -r manager', 'Share folder Projects/Blogs with group group1 and group2 and assign Manager role to them'],
 		['cec share-folder Projects/Blogs -u user1,user2 -r manager -s UAT', 'Share folder Projects/Blogs with user user1 and user2 and assign Manager role to them on the registered server UAT']
 	]
 };
@@ -1355,6 +1381,8 @@ const unshareFolder = {
 	},
 	example: [
 		['cec unshare-folder Projects/Blogs -u user1,user2 '],
+		['cec unshare-folder Projects/Blogs -g group1,group2'],
+		['cec unshare-folder Projects/Blogs -u user1,user2 -g group1,group2'],
 		['cec unshare-folder Projects/Blogs -u user1,user2 -s UAT']
 	]
 };
@@ -1717,6 +1745,7 @@ _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(createTranslationJob) + os.EOL +
 	_getCmdHelp(downloadTranslationJob) + os.EOL +
 	_getCmdHelp(submitTranslationJob) + os.EOL +
+	_getCmdHelp(refreshTranslationJob) + os.EOL +
 	_getCmdHelp(ingestTranslationJob) + os.EOL +
 	_getCmdHelp(uploadTranslationJob) + os.EOL +
 	_getCmdHelp(createTranslationConnector) + os.EOL +
@@ -2465,8 +2494,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('users', {
 					alias: 'u',
-					description: 'The comma separated list of user names',
-					demandOption: true
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
 				})
 				.option('role', {
 					alias: 'r',
@@ -2478,14 +2510,17 @@ const argv = yargs.usage(_usage)
 					description: '<server> The registered CEC server'
 				})
 				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
 					if (argv.role && !getFolderRoles().includes(argv.role)) {
 						throw new Error(`${argv.role} is not a valid value for <role>`);
-					} else {
-						return true;
 					}
+					return true;
 				})
 				.example(...shareSite.example[0])
 				.example(...shareSite.example[1])
+				.example(...shareSite.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2495,15 +2530,25 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('users', {
 					alias: 'u',
-					description: 'The comma separated list of user names',
-					demandOption: true
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
 				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered CEC server'
 				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					return true;
+				})
 				.example(...unshareSite.example[0])
 				.example(...unshareSite.example[1])
+				.example(...unshareSite.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2564,11 +2609,16 @@ const argv = yargs.usage(_usage)
 					description: '<template> Template',
 					demandOption: true
 				})
+				.option('excludecontenttemplate', {
+					alias: 'x',
+					description: 'Exclude content template'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered CEC server'
 				})
 				.example(...updateSite.example[0])
+				.example(...updateSite.example[1])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2852,8 +2902,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('users', {
 					alias: 'u',
-					description: 'The comma separated list of user names',
-					demandOption: true
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
 				})
 				.option('role', {
 					alias: 'r',
@@ -2873,18 +2926,22 @@ const argv = yargs.usage(_usage)
 					description: '<server> The registered CEC server'
 				})
 				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
 					if (argv.role && !getResourceRoles().includes(argv.role)) {
 						throw new Error(`${argv.role} is not a valid value for <role>`);
-					} else if (argv.typerole && !getResourceRoles().includes(argv.typerole)) {
-						throw new Error(`${argv.typerole} is not a valid value for <typerole>`);
-					} else {
-						return true;
 					}
+					if (argv.typerole && !getResourceRoles().includes(argv.typerole)) {
+						throw new Error(`${argv.typerole} is not a valid value for <typerole>`);
+					}
+					return true;
 				})
 				.example(...shareRepository.example[0])
 				.example(...shareRepository.example[1])
 				.example(...shareRepository.example[2])
 				.example(...shareRepository.example[3])
+				.example(...shareRepository.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2894,8 +2951,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('users', {
 					alias: 'u',
-					description: 'The comma separated list of user names',
-					demandOption: true
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
 				})
 				.option('types', {
 					alias: 't',
@@ -2905,9 +2965,16 @@ const argv = yargs.usage(_usage)
 					alias: 's',
 					description: '<server> The registered CEC server'
 				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					return true;
+				})
 				.example(...unshareRepository.example[0])
 				.example(...unshareRepository.example[1])
 				.example(...unshareRepository.example[2])
+				.example(...unshareRepository.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2917,8 +2984,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('users', {
 					alias: 'u',
-					description: 'The comma separated list of user names',
-					demandOption: true
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
 				})
 				.option('role', {
 					alias: 'r',
@@ -2930,14 +3000,17 @@ const argv = yargs.usage(_usage)
 					description: '<server> The registered CEC server'
 				})
 				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
 					if (argv.role && !getResourceRoles().includes(argv.role)) {
 						throw new Error(`${argv.role} is not a valid value for <role>`);
-					} else {
-						return true;
 					}
+					return true;
 				})
 				.example(...shareType.example[0])
 				.example(...shareType.example[1])
+				.example(...shareType.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2947,15 +3020,25 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('users', {
 					alias: 'u',
-					description: 'The comma separated list of user names',
-					demandOption: true
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
 				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered CEC server'
 				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					return true;
+				})
 				.example(...unshareType.example[0])
 				.example(...unshareType.example[1])
+				.example(...unshareType.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3180,6 +3263,19 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${submitTranslationJob.command}\n\n${submitTranslationJob.usage.long}`);
 		})
+	.command([refreshTranslationJob.command, refreshTranslationJob.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.example(...refreshTranslationJob.example[0])
+				.example(...refreshTranslationJob.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${refreshTranslationJob.command}\n\n${refreshTranslationJob.usage.long}`);
+		})
 	.command([ingestTranslationJob.command, ingestTranslationJob.alias], false,
 		(yargs) => {
 			yargs.option('server', {
@@ -3316,8 +3412,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('users', {
 					alias: 'u',
-					description: 'The comma separated list of user names',
-					demandOption: true
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
 				})
 				.option('role', {
 					alias: 'r',
@@ -3329,14 +3428,18 @@ const argv = yargs.usage(_usage)
 					description: '<server> The registered CEC server'
 				})
 				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
 					if (argv.role && !getFolderRoles().includes(argv.role)) {
 						throw new Error(`${argv.role} is not a valid value for <role>`);
-					} else {
-						return true;
 					}
+					return true;
 				})
 				.example(...shareFolder.example[0])
 				.example(...shareFolder.example[1])
+				.example(...shareFolder.example[2])
+				.example(...shareFolder.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3346,15 +3449,26 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('users', {
 					alias: 'u',
-					description: 'The comma separated list of user names',
-					demandOption: true
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
 				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered CEC server'
 				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					return true;
+				})
 				.example(...unshareFolder.example[0])
 				.example(...unshareFolder.example[1])
+				.example(...unshareFolder.example[2])
+				.example(...unshareFolder.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -4346,9 +4460,14 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--',
 		'--projectDir', cwd,
 		'--name', argv.name,
-		'--users', argv.users,
 		'--role', argv.role
 	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		shareSiteArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		shareSiteArgs.push(...['--groups', argv.groups]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		shareSiteArgs.push(...['--server', argv.server]);
 	}
@@ -4361,9 +4480,14 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	let unshareSiteArgs = ['run', '-s', unshareSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
-		'--name', argv.name,
-		'--users', argv.users
+		'--name', argv.name
 	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		unshareSiteArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		unshareSiteArgs.push(...['--groups', argv.groups]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		unshareSiteArgs.push(...['--server', argv.server]);
 	}
@@ -4403,6 +4527,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--name', argv.name,
 		'--template', argv.template
 	];
+	if (argv.excludecontenttemplate) {
+		updateSiteArgs.push(...['--excludecontenttemplate', argv.excludecontenttemplate]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		updateSiteArgs.push(...['--server', argv.server]);
 	}
@@ -4595,9 +4722,14 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--',
 		'--projectDir', cwd,
 		'--name', argv.name,
-		'--users', argv.users,
 		'--role', argv.role
 	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		shareRepositoryArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		shareRepositoryArgs.push(...['--groups', argv.groups]);
+	}
 	if (argv.types) {
 		shareRepositoryArgs.push(...['--types', argv.types]);
 	}
@@ -4616,9 +4748,14 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	let unshareRepositoryArgs = ['run', '-s', unshareRepository.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
-		'--name', argv.name,
-		'--users', argv.users
+		'--name', argv.name
 	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		unshareRepositoryArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		unshareRepositoryArgs.push(...['--groups', argv.groups]);
+	}
 	if (argv.types) {
 		unshareRepositoryArgs.push(...['--types', argv.types]);
 	}
@@ -4635,9 +4772,14 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--',
 		'--projectDir', cwd,
 		'--name', argv.name,
-		'--users', argv.users,
 		'--role', argv.role
 	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		shareTypeArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		shareTypeArgs.push(...['--groups', argv.groups]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		shareTypeArgs.push(...['--server', argv.server]);
 	}
@@ -4650,9 +4792,14 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	let unshareTypeArgs = ['run', '-s', unshareType.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
-		'--name', argv.name,
-		'--users', argv.users
+		'--name', argv.name
 	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		unshareTypeArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		unshareTypeArgs.push(...['--groups', argv.groups]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		unshareTypeArgs.push(...['--server', argv.server]);
 	}
@@ -4793,6 +4940,21 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === refreshTranslationJob.name || argv._[0] === refreshTranslationJob.alias) {
+	let refreshTranslationJobArgs = ['run', '-s', refreshTranslationJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.server) {
+		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		refreshTranslationJobArgs.push(...['--server'], serverVal);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, refreshTranslationJobArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === ingestTranslationJob.name || argv._[0] === ingestTranslationJob.alias) {
 	let ingestTranslationJobArgs = ['run', '-s', ingestTranslationJob.name, '--prefix', appRoot,
 		'--',
@@ -4875,9 +5037,14 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--',
 		'--projectDir', cwd,
 		'--name', argv.name,
-		'--users', argv.users,
 		'--role', argv.role
 	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		shareFolderArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		shareFolderArgs.push(...['--groups', argv.groups]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		shareFolderArgs.push(...['--server', argv.server]);
 	}
@@ -4890,9 +5057,14 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	let unshareFolderArgs = ['run', '-s', unshareFolder.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
-		'--name', argv.name,
-		'--users', argv.users
+		'--name', argv.name
 	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		unshareFolderArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groupss !== 'boolean') {
+		unshareFolderArgs.push(...['--groups', argv.groups]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		unshareFolderArgs.push(...['--server', argv.server]);
 	}

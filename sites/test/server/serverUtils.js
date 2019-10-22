@@ -3625,3 +3625,143 @@ module.exports.browseTranslationConnectorsOnServer = function (request, server) 
 	});
 	return transPromise;
 };
+
+/**
+ * Get translation connector job status from server using IdcService
+ */
+module.exports.getTranslationConnectorJobOnServer = function (request, server, jobId) {
+	var jobPromise = new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var auth = _getRequestAuth(server);
+
+		var url = server.url + '/documents/web?IdcService=GET_CONNECTOR_JOB_INFO&jobId=' + jobId;
+
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth,
+		};
+
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get translation connector job ' + jobId);
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get translation connector job ' + jobId + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.ConnectorJobInfo && data.ResultSets.ConnectorJobInfo.fields || [];
+			var rows = data.ResultSets && data.ResultSets.ConnectorJobInfo && data.ResultSets.ConnectorJobInfo.rows;
+			var jobs = {};
+
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				jobs[attr] = rows[0][i];
+			}
+
+			resolve({
+				data: jobs
+			});
+		});
+	});
+	return jobPromise;
+};
+
+/**
+ * Get the CEC server version
+ */
+module.exports.getServerVersion = function (request, server) {
+	return new Promise(function (resolve, reject) {
+		var isPod = server.env !== 'dev_ec';
+		var url = server.url + (isPod ? '/content' : '/osn/social/api/v1/connections');
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: _getRequestAuth(server)
+		};
+
+		request(options, function (error, response, body) {
+			if (error || !response || response.statusCode !== 200) {
+				// console.log('ERROR: failed to query CEC version: ' + (response && response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+
+			var cecVersion, cecVersion2;
+			if (isPod) {
+				cecVersion = data ? data.toString() : '';
+				if (!cecVersion) {
+					// console.log('ERROR: no value returned for CEC version');
+					return resolve({
+						err: 'err'
+					});
+				}
+
+				if (cecVersion.indexOf('Revision:') >= 0) {
+					cecVersion = cecVersion.substring(cecVersion.indexOf('Revision:') + 'Revision:'.length);
+				}
+				cecVersion = cecVersion.trim();
+
+				if (cecVersion.indexOf('/') > 0) {
+					cecVersion = cecVersion.substring(0, cecVersion.indexOf('/'));
+				}
+
+				var arr = cecVersion.split('.');
+				var versionstr = arr.length >= 2 ? arr[1] : '';
+
+				// the version is a string such as 1922ec
+				if (versionstr && versionstr.length >= 3) {
+					cecVersion2 = versionstr.charAt(0) + versionstr.charAt(1) + '.' + versionstr.charAt(2);
+					cecVersion = cecVersion2;
+					if (versionstr.length > 3) {
+						cecVersion = cecVersion + '.' + versionstr.charAt(3);
+					}
+				}
+			} else {
+				cecVersion = data && data.version;
+				if (!cecVersion) {
+					// console.log('ERROR: no value returned for CEC version');
+					return resolve({
+						err: 'err'
+					});
+				}
+			}
+			// console.log(' CEC server: ' + server.url + '  version: ' + cecVersion);
+			return resolve({
+				version: cecVersion
+			});
+		});
+	});
+};

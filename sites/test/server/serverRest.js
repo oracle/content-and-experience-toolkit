@@ -2011,8 +2011,11 @@ module.exports.updateRepository = function (args) {
 	return _updateRepository(args.server, args.repository, args.contentTypes, args.channels);
 };
 
-var _performPermissionOperation = function (server, operation, resourceId, resourceName, resourceType, role, users) {
+var _performPermissionOperation = function (server, operation, resourceId, resourceName, resourceType, role, users, groups) {
 	return new Promise(function (resolve, reject) {
+		if (users.length === 0 && groups.length === 0) {
+			return resolve({});
+		}
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
 				resolve(result);
@@ -2028,6 +2031,11 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 				for (var i = 0; i < users.length; i++) {
 					userArr.push({
 						id: users[i].loginName
+					});
+				}
+				for (var i = 0; i < groups.length; i++) {
+					userArr.push({
+						id: groups[i].groupID
 					});
 				}
 				var resource = {
@@ -2088,16 +2096,18 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 
 					if (response && response.statusCode === 200) {
 						var failedRoles = data && data.operations[operation] && data.operations[operation].failedRoles;
+						var msg = '';
 						if (failedRoles && failedRoles.length > 0) {
-							console.log('ERROR: failed to ' + operation + ' resource: ');
 							for (var i = 0; i < failedRoles.length; i++) {
 								for (var j = 0; j < failedRoles[i].users.length; j++) {
-									console.log(failedRoles[i].users[j].message);
+									msg = msg + ' ' + failedRoles[i].users[j].message;
 								}
 							}
+							console.log('ERROR: failed to ' + operation + ' resource: ' + msg);
 							resolve({
 								err: 'err'
 							});
+
 						} else {
 							resolve(data);
 						}
@@ -2122,12 +2132,13 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
  * @param {String} args.resourceType the type of the resource
  * @param {String} args.resourceName the name of the resource
  * @param {String} args.role manager | contributor | viewer
- * @param {array} args.users The list of the users or groups
+ * @param {array} args.users The list of the users 
+ * @param {array} args.groups The list of the groups
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.performPermissionOperation = function (args) {
 	return _performPermissionOperation(args.server,
-		args.operation, args.resourceId, args.resourceName, args.resourceType, args.role, args.users);
+		args.operation, args.resourceId, args.resourceName, args.resourceType, args.role, args.users || [], args.groups || []);
 };
 
 // Get typefrom server
@@ -2380,4 +2391,48 @@ var _unshareFolder = function (server, folderId, userId) {
  */
 module.exports.unshareFolder = function (args) {
 	return _unshareFolder(args.server, args.id, args.userId);
+};
+
+var _getGroups = function (server) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/osn/social/api/v1/groups';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get groups');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
+				resolve(data && data.items);
+			} else {
+				var msg = response.statusMessage || response.statusCode;
+				console.log('ERROR: failed to get groups ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get CEC groups on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getGroups = function (args) {
+	return _getGroups(args.server);
 };
