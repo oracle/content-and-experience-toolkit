@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "19.4.1a",
+	"version": "19.4.1b",
 	"license": "UPL-1.0",
 	"description": "Content and Experience Cloud custom components build system",
 	"main": "index.js",
@@ -65,6 +65,7 @@
 		"create-site-map": "gulp -LL --gulpfile bin/gulpfile.js create-site-map ",
 		"create-rss-feed": "gulp -LL --gulpfile bin/gulpfile.js create-rss-feed ",
 		"create-asset-report": "gulp -LL --gulpfile bin/gulpfile.js create-asset-report ",
+		"upload-static-site": "gulp -LL --gulpfile bin/gulpfile.js upload-static-site ",
 		"debug-update-site-from-template": "node --inspect-brk ./node_modules/gulp/bin/gulp.js -LL --gulpfile bin/gulpfile.js update-site",
 		"create-repository": "gulp -LL --gulpfile bin/gulpfile.js create-repository ",
 		"control-repository": "gulp -LL --gulpfile bin/gulpfile.js control-repository ",

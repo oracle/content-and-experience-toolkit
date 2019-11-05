@@ -79,6 +79,7 @@ SectionLayout.prototype = {
 		return this.compileComponent(parameters).then(function (compiledData) {
 			var content = (compiledData && compiledData.content) || '';
 			var subComponentIds = [];
+			var parentAttributes = ((compiledData && compiledData.hydrate)) ? { "data-scs-hydrate": "true" } : null;
 
 			if (content) {
 				var slData = (self.componentInstanceObject && self.componentInstanceObject.data) || {};
@@ -116,6 +117,7 @@ SectionLayout.prototype = {
 			return Promise.resolve({
 				hydrate: false,
 				componentIds: subComponentIds,
+				parentAttributes: parentAttributes,
 				parentClasses: ['scs-sectionlayout'],
 				omitBoundingBox: true,
 				content: content
@@ -150,19 +152,27 @@ SectionLayout.prototype = {
 
 					if (compileFile) {
 						var SectionLayoutImpl;
+						var foundComponentFile = false;
 						try {
 							compileFile = path.normalize(compileFile);
 
 							// verify if we can load the file
 							require.resolve(compileFile);
+							foundComponentFile = true;
 
 							// ok, file's there, load it in
 							SectionLayoutImpl = require(compileFile);
 						} catch (e) {
-							compilationReporter.error({
-								message: 'no compiler found for section layout: ' + sectionLayoutName,
-								error: e
-							});
+							if (foundComponentFile) {
+								compilationReporter.error({
+									message: 'require failed to load: "' + compileFile + '.js"',
+									error: e
+								});
+							} else {
+								compilationReporter.warn({
+									message: 'no custom section layout compiler for: "' + compileFile + '.js"'
+								});
+							}
 							return resolve({});
 						}
 
@@ -180,6 +190,7 @@ SectionLayout.prototype = {
 							logic.compile(parameters).then(function (compileData) {
 								// Return the supplied data to the caller
 								return resolve({
+									hydrate: (compileData && compileData.hydrate) ? true : false,
 									content: compileData && compileData.content,
 									componentIds: compileData && compileData.componentIds
 								});

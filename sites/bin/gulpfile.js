@@ -1000,6 +1000,18 @@ gulp.task('create-asset-report', function (done) {
 	});
 });
 
+/**
+ * Generate asset usage report for a site 
+ */
+gulp.task('upload-static-site', function (done) {
+	'use strict';
+
+	sitelib.uploadStaticSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
 
 /**
  * Create a repository

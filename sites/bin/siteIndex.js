@@ -7,7 +7,10 @@
 
 var he = require('he'),
 	fs = require('fs'),
+	os = require('os'),
 	path = require('path'),
+	readline = require('readline'),
+	serverRest = require('../test/server/serverRest.js'),
 	serverUtils = require('../test/server/serverUtils.js');
 
 var projectDir,
@@ -37,106 +40,96 @@ var _indexSiteEnd = function (done, success) {
 	}
 };
 
-var _getSiteInfoFile = function (request, localhost, site, locale, isMaster) {
+var _getSiteInfoFile = function (server, request, localhost, site, locale, isMaster) {
+	// console.log(' - siteId: ' + _siteId);
 	var siteInfoFilePromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=SCS_GET_SITE_INFO_FILE&siteId=' + site + '&IsJson=1';
-		if (locale && !isMaster) {
-			url = url + '&locale=' + locale;
-		}
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get site info');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			if (response && response.statusCode !== 200) {
-				if (isMaster) {
-					console.log('ERROR: Failed to get site info');
-					return resolve({
-						'err': response.statusCode
-					});
-				} else {
-
+		serverRest.getChildItems({
+				server: server,
+				parentID: _siteId
+			}).then(function (result) {
+				if (result.err) {
+					return Promise.reject();
 				}
-			}
-			try {
-				var data = JSON.parse(body);
-				if (!data) {
-					console.log('ERROR: Failed to get site info');
-					return resolve({
-						'err': 'error'
-					});
-				}
-				if (data.LocalData && data.LocalData.StatusCode === '-32') {
-					console.log('ERROR: site ' + site + ' does not exist');
-					return resolve({
-						'err': 'site does not exist'
-					});
-				}
-				if (response && response.statusCode !== 200) {
-					if (isMaster) {
-						console.log('ERROR: Failed to get site info');
+				var items = result && result.items || [];
+				var name = (isMaster || !locale) ? 'siteinfo.json' : locale + '_siteinfo.json';
+				var fileId;
+				for (var i = 0; i < items.length; i++) {
+					if (items[i].name === name) {
+						fileId = items[i].id;
+						break;
 					}
-					return resolve({
-						'err': response.statusCode
-					});
 				}
-				resolve({
-					'locale': locale || 'master',
-					'data': data
+
+				if (!fileId) {
+					return Promise.reject();
+				}
+
+				return serverRest.readFile({
+					server: server,
+					fFileGUID: fileId
 				});
-			} catch (error) {
-				console.log('ERROR: Failed to get site info');
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				var siteInfoFileContent = typeof result === 'string' ? JSON.parse(result) : result;
 				return resolve({
-					'err': 'error'
+					'locale': locale || 'master',
+					'data': siteInfoFileContent
 				});
-			}
-		});
+			})
+			.catch((error) => {
+				return resolve({
+					err: 'err'
+				});
+			});
 	});
 	return siteInfoFilePromise;
 };
 
-var _getSiteStructure = function (request, localhost, site, locale, isMaster, siteStructure) {
+var _getSiteStructure = function (server, request, localhost, site, locale, isMaster) {
 	var siteStructurePromise = new Promise(function (resolve, reject) {
-		if (siteStructure) {
-			return resolve(siteStructure);
-		}
-		var url = localhost + '/documents/web?IdcService=SCS_GET_STRUCTURE&siteId=' + site + '&IsJson=1';
-		if (locale && !isMaster) {
-			url = url + '&locale=' + locale;
-		}
-		request.get(url, function (err, response, body) {
-			if (err && !locale) {
-				console.log('ERROR: Failed to get site structure');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			try {
-				var data = JSON.parse(body);
-				if (!data && !locale) {
-					console.log('ERROR: Failed to get site structure');
-					return resolve({
-						'err': 'error'
-					});
+		serverRest.getChildItems({
+				server: server,
+				parentID: _siteId
+			}).then(function (result) {
+				if (result.err) {
+					return Promise.reject();
 				}
-				if (data.LocalData && data.LocalData.StatusCode === '-32' && !locale) {
-					console.log('ERROR: site ' + site + ' does not exist');
-					return resolve({
-						'err': 'site does not exist'
-					});
+				var items = result && result.items || [];
+				var name = (isMaster || !locale) ? 'structure.json' : locale + '_structure.json';
+				var fileId;
+				for (var i = 0; i < items.length; i++) {
+					if (items[i].name === name) {
+						fileId = items[i].id;
+						break;
+					}
 				}
-				resolve(data);
-			} catch (error) {
-				console.log('ERROR: Failed to get site structure');
-				return resolve({
-					'err': 'error'
+
+				if (!fileId) {
+					return Promise.reject();
+				}
+
+				return serverRest.readFile({
+					server: server,
+					fFileGUID: fileId
 				});
-			}
-		});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				var structureFileContent = typeof result === 'string' ? JSON.parse(result) : result;
+				return resolve(structureFileContent);
+			})
+			.catch((error) => {
+				return resolve({
+					err: 'err'
+				});
+			});
 	});
 	return siteStructurePromise;
 };
@@ -336,75 +329,147 @@ var _getLocalizationPolicy = function (request, localhost, policyId) {
 };
 
 /**
- * 
- * @param {*} request 
- * @param {*} localhost 
- * @param {*} site
- * @param {*} pagelist the comma separated list of page ids
- */
-var _getPageData = function (request, localhost, site, pageIds) {
-	var pageDataPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=SCS_GET_PAGE_DATA&siteId=' + site + '&pageIds=' + pageIds + '&IsJson=1';
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get page data');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			try {
-				var data = JSON.parse(body);
-				if (!data) {
-					console.log('ERROR: Failed to get page data');
-					return resolve({
-						'err': 'error'
-					});
-				}
-				resolve(data);
-			} catch (error) {
-				console.log('ERROR: Failed to get page data');
-				return resolve({
-					'err': 'error'
-				});
-			}
-		});
-	});
-	return pageDataPromise;
-};
-
-/**
  * Get an array of promises to get the page data for all site pages
  * 
  * @param {*} request 
  * @param {*} localhost 
  * @param {*} pages the data from SCS_GET_STRUCTURE
  */
-var _getPageDataPromise = function (request, localhost, site, pages, locale, isMaster) {
+var _getPageData = function (server, request, localhost, site, pages, locale, isMaster) {
+	// console.log(' isMaster: ' + isMaster + ' locale: ' + locale);
+	return new Promise(function (resolve, reject) {
+		serverRest.getChildItems({
+				server: server,
+				parentID: _pagesFolderId,
+				limit: 9999
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+				var items = result && result.items || [];
+				var files = [];
+				for (var i = 0; i < items.length; i++) {
+					var name = items[i].name;
+					if (isMaster && name.indexOf('_') < 0) {
+						files.push({
+							id: items[i].id,
+							name: items[i].name
+						});
+					} else if (name.indexOf('_') > 0) {
+						var localeStr = name.substring(0, name.indexOf('_'));
+						if (localeStr === locale) {
+							files.push({
+								id: items[i].id,
+								name: items[i].name
+							});
+						}
+					}
+				}
 
-	var pageIdList = [];
-	var limit = 20;
-	var pageIds = '';
-	for (var i = 0; i < pages.length; i++) {
-		if (pageIds) {
-			pageIds += ',';
+				return _readPageFiles(server, files);
+			})
+			.then(function (result) {
+				return resolve(result);
+			})
+			.catch((error) => {
+				return resolve({
+					err: 'err'
+				});
+			});
+	});
+};
+
+var _readFile = function (server, id, fileName) {
+	return new Promise(function (resolve, reject) {
+		var auth = serverUtils.getRequestAuth(server);
+		var url = server.url + '/documents/api/1.2/files/' + id + '/data/';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth
+		};
+		var request = serverUtils.getRequest();
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to download file ' + fileName);
+				console.log(error);
+				resolve();
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
+				resolve({
+					id: fileName.substring(0, fileName.indexOf('.')),
+					data: data
+				});
+			} else {
+				console.log('ERROR: failed to download file: ' + fileName + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve();
+			}
+
+		});
+	});
+};
+var _readPageFiles = function (server, files) {
+	return new Promise(function (resolve, reject) {
+		var total = files.length;
+		console.log(' - total number of files: ' + total);
+		var groups = [];
+		var limit = 16;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
 		}
-		pageIds += (locale && !isMaster ? locale + '_' + pages[i].id.toString() : pages[i].id.toString());
-		if (i >= limit && (i % limit === 0)) {
-			// another batch
-			pageIdList.push(pageIds);
-			pageIds = '';
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
 		}
-	}
-	if (pageIds) {
-		pageIdList.push(pageIds);
-	}
-	// console.log(pageIdList);
-	var promises = [];
-	for (var i = 0; i < pageIdList.length; i++) {
-		promises.push(_getPageData(request, localhost, site, pageIdList[i]));
-	}
-	return promises;
+		// console.log(' - total number of groups: ' + groups.length);
+
+		var fileData = [];
+		var count = [];
+
+		var doReadFile = groups.reduce(function (filePromise, param) {
+				return filePromise.then(function (result) {
+					var filePromises = [];
+					for (var i = param.start; i <= param.end; i++) {
+						filePromises.push(_readFile(server, files[i].id, files[i].name));
+					}
+
+					count.push('.');
+					process.stdout.write(' - downloading files ' + count.join(''));
+					readline.cursorTo(process.stdout, 0);
+					return Promise.all(filePromises).then(function (results) {
+						fileData = fileData.concat(results);
+					});
+
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doReadFile.then(function (result) {
+			process.stdout.write(os.EOL);
+			// console.log(' - total number of downloaded files: ' + fileData.length);
+			resolve(fileData);
+		});
+
+	});
 };
 
 /**
@@ -455,7 +520,7 @@ var _getContentListQueryString = function (type, limit, offset, orderBy, querySt
 			q = q + ' and (' + queryString + ')';
 		}
 		if (locale) {
-			q = q +  ' and (language eq "' + locale + '" or translatable eq "false")';
+			q = q + ' and (language eq "' + locale + '" or translatable eq "false")';
 		}
 	}
 	if (q) {
@@ -932,7 +997,7 @@ var _generatePageIndex = function (site, pages, pageData, pageContent, typeTextF
 
 var _getPageIndexItem = function (request, localhost, channelToken, contenttype, locale) {
 	var pageIndexItemPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/content/management/api/v1.1/items?fields=ALL&limit=99999';
+		var url = localhost + '/content/management/api/v1.1/items?fields=ALL&limit=9999';
 		url = url + '&channelToken=' + channelToken;
 		if (locale) {
 			url = url + '&q=(type eq "' + contenttype + '" and language eq "' + locale + '")';
@@ -1375,6 +1440,8 @@ var _updatePageIndexItem = function (request, localhost, pageIndexDataIndex, loc
  * Global variable used by the node server
  */
 var _CSRFToken = '';
+var _siteId;
+var _pagesFolderId;
 var _SiteInfo;
 var _siteChannelToken;
 var _requiredLangs = [],
@@ -1425,7 +1492,7 @@ var _getPageFromMastrStructure = function (pageid) {
 	if (id.indexOf('_') > 0) {
 		id = id.substring(id.lastIndexOf('_') + 1);
 	}
-	var pages = _masterSiteStructure.base && _masterSiteStructure.base.pages || [];
+	var pages = _masterSiteStructure.pages || [];
 	var page;
 	for (var i = 0; i < pages.length; i++) {
 		if (id === pages[i].id.toString()) {
@@ -1742,14 +1809,43 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 		var siteStructure, pages, pageData = [];
 
 		//
-		// Get site info
-		var siteInfoPromise = _getSiteInfoFile(request, localhost, site);
-		siteInfoPromise
+		// Get site id
+		//
+		serverUtils.getSiteFolder(server, site)
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					console.log('ERROR: site ' + site + ' does not exist');
+					return Promise.reject();
+				}
+				_siteId = result.id;
+
+				//
+				// Get pages folder id
+				//
+				return serverRest.findFolderHierarchy({
+					server: server,
+					parentID: _siteId,
+					folderPath: 'pages'
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+				_pagesFolderId = result.id;
+
+				//
+				// Get site info
+				var siteInfoPromise = _getSiteInfoFile(server, request, localhost, site);
+				return siteInfoPromise;
+			})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
 				}
-				siteInfo = result.data.base.properties;
+
+				siteInfo = result.data.properties;
 				_SiteInfo = siteInfo;
 				defaultLanguage = siteInfo.defaultLanguage;
 				localizationPolicy = siteInfo.localizationPolicy;
@@ -1820,7 +1916,6 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 				//
 
 				if (result.err) {
-					console.log('ERROR: ' + result.err);
 					return Promise.reject();
 				}
 				console.log(' - query content type ' + contenttype);
@@ -1850,7 +1945,7 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 					return Promise.reject();
 				}
 				if (_validatePageIndexFields(done, contenttype, result, done)) {
-					return _getSiteStructure(request, localhost, site);
+					return _getSiteStructure(server, request, localhost, site);
 				} else {
 					return Promise.reject();
 				}
@@ -1865,30 +1960,29 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 				}
 				siteStructure = result;
 				console.log(' - query site structure');
-				pages = siteStructure && siteStructure.base && siteStructure.base.pages;
+				pages = siteStructure && siteStructure.pages;
 				if (!pages || pages.length === 0) {
 					console.log('ERROR: no page found');
 					return Promise.reject();
 				}
 				_masterSiteStructure = siteStructure;
 
-				var pageDataPromise = _getPageDataPromise(request, localhost, site, pages);
-				return Promise.all(pageDataPromise);
+				return _getPageData(server, request, localhost, site, pages, '', true);
 			})
-			.then(function (values) {
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
 				//
 				// Get page data for all pages
 				//
 
 				// console.log(' - query page data');
-				for (var i = 0; i < values.length; i++) {
-					var obj = values[i];
-					Object.keys(obj).forEach(key => {
-						var value = obj[key];
-						pageData.push({
-							id: key,
-							data: value && value.base
-						});
+				var pages = result;
+				for (var i = 0; i < pages.length; i++) {
+					pageData.push({
+						id: pages[i].id,
+						data: pages[i].data
 					});
 				}
 				_masterPageData = pageData;
@@ -1937,7 +2031,7 @@ var _prepareData = function (server, request, localhost, site, contenttype, publ
 			});
 
 	}); // site info
-	
+
 
 
 	return dataPromise;
@@ -1947,7 +2041,7 @@ var _indexSiteWithLocale = function (server, request, localhost, site, contentty
 	var sitePromise = new Promise(function (resolve, reject) {
 		var pageData = [];
 		var msg = isMaster ? '' : ('(' + locale + ')');
-		var siteStructurePromise = _getSiteStructure(request, localhost, site, locale, isMaster, queriedStructure);
+		var siteStructurePromise = _getSiteStructure(server, request, localhost, site, locale, isMaster, queriedStructure);
 		siteStructurePromise.then(function (result) {
 			if (result.err) {
 				return Promise.reject();
@@ -1956,24 +2050,22 @@ var _indexSiteWithLocale = function (server, request, localhost, site, contentty
 			if (!queriedStructure) {
 				console.log(' - query site structure with locale ' + locale);
 			}
-			var pages = siteStructure && siteStructure.base && siteStructure.base.pages;
+			var pages = siteStructure && siteStructure.pages;
 
 			//
 			// Get page data for all pages
 			//
-			var pageDataPromise = _getPageDataPromise(request, localhost, site, pages, locale, isMaster);
-			Promise.all(pageDataPromise).then(function (values) {
-					console.log(' - query page data ' + msg);
+			var pageDataPromise = _getPageData(server, request, localhost, site, pages, locale, isMaster);
+			pageDataPromise.then(function (result) {
+					console.log(' - query page data (' + locale + ')');
+					var values = result || [];
 					for (var i = 0; i < values.length; i++) {
-						var obj = values[i];
-						Object.keys(obj).forEach(key => {
-							var value = obj[key];
-							pageData.push({
-								id: key,
-								data: value && value.base
-							});
+						pageData.push({
+							id: values[i].id,
+							data: values[i].data
 						});
 					}
+
 					//
 					// Get content items on the pages
 					//
@@ -1993,12 +2085,12 @@ var _indexSiteWithLocale = function (server, request, localhost, site, contentty
 				})
 				.then(function (results) {
 					// add items from content list for item query
-					for(var i = 0; i < results.length; i++) {
+					for (var i = 0; i < results.length; i++) {
 						var list = results[i];
 						if (list.pageId && list.data.length > 0) {
-							for(var j = 0; j < _pageContentIds.length; j++) {
+							for (var j = 0; j < _pageContentIds.length; j++) {
 								if (list.pageId === _pageContentIds[j].id) {
-									for(var k = 0; k < list.data.length; k++) {
+									for (var k = 0; k < list.data.length; k++) {
 										var listItem = list.data[k];
 										if (!_pageContentIds[j].contentIds.includes(listItem.id)) {
 											_pageContentIds[j].contentIds.push(listItem.id);
@@ -2063,119 +2155,119 @@ var _indexSite = function (server, request, localhost, site, contenttype, publis
 	// 
 	var dataPromise = _prepareData(server, request, localhost, site, contenttype, publish, done);
 	dataPromise.then(function (result) {
-		if (result.err) {
-			return Promise.reject();
-		}
+			if (result.err) {
+				return Promise.reject();
+			}
 
-		// index master site
-		var isMaster = true;
-		var indexSiteLocalePromise = _indexSiteWithLocale(server, request, localhost, site, contenttype,
-			_SiteInfo.defaultLanguage, isMaster, _masterSiteStructure);
-		indexSiteLocalePromise.then(function (result) {
-			var locales = [];
-			var translation
-			for (var i = 0; i < _requiredLangs.length; i++) {
-				if (_requiredLangs[i] !== _SiteInfo.defaultLanguage) {
-					locales.push(_requiredLangs[i]);
-				}
-			}
-			for (var i = 0; i < _optionalLangs.length; i++) {
-				if (_optionalLangs[i] !== _SiteInfo.defaultLanguage) {
-					locales.push(_optionalLangs[i]);
-				}
-			}
-			if (locales.length > 0) {
-				//
-				// verify the site has the translation
-				//
-				var siteinfoPromises = [];
-				for (var i = 0; i < locales.length; i++) {
-					siteinfoPromises[i] = _getSiteInfoFile(request, localhost, site, locales[i], false);
-				}
-				var validLocales = [];
-				Promise.all(siteinfoPromises).then(function (values) {
-					for (var i = 0; i < values.length; i++) {
-						if (values[i].locale) {
-							validLocales.push(values[i].locale);
-						}
+			// index master site
+			var isMaster = true;
+			var indexSiteLocalePromise = _indexSiteWithLocale(server, request, localhost, site, contenttype,
+				_SiteInfo.defaultLanguage, isMaster, _masterSiteStructure);
+			indexSiteLocalePromise.then(function (result) {
+				var locales = [];
+				var translation
+				for (var i = 0; i < _requiredLangs.length; i++) {
+					if (_requiredLangs[i] !== _SiteInfo.defaultLanguage) {
+						locales.push(_requiredLangs[i]);
 					}
-
-					if (validLocales.length > 0) {
-						console.log(' - will create/update translate for ' + validLocales);
-
-						var initialTask = _indexSiteWithLocale(server, request, localhost, site, contenttype, validLocales[0], false);
-						if (validLocales.length === 1) {
-							initialTask.then(function (result) {
-								if (publish) {
-									_publishPageIndexItems(request, localhost, _SiteInfo.channelId, done);
-								} else {
-									_indexSiteEnd(done, true);
-								}
-							});
-						} else {
-							var taskParams = [];
-							for (var i = 1; i < validLocales.length; i++) {
-								taskParams.push({
-									server: server,
-									request: request,
-									localhost: localhost,
-									site: site,
-									contenttype: contenttype,
-									locale: validLocales[i]
-								});
+				}
+				for (var i = 0; i < _optionalLangs.length; i++) {
+					if (_optionalLangs[i] !== _SiteInfo.defaultLanguage) {
+						locales.push(_optionalLangs[i]);
+					}
+				}
+				if (locales.length > 0) {
+					//
+					// verify the site has the translation
+					//
+					var siteinfoPromises = [];
+					for (var i = 0; i < locales.length; i++) {
+						siteinfoPromises[i] = _getSiteInfoFile(server, request, localhost, site, locales[i], false);
+					}
+					var validLocales = [];
+					Promise.all(siteinfoPromises).then(function (values) {
+						for (var i = 0; i < values.length; i++) {
+							if (values[i].locale) {
+								validLocales.push(values[i].locale);
 							}
-							taskParams.push({
-								done: true
-							});
-							//
-							// index site with locale in sequence
-							//
-							taskParams.reduce(function (indexSitePromise, param) {
-								return indexSitePromise.then(function (result) {
-									if (!param || param.done) {
-										// console.log(' - translation finishes');
-										if (publish) {
-											_publishPageIndexItems(request, localhost, _SiteInfo.channelId, done);
-										} else {
-											_indexSiteEnd(done, true);
-										}
+						}
+
+						if (validLocales.length > 0) {
+							console.log(' - will create/update translate for ' + validLocales);
+
+							var initialTask = _indexSiteWithLocale(server, request, localhost, site, contenttype, validLocales[0], false);
+							if (validLocales.length === 1) {
+								initialTask.then(function (result) {
+									if (publish) {
+										_publishPageIndexItems(request, localhost, _SiteInfo.channelId, done);
 									} else {
-										return _indexSiteWithLocale(param.server, param.request, param.localhost, param.site, param.contenttype, param.locale, false);
+										_indexSiteEnd(done, true);
 									}
 								});
-							}, initialTask);
-						}
+							} else {
+								var taskParams = [];
+								for (var i = 1; i < validLocales.length; i++) {
+									taskParams.push({
+										server: server,
+										request: request,
+										localhost: localhost,
+										site: site,
+										contenttype: contenttype,
+										locale: validLocales[i]
+									});
+								}
+								taskParams.push({
+									done: true
+								});
+								//
+								// index site with locale in sequence
+								//
+								taskParams.reduce(function (indexSitePromise, param) {
+									return indexSitePromise.then(function (result) {
+										if (!param || param.done) {
+											// console.log(' - translation finishes');
+											if (publish) {
+												_publishPageIndexItems(request, localhost, _SiteInfo.channelId, done);
+											} else {
+												_indexSiteEnd(done, true);
+											}
+										} else {
+											return _indexSiteWithLocale(param.server, param.request, param.localhost, param.site, param.contenttype, param.locale, false);
+										}
+									});
+								}, initialTask);
+							}
 
-					} else {
-						// no translation
-						//
-						// page index items created/updated on the server
-						//
-						if (publish) {
-							_publishPageIndexItems(request, localhost, _SiteInfo.channelId, done);
 						} else {
-							_indexSiteEnd(done, true);
+							// no translation
+							//
+							// page index items created/updated on the server
+							//
+							if (publish) {
+								_publishPageIndexItems(request, localhost, _SiteInfo.channelId, done);
+							} else {
+								_indexSiteEnd(done, true);
+							}
 						}
-					}
-				});
+					});
 
-			} else {
-				//
-				// page index items created/updated on the server
-				//
-				if (publish) {
-					_publishPageIndexItems(request, localhost, _SiteInfo.channelId, done);
 				} else {
-					_indexSiteEnd(done, true);
+					//
+					// page index items created/updated on the server
+					//
+					if (publish) {
+						_publishPageIndexItems(request, localhost, _SiteInfo.channelId, done);
+					} else {
+						_indexSiteEnd(done, true);
+					}
 				}
-			}
 
-		}); // index site in one master / locale
+			}); // index site in one master / locale
 
-	}) // prepare data
-	.catch((error) => {
-		_indexSiteEnd(done);
-	});
+		}) // prepare data
+		.catch((error) => {
+			_indexSiteEnd(done);
+		});
 
 };
 
@@ -2262,357 +2354,331 @@ module.exports.indexSite = function (argv, done) {
 
 	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
-		if (!result.status) {
-			console.log(' - failed to connect to the server');
-			done();
-			return;
-		}
-
-		var express = require('express');
-		var app = express();
-
-		var port = '9191';
-		var localhost = 'http://localhost:' + port;
-
-		var dUser = '';
-		var idcToken;
-
-		app.get('/*', function (req, res) {
-			// console.log('GET: ' + req.url);
-			if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-				var url = server.url + req.url;
-
-				var options = {
-					url: url,
-				};
-				var auth = serverUtils.getRequestAuth(server);
-				options['auth'] = auth;
-
-				request(options).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					serverUtils.fixHeaders(response, res);
-				}).pipe(res);
-
-			} else {
-				console.log('ERROR: request not supported: ' + req.url);
-				res.write({});
-				res.end();
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
 			}
-		});
-		app.post('/content/management/api/v1.1/items', function (req, res) {
-			// console.log('POST: ' + req.url);
-			var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-			var locale = params.locale;
-			var isMaster = (params.isMaster.toLowerCase() === 'true');
-			var repositoryId = params.repositoryId;
-			var contenttype = params.contenttype;
-			var dataIndex = params.dataIndex;
-			if (repositoryId && contenttype && dataIndex && dataIndex >= 0 && dataIndex < _pageIndexToCreate.length) {
-				var url = server.url + '/content/management/api/v1.1/items';
-				var indexData = _pageIndexToCreate[dataIndex];
-				var itemName = indexData.site + indexData.pagename + indexData.pageid;
-				var itemDesc = 'Page index for ' + itemName;
-				var formData = {
-					name: itemName,
-					description: itemDesc,
-					type: contenttype,
-					language: locale,
-					languageIsMaster: isMaster,
-					translatable: true,
-					repositoryId: repositoryId,
-					fields: indexData
-				};
 
-				var masterid = _getItemMasterId(indexData, locale);
-				if (!isMaster) {
-					formData['sourceId'] = masterid;
-				}
+			var express = require('express');
+			var app = express();
 
-				var formDataStr = JSON.stringify(formData);
-				var auth = serverUtils.getRequestAuth(server);
-				var postData = {
-					method: 'POST',
-					url: url,
-					auth: auth,
-					headers: {
-						'Content-Type': 'application/json',
-						'X-CSRF-TOKEN': _CSRFToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
-					},
-					body: formDataStr
-				};
-				// console.log(formDataStr);
-				request(postData).on('response', function (response) {
+			var port = '9191';
+			var localhost = 'http://localhost:' + port;
+
+			app.get('/*', function (req, res) {
+				// console.log('GET: ' + req.url);
+				if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
+					var url = server.url + req.url;
+
+					var options = {
+						url: url,
+					};
+					var auth = serverUtils.getRequestAuth(server);
+					options['auth'] = auth;
+
+					request(options).on('response', function (response) {
 						// fix headers for cross-domain and capitalization issues
 						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						console.log(err);
-						res.write({
-							err: err
-						});
-						res.end();
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						// console.log(' - create item finished: ' + itemName);
-						res.end();
-					});
-			} else {
-				console.log('ERROR: invalid parameters to create content item: ' + params);
-				res.write({});
-				res.end();
-			}
-		});
+					}).pipe(res);
 
-		app.post('/content/management/api/v1.1/bulkItemsOperations', function (req, res) {
-			// console.log('POST: ' + req.url);
-			var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-			var channelId = params.channelId;
-			var op = params.op;
-			var itemIds = params.itemIds;
-			if (op !== 'addChannels' && op !== 'setAsTranslated' && op !== 'deleteItems' && op !== 'removeChannels' && op !== 'unpublish') {
-				console.log('ERROR: request ' + url + ' NOT supported');
-				res.write({});
-				res.end();
-			} else {
-				var arr = itemIds.split(',');
-				var q = '';
-				for (var i = 0; i < arr.length; i++) {
-					if (q) {
-						q = q + ' or ';
+				} else {
+					console.log('ERROR: request not supported: ' + req.url);
+					res.write({});
+					res.end();
+				}
+			});
+			app.post('/content/management/api/v1.1/items', function (req, res) {
+				// console.log('POST: ' + req.url);
+				var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+				var locale = params.locale;
+				var isMaster = (params.isMaster.toLowerCase() === 'true');
+				var repositoryId = params.repositoryId;
+				var contenttype = params.contenttype;
+				var dataIndex = params.dataIndex;
+				if (repositoryId && contenttype && dataIndex && dataIndex >= 0 && dataIndex < _pageIndexToCreate.length) {
+					var url = server.url + '/content/management/api/v1.1/items';
+					var indexData = _pageIndexToCreate[dataIndex];
+					var itemName = indexData.site + indexData.pagename + indexData.pageid;
+					var itemDesc = 'Page index for ' + itemName;
+					var formData = {
+						name: itemName,
+						description: itemDesc,
+						type: contenttype,
+						language: locale,
+						languageIsMaster: isMaster,
+						translatable: true,
+						repositoryId: repositoryId,
+						fields: indexData
+					};
+
+					var masterid = _getItemMasterId(indexData, locale);
+					if (!isMaster) {
+						formData['sourceId'] = masterid;
 					}
-					q = q + 'id eq "' + arr[i] + '"';
-				}
-				var url = server.url + '/content/management/api/v1.1/bulkItemsOperations';
-				var formData;
-				if (op == 'addChannels') {
-					formData = {
-						q: q,
-						operations: {
-							addChannels: {
-								channels: [{
-									id: channelId
-								}]
-							}
-						}
+
+					var formDataStr = JSON.stringify(formData);
+					var auth = serverUtils.getRequestAuth(server);
+					var postData = {
+						method: 'POST',
+						url: url,
+						auth: auth,
+						headers: {
+							'Content-Type': 'application/json',
+							'X-CSRF-TOKEN': _CSRFToken,
+							'X-REQUESTED-WITH': 'XMLHttpRequest'
+						},
+						body: formDataStr
 					};
-				} else if (op == 'removeChannels') {
-					formData = {
-						q: q,
-						operations: {
-							removeChannels: {
-								channels: [{
-									id: channelId
-								}]
-							}
-						}
-					};
-				} else if (op === 'setAsTranslated') {
-					formData = {
-						q: q,
-						operations: {
-							setAsTranslated: {
-								value: true
-							}
-						}
-					};
-				} else if (op === 'deleteItems') {
-					formData = {
-						q: q,
-						operations: {
-							deleteItems: {
-								value: 'true'
-							}
-						}
-					};
-				} else if (op === 'unpublish') {
-					formData = {
-						q: q,
-						operations: {
-							unpublish: {
-								channels: [{
-									id: channelId
-								}]
-							}
-						}
-					};
-				}
-				var formDataStr = JSON.stringify(formData);
-				var auth = serverUtils.getRequestAuth(server);
-				var postData = {
-					method: 'POST',
-					url: url,
-					auth: auth,
-					headers: {
-						'Content-Type': 'application/json',
-						'X-CSRF-TOKEN': _CSRFToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
-					},
-					body: formDataStr
-				};
-				// console.log(formDataStr);
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						res.write({
-							err: err
+					// console.log(formDataStr);
+					request(postData).on('response', function (response) {
+							// fix headers for cross-domain and capitalization issues
+							serverUtils.fixHeaders(response, res);
+						})
+						.on('error', function (err) {
+							console.log(err);
+							res.write({
+								err: err
+							});
+							res.end();
+						})
+						.pipe(res)
+						.on('finish', function (err) {
+							// console.log(' - create item finished: ' + itemName);
+							res.end();
 						});
-						res.end();
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						// console.log(' - add item to site channel finished: ' + itemId);
-						res.end();
-					});
-			}
-		});
-
-		app.put('/content/management/api/v1.1/items', function (req, res) {
-			// console.log('PUT: ' + req.url);
-			var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-			var dataIndex = params.dataIndex;
-			if (dataIndex && dataIndex >= 0 && dataIndex < _pageIndexToUpdate.length) {
-				var indexData = _pageIndexToUpdate[dataIndex];
-				var id = indexData.id;
-				var itemName = indexData.name;
-				var url = server.url + '/content/management/api/v1.1/items/' + id;
-				var formDataStr = JSON.stringify(indexData);
-				var auth = serverUtils.getRequestAuth(server);
-				var postData = {
-					method: 'PUT',
-					url: url,
-					auth: auth,
-					headers: {
-						'Content-Type': 'application/json',
-						'X-CSRF-TOKEN': _CSRFToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
-					},
-					body: formDataStr
-				};
-				// console.log(formDataStr);
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						res.write({
-							err: err
-						});
-						res.end();
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						// console.log(' - update item finished: ' + itemName);
-						res.end();
-					});
-			} else {
-				console.log('ERROR: invalid parameters to update content item: ' + params);
-				res.write({});
-				res.end();
-			}
-		});
-
-		app.post('/content/management/api/v1.1/jobs/publishjobs', function (req, res) {
-			// console.log('POST: ' + req.url);
-			var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-			var channelId = params.channelId;
-			if (channelId && _masterItems.length > 0) {
-				var url = server.url + '/content/management/api/v1.1/jobs/publishjobs';
-				var ids = [];
-				for (var i = 0; i < _masterItems.length; i++) {
-					ids.push({
-						id: _masterItems[i].id
-					});
+				} else {
+					console.log('ERROR: invalid parameters to create content item: ' + params);
+					res.write({});
+					res.end();
 				}
-				var formData = {
-					jobType: 'publish',
-					channels: [{
-						id: channelId
-					}],
-					ids: ids
-				};
-				var formDataStr = JSON.stringify(formData);
-				var auth = serverUtils.getRequestAuth(server);
-				var postData = {
-					method: 'POST',
-					url: url,
-					auth: auth,
-					headers: {
-						'Content-Type': 'application/json',
-						'X-CSRF-TOKEN': _CSRFToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
-					},
-					body: formDataStr
-				};
-				// console.log(formDataStr);
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						res.write({
-							err: err
-						});
-						res.end();
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						res.end();
-					});
-			} else {
-				console.log('ERROR: invalid parameters to publish items: ' + params);
-				res.write({});
-				res.end();
-			}
-		});
+			});
 
-
-		localServer = app.listen(0, function () {
-			port = localServer.address().port;
-			localhost = 'http://localhost:' + port;
-			localServer.setTimeout(0);
-
-			var total = 0;
-			var inter = setInterval(function () {
-				// console.log(' - getting login user: ' + total);
-				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-				request.get(url, function (err, response, body) {
-					var data = JSON.parse(body);
-					dUser = data && data.LocalData && data.LocalData.dUser;
-					idcToken = data && data.LocalData && data.LocalData.idcToken;
-					if (dUser && dUser !== 'anonymous' && idcToken) {
-						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-						clearInterval(inter);
-						console.log(' - establish user session');
-						var csrfTokenPromise = _getCSRFToken(server, request);
-						csrfTokenPromise.then(function (result) {
-							var csrfToken = result && result.token;
-							if (!csrfToken) {
-								console.log('ERROR: Failed to get CSRF token');
-								return Promise.reject();
+			app.post('/content/management/api/v1.1/bulkItemsOperations', function (req, res) {
+				// console.log('POST: ' + req.url);
+				var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+				var channelId = params.channelId;
+				var op = params.op;
+				var itemIds = params.itemIds;
+				if (op !== 'addChannels' && op !== 'setAsTranslated' && op !== 'deleteItems' && op !== 'removeChannels' && op !== 'unpublish') {
+					console.log('ERROR: request ' + url + ' NOT supported');
+					res.write({});
+					res.end();
+				} else {
+					var arr = itemIds.split(',');
+					var q = '';
+					for (var i = 0; i < arr.length; i++) {
+						if (q) {
+							q = q + ' or ';
+						}
+						q = q + 'id eq "' + arr[i] + '"';
+					}
+					var url = server.url + '/content/management/api/v1.1/bulkItemsOperations';
+					var formData;
+					if (op == 'addChannels') {
+						formData = {
+							q: q,
+							operations: {
+								addChannels: {
+									channels: [{
+										id: channelId
+									}]
+								}
 							}
-							console.log(' - get CSRF token');
-							_CSRFToken = csrfToken;
-							_indexSite(server, request, localhost, site, contenttype, publish, done);
+						};
+					} else if (op == 'removeChannels') {
+						formData = {
+							q: q,
+							operations: {
+								removeChannels: {
+									channels: [{
+										id: channelId
+									}]
+								}
+							}
+						};
+					} else if (op === 'setAsTranslated') {
+						formData = {
+							q: q,
+							operations: {
+								setAsTranslated: {
+									value: true
+								}
+							}
+						};
+					} else if (op === 'deleteItems') {
+						formData = {
+							q: q,
+							operations: {
+								deleteItems: {
+									value: 'true'
+								}
+							}
+						};
+					} else if (op === 'unpublish') {
+						formData = {
+							q: q,
+							operations: {
+								unpublish: {
+									channels: [{
+										id: channelId
+									}]
+								}
+							}
+						};
+					}
+					var formDataStr = JSON.stringify(formData);
+					var auth = serverUtils.getRequestAuth(server);
+					var postData = {
+						method: 'POST',
+						url: url,
+						auth: auth,
+						headers: {
+							'Content-Type': 'application/json',
+							'X-CSRF-TOKEN': _CSRFToken,
+							'X-REQUESTED-WITH': 'XMLHttpRequest'
+						},
+						body: formDataStr
+					};
+					// console.log(formDataStr);
+					request(postData).on('response', function (response) {
+							// fix headers for cross-domain and capitalization issues
+							serverUtils.fixHeaders(response, res);
+						})
+						.on('error', function (err) {
+							res.write({
+								err: err
+							});
+							res.end();
+						})
+						.pipe(res)
+						.on('finish', function (err) {
+							// console.log(' - add item to site channel finished: ' + itemId);
+							res.end();
+						});
+				}
+			});
+
+			app.put('/content/management/api/v1.1/items', function (req, res) {
+				// console.log('PUT: ' + req.url);
+				var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+				var dataIndex = params.dataIndex;
+				if (dataIndex && dataIndex >= 0 && dataIndex < _pageIndexToUpdate.length) {
+					var indexData = _pageIndexToUpdate[dataIndex];
+					var id = indexData.id;
+					var itemName = indexData.name;
+					var url = server.url + '/content/management/api/v1.1/items/' + id;
+					var formDataStr = JSON.stringify(indexData);
+					var auth = serverUtils.getRequestAuth(server);
+					var postData = {
+						method: 'PUT',
+						url: url,
+						auth: auth,
+						headers: {
+							'Content-Type': 'application/json',
+							'X-CSRF-TOKEN': _CSRFToken,
+							'X-REQUESTED-WITH': 'XMLHttpRequest'
+						},
+						body: formDataStr
+					};
+					// console.log(formDataStr);
+					request(postData).on('response', function (response) {
+							// fix headers for cross-domain and capitalization issues
+							serverUtils.fixHeaders(response, res);
+						})
+						.on('error', function (err) {
+							res.write({
+								err: err
+							});
+							res.end();
+						})
+						.pipe(res)
+						.on('finish', function (err) {
+							// console.log(' - update item finished: ' + itemName);
+							res.end();
+						});
+				} else {
+					console.log('ERROR: invalid parameters to update content item: ' + params);
+					res.write({});
+					res.end();
+				}
+			});
+
+			app.post('/content/management/api/v1.1/jobs/publishjobs', function (req, res) {
+				// console.log('POST: ' + req.url);
+				var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+				var channelId = params.channelId;
+				if (channelId && _masterItems.length > 0) {
+					var url = server.url + '/content/management/api/v1.1/jobs/publishjobs';
+					var ids = [];
+					for (var i = 0; i < _masterItems.length; i++) {
+						ids.push({
+							id: _masterItems[i].id
 						});
 					}
-					total += 1;
-					if (total >= 10) {
-						clearInterval(inter);
-						console.log('ERROR: disconnect from the server, try again');
+					var formData = {
+						jobType: 'publish',
+						channels: [{
+							id: channelId
+						}],
+						ids: ids
+					};
+					var formDataStr = JSON.stringify(formData);
+					var auth = serverUtils.getRequestAuth(server);
+					var postData = {
+						method: 'POST',
+						url: url,
+						auth: auth,
+						headers: {
+							'Content-Type': 'application/json',
+							'X-CSRF-TOKEN': _CSRFToken,
+							'X-REQUESTED-WITH': 'XMLHttpRequest'
+						},
+						body: formDataStr
+					};
+					// console.log(formDataStr);
+					request(postData).on('response', function (response) {
+							// fix headers for cross-domain and capitalization issues
+							serverUtils.fixHeaders(response, res);
+						})
+						.on('error', function (err) {
+							res.write({
+								err: err
+							});
+							res.end();
+						})
+						.pipe(res)
+						.on('finish', function (err) {
+							res.end();
+						});
+				} else {
+					console.log('ERROR: invalid parameters to publish items: ' + params);
+					res.write({});
+					res.end();
+				}
+			});
+
+
+			localServer = app.listen(0, function () {
+				port = localServer.address().port;
+				localhost = 'http://localhost:' + port;
+				localServer.setTimeout(0);
+
+				var csrfTokenPromise = _getCSRFToken(server, request);
+				csrfTokenPromise.then(function (result) {
+					var csrfToken = result && result.token;
+					if (!csrfToken) {
+						console.log('ERROR: Failed to get CSRF token');
 						return Promise.reject();
 					}
+					console.log(' - get CSRF token');
+					_CSRFToken = csrfToken;
+					_indexSite(server, request, localhost, site, contenttype, publish, done);
 				});
-			}, 6000);
+			});
 
+		})
+		.catch((error) => {
+			_indexSiteEnd(done);
 		});
-
-	})
-	.catch((error) => {
-		_indexSiteEnd(done);
-	});
 };

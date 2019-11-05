@@ -222,6 +222,294 @@ module.exports.resourceExist = function (args) {
 	return _getResource(server, args.type, args.id, args.name, args.expand, false);
 };
 
+var _getSiteAccess = function (server, id, name) {
+	return new Promise(function (resolve, reject) {
+		var request = siteUtils.getRequest();
+
+		var url = '/sites/management/api/v1/sites/';
+		if (id) {
+			url = url + id
+		} else if (name) {
+			url = url + 'name:' + name;
+		}
+		url = url + '/access';
+		console.log(' - get ' + url);
+
+		url = url + '?links=none';
+
+		var options = {
+			url: server.url + url
+		};
+		if (server.env !== 'dev_ec') {
+			options.headers = {
+				Authorization: _getAuthorization(server)
+			};
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+
+		request(options, function (error, response, body) {
+			var result = {};
+
+			if (error) {
+				console.log('ERROR: failed to get site access ' + (id || name) + ' : ');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve(data && data.items || []);
+			} else {
+				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to get site access ' + (id || name) + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Get a secure site's access on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} id the id of the site or
+ * @param {string} name the name of the site
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getSiteAccess = function (args) {
+	var server = args.server;
+	return _getSiteAccess(server, args.id, args.name);
+};
+
+var _removeSiteAccess = function (server, id, name, member) {
+	return new Promise(function (resolve, reject) {
+		var request = siteUtils.getRequest();
+
+		var url = '/sites/management/api/v1/sites/';
+		if (id) {
+			url = url + id
+		} else if (name) {
+			url = url + 'name:' + name;
+		}
+		url = url + '/access/' + member;
+		console.log(' - delete ' + url);
+
+		var options = {
+			method: 'DELETE',
+			url: server.url + url
+		};
+		if (server.env !== 'dev_ec') {
+			options.headers = {
+				Authorization: _getAuthorization(server)
+			};
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+
+		request(options, function (error, response, body) {
+
+			if (error) {
+				console.log('ERROR: failed to remove ' + member + ' from accessing site ' + (id || name) + ' : ');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode <= 300) {
+				resolve(data);
+			} else {
+				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to remove ' + member + ' from accessing site ' + (id || name) + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Remove a user from a site's access list on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} id the id of the site or
+ * @param {string} name the name of the site
+ * @param {string} member in the form of user:<user id>
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.removeSiteAccess = function (args) {
+	var server = args.server;
+	return _removeSiteAccess(server, args.id, args.name, args.member);
+};
+
+var _grantSiteAccess = function (server, id, name, member) {
+	return new Promise(function (resolve, reject) {
+		var request = siteUtils.getRequest();
+
+		var url = '/sites/management/api/v1/sites/';
+		if (id) {
+			url = url + id
+		} else if (name) {
+			url = url + 'name:' + name;
+		}
+		url = url + '/access';
+		console.log(' - post ' + url);
+
+		var options = {
+			method: 'POST',
+			url: server.url + url,
+			body: {
+				id: member
+			},
+			json: true
+		};
+		if (server.env !== 'dev_ec') {
+			options.headers = {
+				Authorization: _getAuthorization(server)
+			};
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to grant ' + member + ' to access site ' + (id || name) + ' : ');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode <= 300) {
+				resolve(data);
+			} else {
+				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to grant ' + member + ' to access site ' + (id || name) + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Grant a user access to a site server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} id the id of the site or
+ * @param {string} name the name of the site
+ * @param {string} member in the form of user:<user id>
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.grantSiteAccess = function (args) {
+	var server = args.server;
+	return _grantSiteAccess(server, args.id, args.name, args.member);
+};
+
+var _setSiteRuntimeAccess = function (server, id, name, accessList) {
+	return new Promise(function (resolve, reject) {
+		var request = siteUtils.getRequest();
+
+		var url = '/sites/management/api/v1/sites/';
+		if (id) {
+			url = url + id
+		} else if (name) {
+			url = url + 'name:' + name;
+		}
+		console.log(' - patch ' + url);
+
+		var options = {
+			method: 'PATCH',
+			url: server.url + url,
+			body: {
+				security: {
+					access: accessList
+				}
+			},
+			json: true
+		};
+		if (server.env !== 'dev_ec') {
+			options.headers = {
+				Authorization: _getAuthorization(server)
+			};
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+		// console.log(options);
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to set runtime access for site ' + (id || name) + ' : ');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode < 300) {
+				resolve(data);
+			} else {
+				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to set runtime access for site ' + (id || name) + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Update site's access at runtime
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} id the id of the site or
+ * @param {string} name the name of the site
+ * @param {string} access list of access level, valid values: cloud, visitors, service and named
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.setSiteRuntimeAccess = function (args) {
+	var server = args.server;
+	return _setSiteRuntimeAccess(server, args.id, args.name, args.accessList);
+};
+
 var _exportResource = function (server, type, id, name) {
 	return new Promise(function (resolve, reject) {
 		var request = siteUtils.getRequest();
@@ -759,7 +1047,7 @@ var _validateSite = function (server, id, name) {
 			} catch (e) {
 				data = body;
 			}
-			
+
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {

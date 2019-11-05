@@ -252,7 +252,7 @@ SiteUpdate.prototype.updateSiteFiles = function (argv, siteEntry, updateStep, fo
 	});
 };
 
-// merge the site instance specific fields from the file on the server with that in the teplate
+// merge the site instance specific fields from the file on the server with that in the template
 // This contains information such as "siteName" and "channelID" that is specific to the created site.  
 // The value of this file in the template does not reflect the values created in the site.
 SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
@@ -578,86 +578,98 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 			done();
 			return;
 		}
-		console.log(' - server: ' + server.url);
+		// console.log(' - server: ' + server.url);
+		var request = serverUtils.getRequest();
 
-		var excludeContentTemplate = typeof argv.excludecontenttemplate === 'string' && argv.excludecontenttemplate.toLowerCase() === 'true';
-
-		// logon and get the site folder GUID and Site info for the Channel/Repository/Collection details
-		console.log('Updating site: ' + siteName);
-		var serverDetailsPromise = serverUtils.getSiteFolder(server, siteName),
-			serverInfoPromise = serverUtils.getSiteInfo(server, siteName);
-
-		Promise.all([serverDetailsPromise, serverInfoPromise]).then(function (siteResults) {
-			var siteEntry = siteResults[0],
-				siteInfo = siteResults[1].siteInfo;
-
-			// if can't locate the site, return
-			if (!(siteEntry && siteEntry.siteGUID)) {
-				console.log('Error: failed to locate site: ' + siteName);
+		var loginPromise = serverUtils.loginToServer(server, request);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
 				done();
 				return;
 			}
 
-			// add in the site name
-			siteEntry.site = siteName;
+			var excludeContentTemplate = typeof argv.excludecontenttemplate === 'string' && argv.excludecontenttemplate.toLowerCase() === 'true';
 
-			//
-			// Include all the steps to update the site
-			// Note: Running steps serially to avoid overloading the server.  Could be run in parallel depending on performance/load impact.
-			// 
-			updateSitePromises.push(function () {
-				return self.updatePages(argv, siteEntry);
-			});
-			updateSitePromises.push(function () {
-				return self.updateStaticFiles(argv, siteEntry);
-			});
-			updateSitePromises.push(function () {
-				return self.updateContent(argv, siteEntry);
-			});
-			updateSitePromises.push(function () {
-				return self.updateSystemFiles(argv, siteEntry);
-			});
-			updateSitePromises.push(function () {
-				return self.updateSettingsFiles(argv, siteEntry);
-			});
-			if (!excludeContentTemplate) {
+			// logon and get the site folder GUID and Site info for the Channel/Repository/Collection details
+			console.log('Updating site: ' + siteName);
+			var serverDetailsPromise = serverUtils.getSiteFolderAfterLogin(server, siteName),
+				serverInfoPromise = serverUtils.getSiteInfoWithToken(server, siteName);
+
+			Promise.all([serverDetailsPromise, serverInfoPromise]).then(function (siteResults) {
+				var siteEntry = siteResults[0],
+					siteInfo = siteResults[1].siteInfo;
+				// console.log(siteInfo);
+
+				// if can't locate the site, return
+				if (!(siteEntry && siteEntry.siteGUID)) {
+					console.log('Error: failed to locate site: ' + siteName);
+					done();
+					return;
+				}
+
+				// add in the site name
+				siteEntry.site = siteName;
+
+				//
+				// Include all the steps to update the site
+				// Note: Running steps serially to avoid overloading the server.  Could be run in parallel depending on performance/load impact.
+				// 
 				updateSitePromises.push(function () {
-					return self.updateSiteContent(argv, siteInfo);
+					return self.updatePages(argv, siteEntry);
 				});
-			}
-
-			// run through the update steps
-			var doUpdateSteps = updateSitePromises.reduce(function (previousPromise, nextPromise) {
-					return previousPromise.then(function (result) {
-						// store the result of this step
-						if (result) {
-							results.push(result);
-						}
-
-						// wait for the previous promise to complete and then return a new promise for the next 
-						return nextPromise();
+				updateSitePromises.push(function () {
+					return self.updateStaticFiles(argv, siteEntry);
+				});
+				updateSitePromises.push(function () {
+					return self.updateContent(argv, siteEntry);
+				});
+				updateSitePromises.push(function () {
+					return self.updateSystemFiles(argv, siteEntry);
+				});
+				updateSitePromises.push(function () {
+					return self.updateSettingsFiles(argv, siteEntry);
+				});
+				if (!excludeContentTemplate) {
+					updateSitePromises.push(function () {
+						return self.updateSiteContent(argv, siteInfo);
 					});
-				},
-				// Start with a previousPromise value that is a resolved promise 
-				Promise.resolve());
+				}
 
-			// once all files are downloaded, can continue
-			doUpdateSteps.then(function (finalResult) {
-				// add in the final result
-				results.push(finalResult);
+				// run through the update steps
+				var doUpdateSteps = updateSitePromises.reduce(function (previousPromise, nextPromise) {
+						return previousPromise.then(function (result) {
+							// store the result of this step
+							if (result) {
+								results.push(result);
+							}
 
-				// output the results
-				console.log('Update Site Results:');
-				var totalErr = 0;
-				results.forEach(function (result) {
-					totalErr = totalErr + result.errors;
-					console.log(' - ' + result.name.padEnd(20) + ': completed with ' + result.errors + ' errors.');
+							// wait for the previous promise to complete and then return a new promise for the next 
+							return nextPromise();
+						});
+					},
+					// Start with a previousPromise value that is a resolved promise 
+					Promise.resolve());
+
+				// once all files are downloaded, can continue
+				doUpdateSteps.then(function (finalResult) {
+					// add in the final result
+					results.push(finalResult);
+
+					// output the results
+					console.log('Update Site Results:');
+					var totalErr = 0;
+					results.forEach(function (result) {
+						totalErr = totalErr + result.errors;
+						console.log(' - ' + result.name.padEnd(20) + ': completed with ' + result.errors + ' errors.');
+					});
+					done(totalErr === 0);
+				}).catch(function (err) {
+					console.log('Error: failed to update site: ');
+					console.log(err);
 				});
-				done(totalErr === 0);
-			}).catch(function (err) {
-				console.log('Error: failed to update site: ');
-				console.log(err);
 			});
+
 		});
 	} catch (e) {
 		console.log('ERROR: cec update-site failed');

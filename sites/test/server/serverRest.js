@@ -272,9 +272,10 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 					}
 				}
 			}
+			
 			// folder not found
 			if (showError) {
-				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : '';
 				console.log('ERROR: failed to find ' + (itemtype ? itemtype : ' File') + ': ' + filename + ' ' + msg);
 			}
 			return resolve({
@@ -549,7 +550,7 @@ var _getFileVersions = function (server, fFileGUID) {
 			url: url,
 			auth: serverUtils.getRequestAuth(server)
 		};
-		console.log(options);
+		// console.log(options);
 		request(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get file version ' + fFileGUID);

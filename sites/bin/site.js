@@ -6,9 +6,12 @@
 /* jshint esversion: 6 */
 
 var fs = require('fs'),
+	fse = require('fs-extra'),
+	dir = require('node-dir'),
 	path = require('path'),
 	semver = require('semver'),
 	sprintf = require('sprintf-js').sprintf,
+	documentUtils = require('./document.js').utils,
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	serverUtils = require('../test/server/serverUtils.js');
@@ -1333,7 +1336,7 @@ module.exports.shareSite = function (argv, done) {
 						return Promise.reject();
 					}
 					if (!result.id) {
-						console.log(' - site ' + name + ' does not exist');
+						console.log('ERROR: site ' + name + ' does not exist');
 						return Promise.reject();
 					}
 					siteId = result.id;
@@ -1525,7 +1528,7 @@ module.exports.unshareSite = function (argv, done) {
 						return Promise.reject();
 					}
 					if (!result.id) {
-						console.log(' - site ' + name + ' does not exist');
+						console.log('ERROR: site ' + name + ' does not exist');
 						return Promise.reject();
 					}
 					siteId = result.id;
@@ -2131,8 +2134,11 @@ module.exports.setSiteSecurity = function (argv, done) {
 		}
 	}
 
-	_setSiteSecuritySCS(server, name, signin, access, addUserNames, deleteUserNames, done);
-
+	if (server.useRest) {
+		_setSiteSecurityREST(server, name, signin, access, addUserNames, deleteUserNames, done);
+	} else {
+		_setSiteSecuritySCS(server, name, signin, access, addUserNames, deleteUserNames, done);
+	}
 };
 
 var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, deleteUserNames, done) {
@@ -2527,4 +2533,438 @@ var _setSiteAccessValue = function (siteAccess) {
 	}
 	// console.log(' - access: ' + siteAccess + ' code: ' + val);
 	return val;
+};
+
+var _setSiteSecurityREST = function (server, name, signin, access, addUserNames, deleteUserNames, done) {
+	try {
+		var request = serverUtils.getRequest();
+
+		var loginPromise = serverUtils.loginToServer(server, request);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
+
+			var siteId;
+			var siteSecurity
+			var siteMembers = [];
+			var users = [];
+			var accessValues = [];
+
+			sitesRest.getSite({
+					server: server,
+					name: name,
+					expand: 'access'
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					// console.log(result);
+					var site = result;
+					siteId = site.id;
+					var siteOnline = site.runtimeStatus === 'online' ? true : false;
+					siteSecurity = site.security && site.security.access || [];
+					var siteSecured = siteSecurity.includes('everyone') ? false : true;
+					console.log(' - get site: runtimeStatus: ' + site.runtimeStatus + ' securityStatus: ' + (siteSecured ? 'secured' : 'public'));
+
+					if (signin === 'no' && !siteSecured) {
+						console.log(' - site is already publicly available to anyone');
+						return Promise.reject();
+					}
+					if (siteOnline) {
+						console.log('ERROR: site is currently online. In order to change the security setting you must first bring this site offline.');
+						return Promise.reject();
+					}
+
+					if (site.access && site.access.items && site.access.items.length > 0) {
+						for (var i = 0; i < site.access.items.length; i++) {
+							siteMembers.push(site.access.items[i].name);
+						}
+					}
+
+					var usersPromises = [];
+					if (signin === 'yes') {
+						// console.log(' - add user: ' + addUserNames);
+						// console.log(' - delete user: ' + deleteUserNames);
+						for (var i = 0; i < addUserNames.length; i++) {
+							usersPromises.push(serverRest.getUser({
+								server: server,
+								name: addUserNames[i]
+							}));
+						}
+						for (var i = 0; i < deleteUserNames.length; i++) {
+							usersPromises.push(serverRest.getUser({
+								server: server,
+								name: deleteUserNames[i]
+							}));
+						}
+					}
+					return Promise.all(usersPromises);
+
+				})
+				.then(function (results) {
+					if (signin === 'yes') {
+						if (addUserNames.length > 0 || deleteUserNames.length > 0) {
+							var allUsers = [];
+							for (var i = 0; i < results.length; i++) {
+								if (results[i].items) {
+									allUsers = allUsers.concat(results[i].items);
+								}
+							}
+
+							console.log(' - verify users');
+							var err = false;
+							// verify users
+							for (var k = 0; k < addUserNames.length; k++) {
+								var found = false;
+								for (var i = 0; i < allUsers.length; i++) {
+									if (allUsers[i].loginName.toLowerCase() === addUserNames[k].toLowerCase()) {
+										if (!siteMembers.includes(allUsers[i].loginName)) {
+											var user = allUsers[i];
+											user['action'] = 'add';
+											users.push(allUsers[i]);
+										}
+										found = true;
+										break;
+									}
+									if (found) {
+										break;
+									}
+								}
+								if (!found) {
+									console.log('ERROR: user ' + addUserNames[k] + ' does not exist');
+									err = true;
+								}
+							}
+							for (var k = 0; k < deleteUserNames.length; k++) {
+								var found = false;
+								for (var i = 0; i < allUsers.length; i++) {
+									if (allUsers[i].loginName.toLowerCase() === deleteUserNames[k].toLowerCase()) {
+										if (siteMembers.includes(allUsers[i].loginName)) {
+											var user = allUsers[i];
+											user['action'] = 'delete';
+											users.push(allUsers[i]);
+										}
+										found = true;
+										break;
+									}
+									if (found) {
+										break;
+									}
+								}
+								if (!found) {
+									console.log('ERROR: user ' + deleteUserNames[k] + ' does not exist');
+									err = true;
+								}
+							}
+
+							if (err && users.length === 0) {
+								return Promise.reject();
+							}
+						}
+					}
+
+					if (access.includes('Cloud users')) {
+						accessValues.push('cloud');
+						accessValues.push('visitors');
+						accessValues.push('service');
+						accessValues.push('named');
+					} else {
+						if (access.includes('Visitors')) {
+							accessValues.push('visitors');
+						}
+						if (access.includes('Service users')) {
+							accessValues.push('service');
+						}
+						if (access.includes('Specific users')) {
+							accessValues.push('named');
+						}
+					}
+
+					return sitesRest.setSiteRuntimeAccess({
+						server: server,
+						id: siteId,
+						accessList: accessValues
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					// console.log(result);
+
+					var removeAccessPromises = [];
+					if (accessValues.includes('named')) {
+						for (var i = 0; i < users.length; i++) {
+							if (users[i].action === 'delete') {
+								removeAccessPromises.push(sitesRest.removeSiteAccess({
+									server: server,
+									id: siteId,
+									member: 'user:' + users[i].loginName
+								}));
+							}
+						}
+					}
+					return Promise.all(removeAccessPromises);
+				})
+				.then(function (results) {
+
+					var grantAccessPromises = [];
+					if (accessValues.includes('named')) {
+						for (var i = 0; i < users.length; i++) {
+							if (users[i].action === 'add') {
+								grantAccessPromises.push(sitesRest.grantSiteAccess({
+									server: server,
+									id: siteId,
+									member: 'user:' + users[i].loginName
+								}));
+							}
+						}
+					}
+
+					return Promise.all(grantAccessPromises);
+
+				})
+				.then(function (results) {
+
+					if (!accessValues.includes('named') && users.length > 0) {
+						console.log(' - add or remove memeber is not allowed when \'Specific users\' is not selected for site');
+					}
+
+					// query once more to get the final data
+					return sitesRest.getSite({
+						server: server,
+						id: siteId,
+						expand: 'access'
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+
+					var site = result;
+					console.log(' - site security settings updated:');
+					var format = '   %-50s %-s';
+					console.log(sprintf(format, 'Site', name));
+					console.log(sprintf(format, 'Require everyone to sign in to access', signin));
+					if (signin === 'yes') {
+						console.log(sprintf(format, 'Who can access this site when it goes online', ''));
+						var accValues = site.security && site.security.access || [];
+						// console.log(accValues);
+
+						var format2 = '           %-2s  %-s';
+						var access = 'Cloud users';
+						var checked = accValues.includes('cloud') ? '√' : '';
+						console.log(sprintf(format2, checked, access));
+
+						access = 'Visitors';
+						checked = accValues.includes('visitors') ? '√' : '';
+						console.log(sprintf(format2, checked, access));
+
+						var access = 'Service users';
+						var checked = accValues.includes('service') ? '√' : '';
+						console.log(sprintf(format2, checked, access));
+
+						var access = 'Specific users';
+						var checked = accValues.includes('named') ? '√' : '';
+						console.log(sprintf(format2, checked, access));
+
+						if (accValues.indexOf('named') >= 0) {
+							var siteUserNames = [];
+							if (site.access && site.access.items && site.access.items.length > 0) {
+								for (var i = 0; i < site.access.items.length; i++) {
+									siteUserNames.push(site.access.items[i].displayName || site.access.items[i].name);
+								}
+							}
+							console.log(sprintf(format, 'Published site viewers', ''));
+							console.log(sprintf('           %-s', siteUserNames.length === 0 ? '' : siteUserNames.join(', ')));
+						}
+					}
+
+					done(true);
+				})
+				.catch((error) => {
+					done();
+				});
+		});
+	} catch (e) {
+		console.log(e);
+		done();
+	}
+};
+
+/**
+ * set site security
+ */
+module.exports.uploadStaticSite = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var srcPath = argv.path;
+
+	if (!path.isAbsolute(srcPath)) {
+		srcPath = path.join(projectDir, srcPath);
+	}
+	srcPath = path.resolve(srcPath);
+
+	if (!fs.existsSync(srcPath)) {
+		console.log('ERROR: folder ' + srcPath + ' does not exist');
+		done();
+		return;
+	}
+	if (!fs.statSync(srcPath).isDirectory()) {
+		console.log('ERROR: ' + srcPath + ' is not a folder');
+		done();
+		return;
+	}
+
+	// remove drive on windows
+	if (srcPath.indexOf(path.sep) > 0) {
+		srcPath = srcPath.substring(srcPath.indexOf(path.sep));
+	}
+
+	console.log(' - static site folder: ' + srcPath);
+
+	var siteName = argv.site;
+
+	var request = serverUtils.getRequest();
+
+	var siteId;
+	serverUtils.loginToServer(server, request).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		serverUtils.getSiteFolder(server, siteName)
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				if (!result.id) {
+					console.log('ERROR: site ' + siteName + ' does not exist');
+					return Promise.reject();
+				}
+				siteId = result.id;
+				console.log(' - verify site');
+
+				return _prepareStaticSite(srcPath);
+
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var uploadArgv = {
+					path: result.localFolder,
+					folder: 'site:' + siteName
+				};
+				return documentUtils.uploadFolder(uploadArgv, server);
+			})
+			.then(function (result) {
+
+				done(true);
+			})
+			.catch((error) => {
+				done();
+			});
+
+	});
+};
+
+var _prepareStaticSite = function (srcPath) {
+	return new Promise(function (resolve, reject) {
+		dir.paths(srcPath, function (err, paths) {
+			if (err) {
+				console.log(err);
+				return resolve({
+					err: 'err'
+				});
+			} else {
+				try {
+					if (paths.files.length === 0 && paths.dirs.length === 0) {
+						console.log('ERROR: no file nor folder under ' + srcPath);
+						return resolve({
+							err: 'err'
+						});
+					}
+
+					var buildDir = serverUtils.getBuildFolder(projectDir);
+					if (!fs.existsSync(buildDir)) {
+						fse.mkdirSync(buildDir);
+					}
+
+					var srcFolderName = srcPath.substring(srcPath.lastIndexOf(path.sep) + 1);
+					var staticFolder = path.join(buildDir, 'static');
+					if (fs.existsSync(staticFolder)) {
+						fse.removeSync(staticFolder);
+					}
+					fse.mkdirSync(staticFolder);
+
+					// get all sub folders including empty ones
+					var subdirs = paths.dirs;
+					for (var i = 0; i < subdirs.length; i++) {
+						var subdir = subdirs[i];
+						subdir = subdir.substring(srcPath.length + 1);
+						fse.mkdirSync(path.join(staticFolder, subdir), {
+							recursive: true
+						});
+					}
+
+					// get all sub folders including empty ones
+					var files = paths.files;
+					for (var i = 0; i < files.length; i++) {
+						var fileFolder = files[i];
+						var fileFolder = fileFolder.substring(srcPath.length + 1);
+						fileFolder = fileFolder.substring(0, fileFolder.lastIndexOf('/'));
+						
+						// create _files folder
+						var filesFolder;
+						if (serverUtils.endsWith(fileFolder, '_files')) {
+							filesFolder = path.join(staticFolder, fileFolder);
+						} else {
+							filesFolder = path.join(staticFolder, fileFolder, '_files');
+						}
+						if (!fs.existsSync(filesFolder)) {
+							fse.mkdirSync(filesFolder, {
+								recursive: true
+							});
+						}
+
+						var fileName = files[i];
+						fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
+
+						// copy file
+						fs.copyFileSync(files[i], path.join(filesFolder, fileName));
+					}
+
+					return resolve({
+						localFolder: staticFolder
+					});
+				} catch (e) {
+					console.log(e);
+					return resolve({
+						err: 'err'
+					});
+				}
+			}
+		});
+	});
 };

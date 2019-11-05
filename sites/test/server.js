@@ -83,6 +83,22 @@ request = request.defaults({
 });
 app.locals.request = request;
 
+// remove _cache_ from url
+app.use(function (req, res, next) {
+	var origPath = req.path;
+	if (origPath.indexOf('/_cache_') > 0) {
+		var cacheStr = origPath.substring(origPath.indexOf('/_cache_') + 1);
+		if (cacheStr.indexOf('/') > 0) {
+			cacheStr = cacheStr.substring(0, cacheStr.indexOf('/'));
+			if (cacheStr) {
+				req.url = req.url.replace('/' + cacheStr, '');
+				console.log(origPath + ' ===> ' + req.path);
+			}
+		}
+	}
+	return next();
+});
+
 // login if the session is timeout
 app.use(function (req, res, next) {
 	var needLogin = false,

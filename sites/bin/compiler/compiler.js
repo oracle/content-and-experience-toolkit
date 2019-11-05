@@ -70,6 +70,7 @@ var useSharedRequireJS = false;
 var useOriginalRequireJS = false;
 var rootStructure;
 var rootSiteInfo;
+var defaultLocale; // set if required by command line parameter
 var outputAlternateHierarchy = true; // Emit to /folder/_files/<filename> structure
 var pagesToCompile; // list of pages that will be compiled
 
@@ -595,7 +596,10 @@ function getPageLinkData(pageEntry, sitePrefix, structureMap, pageLocale) {
 				if (pageUrl) {
 					// maintain locale for navigation between pages
 					var locale = pageLocale; // this.data.locale;
-					if (locale) {
+					var isDefaultLocale = pageLocale === rootSiteInfo.properties.defaultLanguage; 
+					var includeLocale = locale && (!isDefaultLocale || defaultLocale);  // include locale if it is not the default or if includeLocale set
+
+					if (includeLocale) {
 						var siteLocalePrefix = combineUrlSegments(sitePrefix, locale);
 						url = combineUrlSegments(siteLocalePrefix, pageUrl);
 					} else {
@@ -754,7 +758,7 @@ var compiler = {
 		self.sitePrefix = args.sitePrefix;
 		self.pageModel = args.pageModel;
 		self.localePageModel = args.localePageModel;
-		self.pageLocale = args.pageLocale;
+		self.pageLocale = args.pageLocale || args.siteInfo.properties.defaultLanguage || '';
 		self.navigationRoot = args.navigationRoot;
 		self.navigationCurr = args.navigationCurr;
 		self.structureMap = args.structureMap;
@@ -1072,6 +1076,7 @@ var compiler = {
 				var content,
 					tempMarkup,
 					componentId,
+					parentAttributes,
 					parentClasses;
 
 				// convert the grid to use mustache macros to insert the compiled component content
@@ -1111,6 +1116,16 @@ var compiler = {
 								tempMarkup = replaceTagAttributes(tempSlotMarkup, componentId, {
 									class: parentClasses.join(' ')
 								});
+								if (typeof tempMarkup === 'string') {
+									tempSlotMarkup = tempMarkup;
+								}
+							}
+
+							// Allow components, particularly Section Layouts, to set additional attributes on the
+							// component div.  This will be used to signal the need to invoke the hydrate function.
+							parentAttributes = self.compiledComponents[componentId].parentAttributes;
+							if (parentAttributes && (typeof parentAttributes === 'object')) {
+								tempMarkup = replaceTagAttributes(tempSlotMarkup, componentId, parentAttributes);
 								if (typeof tempMarkup === 'string') {
 									tempSlotMarkup = tempMarkup;
 								}
@@ -1896,7 +1911,7 @@ function computeSitePrefix(context, pageUrl, pageInfo) {
 		}
 	}
 
-	if (context.pageLocale) {
+	if (context.pageLocale || defaultLocale) {
 		sitePrefix = '../' + sitePrefix;
 	}
 
@@ -1931,7 +1946,8 @@ function createPage(context, pageInfo) {
 				console.log('createPage: Bypassing pageId ' + pageInfo.id + ' having external URL: ' + pageInfo.linkUrl);
 				resolve();
 			} else {
-				console.log('createPage: Processing ' + (pageInfo.contentItem ? 'detail ' : '') + 'pageId ' + pageInfo.id + ' at the URL: ' + (outputURL ? outputURL : '') + (context.pageLocale ? context.pageLocale + '/' : '') + pageInfo.pageUrl + ": CONTEXT: " + context.locale);
+				var locale = context.locale || defaultLocale;
+				console.log('createPage: Processing ' + (pageInfo.contentItem ? 'detail ' : '') + 'pageId ' + pageInfo.id + (locale ? ": Locale: " + locale : '') + '. Preview URL: ' + (outputURL ? outputURL : '') + (locale ? locale + '/' : '') + pageInfo.pageUrl);
 
 				var pageDatas = getPageData(context, pageInfo.id);
 				var pageData = pageDatas.pageData;
@@ -1961,7 +1977,7 @@ function createPage(context, pageInfo) {
 						pageData = fixupPageDataWithSlotReuseData(context, pageData, layoutName, layoutMarkup);
 						// now fixup the page 
 						fixupPage(pageInfo.id, pageInfo.pageUrl, layoutMarkup, (pageData.base || pageData), pageDatas.localePageData, context, sitePrefix).then(function (pageMarkup) {
-								var pagePrefix = context.locale ? (context.locale + '/') : '';
+								var pagePrefix = locale ? (locale + '/') : '';
 								writePage(pagePrefix + pageInfo.pageUrl, pageMarkup);
 								resolve();
 							})
@@ -2149,8 +2165,10 @@ function createDetailPages() {
 
 	Object.keys(detailPageList).forEach(function (language) {
 		try {
+			var defaultLanguage = rootSiteInfo && rootSiteInfo.properties && rootSiteInfo.properties.defaultLanguage;
+
 			// Initialize the context for this set of pages
-			var context = setupContext(language);
+			var context = setupContext(language === defaultLanguage ? '' : language);
 
 			// get the array of pages to compile
 			pagesToCompile = detailPageList[language];
@@ -2213,6 +2231,7 @@ var compileSite = function (args) {
 	outputFolder = args.outputFolder;
 	pages = args.pages;
 	recurse = args.recurse;
+	includeLocale = args.includeLocale;
 	verbose = args.verbose;
 	useDefaultDetailPageLink = !(args.noDefaultDetailPageLink);
 	detailPageContentLayoutSnippet = !!(args.contentLayoutSnippet);
@@ -2224,19 +2243,21 @@ var compileSite = function (args) {
 	defaultContentType = args.type === 'published' ? 'published' : 'draft'; // default to draft content, URLs will still be published
 
 	console.log("Oracle Content and Experience Site Compiler");
-	console.log("Version 0.1");
 	console.log("");
-	console.log("Configuration:");
-	console.log("    -siteFolder              = " + siteFolder);
-	console.log("    -themesFolder            = " + themesFolder);
-	console.log("    -componentsFolder        = " + componentsFolder);
-	console.log("    -sitesCloudRuntimeFolder = " + sitesCloudRuntimeFolder);
-	console.log("    -outputFolder            = " + outputFolder);
-	console.log("    -outputURL               = " + outputURL);
-	console.log("    -channelAccessToken      = " + channelAccessToken);
-	console.log("    -sitesCloudCDN           = " + sitesCloudCDN);
-	console.log("    -logLevel                = " + logLevel);
-	console.log("");
+
+	if (logLevel !== 'log') {
+		console.log("Configuration:");
+		console.log("    -siteFolder              = " + siteFolder);
+		console.log("    -themesFolder            = " + themesFolder);
+		console.log("    -componentsFolder        = " + componentsFolder);
+		console.log("    -sitesCloudRuntimeFolder = " + sitesCloudRuntimeFolder);
+		console.log("    -outputFolder            = " + outputFolder);
+		console.log("    -outputURL               = " + outputURL);
+		console.log("    -channelAccessToken      = " + channelAccessToken);
+		console.log("    -sitesCloudCDN           = " + sitesCloudCDN);
+		console.log("    -logLevel                = " + logLevel);
+		console.log("");
+	}
 
 	// setup the reporting level
 	if (verbose) {
@@ -2256,6 +2277,12 @@ var compileSite = function (args) {
 		return Promise.reject();
 	}
 
+	// setup the default locale if requried
+	if (includeLocale) {
+		defaultLocale = rootSiteInfo && rootSiteInfo.properties && rootSiteInfo.properties.defaultLanguage;
+	}
+
+	// create the pages 
 	var createPagePromises = [];
 
 	var languages = getAvailableLanguages();

@@ -90,9 +90,15 @@ ContentItem.prototype.getContentLayoutName = function (SCSCompileAPI, args) {
 
 		// resolve with the layout name or use the system default layout
 		if (!layoutName) {
-			compilationReporter.warn({
-				message: 'failed to find content layout map entry for: ' + contentType + ':' + contentLayoutCategory + '. Will compile using the system default layout.'
-			});
+			if (!contentType) {
+				compilationReporter.info({
+					message: 'failed to find content layout map entry - no content types defined. Placeholder component will render at runtime.'
+				});
+			} else {
+				compilationReporter.warn({
+					message: 'failed to find content layout map entry for: ' + contentType + ':' + contentLayoutCategory + '. Will compile using the system default layout.'
+				});
+			}
 		}
 		return resolve(layoutName || SYSTEM_DEFAULT_LAYOUT);
 	});
@@ -204,7 +210,12 @@ ContentItem.prototype.compile = function (args) {
 								});
 							});
 						}).catch(function (e) {
-							var error = e ? 'statusCode: ' + e.statusCode + '. statusMessage: ' + e.statusMessage + '. ' : '';
+							var error;
+							if (e && e.statusCode) {
+								error = e ? 'statusCode: ' + e.statusCode + '. statusMessage: ' + e.statusMessage + '. ' : '';
+							} else {
+								error = 'failed in:  ' + compileFile + ' - ' + e.toString();
+							}
 							compilationReporter.error({
 								message: 'failed to compile content item: ' + contentId + '. The component will render in the client.',
 								error: error

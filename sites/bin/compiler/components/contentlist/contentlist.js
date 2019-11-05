@@ -279,6 +279,9 @@ ContentList.prototype.fetchData = function (args) {
 	var viewModel = this,
 		SCSCompileAPI = args.SCSCompileAPI;
 
+	// get the page locale
+	viewModel.language = viewModel.language || SCSCompileAPI.pageLocale;
+
 	// now get the content 
 	return SCSCompileAPI.getContentClient().then(function (contentClient) {
 		// generate query string from options, ignoring ones without a value

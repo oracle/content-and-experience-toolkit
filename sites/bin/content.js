@@ -94,6 +94,12 @@ module.exports.downloadContent = function (argv, done) {
 	});
 };
 
+var _downloadContentUtil = function (argv) {
+	verifyRun(argv);
+	return _downloadContent(argv.server, argv.channel, argv.name, argv.publishedassets, 
+		argv.repositoryName, argv.collectionName, argv.query, argv.assetGUIDS);
+};
+
 var _downloadContent = function (server, channel, name, publishedassets, repositoryName, collectionName, query, assetGUIDS) {
 	return new Promise(function (resolve, reject) {
 		var destdir = path.join(projectDir, 'dist');
@@ -107,7 +113,6 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 		var channelName = '';
 		var repository, collection;
 		var q = '';
-
 		var channelsPromise = _getChannelsFromServer(server);
 		channelsPromise.then(function (result) {
 				// console.log(result);
@@ -1741,4 +1746,9 @@ module.exports.syncDeleteItem = function (argv, done) {
 		.catch((error) => {
 			done();
 		});
+};
+
+// export non "command line" utility functions
+module.exports.utils = {
+	downloadContent: _downloadContentUtil
 };

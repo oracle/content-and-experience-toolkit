@@ -166,7 +166,7 @@ To write remote tests, you'll need to seed a site before running the tests (use 
 
 ## Jenkins Integration
 
-Here is an export of example Job running the OOTB test framework running under Jenkins: [jenkins-job.xml](https://github.com/oracle/content-and-experience-toolkit/blob/master/sites/doc/images/jenkins-job.xml?raw=true)
+Here is an export of example Job running the OOTB test framework running under Jenkins: [images/jenkins-job.xml](jenkins-job.xml)
 
 
 # Coding Standards

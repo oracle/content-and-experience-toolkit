@@ -346,12 +346,17 @@ const createTemplate = {
 		'short': 'Creates the template <name>.',
 		'long': (function () {
 			let desc = 'Creates the template <name>. By default, it creates a StarterTemplate. Optionally specify -f <source> to create from different source.\n\nValid values for <source> are: \n';
-			return getTemplateSources().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = getTemplateSources().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + ' To create template based on a site on CEC server, specify -s <site> and specify the server with -r <server> or use the one specified in cec.properties file.'
+			return desc;
 		})()
 	},
 	example: [
 		['cec create-template Temp1'],
-		['cec create-template Temp2 -f CafeSupremoLite']
+		['cec create-template Temp2 -f CafeSupremoLite'],
+		['cec create-template Temp1 -s Site1', 'Create template Temp1 based on site Site1 on CEC server'],
+		['cec create-template Temp1 -s Site1 -x', 'Create template Temp1 based on site Site1 on CEC server and exclude the content in the site'],
+		['cec create-template Temp1 -s Site1 -r UAT', 'Create template Temp1 based on site Site1 on the registered server UAT']
 	]
 };
 
@@ -502,6 +507,7 @@ const compileTemplate = {
 				'Optionally specify -p <pages> the set of pages to compile.\n' +
 				'Optionally specify -d to start the compilation with --inspect-brk flag.\n' +
 				'Optionally specify -r recurse through all child pages of specified pages.\n' +
+				'Optionally specify -l include default locale when creating pages.\n' +
 				'Optionally specify -v to display all warning messages during compilation.\n';
 			return desc;
 		})()
@@ -942,6 +948,23 @@ const createAssetReport = {
 		['cec create-asset-report Site1 -o', 'The report will be saved to Site1AssetUsage.json at the current local location'],
 		['cec create-asset-report Site1 -o ~/Documents', 'The report will be saved to ~/Documents/Site1AssetUsage.json'],
 		['cec create-asset-report Site1 -o ~/Documents/Site1Report.json', 'The report will be saved to ~/Documents/Site1Report.json']
+	]
+};
+
+const uploadStaticSite = {
+	command: 'upload-static-site <path>',
+	alias: 'ulss',
+	name: 'upload-static-site',
+	usage: {
+		'short': 'Uploads a local static site to a site on CEC server.',
+		'long': (function () {
+			let desc = 'Uploads a local static site to a site on CEC server. Specify the site <site> on the server. Specify the server with -r <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec upload-static-site ~/Documents/localBlog -s BlogSite'],
+		['cec upload-static-site ~/Documents/localBlog -s BlogSite -r UAT']
 	]
 };
 
@@ -1717,7 +1740,8 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(indexSite) + os.EOL +
 	_getCmdHelp(createSiteMap) + os.EOL +
 	_getCmdHelp(createRSSFeed) + os.EOL +
-	_getCmdHelp(createAssetReport) + os.EOL;
+	_getCmdHelp(createAssetReport) + os.EOL +
+	_getCmdHelp(uploadStaticSite) + os.EOL;
 
 _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
@@ -1936,15 +1960,32 @@ const argv = yargs.usage(_usage)
 					alias: 'f',
 					description: '<source> Source to create from'
 				})
+				.option('site', {
+					alias: 's',
+					description: '<site> Site to create from'
+				})
+				.option('excludecontent', {
+					alias: 'x',
+					description: 'Exclude content'
+				})
+				.option('server', {
+					alias: 'r',
+					description: '<server> The registered CEC server'
+				})
 				.check((argv) => {
 					if (argv.from && !getTemplateSources().includes(argv.from)) {
 						throw new Error(`${argv.from} is not a valid value for <source>`);
-					} else {
-						return true;
 					}
+					if (argv.from && argv.site) {
+						throw new Error('You cannot specify both <from> and <site>');
+					}
+					return true;
 				})
 				.example(...createTemplate.example[0])
 				.example(...createTemplate.example[1])
+				.example(...createTemplate.example[2])
+				.example(...createTemplate.example[3])
+				.example(...createTemplate.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2044,8 +2085,12 @@ const argv = yargs.usage(_usage)
 					description: 'Do not generate compiled detail page for items/content lists that use the default detail page'
 				})
 				.option('contentLayoutSnippet', {
-					alias: 'l',
+					alias: 'n',
 					description: 'Generate a compiled detail page that only has the compiled ContentLayout snippet'
+				})
+				.option('includeLocale', {
+					alias: 'l',
+					description: 'Include default locale when creating pages'
 				})
 				.option('verbose', {
 					alias: 'v',
@@ -2828,6 +2873,24 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${createAssetReport.command}\n\n${createAssetReport.usage.long}`);
+		})
+	.command([uploadStaticSite.command, uploadStaticSite.alias], false,
+		(yargs) => {
+			yargs.option('site', {
+					alias: 's',
+					description: 'The site on CEC server',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 'r',
+					description: 'The registered CEC server'
+				})
+				.example(...uploadStaticSite.example[0])
+				.example(...uploadStaticSite.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${uploadStaticSite.command}\n\n${uploadStaticSite.usage.long}`);
 		})
 	.command([createRepository.command, createRepository.alias], false,
 		(yargs) => {
@@ -3980,6 +4043,15 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--source', argv.from ? argv.from : 'StarterTemplate'
 	];
+	if (argv.site && typeof argv.site !== 'boolean') {
+		createTemplateArgs.push(...['--site', argv.site]);
+	}
+	if (argv.excludecontent) {
+		createTemplateArgs.push(...['--excludecontent', argv.excludecontent]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createTemplateArgs.push(...['--server', argv.server]);
+	}
 	createTemplateArgs.push(...['--name', argv.name]);
 	spawnCmd = childProcess.spawnSync(npmCmd, createTemplateArgs, {
 		cwd,
@@ -4136,6 +4208,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.contentLayoutSnippet) {
 		compileTemplateArgs.push(...['--contentLayoutSnippet', argv.contentLayoutSnippet]);
+	}
+	if (argv.includeLocale) {
+		compileTemplateArgs.push(...['--includeLocale', argv.includeLocale]);
 	}
 	if (argv.verbose) {
 		compileTemplateArgs.push(...['--verbose', argv.verbose]);
@@ -4664,6 +4739,22 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		createAssetReportArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createAssetReportArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === uploadStaticSite.name || argv._[0] === uploadStaticSite.alias) {
+	let uploadStaticSiteArgs = ['run', '-s', uploadStaticSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--path', argv.path,
+		'--site', argv.site
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		uploadStaticSiteArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, uploadStaticSiteArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

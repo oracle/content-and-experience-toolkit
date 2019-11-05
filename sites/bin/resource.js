@@ -553,17 +553,13 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 	var format3 = '  %-36s  %-36s  %-s';
 
 	var request = serverUtils.getRequest();
-
-	var tokenPromises = [];
-	if (server.env === 'pod_ec') {
-		tokenPromises.push(serverUtils.getOAuthTokenFromIDCS(server));
-	}
-	Promise.all(tokenPromises).then(function (result) {
-		if (!server.oauthtoken) {
+	serverUtils.loginToServer(server, request).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
 			done();
 			return;
 		}
-
+	
 		var promises = (listChannels || listRepositories) ? [_getChannels(serverName, server)] : [];
 		var channels;
 

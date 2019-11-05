@@ -22,6 +22,7 @@ var express = require('express'),
 	puppeteer = require('puppeteer'),
 	btoa = require('btoa'),
 	url = require('url'),
+	sitesRest = require('./sitesRest.js'),
 	Client = require('node-rest-client').Client;
 
 var componentsDir,
@@ -920,7 +921,7 @@ module.exports.getContentTypeFromServer = function (server, typename) {
 		};
 		request(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get type ' + typeName);
+				console.log('ERROR: failed to get type ' + typename);
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -936,7 +937,7 @@ module.exports.getContentTypeFromServer = function (server, typename) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get type ' + typeName + ' : ' + msg);
+				console.log('ERROR: failed to get type ' + typename + ' : ' + msg);
 				resolve({
 					err: 'err'
 				});
@@ -1203,6 +1204,7 @@ var _getOAuthTokenFromIDCS = function (server) {
 			} else {
 				var token = data.access_token;
 				server.oauthtoken = token;
+				server.login = true;
 				server.tokentype = data.token_type;
 				return resolve({
 					status: true,
@@ -1920,6 +1922,7 @@ var _loginToDevServer = function (server, request) {
 						console.log(' - Logged in to remote server: ' + server.url);
 						loginReported = true;
 					}
+					server.login = true;
 					return resolve({
 						'status': true
 					});
@@ -2011,6 +2014,7 @@ var _loginToPODServer = function (server) {
 				// console.log('OAuth token=' + token);
 
 				server.oauthtoken = token;
+				server.login = true;
 
 				await browser.close();
 
@@ -2118,6 +2122,7 @@ var _loginToSSOServer = function (server) {
 				// console.log('OAuth token=' + token);
 
 				server.oauthtoken = token;
+				server.login = true;
 
 				await browser.close();
 
@@ -2156,6 +2161,11 @@ module.exports.loginToServer = function (server, request, restCall) {
 	return _loginToServer(server, request, restCall);
 };
 var _loginToServer = function (server, request, restCall) {
+	if (server.login) {
+		return Promise.resolve({
+			status: true
+		});
+	}
 	var env = server.env || 'pod_ec';
 	if (env === 'dev_ec' && server.useRest) {
 		return Promise.resolve({
@@ -2963,13 +2973,45 @@ var _getSiteInfo = function (server, site) {
 			});
 		}
 
-		var request = _getRequest();
+		if (server.useRest) {
+			sitesRest.getSite({
+					server: server,
+					name: site,
+					expand: 'channel,repository,defaultCollection'
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return resolve({
+							err: 'err'
+						});
+					}
 
-		var loginPromises = [];
-		if (!server.login) {
-			loginPromises.push(_loginToServer(server, request));
-		}
-		Promise.all(loginPromises).then(function (result) {
+					var site = result;
+					var channelAccessTokens = [];
+					var tokens = site.channel && site.channel.channelTokens || [];
+					for (var i = 0; i < tokens.length; i++) {
+						channelAccessTokens.push({
+							name: tokens[i].name,
+							value: tokens[i].token,
+							expirationDate: tokens[i].value
+						});
+					}
+					// console.log(site);
+					var siteInfo = {
+						isEnterprise: site.isEnterprise,
+						themeName: site.themeName,
+						channelId: site.channel && site.channel.id,
+						channelAccessTokens: channelAccessTokens,
+						repositoryId: site.repository && site.repository.id,
+						arCollectionId: site.defaultCollection && site.defaultCollection.id
+					};
+					return resolve({
+						siteInfo: siteInfo
+					});
+				});
+
+		} else {
+			var request = _getRequest();
 			var auth = _getRequestAuth(server);
 
 			var options = {
@@ -3006,7 +3048,7 @@ var _getSiteInfo = function (server, site) {
 					siteInfo: siteInfo
 				});
 			});
-		});
+		}
 	});
 	return sitesPromise;
 };
@@ -3027,15 +3069,30 @@ var _getSiteGUID = function (server, site) {
 			});
 		}
 
-		var request = _getRequest();
+		if (server.useRest) {
+			sitesRest.getSite({
+					server: server,
+					name: site
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return resolve({
+							err: 'err'
+						});
+					}
+					var site = result;
+					return resolve({
+						siteGUID: site.id,
+						id: site.id,
+						siteDetails: {}
+					});
+				});
 
-		var loginPromises = [];
-		if (!server.login) {
-			loginPromises.push(_loginToServer(server, request));
-		}
-		Promise.all(loginPromises).then(function (result) {
+		} else {
+
+			var request = _getRequest();
+
 			var auth = _getRequestAuth(server);
-
 			var options = {
 				url: server.url + '/documents/web?IdcService=SCS_BROWSE_SITES',
 				auth: auth
@@ -3080,7 +3137,7 @@ var _getSiteGUID = function (server, site) {
 					siteDetails: siteDetails
 				});
 			});
-		});
+		}
 	});
 	return sitesPromise;
 };
@@ -3088,8 +3145,138 @@ module.exports.getSiteFolder = function (server, site) {
 	return _getSiteGUID(server, site);
 };
 module.exports.getSiteFolderAfterLogin = function (server, site) {
-	server['login'] = true;
 	return _getSiteGUID(server, site);
+};
+
+module.exports.getTheme = function (request, server, theme) {
+	return _getTheme(request, server, theme)
+};
+var _getTheme = function (request, server, theme) {
+	var themePromise = new Promise(function (resolve, reject) {
+		'use strict';
+
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			return resolve({
+				err: 'no server is configured'
+			});
+		}
+
+		if (server.useRest) {
+			sitesRest.getTheme({
+					server: server,
+					name: theme
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return resolve({
+							err: 'err'
+						});
+					}
+
+					var theme = result;
+					// console.log(theme);
+					return resolve({
+						id: theme.id,
+						publishStatus: theme.publishStatus
+					});
+				});
+
+		} else {
+			var params = 'doBrowseStarterThemes=1';
+			_browseThemesOnServer(request, server, params)
+				.then(function (result) {
+					if (!result || result.err) {
+						return resolve({
+							err: 'err'
+						});
+					}
+
+					var themes = result.data || [];
+					var themejson = {};
+					for (var i = 0; i < themes.length; i++) {
+						if (themes[i].fFolderName.toLowerCase() === theme.toLowerCase()) {
+							themejson['id'] = themes[i].fFolderGUID;
+							themejson['name'] = themes[i].fFolderName;
+							themejson['owner'] = themes[i].fCreatorFullName;
+							break;
+						}
+					}
+
+					return resolve(themejson);
+				});
+		}
+	});
+	return themePromise;
+};
+
+module.exports.getContentTypeLayoutMapping = function (request, server, typeName) {
+	return _getContentTypeLayoutMapping(request, server, typeName);
+};
+
+var _getContentTypeLayoutMapping = function (request, server, typeName) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var auth = _getRequestAuth(server);
+		var url = server.url + '/documents/web?IdcService=AR_GET_CONTENT_TYPE_CONFIG&contentTypeName=' + typeName;
+		
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth,
+		};
+
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get content layout mapping for ' + typeName);
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get content layout mapping for ' + typeName + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.ContentTypeCategoryLayoutMapping && data.ResultSets.ContentTypeCategoryLayoutMapping.fields || [];
+			var rows = data.ResultSets && data.ResultSets.ContentTypeCategoryLayoutMapping && data.ResultSets.ContentTypeCategoryLayoutMapping.rows;
+			var mappings = []
+			for (var j = 0; j < rows.length; j++) {
+				mappings.push({});
+			}
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				for (var j = 0; j < rows.length; j++) {
+					mappings[j][attr] = rows[j][i];
+				}
+			}
+
+			resolve({
+				type: typeName,
+				data: mappings
+			});
+		});
+	});
 };
 
 module.exports.sleep = function (delay) {
@@ -3491,6 +3678,10 @@ module.exports.browseComponentsOnServer = function (request, server) {
  * Get themes from server using IdcService
  */
 module.exports.browseThemesOnServer = function (request, server, params) {
+	return _browseThemesOnServer(request, server, params);
+};
+
+var _browseThemesOnServer = function (request, server, params) {
 	return new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');

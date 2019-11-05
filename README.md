@@ -12,6 +12,16 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.4.1b
+
+**Updated**
+
+`cec create-template` - can now create a local template from a site in a CEC server.  This saves creating the template in the CEC server, and then downloading.
+
+**Added**
+
+`cec upload-static-site` - take a folder of static files and upload to a Site's static folder for publishing as a static site.  Requires 19.4.3.
+
 # New in Release 19.4.1a
 
 **Updated**

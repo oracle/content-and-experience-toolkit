@@ -23,6 +23,8 @@ var projectDir,
  * Global variable used by the node server
  */
 
+var _siteId;
+var _pagesFolderId;
 var _SiteInfo;
 var _siteChannelToken;
 var _requiredLangs = [],
@@ -60,111 +62,96 @@ var _cmdEnd = function (done, success) {
 	}
 };
 
-var _getSiteInfoFile = function (request, localhost, site, locale, isMaster) {
+var _getSiteInfoFile = function (server, request, localhost, site, locale, isMaster) {
+	// console.log(' - siteId: ' + _siteId);
 	var siteInfoFilePromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=SCS_GET_SITE_INFO_FILE&siteId=' + site + '&IsJson=1';
-		if (locale && !isMaster) {
-			url = url + '&locale=' + locale;
-		}
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get site info');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			if (response && response.statusCode !== 200) {
-				if (isMaster) {
-					console.log('ERROR: Failed to get site info');
-					return resolve({
-						'err': response.statusCode
-					});
-				} else {
-
+		serverRest.getChildItems({
+				server: server,
+				parentID: _siteId
+			}).then(function (result) {
+				if (result.err) {
+					return Promise.reject();
 				}
-			}
-			try {
-				var data = JSON.parse(body);
-				if (!data) {
-					console.log('ERROR: Failed to get site info');
-					return resolve({
-						'err': 'error'
-					});
-				}
-				if (data.LocalData && data.LocalData.StatusCode === '-32') {
-					console.log('ERROR: site ' + site + ' does not exist');
-					return resolve({
-						'err': 'site does not exist'
-					});
-				}
-				if (response && response.statusCode !== 200) {
-					if (isMaster) {
-						console.log('ERROR: Failed to get site info');
+				var items = result && result.items || [];
+				var name = (isMaster || !locale) ? 'siteinfo.json' : locale + '_siteinfo.json';
+				var fileId;
+				for (var i = 0; i < items.length; i++) {
+					if (items[i].name === name) {
+						fileId = items[i].id;
+						break;
 					}
-					return resolve({
-						'err': response.statusCode
-					});
 				}
-				resolve({
-					'locale': locale || 'master',
-					'data': data
+
+				if (!fileId) {
+					return Promise.reject();
+				}
+
+				return serverRest.readFile({
+					server: server,
+					fFileGUID: fileId
 				});
-			} catch (error) {
-				console.log('ERROR: Failed to get site info');
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				var siteInfoFileContent = typeof result === 'string' ? JSON.parse(result) : result;
 				return resolve({
-					'err': 'error'
+					'locale': locale || 'master',
+					'data': siteInfoFileContent
 				});
-			}
-		});
+			})
+			.catch((error) => {
+				return resolve({
+					err: 'err'
+				});
+			});
 	});
 	return siteInfoFilePromise;
 };
 
-var _getSiteStructure = function (request, localhost, site, locale, isMaster) {
+var _getSiteStructure = function (server, request, localhost, site, locale, isMaster) {
 	var siteStructurePromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=SCS_GET_STRUCTURE&siteId=' + site + '&IsJson=1';
-		if (locale && !isMaster) {
-			url = url + '&locale=' + locale;
-		}
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get site structure');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			try {
-				var data = JSON.parse(body);
-				if (!data) {
-					console.log('ERROR: Failed to get site structure');
-					return resolve({
-						'err': 'error'
-					});
+		serverRest.getChildItems({
+				server: server,
+				parentID: _siteId
+			}).then(function (result) {
+				if (result.err) {
+					return Promise.reject();
 				}
-				// LocalData exists only when there is error
-				if (data.LocalData && data.LocalData.StatusCode === '-32') {
-					console.log('ERROR: site ' + site + ' does not exist');
-					return resolve({
-						'err': 'site does not exist'
-					});
-				}
-				if (data.LocalData && data.LocalData.StatusCode !== '0') {
-					console.log('ERROR: Failed to get site structure ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-					return resolve({
-						err: 'err'
-					});
+				var items = result && result.items || [];
+				var name = (isMaster || !locale) ? 'structure.json' : locale + '_structure.json';
+				var fileId;
+				for (var i = 0; i < items.length; i++) {
+					if (items[i].name === name) {
+						fileId = items[i].id;
+						break;
+					}
 				}
 
-				resolve(data);
-			} catch (error) {
-				console.log('ERROR: Failed to get site structure');
-				return resolve({
-					'err': 'error'
+				if (!fileId) {
+					return Promise.reject();
+				}
+
+				return serverRest.readFile({
+					server: server,
+					fFileGUID: fileId
 				});
-			}
-		});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				var structureFileContent = typeof result === 'string' ? JSON.parse(result) : result;
+				return resolve(structureFileContent);
+			})
+			.catch((error) => {
+				return resolve({
+					err: 'err'
+				});
+			});
 	});
 	return siteStructurePromise;
 };
@@ -247,7 +234,7 @@ var _getDefaultDetailPageId = function () {
 	};
 
 	var root;
-	var pages = _masterSiteStructure.base && _masterSiteStructure.base.pages;
+	var pages = _masterSiteStructure && _masterSiteStructure.pages;
 	for (var i = 0; i < pages.length; i++) {
 		if (!pages[i].parentId) {
 			root = pages[i];
@@ -263,75 +250,147 @@ var _getDefaultDetailPageId = function () {
 };
 
 /**
- * 
- * @param {*} request 
- * @param {*} localhost 
- * @param {*} site
- * @param {*} pagelist the comma separated list of page ids
- */
-var _getPageData = function (request, localhost, site, pageIds) {
-	var pageDataPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=SCS_GET_PAGE_DATA&siteId=' + site + '&pageIds=' + pageIds + '&IsJson=1';
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get page data');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			try {
-				var data = JSON.parse(body);
-				if (!data) {
-					console.log('ERROR: Failed to get page data');
-					return resolve({
-						'err': 'error'
-					});
-				}
-				resolve(data);
-			} catch (error) {
-				console.log('ERROR: Failed to get page data');
-				return resolve({
-					'err': 'error'
-				});
-			}
-		});
-	});
-	return pageDataPromise;
-};
-
-/**
  * Get an array of promises to get the page data for all site pages
  * 
  * @param {*} request 
  * @param {*} localhost 
  * @param {*} pages the data from SCS_GET_STRUCTURE
  */
-var _getPageDataPromise = function (request, localhost, site, pages, locale, isMaster) {
+var _getPageData = function (server, request, localhost, site, pages, locale, isMaster) {
+	// console.log(' isMaster: ' + isMaster + ' locale: ' + locale);
+	return new Promise(function (resolve, reject) {
+		serverRest.getChildItems({
+				server: server,
+				parentID: _pagesFolderId,
+				limit: 9999
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+				var items = result && result.items || [];
+				var files = [];
+				for (var i = 0; i < items.length; i++) {
+					var name = items[i].name;
+					if (isMaster && name.indexOf('_') < 0) {
+						files.push({
+							id: items[i].id,
+							name: items[i].name
+						});
+					} else if (name.indexOf('_') > 0) {
+						var localeStr = name.substring(0, name.indexOf('_'));
+						if (localeStr === locale) {
+							files.push({
+								id: items[i].id,
+								name: items[i].name
+							});
+						}
+					}
+				}
 
-	var pageIdList = [];
-	var limit = 20;
-	var pageIds = '';
-	for (var i = 0; i < pages.length; i++) {
-		if (pageIds) {
-			pageIds += ',';
+				return _readPageFiles(server, files);
+			})
+			.then(function (result) {
+				return resolve(result);
+			})
+			.catch((error) => {
+				return resolve({
+					err: 'err'
+				});
+			});
+	});
+};
+
+var _readFile = function (server, id, fileName) {
+	return new Promise(function (resolve, reject) {
+		var auth = serverUtils.getRequestAuth(server);
+		var url = server.url + '/documents/api/1.2/files/' + id + '/data/';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth
+		};
+		var request = serverUtils.getRequest();
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to download file ' + fileName);
+				console.log(error);
+				resolve();
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
+				resolve({
+					id: fileName.substring(0, fileName.indexOf('.')),
+					data: data
+				});
+			} else {
+				console.log('ERROR: failed to download file: ' + fileName + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve();
+			}
+
+		});
+	});
+};
+var _readPageFiles = function (server, files) {
+	return new Promise(function (resolve, reject) {
+		var total = files.length;
+		console.log(' - total number of files: ' + total);
+		var groups = [];
+		var limit = 16;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
 		}
-		pageIds += (locale && !isMaster ? locale + '_' + pages[i].id.toString() : pages[i].id.toString());
-		if (i >= limit && (i % limit === 0)) {
-			// another batch
-			pageIdList.push(pageIds);
-			pageIds = '';
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
 		}
-	}
-	if (pageIds) {
-		pageIdList.push(pageIds);
-	}
-	// console.log(pageIdList);
-	var promises = [];
-	for (var i = 0; i < pageIdList.length; i++) {
-		promises.push(_getPageData(request, localhost, site, pageIdList[i]));
-	}
-	return promises;
+		// console.log(' - total number of groups: ' + groups.length);
+
+		var fileData = [];
+		var count = [];
+
+		var doReadFile = groups.reduce(function (filePromise, param) {
+				return filePromise.then(function (result) {
+					var filePromises = [];
+					for (var i = param.start; i <= param.end; i++) {
+						filePromises.push(_readFile(server, files[i].id, files[i].name));
+					}
+
+					count.push('.');
+					process.stdout.write(' - downloading files ' + count.join(''));
+					readline.cursorTo(process.stdout, 0);
+					return Promise.all(filePromises).then(function (results) {
+						fileData = fileData.concat(results);
+					});
+
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doReadFile.then(function (result) {
+			process.stdout.write(os.EOL);
+			// console.log(' - total number of downloaded files: ' + fileData.length);
+			resolve(fileData);
+		});
+
+	});
 };
 
 /**
@@ -656,7 +715,7 @@ var _getLastmod = function (isodate) {
 };
 
 var _getPage = function (pageid) {
-	var pages = _masterSiteStructure.base && _masterSiteStructure.base.pages || [];
+	var pages = _masterSiteStructure && _masterSiteStructure.pages || [];
 	var page;
 	for (var i = 0; i < pages.length; i++) {
 		if (pages[i].id && pages[i].id.toString() === pageid) {
@@ -691,14 +750,14 @@ var _getMasterPageData = function (pageid) {
  * @param {*} siteInfo 
  * @param {*} pages 
  */
-var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq, toppagepriority, 
+var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq, toppagepriority,
 	siteMapFile, newlink, noDefaultDetailPageLink) {
 
 	var prefix = siteUrl;
 	if (prefix.substring(prefix.length - 1) === '/') {
 		prefix = prefix.substring(0, prefix.length - 1);
 	}
-
+	
 	var detailPageUrl;
 	var urls = [];
 	var months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
@@ -715,9 +774,11 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 		if (!pages[i].isDetailPage && !noIndex) {
 
 			var includeLocale = pages[i].locale && pages[i].locale !== _SiteInfo.defaultLanguage;
-
+			
 			// find out last modified date
-			var fileName = (includeLocale ? (pages[i].locale + '_') : '') + pages[i].id.toString() + '.json';
+			// var fileName = (includeLocale ? (pages[i].locale + '_') : '') + pages[i].id.toString() + '.json';
+			var fileName = pages[i].id.toString() + '.json';
+			
 			var lastmod;
 			var pageChangefreq = changefreq === 'auto' ? 'monthly' : changefreq;
 			var found = false;
@@ -856,374 +917,77 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 	console.log(' - generate file ' + siteMapFile);
 };
 
-var _getSiteFolder = function (request, localhost, site) {
-	var folderPromise = new Promise(function (resolve, reject) {
-		//
-		// get folder id of the site
-		//
-		var url = localhost + '/documents/web?IdcService=SCS_BROWSE_SITES';
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get site folder');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
 
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get site folder ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.fields || [];
-			var fFolderGUIDIdx = undefined,
-				fFolderNameIdx = undefined;
-			for (var i = 0; i < fields.length; i++) {
-				if (fields[i].name === 'fFolderGUID') {
-					fFolderGUIDIdx = i;
-				} else if (fields[i].name === 'fFolderName') {
-					fFolderNameIdx = i;
+var _getSitePageFiles = function (server, request, localhost, site, locale, isMaster) {
+	return new Promise(function (resolve, reject) {
+		serverRest.getChildItems({
+				server: server,
+				parentID: _pagesFolderId,
+				limit: 9999
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
 				}
-			}
-
-			var sites = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.rows;
-			var siteFolderId;
-			if (fFolderGUIDIdx !== undefined && fFolderNameIdx !== undefined && sites && sites.length > 0) {
-				for (var i = 0; i < sites.length; i++) {
-					// site name is case insensitive
-					if (sites[i][fFolderNameIdx].toLowerCase() === site.toLowerCase()) {
-						siteFolderId = sites[i][fFolderGUIDIdx];
-					}
-				}
-			}
-			if (!siteFolderId) {
-				console.log('ERROR: site folder not found');
-			}
-			return resolve({
-				'siteFolderId': siteFolderId
-			});
-		});
-	});
-	return folderPromise;
-};
-
-/**
- * Use API FLD_BROWSE to get child folders
- */
-function _getChildFolder(request, localhost, folderId, folderName) {
-	var foldersPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=FLD_BROWSE&itemType=Folder&item=fFolderGUID:' + folderId;
-
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: failed to query folder ' + folderName + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to query folder ' + folderName);
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.fields || [];
-			var fFolderGUIDIdx = undefined,
-				fFolderNameIdx = undefined;
-			for (var i = 0; i < fields.length; i++) {
-				if (fields[i].name === 'fFolderGUID') {
-					fFolderGUIDIdx = i;
-				} else if (fields[i].name === 'fFolderName') {
-					fFolderNameIdx = i;
-				}
-			}
-
-			var childFolders = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.rows;
-			var childFolderId;
-			if (fFolderGUIDIdx !== undefined && fFolderNameIdx !== undefined && childFolders && childFolders.length > 0) {
-				for (var i = 0; i < childFolders.length; i++) {
-					if (childFolders[i][fFolderNameIdx] === folderName) {
-						childFolderId = childFolders[i][fFolderGUIDIdx];
-					}
-				}
-			}
-			if (!childFolderId) {
-				console.log('ERROR: folder ' + folderName + ' not found');
-			}
-			return resolve({
-				'folderId': childFolderId
-			});
-		});
-	});
-	return foldersPromise;
-}
-
-/**
- * Use API FLD_BROWSE to get child file
- */
-function _getChildFile(request, localhost, folderId, fileName) {
-	var filesPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=FLD_BROWSE&itemType=File&item=fFolderGUID:' + folderId;
-
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: failed to query file ' + fileName);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to query file ' + fileName + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var idcToken = data.LocalData.idcToken;
-
-			var fields = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.fields || [];
-			var fFileGUIDIdx = undefined,
-				fFileNameIdx = undefined;
-			for (var i = 0; i < fields.length; i++) {
-				if (fields[i].name === 'fFileGUID') {
-					fFileGUIDIdx = i;
-				} else if (fields[i].name === 'fFileName') {
-					fFileNameIdx = i;
-				}
-			}
-
-			var childFiles = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.rows;
-			var childFileId;
-			if (fFileGUIDIdx !== undefined && fFileNameIdx !== undefined && childFiles && childFiles.length > 0) {
-				for (var i = 0; i < childFiles.length; i++) {
-					if (childFiles[i][fFileNameIdx] === fileName) {
-						childFileId = childFiles[i][fFileGUIDIdx];
-					}
-				}
-			}
-
-			return resolve({
-				'idcToken': idcToken,
-				'fileId': childFileId
-			});
-		});
-	});
-	return filesPromise;
-}
-
-/**
- * Use API FLD_BROWSE to get child file
- */
-function _getChildFiles(request, localhost, folderId) {
-	var filesPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=FLD_BROWSE&itemType=File&item=fFolderGUID:' + folderId + '&fileCount=99999';
-
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: failed to query files');
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to query files' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.fields || [];
-			var fFileGUIDIdx = undefined,
-				fFileNameIdx = undefined,
-				fLastModifiedDateIdx = undefined;
-			for (var i = 0; i < fields.length; i++) {
-				if (fields[i].name === 'fFileGUID') {
-					fFileGUIDIdx = i;
-				} else if (fields[i].name === 'fFileName') {
-					fFileNameIdx = i;
-				} else if (fields[i].name === 'fLastModifiedDate') {
-					fLastModifiedDateIdx = i;
-				}
-			}
-			// console.log(fFileGUIDIdx + ', ' + fFileNameIdx + ', ' + fLastModifiedDateIdx);
-
-			var childFiles = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.rows;
-			var files = [];
-			if (fFileGUIDIdx !== undefined && fFileNameIdx !== undefined && fLastModifiedDateIdx !== undefined &&
-				childFiles && childFiles.length > 0) {
-				for (var i = 0; i < childFiles.length; i++) {
+				var items = result && result.items || [];
+				var files = [];
+				for (var i = 0; i < items.length; i++) {
 					files.push({
-						id: childFiles[i][fFileGUIDIdx],
-						name: childFiles[i][fFileNameIdx],
-						lastModifiedDate: childFiles[i][fLastModifiedDateIdx]
+						id: items[i].id,
+						name: items[i].name,
+						lastModifiedDate: items[i].modifiedTime
 					});
 				}
-			}
-
-			return resolve({
-				'files': files
+				// console.log(files);
+				return resolve({
+					'files': files
+				});
+			})
+			.catch((error) => {
+				return resolve({
+					err: 'err'
+				});
 			});
-		});
 	});
-	return filesPromise;
-}
-
-var _getSitePageFiles = function (request, localhost, site, locale, isMaster) {
-	var pagesPromise = new Promise(function (resolve, reject) {
-		var siteFolderPromise = _getSiteFolder(request, localhost, site);
-		siteFolderPromise.then(function (result) {
-			var siteFolderId = result.siteFolderId;
-			if (siteFolderId) {
-				// console.log(' - site folder id: ' + siteFolderId);
-				//
-				// get sub folder pages
-				//
-				var pagesFolderPromise = _getChildFolder(request, localhost, siteFolderId, 'pages');
-				pagesFolderPromise.then(function (result) {
-					var pagesFolderId = result.folderId;
-					// console.log(' - folder pages id: ' + pagesFolderId);
-					if (pagesFolderId) {
-						var pageFilesPromise = _getChildFiles(request, localhost, pagesFolderId);
-						pageFilesPromise.then(function (result) {
-							return resolve(result);
-						});
-					} else {
-						return resolve({
-							'files': []
-						});
-					}
-				});
-			} else {
-				return resolve({
-					'files': []
-				});
-			}
-		});
-	});
-	return pagesPromise;
-};
-
-var _checkinFile = function (request, localhost, idcToken, folderName, folderId, filePath, fileName, fileId) {
-	var checkinPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
-		url += '&folderId=' + folderId + '&fileId=' + fileId + '&filePath=' + filePath + '&fileName=' + fileName + '&idcToken=' + idcToken;
-
-		request.post(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to upload file ' + fileName);
-				console.log(err);
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to upload file ' + fileName + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var version = data.LocalData.dRevLabel;
-			console.log(' - file ' + fileName + ' uploaded to server, version ' + version);
-			return resolve(data);
-		});
-	});
-	return checkinPromise;
 };
 
 
-var _uploadSiteMapToServer = function (request, localhost, site, localFilePath) {
+var _uploadSiteMapToServer = function (server, request, localhost, site, localFilePath) {
 	var uploadPromise = new Promise(function (resolve, reject) {
-		var siteFolderPromise = _getSiteFolder(request, localhost, site);
-		siteFolderPromise.then(function (result) {
-			var siteFolderId = result.siteFolderId;
-			if (siteFolderId) {
-				//
-				// get sub folder settings
-				//
-				// console.log(' - site folder id: ' + siteFolderId);
-				var settingsFolderPromise = _getChildFolder(request, localhost, siteFolderId, 'settings');
-				settingsFolderPromise.then(function (result) {
-					var settingsFolderId = result.folderId;
-					if (settingsFolderId) {
-						// console.log(' - folder settings id: ' + settingsFolderId);
-						//
-						// get sub folder seo
-						//
-						var seoFolderPromise = _getChildFolder(request, localhost, settingsFolderId, 'seo');
-						seoFolderPromise.then(function (result) {
-							var seoFolderId = result.folderId;
-							if (seoFolderId) {
-								// console.log(' - folder seo id: ' + settingsFolderId);
-								//
-								// get the site map on the server if it exists
-								//
-								var fileName = localFilePath;
-								if (fileName.indexOf('/') >= 0) {
-									fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
-								}
-								var filePromise = _getChildFile(request, localhost, seoFolderId, fileName);
-								filePromise.then(function (result) {
-									var fileId = result.fileId;
-									// console.log(' - file: ' + fileName + ' Id: ' + fileId);
+		var fileName = localFilePath;
+		if (fileName.indexOf('/') >= 0) {
+			fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
+		}
+		serverRest.findFolderHierarchy({
+				server: server,
+				parentID: _siteId,
+				folderPath: 'settings/seo'
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+				var seoFolderId = result.id;
 
-									//
-									// upload file to server
-									//
-									var checkinFilePromise = _checkinFile(request, localhost, result.idcToken,
-										'seo', seoFolderId, localFilePath, fileName, fileId);
-									checkinFilePromise.then(function (result) {
-										return resolve(result);
-
-									}); // checkin
-
-								}); // get file from seo
-
-							} else {
-								return resolve({
-									err: 'err'
-								});
-							}
-						}) // seo
-					} else {
-						return resolve({
-							err: 'err'
-						});
-					}
-				}); // settings 
-			} else {
+				return serverRest.createFile({
+					server: server,
+					parentID: seoFolderId,
+					filename: fileName,
+					contents: fs.readFileSync(localFilePath)
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+				console.log(' - file ' + fileName + ' uploaded to server, version ' + result.version);
 				return resolve(result);
-			}
-		}); // site folder
+			})
+			.catch((error) => {
+				return resolve({
+					err: 'err'
+				});
+			});
 	});
 	return uploadPromise;
 };
@@ -1235,16 +999,44 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 		var siteStructure, pages, pageData = [];
 
 		//
-		// Get site info
+		// Get site id
 		//
-		var siteInfoPromise = _getSiteInfoFile(request, localhost, site);
-		siteInfoPromise
+		serverUtils.getSiteFolder(server, site)
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					console.log('ERROR: site ' + site + ' does not exist');
+					return Promise.reject();
+				}
+				_siteId = result.id;
+
+				//
+				// Get pages folder id
+				//
+				return serverRest.findFolderHierarchy({
+					server: server,
+					parentID: _siteId,
+					folderPath: 'pages'
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+				_pagesFolderId = result.id;
+
+				//
+				// Get site info
+				//
+				var siteInfoPromise = _getSiteInfoFile(server, request, localhost, site);
+				return siteInfoPromise;
+			})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
 				}
 
-				siteInfo = result.data.base.properties;
+				siteInfo = result.data.properties;
 				_SiteInfo = siteInfo;
 				defaultLanguage = siteInfo.defaultLanguage;
 				siteRepositoryId = siteInfo.repositoryId;
@@ -1307,14 +1099,13 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 				//
 				var siteinfoPromises = [];
 				for (var i = 0; i < locales.length; i++) {
-					siteinfoPromises[i] = _getSiteInfoFile(request, localhost, site, locales[i], false);
+					siteinfoPromises[i] = _getSiteInfoFile(server, request, localhost, site, locales[i], false);
 				}
 
 				return Promise.all(siteinfoPromises);
 			})
 			.then(function (values) {
 				_validLocales = [];
-
 				for (var i = 0; i < values.length; i++) {
 					if (values[i].locale) {
 						_validLocales.push(values[i].locale);
@@ -1353,7 +1144,7 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 				repository = result;
 				console.log(' - query site repository');
 
-				return _getSiteStructure(request, localhost, site);
+				return _getSiteStructure(server, request, localhost, site);
 			})
 			.then(function (result) {
 				// 
@@ -1365,7 +1156,7 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 				siteStructure = result;
 				_masterSiteStructure = siteStructure;
 				console.log(' - query site structure');
-				pages = siteStructure && siteStructure.base && siteStructure.base.pages;
+				pages = siteStructure && siteStructure.pages;
 				if (!pages || pages.length === 0) {
 					console.log('ERROR: no page found');
 					return Promise.reject();
@@ -1386,21 +1177,19 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 					console.log(' - default detail page: ' + _defaultDetailPage.name);
 				}
 
-				var pageDataPromises = [];
-				pageDataPromises = _getPageDataPromise(request, localhost, site, pages);
-
-				return Promise.all(pageDataPromises);
+				return _getPageData(server, request, localhost, site, pages, '', true);
 			})
-			.then(function (values) {
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
 				console.log(' - query page data');
-				for (var i = 0; i < values.length; i++) {
-					var obj = values[i];
-					Object.keys(obj).forEach(key => {
-						var value = obj[key];
-						pageData.push({
-							id: key,
-							data: value && value.base
-						});
+				var pages = result;
+				for (var i = 0; i < pages.length; i++) {
+					pageData.push({
+						id: pages[i].id,
+						data: pages[i].data
 					});
 				}
 				_masterPageData = pageData;
@@ -1457,7 +1246,7 @@ var _getSiteDataWithLocale = function (server, request, localhost, site, locale,
 		var pageFiles = [];
 		var pageData = [];
 
-		var siteStructurePromise = _getSiteStructure(request, localhost, site, locale, isMaster);
+		var siteStructurePromise = _getSiteStructure(server, request, localhost, site, locale, isMaster);
 		siteStructurePromise.then(function (result) {
 			if (result.err) {
 				return resolve(result);
@@ -1465,9 +1254,9 @@ var _getSiteDataWithLocale = function (server, request, localhost, site, locale,
 			console.log(' - query site structure ' + (locale ? ('(' + locale + ')') : ''));
 
 			var siteStructure = result;
-			pages = siteStructure && siteStructure.base && siteStructure.base.pages;
+			pages = siteStructure && siteStructure.pages;
 
-			var sitePageFilesPromise = _getSitePageFiles(request, localhost, site, locale, isMaster);
+			var sitePageFilesPromise = _getSitePageFiles(server, request, localhost, site, locale, isMaster);
 			sitePageFilesPromise.then(function (result) {
 				pageFiles = result.files || [];
 				if (!pageFiles || pageFiles.length === 0) {
@@ -1478,17 +1267,14 @@ var _getSiteDataWithLocale = function (server, request, localhost, site, locale,
 					//
 					// Get page data for all pages
 					//
-					var pageDataPromise = _getPageDataPromise(request, localhost, site, pages, locale, isMaster);
-					Promise.all(pageDataPromise).then(function (values) {
+					var pageDataPromise = _getPageData(server, request, localhost, site, pages, locale, isMaster);
+					pageDataPromise.then(function (result) {
 						console.log(' - query page data (' + locale + ')');
+						var values = result || [];
 						for (var i = 0; i < values.length; i++) {
-							var obj = values[i];
-							Object.keys(obj).forEach(key => {
-								var value = obj[key];
-								pageData.push({
-									id: key,
-									data: value && value.base
-								});
+							pageData.push({
+								id: values[i].id,
+								data: values[i].data
 							});
 						}
 
@@ -1577,13 +1363,13 @@ var _createSiteMap = function (server, serverName, request, localhost, site, sit
 
 		})
 		.then(function (values) {
-			// console.log(values);
 			for (var i = 0; i < values.length; i++) {
 				if (values[i].locale === _SiteInfo.defaultLanguage) {
 					masterPages = values[i].pages;
 					break;
 				}
 			}
+			
 			for (var i = 0; i < values.length; i++) {
 				if (values[i].pages && values[i].pages.length > 0) {
 					for (var j = 0; j < values[i].pages.length; j++) {
@@ -1629,7 +1415,7 @@ var _createSiteMap = function (server, serverName, request, localhost, site, sit
 
 			if (publish) {
 				// Upload site map to the server
-				var uploadPromise = _uploadSiteMapToServer(request, localhost, site, siteMapFile);
+				var uploadPromise = _uploadSiteMapToServer(server, request, localhost, site, siteMapFile);
 				uploadPromise.then(function (result) {
 					if (!result.err) {
 						var siteMapUrl = siteUrl + '/' + siteMapFile.substring(siteMapFile.lastIndexOf('/') + 1);
@@ -1777,6 +1563,9 @@ module.exports.createSiteMap = function (argv, done) {
 
 	var site = argv.site;
 	var siteUrl = argv.url;
+	if (serverUtils.endsWith(siteUrl, '/')) {
+		siteUrl = siteUrl.substring(0, siteUrl.length - 1);
+	}
 
 	if (!site && !siteUrl) {
 		console.error('ERROR: please run as npm run create-site-map -- --site <site name> --url <site url>');
@@ -1793,6 +1582,7 @@ module.exports.createSiteMap = function (argv, done) {
 		done();
 		return;
 	}
+
 	var parsedUrl = url.parse(siteUrl);
 	if (!parsedUrl.protocol) {
 		console.error('ERROR: invalid site url, it must begin with the protocol');
@@ -1878,45 +1668,11 @@ module.exports.createSiteMap = function (argv, done) {
 		});
 		app.post('/documents/web', function (req, res) {
 			// console.log('POST: ' + req.url);
-			if (req.url.indexOf('CHECKIN_UNIVERSAL') > 0) {
-				var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-				var fileId = params.fileId,
-					filePath = params.filePath,
-					fileName = params.fileName,
-					folderId = params.folderId,
-					idcToken = params.idcToken;
-				var uploadUrl = server.url + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
-				var formData = {
-					'parent': 'fFolderGUID:' + folderId,
-					'idcToken': idcToken,
-					'primaryFile': fs.createReadStream(filePath),
-					'filename': fileName
-				};
-				if (fileId && fileId !== 'undefined') {
-					formData['item'] = 'fFileGUID:' + fileId;
-				}
 
-				var postData = {
-					method: 'POST',
-					url: uploadUrl,
-					'auth': auth,
-					'formData': formData
-				};
+			console.log('ERROR: POST request not supported: ' + req.url);
+			res.write({});
+			res.end();
 
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						// console.log(' - upload finished: '+filePath);
-						res.end();
-					});
-			} else {
-				console.log('ERROR: POST request not supported: ' + req.url);
-				res.write({});
-				res.end();
-			}
 		});
 
 		localServer = app.listen(0, function () {
