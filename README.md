@@ -12,6 +12,17 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.4.1c
+
+**Updated**
+
+`cec upload-static-files` - renamed to `cec upload-static-site-files`.  Requires 19.4.3.
+
+**Added**
+
+`cec download-static-site-files` - download files from site's /static folder from OCE server.  Requires 19.4.3.
+`cec delete-static-site-files` - remove static files from site's /static folder.  Requires 19.4.3.
+
 # New in Release 19.4.1b
 
 **Updated**

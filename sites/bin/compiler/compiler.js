@@ -33,7 +33,8 @@ Sample Invocation:
 var fs = require('fs'),
 	path = require('path'),
 	merge = require('deepmerge'),
-	request = require('request');
+	request = require('request'),
+	serverUtils = require('../../test/server/serverUtils');
 
 var componentsEnabled = true;
 if (componentsEnabled) {
@@ -812,10 +813,13 @@ var compiler = {
 							// use the configured server
 							serverURL = server.url;
 
-							if (server.username && server.password) {
-								authorization = 'Basic ' + Buffer.from(server.username + ':' + server.password).toString('base64');
-							}
 							// set the header
+							var requestAuth = serverUtils.getRequestAuth(server);
+							if (requestAuth.bearer) {
+								authorization = 'Bearer ' + requestAuth.bearer;
+							} else {
+								authorization = 'Basic ' + Buffer.from(requestAuth.user + ':' + requestAuth.password).toString('base64');
+							}
 							beforeSend = function (options) {
 								options.headers = options.headers || {};
 								options.headers.authorization = authorization;
@@ -1287,7 +1291,7 @@ function resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, conte
 		"sitePrefix": sitePrefix,
 		"pageModel": pageModel,
 		"localePageModel": localePageModel,
-		"pageLanguageCode": context.pageLocale,
+		"pageLanguageCode": context.pageLocale || defaultLocale,
 		"navigationRoot": context.navRoot,
 		"navigationCurr": (pageId && typeof pageId == 'string') ? parseInt(pageId) : pageId,
 		"structureMap": context.navMap,
@@ -2233,6 +2237,7 @@ var compileSite = function (args) {
 	recurse = args.recurse;
 	includeLocale = args.includeLocale;
 	verbose = args.verbose;
+	compileDetailPages = !(args.noDetailPages);
 	useDefaultDetailPageLink = !(args.noDefaultDetailPageLink);
 	detailPageContentLayoutSnippet = !!(args.contentLayoutSnippet);
 	logLevel = args.logLevel;
@@ -2323,7 +2328,7 @@ var compileSite = function (args) {
 		console.log('All page creation calls complete.');
 
 		// create detail pages as well if they were found during page compilation
-		if (Object.keys(detailPageList).length > 0) {
+		if (compileDetailPages && Object.keys(detailPageList).length > 0) {
 			console.log('');
 			console.log('Creating detail pages:');
 			creatingDetailPages = true;

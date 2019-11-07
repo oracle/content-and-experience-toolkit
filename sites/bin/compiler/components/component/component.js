@@ -266,8 +266,12 @@ Component.prototype.compileComponent = function (args) {
 								});
 							} catch (e) {
 								compilationReporter.error({
-									message: type + ': failed to expand template',
+									message: 'compile component: failed to expand template',
 									error: e
+								});
+								compilationReporter.info({
+									message: 'Mustache template that failed to expand: ',
+									error: compiledComp.content
 								});
 								return resolve({
 									customContent: ''

@@ -32,6 +32,9 @@ var contentItem = new ContentItem(),
 var ContentList = function (compId, compInstance, componentsFolder) {
 	this.init('scs-contentlist', compId, compInstance);
 	this.componentsFolder = componentsFolder;
+
+	// default the layout category to the content list default
+	this.layoutCategory = this.layoutCategory || 'Content List Default';
 };
 ContentList.prototype = Object.create(Base.prototype);
 

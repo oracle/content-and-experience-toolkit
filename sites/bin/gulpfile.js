@@ -1001,12 +1001,36 @@ gulp.task('create-asset-report', function (done) {
 });
 
 /**
- * Generate asset usage report for a site 
+ * Upload static files to a site on CEC server
  */
-gulp.task('upload-static-site', function (done) {
+gulp.task('upload-static-site-files', function (done) {
 	'use strict';
 
 	sitelib.uploadStaticSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Download static files from a site on CEC server
+ */
+gulp.task('download-static-site-files', function (done) {
+	'use strict';
+
+	sitelib.downloadStaticSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Delete static files from a site on CEC server
+ */
+gulp.task('delete-static-site-files', function (done) {
+	'use strict';
+
+	sitelib.deleteStaticSite(argv, function (success) {
 		process.exitCode = success ? 0 : 1;
 		done();
 	});

@@ -952,19 +952,55 @@ const createAssetReport = {
 };
 
 const uploadStaticSite = {
-	command: 'upload-static-site <path>',
+	command: 'upload-static-site-files <path>',
 	alias: 'ulss',
-	name: 'upload-static-site',
+	name: 'upload-static-site-files',
 	usage: {
-		'short': 'Uploads a local static site to a site on CEC server.',
+		'short': 'Uploads files to render statically from a site on CEC server.',
 		'long': (function () {
-			let desc = 'Uploads a local static site to a site on CEC server. Specify the site <site> on the server. Specify the server with -r <server> or use the one specified in cec.properties file. ';
+			let desc = 'Uploads files to render statically from a site on CEC server. Specify the site <site> on the server. Specify the server with -r <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
 	example: [
-		['cec upload-static-site ~/Documents/localBlog -s BlogSite'],
-		['cec upload-static-site ~/Documents/localBlog -s BlogSite -r UAT']
+		['cec upload-static-site-files ~/Documents/localBlog -s BlogSite'],
+		['cec upload-static-site-files ~/Documents/localBlog -s BlogSite -r UAT']
+	]
+};
+
+const downloadStaticSite = {
+	command: 'download-static-site-files <site>',
+	alias: 'dlss',
+	name: 'download-static-site-files',
+	usage: {
+		'short': 'Downloads the static files from a site on CEC server.',
+		'long': (function () {
+			let desc = 'Downloads the static files from a site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			desc = desc + 'Optionally specify -f <folder> to save the files on the local system.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec download-static-site-files BlogSite', 'Download the files and save to local folder src/documents/BlogSite/static'],
+		['cec download-static-site-files BlogSite -f ~/Documents/BlogSite/static', 'Download the files and save to local folder ~/Documents/BlogSite/static'],
+		['cec download-static-site-files BlogSite -s UAT']
+	]
+};
+
+const deleteStaticSite = {
+	command: 'delete-static-site-files <site>',
+	alias: '',
+	name: 'delete-static-site-files',
+	usage: {
+		'short': 'Deletes the static files from a site on CEC server.',
+		'long': (function () {
+			let desc = 'Deletes the static files from a site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec delete-static-site-files BlogSite'],
+		['cec delete-static-site-files BlogSite -s UAT']
 	]
 };
 
@@ -1741,7 +1777,9 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(createSiteMap) + os.EOL +
 	_getCmdHelp(createRSSFeed) + os.EOL +
 	_getCmdHelp(createAssetReport) + os.EOL +
-	_getCmdHelp(uploadStaticSite) + os.EOL;
+	_getCmdHelp(uploadStaticSite) + os.EOL +
+	_getCmdHelp(downloadStaticSite) + os.EOL +
+	_getCmdHelp(deleteStaticSite) + os.EOL;
 
 _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
@@ -2079,6 +2117,10 @@ const argv = yargs.usage(_usage)
 				.option('debug', {
 					alias: 'd',
 					description: 'Start the compiler with "--inspect-brk" option to debug compilation'
+				})
+				.option('noDetailPages', {
+					alias: 'e',
+					description: 'Do not generate compiled detail pages'
 				})
 				.option('noDefaultDetailPageLink', {
 					alias: 'o',
@@ -2891,6 +2933,37 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${uploadStaticSite.command}\n\n${uploadStaticSite.usage.long}`);
+		})
+	.command([downloadStaticSite.command, downloadStaticSite.alias], false,
+		(yargs) => {
+			yargs.option('folder', {
+					alias: 'f',
+					description: '<folder> Local folder to save the static files'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.example(...downloadStaticSite.example[0])
+				.example(...downloadStaticSite.example[1])
+				.example(...downloadStaticSite.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${downloadStaticSite.command}\n\n${downloadStaticSite.usage.long}`);
+		})
+	.command([deleteStaticSite.command, deleteStaticSite.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.example(...deleteStaticSite.example[0])
+				.example(...deleteStaticSite.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${deleteStaticSite.command}\n\n${deleteStaticSite.usage.long}`);
 		})
 	.command([createRepository.command, createRepository.alias], false,
 		(yargs) => {
@@ -4203,6 +4276,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.recurse) {
 		compileTemplateArgs.push(...['--recurse', argv.recurse]);
 	}
+	if (argv.noDetailPages) {
+		compileTemplateArgs.push(...['--noDetailPages', argv.noDetailPages]);
+	}
 	if (argv.noDefaultDetailPageLink) {
 		compileTemplateArgs.push(...['--noDefaultDetailPageLink', argv.noDefaultDetailPageLink]);
 	}
@@ -4755,6 +4831,37 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		uploadStaticSiteArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, uploadStaticSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === downloadStaticSite.name || argv._[0] === downloadStaticSite.alias) {
+	let downloadStaticSiteArgs = ['run', '-s', downloadStaticSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--site', argv.site
+	];
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		downloadStaticSiteArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		downloadStaticSiteArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, downloadStaticSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === deleteStaticSite.name || argv._[0] === deleteStaticSite.alias) {
+	let deleteStaticSiteArgs = ['run', '-s', deleteStaticSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--site', argv.site
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		deleteStaticSiteArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, deleteStaticSiteArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

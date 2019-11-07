@@ -17,6 +17,7 @@ var fs = require('fs'),
 	serverUtils = require('../test/server/serverUtils.js');
 
 var projectDir,
+	documentsSrcDir,
 	serversSrcDir;
 
 //
@@ -29,6 +30,7 @@ var verifyRun = function (argv) {
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
 	// reset source folders
+	documentsSrcDir = path.join(srcfolder, 'documents');
 	serversSrcDir = path.join(srcfolder, 'servers');
 
 	return true;
@@ -135,9 +137,9 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 					options['auth'] = auth;
 
 					request(options).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
+						// fix headers for cross-domain and capitalization issues
+						serverUtils.fixHeaders(response, res);
+					})
 						.on('error', function (err) {
 							console.log('ERROR: GET request failed: ' + req.url);
 							console.log(error);
@@ -171,12 +173,12 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 					'localizationPolicy': localizationPolicyId,
 					'useBackgroundThread': 1
 				} : {
-					'idcToken': idcToken,
-					'names': siteName,
-					'descriptions': description,
-					'items': 'fFolderGUID:' + templateGUID,
-					'useBackgroundThread': 1
-				}
+						'idcToken': idcToken,
+						'names': siteName,
+						'descriptions': description,
+						'items': 'fFolderGUID:' + templateGUID,
+						'useBackgroundThread': 1
+					}
 
 				var postData = {
 					method: 'POST',
@@ -186,9 +188,9 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 				};
 
 				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
+					// fix headers for cross-domain and capitalization issues
+					serverUtils.fixHeaders(response, res);
+				})
 					.on('error', function (err) {
 						console.log('ERROR: Failed to ' + action + ' site');
 						console.log(error);
@@ -224,25 +226,25 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 							// verify site 
 							var sitePromise = serverUtils.browseSitesOnServer(request, server);
 							sitePromise.then(function (result) {
-									if (result.err) {
-										return Promise.reject();
-									}
+								if (result.err) {
+									return Promise.reject();
+								}
 
-									var sites = result.data || [];
-									var site;
-									for (var i = 0; i < sites.length; i++) {
-										if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-											site = sites[i];
-											break;
-										}
+								var sites = result.data || [];
+								var site;
+								for (var i = 0; i < sites.length; i++) {
+									if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
+										site = sites[i];
+										break;
 									}
-									if (site && site.fFolderGUID) {
-										console.log('ERROR: site ' + siteName + ' already exists');
-										return Promise.reject();
-									}
+								}
+								if (site && site.fFolderGUID) {
+									console.log('ERROR: site ' + siteName + ' already exists');
+									return Promise.reject();
+								}
 
-									return serverUtils.getServerVersion(request, server);
-								})
+								return serverUtils.getServerVersion(request, server);
+							})
 								.then(function (result) {
 									cecVersion = result && result.version;
 
@@ -319,29 +321,29 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 									} else {
 										var repositoryPromise = serverUtils.getRepositoryFromServer(request, server, repositoryName);
 										repositoryPromise.then(function (result) {
-												//
-												// validate repository
-												//
-												if (!result || result.err) {
-													return Promise.reject();
-												}
+											//
+											// validate repository
+											//
+											if (!result || result.err) {
+												return Promise.reject();
+											}
 
-												var repository = result.data;
-												if (!repository || !repository.id) {
-													console.log('ERROR: repository ' + repositoryName + ' does not exist');
-													return Promise.reject();
-												}
-												repositoryId = repository.id;
-												console.log(' - get repository');
+											var repository = result.data;
+											if (!repository || !repository.id) {
+												console.log('ERROR: repository ' + repositoryName + ' does not exist');
+												return Promise.reject();
+											}
+											repositoryId = repository.id;
+											console.log(' - get repository');
 
-												var policyPromises = [];
-												if (localizationPolicyName) {
-													policyPromises.push(serverUtils.getLocalizationPolicyFromServer(request, server, localizationPolicyName));
-												} else {
-													policyPromises.push(serverUtils.getLocalizationPolicyFromServer(request, server, template.localizationPolicy, 'id'));
-												}
-												return Promise.all(policyPromises);
-											})
+											var policyPromises = [];
+											if (localizationPolicyName) {
+												policyPromises.push(serverUtils.getLocalizationPolicyFromServer(request, server, localizationPolicyName));
+											} else {
+												policyPromises.push(serverUtils.getLocalizationPolicyFromServer(request, server, template.localizationPolicy, 'id'));
+											}
+											return Promise.all(policyPromises);
+										})
 											.then(function (results) {
 												//
 												// validate localization policy
@@ -449,21 +451,21 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 		}
 
 		sitesRest.resourceExist({
-				server: server,
-				type: 'sites',
-				name: name
-			}).then(function (result) {
-				if (!result.err) {
-					console.log('ERROR: site ' + name + ' already exists');
-					return Promise.reject();
-				}
+			server: server,
+			type: 'sites',
+			name: name
+		}).then(function (result) {
+			if (!result.err) {
+				console.log('ERROR: site ' + name + ' already exists');
+				return Promise.reject();
+			}
 
-				return sitesRest.getTemplate({
-					server: server,
-					name: templateName,
-					expand: 'localizationPolicy'
-				});
-			})
+			return sitesRest.getTemplate({
+				server: server,
+				name: templateName,
+				expand: 'localizationPolicy'
+			});
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -494,11 +496,11 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 					console.log(sprintf(format, 'template', templateName));
 
 					sitesRest.createSite({
-							server: server,
-							name: name,
-							templateId: template.id,
-							templateName: templateName
-						})
+						server: server,
+						name: name,
+						templateId: template.id,
+						templateName: templateName
+					})
 						.then(function (result) {
 							if (result.err) {
 								done();
@@ -511,8 +513,8 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 				} else {
 
 					serverRest.getRepositories({
-							server: server
-						})
+						server: server
+					})
 						.then(function (result) {
 							var repositories = result || [];
 							for (var i = 0; i < repositories.length; i++) {
@@ -699,7 +701,7 @@ var _setSiteRuntimeStatus = function (request, server, action, siteId) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (error) {};
+				} catch (error) { };
 
 				var msg = data ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to ' + action + ' the site - ' + msg);
@@ -749,9 +751,9 @@ var _IdcControlSite = function (request, server, action, siteId) {
 					options['auth'] = auth;
 
 					request(options).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
+						// fix headers for cross-domain and capitalization issues
+						serverUtils.fixHeaders(response, res);
+					})
 						.on('error', function (err) {
 							console.log('ERROR: GET request failed: ' + req.url);
 							console.log(error);
@@ -784,9 +786,9 @@ var _IdcControlSite = function (request, server, action, siteId) {
 					};
 
 					request(postData).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
+						// fix headers for cross-domain and capitalization issues
+						serverUtils.fixHeaders(response, res);
+					})
 						.on('error', function (err) {
 							console.log('ERROR: Failed to ' + action + ' site');
 							console.log(error);
@@ -837,7 +839,7 @@ var _IdcControlSite = function (request, server, action, siteId) {
 								var data;
 								try {
 									data = JSON.parse(body);
-								} catch (e) {}
+								} catch (e) { }
 
 								if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 									console.log('ERROR: failed to ' + action + ' site ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
@@ -925,9 +927,9 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 				options['auth'] = auth;
 
 				request(options).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
+					// fix headers for cross-domain and capitalization issues
+					serverUtils.fixHeaders(response, res);
+				})
 					.on('error', function (err) {
 						console.log('ERROR: GET request failed: ' + req.url);
 						console.log(error);
@@ -964,9 +966,9 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 			};
 
 			request(postData).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					serverUtils.fixHeaders(response, res);
-				})
+				// fix headers for cross-domain and capitalization issues
+				serverUtils.fixHeaders(response, res);
+			})
 				.on('error', function (err) {
 					console.log('ERROR: Failed to ' + action + ' site');
 					console.log(error);
@@ -1002,83 +1004,83 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 						// verify site 
 						var sitePromise = serverUtils.browseSitesOnServer(request, server);
 						sitePromise.then(function (result) {
+							if (result.err) {
+								return Promise.reject();
+							}
+
+							var sites = result.data || [];
+							var site;
+							for (var i = 0; i < sites.length; i++) {
+								if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
+									site = sites[i];
+									break;
+								}
+							}
+							if (!site || !site.fFolderGUID) {
+								console.log('ERROR: site ' + siteName + ' does not exist');
+								return Promise.reject();
+							}
+
+							siteId = site.fFolderGUID;
+
+							// console.log(' - xScsIsSiteActive: ' + site.xScsIsSiteActive + ' xScsSitePublishStatus: ' + site.xScsSitePublishStatus);
+							var runtimeStatus = site.xScsIsSiteActive && site.xScsIsSiteActive === '1' ? 'online' : 'offline';
+							var publishStatus = site.xScsSitePublishStatus && site.xScsSitePublishStatus === 'published' ? 'published' : 'unpublished';
+							console.log(' - get site: runtimeStatus: ' + runtimeStatus + '  publishStatus: ' + publishStatus);
+
+							if (action === 'take-offline' && runtimeStatus === 'offline') {
+								console.log(' - site is already offline');
+								return Promise.reject();
+							}
+							if (action === 'bring-online' && runtimeStatus === 'online') {
+								console.log(' - site is already online');
+								return Promise.reject();
+							}
+							if (action === 'bring-online' && publishStatus === 'unpublished') {
+								console.log('ERROR: site ' + siteName + ' is draft, publish it first');
+								return Promise.reject();
+							}
+
+							if (action === 'unpublish' && runtimeStatus === 'online') {
+								console.log('ERROR: site ' + siteName + ' is online, take it offline first');
+								return Promise.reject();
+							}
+							if (action === 'unpublish' && publishStatus === 'unpublished') {
+								console.log('ERROR: site ' + siteName + ' is draft');
+								return Promise.reject();
+							}
+
+							var service;
+							if (action === 'publish') {
+								service = 'SCS_PUBLISH_SITE';
+							} else if (action === 'unpublish') {
+								service = 'SCS_UNPUBLISH_SITE';
+							} else if (action === 'bring-online') {
+								service = 'SCS_ACTIVATE_SITE';
+							} else if (action === 'take-offline') {
+								service = 'SCS_DEACTIVATE_SITE';
+							} else {
+								console.log('ERROR: invalid action ' + action);
+								return Promise.reject();
+							}
+
+							var actionPromise = _postOneIdcService(request, localhost, server, service, action, idcToken);
+							actionPromise.then(function (result) {
 								if (result.err) {
-									return Promise.reject();
+									_cmdEnd(done);
+									return;
 								}
 
-								var sites = result.data || [];
-								var site;
-								for (var i = 0; i < sites.length; i++) {
-									if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-										site = sites[i];
-										break;
-									}
-								}
-								if (!site || !site.fFolderGUID) {
-									console.log('ERROR: site ' + siteName + ' does not exist');
-									return Promise.reject();
-								}
-
-								siteId = site.fFolderGUID;
-
-								// console.log(' - xScsIsSiteActive: ' + site.xScsIsSiteActive + ' xScsSitePublishStatus: ' + site.xScsSitePublishStatus);
-								var runtimeStatus = site.xScsIsSiteActive && site.xScsIsSiteActive === '1' ? 'online' : 'offline';
-								var publishStatus = site.xScsSitePublishStatus && site.xScsSitePublishStatus === 'published' ? 'published' : 'unpublished';
-								console.log(' - get site: runtimeStatus: ' + runtimeStatus + '  publishStatus: ' + publishStatus);
-
-								if (action === 'take-offline' && runtimeStatus === 'offline') {
-									console.log(' - site is already offline');
-									return Promise.reject();
-								}
-								if (action === 'bring-online' && runtimeStatus === 'online') {
-									console.log(' - site is already online');
-									return Promise.reject();
-								}
-								if (action === 'bring-online' && publishStatus === 'unpublished') {
-									console.log('ERROR: site ' + siteName + ' is draft, publish it first');
-									return Promise.reject();
-								}
-
-								if (action === 'unpublish' && runtimeStatus === 'online') {
-									console.log('ERROR: site ' + siteName + ' is online, take it offline first');
-									return Promise.reject();
-								}
-								if (action === 'unpublish' && publishStatus === 'unpublished') {
-									console.log('ERROR: site ' + siteName + ' is draft');
-									return Promise.reject();
-								}
-
-								var service;
-								if (action === 'publish') {
-									service = 'SCS_PUBLISH_SITE';
-								} else if (action === 'unpublish') {
-									service = 'SCS_UNPUBLISH_SITE';
-								} else if (action === 'bring-online') {
-									service = 'SCS_ACTIVATE_SITE';
+								if (action === 'bring-online') {
+									console.log(' - site ' + siteName + ' is online now');
 								} else if (action === 'take-offline') {
-									service = 'SCS_DEACTIVATE_SITE';
+									console.log(' - site ' + siteName + ' is offline now');
 								} else {
-									console.log('ERROR: invalid action ' + action);
-									return Promise.reject();
+									console.log(' - ' + action + ' ' + siteName + ' finished');
 								}
-
-								var actionPromise = _postOneIdcService(request, localhost, server, service, action, idcToken);
-								actionPromise.then(function (result) {
-									if (result.err) {
-										_cmdEnd(done);
-										return;
-									}
-
-									if (action === 'bring-online') {
-										console.log(' - site ' + siteName + ' is online now');
-									} else if (action === 'take-offline') {
-										console.log(' - site ' + siteName + ' is offline now');
-									} else {
-										console.log(' - ' + action + ' ' + siteName + ' finished');
-									}
-									_cmdEnd(done, true);
-								});
-							})
+								_cmdEnd(done, true);
+							});
+						})
 							.catch((error) => {
 								_cmdEnd(done);
 							});
@@ -1107,7 +1109,7 @@ var _postOneIdcService = function (request, localhost, server, service, action, 
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.log('ERROR: failed to ' + action + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
@@ -1171,7 +1173,7 @@ var _getOneIdcService = function (request, localhost, server, service, params) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {};
+			} catch (e) { };
 
 			if (response && response.statusCode !== 200) {
 				var msg = data && data.LocalData ? data.LocalData.StatusMessage : (response.statusMessage || response.statusCode);
@@ -1204,9 +1206,9 @@ var _controlSiteREST = function (request, server, action, siteName, done) {
 		}
 
 		sitesRest.getSite({
-				server: server,
-				name: siteName
-			})
+			server: server,
+			name: siteName
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -1332,20 +1334,20 @@ module.exports.shareSite = function (argv, done) {
 				name: name
 			}) : serverUtils.getSiteFolderAfterLogin(server, name);
 			sitePromise.then(function (result) {
-					if (!result || result.err) {
-						return Promise.reject();
-					}
-					if (!result.id) {
-						console.log('ERROR: site ' + name + ' does not exist');
-						return Promise.reject();
-					}
-					siteId = result.id;
-					console.log(' - verify site');
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				if (!result.id) {
+					console.log('ERROR: site ' + name + ' does not exist');
+					return Promise.reject();
+				}
+				siteId = result.id;
+				console.log(' - verify site');
 
-					return serverRest.getGroups({
-						server: server
-					});
-				})
+				return serverRest.getGroups({
+					server: server
+				});
+			})
 				.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
@@ -1524,20 +1526,20 @@ module.exports.unshareSite = function (argv, done) {
 				name: name
 			}) : serverUtils.getSiteFolderAfterLogin(server, name);
 			sitePromise.then(function (result) {
-					if (!result || result.err) {
-						return Promise.reject();
-					}
-					if (!result.id) {
-						console.log('ERROR: site ' + name + ' does not exist');
-						return Promise.reject();
-					}
-					siteId = result.id;
-					console.log(' - verify site');
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				if (!result.id) {
+					console.log('ERROR: site ' + name + ' does not exist');
+					return Promise.reject();
+				}
+				siteId = result.id;
+				console.log(' - verify site');
 
-					return serverRest.getGroups({
-						server: server
-					});
-				})
+				return serverRest.getGroups({
+					server: server
+				});
+			})
 				.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
@@ -1739,9 +1741,9 @@ module.exports.validateSite = function (argv, done) {
 					options['auth'] = auth;
 
 					request(options).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
+						// fix headers for cross-domain and capitalization issues
+						serverUtils.fixHeaders(response, res);
+					})
 						.on('error', function (err) {
 							console.log('ERROR: GET request failed: ' + req.url);
 							console.log(error);
@@ -1779,33 +1781,33 @@ module.exports.validateSite = function (argv, done) {
 							// verify site 
 							var sitePromise = serverUtils.browseSitesOnServer(request, server);
 							sitePromise.then(function (result) {
-									if (result.err) {
-										return Promise.reject();
-									}
+								if (result.err) {
+									return Promise.reject();
+								}
 
-									var sites = result.data || [];
-									var site;
-									for (var i = 0; i < sites.length; i++) {
-										if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-											site = sites[i];
-											break;
-										}
+								var sites = result.data || [];
+								var site;
+								for (var i = 0; i < sites.length; i++) {
+									if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
+										site = sites[i];
+										break;
 									}
-									if (!site || !site.fFolderGUID) {
-										console.log('ERROR: site ' + siteName + ' does not exist');
-										return Promise.reject();
-									}
+								}
+								if (!site || !site.fFolderGUID) {
+									console.log('ERROR: site ' + siteName + ' does not exist');
+									return Promise.reject();
+								}
 
-									if (site.isEnterprise !== '1') {
-										console.log(' - site ' + siteName + ' is not an enterprise site');
-										return Promise.reject();
-									}
+								if (site.isEnterprise !== '1') {
+									console.log(' - site ' + siteName + ' is not an enterprise site');
+									return Promise.reject();
+								}
 
-									siteId = site.fFolderGUID;
+								siteId = site.fFolderGUID;
 
-									// get other site info
-									return _getOneIdcService(request, localhost, server, 'SCS_GET_SITE_INFO_FILE', 'siteId=' + siteName + '&IsJson=1');
-								})
+								// get other site info
+								return _getOneIdcService(request, localhost, server, 'SCS_GET_SITE_INFO_FILE', 'siteId=' + siteName + '&IsJson=1');
+							})
 								.then(function (result) {
 									if (result.err) {
 										return Promise.reject();
@@ -1852,7 +1854,7 @@ module.exports.validateSite = function (argv, done) {
 									var siteValidation;
 									try {
 										siteValidation = JSON.parse(result.LocalData && result.LocalData.SiteValidation);
-									} catch (e) {};
+									} catch (e) { };
 
 									if (!siteValidation) {
 										console.log('ERROR: failed to get site validation');
@@ -1987,10 +1989,10 @@ var _validateSiteREST = function (request, server, siteName, done) {
 	var siteId;
 	var repositoryId, channelId, channelToken;
 	sitesRest.getSite({
-			server: server,
-			name: siteName,
-			expand: 'channel,repository'
-		})
+		server: server,
+		name: siteName,
+		expand: 'channel,repository'
+	})
 		.then(function (result) {
 			if (!result || result.err) {
 				return Promise.reject();
@@ -2182,9 +2184,9 @@ var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, 
 					options['auth'] = auth;
 
 					request(options).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
+						// fix headers for cross-domain and capitalization issues
+						serverUtils.fixHeaders(response, res);
+					})
 						.on('error', function (err) {
 							console.log('ERROR: GET request failed: ' + req.url);
 							console.log(error);
@@ -2228,9 +2230,9 @@ var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, 
 				};
 
 				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
+					// fix headers for cross-domain and capitalization issues
+					serverUtils.fixHeaders(response, res);
+				})
 					.on('error', function (err) {
 						console.log('ERROR: Failed to update site security settings');
 						console.log(error);
@@ -2266,56 +2268,56 @@ var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, 
 							// verify site 
 							var sitePromise = serverUtils.browseSitesOnServer(request, server);
 							sitePromise.then(function (result) {
-									if (result.err) {
-										return Promise.reject();
+								if (result.err) {
+									return Promise.reject();
+								}
+								var sites = result.data || [];
+								for (var i = 0; i < sites.length; i++) {
+									if (name.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
+										site = sites[i];
+										break;
 									}
-									var sites = result.data || [];
-									for (var i = 0; i < sites.length; i++) {
-										if (name.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-											site = sites[i];
-											break;
-										}
-									}
+								}
 
-									if (!site || !site.fFolderGUID) {
-										console.log('ERROR: site ' + name + ' does not exist');
-										return Promise.reject();
-									}
+								if (!site || !site.fFolderGUID) {
+									console.log('ERROR: site ' + name + ' does not exist');
+									return Promise.reject();
+								}
 
-									siteId = site.fFolderGUID;
-									var siteOnline = site.xScsIsSiteActive === '1' ? true : false;
-									siteSecured = !site.xScsIsSecureSite || site.xScsIsSecureSite === '' || site.xScsIsSecureSite === '0' ? false : true;
-									console.log(' - get site: runtimeStatus: ' + (siteOnline ? 'online' : 'offline') + ' securityStatus: ' + (siteSecured ? 'secured' : 'public'));
+								siteId = site.fFolderGUID;
+								var siteOnline = site.xScsIsSiteActive === '1' ? true : false;
+								siteSecured = !site.xScsIsSecureSite || site.xScsIsSecureSite === '' || site.xScsIsSecureSite === '0' ? false : true;
+								console.log(' - get site: runtimeStatus: ' + (siteOnline ? 'online' : 'offline') + ' securityStatus: ' + (siteSecured ? 'secured' : 'public'));
 
-									if (signin === 'no' && !siteSecured) {
-										console.log(' - site is already publicly available to anyone');
-										return Promise.reject();
-									}
-									if (siteOnline) {
-										console.log('ERROR: site is currently online. In order to change the security setting you must first bring this site offline.');
-										return Promise.reject();
-									}
+								if (signin === 'no' && !siteSecured) {
+									console.log(' - site is already publicly available to anyone');
+									return Promise.reject();
+								}
+								if (siteOnline) {
+									console.log('ERROR: site is currently online. In order to change the security setting you must first bring this site offline.');
+									return Promise.reject();
+								}
 
-									var usersPromises = [];
-									if (signin === 'yes') {
-										// console.log(' - add user: ' + addUserNames);
-										// console.log(' - delete user: ' + deleteUserNames);
-										for (var i = 0; i < addUserNames.length; i++) {
-											usersPromises.push(serverRest.getUser({
-												server: server,
-												name: addUserNames[i]
-											}));
-										}
-										for (var i = 0; i < deleteUserNames.length; i++) {
-											usersPromises.push(serverRest.getUser({
-												server: server,
-												name: deleteUserNames[i]
-											}));
-										}
+								var usersPromises = [];
+								if (signin === 'yes') {
+									// console.log(' - add user: ' + addUserNames);
+									// console.log(' - delete user: ' + deleteUserNames);
+									for (var i = 0; i < addUserNames.length; i++) {
+										usersPromises.push(serverRest.getUser({
+											server: server,
+											name: addUserNames[i]
+										}));
 									}
-									return Promise.all(usersPromises);
+									for (var i = 0; i < deleteUserNames.length; i++) {
+										usersPromises.push(serverRest.getUser({
+											server: server,
+											name: deleteUserNames[i]
+										}));
+									}
+								}
+								return Promise.all(usersPromises);
 
-								})
+							})
 								.then(function (results) {
 									if (signin === 'yes') {
 										if (addUserNames.length > 0 || deleteUserNames.length > 0) {
@@ -2461,32 +2463,32 @@ var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, 
 };
 
 var siteAccessMap = [{
-		code: 30,
-		groups: ['Cloud users', 'Visitors', 'Service users', 'Specific users']
-	},
-	{
-		code: 22,
-		groups: ['Visitors', 'Service users', 'Specific users']
-	}, {
-		code: 6,
-		groups: ['Visitors', 'Service users']
-	}, {
-		code: 18,
-		groups: ['Visitors', 'Specific users']
-	}, {
-		code: 20,
-		groups: ['Service users', 'Specific users']
-	}, {
-		code: 2,
-		groups: ['Visitors']
-	},
-	{
-		code: 4,
-		groups: ['Service users']
-	}, {
-		code: 16,
-		groups: ['Specific users']
-	}
+	code: 30,
+	groups: ['Cloud users', 'Visitors', 'Service users', 'Specific users']
+},
+{
+	code: 22,
+	groups: ['Visitors', 'Service users', 'Specific users']
+}, {
+	code: 6,
+	groups: ['Visitors', 'Service users']
+}, {
+	code: 18,
+	groups: ['Visitors', 'Specific users']
+}, {
+	code: 20,
+	groups: ['Service users', 'Specific users']
+}, {
+	code: 2,
+	groups: ['Visitors']
+},
+{
+	code: 4,
+	groups: ['Service users']
+}, {
+	code: 16,
+	groups: ['Specific users']
+}
 ];
 
 var _getSiteAccessValues = function (xScsIsSecureSite) {
@@ -2554,10 +2556,10 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 			var accessValues = [];
 
 			sitesRest.getSite({
-					server: server,
-					name: name,
-					expand: 'access'
-				})
+				server: server,
+				name: name,
+				expand: 'access'
+			})
 				.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
@@ -2798,7 +2800,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 };
 
 /**
- * set site security
+ * Upload static files to a site
  */
 module.exports.uploadStaticSite = function (argv, done) {
 	'use strict';
@@ -2879,7 +2881,7 @@ module.exports.uploadStaticSite = function (argv, done) {
 				return documentUtils.uploadFolder(uploadArgv, server);
 			})
 			.then(function (result) {
-
+				console.log(' - static files uploaded');
 				done(true);
 			})
 			.catch((error) => {
@@ -2930,11 +2932,12 @@ var _prepareStaticSite = function (srcPath) {
 
 					// get all sub folders including empty ones
 					var files = paths.files;
+
 					for (var i = 0; i < files.length; i++) {
 						var fileFolder = files[i];
 						var fileFolder = fileFolder.substring(srcPath.length + 1);
-						fileFolder = fileFolder.substring(0, fileFolder.lastIndexOf('/'));
-						
+						fileFolder = fileFolder.substring(0, fileFolder.lastIndexOf(path.sep));
+
 						// create _files folder
 						var filesFolder;
 						if (serverUtils.endsWith(fileFolder, '_files')) {
@@ -2949,7 +2952,7 @@ var _prepareStaticSite = function (srcPath) {
 						}
 
 						var fileName = files[i];
-						fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
+						fileName = fileName.substring(fileName.lastIndexOf(path.sep) + 1);
 
 						// copy file
 						fs.copyFileSync(files[i], path.join(filesFolder, fileName));
@@ -2966,5 +2969,252 @@ var _prepareStaticSite = function (srcPath) {
 				}
 			}
 		});
+	});
+};
+
+/**
+ * Download static files from a site
+ */
+module.exports.downloadStaticSite = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var siteName = argv.site;
+
+	var targetPath;
+	var saveToSrc = false;
+	if (argv.folder) {
+		targetPath = argv.folder;
+		if (!path.isAbsolute(targetPath)) {
+			targetPath = path.join(projectDir, targetPath);
+		}
+		targetPath = path.resolve(targetPath);
+		if (!fs.existsSync(targetPath)) {
+			console.log('ERROR: folder ' + targetPath + ' does not exist');
+			done();
+			return;
+		}
+		if (!fs.statSync(targetPath).isDirectory()) {
+			console.log('ERROR: ' + targetPath + ' is not a folder');
+			done();
+			return;
+		}
+	} else {
+		targetPath = path.join(documentsSrcDir, siteName, 'static');
+		saveToSrc = true;
+	}
+	console.log(' - local folder ' + targetPath);
+
+	var siteName = argv.site;
+
+	var request = serverUtils.getRequest();
+
+	var siteId;
+	serverUtils.loginToServer(server, request).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		serverUtils.getSiteFolder(server, siteName)
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				if (!result.id) {
+					console.log('ERROR: site ' + siteName + ' does not exist');
+					return Promise.reject();
+				}
+				siteId = result.id;
+				console.log(' - verify site');
+
+				return serverRest.findFolderHierarchy({
+					server: server,
+					parentID: siteId,
+					folderPath: 'static'
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					console.log('ERROR: site ' + siteName + ' does not have static files');
+					return Promise.reject();
+				}
+
+				if (saveToSrc) {
+					if (fs.existsSync(targetPath)) {
+						fse.removeSync(targetPath);
+					}
+					fse.mkdirSync(targetPath, {
+						recursive: true
+					});
+				}
+
+				var downloadArgv = {
+					folder: targetPath,
+					path: 'site:' + siteName + '/static'
+				};
+
+				return documentUtils.downloadFolder(downloadArgv, server, true, false);
+
+			})
+			.then(function (result) {
+				return _processDownloadedStaticSite(targetPath);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - static files saved to ' + targetPath);
+
+				done(true);
+			})
+			.catch((error) => {
+				done();
+			});
+
+	});
+};
+
+var _processDownloadedStaticSite = function (srcPath) {
+	return new Promise(function (resolve, reject) {
+		dir.paths(srcPath, function (err, paths) {
+			if (err) {
+				console.log(err);
+				return resolve({
+					err: 'err'
+				});
+			} else {
+				try {
+					if (paths.files.length === 0 && paths.dirs.length === 0) {
+						console.log('ERROR: no file nor folder under ' + srcPath);
+						return resolve({
+							err: 'err'
+						});
+					}
+
+					var files = paths.files;
+					for (var i = 0; i < files.length; i++) {
+						var filePath = files[i];
+						var fileFolder = filePath.substring(0, filePath.lastIndexOf(path.sep));
+						var fileName = filePath.substring(filePath.lastIndexOf(path.sep) + 1);
+
+						// remove _files folder
+						if (serverUtils.endsWith(fileFolder, '_files')) {
+							var parentFolder = fileFolder.substring(0, fileFolder.length - 6);
+							// console.log('move: ' + files[i] + ' =====> ' + parentFolder);
+							fse.moveSync(filePath, path.join(parentFolder, fileName));
+						}
+					}
+
+					var subdirs = paths.dirs;
+					for (var i = 0; i < subdirs.length; i++) {
+						var subdir = subdirs[i];
+						if (serverUtils.endsWith(subdir, '_files')) {
+							fse.removeSync(subdir);
+							// console.log('remove ' + subdir);
+						}
+					}
+
+					return resolve({});
+				} catch (e) {
+					console.log(e);
+					return resolve({
+						err: 'err'
+					});
+				}
+			}
+		});
+	});
+};
+
+/**
+ * Delete static files from a site
+ */
+module.exports.deleteStaticSite = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var siteName = argv.site;
+
+	var siteName = argv.site;
+
+	var request = serverUtils.getRequest();
+
+	var siteId;
+	serverUtils.loginToServer(server, request).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		serverUtils.getSiteFolder(server, siteName)
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				if (!result.id) {
+					console.log('ERROR: site ' + siteName + ' does not exist');
+					return Promise.reject();
+				}
+				siteId = result.id;
+				console.log(' - verify site');
+
+				return serverRest.findFolderHierarchy({
+					server: server,
+					parentID: siteId,
+					folderPath: 'static'
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					console.log('ERROR: site ' + siteName + ' does not have static files');
+					return Promise.reject();
+				}
+
+				var deleteArgv = {
+					path: 'site:' + siteName + '/static'
+				};
+
+				return documentUtils.deleteFolder(deleteArgv, server);
+
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - static files deleted');
+
+				done(true);
+			})
+			.catch((error) => {
+				done();
+			});
+
 	});
 };
