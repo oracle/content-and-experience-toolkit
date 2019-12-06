@@ -200,12 +200,12 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 				// get components on template
 				var comps = serverUtils.getTemplateComponents(projectDir, name);
-				
+
 				return _downloadComponents(comps, server);
 			})
 			.then(function (result) {
 				downloadedComps = result;
-				
+
 				// query components to get ids
 				return _queryComponents(request, server, downloadedComps);
 			})
@@ -223,7 +223,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						appIconUrl: '',
 						appIsHiddenInBuilder: comps[i].isHidden
 					};
-				
+
 					if (fs.existsSync(path.join(componentsSrcDir, comps[i].name))) {
 						var folderPath = path.join(componentsSrcDir, comps[i].name, '_folder.json');
 						fs.writeFileSync(folderPath, JSON.stringify(folderJson));
@@ -2148,12 +2148,15 @@ var _importTemplate = function (server, name, folder, zipfile, done) {
 					var importPromise = serverUtils.importTemplateToServer(request, server, fileId, idcToken);
 					importPromise.then(function (importResult) {
 						var success = false;
+						// console.log(importResult);
 						if (importResult.err) {
 							console.log(' - failed to import: ' + importResult.err);
 						} else if (importResult.LocalData && importResult.LocalData.StatusCode !== '0') {
 							console.log(' - failed to import: ' + importResult.LocalData.StatusMessage);
 						} else if (importResult.LocalData && importResult.LocalData.ImportConflicts) {
 							console.log(' - failed to import: the template already exists and you do not have privilege to override it');
+						} else if (importResult.JobInfo && importResult.JobInfo.JobStatus && importResult.JobInfo.JobStatus === 'FAILED') {
+							console.log(' - failed to import: ' + importResult.JobInfo.JobMessage);
 						} else {
 							success = true;
 							console.log(' - template ' + name + ' imported');

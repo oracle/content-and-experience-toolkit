@@ -137,9 +137,9 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 					options['auth'] = auth;
 
 					request(options).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
+							// fix headers for cross-domain and capitalization issues
+							serverUtils.fixHeaders(response, res);
+						})
 						.on('error', function (err) {
 							console.log('ERROR: GET request failed: ' + req.url);
 							console.log(error);
@@ -173,12 +173,12 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 					'localizationPolicy': localizationPolicyId,
 					'useBackgroundThread': 1
 				} : {
-						'idcToken': idcToken,
-						'names': siteName,
-						'descriptions': description,
-						'items': 'fFolderGUID:' + templateGUID,
-						'useBackgroundThread': 1
-					}
+					'idcToken': idcToken,
+					'names': siteName,
+					'descriptions': description,
+					'items': 'fFolderGUID:' + templateGUID,
+					'useBackgroundThread': 1
+				}
 
 				var postData = {
 					method: 'POST',
@@ -188,9 +188,9 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 				};
 
 				request(postData).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					serverUtils.fixHeaders(response, res);
-				})
+						// fix headers for cross-domain and capitalization issues
+						serverUtils.fixHeaders(response, res);
+					})
 					.on('error', function (err) {
 						console.log('ERROR: Failed to ' + action + ' site');
 						console.log(error);
@@ -226,25 +226,25 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 							// verify site 
 							var sitePromise = serverUtils.browseSitesOnServer(request, server);
 							sitePromise.then(function (result) {
-								if (result.err) {
-									return Promise.reject();
-								}
-
-								var sites = result.data || [];
-								var site;
-								for (var i = 0; i < sites.length; i++) {
-									if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-										site = sites[i];
-										break;
+									if (result.err) {
+										return Promise.reject();
 									}
-								}
-								if (site && site.fFolderGUID) {
-									console.log('ERROR: site ' + siteName + ' already exists');
-									return Promise.reject();
-								}
 
-								return serverUtils.getServerVersion(request, server);
-							})
+									var sites = result.data || [];
+									var site;
+									for (var i = 0; i < sites.length; i++) {
+										if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
+											site = sites[i];
+											break;
+										}
+									}
+									if (site && site.fFolderGUID) {
+										console.log('ERROR: site ' + siteName + ' already exists');
+										return Promise.reject();
+									}
+
+									return serverUtils.getServerVersion(request, server);
+								})
 								.then(function (result) {
 									cecVersion = result && result.version;
 
@@ -321,29 +321,29 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 									} else {
 										var repositoryPromise = serverUtils.getRepositoryFromServer(request, server, repositoryName);
 										repositoryPromise.then(function (result) {
-											//
-											// validate repository
-											//
-											if (!result || result.err) {
-												return Promise.reject();
-											}
+												//
+												// validate repository
+												//
+												if (!result || result.err) {
+													return Promise.reject();
+												}
 
-											var repository = result.data;
-											if (!repository || !repository.id) {
-												console.log('ERROR: repository ' + repositoryName + ' does not exist');
-												return Promise.reject();
-											}
-											repositoryId = repository.id;
-											console.log(' - get repository');
+												var repository = result.data;
+												if (!repository || !repository.id) {
+													console.log('ERROR: repository ' + repositoryName + ' does not exist');
+													return Promise.reject();
+												}
+												repositoryId = repository.id;
+												console.log(' - get repository');
 
-											var policyPromises = [];
-											if (localizationPolicyName) {
-												policyPromises.push(serverUtils.getLocalizationPolicyFromServer(request, server, localizationPolicyName));
-											} else {
-												policyPromises.push(serverUtils.getLocalizationPolicyFromServer(request, server, template.localizationPolicy, 'id'));
-											}
-											return Promise.all(policyPromises);
-										})
+												var policyPromises = [];
+												if (localizationPolicyName) {
+													policyPromises.push(serverUtils.getLocalizationPolicyFromServer(request, server, localizationPolicyName));
+												} else {
+													policyPromises.push(serverUtils.getLocalizationPolicyFromServer(request, server, template.localizationPolicy, 'id'));
+												}
+												return Promise.all(policyPromises);
+											})
 											.then(function (results) {
 												//
 												// validate localization policy
@@ -451,21 +451,21 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 		}
 
 		sitesRest.resourceExist({
-			server: server,
-			type: 'sites',
-			name: name
-		}).then(function (result) {
-			if (!result.err) {
-				console.log('ERROR: site ' + name + ' already exists');
-				return Promise.reject();
-			}
-
-			return sitesRest.getTemplate({
 				server: server,
-				name: templateName,
-				expand: 'localizationPolicy'
-			});
-		})
+				type: 'sites',
+				name: name
+			}).then(function (result) {
+				if (!result.err) {
+					console.log('ERROR: site ' + name + ' already exists');
+					return Promise.reject();
+				}
+
+				return sitesRest.getTemplate({
+					server: server,
+					name: templateName,
+					expand: 'localizationPolicy'
+				});
+			})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -496,11 +496,11 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 					console.log(sprintf(format, 'template', templateName));
 
 					sitesRest.createSite({
-						server: server,
-						name: name,
-						templateId: template.id,
-						templateName: templateName
-					})
+							server: server,
+							name: name,
+							templateId: template.id,
+							templateName: templateName
+						})
 						.then(function (result) {
 							if (result.err) {
 								done();
@@ -513,8 +513,8 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 				} else {
 
 					serverRest.getRepositories({
-						server: server
-					})
+							server: server
+						})
 						.then(function (result) {
 							var repositories = result || [];
 							for (var i = 0; i < repositories.length; i++) {
@@ -640,11 +640,18 @@ module.exports.controlSite = function (argv, done) {
 
 		var request = serverUtils.getRequest();
 
-		if (server.useRest) {
-			_controlSiteREST(request, server, action, siteName, done);
-		} else {
-			_controlSiteSCS(request, server, action, siteName, done);
-		}
+		serverUtils.loginToServer(server, request).then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
+			if (server.useRest) {
+				_controlSiteREST(request, server, action, siteName, done);
+			} else {
+				_controlSiteSCS(request, server, action, siteName, done);
+			}
+		});
 
 	} catch (e) {
 		console.log(e);
@@ -701,7 +708,7 @@ var _setSiteRuntimeStatus = function (request, server, action, siteId) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (error) { };
+				} catch (error) {};
 
 				var msg = data ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to ' + action + ' the site - ' + msg);
@@ -751,9 +758,9 @@ var _IdcControlSite = function (request, server, action, siteId) {
 					options['auth'] = auth;
 
 					request(options).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
+							// fix headers for cross-domain and capitalization issues
+							serverUtils.fixHeaders(response, res);
+						})
 						.on('error', function (err) {
 							console.log('ERROR: GET request failed: ' + req.url);
 							console.log(error);
@@ -786,9 +793,9 @@ var _IdcControlSite = function (request, server, action, siteId) {
 					};
 
 					request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
+							// fix headers for cross-domain and capitalization issues
+							serverUtils.fixHeaders(response, res);
+						})
 						.on('error', function (err) {
 							console.log('ERROR: Failed to ' + action + ' site');
 							console.log(error);
@@ -839,7 +846,7 @@ var _IdcControlSite = function (request, server, action, siteId) {
 								var data;
 								try {
 									data = JSON.parse(body);
-								} catch (e) { }
+								} catch (e) {}
 
 								if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 									console.log('ERROR: failed to ' + action + ' site ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
@@ -894,116 +901,108 @@ var _IdcControlSite = function (request, server, action, siteId) {
  */
 var _controlSiteSCS = function (request, server, action, siteName, done) {
 
-	var loginPromise = serverUtils.loginToServer(server, request);
-	loginPromise.then(function (result) {
-		if (!result.status) {
-			console.log(' - failed to connect to the server');
-			done();
-			return;
-		}
+	var express = require('express');
+	var app = express();
 
-		var express = require('express');
-		var app = express();
+	var port = '9191';
+	var localhost = 'http://localhost:' + port;
 
-		var port = '9191';
-		var localhost = 'http://localhost:' + port;
+	var dUser = '';
+	var idcToken;
 
-		var dUser = '';
-		var idcToken;
+	var auth = serverUtils.getRequestAuth(server);
 
-		var auth = serverUtils.getRequestAuth(server);
+	var siteId;
 
-		var siteId;
+	app.get('/*', function (req, res) {
+		// console.log('GET: ' + req.url);
+		if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
+			var url = server.url + req.url;
 
-		app.get('/*', function (req, res) {
-			// console.log('GET: ' + req.url);
-			if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-				var url = server.url + req.url;
+			var options = {
+				url: url,
+			};
 
-				var options = {
-					url: url,
-				};
+			options['auth'] = auth;
 
-				options['auth'] = auth;
-
-				request(options).on('response', function (response) {
+			request(options).on('response', function (response) {
 					// fix headers for cross-domain and capitalization issues
 					serverUtils.fixHeaders(response, res);
 				})
-					.on('error', function (err) {
-						console.log('ERROR: GET request failed: ' + req.url);
-						console.log(error);
-						return resolve({
-							err: 'err'
-						});
-					})
-					.pipe(res);
-
-			} else {
-				console.log('ERROR: GET request not supported: ' + req.url);
-				res.write({});
-				res.end();
-			}
-		});
-		app.post('/documents/web', function (req, res) {
-			// console.log('POST: ' + req.url);
-
-			var url = server.url + req.url;
-			var formData = {
-				'idcToken': idcToken,
-				'item': 'fFolderGUID:' + siteId
-			};
-
-			if (req.url.indexOf('SCS_ACTIVATE_SITE') > 0 || req.url.indexOf('SCS_DEACTIVATE_SITE') > 0) {
-				formData['isSitePublishV2'] = 1;
-			}
-
-			var postData = {
-				method: 'POST',
-				url: url,
-				'auth': auth,
-				'formData': formData
-			};
-
-			request(postData).on('response', function (response) {
-				// fix headers for cross-domain and capitalization issues
-				serverUtils.fixHeaders(response, res);
-			})
 				.on('error', function (err) {
-					console.log('ERROR: Failed to ' + action + ' site');
+					console.log('ERROR: GET request failed: ' + req.url);
 					console.log(error);
 					return resolve({
 						err: 'err'
 					});
 				})
-				.pipe(res)
-				.on('finish', function (err) {
-					res.end();
+				.pipe(res);
+
+		} else {
+			console.log('ERROR: GET request not supported: ' + req.url);
+			res.write({});
+			res.end();
+		}
+	});
+	app.post('/documents/web', function (req, res) {
+		// console.log('POST: ' + req.url);
+
+		var url = server.url + req.url;
+		var formData = {
+			'idcToken': idcToken,
+			'item': 'fFolderGUID:' + siteId
+		};
+
+		if (req.url.indexOf('SCS_ACTIVATE_SITE') > 0 || req.url.indexOf('SCS_DEACTIVATE_SITE') > 0) {
+			formData['isSitePublishV2'] = 1;
+		}
+
+		var postData = {
+			method: 'POST',
+			url: url,
+			'auth': auth,
+			'formData': formData
+		};
+
+		request(postData).on('response', function (response) {
+				// fix headers for cross-domain and capitalization issues
+				serverUtils.fixHeaders(response, res);
+			})
+			.on('error', function (err) {
+				console.log('ERROR: Failed to ' + action + ' site');
+				console.log(error);
+				return resolve({
+					err: 'err'
 				});
+			})
+			.pipe(res)
+			.on('finish', function (err) {
+				res.end();
+			});
 
-		});
+	});
 
-		localServer = app.listen(0, function () {
-			port = localServer.address().port;
-			localhost = 'http://localhost:' + port;
-			localServer.setTimeout(0);
+	localServer = app.listen(0, function () {
+		port = localServer.address().port;
+		localhost = 'http://localhost:' + port;
+		localServer.setTimeout(0);
 
-			var inter = setInterval(function () {
-				// console.log(' - getting login user: ' + total);
-				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
+		var inter = setInterval(function () {
+			// console.log(' - getting login user: ' + total);
+			var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
 
-				request.get(url, function (err, response, body) {
-					var data = JSON.parse(body);
-					dUser = data && data.LocalData && data.LocalData.dUser;
-					idcToken = data && data.LocalData && data.LocalData.idcToken;
-					if (dUser && dUser !== 'anonymous' && idcToken) {
-						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-						clearInterval(inter);
-						console.log(' - establish user session');
+			request.get(url, function (err, response, body) {
+				var data = JSON.parse(body);
+				dUser = data && data.LocalData && data.LocalData.dUser;
+				idcToken = data && data.LocalData && data.LocalData.idcToken;
+				if (dUser && dUser !== 'anonymous' && idcToken) {
+					// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
+					clearInterval(inter);
+					console.log(' - establish user session');
 
-						// verify site 
-						var sitePromise = serverUtils.browseSitesOnServer(request, server);
-						sitePromise.then(function (result) {
+					// verify site 
+					var sitePromise = serverUtils.browseSitesOnServer(request, server);
+					sitePromise.then(function (result) {
 							if (result.err) {
 								return Promise.reject();
 							}
@@ -1081,15 +1080,14 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 								_cmdEnd(done, true);
 							});
 						})
-							.catch((error) => {
-								_cmdEnd(done);
-							});
-					}
-				}); // idc token request
+						.catch((error) => {
+							_cmdEnd(done);
+						});
+				}
+			}); // idc token request
 
-			}, 1000);
-		}); // local 
-	}); // login
+		}, 1000);
+	}); // local 
 };
 
 var _postOneIdcService = function (request, localhost, server, service, action, idcToken) {
@@ -1109,7 +1107,7 @@ var _postOneIdcService = function (request, localhost, server, service, action, 
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.log('ERROR: failed to ' + action + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
@@ -1173,7 +1171,7 @@ var _getOneIdcService = function (request, localhost, server, service, params) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { };
+			} catch (e) {};
 
 			if (response && response.statusCode !== 200) {
 				var msg = data && data.LocalData ? data.LocalData.StatusMessage : (response.statusMessage || response.statusCode);
@@ -1197,97 +1195,90 @@ var _getOneIdcService = function (request, localhost, server, service, params) {
  * @param {*} done 
  */
 var _controlSiteREST = function (request, server, action, siteName, done) {
-	var loginPromise = serverUtils.loginToServer(server, request);
-	loginPromise.then(function (result) {
-		if (!result.status) {
-			console.log(' - failed to connect to the server');
-			done();
-			return;
-		}
 
-		sitesRest.getSite({
+
+	sitesRest.getSite({
 			server: server,
 			name: siteName
 		})
-			.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
 
-				var site = result;
-				var runtimeStatus = site.runtimeStatus;
-				var publishStatus = site.publishStatus;
-				console.log(' - get site: runtimeStatus: ' + runtimeStatus + '  publishStatus: ' + publishStatus);
+			var site = result;
+			var runtimeStatus = site.runtimeStatus;
+			var publishStatus = site.publishStatus;
+			console.log(' - get site: runtimeStatus: ' + runtimeStatus + '  publishStatus: ' + publishStatus);
 
-				if (action === 'take-offline' && runtimeStatus === 'offline') {
-					console.log(' - site is already offline');
-					return Promise.reject();
-				}
-				if (action === 'bring-online' && runtimeStatus === 'online') {
-					console.log(' - site is already online');
-					return Promise.reject();
-				}
-				if (action === 'bring-online' && publishStatus === 'unpublished') {
-					console.log('ERROR: site ' + siteName + ' is draft, publish it first');
-					return Promise.reject();
-				}
+			if (action === 'take-offline' && runtimeStatus === 'offline') {
+				console.log(' - site is already offline');
+				return Promise.reject();
+			}
+			if (action === 'bring-online' && runtimeStatus === 'online') {
+				console.log(' - site is already online');
+				return Promise.reject();
+			}
+			if (action === 'bring-online' && publishStatus === 'unpublished') {
+				console.log('ERROR: site ' + siteName + ' is draft, publish it first');
+				return Promise.reject();
+			}
 
-				if (action === 'unpublish' && runtimeStatus === 'online') {
-					console.log('ERROR: site ' + siteName + ' is online, take it offline first');
-					return Promise.reject();
-				}
-				if (action === 'unpublish' && publishStatus === 'unpublished') {
-					console.log('ERROR: site ' + siteName + ' is draft');
-					return Promise.reject();
-				}
+			if (action === 'unpublish' && runtimeStatus === 'online') {
+				console.log('ERROR: site ' + siteName + ' is online, take it offline first');
+				return Promise.reject();
+			}
+			if (action === 'unpublish' && publishStatus === 'unpublished') {
+				console.log('ERROR: site ' + siteName + ' is draft');
+				return Promise.reject();
+			}
 
-				var actionPromise;
-				if (action === 'publish') {
-					actionPromise = sitesRest.publishSite({
-						server: server,
-						name: siteName
-					});
-				} else if (action === 'unpublish') {
-					actionPromise = sitesRest.unpublishSite({
-						server: server,
-						name: siteName
-					})
-				} else if (action === 'bring-online') {
-					actionPromise = sitesRest.activateSite({
-						server: server,
-						name: siteName
-					});
-				} else if (action === 'take-offline') {
-					actionPromise = sitesRest.deactivateSite({
-						server: server,
-						name: siteName
-					});
-				} else {
-					console.log('ERROR: invalid action ' + action);
-					return Promise.reject();
-				}
+			var actionPromise;
+			if (action === 'publish') {
+				actionPromise = sitesRest.publishSite({
+					server: server,
+					name: siteName
+				});
+			} else if (action === 'unpublish') {
+				actionPromise = sitesRest.unpublishSite({
+					server: server,
+					name: siteName
+				})
+			} else if (action === 'bring-online') {
+				actionPromise = sitesRest.activateSite({
+					server: server,
+					name: siteName
+				});
+			} else if (action === 'take-offline') {
+				actionPromise = sitesRest.deactivateSite({
+					server: server,
+					name: siteName
+				});
+			} else {
+				console.log('ERROR: invalid action ' + action);
+				return Promise.reject();
+			}
 
-				return actionPromise;
-			})
-			.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
+			return actionPromise;
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
 
-				if (action === 'bring-online') {
-					console.log(' - site ' + siteName + ' is online now');
-				} else if (action === 'take-offline') {
-					console.log(' - site ' + siteName + ' is offline now');
-				} else {
-					console.log(' - ' + action + ' ' + siteName + ' finished');
-				}
+			if (action === 'bring-online') {
+				console.log(' - site ' + siteName + ' is online now');
+			} else if (action === 'take-offline') {
+				console.log(' - site ' + siteName + ' is offline now');
+			} else {
+				console.log(' - ' + action + ' ' + siteName + ' finished');
+			}
 
-				done(true);
-			})
-			.catch((error) => {
-				done();
-			});
-	});
+			done(true);
+		})
+		.catch((error) => {
+			done();
+		});
 };
 
 /**
@@ -1334,20 +1325,20 @@ module.exports.shareSite = function (argv, done) {
 				name: name
 			}) : serverUtils.getSiteFolderAfterLogin(server, name);
 			sitePromise.then(function (result) {
-				if (!result || result.err) {
-					return Promise.reject();
-				}
-				if (!result.id) {
-					console.log('ERROR: site ' + name + ' does not exist');
-					return Promise.reject();
-				}
-				siteId = result.id;
-				console.log(' - verify site');
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (!result.id) {
+						console.log('ERROR: site ' + name + ' does not exist');
+						return Promise.reject();
+					}
+					siteId = result.id;
+					console.log(' - verify site');
 
-				return serverRest.getGroups({
-					server: server
-				});
-			})
+					return serverRest.getGroups({
+						server: server
+					});
+				})
 				.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
@@ -1526,20 +1517,20 @@ module.exports.unshareSite = function (argv, done) {
 				name: name
 			}) : serverUtils.getSiteFolderAfterLogin(server, name);
 			sitePromise.then(function (result) {
-				if (!result || result.err) {
-					return Promise.reject();
-				}
-				if (!result.id) {
-					console.log('ERROR: site ' + name + ' does not exist');
-					return Promise.reject();
-				}
-				siteId = result.id;
-				console.log(' - verify site');
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (!result.id) {
+						console.log('ERROR: site ' + name + ' does not exist');
+						return Promise.reject();
+					}
+					siteId = result.id;
+					console.log(' - verify site');
 
-				return serverRest.getGroups({
-					server: server
-				});
-			})
+					return serverRest.getGroups({
+						server: server
+					});
+				})
 				.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
@@ -1741,9 +1732,9 @@ module.exports.validateSite = function (argv, done) {
 					options['auth'] = auth;
 
 					request(options).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
+							// fix headers for cross-domain and capitalization issues
+							serverUtils.fixHeaders(response, res);
+						})
 						.on('error', function (err) {
 							console.log('ERROR: GET request failed: ' + req.url);
 							console.log(error);
@@ -1781,33 +1772,33 @@ module.exports.validateSite = function (argv, done) {
 							// verify site 
 							var sitePromise = serverUtils.browseSitesOnServer(request, server);
 							sitePromise.then(function (result) {
-								if (result.err) {
-									return Promise.reject();
-								}
-
-								var sites = result.data || [];
-								var site;
-								for (var i = 0; i < sites.length; i++) {
-									if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-										site = sites[i];
-										break;
+									if (result.err) {
+										return Promise.reject();
 									}
-								}
-								if (!site || !site.fFolderGUID) {
-									console.log('ERROR: site ' + siteName + ' does not exist');
-									return Promise.reject();
-								}
 
-								if (site.isEnterprise !== '1') {
-									console.log(' - site ' + siteName + ' is not an enterprise site');
-									return Promise.reject();
-								}
+									var sites = result.data || [];
+									var site;
+									for (var i = 0; i < sites.length; i++) {
+										if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
+											site = sites[i];
+											break;
+										}
+									}
+									if (!site || !site.fFolderGUID) {
+										console.log('ERROR: site ' + siteName + ' does not exist');
+										return Promise.reject();
+									}
 
-								siteId = site.fFolderGUID;
+									if (site.isEnterprise !== '1') {
+										console.log(' - site ' + siteName + ' is not an enterprise site');
+										return Promise.reject();
+									}
 
-								// get other site info
-								return _getOneIdcService(request, localhost, server, 'SCS_GET_SITE_INFO_FILE', 'siteId=' + siteName + '&IsJson=1');
-							})
+									siteId = site.fFolderGUID;
+
+									// get other site info
+									return _getOneIdcService(request, localhost, server, 'SCS_GET_SITE_INFO_FILE', 'siteId=' + siteName + '&IsJson=1');
+								})
 								.then(function (result) {
 									if (result.err) {
 										return Promise.reject();
@@ -1854,7 +1845,7 @@ module.exports.validateSite = function (argv, done) {
 									var siteValidation;
 									try {
 										siteValidation = JSON.parse(result.LocalData && result.LocalData.SiteValidation);
-									} catch (e) { };
+									} catch (e) {};
 
 									if (!siteValidation) {
 										console.log('ERROR: failed to get site validation');
@@ -1989,10 +1980,10 @@ var _validateSiteREST = function (request, server, siteName, done) {
 	var siteId;
 	var repositoryId, channelId, channelToken;
 	sitesRest.getSite({
-		server: server,
-		name: siteName,
-		expand: 'channel,repository'
-	})
+			server: server,
+			name: siteName,
+			expand: 'channel,repository'
+		})
 		.then(function (result) {
 			if (!result || result.err) {
 				return Promise.reject();
@@ -2184,9 +2175,9 @@ var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, 
 					options['auth'] = auth;
 
 					request(options).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
+							// fix headers for cross-domain and capitalization issues
+							serverUtils.fixHeaders(response, res);
+						})
 						.on('error', function (err) {
 							console.log('ERROR: GET request failed: ' + req.url);
 							console.log(error);
@@ -2230,9 +2221,9 @@ var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, 
 				};
 
 				request(postData).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					serverUtils.fixHeaders(response, res);
-				})
+						// fix headers for cross-domain and capitalization issues
+						serverUtils.fixHeaders(response, res);
+					})
 					.on('error', function (err) {
 						console.log('ERROR: Failed to update site security settings');
 						console.log(error);
@@ -2268,56 +2259,56 @@ var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, 
 							// verify site 
 							var sitePromise = serverUtils.browseSitesOnServer(request, server);
 							sitePromise.then(function (result) {
-								if (result.err) {
-									return Promise.reject();
-								}
-								var sites = result.data || [];
-								for (var i = 0; i < sites.length; i++) {
-									if (name.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-										site = sites[i];
-										break;
+									if (result.err) {
+										return Promise.reject();
 									}
-								}
-
-								if (!site || !site.fFolderGUID) {
-									console.log('ERROR: site ' + name + ' does not exist');
-									return Promise.reject();
-								}
-
-								siteId = site.fFolderGUID;
-								var siteOnline = site.xScsIsSiteActive === '1' ? true : false;
-								siteSecured = !site.xScsIsSecureSite || site.xScsIsSecureSite === '' || site.xScsIsSecureSite === '0' ? false : true;
-								console.log(' - get site: runtimeStatus: ' + (siteOnline ? 'online' : 'offline') + ' securityStatus: ' + (siteSecured ? 'secured' : 'public'));
-
-								if (signin === 'no' && !siteSecured) {
-									console.log(' - site is already publicly available to anyone');
-									return Promise.reject();
-								}
-								if (siteOnline) {
-									console.log('ERROR: site is currently online. In order to change the security setting you must first bring this site offline.');
-									return Promise.reject();
-								}
-
-								var usersPromises = [];
-								if (signin === 'yes') {
-									// console.log(' - add user: ' + addUserNames);
-									// console.log(' - delete user: ' + deleteUserNames);
-									for (var i = 0; i < addUserNames.length; i++) {
-										usersPromises.push(serverRest.getUser({
-											server: server,
-											name: addUserNames[i]
-										}));
+									var sites = result.data || [];
+									for (var i = 0; i < sites.length; i++) {
+										if (name.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
+											site = sites[i];
+											break;
+										}
 									}
-									for (var i = 0; i < deleteUserNames.length; i++) {
-										usersPromises.push(serverRest.getUser({
-											server: server,
-											name: deleteUserNames[i]
-										}));
-									}
-								}
-								return Promise.all(usersPromises);
 
-							})
+									if (!site || !site.fFolderGUID) {
+										console.log('ERROR: site ' + name + ' does not exist');
+										return Promise.reject();
+									}
+
+									siteId = site.fFolderGUID;
+									var siteOnline = site.xScsIsSiteActive === '1' ? true : false;
+									siteSecured = !site.xScsIsSecureSite || site.xScsIsSecureSite === '' || site.xScsIsSecureSite === '0' ? false : true;
+									console.log(' - get site: runtimeStatus: ' + (siteOnline ? 'online' : 'offline') + ' securityStatus: ' + (siteSecured ? 'secured' : 'public'));
+
+									if (signin === 'no' && !siteSecured) {
+										console.log(' - site is already publicly available to anyone');
+										return Promise.reject();
+									}
+									if (siteOnline) {
+										console.log('ERROR: site is currently online. In order to change the security setting you must first bring this site offline.');
+										return Promise.reject();
+									}
+
+									var usersPromises = [];
+									if (signin === 'yes') {
+										// console.log(' - add user: ' + addUserNames);
+										// console.log(' - delete user: ' + deleteUserNames);
+										for (var i = 0; i < addUserNames.length; i++) {
+											usersPromises.push(serverRest.getUser({
+												server: server,
+												name: addUserNames[i]
+											}));
+										}
+										for (var i = 0; i < deleteUserNames.length; i++) {
+											usersPromises.push(serverRest.getUser({
+												server: server,
+												name: deleteUserNames[i]
+											}));
+										}
+									}
+									return Promise.all(usersPromises);
+
+								})
 								.then(function (results) {
 									if (signin === 'yes') {
 										if (addUserNames.length > 0 || deleteUserNames.length > 0) {
@@ -2463,32 +2454,32 @@ var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, 
 };
 
 var siteAccessMap = [{
-	code: 30,
-	groups: ['Cloud users', 'Visitors', 'Service users', 'Specific users']
-},
-{
-	code: 22,
-	groups: ['Visitors', 'Service users', 'Specific users']
-}, {
-	code: 6,
-	groups: ['Visitors', 'Service users']
-}, {
-	code: 18,
-	groups: ['Visitors', 'Specific users']
-}, {
-	code: 20,
-	groups: ['Service users', 'Specific users']
-}, {
-	code: 2,
-	groups: ['Visitors']
-},
-{
-	code: 4,
-	groups: ['Service users']
-}, {
-	code: 16,
-	groups: ['Specific users']
-}
+		code: 30,
+		groups: ['Cloud users', 'Visitors', 'Service users', 'Specific users']
+	},
+	{
+		code: 22,
+		groups: ['Visitors', 'Service users', 'Specific users']
+	}, {
+		code: 6,
+		groups: ['Visitors', 'Service users']
+	}, {
+		code: 18,
+		groups: ['Visitors', 'Specific users']
+	}, {
+		code: 20,
+		groups: ['Service users', 'Specific users']
+	}, {
+		code: 2,
+		groups: ['Visitors']
+	},
+	{
+		code: 4,
+		groups: ['Service users']
+	}, {
+		code: 16,
+		groups: ['Specific users']
+	}
 ];
 
 var _getSiteAccessValues = function (xScsIsSecureSite) {
@@ -2556,10 +2547,10 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 			var accessValues = [];
 
 			sitesRest.getSite({
-				server: server,
-				name: name,
-				expand: 'access'
-			})
+					server: server,
+					name: name,
+					expand: 'access'
+				})
 				.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
@@ -3160,8 +3151,6 @@ module.exports.deleteStaticSite = function (argv, done) {
 
 	var siteName = argv.site;
 
-	var siteName = argv.site;
-
 	var request = serverUtils.getRequest();
 
 	var siteId;
@@ -3217,4 +3206,515 @@ module.exports.deleteStaticSite = function (argv, done) {
 			});
 
 	});
+};
+
+/**
+ * Delete static files from a site
+ */
+module.exports.refreshPrerenderCache = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var siteName = argv.site;
+
+	var request = serverUtils.getRequest();
+
+	var siteId;
+	serverUtils.loginToServer(server, request).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		/*
+		serverUtils.getTenantConfig(server)
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var isSitesPrerenderEnabled = result.IsSitesPrerenderEnabled ? result.IsSitesPrerenderEnabled.toLowerCase() === 'true' : false;
+				// console.log(' - isSitesPrerenderEnabled: ' + isSitesPrerenderEnabled);
+				if (!isSitesPrerenderEnabled) {
+					console.log('ERROR: Pre-render is not enabled');
+					return Promise.reject();
+				}
+			*/
+		serverUtils.getSiteFolder(server, siteName)
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				if (!result.id) {
+					console.log('ERROR: site ' + siteName + ' does not exist');
+					return Promise.reject();
+				}
+				siteId = result.id;
+				console.log(' - verify site');
+
+				return sitesRest.refreshSiteContent({
+					server: server,
+					id: siteId,
+					name: siteName
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				console.log(result);
+
+				done(true);
+			})
+			.catch((error) => {
+				done();
+			});
+
+	});
+};
+
+var _importTemplateSCS = function (localhost, request, name) {
+	return new Promise(function (resolve, reject) {
+		url = localhost + '/documents/web?IdcService=SCS_IMPORT_TEMPLATE_PACKAGE';
+		request.post(url, function (err, response, body) {
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || data.err || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log(' - failed to import ' + (data && data.LocalData ? ('- ' + data.LocalData.StatusMessage) : err));
+				return resolve({
+					err: 'err'
+				});
+			}
+			if (data.LocalData.ImportConflicts) {
+				var conflict = data.ResultSets.ImportConflictsResultSet;
+				console.log(' - failed to import: ImportConflicts');
+				// console.log(conflict);
+				if (data.ResultSets.ImportConflictsResultSet) {
+					var conflictIdx, nameIdx, ownerIdx, resolutionIdx;
+					var fields = data.ResultSets.ImportConflictsResultSet.fields || [];
+					var rows = data.ResultSets.ImportConflictsResultSet.rows;
+					for (var i = 0; i < fields.length; i++) {
+						if (fields[i].name === 'conflict') {
+							conflictIdx = i;
+						} else if (fields[i].name === 'name') {
+							nameIdx = i;
+						} else if (fields[i].name === 'fCreatorLoginName') {
+							ownerIdx = i;
+						} else if (fields[i].name === 'resolution') {
+							resolutionIdx = i;
+						}
+					}
+
+					for (var i = 0; i < rows.length; i++) {
+						var msg = rows[i][conflictIdx] + ': ' + rows[i][nameIdx] + ' owned by ' + rows[i][ownerIdx] + ' ' + rows[i][resolutionIdx];
+						console.log('   ' + msg);
+					}
+				}
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var jobId = data.LocalData.JobID;
+			var importTempStatusPromise = serverUtils.getTemplateImportStatus(request, localhost, jobId);
+			importTempStatusPromise.then(function (data) {
+				var success = false;
+				// console.log(data);
+				if (data && data.LocalData) {
+					if (data.LocalData.StatusCode !== '0') {
+						console.log(' - failed to import ' + name + ': ' + importResult.LocalData.StatusMessage);
+					} else if (data.LocalData.ImportConflicts) {
+						// console.log(data.LocalData);
+						console.log(' - failed to import ' + name + ': the template already exists and you do not have privilege to override it');
+					} else if (data.JobInfo && data.JobInfo.JobStatus && data.JobInfo.JobStatus === 'FAILED') {
+						console.log(' - failed to import: ' + data.JobInfo.JobMessage);
+					} else {
+						success = true;
+						console.log(' - template ' + name + ' imported');
+					}
+				} else {
+					console.log(' - failed to import ' + name);
+				}
+				return success ? resolve({}) : resolve({
+					err: 'err'
+				});
+			});
+		});
+	});
+};
+
+/**
+ * create non-MLS enterprise site
+ */
+module.exports.migrateSite = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		_cmdEnd(done);
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		_cmdEnd(done);
+		return;
+	}
+
+	var name = argv.name;
+	var templatePath = argv.template;
+	var repositoryName = argv.repository;
+	var description = argv.description;
+	var sitePrefix = argv.sitePrefix || name.toLowerCase();
+	sitePrefix = sitePrefix.substring(0, 15);
+	var inputPath = argv.folder === '/' ? '' : serverUtils.trimString(argv.folder, '/');
+
+	if (!path.isAbsolute(templatePath)) {
+		templatePath = path.join(projectDir, templatePath);
+	}
+	templatePath = path.resolve(templatePath);
+
+	if (!fs.existsSync(templatePath)) {
+		console.log('ERROR: file ' + templatePath + ' does not exist');
+		_cmdEnd(done);
+		return;
+	}
+	if (!fs.statSync(templatePath).isFile()) {
+		console.log('ERROR: ' + templatePath + ' is not a file');
+		_cmdEnd(done);
+		return;
+	}
+	var fileName = templatePath.substring(templatePath.lastIndexOf(path.sep) + 1);
+	var templateName = fileName.substring(0, fileName.indexOf('.'));
+
+	var request = serverUtils.getRequest();
+
+	var folderId;
+	var repositoryId;
+	var fileId;
+	var cecVersion;
+
+
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		var express = require('express');
+		var app = express();
+
+		var port = '9191';
+		var localhost = 'http://localhost:' + port;
+
+		var idcToken;
+
+		var auth = serverUtils.getRequestAuth(server);
+
+		var template, templateGUID;
+
+		app.get('/*', function (req, res) {
+			// console.log('GET: ' + req.url);
+			if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
+				var url = server.url + req.url;
+
+				var options = {
+					url: url,
+				};
+
+				options['auth'] = auth;
+
+				request(options).on('response', function (response) {
+						// fix headers for cross-domain and capitalization issues
+						serverUtils.fixHeaders(response, res);
+					})
+					.on('error', function (err) {
+						console.log('ERROR: GET request failed: ' + req.url);
+						console.log(error);
+						return resolve({
+							err: 'err'
+						});
+					})
+					.pipe(res);
+
+			} else {
+				console.log('ERROR: GET request not supported: ' + req.url);
+				res.write({});
+				res.end();
+			}
+		});
+		app.post('/documents/web', function (req, res) {
+			// console.log('POST: ' + req.url);
+
+			if (req.url.indexOf('SCS_IMPORT_TEMPLATE_PACKAGE') > 0) {
+				var importUrl = server.url + '/documents/web?IdcService=SCS_IMPORT_TEMPLATE_PACKAGE';
+				var data = {
+					'item': 'fFileGUID:' + fileId,
+					'idcToken': idcToken,
+					'useBackgroundThread': true,
+					'ThemeConflictResolution': 'overwrite',
+					'TemplateConflictResolution': 'overwrite',
+					'DefaultComponentConflictResolution': true,
+					'allowCrossTenant': true
+				};
+				var postData = {
+					method: 'POST',
+					url: importUrl,
+					'auth': auth,
+					'form': data
+				};
+				// console.log(postData);
+				request(postData).on('response', function (response) {
+						// fix headers for cross-domain and capitalization issues
+						serverUtils.fixHeaders(response, res);
+					})
+					.on('error', function (err) {
+						res.write({
+							err: err
+						});
+						res.end();
+					})
+					.pipe(res)
+					.on('finish', function (err) {
+						// console.log(' - template import finished');
+						res.end();
+					});
+			} else {
+				var url = server.url + req.url;
+				var repositoryPrefix = cecVersion && semver.gte(semver.coerce(cecVersion), '19.4.3') ? 'arCaaSGUID' : 'fFolderGUID';
+				var formData = {
+					'idcToken': idcToken,
+					'names': name,
+					'descriptions': description,
+					'items': 'fFolderGUID:' + templateGUID,
+					'isEnterprise': '1',
+					'repository': repositoryPrefix + ':' + repositoryId,
+					'slugPrefix': sitePrefix,
+					'useBackgroundThread': 1
+				};
+
+				var postData = {
+					method: 'POST',
+					url: url,
+					auth: auth,
+					formData: formData
+				};
+
+				request(postData).on('response', function (response) {
+						// fix headers for cross-domain and capitalization issues
+						serverUtils.fixHeaders(response, res);
+					})
+					.on('error', function (err) {
+						console.log('ERROR: Failed to ' + action + ' site');
+						console.log(error);
+						return resolve({
+							err: 'err'
+						});
+					})
+					.pipe(res)
+					.on('finish', function (err) {
+						res.end();
+					});
+
+			}
+		});
+
+		localServer = app.listen(0, function () {
+			port = localServer.address().port;
+			localhost = 'http://localhost:' + port;
+			localServer.setTimeout(0);
+
+			var folderPromises = [];
+			if (inputPath) {
+				folderPromises.push(serverRest.findFolderHierarchy({
+					server: server,
+					parentID: 'self',
+					folderPath: inputPath
+				}));
+			}
+			Promise.all(folderPromises)
+				.then(function (results) {
+					if (inputPath && (!results || results.length === 0 || !results[0] || !results[0].id)) {
+						return Promise.reject();
+					}
+
+					folderId = inputPath ? results[0].id : 'self';
+
+					// verify site
+					return sitesRest.resourceExist({
+						server: server,
+						type: 'sites',
+						name: name
+					});
+				})
+				.then(function (result) {
+					if (result && result.id) {
+						console.log('ERROR: site ' + name + ' already exists');
+						return Promise.reject();
+					}
+
+					// verify repository
+					return serverRest.getRepositoryWithName({
+						server: server,
+						name: repositoryName
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err || !result.data) {
+						console.log('ERROR: repository ' + repositoryName + ' does not exist');
+						return Promise.reject();
+					}
+
+					repositoryId = result.data && result.data.id;
+					console.log(' - verify repository (Id: ' + repositoryId + ')');
+
+					// upload template file
+					return serverRest.createFile({
+						server: server,
+						parentID: folderId,
+						filename: fileName,
+						contents: fs.readFileSync(templatePath)
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					fileId = result.id;
+					console.log(' - file ' + fileName + ' uploaded to ' +
+						(inputPath ? ('folder ' + inputPath) : 'Home folder') +
+						' (Id: ' + result.id + ' version:' + result.version + ')');
+
+					return serverUtils.getIdcToken(server);
+				})
+				.then(function (result) {
+					idcToken = result && result.idcToken;
+					if (!idcToken) {
+						console.log('ERROR: failed to get idcToken');
+						return Promise.reject();
+					}
+					// console.log(' - get idcToken: ' + idcToken);
+
+					return _importTemplateSCS(localhost, request, templateName);
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+
+					return sitesRest.getTemplate({
+						server: server,
+						name: templateName
+					});
+
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+
+					templateGUID = result.id;
+
+					return serverUtils.getServerVersion(request, server);
+				})
+				.then(function (result) {
+					cecVersion = result && result.version;
+
+					return serverUtils.getIdcToken(server);
+				})
+				.then(function (result) {
+					// re-fetch token
+					if (result && result.idcToken) {
+						idcToken = result && result.idcToken;
+					}
+					return _postOneIdcService(request, localhost, server, 'SCS_COPY_SITES', 'create site', idcToken);
+				})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
+					}
+					console.log(' - site ' + name + ' created');
+					_cmdEnd(done, true);
+				})
+				.catch((error) => {
+					if (error) {
+						console.log(error);
+					}
+					_cmdEnd(done);
+				});
+		});
+	});
+
+};
+
+
+//////////////////////////////////////////////////////////////////////////
+//    Sync server event handlers
+//////////////////////////////////////////////////////////////////////////
+
+module.exports.syncPublishUnpublishSite = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var srcServer = argv.server;
+	console.log(' - source server: ' + srcServer.url);
+
+	var destServer = argv.destination;
+	console.log(' - destination server: ' + destServer.url);
+
+	var siteId = argv.id;
+	var action = argv.action || 'publish';
+
+	var siteName;
+
+	var request = serverUtils.getRequest();
+
+	serverUtils.loginToServer(srcServer, request).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		// verify the site
+		sitesRest.getSite({
+				server: server,
+				id: siteId
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				siteName = result.name;
+
+				_controlSiteREST(request, destServer, action, siteName, done);
+			})
+			.catch((error) => {
+				done();
+			});
+	});
+
 };

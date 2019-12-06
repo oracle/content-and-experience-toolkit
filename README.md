@@ -4,6 +4,8 @@ Templates and resources for development platforms.
 
 [sites](sites/) – Work with tools to create, test, and package your own site templates, themes, components and content layouts.
 
+[Pre-Compile Sites](sites/doc/compiler.md) - Pre-compile site pages into HTML for faster rendition in the browser
+
 [Test to Production](sites/doc/T2P.md) – Use the OCE toolkit for Test to Production
 
 [Build Test](sites/doc/Build-Test.md) - Build, optimize and test updates for OCE source
@@ -11,6 +13,21 @@ Templates and resources for development platforms.
 [Asset Sync](sites/doc/AssetSync.md) - Synchronize asset create, update, delete, publish across OCE servers
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
+
+
+# New in Release 19.4.3
+
+**Added**
+
+`cec compile-tempalte` - compile a site within a template for faster rendition in the browser.  See [Pre-Compile Sites](sites/doc/compiler.md).
+
+`cec refresh-prerender-cache` - refresh the prerender cached site
+
+`cec migrate-site` - migration utility for moving a site from Internal Compute to OCI-N.  Register Internal Compute service with `cec register-server` with `-t pod_ic`.
+
+`cec migrate-content` - migration of a collection in internal compute to a repository and channel in OCI-N server.
+
+`cec register-translation-connector` - register a translation connector with a service.  Requires 19.4.3.
 
 # New in Release 19.4.1c
 

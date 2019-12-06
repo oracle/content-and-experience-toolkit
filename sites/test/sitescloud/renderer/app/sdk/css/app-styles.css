@@ -1492,3 +1492,14 @@
 #outerdiv .fb_iframe_widget span {
 	display: block;
 }
+
+/* field editor */
+
+.fieldeditordiv {
+	padding-bottom: 20px;
+}
+
+.fieldeditorbutton {
+	padding-top: 30px;
+	text-align: center;
+}

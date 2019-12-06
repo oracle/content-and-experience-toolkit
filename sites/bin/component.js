@@ -147,6 +147,9 @@ var _createComponent = function (componentZipName, compName, done) {
 				oldId = appinfojson.id,
 				newId = compName;
 			appinfojson.id = newId;
+			if (appinfojson.hasOwnProperty('name')) {
+				appinfojson.name = compName;
+			}
 			if (appinfojson.initialData) {
 				appinfojson.initialData.componentId = newId;
 			}

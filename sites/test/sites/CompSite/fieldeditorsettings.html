@@ -1,0 +1,163 @@
+<!--
+Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- only allow embedding of this iFrame in SCS -->
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <title>Content Field Editor</title>
+
+    <!-- include sample apps styling -->
+    <link href="/_sitescloud/renderer/app/sdk/css/app-styles.css" rel="stylesheet">
+
+    <script type="text/javascript" src="/_sitescloud/renderer/app/apps/js/jquery.min.js"></script>
+    <script type="text/javascript" src="/_sitescloud/renderer/app/apps/js/knockout.min.js"></script>
+    <script type="text/javascript" src="/_sitescloud/renderer/mustache.min.js"></script>
+
+    <!-- include the Sites SDK -->
+    <script type="text/javascript" src="/_sitescloud/renderer/app/sdk/js/sites.min.js"></script>
+</head>
+
+<body data-bind="visible: true" style="display:none; margin:0px; padding:0px;background:transparent;background-image:none;">
+    <div class="scs-component-settings">
+        <div class="fieldeditordiv">
+			<input type="checkbox" id="multi" data-bind="checked: multi" class="optioninput" />
+			<label id="multilabel" for="multi" class="settings-label">Handles multiple values</label>
+        </div>
+		
+		<div>
+			<label id="opt" class="settings-label">Select data types supported by this editor</label>
+		</div>
+		<div class="scs-panelInput">
+			<div class="optionspanel">
+				<p class="settings-label">
+					<input type="checkbox" id="text" data-bind="checked: text" class="optioninput" />
+					<label id="textlabel" for="text">Text</label>
+				</p>
+			</div>
+			<div class="optionspanel">
+				<p class="settings-label">
+					<input type="checkbox" id="largetext" data-bind="checked: largetext" class="optioninput" />
+					<label id="largetextlabel" for="text">Large Text</label>
+				</p>
+			</div>
+			<div class="optionspanel">
+				<p class="settings-label">
+					<input type="checkbox" id="date" data-bind="checked: date" class="optioninput" />
+					<label id="datelabel" for="date">Date</label>
+				</p>
+			</div>
+			<div class="optionspanel">
+				<p class="settings-label">
+					<input type="checkbox" id="number" data-bind="checked: number" class="optioninput" />
+					<label id="numberlabel" for="text">Number</label>
+				</p>
+			</div>
+			<div class="optionspanel">
+				<p class="settings-label">
+					<input type="checkbox" id="decimal" data-bind="checked: decimal" class="optioninput" />
+					<label id="decimallabel" for="text">Decimal</label>
+				</p>
+			</div>
+			<div class="optionspanel">
+				<p class="settings-label">
+					<input type="checkbox" id="boolean" data-bind="checked: boolean" class="optioninput" />
+					<label id="booleanlabel" for="text">Boolean</label>
+				</p>
+			</div>
+			<div class="optionspanel">
+				<p class="settings-label">
+					<input type="checkbox" id="embedded" data-bind="checked: embedded" class="optioninput" />
+					<label id="embeddedlabel" for="text">Embedded Content</label>
+				</p>
+			</div>
+		</div>
+
+		<div class="fieldeditorbutton">
+			<button id="fieldeditorsavebutton" class="save-button" data-bind=" click: saveChanges">Save</button>
+		</div>
+    </div>
+
+    <script type="text/javascript">
+        /* global ko, console */
+
+        // define the viewModel object
+        var SettingsViewModel = function () {
+            'use strict';
+            var self = this;
+            self.initialized = ko.observable(false);
+
+			var compName = '_devcs_component_fieldeditor_name';
+			var supportedTypes = '_devcs_component_fieldeditor_types';
+			var handlesMultiple = '_devcs_component_fieldeditor_multi';
+
+			self.multi = ko.observable(handlesMultiple && handlesMultiple === 'true');
+			self.text = ko.observable(supportedTypes.includes('text'));
+			self.largetext = ko.observable(supportedTypes.includes('largetext'));
+			self.date = ko.observable(supportedTypes.includes('datetime'));
+			self.number = ko.observable(supportedTypes.includes('number'));
+			self.decimal = ko.observable(supportedTypes.includes('decimal'));
+			self.boolean = ko.observable(supportedTypes.includes('boolean'));
+			self.embedded = ko.observable(supportedTypes.includes('json'));
+
+			parent.document.getElementById('settingsTitle').innerText = 'Editor Properties';
+
+            self.initialized(true);
+
+			self.saveChanges = function (event) {
+				
+				var types = [];
+				if (self.text()) {
+					types.push('text');
+				}
+				if (self.largetext()) {
+					types.push('largetext');
+				}
+				if (self.date()) {
+					types.push('datetime');
+				}
+				if (self.number()) {
+					types.push('number');
+				}
+				if (self.decimal()) {
+					types.push('decimal');
+				}
+				if (self.boolean()) {
+					types.push('boolean');
+				}
+				if (self.embedded()) {
+					types.push('json');
+				}
+				
+				var params = '&multi=' + self.multi() + '&types=' + types.join(',');
+
+				var url = '/updatefieldeditor?name=' + compName + params;
+				console.log(url);
+				$.ajax({
+                	'type': 'POST',
+               	 	async: false,
+                	'url': url,
+                	'success': function (data) {
+						console.log('Changes saved successfully');
+                	},
+                	'error': function (xhr, status, err) {
+                    	console.log('status=' + status + ' err=' + err);
+               	 	}
+            	});
+			};
+
+            self.save = ko.computed(function () {
+
+                console.log('Save changes....');
+
+            }, self);
+        };
+        ko.applyBindings(new SettingsViewModel());
+    </script>
+</body>
+
+</html>

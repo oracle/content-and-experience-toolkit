@@ -1746,6 +1746,7 @@
 						'borderRadius': 0,
 						'borderStyle': 'none',
 						'borderWidth': 1,
+						'contentTypes': [],
 						'emptyListLayoutCategory': 'None',
 						'firstItem': 0,
 						'fontColor': '#333333',
@@ -1780,6 +1781,7 @@
 						'borderRadius',
 						'borderStyle',
 						'borderWidth',
+						'contentTypes',
 						'customSettingsData',
 						'detailPageId',
 						'emptyListLayoutCategory',
@@ -1803,6 +1805,7 @@
 						'paginationAlignment',
 						'prevLabel',
 						'recommendationId',
+						'recommendationName',
 						'recommendationAttrs',
 						'renderOnAccess',
 						'sectionLayout',
@@ -1817,14 +1820,18 @@
 						'visibleOnMobile',
 						'width'
 					],
+					'asynchronousUpdateProperties': [
+						'contentTypes',
+						'recommendationName'
+					],
 					'transientProperties': [
 						'appendOffset',
-						'contentTypes',
 						'offset',
 						'totalResults',
 						'sectionLayoutData'
 					],
 					'instanceProperties': [
+						'contentTypes',
 						'detailPageId',
 						'sectionLayout',
 						'sectionLayoutInstanceId',

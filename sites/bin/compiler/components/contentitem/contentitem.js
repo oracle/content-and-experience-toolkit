@@ -8,7 +8,9 @@ var serverURL = 'http://localhost:8085',
 
 var SYSTEM_DEFAULT_LAYOUT = 'system-default-layout';
 
-var ContentItem = function (args) {};
+var ContentItem = function (args) {
+	this.defaultContentLayoutCategory = 'default';
+};
 
 var reportedFiles = {};
 
@@ -49,7 +51,7 @@ ContentItem.prototype.getDetailPageUrl = function (pageUrl, options) {
 ContentItem.prototype.getContentLayoutName = function (SCSCompileAPI, args) {
 	// ToDo: Handle mobile generation
 	var contentType = args.contentType,
-		contentLayoutCategory = (args.contentLayoutCategory || 'default').toLowerCase(),
+		contentLayoutCategory = (args.contentLayoutCategory || args.defaultContentLayoutCategory || this.defaultContentLayoutCategory).toLowerCase(),
 		siteFolder = SCSCompileAPI.siteFolder;
 
 	return new Promise(function (resolve, reject) {
@@ -65,7 +67,7 @@ ContentItem.prototype.getContentLayoutName = function (SCSCompileAPI, args) {
 					encoding: 'utf8'
 				})).categoryLayoutMappings;
 
-				// now locate the layout
+				// now locate the layout and the "default" entry
 				if (Array.isArray(categoryLayoutMappings)) {
 					var typeEntry = categoryLayoutMappings.find(function (entry) {
 						return entry.type === contentType;
@@ -77,6 +79,15 @@ ContentItem.prototype.getContentLayoutName = function (SCSCompileAPI, args) {
 						});
 
 						layoutName = layoutEntry && layoutEntry.layoutName;
+
+						// if no layoutName found, fallback to the 'default' one before we ultimately fallback to the system default
+						if (!layoutName && (contentLayoutCategory !== 'default')) {
+							layoutEntry = typeEntry.categoryList.find(function (entry) {
+								return entry.categoryName.toLowerCase() === 'default';
+							});
+
+							layoutName = layoutEntry && layoutEntry.layoutName;
+						}
 					}
 				}
 			} catch (e) {
@@ -104,11 +115,17 @@ ContentItem.prototype.getContentLayoutName = function (SCSCompileAPI, args) {
 	});
 };
 
-ContentItem.prototype.getContentLayout = function (SCSCompileAPI, contentType, contentLayoutCategory, compVM) {
-	var self = this;
+ContentItem.prototype.getContentLayout = function (SCSCompileAPI, args) {
+	var self = this,
+		contentType = args.contentType,
+		contentLayoutCategory = args.contentLayoutCategory,
+		compVM = args.compVM,
+		defaultContentLayoutCategory = args.defaultContentLayoutCategory;
+
 	return self.getContentLayoutName(SCSCompileAPI, {
 		contentType: contentType,
-		contentLayoutCategory: contentLayoutCategory
+		contentLayoutCategory: contentLayoutCategory,
+		defaultContentLayoutCategory: defaultContentLayoutCategory
 	}).then(function (contentLayoutName) {
 		var compileFile = '';
 		if (contentLayoutName) {
@@ -151,7 +168,12 @@ ContentItem.prototype.compile = function (args) {
 		SCSCompileAPI = args.SCSCompileAPI;
 
 	return new Promise(function (resolve, reject) {
-		self.getContentLayout(SCSCompileAPI, self.getContentType(args), args.compVM.contentLayoutCategory, args.compVM).then(function (compileFile) {
+		self.getContentLayout(SCSCompileAPI, {
+			contentType: self.getContentType(args),
+			contentLayoutCategory: args.compVM.contentLayoutCategory,
+			compVM: args.compVM,
+			defaultContentLayoutCategory: args.defaultContentLayoutCategory
+		}).then(function (compileFile) {
 			if (compileFile) {
 				// ok, file's there, load it in
 				var CustomLayoutCompiler = require(compileFile);
@@ -184,9 +206,11 @@ ContentItem.prototype.compile = function (args) {
 									scsData: {
 										id: args.compVM.id,
 										SCSCompileAPI: SCSCompileAPI,
+										contentLayoutCategory: args.compVM.contentLayoutCategory,
 										contentTriggerFunction: 'SCSRenderAPI.getComponentById(\'' + args.compVM.id + '\').raiseContentTrigger',
 										detailPageLink: detailPageURL,
-										showPublishedContent: args.compVM.contentViewing === 'published' ? true : contentClient.getInfo().contentType === 'published'
+										showPublishedContent: args.compVM.contentViewing === 'published' ? true : contentClient.getInfo().contentType === 'published',
+										contentClient: contentClient
 									}
 								},
 								custComp = new CustomLayoutCompiler(compileArgs);

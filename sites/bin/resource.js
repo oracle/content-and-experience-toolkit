@@ -384,7 +384,7 @@ module.exports.listServerResources = function (argv, done) {
 				//
 				// list components
 				//
-				var comps = results.length > 0 ? results[0].data : [];
+				var comps = results.length > 0 && results[0].data ? results[0].data : [];
 				if (listComponents) {
 					console.log('Components:');
 					console.log(sprintf(format3, 'Name', 'Type', 'Published'));
@@ -471,7 +471,7 @@ module.exports.listServerResources = function (argv, done) {
 				//
 				// list sites
 				//
-				var sites = results.length > 0 ? results[0].data : [];
+				var sites = results.length > 0 && results[0].data ? results[0].data : [];
 				if (listSites) {
 					var siteFormat = '  %-45s  %-36s  %-10s  %-10s  %-s';
 					console.log('Sites:');
@@ -494,7 +494,7 @@ module.exports.listServerResources = function (argv, done) {
 				//
 				// list templates
 				//
-				var templates = results.length > 0 ? results[0].data : [];
+				var templates = results.length > 0 && results[0].data ? results[0].data : [];
 				if (listTemplates) {
 					console.log('Templates:');
 

@@ -12,6 +12,8 @@ To learn about developing components for Content and Experience Cloud, see the l
 
 [Asset Sync](doc/AssetSync.md) - Synchronize asset create, update, delete, publish across OCE servers
 
+[Site Pre-Compilation](doc/compiler.md) - Pre-Compile a site for faster rendition in the browser
+
 ## Setup
 
 * Make sure `node` and `npm` are in your `PATH`.  Use NodeJS 8.0.0 or later.

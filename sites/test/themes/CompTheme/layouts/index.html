@@ -114,8 +114,43 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 				cloudService: _devcs_component_cloud_service
 			};
 
+		var fieldEditorType = '_devcs_component_fieldeditor_type';
+
 		// mock the Sites SDK messages
 		var receiveMessage = function (event) {
+			
+			if (fieldEditorType && fieldEditorType === 'map' && window.origin === event.origin) {
+        		var data = event.data;
+
+        		if (data.type === 'ready') {
+					var field = {name: "value", dataType: "text", value: "-73.968285,40.785091", defaultValue: undefined};
+					var field2 = {name: "value2", dataType: "text", value: null, defaultValue: undefined};
+          			var params = {
+            			locale: 'en',
+						fields: [field, field2],
+            			field: field,
+           			 	editor: {
+              				settings: {},
+              				autoresize: true,
+             			 	parameters:  {}
+           				}
+        			},
+          			msg = {
+            			type: 'init',
+           				payload: params
+					};
+					var editFrame = document.getElementById('editFrame');
+					var editWindow = editFrame && editFrame.contentWindow;
+					if (editWindow) {
+						editWindow.postMessage(msg, window.origin); 
+						console.log(' post ' + msg);
+					} else {
+						console.log('ERROR: editFrame not found');
+					}
+				}
+			}
+		
+
 			try {
 				if (window.sessionStorage['currentContentItem']) {
 					var item = JSON.parse(window.sessionStorage['currentContentItem']);
@@ -215,7 +250,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 									console.log('content layout settings change: {' + JSON.stringify(selectItem) +
 										'}');
 								} else {
-									onsole.log('content layout settings change but select item is null');
+									console.log('content layout settings change but select item is null');
 								}
 
 							} else if (sectionLayoutImpl) {
@@ -248,6 +283,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			} catch (e) {
 				console.log('Sites ignored event: ' + e);
 				console.log(event);
+				return true;
 			}
 		};
 		window.addEventListener("message", receiveMessage, false);

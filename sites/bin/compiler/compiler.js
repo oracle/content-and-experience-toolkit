@@ -83,6 +83,23 @@ var compilationReporter = require('./reporter.js');
 var detailPageList = {};
 var creatingDetailPages = false; // note whether we're compiling a detail page:   .../{detailPage}/{slug}
 
+// A list of site/page/structure tokens to resolve
+var tokenMap = {
+	"SCS_SITE_HEADER": "siteInfo.properties.header",
+	"SCS_SITE_FOOTER": "siteInfo.properties.footer",
+	"SCS_SITE_DESCRIPTION": "siteInfo.properties.description",
+	"SCS_SITE_KEYWORDS": "siteInfo.properties.keywords",
+
+	"SCS_PAGE_HEADER": "pageModel.properties.header",
+	"SCS_PAGE_FOOTER": "pageModel.properties.footer",
+	"SCS_PAGE_TITLE": "pageModel.properties.title",
+	"SCS_PAGE_DESCRIPTION": "pageModel.properties.pageDescription",
+	"SCS_PAGE_KEYWORDS": "pageModel.properties.keywords",
+
+	"SCS_PAGE_NAME": "pageStructureData.name",
+	"SCS_PAGE_URL": "pageStructureData.pageUrl",
+};
+
 //*********************************************
 // Other root vars
 //*********************************************
@@ -678,23 +695,60 @@ function combineUrlSegments(segment1, segment2) {
 	return url;
 }
 
-function resolveTokens(layoutMarkup, pageModel, context, sitePrefix) {
+function getTokenValue(token, evaluationContext) {
+	var value = "";
+	if (token && (typeof token === 'string')) {
+		var lookupExpression = tokenMap[token];
+		var segments = lookupExpression.split('.');
+		var currentObject = evaluationContext;
+
+		for (var j = 0; j < (segments.length - 1); j++) {
+			if (currentObject[segments[j]] && (typeof currentObject[segments[j]] === "object")) {
+				currentObject = currentObject[segments[j]];
+			}
+			else {
+				currentObject = null;
+				break;
+			}
+		}
+
+		if (currentObject) {
+			value = (typeof currentObject[segments[segments.length - 1]] === "string")
+				? currentObject[segments[segments.length - 1]]
+				: "";
+		}
+	}
+
+	return value;
+}
+
+function resolveTokens(pageId, layoutMarkup, pageModel, context, sitePrefix) {
 	var pageMarkup = layoutMarkup;
-	var value;
 
-	// Fix up <!--$SCS_SITE_HEADER--> and <!--$SCS_SITE_FOOTER-->
-	value = context.siteInfo.properties.header || '';
-	pageMarkup = pageMarkup.replace(/(<!--\$\s*SCS_SITE_HEADER\s*-->)|(\[!--\$\s*SCS_SITE_HEADER\s*--\])/g, value);
+	// Establish the pageStructureData to allow tokens to be evaluated
+	var pageStructureData;
+	var navigationCurr = (pageId && (typeof pageId == 'string')) ? parseInt(pageId) : pageId;
+	if (context.navMap && navigationCurr && context.navMap[navigationCurr]) {
+		pageStructureData = context.navMap[navigationCurr];
+	}
 
-	value = context.siteInfo.properties.footer || '';
-	pageMarkup = pageMarkup.replace(/(<!--\$\s*SCS_SITE_FOOTER\s*-->)|(\[!--\$\s*SCS_SITE_FOOTER\s*--\])/g, value);
+	var evaluationContext = {
+		siteInfo: context.siteInfo,
+		pageModel: pageModel,
+		pageStructureData: pageStructureData
+	};
 
-	// Fix up <!--$SCS_PAGE_HEADER--> and <!--$SCS_PAGE_FOOTER-->
-	value = pageModel.properties.header || '';
-	pageMarkup = pageMarkup.replace(/(<!--\$\s*SCS_PAGE_HEADER\s*-->)|(\[!--\$\s*SCS_PAGE_HEADER\s*--\])/g, value);
-
-	value = pageModel.properties.footer || '';
-	pageMarkup = pageMarkup.replace(/(<!--\$\s*SCS_PAGE_FOOTER\s*-->)|(\[!--\$\s*SCS_PAGE_FOOTER\s*--\])/g, value);
+	// Evaluate site/structure/page-based tokens
+	var regExp;
+	for (var token in tokenMap) {
+		if (Object.prototype.hasOwnProperty.call(tokenMap, token)) {
+			regExp = new RegExp('(<!--\\$\\s*' + token + '\\s*-->)|(\\[!--\\$\\s*' + token + '\\s*--\\])', 'g');
+			pageMarkup = pageMarkup.replace(regExp, function () {
+				var replacement = getTokenValue(token, evaluationContext);
+				return replacement;
+			});
+		}
+	}
 
 	// Because the runtime (compressed) renderer has a copy of require.js inside of it, we can swap out the traditional
 	// <script> tag for the renderer and reduce the number of GETs.  (Note that the /_sitescloud/ prefix will be fixed
@@ -993,7 +1047,7 @@ var compiler = {
 		if (componentsEnabled && self.pageModel.componentInstances) {
 			Object.keys(self.pageModel.componentInstances).forEach(function (compId) {
 				var compInstance = JSON.parse(JSON.stringify(self.pageModel.componentInstances[compId]));
-				if (self.localePageModel) {
+				if (self.localePageModel && self.localePageModel.componentInstances) {
 					var localeCompInstance = self.localePageModel.componentInstances[compId];
 
 					if (localeCompInstance) {
@@ -1224,7 +1278,7 @@ function fixupPage(pageId, pageUrl, layoutMarkup, pageModel, localePageModel, co
 		} else {
 			// now we have the compiled components, resolve the page markup 
 			pageMarkup = resolveSlots(pageMarkup, pageModel, sitePrefix);
-			pageMarkup = resolveTokens(pageMarkup, pageModel, context, sitePrefix);
+			pageMarkup = resolveTokens(pageId, pageMarkup, pageModel, context, sitePrefix);
 			pageMarkup = resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, context, sitePrefix);
 		}
 
@@ -1278,7 +1332,7 @@ function encodeHTML(textData) {
 function getStyleFixup(pageModel, context, sitePrefix) {
 	var styleFix = (styleShim.length > 0) ? ("\n" + styleShim) : "";
 
-	styleFix = resolveTokens(styleFix, pageModel, context, sitePrefix);
+	styleFix = resolveTokens(null, styleFix, pageModel, context, sitePrefix);
 
 	return styleFix;
 }

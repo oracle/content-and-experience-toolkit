@@ -162,7 +162,7 @@ var getResourceRoles = function () {
 };
 
 var getServerTypes = function () {
-	const roles = ['pod_ec', 'dev_ec', 'dev_osso'];
+	const roles = ['pod_ec', 'pod_ic', 'dev_ec', 'dev_osso'];
 	return roles;
 };
 
@@ -1004,6 +1004,59 @@ const deleteStaticSite = {
 	]
 };
 
+const refreshPrerenderCache = {
+	command: 'refresh-prerender-cache <site>',
+	alias: 'rpc',
+	name: 'refresh-prerender-cache',
+	usage: {
+		'short': 'Refreshes pre-render cache for a site on CEC server.',
+		'long': (function () {
+			let desc = 'Refreshes pre-render cache for a site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec refresh-prerender-cache BlogSite'],
+		['cec refresh-prerender-cache BlogSite -s UAT']
+	]
+};
+
+const migrateSite = {
+	command: 'migrate-site <name>',
+	alias: 'ms',
+	name: 'migrate-site',
+	usage: {
+		'short': 'Creates non-MLS Enterprise Site <name>.',
+		'long': (function () {
+			let desc = 'Create non-MLS Enterprise Site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			desc = desc + ' Optionally specify -f <folder> to set the folder to upload the template zip file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec migrate-site Site1 -t ~/Documents/BlogTemplate.zip -r Repo1', 'Creates a non-MLS enterprise site'],
+		['cec migrate-site Site1 -t ~/Documents/BlogTemplate.zip -f Import/templates -r Repo1', 'File BlogTemplate.zip will be uploaded to Import/templates']
+	]
+};
+
+const migrateContent = {
+	command: 'migrate-content <name>',
+	alias: 'mc',
+	name: 'migrate-content',
+	usage: {
+		'short': 'Uploads content from a collection on CEC server to another CEC server.',
+		'long': (function () {
+			let desc = 'Uploads content from CEC server to another CEC server. Specify the source server with -s <server> and the destination server with -d <destination>.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec migrate-content collection1 -s DEV -d UAT -r Repo1', 'Download content in collection collection1 from server DEV and upload to repository Repo1 on server UAT and add to collection collection1'],
+		['cec migrate-content collection1 -s DEV -d UAT -r Repo1 -l newCollection', 'Download content in collection collection1 from server DEV and upload to repository Repo1 on server UAT and add to collection newCollection'],
+		['cec migrate-content collection1 -s DEV -d UAT -r Repo1 -l newCollection -c channel1', 'Download content in collection collection1 from server DEV and upload to repository Repo1 on server UAT and add to collection collection1 and channel channel1']
+	]
+};
+
 const createRepository = {
 	command: 'create-repository <name>',
 	alias: 'cr',
@@ -1386,7 +1439,7 @@ const registerTranslationConnector = {
 		})()
 	},
 	example: [
-		['cec register-translation-connector connector1-auto -c connector1 -s http://localhost:8084/connector/rest/api -u admin -p Welcome1 -f "X-CEC-BearerToken:Bearer token1,X-CEC-WorkflowId:machine-workflow-id"']
+		['cec register-translation-connector connector1-auto -c connector1 -s http://localhost:8084/connector/rest/api -u admin -p Welcome1 -f "BearerToken:Bearer token1,WorkflowId:machine-workflow-id"']
 	]
 };
 
@@ -1752,7 +1805,7 @@ _usage = _usage + os.EOL + 'Templates' + os.EOL +
 	_getCmdHelp(createTemplate) + os.EOL +
 	_getCmdHelp(createTemplateFromSite) + os.EOL +
 	_getCmdHelp(downloadTemplate) + os.EOL +
-	//_getCmdHelp(compileTemplate) + os.EOL +
+	_getCmdHelp(compileTemplate) + os.EOL +
 	_getCmdHelp(copyTemplate) + os.EOL +
 	_getCmdHelp(importTemplate) + os.EOL +
 	_getCmdHelp(exportTemplate) + os.EOL +
@@ -1779,7 +1832,8 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(createAssetReport) + os.EOL +
 	_getCmdHelp(uploadStaticSite) + os.EOL +
 	_getCmdHelp(downloadStaticSite) + os.EOL +
-	_getCmdHelp(deleteStaticSite) + os.EOL;
+	_getCmdHelp(deleteStaticSite) + os.EOL +
+	_getCmdHelp(refreshPrerenderCache) + os.EOL;
 
 _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
@@ -2125,10 +2179,6 @@ const argv = yargs.usage(_usage)
 				.option('noDefaultDetailPageLink', {
 					alias: 'o',
 					description: 'Do not generate compiled detail page for items/content lists that use the default detail page'
-				})
-				.option('contentLayoutSnippet', {
-					alias: 'n',
-					description: 'Generate a compiled detail page that only has the compiled ContentLayout snippet'
 				})
 				.option('includeLocale', {
 					alias: 'l',
@@ -2965,6 +3015,87 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${deleteStaticSite.command}\n\n${deleteStaticSite.usage.long}`);
 		})
+	.command([refreshPrerenderCache.command, refreshPrerenderCache.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.example(...refreshPrerenderCache.example[0])
+				.example(...refreshPrerenderCache.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${refreshPrerenderCache.command}\n\n${refreshPrerenderCache.usage.long}`);
+		})
+	.command([migrateSite.command, migrateSite.alias], false,
+		(yargs) => {
+			yargs.option('template', {
+					alias: 't',
+					description: 'The template zip file path',
+					demandOption: true
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'Repository',
+					demandOption: true
+				})
+				.option('description', {
+					alias: 'p',
+					description: 'Site description'
+				})
+				.option('sitePrefix', {
+					alias: 'x',
+					description: 'Site Prefix'
+				})
+				.option('folder', {
+					alias: 'f',
+					description: 'Folder to upload the template zip file'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.example(...migrateSite.example[0])
+				.example(...migrateSite.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${migrateSite.command}\n\n${migrateSite.usage.long}`);
+		})
+		.command([migrateContent.command, migrateContent.alias], false,
+			(yargs) => {
+				yargs.option('server', {
+						alias: 's',
+						description: 'The registered CEC server the content is from',
+						demandOption: true
+					})
+					.option('destination', {
+						alias: 'd',
+						description: 'The registered CEC server to upload the content',
+						demandOption: true
+					})
+					.option('repository', {
+						alias: 'r',
+						description: 'The repository for the types and items',
+						demandOption: true
+					})
+					.option('channel', {
+						alias: 'c',
+						description: 'The channel to add the content'
+					})
+					.option('collection', {
+						alias: 'l',
+						description: 'The collection to add the content'
+					})
+					.example(...migrateContent.example[0])
+					.example(...migrateContent.example[1])
+					.example(...migrateContent.example[2])
+					.help('help')
+					.alias('help', 'h')
+					.version(false)
+					.usage(`Usage: cec ${migrateContent.command}\n\n${migrateContent.usage.long}`);
+			})
 	.command([createRepository.command, createRepository.alias], false,
 		(yargs) => {
 			yargs.option('description', {
@@ -4282,9 +4413,6 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.noDefaultDetailPageLink) {
 		compileTemplateArgs.push(...['--noDefaultDetailPageLink', argv.noDefaultDetailPageLink]);
 	}
-	if (argv.contentLayoutSnippet) {
-		compileTemplateArgs.push(...['--contentLayoutSnippet', argv.contentLayoutSnippet]);
-	}
 	if (argv.includeLocale) {
 		compileTemplateArgs.push(...['--includeLocale', argv.includeLocale]);
 	}
@@ -4862,6 +4990,65 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		deleteStaticSiteArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, deleteStaticSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === refreshPrerenderCache.name || argv._[0] === refreshPrerenderCache.alias) {
+	let refreshPrerenderCacheArgs = ['run', '-s', refreshPrerenderCache.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--site', argv.site
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		refreshPrerenderCacheArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, refreshPrerenderCacheArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === migrateSite.name || argv._[0] === migrateSite.alias) {
+	let migrateSiteArgs = ['run', '-s', migrateSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--template', argv.template,
+		'--repository', argv.repository
+	];
+	if (argv.description) {
+		migrateSiteArgs.push(...['--description', argv.description]);
+	}
+	if (argv.sitePrefix) {
+		migrateSiteArgs.push(...['--sitePrefix', argv.sitePrefix]);
+	}
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		migrateSiteArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		migrateSiteArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, migrateSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === migrateContent.name || argv._[0] === migrateContent.alias) {
+	let migrateContentArgs = ['run', '-s', migrateContent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--server', argv.server,
+		'--destination', argv.destination,
+		'--repository', argv.repository,
+	];
+	if (argv.channel && typeof argv.channel !== 'boolean') {
+		migrateContentArgs.push(...['--channel', argv.channel]);
+	}
+	if (argv.collection && typeof argv.collection !== 'boolean') {
+		migrateContentArgs.push(...['--collection', argv.collection]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, migrateContentArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

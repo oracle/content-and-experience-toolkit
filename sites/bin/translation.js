@@ -1597,7 +1597,7 @@ var _listServerTranslationJobs = function (argv, done) {
 							var connStr = '';
 							if (jobs[i].connectorId) {
 								var connData = _getConnectorJobStatus(connectorJobs, jobs[i].name);
-								connStr = _getConnectName(connectors, jobs[i].connectorId) + ' ' + connData.status;
+								connStr = _getConnectName(connectors, jobs[i].connectorId) + ' ' + (connData && connData.status ? connData.status : '');
 
 							}
 							console.log(sprintf(format, jobs[i].name, jobs[i].status, sourceLanguage, targetlanguages, jobs[i].assetPendingLanguages, connStr));
@@ -1616,7 +1616,7 @@ var _listServerTranslationJobs = function (argv, done) {
 							var connStr = '';
 							if (jobs[i].connectorId) {
 								var connData = _getConnectorJobStatus(connectorJobs, jobs[i].name);
-								connStr = _getConnectName(connectors, jobs[i].connectorId) + ' ' + connData.status;
+								connStr = _getConnectName(connectors, jobs[i].connectorId) + ' ' + (connData && connData.status ? connData.status : '');
 							}
 							console.log(sprintf(format, jobs[i].name, jobs[i].status, sourceLanguage, targetlanguages, jobs[i].sitePendingLanguages, connStr));
 						}

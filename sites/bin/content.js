@@ -24,6 +24,7 @@ var projectDir,
 	contentSrcDir,
 	serversSrcDir,
 	templatesSrcDir;
+var buildfolder;
 
 /**
  * Verify the source structure before proceed the command
@@ -37,6 +38,11 @@ var verifyRun = function (argv) {
 	contentSrcDir = path.join(srcfolder, 'content');
 	serversSrcDir = path.join(srcfolder, 'servers');
 	templatesSrcDir = path.join(srcfolder, 'templates');
+
+	buildfolder = serverUtils.getBuildFolder(projectDir);
+	if (!fs.existsSync(buildfolder)) {
+		fs.mkdirSync(buildfolder);
+	}
 
 	return true;
 };
@@ -96,7 +102,7 @@ module.exports.downloadContent = function (argv, done) {
 
 var _downloadContentUtil = function (argv) {
 	verifyRun(argv);
-	return _downloadContent(argv.server, argv.channel, argv.name, argv.publishedassets, 
+	return _downloadContent(argv.server, argv.channel, argv.name, argv.publishedassets,
 		argv.repositoryName, argv.collectionName, argv.query, argv.assetGUIDS);
 };
 
@@ -972,7 +978,7 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 		var postData = {
 			'exportDocId': contentZipFileId,
 			'repositoryId': repositoryId,
-			'channelIds': [channelId],
+			'channelIds': channelId ? [channelId] : []
 		};
 
 		if (updateContent) {
@@ -995,7 +1001,7 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 			auth: auth,
 			body: JSON.stringify(postData)
 		};
-
+		// console.log(options);
 		request(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to import');
@@ -1033,6 +1039,7 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 							process.stdout.write(os.EOL);
 							return resolve({});
 						} else if (!status || status === 'FAILED') {
+							// console.log(data);
 							clearInterval(inter);
 							process.stdout.write(os.EOL);
 							console.log('ERROR: import failed: ' + data.errorDescription);
@@ -1437,6 +1444,455 @@ var _displayValidation = function (validations, action) {
 	for (var i = 0; i < blockingItems.length; i++) {
 		console.log(sprintf(format, blockingItems[i].id, blockingItems[i].name, blockingItems[i].message));
 	}
+
+};
+
+module.exports.migrateContent = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	if (server.env !== 'pod_ic') {
+		console.log('ERROR: server ' + server.url + ' is not a valid source to migrate content');
+		done();
+		return;
+	}
+
+	var destServerName = argv.destination;
+	var destServer = serverUtils.verifyServer(destServerName, projectDir);
+	if (!destServer || !destServer.valid) {
+		done();
+		return;
+	}
+	if (destServer.env === 'pod_ic') {
+		console.log('ERROR: server ' + destServer.url + ' is not a valid destination to migrate content');
+		done();
+		return;
+	}
+
+	var collectionName = argv.name;
+
+	var repositoryName = argv.repository;
+	var channelName = argv.channel;
+	var destCollectionName = argv.collection || collectionName;
+
+	var collectionId;
+	var repository, repositoryId;
+	var channelId;
+	var newChannel = false;
+	var destCollectionId;
+	var newCollection = false;
+
+	var exportFilePath, exportFileName;
+
+	var request = serverUtils.getRequest();
+
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		var express = require('express');
+		var app = express();
+
+		var port = '9191';
+		var localhost = 'http://localhost:' + port;
+
+		var idcToken;
+
+		var auth = serverUtils.getRequestAuth(server);
+
+		serverUtils.getIdcToken(server)
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				return serverUtils.browseCollectionsOnServer(request, server);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				// console.log(result);
+				var collections = result && result.data ? result.data : [];
+				for (var i = 0; i < collections.length; i++) {
+					if (collections[i].fFolderName === collectionName) {
+						collectionId = collections[i].fFolderGUID;
+						break;
+					}
+				}
+				if (!collectionId) {
+					console.log('ERROR: collection ' + collectionName + ' does not exist on server ' + server.url);
+					return Promise.reject();
+				}
+
+				console.log(' - verify collection ' + collectionName + '(Id: ' + collectionId + ')');
+
+				return serverRest.getRepositoryWithName({
+					server: destServer,
+					name: repositoryName
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.data) {
+					console.log('ERROR: repository ' + repositoryName + ' does not exist');
+					return Promise.reject();
+				}
+
+				repository = result.data;
+				repositoryId = result.data && result.data.id;
+				console.log(' - verify repository (Id: ' + repositoryId + ')');
+
+				return _getChannelsFromServer(destServer);
+
+			})
+			.then(function (result) {
+				//
+				// Get channel
+				//
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var channels = result.channels || [];
+				var createChannelPromises = [];
+				if (channelName) {
+					for (var i = 0; i < channels.length; i++) {
+						if (channels[i].name.toLowerCase() === channelName.toLowerCase()) {
+							channelId = channels[i].id;
+							break;
+						}
+					}
+
+					if (!channelId) {
+						// need to create the channel first
+						createChannelPromises.push(serverRest.createChannel({
+							server: destServer,
+							name: channelName
+						}));
+						newChannel = true;
+					} else {
+						console.log(' - get channel (Id: ' + channelId + ')');
+					}
+				}
+
+				return Promise.all(createChannelPromises);
+			})
+			.then(function (results) {
+				//
+				// Create channel
+				//
+				if (results.length > 0) {
+					if (results[0].err) {
+						return Promise.reject();
+					}
+
+					channelId = results[0] && results[0].id;
+					console.log(' - create channel ' + channelName + ' (Id: ' + channelId + ')');
+				}
+
+				var addChannelToRepositoryPromises = [];
+
+				if (channelId) {
+					// check if the channel is associated with the repository
+					var repositoryChannels = repository.channels || [];
+					var channelInRepository = false;
+					for (var i = 0; i < repositoryChannels.length; i++) {
+						if (repositoryChannels[i].id === channelId) {
+							channelInRepository = true;
+							break;
+						}
+					}
+
+					if (!channelInRepository) {
+						addChannelToRepositoryPromises.push(serverRest.addChannelToRepository({
+							server: destServer,
+							id: channelId,
+							name: channelName,
+							repository: repository
+						}));
+					}
+				}
+
+				return Promise.all(addChannelToRepositoryPromises);
+			})
+			.then(function (results) {
+				//
+				// add channel to repository
+				//
+				if (results.length > 0) {
+					if (results[0].err) {
+						return Promise.reject();
+					}
+
+					console.log(' - add channel ' + channelName + ' to repository ' + repositoryName);
+				}
+
+				return serverUtils.getRepositoryCollections(request, destServer, repositoryId);
+
+			})
+			.then(function (result) {
+				//
+				// get collections in the repository
+				//
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var collections = result && result.data ? result.data : [];
+				for (var i = 0; i < collections.length; i++) {
+					if (collections[i].name.toLowerCase() === destCollectionName.toLowerCase()) {
+						destCollectionId = collections[i].id;
+						break;
+					}
+				}
+
+				var createCollectionPromises = [];
+				if (!destCollectionId) {
+					createCollectionPromises.push(serverRest.createCollection({
+						server: destServer,
+						repositoryId: repositoryId,
+						name: destCollectionName,
+						channels: channelId ? [{
+							id: channelId
+						}] : [],
+					}));
+				} else {
+					console.log(' - get collection');
+				}
+
+				return Promise.all(createCollectionPromises);
+			})
+			.then(function (results) {
+				if (!destCollectionId) {
+					if (results[0].err || !results[0].id) {
+						return Promise.reject();
+					}
+					destCollectionId = results[0].id;
+					newCollection = true;
+					console.log(' - create collection ' + destCollectionName + ' (Id: ' + destCollectionId + ')');
+				}
+
+				exportFileName = collectionId + '_export.zip';
+				exportFilePath = path.join(buildfolder, exportFileName);
+				if (fs.existsSync(exportFilePath)) {
+					fse.removeSync(exportFilePath);
+				}
+				return _exportContentIC(request, server, collectionId, exportFilePath);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				if (!fs.existsSync(exportFilePath)) {
+					console.log('ERROR: failed to export content');
+					return Promise.reject();
+				}
+
+				var args = {
+					server: destServer,
+					contentpath: buildfolder,
+					contentfilename: exportFileName,
+					zippath: exportFilePath,
+					projectDir: projectDir,
+					repositoryName: repositoryName,
+					repositoryId: repositoryId,
+					channelName: channelName,
+					channelId: channelId,
+					collectionName: destCollectionName,
+					collectionId: destCollectionId,
+					updateContent: false
+				};
+				return _uploadContentFromZipFile(args);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				done(true);
+
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+
+};
+
+var _checkJobStatusIC = function (request, server, jobId) {
+	var checkExportStatusPromise = new Promise(function (resolve, reject) {
+		var statusUrl = server.url + '/content/management/api/v1/content-templates/exportjobs/' + jobId;
+		var auth = serverUtils.getRequestAuth(server);
+		var options = {
+			url: statusUrl,
+			'auth': auth,
+			headers: {
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Cookie: server.cookies
+			},
+		};
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get export job status');
+				console.log(err);
+				return resolve({
+					status: 'err'
+				});
+			}
+			if (response && response.statusCode === 200) {
+				var data = JSON.parse(body);
+				return resolve({
+					status: 'success',
+					data: data
+				});
+			} else {
+				console.log('ERROR: Failed to get export job status: ' + response.statusCode);
+				return resolve({
+					status: response.statusCode
+				});
+			}
+		});
+	});
+	return checkExportStatusPromise;
+};
+var _exportContentIC = function (request, server, collectionId, exportfilepath) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1/content-templates/exportjobs';
+		var contentTemplateName = 'contentexport';
+		var postData = {
+			'name': contentTemplateName,
+			'targetIds': [{
+				id: collectionId
+			}]
+		};
+
+		var auth = serverUtils.getRequestAuth(server);
+
+		var options = {
+			method: 'POST',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Cookie: server.cookies
+			},
+			auth: auth,
+			body: JSON.stringify(postData)
+		};
+		// console.log(options);
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to export');
+				console.log(err);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
+				var jobId = data && data.jobId;
+				if (!jobId) {
+					return resolve({
+						err: 'err'
+					});
+				}
+				console.log(' - submit export job');
+
+				// Wait for job to finish
+				var inter = setInterval(function () {
+					var checkExportStatusPromise = _checkJobStatusIC(request, server, jobId);
+					checkExportStatusPromise.then(function (result) {
+						if (result.status !== 'success') {
+							return resolve({
+								err: 'err'
+							});
+						}
+
+						var data = result.data;
+						var status = data.status;
+
+						if (status && status === 'SUCCESS') {
+							clearInterval(inter);
+							var downloadLink = data.downloadLink && data.downloadLink.href;
+							// console.log(' - download link: ' + downloadLink);
+							if (downloadLink) {
+								options = {
+									url: downloadLink,
+									auth: auth,
+									headers: {
+										'Content-Type': 'application/zip',
+										Cookie: server.cookies
+									},
+									encoding: null
+								};
+								//
+								// Download the export zip
+								request.get(options, function (err, response, body) {
+									if (err) {
+										console.log('ERROR: Failed to download');
+										console.log(err);
+										return resolve({
+											err: 'err'
+										});
+									}
+									if (response && response.statusCode === 200) {
+										console.log(' - download export file');
+										fs.writeFileSync(exportfilepath, body);
+										console.log(' - save export to ' + exportfilepath);
+
+										return resolve({});
+									} else {
+										console.log('ERROR: Failed to download, status=' + response.statusCode);
+										return resolve({
+											err: 'err'
+										});
+									}
+								});
+							}
+						} else if (status && status === 'FAILED') {
+							clearInterval(inter);
+							console.log('ERROR: export failed: ' + data.errorDescription);
+							return resolve({
+								err: 'err'
+							});
+						} else if (status && status === 'INPROGRESS') {
+							console.log(' - export job in progress...');
+						}
+
+					});
+
+				}, 5000);
+			} else {
+				var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to export: ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	})
 
 };
 

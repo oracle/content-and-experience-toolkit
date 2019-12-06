@@ -528,6 +528,24 @@ module.exports.getComponents = function (projectDir) {
 };
 
 /**
+ * Get component's app info componentsDir.
+ */
+module.exports.getComponentAppInfo = function (projectDir, compName) {
+	"use strict";
+
+	_setupSourceDir(projectDir);
+
+	var appInfo;
+	var filePath = path.join(componentsDir, compName, "appinfo.json");
+	if (fs.existsSync(filePath)) {
+		var appInfoStr = fs.readFileSync(filePath);
+		appInfo = JSON.parse(appInfoStr);
+	}
+
+	return appInfo;
+};
+
+/**
  * Get all templates that use this component
  * @param compName
  */
@@ -1035,6 +1053,11 @@ module.exports.getIdcToken = function (server) {
 			url: url,
 			auth: _getRequestAuth(server)
 		};
+		if (server.cookies) {
+			options.headers = {
+				Cookie: server.cookies
+			};
+		}
 		var total = 0;
 		var inter = setInterval(function () {
 			request(options, function (error, response, body) {
@@ -1063,6 +1086,52 @@ module.exports.getIdcToken = function (server) {
 	return idcTokenPromise;
 };
 
+/**
+ * Requires login first
+ */
+module.exports.getTenantConfig = function (server) {
+	return new Promise(function (resolve, reject) {
+		var request = _getRequest();
+		var url = server.url + '/documents/web?IdcService=GET_TENANT_CONFIG';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: _getRequestAuth(server)
+		};
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get tenant config');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get tenant config' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.TenantInfo && data.ResultSets.TenantInfo.fields || [];
+			var rows = data.ResultSets && data.ResultSets.TenantInfo && data.ResultSets.TenantInfo.rows;
+			var config = {};
+
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				for (var j = 0; j < rows.length; j++) {
+					config[attr] = rows[0][i];
+				}
+			}
+			resolve(config);
+		});
+	});
+};
 
 /**
  * Get translation connectors in src/connectors/
@@ -2157,6 +2226,133 @@ var _loginToSSOServer = function (server) {
 };
 module.exports.loginToSSOServer = _loginToSSOServer;
 
+var _loginToICServer = function (server) {
+	var loginPromise = new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/sites',
+			usernameid = '#username',
+			passwordid = '#password',
+			submitid = '#signin',
+			username = server.username,
+			password = server.password;
+		/* jshint ignore:start */
+		var browser;
+		async function loginServer() {
+			try {
+				browser = await puppeteer.launch({
+					ignoreHTTPSErrors: true,
+					headless: false
+				});
+				const page = await browser.newPage();
+				await page.setViewport({
+					width: 960,
+					height: 768
+				});
+
+				await page.goto(url);
+
+				await page.waitForSelector(usernameid);
+				await page.type(usernameid, username);
+
+				await page.waitForSelector(passwordid);
+				await page.type(passwordid, password);
+
+				var button = await page.waitForSelector(submitid);
+				await button.click();
+
+				try {
+					await page.waitForSelector('#content-wrapper', {
+						timeout: 32000
+					});
+				} catch (err) {
+					// will continue, in headleass mode, after login redirect does not occur
+				}
+
+				const cookies = await page.cookies();
+				var cookiesStr = '';
+				if (cookies && cookies.length > 0) {
+					for(var i = 0; i < cookies.length; i++) {
+						if (cookies[i].name.startsWith('OAMAuthnCookie_cecs')) {
+							cookiesStr = cookies[i].name + '=' + cookies[i].value;
+							break;
+						}
+					}
+					for(var i = 0; i < cookies.length; i++) {
+						if (!cookies[i].name.startsWith('OAMAuthnCookie_cecs')) {
+							cookiesStr = cookiesStr + '; ' + cookies[i].name + '=' + cookies[i].value;
+							break;
+						}
+					}
+				}
+				// console.log(cookiesStr);
+
+				// get OAuth token
+				var tokenurl = server.url + '/documents/web?IdcService=GET_OAUTH_TOKEN'; 
+				await page.goto(tokenurl);
+				try {
+					await page.waitForSelector('pre', {
+						timeout: 120000
+					});
+				} catch (err) {
+					console.log('Failed to connect to the server to get the OAuth token the first time');
+
+					await page.goto(tokenurl);
+					try {
+						await page.waitForSelector('pre'); // smaller timeout
+					} catch (err) {
+						console.log('Failed to connect to the server to get the OAuth token the second time');
+
+						await browser.close();
+						return resolve({
+							'status': false
+						});
+					}
+				}
+
+				var result = await page.evaluate(() => document.querySelector('pre').textContent);
+				var token = '';
+				if (result) {
+					var localdata = JSON.parse(result);
+					token = localdata && localdata.LocalData && localdata.LocalData.tokenValue;
+				}
+				// console.log('OAuth token=' + token);
+
+				server.oauthtoken = token;
+				server.login = true;
+				server.cookies = cookiesStr;
+
+				await browser.close();
+
+				if (!token || token.toLowerCase().indexOf('error') >= 0) {
+					console.log('ERROR: failed to get the OAuth token');
+					return resolve({
+						'status': false
+					});
+				}
+
+				console.log(' - connect to remote server: ' + server.url);
+
+				return resolve({
+					'status': true
+				});
+
+			} catch (err) {
+				console.log('ERROR: failed to connect to the server');
+				console.log(err);
+				if (browser) {
+					await browser.close();
+				}
+				return resolve({
+					'status': false
+				});
+			}
+		}
+		loginServer();
+		/* jshint ignore:end */
+	});
+	return loginPromise;
+};
+module.exports.loginToICServer = _loginToICServer;
+
 module.exports.loginToServer = function (server, request, restCall) {
 	return _loginToServer(server, request, restCall);
 };
@@ -2187,7 +2383,14 @@ var _loginToServer = function (server, request, restCall) {
 				status: true
 			});
 		} else {
-			var loginPromise = env === 'dev_ec' ? _loginToDevServer(server, request) : _loginToPODServer(server);
+			var loginPromise;
+			if (env === 'dev_ec') {
+				loginPromise = _loginToDevServer(server, request);
+			} else if (env === 'pod_ic') {
+				loginPromise = _loginToICServer(server);
+			} else {
+				loginPromise = _loginToPODServer(server);
+			}
 			return loginPromise;
 		}
 	}
@@ -2607,8 +2810,10 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 									if (data.LocalData.StatusCode !== '0') {
 										console.log(' - failed to import ' + name + ': ' + importResult.LocalData.StatusMessage);
 									} else if (data.LocalData.ImportConflicts) {
-										console.log(data.LocalData);
+										// console.log(data.LocalData);
 										console.log(' - failed to import ' + name + ': the template already exists and you do not have privilege to override it');
+									} else if (data.JobInfo && data.JobInfo.JobStatus && data.JobInfo.JobStatus === 'FAILED') {
+										console.log(' - failed to import: ' + data.JobInfo.JobMessage);
 									} else {
 										success = true;
 										console.log(' - template ' + name + ' imported (' + _timeUsed(startTime, new Date()) + ')');
@@ -3231,7 +3436,7 @@ var _getContentTypeLayoutMapping = function (request, server, typeName) {
 
 		var auth = _getRequestAuth(server);
 		var url = server.url + '/documents/web?IdcService=AR_GET_CONTENT_TYPE_CONFIG&contentTypeName=' + typeName;
-		
+
 		var options = {
 			method: 'GET',
 			url: url,
@@ -3294,6 +3499,9 @@ var _sleep = function (delay) {
  * 
  * @param {*} jobId 
  */
+module.exports.getTemplateImportStatus = function (request, host, jobId) {
+	return _getTemplateImportStatus(request, host, jobId);
+};
 var _getTemplateImportStatus = function (request, host, jobId) {
 	var importStatusPromise = new Promise(function (resolve, reject) {
 		var count = [];
@@ -3316,7 +3524,8 @@ var _getTemplateImportStatus = function (request, host, jobId) {
 					clearInterval(inter);
 					return resolve({
 						status: result.status,
-						LocalData: result.LocalData
+						LocalData: result.LocalData,
+						JobInfo: result.JobInfo
 					});
 				} else {
 					var msg = result.status === 'PROCESSING' ? (result.status + ' percentage: ' + result.percentage) : (result.status);
@@ -3391,10 +3600,21 @@ var _getBackgroundServiceStatus = function (request, host, jobId) {
 				status = statusIdx ? jobInfo.rows[0][statusIdx] : '';
 				percentage = percentageIdx ? jobInfo.rows[0][percentageIdx] : '';
 			}
+			var fields = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.fields || [];
+			var rows = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.rows || [];
+
+			var result = {};
+			if (rows && rows.length > 0) {
+				for (var i = 0; i < fields.length; i++) {
+					var attr = fields[i].name;
+					result[attr] = rows[0][i];
+				}
+			}
 			return resolve({
 				'status': status,
 				'percentage': percentage,
-				'LocalData': data.LocalData
+				'LocalData': data.LocalData,
+				'JobInfo': result
 			});
 		});
 	});
@@ -3521,7 +3741,12 @@ module.exports.browseSitesOnServer = function (request, server, fApplication) {
 			url: url,
 			auth: auth,
 		};
-
+		if (server.cookies) {
+			options.headers = {
+				Cookie: server.cookies
+			};
+		}
+		// console.log(options);
 		request(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get sites/templates');
@@ -3530,13 +3755,14 @@ module.exports.browseSitesOnServer = function (request, server, fApplication) {
 					'err': err
 				});
 			}
+
 			var data;
 			try {
 				data = JSON.parse(body);
 			} catch (e) {}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get sites/templates' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				console.log('ERROR: Failed to get sites/templates - ' + (data && data.LocalData ? +data.LocalData.StatusMessage : response.statusMessage));
 				return resolve({
 					err: 'err'
 				});
@@ -3608,8 +3834,13 @@ module.exports.browseComponentsOnServer = function (request, server) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: auth,
+			auth: auth
 		};
+		if (server.cookies) {
+			options.headers = {
+				Cookie: server.cookies
+			};
+		}
 
 		request(options, function (err, response, body) {
 			if (err) {
@@ -3707,7 +3938,11 @@ var _browseThemesOnServer = function (request, server, params) {
 			url: url,
 			auth: auth,
 		};
-
+		if (server.cookies) {
+			options.headers = {
+				Cookie: server.cookies
+			};
+		}
 		request(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get themes');
@@ -3743,6 +3978,78 @@ var _browseThemesOnServer = function (request, server, params) {
 
 			resolve({
 				data: themes
+			});
+		});
+	});
+};
+
+
+/**
+ * Get collections from server using IdcService (IC)
+ */
+module.exports.browseCollectionsOnServer = function (request, server, params) {
+	return _browseCollectionsOnServer(request, server, params);
+};
+var _browseCollectionsOnServer = function (request, server, params) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+
+		var auth = _getRequestAuth(server);
+
+		var url = server.url + '/documents/web?IdcService=FLD_BROWSE_COLLECTIONS&itemCount=9999';
+		if (params) {
+			url = url + '&' + params;
+		}
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth,
+		};
+		if (server.cookies) {
+			options.headers = {
+				Cookie: server.cookies
+			};
+		}
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get collections');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get collections' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+			
+			var fields = data.ResultSets && data.ResultSets.Collections && data.ResultSets.Collections.fields || [];
+			var rows = data.ResultSets && data.ResultSets.Collections && data.ResultSets.Collections.rows || [];
+			var collections = []
+			for (var j = 0; j < rows.length; j++) {
+				collections.push({});
+			}
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				for (var j = 0; j < rows.length; j++) {
+					collections[j][attr] = rows[j][i];
+				}
+			}
+
+			resolve({
+				data: collections
 			});
 		});
 	});

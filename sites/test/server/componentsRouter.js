@@ -77,8 +77,30 @@ router.get('/*', (req, res) => {
 		// remove any cache
 		compFile = compFile.replace(/_cache_(....|.....)\//, '');
 		compName = compFile.substring(0, compFile.indexOf('/'));
-		filePath = path.resolve(componentsDir + '/' + compFile);
 		app.locals.currentComponent = compName;
+
+		var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
+		if (appInfo && appInfo.type === 'fieldeditor') {
+			var editHtmlFilePath = path.join(componentsDir, compName, 'assets', 'edit.html');
+			var editHtml = fs.readFileSync(editHtmlFilePath).toString();
+			editHtml = serverUtils.replaceAll(editHtml, "'", '"');
+			editHtml = editHtml.replace(/(\r\n|\n|\r)/gm, " ");
+			var isMapEditor = editHtml.indexOf('oraclemapsv2') > 0 ? true : false;
+			var iframeHeight = isMapEditor ? '320px' : '100%';
+			var filePath = path.join(compSiteDir, 'fieldeditorrender.js');
+			var renderjs = fs.readFileSync(filePath).toString();
+			// var newrenderjs = renderjs.replace('_devcs_component_fieldeditor_edit_html', editHtml);
+			var newrenderjs = renderjs.replace('_devcs_component_fieldeditor_edit_html_path', '/components/' + compName + '/assets/edit.html');
+			newrenderjs = newrenderjs.replace('_devcs_component_fieldeditor_iframe_height', iframeHeight);
+			console.log('path=' + req.path + ' filePath=' + filePath + ' field editor=' + compName);
+			res.write(newrenderjs);
+			res.end();
+			return;
+
+		} else {
+			filePath = path.resolve(componentsDir + '/' + compFile);
+		}
+
 	} else if (req.path.indexOf('/_themes/_components/') === 0) {
 		// 
 		// component render (contentClient.renderItem)
@@ -87,6 +109,7 @@ router.get('/*', (req, res) => {
 		compName = compFile.substring(0, compFile.indexOf('/'));
 		filePath = path.resolve(componentsDir + '/' + compFile);
 		app.locals.currentComponent = compName;
+
 	} else if (filePathSuffix.indexOf('/_themesdelivery/') > 0) {
 		//
 		// theme
@@ -99,16 +122,16 @@ router.get('/*', (req, res) => {
 
 		// see if we want to override with a custom theme resource
 		var fixedResources = [
-				'layouts/index.html',
-				'assets/js/main.js',
-				'assets/css/main.css',
-				'assets/js/appController.js'
-			];
+			'layouts/index.html',
+			'assets/js/main.js',
+			'assets/css/main.css',
+			'assets/js/appController.js'
+		];
 		if (customThemeName && fixedResources.indexOf(themeFile) === -1) {
 			// see if the file exists under the referenced customTheme
 			var customThemeFilePath = path.resolve(path.join(themesDir, customThemeName, themeFile));
 			if (fs.existsSync(customThemeFilePath)) {
-				filePath = customThemeFilePath; 
+				filePath = customThemeFilePath;
 			}
 		}
 	} else if (filePathSuffix.indexOf('/_sitesclouddelivery/') > 0) {
@@ -345,14 +368,14 @@ router.get('/*', (req, res) => {
 		res.end();
 		return;
 	} else if (filePathSuffix.indexOf(compName + '/assets/') === 0) {
+		var compfolderFile = path.resolve(componentsDir + '/' + compName + '/_folder.json'),
+			compfolderster = fs.readFileSync(compfolderFile).toString(),
+			compfolderjson = JSON.parse(compfolderster),
+			apptype = compfolderjson.appType;
 		//
 		// component file
 		//
 		if (filePathSuffix.indexOf('settings.html') > 0) {
-			var compfolderFile = path.resolve(componentsDir + '/' + compName + '/_folder.json'),
-				compfolderster = fs.readFileSync(compfolderFile).toString(),
-				compfolderjson = JSON.parse(compfolderster),
-				apptype = compfolderjson.appType;
 			if (apptype === 'contentlayout') {
 				filePath = path.resolve(compSiteDir + '/contentlayoutsettings.html');
 				var settingshtml = fs.readFileSync(filePath).toString(),
@@ -362,9 +385,28 @@ router.get('/*', (req, res) => {
 				res.write(newsettingshtml);
 				res.end();
 				return;
+
+			} else if (apptype === 'fieldeditor') {
+				var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
+				var types = appInfo && appInfo.supportedDatatypes || ['text'];
+				var handlesMultiple = appInfo && appInfo.handlesMultiple;
+
+				filePath = path.join(compSiteDir, 'fieldeditorsettings.html');
+				var settingshtml = fs.readFileSync(filePath).toString();
+				var newsettingshtml = settingshtml.replace('_devcs_component_fieldeditor_name', compName);
+				newsettingshtml = newsettingshtml.replace('_devcs_component_fieldeditor_multi', handlesMultiple);
+				newsettingshtml = newsettingshtml.replace('_devcs_component_fieldeditor_types', types.join(','));
+				newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
+				console.log('path=' + req.path + ' filePath=' + filePath + ' field editor=' + compName);
+				res.write(newsettingshtml);
+				res.end();
+				return;
+
 			} else {
-				filePath = filePath = path.resolve(componentsDir + '/' + filePathSuffix);
+				filePath = path.resolve(componentsDir + '/' + filePathSuffix);
 			}
+		} else if (filePathSuffix.indexOf('render.js') > 0 && apptype === 'fieldeditor') {
+			filePath = path.join(componentsDir, compName, 'assets', 'view.html');
 		} else {
 			filePath = path.resolve(componentsDir + '/' + filePathSuffix);
 		}
@@ -422,10 +464,20 @@ router.get('/*', (req, res) => {
 			console.log('*** component settingsPath=' + settingsPath);
 
 			buf = buf.replace('_devcs_component_setting_url', settingsPath);
-			buf = buf.replace('_devcs_component_name', compName);
-			buf = buf.replace('_devcs_component_name', compName);
+			buf = serverUtils.replaceAll(buf, '_devcs_component_name', compName);
 			buf = buf.replace('_devcs_component_custom_settings', customsettingsdatastr);
 			buf = buf.replace('_devcs_component_cloud_service', cloudservicestr);
+
+			// field editor
+			var fieldEditorType = '';
+			var editHtmlFilePath = path.join(componentsDir, compName, 'assets', 'edit.html');
+			if (fs.existsSync(editHtmlFilePath)) {
+				var editHtml = fs.readFileSync(editHtmlFilePath).toString();
+				if (editHtml.indexOf('oraclemapsv2') > 0) {
+					fieldEditorType = 'map';
+				}
+			}
+			buf = buf.replace('_devcs_component_fieldeditor_type', fieldEditorType);
 
 			// Theme designs
 			var themes = fs.readdirSync(themesDir),
@@ -433,7 +485,7 @@ router.get('/*', (req, res) => {
 			for (var i = 0; i < themes.length; i++) {
 				if (fs.existsSync(path.join(themesDir, themes[i], '_folder.json'))) {
 					themedesigns += '<option value="' + themes[i] + '"';
-					if (themes[i] === customThemeName) { 
+					if (themes[i] === customThemeName) {
 						themedesigns += ' selected="selected"';
 					}
 					themedesigns += '>' + themes[i] + '</option>';

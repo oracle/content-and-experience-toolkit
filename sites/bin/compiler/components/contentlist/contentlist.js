@@ -64,7 +64,12 @@ ContentList.prototype.compile = function (args) {
 		}
 
 		// check if there is a compiler for the content item
-		contentItem.getContentLayout(SCSCompileAPI, self.contentTypes[0], self.layoutCategory, self).then(function (compileFile) {
+		contentItem.getContentLayout(SCSCompileAPI, {
+			contentType: self.contentTypes[0],
+			contentLayoutCategory: self.layoutCategory,
+			compVM: self,
+			defaultContentLayoutCategory: 'Content List Default'
+		}).then(function (compileFile) {
 			if (!compileFile) {
 				// if no compiler exists for the content layout, then can't compile content list into the page
 				return resolve({

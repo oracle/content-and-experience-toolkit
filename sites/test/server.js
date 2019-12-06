@@ -191,6 +191,7 @@ app.use('/_sitesclouddelivery', express.static(testDir + '/sitescloud'));
 app.use('*sites.min.js', express.static(testDir + '/sitescloud/renderer/app/sdk/js/sites.min.js'));
 app.use('*sites.mock.min.js', express.static(testDir + '/sitescloud/renderer/app/sdk/js/sites.mock.min.js'));
 app.use('*content.min.js', express.static(testDir + '/sitescloud/renderer/app/sdk/js/content.min.js'));
+app.use('*field-editor-sdk-1.0.js', express.static(testDir + '/sitescloud/renderer/app/sdk/js/field-editor-sdk-1.0.js'));
 app.use('/src', express.static(path.join(projectDir, 'src')));
 app.use('/main/components', express.static(componentsDir));
 app.use('/themes', express.static(themesDir));
@@ -366,6 +367,32 @@ app.get('/gettranslationconnections', function (req, res) {
 	"use strict";
 	res.write(JSON.stringify(serverUtils.getTranslationConnections(projectDir)));
 	res.end();
+});
+
+app.post('/updatefieldeditor', function (req, res) {
+	"use strict";
+
+	var updateurl = req.url.replace('/updatefieldeditor', ''),
+		params = serverUtils.getURLParameters(url.parse(updateurl).query);
+	
+	if (params) {
+		var compName = params['name'],
+			multi = params['multi'],
+			types = params['types'];
+			
+		console.log('field editor: ' + compName + ' multi: ' + multi + ' types: ' + types);
+		var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
+		if (appInfo) {
+			appInfo.handlesMultiple = multi && multi === 'true' ? true : false;
+			appInfo.supportedDatatypes = types ? types.split(',') : [];
+			var filePath = path.join(componentsDir, compName, 'appinfo.json');
+			fs.writeFileSync(filePath, JSON.stringify(appInfo));
+			console.log(' - saved file ' + filePath);
+		}
+	}
+
+	res.end();
+	return;
 });
 
 app.get('/isAuthenticated', function (req, res) {

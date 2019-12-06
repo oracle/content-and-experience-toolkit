@@ -9,6 +9,9 @@ var ContentPlaceholder = function (args) {
 
 	// get the detail content item if it exists
 	this.contentItem = args.SCSCompileAPI.detailContentItem;
+
+	// set the default to content placeholder default
+	this.defaultContentLayoutCategory = 'Content Placeholder Default'; 
 };
 ContentPlaceholder.prototype = Object.create(ContentItem.prototype);
 

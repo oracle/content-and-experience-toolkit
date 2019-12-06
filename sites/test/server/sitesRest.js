@@ -510,6 +510,82 @@ module.exports.setSiteRuntimeAccess = function (args) {
 	return _setSiteRuntimeAccess(server, args.id, args.name, args.accessList);
 };
 
+var _refreshSiteContent = function (server, id, name) {
+	return new Promise(function (resolve, reject) {
+		var request = siteUtils.getRequest();
+
+		var url = '/sites/management/api/v1/sites/';
+		if (id) {
+			url = url + id
+		} else if (name) {
+			url = url + 'name:' + name;
+		}
+		url = url + '/refresh';
+		console.log(' - post ' + url);
+		
+		var options = {
+			method: 'POST',
+			headers: {
+				Prefer: 'respond-async'
+			},
+			url: server.url + url
+		};
+
+		if (server.env !== 'dev_ec') {
+			options.headers.Authorization = _getAuthorization(server);
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+		// console.log(options);
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to refresh pre-render cache for site ' + (name || id) + ' : ');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			
+			if (response && response.statusCode < 300) {
+				var status = response.headers && response.headers.location;
+				resolve({
+					id: id,
+					name: name,
+					status: status
+				});
+			} else {
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to refresh pre-render cache for site ' + (name || id) + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Update site's access at runtime
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} id the id of the site or
+ * @param {string} name the name of the site
+ * @param {string} access list of access level, valid values: cloud, visitors, service and named
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.refreshSiteContent = function (args) {
+	return _refreshSiteContent(args.server, args.id, args.name);
+};
+
 var _exportResource = function (server, type, id, name) {
 	return new Promise(function (resolve, reject) {
 		var request = siteUtils.getRequest();

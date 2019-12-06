@@ -707,6 +707,17 @@ gulp.task('control-content', function (done) {
 	});
 });
 
+/**
+ * Upload content from a server to another
+ */
+gulp.task('migrate-content', function (done) {
+	'use strict';
+
+	contentlib.migrateContent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
 
 /**
  * sync channel content on destination server from source server
@@ -878,6 +889,18 @@ gulp.task('create-site', function (done) {
 });
 
 /**
+ * Create non-MLS enterprise site
+ */
+gulp.task('migrate-site', function (done) {
+	'use strict';
+
+	sitelib.migrateSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
  * Control site
  */
 gulp.task('control-site', function (done) {
@@ -1007,6 +1030,18 @@ gulp.task('upload-static-site-files', function (done) {
 	'use strict';
 
 	sitelib.uploadStaticSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Refresh pre-render cache for a site on CEC server
+ */
+gulp.task('refresh-prerender-cache', function (done) {
+	'use strict';
+
+	sitelib.refreshPrerenderCache(argv, function (success) {
 		process.exitCode = success ? 0 : 1;
 		done();
 	});

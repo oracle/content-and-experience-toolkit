@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "19.4.1c",
+	"version": "19.4.3",
 	"license": "UPL-1.0",
 	"description": "Content and Experience Cloud custom components build system",
 	"main": "index.js",
@@ -68,6 +68,9 @@
 		"upload-static-site-files": "gulp -LL --gulpfile bin/gulpfile.js upload-static-site-files ",
 		"download-static-site-files": "gulp -LL --gulpfile bin/gulpfile.js download-static-site-files ",
 		"delete-static-site-files": "gulp -LL --gulpfile bin/gulpfile.js delete-static-site-files ",
+		"refresh-prerender-cache": "gulp -LL --gulpfile bin/gulpfile.js refresh-prerender-cache ",
+		"migrate-site": "gulp -LL --gulpfile bin/gulpfile.js migrate-site ",
+		"migrate-content": "gulp -LL --gulpfile bin/gulpfile.js migrate-content ",
 		"debug-update-site-from-template": "node --inspect-brk ./node_modules/gulp/bin/gulp.js -LL --gulpfile bin/gulpfile.js update-site",
 		"create-repository": "gulp -LL --gulpfile bin/gulpfile.js create-repository ",
 		"control-repository": "gulp -LL --gulpfile bin/gulpfile.js control-repository ",
