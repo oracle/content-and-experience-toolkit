@@ -397,7 +397,8 @@ function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 		}
 	} catch (e) {
 		compilationReporter.info({
-			message: 'compileThemeLayout: no page compiler found: ' + compileFile
+			message: 'compileThemeLayout: no page compiler found: ' + compileFile,
+			error: e
 		});
 		return Promise.resolve(layoutMarkup);
 	}
