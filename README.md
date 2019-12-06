@@ -19,7 +19,7 @@ Templates and resources for development platforms.
 
 **Added**
 
-`cec compile-tempalte` - compile a site within a template for faster rendition in the browser.  See [Pre-Compile Sites](sites/doc/compiler.md).
+`cec compile-template` - compile a site within a template for faster rendition in the browser.  See [Pre-Compile Sites](sites/doc/compiler.md).
 
 `cec refresh-prerender-cache` - refresh the prerender cached site
 
