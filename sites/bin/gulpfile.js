@@ -310,6 +310,132 @@ gulp.task('sync-server', function (done) {
 			process.env['CEC_TOOLKIT_SYNC_PASSWORD'] = password;
 
 			var args = ['run', 'start-sync', '--prefix', cecDir];
+
+			var spawnCmd = childProcess.spawnSync(npmCmd, args, {
+				projectDir,
+				stdio: 'inherit'
+			});
+
+			done();
+		})
+		.catch((error) => {
+			rl.stdoutMuted = false;
+			rl.close();
+			done();
+		});
+
+});
+
+gulp.task('compilation-server', function (done) {
+	'use strict';
+
+	if (!verifyRun()) {
+		done();
+		return;
+	}
+
+	var srcServerName = argv.server;
+	if (!fs.existsSync(path.join(serversSrcDir, srcServerName, 'server.json'))) {
+		console.log('ERROR: source server ' + srcServerName + ' does not exist');
+		done();
+		return;
+	};
+
+	var port = argv.port || '8087';
+	process.env['CEC_TOOLKIT_COMPILATION_PORT'] = port;
+	process.env['CEC_TOOLKIT_COMPILATION_SERVER'] = srcServerName;
+	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
+	process.env['CEC_TOOLKIT_COMPILATION_HTTPS_KEY'] = '';
+	process.env['CEC_TOOLKIT_COMPILATION_HTTPS_CERTIFICATE'] = '';
+
+	var keyPath = argv.key;
+	if (keyPath) {
+		if (!path.isAbsolute(keyPath)) {
+			keyPath = path.join(projectDir, keyPath);
+		}
+		keyPath = path.resolve(keyPath);
+		if (!fs.existsSync(keyPath)) {
+			console.log('ERROR: file ' + keyPath + ' does not exist');
+			done();
+			return;
+		}
+		process.env['CEC_TOOLKIT_COMPILATION_HTTPS_KEY'] = keyPath;
+	}
+
+	var certPath = argv.certificate;
+	if (certPath) {
+		if (!path.isAbsolute(certPath)) {
+			certPath = path.join(projectDir, certPath);
+		}
+		certPath = path.resolve(certPath);
+		if (!fs.existsSync(certPath)) {
+			console.log('ERROR: file ' + certPath + ' does not exist');
+			done();
+			return;
+		}
+		process.env['CEC_TOOLKIT_COMPILATION_HTTPS_CERTIFICATE'] = certPath;
+	}
+
+
+	var rl = readline.createInterface({
+		input: process.stdin,
+		output: process.stdout
+	});
+
+	rl._writeToOutput = function _writeToOutput(stringToWrite) {
+		if (rl.stdoutMuted) {
+			var str = stringToWrite.replace(/(\r\n|\n|\r)/gm, '').trim();
+			if (str) {
+				rl.output.write("*");
+			}
+		} else {
+			rl.output.write(stringToWrite);
+		}
+	};
+
+	var username = argv.username || '';
+	var password = argv.password || '';
+
+	var usernamePromises = [];
+	if (!username) {
+		usernamePromises.push(_promptInput(rl, 'Please enter username: '));
+	}
+	Promise.all(usernamePromises)
+		.then(function (results) {
+			if (!username) {
+				username = results[0].value;
+				if (!username) {
+					console.log('ERROR: username is empty');
+					return Promise.reject();
+				}
+			}
+
+			var passwordPromises = [];
+			if (!password) {
+				rl.stdoutMuted = true;
+				passwordPromises.push(_promptInput(rl, 'Please enter password: '));
+			}
+
+			return Promise.all(passwordPromises);
+		})
+		.then(function (results) {
+			if (!password) {
+				password = results[0].value;
+				if (!password) {
+					console.log('ERROR: password is empty');
+					return Promise.reject();
+				}
+				console.log('');
+			}
+
+			rl.stdoutMuted = false;
+			rl.close();
+
+			process.env['CEC_TOOLKIT_COMPILATION_USERNAME'] = username;
+			process.env['CEC_TOOLKIT_COMPILATION_PASSWORD'] = password;
+
+			var args = ['run', 'start-compilation', '--prefix', cecDir];
+
 			var spawnCmd = childProcess.spawnSync(npmCmd, args, {
 				projectDir,
 				stdio: 'inherit'
@@ -887,6 +1013,19 @@ gulp.task('create-site', function (done) {
 		done();
 	});
 });
+
+/**
+ * Transfer enterprise site
+ */
+gulp.task('transfer-site', function (done) {
+	'use strict';
+
+	sitelib.transferSite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
 
 /**
  * Create non-MLS enterprise site

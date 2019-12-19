@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "19.4.3",
+	"version": "19.4.3a",
 	"license": "UPL-1.0",
 	"description": "Content and Experience Cloud custom components build system",
 	"main": "index.js",
@@ -11,6 +11,7 @@
 		"postinstall": "gulp --gulpfile bin/gulpfile.js copy-libs && npm install bin/cec --no-save || npm install bin\\cec --no-save",
 		"start": "node test/server.js",
 		"start-sync": "node test/sync-server.js",
+		"start-compilation": "node test/compilation-server.js",
 		"debug": "node --inspect --debug-brk test/server.js",
 		"check-version": "gulp -LL --gulpfile bin/gulpfile.js check-version ",
 		"create-folder": "gulp -LL --gulpfile bin/gulpfile.js create-folder ",
@@ -55,6 +56,7 @@
 		"deployAll": "gulp -LL --gulpfile bin/gulpfile.js deploy-all",
 		"list": "gulp -LL --gulpfile bin/gulpfile.js list ",
 		"create-site": "gulp -LL --gulpfile bin/gulpfile.js create-site ",
+		"transfer-site": "gulp -LL --gulpfile bin/gulpfile.js transfer-site ",
 		"control-site": "gulp -LL --gulpfile bin/gulpfile.js control-site ",
 		"share-site": "gulp -LL --gulpfile bin/gulpfile.js share-site ",
 		"unshare-site": "gulp -LL --gulpfile bin/gulpfile.js unshare-site ",
@@ -101,7 +103,8 @@
 		"install-cec": "npm install -g bin/cec",
 		"install-src": "gulp -LL --gulpfile bin/gulpfile.js install-src ",
 		"develop": "gulp -LL --gulpfile bin/gulpfile.js develop ",
-		"sync-server": "gulp -LL --gulpfile bin/gulpfile.js sync-server "
+		"sync-server": "gulp -LL --gulpfile bin/gulpfile.js sync-server ",
+		"compilation-server": "gulp -LL --gulpfile bin/gulpfile.js compilation-server"
 	},
 	"repository": {
 		"type": "git",

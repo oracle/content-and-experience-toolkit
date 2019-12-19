@@ -1714,7 +1714,7 @@ module.exports.migrateContent = function (argv, done) {
 					channelId: channelId,
 					collectionName: destCollectionName,
 					collectionId: destCollectionId,
-					updateContent: false
+					updateContent: true
 				};
 				return _uploadContentFromZipFile(args);
 			})

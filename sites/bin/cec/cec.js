@@ -748,7 +748,8 @@ const createSite = {
 		['cec create-site Site1 -t StandardTemplate', 'Creates a standard site'],
 		['cec create-site Site1 -t Template1 -r Repository1 -l LocalizationPolicy1 -d en-US', 'Creates an enterprise site with localization policy LocalizationPolicy1'],
 		['cec create-site Site1 -t Template1 -r Repository1 -d en-US', 'Creates an enterprise site and uses the localization policy in Template1'],
-		['cec create-site Site1 -t Template1 -r Repository1 -d en-US -s UAT', 'Creates an enterprise site on server UAT']
+		['cec create-site Site1 -t Template1 -r Repository1 -d en-US -s UAT', 'Creates an enterprise site on server UAT'],
+		['cec create-site Site1 -t Template1 -u -r Repository1 -d en-US -s UAT', 'Creates an enterprise site on server UAT and keep the existing id for assets']
 	]
 };
 
@@ -769,6 +770,23 @@ const controlSite = {
 		['cec control-site unpublish -s Site1 -r UAT', 'Unpublish site Site1 on the registered server UAT'],
 		['cec control-site bring-online -s Site1 -r UAT', 'Bring site Site1 online on the registered server UAT'],
 		['cec control-site take-offline -s Site1 -r UAT', 'Take site Site1 offline on the registered server UAT']
+	]
+};
+
+const transferSite = {
+	command: 'transfer-site <name>',
+	alias: 'ts',
+	name: 'transfer-site',
+	usage: {
+		'short': 'Transfers Enterprise Site from one CEC server to another.',
+		'long': (function () {
+			let desc = 'Transfers Enterprise Site from one CEC server to another. Specify the source server with -s <server> and the destination server with -d <destination>.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec transfer-site Site1 -s DEV -t UAT -r Repository1 -l LocalizationPolicy1', 'Creates site Site1 on server UAT based on site Site1 on server DEV'],
+		['cec transfer-site Site1 -s DEV -t UAT', 'Updates site Site1 on server UAT based on site Site1 on server DEV']
 	]
 };
 
@@ -1022,20 +1040,20 @@ const refreshPrerenderCache = {
 };
 
 const migrateSite = {
-	command: 'migrate-site <name>',
+	command: 'migrate-site <site>',
 	alias: 'ms',
 	name: 'migrate-site',
 	usage: {
 		'short': 'Creates non-MLS Enterprise Site <name>.',
 		'long': (function () {
-			let desc = 'Create non-MLS Enterprise Site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
-			desc = desc + ' Optionally specify -f <folder> to set the folder to upload the template zip file.';
+			let desc = 'Create non-MLS Enterprise Site on CEC server. Specify the source server with -s <server> and the destination server with -d <destination>.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec migrate-site Site1 -t ~/Documents/BlogTemplate.zip -r Repo1', 'Creates a non-MLS enterprise site'],
-		['cec migrate-site Site1 -t ~/Documents/BlogTemplate.zip -f Import/templates -r Repo1', 'File BlogTemplate.zip will be uploaded to Import/templates']
+		['cec migrate-site Site1 -s DEV -d UAT -r Repo1', 'Based on site Site1 on server DEV creates a non-MLS enterprise site Site1 on server UAT'],
+		['cec migrate-site Site1 -s DEV -d UAT -r Repo1 -n newSite', 'Based on site Site1 on server DEV creates a non-MLS enterprise site newSite on server UAT'],
+		['cec migrate-site Site1 -d UAT -t ~/Documents/Site1Template.zip -r Repo1', 'Imports template Site1Template.zip to server UAT and creates a non-MLS enterprise site Site1 from the template']
 	]
 };
 
@@ -1754,6 +1772,28 @@ const syncServer = {
 	]
 };
 
+const compilationServer = {
+	command: 'compilation-server',
+	alias: 'scps',
+	name: 'compilation-server',
+	usage: {
+		'short': 'Starts a compilation server.',
+		'long': (function () {
+			let desc = 'Starts a compilation server to accept compilation request from <server>. Specify the server with -s <server>. ' +
+				'Specify -u <username> and -w <password> for authenticating requests. Optionally specify -p <port> to set the port, default port is 8087. ' +
+				'To run the compilation server over HTTPS, specify the key file with -k <key> and the certificate file with -c <certificate>.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec compilation-server -s DEV -u admin -w welcome1'],
+		['cec compilation-server -s DEV -u admin -w welcome1 -p 3001'],
+		['cec compilation-server -s DEV ', 'The username and password will be prompted to enter'],
+		['cec compilation-server -s DEV -u admin', 'The password will be prompted to enter'],
+		['cec compilation-server -s DEV -k ~/keys/key.pem -c ~/keys/cert.pem', 'The sync server will start over HTTPS']
+	]
+};
+
 /*********************
  * Setup yargs
  **********************/
@@ -1821,6 +1861,7 @@ _usage = _usage + os.EOL + 'Themes' + os.EOL +
 _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(createSite) + os.EOL +
 	_getCmdHelp(updateSite) + os.EOL +
+	_getCmdHelp(transferSite) + os.EOL +
 	_getCmdHelp(validateSite) + os.EOL +
 	_getCmdHelp(controlSite) + os.EOL +
 	_getCmdHelp(shareSite) + os.EOL +
@@ -1833,7 +1874,8 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(uploadStaticSite) + os.EOL +
 	_getCmdHelp(downloadStaticSite) + os.EOL +
 	_getCmdHelp(deleteStaticSite) + os.EOL +
-	_getCmdHelp(refreshPrerenderCache) + os.EOL;
+	_getCmdHelp(refreshPrerenderCache) + os.EOL + 
+	_getCmdHelp(migrateSite) + os.EOL;
 
 _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
@@ -1854,7 +1896,8 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(shareType) + os.EOL +
 	_getCmdHelp(unshareType) + os.EOL +
 	_getCmdHelp(listAssets) + os.EOL +
-	_getCmdHelp(createAssetUsageReport) + os.EOL;
+	_getCmdHelp(createAssetUsageReport) + os.EOL + 
+	_getCmdHelp(migrateContent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(listTranslationJobs) + os.EOL +
@@ -2585,6 +2628,10 @@ const argv = yargs.usage(_usage)
 					alias: 'x',
 					description: '<sitePrefix> Site Prefix'
 				})
+				.option('update', {
+					alias: 'u',
+					description: 'Keep the existing id for assets'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered CEC server'
@@ -2593,10 +2640,38 @@ const argv = yargs.usage(_usage)
 				.example(...createSite.example[1])
 				.example(...createSite.example[2])
 				.example(...createSite.example[3])
+				.example(...createSite.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${createSite.command}\n\n${createSite.usage.long}`);
+		})
+	.command([transferSite.command, transferSite.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered CEC server the site is from',
+					demandOption: true,
+				})
+				.option('destination', {
+					alias: 'd',
+					description: 'The registered CEC server to create or update the site',
+					demandOption: true
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'Repository, required for creating enterprise site'
+				})
+				.option('localizationPolicy', {
+					alias: 'l',
+					description: 'Localization policy, required for creating enterprise site'
+				})
+				.example(...transferSite.example[0])
+				.example(...transferSite.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${transferSite.command}\n\n${transferSite.usage.long}`);
 		})
 	.command([controlSite.command, controlSite.alias], false,
 		(yargs) => {
@@ -3030,15 +3105,27 @@ const argv = yargs.usage(_usage)
 		})
 	.command([migrateSite.command, migrateSite.alias], false,
 		(yargs) => {
-			yargs.option('template', {
-					alias: 't',
-					description: 'The template zip file path',
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered CEC server the site is from',
+				})
+				.option('destination', {
+					alias: 'd',
+					description: 'The registered CEC server to create the site',
 					demandOption: true
 				})
 				.option('repository', {
 					alias: 'r',
 					description: 'Repository',
 					demandOption: true
+				})
+				.option('template', {
+					alias: 't',
+					description: 'The site template'
+				})
+				.option('name', {
+					alias: 'n',
+					description: 'Site name'
 				})
 				.option('description', {
 					alias: 'p',
@@ -3048,54 +3135,53 @@ const argv = yargs.usage(_usage)
 					alias: 'x',
 					description: 'Site Prefix'
 				})
-				.option('folder', {
-					alias: 'f',
-					description: 'Folder to upload the template zip file'
-				})
-				.option('server', {
-					alias: 's',
-					description: 'The registered CEC server'
+				.check((argv) => {
+					if (!argv.template && !argv.server) {
+						throw new Error('Specify the server the site is on');
+					}
+					return true;
 				})
 				.example(...migrateSite.example[0])
 				.example(...migrateSite.example[1])
+				.example(...migrateSite.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${migrateSite.command}\n\n${migrateSite.usage.long}`);
 		})
-		.command([migrateContent.command, migrateContent.alias], false,
-			(yargs) => {
-				yargs.option('server', {
-						alias: 's',
-						description: 'The registered CEC server the content is from',
-						demandOption: true
-					})
-					.option('destination', {
-						alias: 'd',
-						description: 'The registered CEC server to upload the content',
-						demandOption: true
-					})
-					.option('repository', {
-						alias: 'r',
-						description: 'The repository for the types and items',
-						demandOption: true
-					})
-					.option('channel', {
-						alias: 'c',
-						description: 'The channel to add the content'
-					})
-					.option('collection', {
-						alias: 'l',
-						description: 'The collection to add the content'
-					})
-					.example(...migrateContent.example[0])
-					.example(...migrateContent.example[1])
-					.example(...migrateContent.example[2])
-					.help('help')
-					.alias('help', 'h')
-					.version(false)
-					.usage(`Usage: cec ${migrateContent.command}\n\n${migrateContent.usage.long}`);
-			})
+	.command([migrateContent.command, migrateContent.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered CEC server the content is from',
+					demandOption: true
+				})
+				.option('destination', {
+					alias: 'd',
+					description: 'The registered CEC server to upload the content',
+					demandOption: true
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'The repository for the types and items',
+					demandOption: true
+				})
+				.option('channel', {
+					alias: 'c',
+					description: 'The channel to add the content'
+				})
+				.option('collection', {
+					alias: 'l',
+					description: 'The collection to add the content'
+				})
+				.example(...migrateContent.example[0])
+				.example(...migrateContent.example[1])
+				.example(...migrateContent.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${migrateContent.command}\n\n${migrateContent.usage.long}`);
+		})
 	.command([createRepository.command, createRepository.alias], false,
 		(yargs) => {
 			yargs.option('description', {
@@ -4037,6 +4123,44 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${syncServer.command}\n\n${syncServer.usage.long}`);
 		})
+		.command([compilationServer.command, compilationServer.alias], false,
+			(yargs) => {
+				yargs
+					.option('server', {
+						alias: 's',
+						description: 'The registered CEC server for compilation',
+						demandOption: true
+					})
+					.option('username', {
+						alias: 'u',
+						description: 'The username used to authenticate requests'
+					})
+					.option('password', {
+						alias: 'w',
+						description: 'The password used to authenticate requests'
+					})
+					.option('port', {
+						alias: 'p',
+						description: 'Set port. Defaults to 8086.'
+					})
+					.option('key', {
+						alias: 'k',
+						description: 'The key file for HTTPS'
+					})
+					.option('certificate', {
+						alias: 'c',
+						description: 'The certificate file for HTTPS'
+					})
+					.example(...compilationServer.example[0])
+					.example(...compilationServer.example[1])
+					.example(...compilationServer.example[2])
+					.example(...compilationServer.example[3])
+					.example(...compilationServer.example[4])
+					.help('help')
+					.alias('help', 'h')
+					.version(false)
+					.usage(`Usage: cec ${compilationServer.command}\n\n${compilationServer.usage.long}`);
+			})
 	.help('help')
 	.alias('help', 'h')
 	.version()
@@ -4711,10 +4835,32 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.sitePrefix) {
 		createSiteArgs.push(...['--sitePrefix', argv.sitePrefix]);
 	}
+	if (argv.update) {
+		createSiteArgs.push(...['--update', argv.update]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createSiteArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === transferSite.name || argv._[0] === transferSite.alias) {
+	let transferSiteArgs = ['run', '-s', transferSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--server', argv.server,
+		'--destination', argv.destination
+	];
+	if (argv.repository && typeof argv.repository !== 'boolean') {
+		transferSiteArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.localizationPolicy && typeof argv.localizationPolicy !== 'boolean') {
+		transferSiteArgs.push(...['--localizationPolicy', argv.localizationPolicy]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, transferSiteArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -5012,21 +5158,24 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	let migrateSiteArgs = ['run', '-s', migrateSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
-		'--name', argv.name,
-		'--template', argv.template,
+		'--site', argv.site,
+		'--destination', argv.destination,
 		'--repository', argv.repository
 	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		migrateSiteArgs.push(...['--server', argv.server]);
+	}
+	if (argv.template && typeof argv.template !== 'boolean') {
+		migrateSiteArgs.push(...['--template', argv.template]);
+	}
+	if (argv.name && typeof argv.name !== 'boolean') {
+		migrateSiteArgs.push(...['--name', argv.name]);
+	}
 	if (argv.description) {
 		migrateSiteArgs.push(...['--description', argv.description]);
 	}
 	if (argv.sitePrefix) {
 		migrateSiteArgs.push(...['--sitePrefix', argv.sitePrefix]);
-	}
-	if (argv.folder && typeof argv.folder !== 'boolean') {
-		migrateSiteArgs.push(...['--folder', argv.folder]);
-	}
-	if (argv.server && typeof argv.server !== 'boolean') {
-		migrateSiteArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, migrateSiteArgs, {
 		cwd,
@@ -5040,7 +5189,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--name', argv.name,
 		'--server', argv.server,
 		'--destination', argv.destination,
-		'--repository', argv.repository,
+		'--repository', argv.repository
 	];
 	if (argv.channel && typeof argv.channel !== 'boolean') {
 		migrateContentArgs.push(...['--channel', argv.channel]);
@@ -5657,6 +5806,31 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		syncServerArgs.push(...['--certificate', argv.certificate]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, syncServerArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+} else if (argv._[0] === compilationServer.name || argv._[0] === compilationServer.alias) {
+	let compilationServerArgs = ['run', '-s', compilationServer.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--server', argv.server
+	];
+	if (argv.username && typeof argv.username !== 'boolean') {
+		compilationServerArgs.push(...['--username', argv.username]);
+	}
+	if (argv.password && typeof argv.password !== 'boolean') {
+		compilationServerArgs.push(...['--password', argv.password]);
+	}
+	if (argv.port) {
+		compilationServerArgs.push(...['--port', argv.port]);
+	}
+	if (argv.key && typeof argv.key !== 'boolean') {
+		compilationServerArgs.push(...['--key', argv.key]);
+	}
+	if (argv.certificate && typeof argv.certificate !== 'boolean') {
+		compilationServerArgs.push(...['--certificate', argv.certificate]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, compilationServerArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

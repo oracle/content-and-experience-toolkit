@@ -18,6 +18,7 @@ var express = require('express'),
 	request = require('request'),
 	cors = require('cors'),
 	contentLib = require('../bin/content.js'),
+	siteLib = require('../bin/site.js'),
 	serverUtils = require('./server/serverUtils.js');
 
 var cecDir = path.join(__dirname, "..");
@@ -151,7 +152,10 @@ app.post('/*', function (req, res) {
 		action === 'DIGITALASSET_UPDATED' ||
 		action === 'DIGITALASSET_DELETED' ||
 		action === 'CHANNEL_ASSETPUBLISHED' ||
-		action === 'CHANNEL_ASSETUNPUBLISHED') {
+		action === 'CHANNEL_ASSETUNPUBLISHED' || 
+		action === 'SITE_STATUSUPDATED' ||
+		action === 'SITE_UNPUBLISHED' || 
+		action === 'SITE_PUBLISHED') {
 		var events = [];
 		if (fs.existsSync(eventsFilePath)) {
 			var str = fs.readFileSync(eventsFilePath).toString();
@@ -364,7 +368,33 @@ var _processEvent = function () {
 				_updateEvent(event.__id, success);
 			});
 
-		}
+		} else if (action === 'SITE_STATUSUPDATED' || action === 'SITE_PUBLISHED' || action === 'SITE_UNPUBLISHED') {
+			var objectAction = event.entity.action;
+			var siteAction;
+			if (objectAction === 'online') {
+				siteAction = 'bring-online';
+			} else if (objectAction === 'offline') {
+				siteAction = 'take-offline';
+			} else if (objectAction === 'publish') {
+				siteAction = 'publish';
+			} else {
+				siteAction = 'unpublish';
+			}
+			
+			var args = {
+				projectDir: projectDir,
+				server: srcServer,
+				destination: destServer,
+				id: objectId,
+				name: objectName,
+				action: siteAction
+			};
+
+			siteLib.syncControlSiteSite(args, function (success) {
+				console.log('*** action finished');
+				_updateEvent(event.__id, success);
+			});
+		} 
 
 	} // event exists
 };

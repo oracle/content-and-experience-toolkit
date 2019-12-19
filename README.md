@@ -15,6 +15,13 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 19.4.3a
+
+`cec create-site` - supports `-u` option to keep same asset GUIDS for content from the content template within the site template when creating the site.  This simplifies T2P for propagation of a site the second time.
+
+`cec transfer-site` - can specify source and destination servers to transfer a site.  Site is created in destination using same ASSET IDs, so `cec transfer-site` can be called multiple times, and with subsequent execution the site and assets are updated, not recreated.
+
+
 # New in Release 19.4.3
 
 **Added**

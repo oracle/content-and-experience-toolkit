@@ -2974,14 +2974,12 @@ var _queryFolderId = function (request, server, host, folderPath) {
 
 		// First query user personal folder home
 		var url = host + '/documents/web?IdcService=FLD_BROWSE_PERSONAL&itemType=Folder';
+		var auth = _getRequestAuth(server);
 		var options = {
-			url: url
+			url: url,
+			auth: auth
 		};
-		if (server.env !== 'dev_ec') {
-			options['auth'] = {
-				bearer: server.oauthtoken
-			};
-		}
+		
 		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: failed to query home folder');
@@ -3637,7 +3635,11 @@ module.exports.getBackgroundServiceJobStatus = function (server, request, idcTok
 			url: url,
 			auth: auth,
 		};
-
+		if (server.cookies) {
+			params.headers = {
+				Cookie: server.cookies
+			};
+		}
 		request(params, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: Failed to get job status');
@@ -3691,7 +3693,11 @@ module.exports.getBackgroundServiceJobData = function (server, request, idcToken
 			url: url,
 			auth: auth,
 		};
-
+		if (server.cookies) {
+			params.headers = {
+				Cookie: server.cookies
+			};
+		}
 		request(params, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: Failed to get job response data');
