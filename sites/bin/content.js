@@ -135,9 +135,7 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 
 				if (!channelId) {
 					console.log('ERROR: channel ' + channel + ' does not exist');
-					return resolve({
-						err: 'err'
-					});
+					return Promise.reject();
 				}
 
 				console.log(' - validate channel ' + channelName + ' (id: ' + channelId + ')');

@@ -315,3 +315,408 @@ var _controlThemeREST = function (server, action, themeName, done) {
 			done();
 		});
 };
+
+/**
+ * share theme
+ */
+module.exports.shareTheme = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		_cmdEnd(done);
+		return;
+	}
+
+	try {
+		var serverName = argv.server;
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			_cmdEnd(done);
+			return;
+		}
+
+		// console.log('server: ' + server.url);
+		var name = argv.name;
+		var userNames = argv.users ? argv.users.split(',') : [];
+		var groupNames = argv.groups ? argv.groups.split(',') : [];
+		var role = argv.role;
+
+		var themeId;
+		var users = [];
+		var groups = [];
+
+		var request = serverUtils.getRequest();
+
+		var loginPromise = serverUtils.loginToServer(server, request);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
+
+			var themePromise = server.useRest ? sitesRest.getTheme({
+				server: server,
+				name: name
+			}) : serverUtils.browseThemesOnServer(request, server, 'doBrowseStarterThemes=1');
+			themePromise.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (server.useRest) {
+						themeId = result.id;
+					} else {
+						var themes = result.data || [];
+						for(var i = 0; i < themes.length; i++) {
+							if (themes[i].fFolderName.toLowerCase() === name.toLowerCase()) {
+								themeId = themes[i].fFolderGUID;
+								break;
+							}
+						}
+					}
+					if (!themeId) {
+						console.log('ERROR: theme ' + name + ' does not exist');
+						return Promise.reject();
+					}
+					console.log(' - verify theme');
+
+					return serverRest.getGroups({
+						server: server
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (groupNames.length > 0) {
+						console.log(' - verify groups');
+					}
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+
+					var usersPromises = [];
+					for (var i = 0; i < userNames.length; i++) {
+						usersPromises.push(serverRest.getUser({
+							server: server,
+							name: userNames[i]
+						}));
+					}
+
+					return Promise.all(usersPromises);
+				})
+				.then(function (results) {
+					var allUsers = [];
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].items) {
+							allUsers = allUsers.concat(results[i].items);
+						}
+					}
+					if (userNames.length > 0) {
+						console.log(' - verify users');
+					}
+					// verify users
+					for (var k = 0; k < userNames.length; k++) {
+						var found = false;
+						for (var i = 0; i < allUsers.length; i++) {
+							if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+								users.push(allUsers[i]);
+								found = true;
+								break;
+							}
+							if (found) {
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						}
+					}
+
+					if (users.length === 0 && groups.length === 0) {
+						return Promise.reject();
+					}
+
+					return serverRest.getFolderUsers({
+						server: server,
+						id: themeId
+					});
+				})
+				.then(function (result) {
+					var existingMembers = result.data || [];
+
+					var sharePromises = [];
+					for (var i = 0; i < users.length; i++) {
+						var newMember = true;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (existingMembers[j].id === users[i].id) {
+								newMember = false;
+								break;
+							}
+						}
+						// console.log(' - user: ' + users[i].loginName + ' new grant: ' + newMember);
+						sharePromises.push(serverRest.shareFolder({
+							server: server,
+							id: themeId,
+							userId: users[i].id,
+							role: role,
+							create: newMember
+						}));
+					}
+
+					for (var i = 0; i < groups.length; i++) {
+						var newMember = true;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (existingMembers[j].id === groups[i].groupID) {
+								newMember = false;
+								break;
+							}
+						}
+						// console.log(' - group: ' + (groups[i].displayName || groups[i].name) + ' new grant: ' + newMember);
+						sharePromises.push(serverRest.shareFolder({
+							server: server,
+							id: themeId,
+							userId: groups[i].groupID,
+							role: role,
+							create: newMember
+						}));
+					}
+
+					return Promise.all(sharePromises);
+				})
+				.then(function (results) {
+					var shared = false;
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].errorCode === '0') {
+							shared = true;
+							var typeLabel = results[i].user.loginName ? 'user' : 'group';
+							console.log(' - ' + typeLabel + ' ' + (results[i].user.loginName || results[i].user.displayName) + ' granted "' +
+								results[i].role + '" on theme ' + name);
+						}
+					}
+					_cmdEnd(done, shared);
+				})
+				.catch((error) => {
+					_cmdEnd(done);
+				});
+		}); // login
+	} catch (e) {
+		_cmdEnd(done);
+	}
+};
+
+/**
+ * unshare theme
+ */
+module.exports.unshareTheme = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		_cmdEnd(done);
+		return;
+	}
+
+	try {
+		var serverName = argv.server;
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			_cmdEnd(done);
+			return;
+		}
+
+		// console.log('server: ' + server.url);
+		var name = argv.name;
+		var userNames = argv.users ? argv.users.split(',') : [];
+		var groupNames = argv.groups ? argv.groups.split(',') : [];
+
+		var themeId;
+		var users = [];
+		var groups = [];
+
+		var request = serverUtils.getRequest();
+
+		var loginPromise = serverUtils.loginToServer(server, request);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
+
+			var themePromise = server.useRest ? sitesRest.getTheme({
+				server: server,
+				name: name
+			}) : serverUtils.browseThemesOnServer(request, server, 'doBrowseStarterThemes=1');
+			themePromise.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (server.useRest) {
+						themeId = result.id;
+					} else {
+						var themes = result.data || [];
+						for(var i = 0; i < themes.length; i++) {
+							if (themes[i].fFolderName.toLowerCase() === name.toLowerCase()) {
+								themeId = themes[i].fFolderGUID;
+								break;
+							}
+						}
+					}
+					if (!themeId) {
+						console.log('ERROR: theme ' + name + ' does not exist');
+						return Promise.reject();
+					}
+					console.log(' - verify theme');
+
+					return serverRest.getGroups({
+						server: server
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (groupNames.length > 0) {
+						console.log(' - verify groups');
+					}
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+
+					var usersPromises = [];
+					for (var i = 0; i < userNames.length; i++) {
+						usersPromises.push(serverRest.getUser({
+							server: server,
+							name: userNames[i]
+						}));
+					}
+
+					return Promise.all(usersPromises);
+				})
+				.then(function (results) {
+					var allUsers = [];
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].items) {
+							allUsers = allUsers.concat(results[i].items);
+						}
+					}
+					if (userNames.length > 0) {
+						console.log(' - verify users');
+					}
+					// verify users
+					for (var k = 0; k < userNames.length; k++) {
+						var found = false;
+						for (var i = 0; i < allUsers.length; i++) {
+							if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+								users.push(allUsers[i]);
+								found = true;
+								break;
+							}
+							if (found) {
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						}
+					}
+
+					if (users.length === 0 && groups.length === 0) {
+						return Promise.reject();
+					}
+
+					return serverRest.getFolderUsers({
+						server: server,
+						id: themeId
+					});
+				})
+				.then(function (result) {
+					var existingMembers = result.data || [];
+					var revokePromises = [];
+					for (var i = 0; i < users.length; i++) {
+						var existingUser = false;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (users[i].id === existingMembers[j].id) {
+								existingUser = true;
+								break;
+							}
+						}
+
+						if (existingUser) {
+							revokePromises.push(serverRest.unshareFolder({
+								server: server,
+								id: themeId,
+								userId: users[i].id
+							}));
+						} else {
+							console.log(' - user ' + users[i].loginName + ' has no access to the theme');
+						}
+					}
+
+					for (var i = 0; i < groups.length; i++) {
+						var existingUser = false;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (existingMembers[j].id === groups[i].groupID) {
+								existingUser = true;
+								break;
+							}
+						}
+
+						if (existingUser) {
+							revokePromises.push(serverRest.unshareFolder({
+								server: server,
+								id: themeId,
+								userId: groups[i].groupID
+							}));
+						} else {
+							console.log(' - group ' + (groups[i].displayName || groups[i].name) + ' has no access to the theme');
+						}
+					}
+
+					return Promise.all(revokePromises);
+				})
+				.then(function (results) {
+					var unshared = false;
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].errorCode === '0') {
+							unshared = true;
+							var typeLabel = results[i].user.loginName ? 'user' : 'group';
+							console.log(' - ' + typeLabel + ' ' + (results[i].user.loginName || results[i].user.displayName) + '\'s access to the theme removed');
+						} else {
+							console.log('ERROR: ' + results[i].title);
+						}
+					}
+					_cmdEnd(done, unshared);
+				})
+				.catch((error) => {
+					_cmdEnd(done);
+				});
+		}); // login
+	} catch (e) {
+		_cmdEnd(done);
+	}
+};

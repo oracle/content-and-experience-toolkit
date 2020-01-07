@@ -243,7 +243,7 @@ module.exports.getChildItems = function (args) {
 // Find file by name with the parent folder
 var _findFile = function (server, parentID, filename, showError, itemtype) {
 	return new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/api/1.2/folders/' + parentID + '/items';
+		var url = server.url + '/documents/api/1.2/folders/' + parentID + '/items?limit=9999';
 		var options = {
 			method: 'GET',
 			url: url,
@@ -1698,7 +1698,7 @@ var _getRepositories = function (server) {
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				var msg = (data && (data.title || data.errorMessage)) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to get repositories : ' + msg);
 				return resolve({
 					err: 'err'
@@ -2393,10 +2393,13 @@ var _shareFolder = function (server, folderId, userId, role, createNew) {
 					err: 'err'
 				});
 			}
+			
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(body);
 			} else {
-				console.log('ERROR: failed to share folder ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				var objName = body && body.user ? body.user.displayName : 'folder ' + folderId;
+				var msg = body && body.errorMessage ? body.errorMessage : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to share ' + objName + ' : ' + msg);
 				resolve({
 					err: 'err'
 				});

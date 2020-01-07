@@ -234,7 +234,8 @@ module.exports.listLocalResources = function (argv, done) {
 	var compNames = fs.readdirSync(componentsSrcDir);
 	if (compNames) {
 		compNames.forEach(function (name) {
-			if (!serverUtils.endsWith(name, '_build') && fs.existsSync(path.join(componentsSrcDir, name, 'appinfo.json'))) {
+			var isOptimizedComp = name.length > 6 && name.substring(name.length - 6) === '_build';
+			if (!isOptimizedComp && fs.existsSync(path.join(componentsSrcDir, name, 'appinfo.json'))) {
 				console.log('    ' + name);
 			}
 		});

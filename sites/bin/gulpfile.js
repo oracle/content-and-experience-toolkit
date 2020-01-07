@@ -609,6 +609,29 @@ gulp.task('import-component', function (done) {
 	});
 });
 
+/**
+ * Share component
+ */
+gulp.task('share-component', function (done) {
+	'use strict';
+
+	componentlib.shareComponent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Unshare component
+ */
+gulp.task('unshare-component', function (done) {
+	'use strict';
+
+	componentlib.unshareComponent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
 
 /**
  * Create all content types on the server
@@ -798,6 +821,30 @@ gulp.task('delete-template', function (done) {
 });
 
 /**
+ * Share template
+ */
+gulp.task('share-template', function (done) {
+	'use strict';
+
+	templatelib.shareTemplate(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Unshare template
+ */
+gulp.task('unshare-template', function (done) {
+	'use strict';
+
+	templatelib.unshareTemplate(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
  * download content from server
  */
 gulp.task('download-content', function (done) {
@@ -885,6 +932,30 @@ gulp.task('control-theme', function (done) {
 	'use strict';
 
 	themelib.controlTheme(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Share theme
+ */
+gulp.task('share-theme', function (done) {
+	'use strict';
+
+	themelib.shareTheme(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Unshare theme
+ */
+gulp.task('unshare-theme', function (done) {
+	'use strict';
+
+	themelib.unshareTheme(argv, function (success) {
 		process.exitCode = success ? 0 : 1;
 		done();
 	});

@@ -897,142 +897,148 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
 
 				request.get(url, function (err, response, body) {
-					var data = JSON.parse(body);
-					dUser = data && data.LocalData && data.LocalData.dUser;
-					idcToken = data && data.LocalData && data.LocalData.idcToken;
-					homeFolderGUID = 'F:USER:' + dUser;
-					if (dUser && dUser !== 'anonymous' && idcToken) {
+					if (!response || response.statusCode !== 200) {
 						clearInterval(inter);
-						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken + ' home folder: ' + homeFolderGUID);
-						console.log(' - establish user session');
+						console.log('ERROR: failed to connect to server: ' + (response ? response.statusMessage : ''));
+						_cmdEnd(done);
+					} else {
+						var data = JSON.parse(body);
+						dUser = data && data.LocalData && data.LocalData.dUser;
+						idcToken = data && data.LocalData && data.LocalData.idcToken;
+						homeFolderGUID = 'F:USER:' + dUser;
+						if (dUser && dUser !== 'anonymous' && idcToken) {
+							clearInterval(inter);
+							// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken + ' home folder: ' + homeFolderGUID);
+							console.log(' - establish user session');
 
-						// verify components
-						var compPromise = serverUtils.browseComponentsOnServer(request, server);
-						compPromise.then(function (result) {
-								if (result.err) {
-									return Promise.reject();
-								}
+							// verify components
+							var compPromise = serverUtils.browseComponentsOnServer(request, server);
+							compPromise.then(function (result) {
+									if (result.err) {
+										return Promise.reject();
+									}
 
-								var comps = result.data || [];
+									var comps = result.data || [];
 
-								for (var i = 0; i < componentNames.length; i++) {
-									var compName = componentNames[i];
-									var found = false;
-									for (var j = 0; j < comps.length; j++) {
-										if (compName.toLowerCase() === comps[j].fFolderName.toLowerCase()) {
-											found = true;
-											components.push({
-												id: comps[j].fFolderGUID,
-												name: compName,
-												filename: compName + '.zip'
-											});
-											break;
+									for (var i = 0; i < componentNames.length; i++) {
+										var compName = componentNames[i];
+										var found = false;
+										for (var j = 0; j < comps.length; j++) {
+											if (compName.toLowerCase() === comps[j].fFolderName.toLowerCase()) {
+												found = true;
+												components.push({
+													id: comps[j].fFolderGUID,
+													name: compName,
+													filename: compName + '.zip'
+												});
+												break;
+											}
+										}
+
+										if (!found) {
+											console.log('ERROR: component ' + compName + ' does not exist');
+											return Promise.reject();
 										}
 									}
 
-									if (!found) {
-										console.log('ERROR: component ' + compName + ' does not exist');
-										return Promise.reject();
+									console.log(' - get ' + (components.length > 1 ? 'components' : 'component'));
+
+									var exportCompPromises = [];
+									for (var i = 0; i < components.length; i++) {
+										exportCompPromises.push(_exportComponentSCS(request, localhost, components[i].id, components[i].name));
 									}
-								}
 
-								console.log(' - get ' + (components.length > 1 ? 'components' : 'component'));
-
-								var exportCompPromises = [];
-								for (var i = 0; i < components.length; i++) {
-									exportCompPromises.push(_exportComponentSCS(request, localhost, components[i].id, components[i].name));
-								}
-
-								// export components
-								return Promise.all(exportCompPromises);
-							})
-							.then(function (results) {
-								for (var i = 0; i < results.length; i++) {
-									if (results[i].err) {
-										return Promise.reject();
-									}
-								}
-
-								var getCompZipPromises = [];
-								for (var i = 0; i < components.length; i++) {
-									console.log(' - export component ' + components[i].name);
-
-									getCompZipPromises.push(serverRest.findFile({
-										server: server,
-										parentID: homeFolderGUID,
-										filename: components[i].filename
-									}));
-								}
-
-								// query the exported component zip files
-								return Promise.all(getCompZipPromises);
-							})
-							.then(function (results) {
-								var downloadFilePromises = [];
-								for (var j = 0; j < components.length; j++) {
-									var found = false;
+									// export components
+									return Promise.all(exportCompPromises);
+								})
+								.then(function (results) {
 									for (var i = 0; i < results.length; i++) {
-										if (components[j].filename === results[i].name) {
-											// will delete the zip file after download
-											deleteFileGUIDs.push(results[i].id);
-											components[j]['fileGUID'] = results[i].id;
-											found = true;
-											downloadFilePromises.push(_downloadComponentFile(
-												request, server, components[j].name, components[j].filename, components[j].fileGUID
-											));
+										if (results[i].err) {
+											return Promise.reject();
 										}
 									}
 
-									if (!found) {
-										console.log('ERROR: failed to find zip fileGUID for ' + components[j].name);
+									var getCompZipPromises = [];
+									for (var i = 0; i < components.length; i++) {
+										console.log(' - export component ' + components[i].name);
+
+										getCompZipPromises.push(serverRest.findFile({
+											server: server,
+											parentID: homeFolderGUID,
+											filename: components[i].filename
+										}));
 									}
-								}
 
-								// download zip files
-								return Promise.all(downloadFilePromises);
-							})
-							.then(function (results) {
-								var unzipPromises = [];
+									// query the exported component zip files
+									return Promise.all(getCompZipPromises);
+								})
+								.then(function (results) {
+									var downloadFilePromises = [];
+									for (var j = 0; j < components.length; j++) {
+										var found = false;
+										for (var i = 0; i < results.length; i++) {
+											if (components[j].filename === results[i].name) {
+												// will delete the zip file after download
+												deleteFileGUIDs.push(results[i].id);
+												components[j]['fileGUID'] = results[i].id;
+												found = true;
+												downloadFilePromises.push(_downloadComponentFile(
+													request, server, components[j].name, components[j].filename, components[j].fileGUID
+												));
+											}
+										}
 
-								for (var i = 0; i < results.length; i++) {
-									if (results[i].err) {
-										console.log('ERROR: failed to download zip for ' + results[i].comp);
-									} else {
-										var targetFile = path.join(destdir, results[i].comp + '.zip');
-										fs.writeFileSync(targetFile, results[i].data);
-										console.log(' - save file ' + targetFile);
-										downloadSuccess = true;
-										unzipPromises.push(unzipComponent(results[i].comp, targetFile));
+										if (!found) {
+											console.log('ERROR: failed to find zip fileGUID for ' + components[j].name);
+										}
 									}
-								}
 
-								// import components to local
-								return Promise.all(unzipPromises);
-							})
-							.then(function (results) {
-								for (var i = 0; i < results.length; i++) {
-									if (results[i].comp) {
-										console.log(' - import component to ' + path.join(componentsSrcDir, results[i].comp));
+									// download zip files
+									return Promise.all(downloadFilePromises);
+								})
+								.then(function (results) {
+									var unzipPromises = [];
+
+									for (var i = 0; i < results.length; i++) {
+										if (results[i].err) {
+											console.log('ERROR: failed to download zip for ' + results[i].comp);
+										} else {
+											var targetFile = path.join(destdir, results[i].comp + '.zip');
+											fs.writeFileSync(targetFile, results[i].data);
+											console.log(' - save file ' + targetFile);
+											downloadSuccess = true;
+											unzipPromises.push(unzipComponent(results[i].comp, targetFile));
+										}
 									}
-								}
 
-								var deleteFilePromises = [];
-								for (var i = 0; i < deleteFileGUIDs.length; i++) {
-									deleteFilePromises.push(serverRest.deleteFile({
-										server: server,
-										fFileGUID: deleteFileGUIDs[i]
-									}));
-								}
+									// import components to local
+									return Promise.all(unzipPromises);
+								})
+								.then(function (results) {
+									for (var i = 0; i < results.length; i++) {
+										if (results[i].comp) {
+											console.log(' - import component to ' + path.join(componentsSrcDir, results[i].comp));
+										}
+									}
 
-								// delete the zip file on the server
-								return Promise.all(deleteFilePromises);
-							})
-							.then(function (results) {
-								_cmdEnd(done, downloadSuccess);
-							})
-							.catch((error) => {
-								_cmdEnd(done);
-							});
+									var deleteFilePromises = [];
+									for (var i = 0; i < deleteFileGUIDs.length; i++) {
+										deleteFilePromises.push(serverRest.deleteFile({
+											server: server,
+											fFileGUID: deleteFileGUIDs[i]
+										}));
+									}
+
+									// delete the zip file on the server
+									return Promise.all(deleteFilePromises);
+								})
+								.then(function (results) {
+									_cmdEnd(done, downloadSuccess);
+								})
+								.catch((error) => {
+									_cmdEnd(done);
+								});
+						}
 					}
 				});
 			}, 1000);
@@ -1544,4 +1550,411 @@ var _controlComponentsREST = function (server, componentNames, done) {
 		.catch((error) => {
 			done();
 		});
+};
+
+/**
+ * share component
+ */
+module.exports.shareComponent = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		_cmdEnd(done);
+		return;
+	}
+
+	try {
+		var serverName = argv.server;
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			_cmdEnd(done);
+			return;
+		}
+
+		// console.log('server: ' + server.url);
+		var name = argv.name;
+		var userNames = argv.users ? argv.users.split(',') : [];
+		var groupNames = argv.groups ? argv.groups.split(',') : [];
+		var role = argv.role;
+
+		var compId;
+		var users = [];
+		var groups = [];
+
+		var request = serverUtils.getRequest();
+
+		var loginPromise = serverUtils.loginToServer(server, request);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
+
+			var compPromise = server.useRest ? sitesRest.getComponent({
+				server: server,
+				name: name
+			}) : serverUtils.browseComponentsOnServer(request, server);
+			compPromise.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (server.useRest) {
+						compId = result.id;
+					} else {
+						var comps = result.data || [];
+						for(var i = 0; i < comps.length; i++) {
+							if (comps[i].fFolderName.toLowerCase() === name.toLowerCase()) {
+								compId = comps[i].fFolderGUID;
+								break;
+							}
+						}
+					}
+					if (!compId) {
+						console.log('ERROR: component ' + name + ' does not exist');
+						return Promise.reject();
+					}
+					console.log(' - verify component');
+
+					return serverRest.getGroups({
+						server: server
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (groupNames.length > 0) {
+						console.log(' - verify groups');
+					}
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+
+					var usersPromises = [];
+					for (var i = 0; i < userNames.length; i++) {
+						usersPromises.push(serverRest.getUser({
+							server: server,
+							name: userNames[i]
+						}));
+					}
+
+					return Promise.all(usersPromises);
+				})
+				.then(function (results) {
+					var allUsers = [];
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].items) {
+							allUsers = allUsers.concat(results[i].items);
+						}
+					}
+					if (userNames.length > 0) {
+						console.log(' - verify users');
+					}
+					// verify users
+					for (var k = 0; k < userNames.length; k++) {
+						var found = false;
+						for (var i = 0; i < allUsers.length; i++) {
+							if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+								users.push(allUsers[i]);
+								found = true;
+								break;
+							}
+							if (found) {
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						}
+					}
+
+					if (users.length === 0 && groups.length === 0) {
+						return Promise.reject();
+					}
+
+					return serverRest.getFolderUsers({
+						server: server,
+						id: compId
+					});
+				})
+				.then(function (result) {
+					var existingMembers = result.data || [];
+
+					var sharePromises = [];
+					for (var i = 0; i < users.length; i++) {
+						var newMember = true;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (existingMembers[j].id === users[i].id) {
+								newMember = false;
+								break;
+							}
+						}
+						// console.log(' - user: ' + users[i].loginName + ' new grant: ' + newMember);
+						sharePromises.push(serverRest.shareFolder({
+							server: server,
+							id: compId,
+							userId: users[i].id,
+							role: role,
+							create: newMember
+						}));
+					}
+
+					for (var i = 0; i < groups.length; i++) {
+						var newMember = true;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (existingMembers[j].id === groups[i].groupID) {
+								newMember = false;
+								break;
+							}
+						}
+						// console.log(' - group: ' + (groups[i].displayName || groups[i].name) + ' new grant: ' + newMember);
+						sharePromises.push(serverRest.shareFolder({
+							server: server,
+							id: compId,
+							userId: groups[i].groupID,
+							role: role,
+							create: newMember
+						}));
+					}
+
+					return Promise.all(sharePromises);
+				})
+				.then(function (results) {
+					var shared = false;
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].errorCode === '0') {
+							shared = true;
+							var typeLabel = results[i].user.loginName ? 'user' : 'group';
+							console.log(' - ' + typeLabel + ' ' + (results[i].user.loginName || results[i].user.displayName) + ' granted "' +
+								results[i].role + '" on component ' + name);
+						} else {
+							console.log('ERROR: ' + results[i].title);
+						}
+					}
+					_cmdEnd(done, shared);
+				})
+				.catch((error) => {
+					_cmdEnd(done);
+				});
+		}); // login
+	} catch (e) {
+		_cmdEnd(done);
+	}
+};
+
+/**
+ * unshare component
+ */
+module.exports.unshareComponent = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		_cmdEnd(done);
+		return;
+	}
+
+	try {
+		var serverName = argv.server;
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			_cmdEnd(done);
+			return;
+		}
+
+		// console.log('server: ' + server.url);
+		var name = argv.name;
+		var userNames = argv.users ? argv.users.split(',') : [];
+		var groupNames = argv.groups ? argv.groups.split(',') : [];
+
+		var compId;
+		var users = [];
+		var groups = [];
+
+		var request = serverUtils.getRequest();
+
+		var loginPromise = serverUtils.loginToServer(server, request);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
+
+			var compPromise = server.useRest ? sitesRest.getComponent({
+				server: server,
+				name: name
+			}) : serverUtils.browseComponentsOnServer(request, server);
+			compPromise.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (server.useRest) {
+						compId = result.id;
+					} else {
+						var comps = result.data || [];
+						for(var i = 0; i < comps.length; i++) {
+							if (comps[i].fFolderName.toLowerCase() === name.toLowerCase()) {
+								compId = comps[i].fFolderGUID;
+								break;
+							}
+						}
+					}
+					if (!compId) {
+						console.log('ERROR: component ' + name + ' does not exist');
+						return Promise.reject();
+					}
+					console.log(' - verify component');
+
+					return serverRest.getGroups({
+						server: server
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (groupNames.length > 0) {
+						console.log(' - verify groups');
+					}
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+
+					var usersPromises = [];
+					for (var i = 0; i < userNames.length; i++) {
+						usersPromises.push(serverRest.getUser({
+							server: server,
+							name: userNames[i]
+						}));
+					}
+
+					return Promise.all(usersPromises);
+				})
+				.then(function (results) {
+					var allUsers = [];
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].items) {
+							allUsers = allUsers.concat(results[i].items);
+						}
+					}
+					if (userNames.length > 0) {
+						console.log(' - verify users');
+					}
+					// verify users
+					for (var k = 0; k < userNames.length; k++) {
+						var found = false;
+						for (var i = 0; i < allUsers.length; i++) {
+							if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+								users.push(allUsers[i]);
+								found = true;
+								break;
+							}
+							if (found) {
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						}
+					}
+
+					if (users.length === 0 && groups.length === 0) {
+						return Promise.reject();
+					}
+
+					return serverRest.getFolderUsers({
+						server: server,
+						id: compId
+					});
+				})
+				.then(function (result) {
+					var existingMembers = result.data || [];
+					var revokePromises = [];
+					for (var i = 0; i < users.length; i++) {
+						var existingUser = false;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (users[i].id === existingMembers[j].id) {
+								existingUser = true;
+								break;
+							}
+						}
+
+						if (existingUser) {
+							revokePromises.push(serverRest.unshareFolder({
+								server: server,
+								id: compId,
+								userId: users[i].id
+							}));
+						} else {
+							console.log(' - user ' + users[i].loginName + ' has no access to the component');
+						}
+					}
+
+					for (var i = 0; i < groups.length; i++) {
+						var existingUser = false;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (existingMembers[j].id === groups[i].groupID) {
+								existingUser = true;
+								break;
+							}
+						}
+
+						if (existingUser) {
+							revokePromises.push(serverRest.unshareFolder({
+								server: server,
+								id: compId,
+								userId: groups[i].groupID
+							}));
+						} else {
+							console.log(' - group ' + (groups[i].displayName || groups[i].name) + ' has no access to the component');
+						}
+					}
+
+					return Promise.all(revokePromises);
+				})
+				.then(function (results) {
+					var unshared = false;
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].errorCode === '0') {
+							unshared = true;
+							var typeLabel = results[i].user.loginName ? 'user' : 'group';
+							console.log(' - ' + typeLabel + ' ' + (results[i].user.loginName || results[i].user.displayName) + '\'s access to the component removed');
+						} else {
+							console.log('ERROR: ' + results[i].title);
+						}
+					}
+					_cmdEnd(done, unshared);
+				})
+				.catch((error) => {
+					_cmdEnd(done);
+				});
+		}); // login
+	} catch (e) {
+		_cmdEnd(done);
+	}
 };

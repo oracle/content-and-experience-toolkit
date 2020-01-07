@@ -483,3 +483,15 @@ div pre {
 	white-space: -o-pre-wrap;
 	word-wrap: break-word;
 }
+
+.editorcontainer {
+	margin-top: 20px;
+	display: flex;
+}
+
+.fieldeditordiv {
+	flex: 50%
+}
+.fieldvaluediv {
+	flex: 50%
+}

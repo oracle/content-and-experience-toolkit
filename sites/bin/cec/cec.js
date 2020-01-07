@@ -338,6 +338,44 @@ const controlComponent = {
 	]
 };
 
+const shareComponent = {
+	command: 'share-component <name>',
+	alias: 'sc',
+	name: 'share-component',
+	usage: {
+		'short': 'Shares component with users and groups on CEC server.',
+		'long': (function () {
+			let desc = 'Shares component with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'The valid roles are\n\n';
+			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec share-component Comp1 -u user1,user2 -r manager', 'Share component Comp1 with user user1 and user2 and assign Manager role to them'],
+		['cec share-component Comp1 -u user1,user2 -g group1,group2 -r manager', 'Share component Comp1 with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
+		['cec share-component Comp1 -u user1,user2 -r manager -s UAT', 'Share component Comp1 with user user1 and user2 and assign Manager role to them on the registered server UAT']
+	]
+};
+
+const unshareComponent = {
+	command: 'unshare-component <name>',
+	alias: 'usc',
+	name: 'unshare-component',
+	usage: {
+		'short': 'Deletes user or group access to a component on CEC server.',
+		'long': (function () {
+			let desc = 'Deletes user or group access to a component on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec unshare-component Comp1 -u user1,user2'],
+		['cec unshare-component Comp1 -u user1,user2 -g group1,group2'],
+		['cec unshare-component Comp1 -u user1,user2 -s UAT']
+	]
+};
+
+
 const createTemplate = {
 	command: 'create-template <name>',
 	alias: 'ct',
@@ -521,7 +559,6 @@ const compileTemplate = {
 	]
 };
 
-
 const deleteTemplate = {
 	command: 'delete-template <name>',
 	alias: '',
@@ -537,6 +574,43 @@ const deleteTemplate = {
 		['cec delete-template BlogTemplate'],
 		['cec delete-template BlogTemplate -p'],
 		['cec delete-template BlogTemplate -s UAT']
+	]
+};
+
+const shareTemplate = {
+	command: 'share-template <name>',
+	alias: 'stm',
+	name: 'share-template',
+	usage: {
+		'short': 'Shares template with users and groups on CEC server.',
+		'long': (function () {
+			let desc = 'Shares template with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'The valid roles are\n\n';
+			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec share-template Template1 -u user1,user2 -r manager', 'Share template Template1 with user user1 and user2 and assign Manager role to them'],
+		['cec share-template Template1 -u user1,user2 -g group1,group2 -r manager', 'Share template Template1 with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
+		['cec share-template Template1 -u user1,user2 -r manager -s UAT', 'Share template Template1 with user user1 and user2 and assign Manager role to them on the registered server UAT']
+	]
+};
+
+const unshareTemplate = {
+	command: 'unshare-template <name>',
+	alias: 'ustm',
+	name: 'unshare-template',
+	usage: {
+		'short': 'Deletes user or group access to a template on CEC server.',
+		'long': (function () {
+			let desc = 'Deletes user or group access to a template on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec unshare-template Template1 -u user1,user2'],
+		['cec unshare-template Template1 -u user1,user2 -g group1,group2'],
+		['cec unshare-template Template1 -u user1,user2 -s UAT']
 	]
 };
 
@@ -707,6 +781,43 @@ const controlTheme = {
 	]
 };
 
+const shareTheme = {
+	command: 'share-theme <name>',
+	alias: 'sth',
+	name: 'share-theme',
+	usage: {
+		'short': 'Shares theme with users and groups on CEC server.',
+		'long': (function () {
+			let desc = 'Shares theme with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'The valid roles are\n\n';
+			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec share-theme Theme1 -u user1,user2 -r manager', 'Share theme Theme1 with user user1 and user2 and assign Manager role to them'],
+		['cec share-theme Theme1 -u user1,user2 -g group1,group2 -r manager', 'Share theme Theme1 with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
+		['cec share-theme Theme1 -u user1,user2 -r manager -s UAT', 'Share theme Theme1 with user user1 and user2 and assign Manager role to them on the registered server UAT']
+	]
+};
+
+const unshareTheme = {
+	command: 'unshare-theme <name>',
+	alias: 'usth',
+	name: 'unshare-theme',
+	usage: {
+		'short': 'Deletes user or group access to a theme on CEC server.',
+		'long': (function () {
+			let desc = 'Deletes user or group access to a theme on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec unshare-theme Theme1 -u user1,user2'],
+		['cec unshare-theme Theme1 -u user1,user2 -g group1,group2'],
+		['cec unshare-theme Theme1 -u user1,user2 -s UAT']
+	]
+};
+
 const listResources = {
 	command: 'list',
 	alias: 'l',
@@ -814,9 +925,9 @@ const unshareSite = {
 	alias: 'uss',
 	name: 'unshare-site',
 	usage: {
-		'short': 'Deletes the user\'s access to a site on CEC server.',
+		'short': 'Deletes user or group access to a site on CEC server.',
 		'long': (function () {
-			let desc = 'Deletes the user\'s access to a site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes user or group access to a site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1044,16 +1155,16 @@ const migrateSite = {
 	alias: 'ms',
 	name: 'migrate-site',
 	usage: {
-		'short': 'Creates non-MLS Enterprise Site <name>.',
+		'short': 'Migrates a site from OCI IC server to EC server.',
 		'long': (function () {
-			let desc = 'Create non-MLS Enterprise Site on CEC server. Specify the source server with -s <server> and the destination server with -d <destination>.';
+			let desc = 'Migrates a site from OCI IC server to EC server. Specify the IC server with -s <server> and the EC server with -d <destination>.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec migrate-site Site1 -s DEV -d UAT -r Repo1', 'Based on site Site1 on server DEV creates a non-MLS enterprise site Site1 on server UAT'],
-		['cec migrate-site Site1 -s DEV -d UAT -r Repo1 -n newSite', 'Based on site Site1 on server DEV creates a non-MLS enterprise site newSite on server UAT'],
-		['cec migrate-site Site1 -d UAT -t ~/Documents/Site1Template.zip -r Repo1', 'Imports template Site1Template.zip to server UAT and creates a non-MLS enterprise site Site1 from the template']
+		['cec migrate-site Site1 -s ICServer -d ECServer -r Repo1', 'Migrates site Site1 from ICServer to ECServer'],
+		['cec migrate-site Site1 -s ICServer -d ECServer -r Repo1 -n newSite', 'Migrates site Site1 from ICServer to ECServer and rename to newSite'],
+		['cec migrate-site Site1 -d ECServer -t ~/Documents/Site1Template.zip -r Repo1', 'Migrates site Site1 to ECServer with template Site1Template.zip from IC server']
 	]
 };
 
@@ -1062,16 +1173,16 @@ const migrateContent = {
 	alias: 'mc',
 	name: 'migrate-content',
 	usage: {
-		'short': 'Uploads content from a collection on CEC server to another CEC server.',
+		'short': 'Migrates content from OCI IC server to EC server.',
 		'long': (function () {
-			let desc = 'Uploads content from CEC server to another CEC server. Specify the source server with -s <server> and the destination server with -d <destination>.';
+			let desc = 'Migrates content from OCI IC server to EC server. Specify the IC server with -s <server> and the EC server with -d <destination>.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec migrate-content collection1 -s DEV -d UAT -r Repo1', 'Download content in collection collection1 from server DEV and upload to repository Repo1 on server UAT and add to collection collection1'],
-		['cec migrate-content collection1 -s DEV -d UAT -r Repo1 -l newCollection', 'Download content in collection collection1 from server DEV and upload to repository Repo1 on server UAT and add to collection newCollection'],
-		['cec migrate-content collection1 -s DEV -d UAT -r Repo1 -l newCollection -c channel1', 'Download content in collection collection1 from server DEV and upload to repository Repo1 on server UAT and add to collection collection1 and channel channel1']
+		['cec migrate-content collection1 -s ICServer -d ECServer -r Repo1', 'Migrates content from collection collection1 on ICServer to repository Repo1 on ECServer'],
+		['cec migrate-content collection1 -s ICServer -d ECServer -r Repo1 -l newCollection', 'Migrates content from collection collection1 on ICServer to repository Repo1 and collection newCollection on ECServer'],
+		['cec migrate-content collection1 -s ICServer -d ECServer -r Repo1 -l newCollection -c channel1', 'Migrates content from collection collection1 on ICServer to repository Repo1, collection newCollection and channel channel1 on ECServer']
 	]
 };
 
@@ -1145,10 +1256,10 @@ const unshareRepository = {
 	alias: 'usr',
 	name: 'unshare-repository',
 	usage: {
-		'short': 'Deletes the user\'s access to a repository on CEC server.',
+		'short': 'Deletes user or group access to a repository on CEC server.',
 		'long': (function () {
-			let desc = 'Deletes the user\'s access to a repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'Optionally specify -t to also delete the user\'s access to the content types in the repository.';
+			let desc = 'Deletes user or group access to a repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -t to also delete the user or group access to the content types in the repository.';
 			return desc;
 		})()
 	},
@@ -1184,9 +1295,9 @@ const unshareType = {
 	alias: 'ust',
 	name: 'unshare-type',
 	usage: {
-		'short': 'Deletes the user\'s access to a type on CEC server.',
+		'short': 'Deletes user or group access to a type on CEC server.',
 		'long': (function () {
-			let desc = 'Deletes the user\'s access to a type on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes user or group access to a type on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1503,9 +1614,9 @@ const unshareFolder = {
 	alias: 'usfd',
 	name: 'unshare-folder',
 	usage: {
-		'short': 'Delete the user\'s access to a shared folder on CEC server.',
+		'short': 'Deletes user or group access to a shared folder on CEC server.',
 		'long': (function () {
-			let desc = 'Delete the user\'s access to a shared folder on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Deletes user or group access to a shared folder on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1839,7 +1950,9 @@ _usage = _usage + os.EOL + 'Components' + os.EOL +
 	_getCmdHelp(exportComponent) + os.EOL +
 	_getCmdHelp(downloadComponent) + os.EOL +
 	_getCmdHelp(uploadComponent) + os.EOL +
-	_getCmdHelp(controlComponent) + os.EOL;
+	_getCmdHelp(controlComponent) + os.EOL +
+	_getCmdHelp(shareComponent) + os.EOL +
+	_getCmdHelp(unshareComponent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Templates' + os.EOL +
 	_getCmdHelp(createTemplate) + os.EOL +
@@ -1851,12 +1964,16 @@ _usage = _usage + os.EOL + 'Templates' + os.EOL +
 	_getCmdHelp(exportTemplate) + os.EOL +
 	_getCmdHelp(uploadTemplate) + os.EOL +
 	_getCmdHelp(deleteTemplate) + os.EOL +
+	_getCmdHelp(shareTemplate) + os.EOL +
+	_getCmdHelp(unshareTemplate) + os.EOL +
 	_getCmdHelp(describeTemplate) + os.EOL;
 
 _usage = _usage + os.EOL + 'Themes' + os.EOL +
 	_getCmdHelp(addComponentToTheme) + os.EOL +
 	_getCmdHelp(removeComponentFromTheme) + os.EOL +
-	_getCmdHelp(controlTheme) + os.EOL;
+	_getCmdHelp(controlTheme) + os.EOL +
+	_getCmdHelp(shareTheme) + os.EOL +
+	_getCmdHelp(unshareTheme) + os.EOL;
 
 _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(createSite) + os.EOL +
@@ -1874,7 +1991,7 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(uploadStaticSite) + os.EOL +
 	_getCmdHelp(downloadStaticSite) + os.EOL +
 	_getCmdHelp(deleteStaticSite) + os.EOL +
-	_getCmdHelp(refreshPrerenderCache) + os.EOL + 
+	_getCmdHelp(refreshPrerenderCache) + os.EOL +
 	_getCmdHelp(migrateSite) + os.EOL;
 
 _usage = _usage + os.EOL + 'Content' + os.EOL +
@@ -1896,7 +2013,7 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(shareType) + os.EOL +
 	_getCmdHelp(unshareType) + os.EOL +
 	_getCmdHelp(listAssets) + os.EOL +
-	_getCmdHelp(createAssetUsageReport) + os.EOL + 
+	_getCmdHelp(createAssetUsageReport) + os.EOL +
 	_getCmdHelp(migrateContent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
@@ -2088,6 +2205,70 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${controlComponent.command}\n\n${controlComponent.usage.long}`);
+		})
+	.command([shareComponent.command, shareComponent.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
+				})
+				.option('role', {
+					alias: 'r',
+					description: 'The role [' + getFolderRoles().join(' | ') + '] to assign to the users or groups',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					if (argv.role && !getFolderRoles().includes(argv.role)) {
+						throw new Error(`${argv.role} is not a valid value for <role>`);
+					}
+					return true;
+				})
+				.example(...shareComponent.example[0])
+				.example(...shareComponent.example[1])
+				.example(...shareComponent.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${shareComponent.command}\n\n${shareComponent.usage.long}`);
+		})
+	.command([unshareComponent.command, unshareComponent.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					return true;
+				})
+				.example(...unshareComponent.example[0])
+				.example(...unshareComponent.example[1])
+				.example(...unshareComponent.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${unshareComponent.command}\n\n${unshareComponent.usage.long}`);
 		})
 	.command([createTemplate.command, createTemplate.alias], false,
 		(yargs) => {
@@ -2326,6 +2507,70 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${uploadTemplate.command}\n\n${uploadTemplate.usage.long}`);
 		})
+	.command([shareTemplate.command, shareTemplate.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
+				})
+				.option('role', {
+					alias: 'r',
+					description: 'The role [' + getFolderRoles().join(' | ') + '] to assign to the users or groups',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					if (argv.role && !getFolderRoles().includes(argv.role)) {
+						throw new Error(`${argv.role} is not a valid value for <role>`);
+					}
+					return true;
+				})
+				.example(...shareTemplate.example[0])
+				.example(...shareTemplate.example[1])
+				.example(...shareTemplate.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${shareTemplate.command}\n\n${shareTemplate.usage.long}`);
+		})
+	.command([unshareTemplate.command, unshareTemplate.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					return true;
+				})
+				.example(...unshareTemplate.example[0])
+				.example(...unshareTemplate.example[1])
+				.example(...unshareTemplate.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${unshareTemplate.command}\n\n${unshareTemplate.usage.long}`);
+		})
 	.command([describeTemplate.command, describeTemplate.alias], false,
 		(yargs) => {
 			yargs.example(...describeTemplate.example)
@@ -2525,6 +2770,70 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${controlContent.command}\n\n${controlContent.usage.long}`);
 		})
+	.command([shareTheme.command, shareTheme.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
+				})
+				.option('role', {
+					alias: 'r',
+					description: 'The role [' + getFolderRoles().join(' | ') + '] to assign to the users or groups',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					if (argv.role && !getFolderRoles().includes(argv.role)) {
+						throw new Error(`${argv.role} is not a valid value for <role>`);
+					}
+					return true;
+				})
+				.example(...shareTheme.example[0])
+				.example(...shareTheme.example[1])
+				.example(...shareTheme.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${shareTheme.command}\n\n${shareTheme.usage.long}`);
+		})
+	.command([unshareTheme.command, unshareTheme.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					return true;
+				})
+				.example(...unshareTheme.example[0])
+				.example(...unshareTheme.example[1])
+				.example(...unshareTheme.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${unshareTheme.command}\n\n${unshareTheme.usage.long}`);
+		})
 	.command([addComponentToTheme.command, addComponentToTheme.alias], false,
 		(yargs) => {
 			yargs.option('theme', {
@@ -2714,7 +3023,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('role', {
 					alias: 'r',
-					description: 'The role [' + getFolderRoles().join(' | ') + '] to assign to the users',
+					description: 'The role [' + getFolderRoles().join(' | ') + '] to assign to the users or groups',
 					demandOption: true
 				})
 				.option('server', {
@@ -3107,11 +3416,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered CEC server the site is from',
+					description: 'The registered IC server the site is from',
 				})
 				.option('destination', {
 					alias: 'd',
-					description: 'The registered CEC server to create the site',
+					description: 'The registered EC server to create the site',
 					demandOption: true
 				})
 				.option('repository', {
@@ -3153,12 +3462,12 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered CEC server the content is from',
+					description: 'The registered IC server the content is from',
 					demandOption: true
 				})
 				.option('destination', {
 					alias: 'd',
-					description: 'The registered CEC server to upload the content',
+					description: 'The registered EC server to upload the content',
 					demandOption: true
 				})
 				.option('repository', {
@@ -3263,16 +3572,16 @@ const argv = yargs.usage(_usage)
 				})
 				.option('role', {
 					alias: 'r',
-					description: 'The role [' + getResourceRoles().join(' | ') + '] to assign to the users',
+					description: 'The role [' + getResourceRoles().join(' | ') + '] to assign to the users or groups',
 					demandOption: true
 				})
 				.option('types', {
 					alias: 't',
-					description: 'flag to indicate to share types in the repository'
+					description: 'Share types in the repository'
 				})
 				.option('typerole', {
 					alias: 'y',
-					description: 'The role [' + getResourceRoles().join(' | ') + '] to assign to the users for types'
+					description: 'The role [' + getResourceRoles().join(' | ') + '] to assign to the users or groups for types'
 				})
 				.option('server', {
 					alias: 's',
@@ -3312,7 +3621,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('types', {
 					alias: 't',
-					description: 'flag to indicate to remove user\'s access to types in the repository'
+					description: 'Remove the user or group access to types in the repository'
 				})
 				.option('server', {
 					alias: 's',
@@ -3345,7 +3654,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('role', {
 					alias: 'r',
-					description: 'The role [' + getResourceRoles().join(' | ') + '] to assign to the users',
+					description: 'The role [' + getResourceRoles().join(' | ') + '] to assign to the users or groups',
 					demandOption: true
 				})
 				.option('server', {
@@ -3773,7 +4082,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('role', {
 					alias: 'r',
-					description: 'The role [' + getFolderRoles().join(' | ') + '] to assign to the users',
+					description: 'The role [' + getFolderRoles().join(' | ') + '] to assign to the users or groups',
 					demandOption: true
 				})
 				.option('server', {
@@ -4123,44 +4432,44 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${syncServer.command}\n\n${syncServer.usage.long}`);
 		})
-		.command([compilationServer.command, compilationServer.alias], false,
-			(yargs) => {
-				yargs
-					.option('server', {
-						alias: 's',
-						description: 'The registered CEC server for compilation',
-						demandOption: true
-					})
-					.option('username', {
-						alias: 'u',
-						description: 'The username used to authenticate requests'
-					})
-					.option('password', {
-						alias: 'w',
-						description: 'The password used to authenticate requests'
-					})
-					.option('port', {
-						alias: 'p',
-						description: 'Set port. Defaults to 8086.'
-					})
-					.option('key', {
-						alias: 'k',
-						description: 'The key file for HTTPS'
-					})
-					.option('certificate', {
-						alias: 'c',
-						description: 'The certificate file for HTTPS'
-					})
-					.example(...compilationServer.example[0])
-					.example(...compilationServer.example[1])
-					.example(...compilationServer.example[2])
-					.example(...compilationServer.example[3])
-					.example(...compilationServer.example[4])
-					.help('help')
-					.alias('help', 'h')
-					.version(false)
-					.usage(`Usage: cec ${compilationServer.command}\n\n${compilationServer.usage.long}`);
-			})
+	.command([compilationServer.command, compilationServer.alias], false,
+		(yargs) => {
+			yargs
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server for compilation',
+					demandOption: true
+				})
+				.option('username', {
+					alias: 'u',
+					description: 'The username used to authenticate requests'
+				})
+				.option('password', {
+					alias: 'w',
+					description: 'The password used to authenticate requests'
+				})
+				.option('port', {
+					alias: 'p',
+					description: 'Set port. Defaults to 8086.'
+				})
+				.option('key', {
+					alias: 'k',
+					description: 'The key file for HTTPS'
+				})
+				.option('certificate', {
+					alias: 'c',
+					description: 'The certificate file for HTTPS'
+				})
+				.example(...compilationServer.example[0])
+				.example(...compilationServer.example[1])
+				.example(...compilationServer.example[2])
+				.example(...compilationServer.example[3])
+				.example(...compilationServer.example[4])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${compilationServer.command}\n\n${compilationServer.usage.long}`);
+		})
 	.help('help')
 	.alias('help', 'h')
 	.version()
@@ -4360,6 +4669,47 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		controlComponentArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, controlComponentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === shareComponent.name || argv._[0] === shareComponent.alias) {
+	let shareComponentArgs = ['run', '-s', shareComponent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--role', argv.role
+	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		shareComponentArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		shareComponentArgs.push(...['--groups', argv.groups]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		shareComponentArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, shareComponentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === unshareComponent.name || argv._[0] === unshareComponent.alias) {
+	let unshareComponentArgs = ['run', '-s', unshareComponent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		unshareComponentArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		unshareComponentArgs.push(...['--groups', argv.groups]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		unshareComponentArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, unshareComponentArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -4566,6 +4916,47 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === shareTemplate.name || argv._[0] === shareTemplate.alias) {
+	let shareTemplateArgs = ['run', '-s', shareTemplate.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--role', argv.role
+	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		shareTemplateArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		shareTemplateArgs.push(...['--groups', argv.groups]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		shareTemplateArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, shareTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === unshareTemplate.name || argv._[0] === unshareTemplate.alias) {
+	let unshareTemplateArgs = ['run', '-s', unshareTemplate.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		unshareTemplateArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		unshareTemplateArgs.push(...['--groups', argv.groups]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		unshareTemplateArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, unshareTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === describeTemplate.name || argv._[0] === describeTemplate.alias) {
 	let describeTemplateArgs = ['run', '-s', describeTemplate.name, '--prefix', appRoot,
 		'--',
@@ -4733,6 +5124,47 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		controlThemeArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, controlThemeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === shareTheme.name || argv._[0] === shareTheme.alias) {
+	let shareThemeArgs = ['run', '-s', shareTheme.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--role', argv.role
+	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		shareThemeArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		shareThemeArgs.push(...['--groups', argv.groups]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		shareThemeArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, shareThemeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === unshareTheme.name || argv._[0] === unshareTheme.alias) {
+	let unshareThemeArgs = ['run', '-s', unshareTheme.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		unshareThemeArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		unshareThemeArgs.push(...['--groups', argv.groups]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		unshareThemeArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, unshareThemeArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

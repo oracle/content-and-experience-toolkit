@@ -5,7 +5,7 @@ define(['knockout', 'jquery'], function (ko, $) {
 	// Define a Knockout Template for your component
 	// ----------------------------------------------
 	var sampleComponentTemplate = '<div><label>Content Field Editor</label></div><div class="fieldeditordiv"><iframe id="editFrame" src="_devcs_component_fieldeditor_edit_html_path" style="width: 640px; height: _devcs_component_fieldeditor_iframe_height; border-width: 0px;"></iframe></div>';
-
+	sampleComponentTemplate = '_devcs_component_fieldeditor_edit_html_src';
 
 	// ----------------------------------------------
 	// Define a Knockout ViewModel for your template

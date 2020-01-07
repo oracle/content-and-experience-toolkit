@@ -522,7 +522,7 @@ var _refreshSiteContent = function (server, id, name) {
 		}
 		url = url + '/refresh';
 		console.log(' - post ' + url);
-		
+
 		var options = {
 			method: 'POST',
 			headers: {
@@ -554,7 +554,7 @@ var _refreshSiteContent = function (server, id, name) {
 			} catch (e) {
 				data = body;
 			}
-			
+
 			if (response && response.statusCode < 300) {
 				var status = response.headers && response.headers.location;
 				resolve({
@@ -1210,7 +1210,7 @@ var _softDeleteResource = function (server, type, id, name) {
 		});
 	});
 };
-var _hardDeleteResource = function (server, type, id, name) {
+var _hardDeleteResource = function (server, type, id, name, showError) {
 	return new Promise(function (resolve, reject) {
 		var request = siteUtils.getRequest();
 
@@ -1239,8 +1239,10 @@ var _hardDeleteResource = function (server, type, id, name) {
 		// console.log(options);
 		request(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
-				console.log(error);
+				if (showError) {
+					console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
+					console.log(error);
+				}
 				resolve({
 					err: error
 				});
@@ -1252,7 +1254,6 @@ var _hardDeleteResource = function (server, type, id, name) {
 			} catch (e) {
 				data = body;
 			}
-
 			if (response && response.statusCode < 300) {
 				resolve({
 					id: id,
@@ -1260,7 +1261,9 @@ var _hardDeleteResource = function (server, type, id, name) {
 				});
 			} else {
 				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
+				if (showError) {
+					console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
+				}
 				resolve({
 					err: msg || 'err'
 				});
@@ -1280,7 +1283,8 @@ var _hardDeleteResource = function (server, type, id, name) {
  */
 module.exports.deleteTemplate = function (args) {
 	var server = args.server;
-	return args.hard ? _hardDeleteResource(server, 'templates', args.id, args.name) : _softDeleteResource(server, 'templates', args.id, args.name);
+	var showError = args.showError !== undefined ? args.showError : true;
+	return args.hard ? _hardDeleteResource(server, 'templates', args.id, args.name, showError) : _softDeleteResource(server, 'templates', args.id, args.name);
 };
 
 var _importComponent = function (server, name, fileId) {

@@ -4155,7 +4155,8 @@ module.exports.migrateSite = function (argv, done) {
 					return sitesRest.deleteTemplate({
 						server: destServer,
 						name: templateName,
-						hard: true
+						hard: true,
+						showError: false
 					});
 				})
 				.then(function (result) {

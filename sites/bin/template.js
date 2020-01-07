@@ -1122,94 +1122,100 @@ module.exports.downloadTemplate = function (argv, done) {
 				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
 
 				request.get(url, function (err, response, body) {
-					var data = JSON.parse(body);
-					dUser = data && data.LocalData && data.LocalData.dUser;
-					idcToken = data && data.LocalData && data.LocalData.idcToken;
-					if (dUser && dUser !== 'anonymous' && idcToken) {
-						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
+					if (!response || response.statusCode !== 200) {
 						clearInterval(inter);
-						console.log(' - establish user session');
-
-						var templatePromise = _getServerTemplate(request, localhost, name);
-						templatePromise.then(function (result) {
-								if (result.err) {
-									return Promise.reject();
-								}
-
-								if (!result.templateGUID) {
-									console.log('ERROR: template ' + name + ' does not exist');
-									return Promise.reject();
-								}
-
-								templateGUID = result.templateGUID;
-								// console.log(' - template GUID: ' + templateGUID);
-								console.log(' - get template');
-
-								return serverUtils.queryFolderId(request, server, localhost);
-							})
-							.then(function (result) {
-								// get personal home folder
-								if (result.err) {
-									return Promise.reject();
-								}
-								homeFolderGUID = result.folderId;
-								// console.log(' - Home folder GUID: ' + homeFolderGUID);
-
-								return _exportServerTemplate(request, localhost);
-
-							})
-							.then(function (result) {
-								// template exported
-								if (result.err) {
-									return Promise.reject();
-								}
-								console.log(' - export template');
-
-								return _getHomeFolderFile(request, localhost, templateZipFile);
-							})
-							.then(function (result) {
-								// get template zip file GUID from the Home folder
-								if (result.err) {
-									return Promise.reject();
-								}
-								templateZipFileGUID = result.fileGUID;
-
-								// console.log(' - template zip file ' + templateZipFile);
-								// console.log(' - template zip file GUID: ' + templateZipFileGUID);
-
-								return _downloadServerFile(request, server, templateZipFileGUID, templateZipFile);
-
-							})
-							.then(function (result) {
-								// zip file downloaded
-								if (result.err) {
-									return Promise.reject();
-								}
-
-								fs.writeFileSync(zippath, result.data);
-								console.log(' - template download to ' + zippath);
-
-								return _moveToTrash(request, localhost);
-
-							})
-							.then(function (result) {
-								// delete the template zip on the server
-								// console.log(' - delete ' + templateZipFile + ' on the server');
-
-								return unzipTemplate(name, zippath, false);
-							})
-							.then(function (results) {
-								_cmdEnd(done, true);
-							})
-							.catch((error) => {
-								_cmdEnd(done);
-							});
-					}
-					total += 1;
-					if (total >= 10) {
-						clearInterval(inter);
-						console.log('ERROR: disconnect from the server, try again');
+						console.log('ERROR: failed to connect to server: ' + (response ? response.statusMessage : ''));
 						_cmdEnd(done);
+					} else {
+						var data = JSON.parse(body);
+						dUser = data && data.LocalData && data.LocalData.dUser;
+						idcToken = data && data.LocalData && data.LocalData.idcToken;
+						if (dUser && dUser !== 'anonymous' && idcToken) {
+							// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
+							clearInterval(inter);
+							console.log(' - establish user session');
+
+							var templatePromise = _getServerTemplate(request, localhost, name);
+							templatePromise.then(function (result) {
+									if (result.err) {
+										return Promise.reject();
+									}
+
+									if (!result.templateGUID) {
+										console.log('ERROR: template ' + name + ' does not exist');
+										return Promise.reject();
+									}
+
+									templateGUID = result.templateGUID;
+									// console.log(' - template GUID: ' + templateGUID);
+									console.log(' - get template');
+
+									return serverUtils.queryFolderId(request, server, localhost);
+								})
+								.then(function (result) {
+									// get personal home folder
+									if (result.err) {
+										return Promise.reject();
+									}
+									homeFolderGUID = result.folderId;
+									// console.log(' - Home folder GUID: ' + homeFolderGUID);
+
+									return _exportServerTemplate(request, localhost);
+
+								})
+								.then(function (result) {
+									// template exported
+									if (result.err) {
+										return Promise.reject();
+									}
+									console.log(' - export template');
+
+									return _getHomeFolderFile(request, localhost, templateZipFile);
+								})
+								.then(function (result) {
+									// get template zip file GUID from the Home folder
+									if (result.err) {
+										return Promise.reject();
+									}
+									templateZipFileGUID = result.fileGUID;
+
+									// console.log(' - template zip file ' + templateZipFile);
+									// console.log(' - template zip file GUID: ' + templateZipFileGUID);
+
+									return _downloadServerFile(request, server, templateZipFileGUID, templateZipFile);
+
+								})
+								.then(function (result) {
+									// zip file downloaded
+									if (result.err) {
+										return Promise.reject();
+									}
+
+									fs.writeFileSync(zippath, result.data);
+									console.log(' - template download to ' + zippath);
+
+									return _moveToTrash(request, localhost);
+
+								})
+								.then(function (result) {
+									// delete the template zip on the server
+									// console.log(' - delete ' + templateZipFile + ' on the server');
+
+									return unzipTemplate(name, zippath, false);
+								})
+								.then(function (results) {
+									_cmdEnd(done, true);
+								})
+								.catch((error) => {
+									_cmdEnd(done);
+								});
+						}
+						total += 1;
+						if (total >= 10) {
+							clearInterval(inter);
+							console.log('ERROR: disconnect from the server, try again');
+							_cmdEnd(done);
+						}
 					}
 				});
 			}, 1000);
@@ -2052,7 +2058,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate) {
 				}
 			}
 		}
-		
+
 	}
 
 	// copy customer components to buid dir: <template name>/components/
@@ -2143,7 +2149,7 @@ var _importTemplate = function (server, name, folder, zipfile, done) {
 			var importPromise = serverUtils.importToPODServer(server, 'template', folder, imports);
 			importPromise.then(function (importResult) {
 				// The result processed in the API
-				if (importResult && importResult.err) {
+				if (importResult && importResult.err || importResult && importResult[0] && importResult[0].err) {
 					done();
 				} else {
 					done(true);
@@ -3715,6 +3721,413 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 		}); // login
 	});
 };
+
+/**
+ * share template
+ */
+module.exports.shareTemplate = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		_cmdEnd(done);
+		return;
+	}
+
+	try {
+		var serverName = argv.server;
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			_cmdEnd(done);
+			return;
+		}
+
+		// console.log('server: ' + server.url);
+		var name = argv.name;
+		var userNames = argv.users ? argv.users.split(',') : [];
+		var groupNames = argv.groups ? argv.groups.split(',') : [];
+		var role = argv.role;
+
+		var tempId;
+		var users = [];
+		var groups = [];
+
+		var request = serverUtils.getRequest();
+
+		var loginPromise = serverUtils.loginToServer(server, request);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
+
+			var tempPromise = server.useRest ? sitesRest.getTemplate({
+				server: server,
+				name: name
+			}) : serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
+			tempPromise.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (server.useRest) {
+						tempId = result.id;
+					} else {
+						var temps = result.data || [];
+						for(var i = 0; i < temps.length; i++) {
+							if (temps[i].fFolderName.toLowerCase() === name.toLowerCase()) {
+								tempId = temps[i].fFolderGUID;
+								break;
+							}
+						}
+					}
+					if (!tempId) {
+						console.log('ERROR: template ' + name + ' does not exist');
+						return Promise.reject();
+					}
+					console.log(' - verify template');
+
+					return serverRest.getGroups({
+						server: server
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (groupNames.length > 0) {
+						console.log(' - verify groups');
+					}
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+
+					var usersPromises = [];
+					for (var i = 0; i < userNames.length; i++) {
+						usersPromises.push(serverRest.getUser({
+							server: server,
+							name: userNames[i]
+						}));
+					}
+
+					return Promise.all(usersPromises);
+				})
+				.then(function (results) {
+					var allUsers = [];
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].items) {
+							allUsers = allUsers.concat(results[i].items);
+						}
+					}
+					if (userNames.length > 0) {
+						console.log(' - verify users');
+					}
+					// verify users
+					for (var k = 0; k < userNames.length; k++) {
+						var found = false;
+						for (var i = 0; i < allUsers.length; i++) {
+							if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+								users.push(allUsers[i]);
+								found = true;
+								break;
+							}
+							if (found) {
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						}
+					}
+
+					if (users.length === 0 && groups.length === 0) {
+						return Promise.reject();
+					}
+
+					return serverRest.getFolderUsers({
+						server: server,
+						id: tempId
+					});
+				})
+				.then(function (result) {
+					var existingMembers = result.data || [];
+
+					var sharePromises = [];
+					for (var i = 0; i < users.length; i++) {
+						var newMember = true;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (existingMembers[j].id === users[i].id) {
+								newMember = false;
+								break;
+							}
+						}
+						// console.log(' - user: ' + users[i].loginName + ' new grant: ' + newMember);
+						sharePromises.push(serverRest.shareFolder({
+							server: server,
+							id: tempId,
+							userId: users[i].id,
+							role: role,
+							create: newMember
+						}));
+					}
+
+					for (var i = 0; i < groups.length; i++) {
+						var newMember = true;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (existingMembers[j].id === groups[i].groupID) {
+								newMember = false;
+								break;
+							}
+						}
+						// console.log(' - group: ' + (groups[i].displayName || groups[i].name) + ' new grant: ' + newMember);
+						sharePromises.push(serverRest.shareFolder({
+							server: server,
+							id: tempId,
+							userId: groups[i].groupID,
+							role: role,
+							create: newMember
+						}));
+					}
+
+					return Promise.all(sharePromises);
+				})
+				.then(function (results) {
+					var shared = false;
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].errorCode === '0') {
+							shared = true;
+							var typeLabel = results[i].user.loginName ? 'user' : 'group';
+							console.log(' - ' + typeLabel + ' ' + (results[i].user.loginName || results[i].user.displayName) + ' granted "' +
+								results[i].role + '" on template ' + name);
+						}
+					}
+					_cmdEnd(done, shared);
+				})
+				.catch((error) => {
+					_cmdEnd(done);
+				});
+		}); // login
+	} catch (e) {
+		_cmdEnd(done);
+	}
+};
+
+/**
+ * unshare template
+ */
+module.exports.unshareTemplate = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		_cmdEnd(done);
+		return;
+	}
+
+	try {
+		var serverName = argv.server;
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			_cmdEnd(done);
+			return;
+		}
+
+		// console.log('server: ' + server.url);
+		var name = argv.name;
+		var userNames = argv.users ? argv.users.split(',') : [];
+		var groupNames = argv.groups ? argv.groups.split(',') : [];
+
+		var tempId;
+		var users = [];
+		var groups = [];
+
+		var request = serverUtils.getRequest();
+
+		var loginPromise = serverUtils.loginToServer(server, request);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
+
+			var tempPromise = server.useRest ? sitesRest.getTemplate({
+				server: server,
+				name: name
+			}) : serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
+			tempPromise.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (server.useRest) {
+						tempId = result.id;
+					} else {
+						var temps = result.data || [];
+						for(var i = 0; i < temps.length; i++) {
+							if (temps[i].fFolderName.toLowerCase() === name.toLowerCase()) {
+								tempId = temps[i].fFolderGUID;
+								break;
+							}
+						}
+					}
+					if (!tempId) {
+						console.log('ERROR: template ' + name + ' does not exist');
+						return Promise.reject();
+					}
+					console.log(' - verify template');
+
+					return serverRest.getGroups({
+						server: server
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+					if (groupNames.length > 0) {
+						console.log(' - verify groups');
+					}
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+
+					var usersPromises = [];
+					for (var i = 0; i < userNames.length; i++) {
+						usersPromises.push(serverRest.getUser({
+							server: server,
+							name: userNames[i]
+						}));
+					}
+
+					return Promise.all(usersPromises);
+				})
+				.then(function (results) {
+					var allUsers = [];
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].items) {
+							allUsers = allUsers.concat(results[i].items);
+						}
+					}
+					if (userNames.length > 0) {
+						console.log(' - verify users');
+					}
+					// verify users
+					for (var k = 0; k < userNames.length; k++) {
+						var found = false;
+						for (var i = 0; i < allUsers.length; i++) {
+							if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+								users.push(allUsers[i]);
+								found = true;
+								break;
+							}
+							if (found) {
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						}
+					}
+
+					if (users.length === 0 && groups.length === 0) {
+						return Promise.reject();
+					}
+
+					return serverRest.getFolderUsers({
+						server: server,
+						id: tempId
+					});
+				})
+				.then(function (result) {
+					var existingMembers = result.data || [];
+					var revokePromises = [];
+					for (var i = 0; i < users.length; i++) {
+						var existingUser = false;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (users[i].id === existingMembers[j].id) {
+								existingUser = true;
+								break;
+							}
+						}
+
+						if (existingUser) {
+							revokePromises.push(serverRest.unshareFolder({
+								server: server,
+								id: tempId,
+								userId: users[i].id
+							}));
+						} else {
+							console.log(' - user ' + users[i].loginName + ' has no access to the template');
+						}
+					}
+
+					for (var i = 0; i < groups.length; i++) {
+						var existingUser = false;
+						for (var j = 0; j < existingMembers.length; j++) {
+							if (existingMembers[j].id === groups[i].groupID) {
+								existingUser = true;
+								break;
+							}
+						}
+
+						if (existingUser) {
+							revokePromises.push(serverRest.unshareFolder({
+								server: server,
+								id: tempId,
+								userId: groups[i].groupID
+							}));
+						} else {
+							console.log(' - group ' + (groups[i].displayName || groups[i].name) + ' has no access to the template');
+						}
+					}
+
+					return Promise.all(revokePromises);
+				})
+				.then(function (results) {
+					var unshared = false;
+					for (var i = 0; i < results.length; i++) {
+						if (results[i].errorCode === '0') {
+							unshared = true;
+							var typeLabel = results[i].user.loginName ? 'user' : 'group';
+							console.log(' - ' + typeLabel + ' ' + (results[i].user.loginName || results[i].user.displayName) + '\'s access to the template removed');
+						} else {
+							console.log('ERROR: ' + results[i].title);
+						}
+					}
+					_cmdEnd(done, unshared);
+				})
+				.catch((error) => {
+					_cmdEnd(done);
+				});
+		}); // login
+	} catch (e) {
+		_cmdEnd(done);
+	}
+};
+
+
 // export non "command line" utility functions
 module.exports.utils = {
 	createTemplateFromSiteAndDownloadSCS: _createTemplateFromSiteAndDownloadSCS,

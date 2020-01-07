@@ -119,12 +119,18 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 		// mock the Sites SDK messages
 		var receiveMessage = function (event) {
 			
-			if (fieldEditorType && fieldEditorType === 'map' && window.origin === event.origin) {
+			if (fieldEditorType && window.origin === event.origin) {
         		var data = event.data;
-
-        		if (data.type === 'ready') {
-					var field = {name: "value", dataType: "text", value: "-73.968285,40.785091", defaultValue: undefined};
-					var field2 = {name: "value2", dataType: "text", value: null, defaultValue: undefined};
+				console.log('field editor event: ' + data.type + ', payload: ' + JSON.stringify(data.payload));
+				if (data.type === 'ready') {
+					var field, field2;
+					if (fieldEditorType === 'map') {
+						field = {name: "value", dataType: "text", value: "-73.968285,40.785091", defaultValue: undefined};
+						field2 = {name: "value2", dataType: "text", value: null, defaultValue: undefined};
+					} else {
+						field = {name: "value", dataType: "text", value: "", defaultValue: undefined};
+						field2 = {name: "value2", dataType: "text", value: null, defaultValue: undefined};
+					}
           			var params = {
             			locale: 'en',
 						fields: [field, field2],
@@ -143,9 +149,17 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 					var editWindow = editFrame && editFrame.contentWindow;
 					if (editWindow) {
 						editWindow.postMessage(msg, window.origin); 
-						console.log(' post ' + msg);
+						// console.log(' post ' + msg);
 					} else {
 						console.log('ERROR: editFrame not found');
+					}
+					
+				} else if (data.type === 'init' || data.type === 'edit') {
+					var inputs = document.getElementsByClassName('editor-value-input');
+					var editorValueInput = inputs && inputs.length > 0 ? inputs[0] : undefined;
+					if (editorValueInput && data.payload) {
+						editorValueInput.value = data.payload.value || (data.payload.field && data.payload.field.value);
+						// console.log('field editor set value: ' + data.payload.value);
 					}
 				}
 			}
@@ -281,8 +295,8 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 					}
 				}
 			} catch (e) {
-				console.log('Sites ignored event: ' + e);
-				console.log(event);
+				// console.log('Sites ignored event: ' + e);
+				// console.log(event);
 				return true;
 			}
 		};

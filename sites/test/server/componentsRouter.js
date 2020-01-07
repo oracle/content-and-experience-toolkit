@@ -87,11 +87,17 @@ router.get('/*', (req, res) => {
 			editHtml = editHtml.replace(/(\r\n|\n|\r)/gm, " ");
 			var isMapEditor = editHtml.indexOf('oraclemapsv2') > 0 ? true : false;
 			var iframeHeight = isMapEditor ? '320px' : '100%';
-			var filePath = path.join(compSiteDir, 'fieldeditorrender.js');
+			var filePath = path.join(compSiteDir, 'fieldeditorrender.html');
+			var htmlSrc = fs.readFileSync(filePath).toString();
+			var newHtmlSrc = htmlSrc.replace('_devcs_component_fieldeditor_edit_html_path', '/components/' + compName + '/assets/edit.html');
+			newHtmlSrc = newHtmlSrc.replace('_devcs_component_fieldeditor_iframe_height', iframeHeight);
+			console.log(newHtmlSrc);
+
+			filePath = path.join(compSiteDir, 'fieldeditorrender.js');
 			var renderjs = fs.readFileSync(filePath).toString();
-			// var newrenderjs = renderjs.replace('_devcs_component_fieldeditor_edit_html', editHtml);
-			var newrenderjs = renderjs.replace('_devcs_component_fieldeditor_edit_html_path', '/components/' + compName + '/assets/edit.html');
-			newrenderjs = newrenderjs.replace('_devcs_component_fieldeditor_iframe_height', iframeHeight);
+			var newrenderjs = renderjs.replace('_devcs_component_fieldeditor_edit_html_src', newHtmlSrc);
+			console.log(newrenderjs);
+
 			console.log('path=' + req.path + ' filePath=' + filePath + ' field editor=' + compName);
 			res.write(newrenderjs);
 			res.end();
@@ -475,6 +481,8 @@ router.get('/*', (req, res) => {
 				var editHtml = fs.readFileSync(editHtmlFilePath).toString();
 				if (editHtml.indexOf('oraclemapsv2') > 0) {
 					fieldEditorType = 'map';
+				} else {
+					fieldEditorType = 'fieldeditor'
 				}
 			}
 			buf = buf.replace('_devcs_component_fieldeditor_type', fieldEditorType);

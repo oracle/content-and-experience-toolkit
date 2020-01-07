@@ -15,6 +15,21 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 19.4.3b
+
+**Added**
+
+`cec share-component` - share a component with a user or group.
+`cec unshare-component` - remove share of a component from a user or group.
+`cec share-template` - share a template with a user or group.
+`cec unshare-template` - remove share of a template from a user or group.
+`cec share-theme` - share a theme with a user or group.
+`cec unshare-theme` - remove share of a theme from a user or group.
+
+**Fixed**
+
+`cec download-file` - handle large number of site page files
+
 # New in Release 19.4.3a
 
 `cec create-site` - supports `-u` option to keep same asset GUIDS for content from the content template within the site template when creating the site.  This simplifies T2P for propagation of a site the second time.

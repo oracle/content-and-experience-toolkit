@@ -507,8 +507,9 @@ module.exports.getComponents = function (projectDir) {
 		items = fs.existsSync(componentsDir) ? fs.readdirSync(componentsDir) : [];
 	if (items) {
 		items.forEach(function (name) {
+			var isOptimizedComp = name.length > 6 && name.substring(name.length - 6) === '_build';
 			var folderpath = path.join(componentsDir, "/", name, "_folder.json");
-			if (fs.existsSync(path.join(componentsDir, "/", name, "appinfo.json")) && fs.existsSync(folderpath)) {
+			if (!isOptimizedComp && fs.existsSync(path.join(componentsDir, "/", name, "appinfo.json")) && fs.existsSync(folderpath)) {
 				// get the component type
 				var folderstr = fs.readFileSync(folderpath).toString(),
 					folderjson = JSON.parse(folderstr),
@@ -2268,16 +2269,17 @@ var _loginToICServer = function (server) {
 				}
 
 				const cookies = await page.cookies();
+				// console.log(cookies);
 				var cookiesStr = '';
 				if (cookies && cookies.length > 0) {
-					for(var i = 0; i < cookies.length; i++) {
-						if (cookies[i].name.startsWith('OAMAuthnCookie_cecs')) {
+					for (var i = 0; i < cookies.length; i++) {
+						if (cookies[i].name.startsWith('OAMAuthnCookie_')) {
 							cookiesStr = cookies[i].name + '=' + cookies[i].value;
 							break;
 						}
 					}
-					for(var i = 0; i < cookies.length; i++) {
-						if (!cookies[i].name.startsWith('OAMAuthnCookie_cecs')) {
+					for (var i = 0; i < cookies.length; i++) {
+						if (!cookies[i].name.startsWith('OAMAuthnCookie_')) {
 							cookiesStr = cookiesStr + '; ' + cookies[i].name + '=' + cookies[i].value;
 							break;
 						}
@@ -2286,7 +2288,7 @@ var _loginToICServer = function (server) {
 				// console.log(cookiesStr);
 
 				// get OAuth token
-				var tokenurl = server.url + '/documents/web?IdcService=GET_OAUTH_TOKEN'; 
+				var tokenurl = server.url + '/documents/web?IdcService=GET_OAUTH_TOKEN';
 				await page.goto(tokenurl);
 				try {
 					await page.waitForSelector('pre', {
@@ -2610,6 +2612,14 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
 
 				request.get(url, function (err, response, body) {
+					if (!response || response.statusCode !== 200) {
+						clearInterval(inter);
+						_closeServer(localServer);
+						console.log('ERROR: failed to connect to server: ' + (response ? response.statusMessage : ''));
+						return resolve({
+							err: 'err'
+						});
+					}
 					var data;
 					try {
 						data = JSON.parse(body);
@@ -2627,7 +2637,9 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 						clearInterval(inter);
 						_closeServer(localServer);
 						console.log('ERROR: disconnect from the server, try again');
-						return resolve({});
+						return resolve({
+							err: 'err'
+						});
 					}
 				});
 			}, 6000);
@@ -2765,130 +2777,131 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 							return resolve({
 								err: 'err'
 							});
-						}
-						if (data.LocalData.ImportConflicts) {
-							var conflict = data.ResultSets.ImportConflictsResultSet;
-							console.log(' - failed to import: ImportConflicts');
-							// console.log(conflict);
-							if (data.ResultSets.ImportConflictsResultSet) {
-								var conflictIdx, nameIdx, ownerIdx, resolutionIdx;
-								var fields = data.ResultSets.ImportConflictsResultSet.fields || [];
-								var rows = data.ResultSets.ImportConflictsResultSet.rows;
-								for (var i = 0; i < fields.length; i++) {
-									if (fields[i].name === 'conflict') {
-										conflictIdx = i;
-									} else if (fields[i].name === 'name') {
-										nameIdx = i;
-									} else if (fields[i].name === 'fCreatorLoginName') {
-										ownerIdx = i;
-									} else if (fields[i].name === 'resolution') {
-										resolutionIdx = i;
-									}
-								}
-
-								for (var i = 0; i < rows.length; i++) {
-									var msg = rows[i][conflictIdx] + ': ' + rows[i][nameIdx] + ' owned by ' + rows[i][ownerIdx] + ' ' + rows[i][resolutionIdx];
-									console.log('   ' + msg);
-								}
-							}
-							return resolve({
-								err: 'err'
-							});
-						}
-						// update idcToken
-						if (data && data.LocalData && data.LocalData.idcToken) {
-							console.log(' - refresh token');
-							idcToken = data.LocalData.idcToken;
-						}
-
-						if (type === 'template') {
-							var jobId = data.LocalData.JobID;
-							var importTempStatusPromise = _getTemplateImportStatus(request, localhost, jobId);
-							importTempStatusPromise.then(function (data) {
-								var success = false;
-								if (data && data.LocalData) {
-									if (data.LocalData.StatusCode !== '0') {
-										console.log(' - failed to import ' + name + ': ' + importResult.LocalData.StatusMessage);
-									} else if (data.LocalData.ImportConflicts) {
-										// console.log(data.LocalData);
-										console.log(' - failed to import ' + name + ': the template already exists and you do not have privilege to override it');
-									} else if (data.JobInfo && data.JobInfo.JobStatus && data.JobInfo.JobStatus === 'FAILED') {
-										console.log(' - failed to import: ' + data.JobInfo.JobMessage);
-									} else {
-										success = true;
-										console.log(' - template ' + name + ' imported (' + _timeUsed(startTime, new Date()) + ')');
-									}
-								} else {
-									console.log(' - failed to import ' + name);
-								}
-								return success ? resolve({}) : resolve({
-									err: 'err'
-								});
-							});
 						} else {
-							console.log(' - finished import component');
-							//
-							// Process import component result
-							//
-							if (data && data.LocalData) {
-								if (data.LocalData.StatusCode !== '0') {
-									console.log(' - failed to import ' + name + ': ' + data.LocalData.StatusMessage);
-									return resolve({
-										err: 'err'
-									});
-								} else if (data.LocalData.ImportConflicts) {
-									console.log(' - failed to import ' + name + ': the component already exists and you do not have privilege to override it');
-									return resolve({
-										err: 'err'
-									});
-								} else {
-									console.log(' - component ' + name + ' imported (' + _timeUsed(startTime, new Date()) + ')');
-									var importedCompFolderId = _getComponentAttribute(data, 'fFolderGUID');
+							if (data.LocalData.ImportConflicts) {
+								var conflict = data.ResultSets.ImportConflictsResultSet;
+								console.log(' - failed to import: ImportConflicts');
+								// console.log(conflict);
+								if (data.ResultSets.ImportConflictsResultSet) {
+									var conflictIdx, nameIdx, ownerIdx, resolutionIdx;
+									var fields = data.ResultSets.ImportConflictsResultSet.fields || [];
+									var rows = data.ResultSets.ImportConflictsResultSet.rows;
+									for (var i = 0; i < fields.length; i++) {
+										if (fields[i].name === 'conflict') {
+											conflictIdx = i;
+										} else if (fields[i].name === 'name') {
+											nameIdx = i;
+										} else if (fields[i].name === 'fCreatorLoginName') {
+											ownerIdx = i;
+										} else if (fields[i].name === 'resolution') {
+											resolutionIdx = i;
+										}
+									}
 
-									if (publishComponent && importedCompFolderId) {
-										// publish the imported component
-										url = localhost + '/documents/web?IdcService=SCS_ACTIVATE_COMPONENT';
-										url += '&importedCompFolderId=' + importedCompFolderId;
-										startTime = new Date();
-										request.post(url, function (err, response, body) {
-											if (err) {
-												console.log(' - failed to publish ' + name + ': ' + err);
-												return resolve({
-													err: 'err'
-												});
-											}
-											if (response.statusCode !== 200) {
-												console.log(' - failed to publish ' + name + ': status code ' + response.statusCode + ' ' + response.statusMessage);
-												return resolve({
-													err: 'err'
-												});
-											}
-											var publishResult = JSON.parse(body);
-											if (publishResult.err) {
-												console.log(' - failed to import ' + name + ': ' + err);
-												return resolve({
-													err: 'err'
-												});
-											}
-											if (publishResult.LocalData && publishResult.LocalData.StatusCode !== '0') {
-												console.log(' - failed to publish: ' + publishResult.LocalData.StatusMessage);
-												return resolve({
-													err: 'err'
-												});
-											} else {
-												console.log(' - component ' + name + ' published (' + _timeUsed(startTime, new Date()) + ')');
-												return resolve({});
-											}
-										});
-									} else {
-										return resolve({});
+									for (var i = 0; i < rows.length; i++) {
+										var msg = rows[i][conflictIdx] + ': ' + rows[i][nameIdx] + ' owned by ' + rows[i][ownerIdx] + ' ' + rows[i][resolutionIdx];
+										console.log('   ' + msg);
 									}
 								}
-							} else {
-								console.log(' - failed to import ' + name);
 								return resolve({
 									err: 'err'
 								});
+							}
+							// update idcToken
+							if (data && data.LocalData && data.LocalData.idcToken) {
+								console.log(' - refresh token');
+								idcToken = data.LocalData.idcToken;
+							}
+
+							if (type === 'template') {
+								var jobId = data.LocalData.JobID;
+								var importTempStatusPromise = _getTemplateImportStatus(request, localhost, jobId);
+								importTempStatusPromise.then(function (data) {
+									var success = false;
+									if (data && data.LocalData) {
+										if (data.LocalData.StatusCode !== '0') {
+											console.log(' - failed to import ' + name + ': ' + importResult.LocalData.StatusMessage);
+										} else if (data.LocalData.ImportConflicts) {
+											// console.log(data.LocalData);
+											console.log(' - failed to import ' + name + ': the template already exists and you do not have privilege to override it');
+										} else if (data.JobInfo && data.JobInfo.JobStatus && data.JobInfo.JobStatus === 'FAILED') {
+											console.log(' - failed to import: ' + data.JobInfo.JobMessage);
+										} else {
+											success = true;
+											console.log(' - template ' + name + ' imported (' + _timeUsed(startTime, new Date()) + ')');
+										}
+									} else {
+										console.log(' - failed to import ' + name);
+									}
+									return success ? resolve({}) : resolve({
+										err: 'err'
+									});
+								});
+							} else {
+								console.log(' - finished import component');
+								//
+								// Process import component result
+								//
+								if (data && data.LocalData) {
+									if (data.LocalData.StatusCode !== '0') {
+										console.log(' - failed to import ' + name + ': ' + data.LocalData.StatusMessage);
+										return resolve({
+											err: 'err'
+										});
+									} else if (data.LocalData.ImportConflicts) {
+										console.log(' - failed to import ' + name + ': the component already exists and you do not have privilege to override it');
+										return resolve({
+											err: 'err'
+										});
+									} else {
+										console.log(' - component ' + name + ' imported (' + _timeUsed(startTime, new Date()) + ')');
+										var importedCompFolderId = _getComponentAttribute(data, 'fFolderGUID');
+
+										if (publishComponent && importedCompFolderId) {
+											// publish the imported component
+											url = localhost + '/documents/web?IdcService=SCS_ACTIVATE_COMPONENT';
+											url += '&importedCompFolderId=' + importedCompFolderId;
+											startTime = new Date();
+											request.post(url, function (err, response, body) {
+												if (err) {
+													console.log(' - failed to publish ' + name + ': ' + err);
+													return resolve({
+														err: 'err'
+													});
+												}
+												if (response.statusCode !== 200) {
+													console.log(' - failed to publish ' + name + ': status code ' + response.statusCode + ' ' + response.statusMessage);
+													return resolve({
+														err: 'err'
+													});
+												}
+												var publishResult = JSON.parse(body);
+												if (publishResult.err) {
+													console.log(' - failed to import ' + name + ': ' + err);
+													return resolve({
+														err: 'err'
+													});
+												}
+												if (publishResult.LocalData && publishResult.LocalData.StatusCode !== '0') {
+													console.log(' - failed to publish: ' + publishResult.LocalData.StatusMessage);
+													return resolve({
+														err: 'err'
+													});
+												} else {
+													console.log(' - component ' + name + ' published (' + _timeUsed(startTime, new Date()) + ')');
+													return resolve({});
+												}
+											});
+										} else {
+											return resolve({});
+										}
+									}
+								} else {
+									console.log(' - failed to import ' + name);
+									return resolve({
+										err: 'err'
+									});
+								}
 							}
 						}
 					});
@@ -2979,7 +2992,7 @@ var _queryFolderId = function (request, server, host, folderPath) {
 			url: url,
 			auth: auth
 		};
-		
+
 		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: failed to query home folder');
@@ -4040,7 +4053,7 @@ var _browseCollectionsOnServer = function (request, server, params) {
 					err: 'err'
 				});
 			}
-			
+
 			var fields = data.ResultSets && data.ResultSets.Collections && data.ResultSets.Collections.fields || [];
 			var rows = data.ResultSets && data.ResultSets.Collections && data.ResultSets.Collections.rows || [];
 			var collections = []
