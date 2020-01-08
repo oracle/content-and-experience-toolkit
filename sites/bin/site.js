@@ -1393,7 +1393,7 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 			})
 			.on('error', function (err) {
 				console.log('ERROR: Failed to ' + action + ' site');
-				console.log(error);
+				console.log(err);
 				return resolve({
 					err: 'err'
 				});
@@ -4062,7 +4062,7 @@ module.exports.migrateSite = function (argv, done) {
 
 					var templatePath;
 					if (tempPath) {
-						fileName = tempPath.substring(tempPath.lastIndexOf('/') + 1);
+						fileName = tempPath.substring(tempPath.lastIndexOf(path.sep) + 1);
 						templateName = fileName.substring(0, fileName.indexOf('.'));
 						templatePath = tempPath;
 						console.log(' - template file ' + templatePath + ' name ' + templateName);

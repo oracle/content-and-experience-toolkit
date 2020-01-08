@@ -3716,7 +3716,7 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 
 					}); // get idcToken
 
-				}, 1000);
+				}, 5000);
 			}); // local 
 		}); // login
 	});

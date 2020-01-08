@@ -752,8 +752,8 @@ module.exports.uploadContent = function (argv, done) {
 			done();
 			return;
 		}
-		contentpath = filePath.substring(0, filePath.lastIndexOf('/'));
-		contentfilename = filePath.substring(filePath.lastIndexOf('/') + 1);
+		contentpath = filePath.substring(0, filePath.lastIndexOf(path.sep));
+		contentfilename = filePath.substring(filePath.lastIndexOf(path.sep) + 1);
 		fileChannelName = contentfilename.substring(0, contentfilename.indexOf('.'));
 
 	} else if (isTemplate) {
