@@ -67,6 +67,19 @@ module.exports.createRSSFeed = function (argv, done) {
 		return;
 	}
 
+	var javascript = argv.javascript;
+	if (javascript) {
+		if (!path.isAbsolute(javascript)) {
+			javascript = path.join(projectDir, javascript);
+		}
+		javascript = path.resolve(javascript);
+		if (!fs.existsSync(javascript)) {
+			console.log('ERROR: file ' + javascript + ' does not exist');
+			done();
+			return;
+		}
+	}
+
 	try {
 		_createRSSFeed(server, argv, done);
 	} catch (e) {
@@ -97,6 +110,14 @@ var _createRSSFeed = function (server, argv, done) {
 		rssFile = path.resolve(rssFile);
 	}
 
+	var javascript = argv.javascript;
+	if (javascript) {
+		if (!path.isAbsolute(javascript)) {
+			javascript = path.join(projectDir, javascript);
+		}
+		javascript = path.resolve(javascript);
+	}
+
 	var query = argv.query;
 	var limit = argv.limit;
 	var orderby = argv.orderby;
@@ -105,6 +126,14 @@ var _createRSSFeed = function (server, argv, done) {
 	var publish = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
 
 	var newlink = typeof argv.newlink === 'string' && argv.newlink.toLowerCase() === 'true';
+
+	var javascript = argv.javascript;
+	if (javascript) {
+		if (!path.isAbsolute(javascript)) {
+			javascript = path.join(projectDir, javascript);
+		}
+		javascript = path.resolve(javascript);
+	}
 
 	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
@@ -116,7 +145,7 @@ var _createRSSFeed = function (server, argv, done) {
 
 		if (server.useRest) {
 			_createRSSFeedREST(request, server, siteName, argv.url, tempPath,
-				rssFile, query, limit, orderby, language, publish, argv.title, argv.description, argv.ttl, newlink, done);
+				rssFile, query, limit, orderby, language, publish, argv.title, argv.description, argv.ttl, newlink, javascript, done);
 			return;
 		}
 
@@ -268,7 +297,7 @@ var _createRSSFeed = function (server, argv, done) {
 									siteUrl = siteUrl.substring(0, siteUrl.length - 1);
 								}
 								if (_generateRSSFile(siteUrl, items, language, defaultDetailPage, tempPath,
-										argv.title, argv.description, argv.ttl, rssFile, newlink)) {
+										argv.title, argv.description, argv.ttl, rssFile, newlink, javascript)) {
 									console.log(' - create RSS file ' + rssFile);
 
 									if (publish) {
@@ -416,11 +445,19 @@ var _getDefaultDetailPageId = function (pages) {
 	});
 };
 
-var _generateRSSFile = function (siteUrl, items, language, detailPage, tempPath, title, description, ttl, rssFilePath, newlink) {
+var _generateRSSFile = function (siteUrl, items, language, detailPage, tempPath, title, description, ttl, rssFilePath, newlink, javascript) {
 
 	var itemValues = [];
 	for (var i = 0; i < items.length; i++) {
 		var item = items[i];
+
+		var fields = item.fields;
+		Object.keys(fields).forEach(function (key) {
+			var field = fields[key];
+			if (field && field.timezone && field.value) {
+				field['rssDate'] = _getRSSDate(new Date(Date.parse(field.value)));
+			}
+		});
 
 		var updatedDateStr = item.updatedDate.value;
 		var updatedDateRSS = _getRSSDate(new Date(Date.parse(updatedDateStr)));
@@ -444,6 +481,18 @@ var _generateRSSFile = function (siteUrl, items, language, detailPage, tempPath,
 
 		itemValues.push(item);
 	}
+	// console.log(JSON.stringify(itemValues));
+
+	var customHash;
+	if (javascript) {
+		console.log(' - require in javascript from ' + javascript);
+		try {
+			customHash = require(javascript);
+			// console.log(customHash);
+		} catch (e) {
+			console.log(e);
+		}
+	}
 
 	var rssDate = _getRSSDate(new Date());
 	var rssHash = {
@@ -455,6 +504,13 @@ var _generateRSSFile = function (siteUrl, items, language, detailPage, tempPath,
 		'ttl': ttl,
 		'items': itemValues
 	};
+
+	if (customHash && typeof customHash === 'object') {
+		// merge
+		Object.keys(customHash).forEach(function (key) {
+			rssHash[key] = customHash[key];
+		});
+	}
 	// console.log(rssHash);
 
 	try {
@@ -574,7 +630,7 @@ var _pubishRSSFile = function (server, siteUrl, siteName, rssFile, done) {
  * @param {*} done 
  */
 var _createRSSFeedREST = function (request, server, siteName, url, tempPath, rssFile,
-	query, limit, orderby, language, publish, title, description, ttl, newlink, done) {
+	query, limit, orderby, language, publish, title, description, ttl, newlink, javascript, done) {
 	var site;
 	var channelId, channelToken;
 	var defaultDetailPage;
@@ -673,7 +729,7 @@ var _createRSSFeedREST = function (request, server, siteName, url, tempPath, rss
 			}
 
 			if (_generateRSSFile(siteUrl, items, language, defaultDetailPage, tempPath,
-					title, description, ttl, rssFile, newlink)) {
+					title, description, ttl, rssFile, newlink, javascript)) {
 				console.log(' - create RSS file ' + rssFile);
 
 				if (publish) {

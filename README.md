@@ -14,6 +14,16 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 19.4.3d
+
+**Added**
+
+`cec create-group` - create group on the specified server - for use in share commands.  Add user to group coming very soon.
+`cec delete-group` - remove a group from the specified SERVER.
+
+**Fixed**
+
+`cec compile-template` - handle content layout macros correctly
 
 # New in Release 19.4.3c
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -173,6 +173,11 @@ var getSiteSignIn = function () {
 
 var getSiteAccessNames = function () {
 	var names = ['Cloud users', 'Visitors', 'Service users', 'Specific users'];
+	return names;
+};
+
+var getGroupTypes = function () {
+	var names = ['PUBLIC_OPEN', 'PUBLIC_CLOSED', 'PRIVATE_CLOSED'];
 	return names;
 };
 
@@ -1905,6 +1910,44 @@ const compilationServer = {
 	]
 };
 
+const createGroup = {
+	command: 'create-group <name>',
+	alias: 'cg',
+	name: 'create-group',
+	usage: {
+		'short': 'Creates an OCE group on OCE server.',
+		'long': (function () {
+			let desc = 'Creates an OCE group on OCE server. Specify the server with -s <server>. ' +
+				'Set the group type with -t <type>. The valid group types are\n\n';
+			return getGroupTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-group Group1', 'Create group Group1, people can add themselves to the group and share content with the group'],
+		['cec create-group Group1 -t PUBLIC_CLOSED', 'Create group Group1, only group managers can add members but people can share content with the group'],
+		['cec create-group Group1 -t PRIVATE_CLOSED', 'Create group Group1, only group managers can add members and only members can share content with the group'],
+		['cec create-group Group1 -s DEV']
+	]
+};
+
+const deleteGroup = {
+	command: 'delete-group <name>',
+	alias: '',
+	name: 'delete-group',
+	usage: {
+		'short': 'Deletes an OCE group on OCE server.',
+		'long': (function () {
+			let desc = 'Deletes an OCE group on OCE server. Specify the server with -s <server>. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec delete-group Group1'],
+		['cec delete-group Group1 -s DEV']
+	]
+};
+
 /*********************
  * Setup yargs
  **********************/
@@ -2027,6 +2070,10 @@ _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(createTranslationConnector) + os.EOL +
 	_getCmdHelp(startTranslationConnector) + os.EOL +
 	_getCmdHelp(registerTranslationConnector) + os.EOL;
+
+_usage = _usage + os.EOL + 'Groups' + os.EOL +
+	_getCmdHelp(createGroup) + os.EOL +
+	_getCmdHelp(deleteGroup) + os.EOL;
 
 _usage = _usage + os.EOL + 'Local Environment' + os.EOL +
 	_getCmdHelp(createEncryptionKey) + os.EOL +
@@ -3279,6 +3326,10 @@ const argv = yargs.usage(_usage)
 					alias: 'x',
 					description: 'The RSS xml template'
 				})
+				.option('javascript', {
+					alias: 'j',
+					description: 'Javascript file that contains functions to process Mustache data'
+				})
 				.option('title', {
 					alias: 't',
 					description: 'The RSS feed title'
@@ -4266,6 +4317,44 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${deleteFile.command}\n\n${deleteFile.usage.long}`);
+		})
+	.command([createGroup.command, createGroup.alias], false,
+		(yargs) => {
+			yargs.option('type', {
+					alias: 't',
+					description: 'The group type [' + getGroupTypes().join(' | ') + ']'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.check((argv) => {
+					if (argv.type && !getGroupTypes().includes(argv.type)) {
+						throw new Error(`${argv.type} is not a valid value for <type>`);
+					}
+					return true;
+				})
+				.example(...createGroup.example[0])
+				.example(...createGroup.example[1])
+				.example(...createGroup.example[2])
+				.example(...createGroup.example[3])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createGroup.command}\n\n${createGroup.usage.long}`);
+		})
+	.command([deleteGroup.command, deleteGroup.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...deleteGroup.example[0])
+				.example(...deleteGroup.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${deleteGroup.command}\n\n${deleteGroup.usage.long}`);
 		})
 	.command([createEncryptionKey.command, createEncryptionKey.alias], false,
 		(yargs) => {
@@ -5498,6 +5587,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.newlink) {
 		createRSSFeedArgs.push(...['--newlink', argv.newlink]);
 	}
+	if (argv.javascript) {
+		createRSSFeedArgs.push(...['--javascript', argv.javascript]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createRSSFeedArgs.push(...['--server', argv.server]);
 	}
@@ -6263,6 +6355,36 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		compilationServerArgs.push(...['--certificate', argv.certificate]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, compilationServerArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+} else if (argv._[0] === createGroup.name || argv._[0] === createGroup.alias) {
+	let createGroupArgs = ['run', '-s', createGroup.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.type) {
+		createGroupArgs.push(...['--type', argv.type]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createGroupArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createGroupArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+} else if (argv._[0] === deleteGroup.name || argv._[0] === deleteGroup.alias) {
+	let deleteGroupArgs = ['run', '-s', deleteGroup.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	
+	if (argv.server && typeof argv.server !== 'boolean') {
+		deleteGroupArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, deleteGroupArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

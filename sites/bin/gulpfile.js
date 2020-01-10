@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global console, __dirname, process, console */
@@ -12,6 +12,7 @@ var gulp = require('gulp'),
 	contentlayoutlib = require('./contentlayout.js'),
 	contentlib = require('./content.js'),
 	doclib = require('./document.js'),
+	grouplib = require('./group.js'),
 	reportlib = require('./report.js'),
 	readline = require('readline'),
 	resourcelib = require('./resource.js'),
@@ -1519,6 +1520,31 @@ gulp.task('start-translation-connector', function (done) {
 
 	translationlib.startTranslationConnector(argv, done);
 });
+
+/**
+ * Create group
+ */
+gulp.task('create-group', function (done) {
+	'use strict';
+
+	grouplib.createGroup(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Delete group
+ */
+gulp.task('delete-group', function (done) {
+	'use strict';
+
+	grouplib.deleteGroup(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
 
 gulp.task('check-version', function (done) {
 	'use strict';

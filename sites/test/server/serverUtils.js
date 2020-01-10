@@ -1276,6 +1276,7 @@ var _getOAuthTokenFromIDCS = function (server) {
 				server.oauthtoken = token;
 				server.login = true;
 				server.tokentype = data.token_type;
+				console.log(' - connect to remote server: ' + server.url);
 				return resolve({
 					status: true,
 					oauthtoken: token

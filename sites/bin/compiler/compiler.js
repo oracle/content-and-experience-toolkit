@@ -423,6 +423,7 @@ function resolveLinks(pageModel, context, sitePrefix) {
 	var regPageLink = /\[!--\$\s*SCS_PAGE\s*--\]\s*(.*?)\s*\[\/!--\$\s*SCS_PAGE\s*--\]/g;
 	var regDigitalAsset = /\[!--\$\s*SCS_DIGITAL_ASSET\s*--\]\s*(.*?)\s*\[\/!--\$\s*SCS_DIGITAL_ASSET\s*--\]/g;
 	var regDigitalAssetPublished = /\[!--\$\s*SCS_DIGITAL_ASSET_PUBLISHED\s*--\]\s*(.*?)\s*\[\/!--\$\s*SCS_DIGITAL_ASSET_PUBLISHED\s*--\]/g;
+	var regDigitalAssetCEC = /\[!--\$\s*CEC_DIGITAL_ASSET\s*--\]\s*(.*?)\s*\[\/!--\$\s*CEC_DIGITAL_ASSET\s*--\]/g;
 	var regThemeRoot = /(_scs_theme_root_)/g;
 	var regDesignName2 = /(_scs_design_name_)/g;
 	var regTel = /\[!--\$SCS_TEL--\]*(.*?) *\[\/!--\$SCS_TEL--\]/g;
@@ -538,6 +539,11 @@ function resolveLinks(pageModel, context, sitePrefix) {
 
 	// fix up [!--$SCS_DIGITAL_ASSET--]contentId[/!--$SCS_DIGITAL_ASSET--] links that might appear in inline component data
 	tempVar = tempVar.replace(regDigitalAsset, function (match, parameters) {
+		return '/content/published/api/v1.1/assets/' + generateDigitalAssetLink(parameters);
+	});
+
+	// fix up [!--$CEC_DIGITAL_ASSET--]contentId[/!--$CEC_DIGITAL_ASSET--] links that might appear in inline component data
+	tempVar = tempVar.replace(regDigitalAssetCEC, function (match, parameters) {
 		return '/content/published/api/v1.1/assets/' + generateDigitalAssetLink(parameters);
 	});
 

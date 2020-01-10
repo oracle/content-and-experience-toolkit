@@ -1,10 +1,11 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global module, process */
 /* jshint esversion: 6 */
 var request = require('request'),
+	btoa = require('btoa'),
 	serverUtils = require('./serverUtils');
 
 //
@@ -2393,7 +2394,7 @@ var _shareFolder = function (server, folderId, userId, role, createNew) {
 					err: 'err'
 				});
 			}
-			
+
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(body);
 			} else {
@@ -2513,4 +2514,176 @@ var _getGroups = function (server) {
  */
 module.exports.getGroups = function (args) {
 	return _getGroups(args.server);
+};
+
+var _createConnection = function (request, server) {
+	return new Promise(function (resolve, reject) {
+
+		var url = server.url + '/osn/social/api/v1/connections';
+		/*
+		var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
+			'Basic ' + btoa(server.username + ':' + server.password);
+			*/
+		var auth = 'Basic ' + btoa(server.username + ':' + server.password);
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				Authorization: auth
+			},
+		};
+		request(postData, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to create connection');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				var msg = response.statusMessage || response.statusCode;
+				console.log('ERROR: failed to create connection' + ' : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
+var _createGroup = function (request, server, name, type) {
+	return new Promise(function (resolve, reject) {
+
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/groups';
+					var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
+						'Basic ' + btoa(server.username + ':' + server.password);
+					var payload = {
+						name: name,
+						groupType: type
+					};
+					var postData = {
+						method: 'POST',
+						url: url,
+						headers: {
+							Authorization: auth,
+							'X-Waggle-RandomID': result.apiRandomID
+						},
+						body: payload,
+						json: true
+					};
+					// console.log(postData);
+					request(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: create group ' + name);
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						};
+
+						if (response && response.statusCode === 200) {
+							resolve(data);
+						} else {
+							var msg = response.statusMessage || response.statusCode;
+							console.log('ERROR: failed to create group ' + name + ' : ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+/**
+ * Create an OCE group on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createGroup = function (args) {
+	return _createGroup(args.request, args.server, args.name, args.type);
+};
+
+var _deleteGroup = function (request, server, id, name) {
+	return new Promise(function (resolve, reject) {
+
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/groups/' + id;
+					var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
+						'Basic ' + btoa(server.username + ':' + server.password);
+				
+					var postData = {
+						method: 'DELETE',
+						url: url,
+						headers: {
+							Authorization: auth,
+							'X-Waggle-RandomID': result.apiRandomID
+						}
+					};
+					
+					request(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: delete group ' + (name || id));
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						};
+						
+						if (response && response.statusCode === 200) {
+							resolve({});
+						} else {
+							var msg = response.statusMessage || response.statusCode;
+							console.log('ERROR: failed to delete group ' + (name || id) + ' : ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+/**
+ * Delete an OCE group on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteGroup = function (args) {
+	return _deleteGroup(args.request, args.server, args.id, args.name);
 };
