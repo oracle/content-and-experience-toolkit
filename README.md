@@ -14,6 +14,10 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# Updated to 20.1.1
+
+**No Changes**
+
 # New in Release 19.4.3d
 
 **Added**
