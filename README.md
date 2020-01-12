@@ -21,6 +21,8 @@ Templates and resources for development platforms.
 `cec create-group` - create group on the specified server - for use in share commands.  Add user to group coming very soon.
 `cec delete-group` - remove a group from the specified SERVER.
 
+`cec create-rss-feed` - supports use of formatted dates, and mustache lambda support for custom data manipulation in the template expansion.  See sample data/rss/rssFunc.js.
+
 **Fixed**
 
 `cec compile-template` - handle content layout macros correctly
