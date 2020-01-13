@@ -160,3 +160,278 @@ module.exports.deleteGroup = function (argv, done) {
 	});
 
 };
+
+module.exports.addMemberToGroup = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	// console.log(' - server: ' + server.url);
+
+	var name = argv.name;
+	var role = 'GROUP_' + argv.role;
+	var userNames = argv.users ? argv.users.split(',') : [];
+	var groupNames = argv.groups ? argv.groups.split(',') : [];
+
+	var groupId;
+	var users = [];
+	var groups = [];
+
+	var request = serverUtils.getRequest();
+
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		serverRest.getGroups({
+				server: server
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				console.log(' - verify group');
+				
+				// verify groups
+				var allGroups = result || [];
+
+				for (var j = 0; j < allGroups.length; j++) {
+					if (name.toLowerCase() === allGroups[j].name.toLowerCase()) {
+						groupId = allGroups[j].id;
+						break;
+					}
+				}
+				if (!groupId) {
+					console.log('ERROR: group ' + name + ' does not exist');
+					return Promise.reject();
+				}
+
+				for (var i = 0; i < groupNames.length; i++) {
+					var found = false;
+					for (var j = 0; j < allGroups.length; j++) {
+						if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+							found = true;
+							groups.push(allGroups[j]);
+							break;
+						}
+					}
+					if (!found) {
+						console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+					}
+				}
+
+				var usersPromises = [];
+				for (var i = 0; i < userNames.length; i++) {
+					usersPromises.push(serverRest.getUser({
+						server: server,
+						name: userNames[i]
+					}));
+				}
+
+				return Promise.all(usersPromises);
+
+			})
+			.then(function (results) {
+				var allUsers = [];
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].items) {
+						allUsers = allUsers.concat(results[i].items);
+					}
+				}
+				if (userNames.length > 0) {
+					console.log(' - verify users');
+				}
+				// verify users
+				for (var k = 0; k < userNames.length; k++) {
+					var found = false;
+					for (var i = 0; i < allUsers.length; i++) {
+						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+							users.push(allUsers[i]);
+							found = true;
+							break;
+						}
+						if (found) {
+							break;
+						}
+					}
+					if (!found) {
+						console.log('ERROR: user ' + userNames[k] + ' does not exist');
+					}
+				}
+
+				if (users.length === 0 && groups.length === 0) {
+					return Promise.reject();
+				}
+
+				var members = [];
+				for(var i = 0; i < users.length; i++) {
+					members.push({
+						id: users[i].id,
+						name: users[i].loginName,
+						isGroup: false,
+						role: role
+					});
+				}
+				for(var i = 0; i < groups.length; i++) {
+					members.push({
+						id: groups[i].id,
+						name: groups[i].name,
+						isGroup: true,
+						role: role
+					})
+				}
+
+				return serverRest.addMembersToGroup({
+					request: request,
+					server: server,
+					id: groupId,
+					name: name,
+					members: members
+				});
+			})
+			.then(function (results) {
+				var success = true;
+				for(var i = 0; i < results.length; i++) {
+					if (results[i].err) {
+						success = false;
+					} else {
+						var member = results[i];
+						var typeLabel = userNames.includes(member.name) ? 'user' : 'group';
+						console.log(' - ' + typeLabel + ' ' + member.name + ' added to group ' + name);
+					}
+				}
+				done(success);
+			})
+			.catch((error) => {
+				done();
+			});
+	});
+
+};
+
+module.exports.removeMemberFromGroup = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	// console.log(' - server: ' + server.url);
+
+	var name = argv.name;
+	var memberNames = argv.members ? argv.members.split(',') : [];
+
+	var groupId;
+	var members = [];
+
+	var request = serverUtils.getRequest();
+
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		serverRest.getGroups({
+				server: server
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				console.log(' - verify group');
+			
+				// verify group
+				var allGroups = result || [];
+
+				for (var j = 0; j < allGroups.length; j++) {
+					if (name.toLowerCase() === allGroups[j].name.toLowerCase()) {
+						groupId = allGroups[j].id;
+						break;
+					}
+				}
+				if (!groupId) {
+					console.log('ERROR: group ' + name + ' does not exist');
+					return Promise.reject();
+				}
+
+				return serverRest.getGroupMembers({
+					request: request,
+					server: server,
+					id: groupId,
+					name: name
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				console.log(' - verify members');
+				var allMembers = result || [];
+				for(var i = 0; i < memberNames.length; i++) {
+					var found = false;
+					for(var j = 0; j < allMembers.length; j++) {
+						if (memberNames[i].toLowerCase() === allMembers[j].name.toLowerCase()) {
+							found = true;
+							members.push(allMembers[j]);
+							break;
+						}
+					}
+					if (!found) {
+						console.log('ERROR: ' + memberNames[i] + ' is not a member of group ' + name);
+					}
+				}
+				if (members.length === 0) {
+					return Promise.reject();
+				}
+
+				return serverRest.removeMembersFromGroup({
+					request: request,
+					server: server,
+					id: groupId,
+					name: name,
+					members: members
+				});
+				
+			})
+			.then(function (results) {
+				var success = true;
+				for(var i = 0; i < results.length; i++) {
+					if (results[i].err) {
+						success = false;
+					} else {
+						var member = results[i];
+						console.log(' - ' + member.name + ' removed from group ' + name);
+					}
+				}
+				done(success);
+			})
+			.catch((error) => {
+				done();
+			});
+	});
+
+};

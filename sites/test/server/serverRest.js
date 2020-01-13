@@ -2516,6 +2516,51 @@ module.exports.getGroups = function (args) {
 	return _getGroups(args.server);
 };
 
+var _getGroupMembers = function (server, id, name) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get members of group ' + (name || id));
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			if (response && response.statusCode === 200) {
+				resolve(data && data.items);
+			} else {
+				var msg = response.statusMessage || response.statusCode;
+				console.log('ERROR: failed to get members of group '(name || id) + ' : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get members of a group on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getGroupMembers = function (args) {
+	return _getGroupMembers(args.server, args.id, args.name);
+};
+
 var _createConnection = function (request, server) {
 	return new Promise(function (resolve, reject) {
 
@@ -2546,6 +2591,7 @@ var _createConnection = function (request, server) {
 			} catch (e) {
 				data = body;
 			};
+			// console.log(data);
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
@@ -2639,7 +2685,7 @@ var _deleteGroup = function (request, server, id, name) {
 					var url = server.url + '/osn/social/api/v1/groups/' + id;
 					var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
 						'Basic ' + btoa(server.username + ':' + server.password);
-				
+
 					var postData = {
 						method: 'DELETE',
 						url: url,
@@ -2648,7 +2694,7 @@ var _deleteGroup = function (request, server, id, name) {
 							'X-Waggle-RandomID': result.apiRandomID
 						}
 					};
-					
+
 					request(postData, function (error, response, body) {
 						if (error) {
 							console.log('ERROR: delete group ' + (name || id));
@@ -2663,7 +2709,7 @@ var _deleteGroup = function (request, server, id, name) {
 						} catch (e) {
 							data = body;
 						};
-						
+
 						if (response && response.statusCode === 200) {
 							resolve({});
 						} else {
@@ -2686,4 +2732,164 @@ var _deleteGroup = function (request, server, id, name) {
  */
 module.exports.deleteGroup = function (args) {
 	return _deleteGroup(args.request, args.server, args.id, args.name);
+};
+
+var _addMemberToGroup = function (request, server, apiRandomID, id, name, memberId, memberName, role, isGroup) {
+	return new Promise(function (resolve, reject) {
+
+		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members';
+		var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
+			'Basic ' + btoa(server.username + ':' + server.password);
+		var payload = {
+			member: memberName,
+			role: role,
+			isGroup: isGroup
+		};
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				Authorization: auth,
+				'X-Waggle-RandomID': apiRandomID
+			},
+			body: payload,
+			json: true
+		};
+		// console.log(postData);
+		request(postData, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: add member ' + (memberName || memberId) + ' to group ' + (name || id));
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			// console.log(data);
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				var msg = response.statusMessage || response.statusCode;
+				console.log('ERROR: add member ' + (memberName || memberId) + ' to group ' + (name || id) + ' : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Add members to an OCE group on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.addMembersToGroup = function (args) {
+	var request = args.request;
+	var server = args.server;
+	var id = args.id;
+	var name = args.name;
+	var members = args.members || [];
+	return new Promise(function (resolve, reject) {
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve([{
+						err: 'err'
+					}]);
+				} else {
+					var apiRandomID = result.apiRandomID;
+					var memberPromises = [];
+					for (var i = 0; i < members.length; i++) {
+						memberPromises.push(_addMemberToGroup(request, server, apiRandomID, id, name, members[i].id,
+							members[i].name, members[i].role, members[i].isGroup));
+					}
+					Promise.all(memberPromises).then(function (results) {
+						return resolve(results);
+					});
+				}
+			});
+	});
+};
+
+var _removeMemberFromGroup = function (request, server, apiRandomID, id, name, memberId, memberName) {
+	return new Promise(function (resolve, reject) {
+
+		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members/' + memberId;
+		var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
+			'Basic ' + btoa(server.username + ':' + server.password);
+		
+		var postData = {
+			method: 'DELETE',
+			url: url,
+			headers: {
+				Authorization: auth,
+				'X-Waggle-RandomID': apiRandomID
+			}
+		};
+		// console.log(postData);
+		request(postData, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: remove member ' + (memberName || memberId) + ' from group ' + (name || id));
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			};
+			// console.log(data);
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				var msg = response.statusMessage || response.statusCode;
+				console.log('ERROR: remove member ' + (memberName || memberId) + ' from group ' + (name || id) + ' : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Remove members from an OCE group on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.removeMembersFromGroup = function (args) {
+	var request = args.request;
+	var server = args.server;
+	var id = args.id;
+	var name = args.name;
+	var members = args.members || [];
+	return new Promise(function (resolve, reject) {
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve([{
+						err: 'err'
+					}]);
+				} else {
+					var apiRandomID = result.apiRandomID;
+					var memberPromises = [];
+					for (var i = 0; i < members.length; i++) {
+						memberPromises.push(_removeMemberFromGroup(request, server, apiRandomID, id, name,
+							members[i].id, members[i].name));
+					}
+					Promise.all(memberPromises).then(function (results) {
+						return resolve(results);
+					});
+				}
+			});
+	});
 };

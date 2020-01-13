@@ -46,23 +46,16 @@ Create a template for the site in the local file system:
 cec create-template blog-template -f BlogTemplate
 ```
 
-Upload the template w/content to create the Content Types & Content Type Maps, theme and components.
+Upload the template, which will also create the Content Types & Content Type Maps, theme and components.
 
 ```
 cec upload-template blog-template --server DEV
 ```
 
-Upload template again but now exclude the content, content will be added after site is created.
+Create the site with "update" option to keep the IDs
 
 ```
-cec upload-template blog-template -x --server DEV
-```
-
-Create the site - and upload the content to the site with "update" option to keep the IDs
-
-```
-cec create-site blog-site -t blog-template -r Repo1 -l Policy1 -d en-US --server DEV
-cec upload-content blog-template -t -r Repo1 -u -c blog-site -l "blog-site Site" --server DEV
+cec create-site blog-site -t blog-template -u -r Repo1 -l Policy1 -d en-US --server DEV
 ```
 
 Publish blog-site and content.
@@ -103,16 +96,11 @@ Upload the site to the UAT instance.  This is done via the template, which will 
 ```
 cec upload-template blog-template --server UAT
 ```
-Upload template again but now exclude the content, content will be added after site is created.
 
-```
-cec upload-template blog-template -x --server UAT
-```
 Create the content site - and upload the content to the site with "update" option to keep the IDs
 
 ```
-cec create-site blog-site -t blog-template -r Repo1 -l Policy1 -d en-US --server UAT
-cec upload-content blog-template -t -r Repo1 -u -c blog-site -l "blog-site Site" --server UAT
+cec create-site blog-site -t blog-template -u -r Repo1 -l Policy1 -d en-US --server UAT
 ```
 
 Publish blog-site and content.

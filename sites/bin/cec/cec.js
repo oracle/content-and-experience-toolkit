@@ -181,6 +181,11 @@ var getGroupTypes = function () {
 	return names;
 };
 
+var getGroupMemberRoles = function () {
+	var names = ['MANAGER', 'MEMBER'];
+	return names;
+};
+
 /*********************
  * Command definitions
  **********************/
@@ -1948,6 +1953,41 @@ const deleteGroup = {
 	]
 };
 
+const addMemberToGroup = {
+	command: 'add-member-to-group <name>',
+	alias: 'amtg',
+	name: 'add-member-to-group',
+	usage: {
+		'short': 'Adds users and groups to an OCE group on OCE server.',
+		'long': (function () {
+			let desc = 'Adds users and groups to an OCE group and assign a role on OCE server. Specify the server with -s <server>. ' +
+				'The valid roles are\n\n';
+			return getGroupMemberRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec add-member-to-group Group1 -u user1,user2 -g Group2,Group3 -r MEMBER'],
+		['cec add-member-to-group Group1 -u user1,user2 -g Group2,Group3 -r MEMBER -s DEV']
+	]
+};
+
+const removeMemberFromGroup = {
+	command: 'remove-member-from-group <name>',
+	alias: 'rmfg',
+	name: 'remove-member-from-group',
+	usage: {
+		'short': 'Removes users and groups from an OCE group on OCE server.',
+		'long': (function () {
+			let desc = 'Removes users and groups from an OCE group on OCE server. Specify the server with -s <server>. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec remove-member-from-group Group1 -m user1,user2,Group2,Group3'],
+		['cec remove-member-from-group Group1 -m user1,user2,Group2,Group3 -s DEV']
+	]
+};
+
 /*********************
  * Setup yargs
  **********************/
@@ -2073,7 +2113,9 @@ _usage = _usage + os.EOL + 'Translation' + os.EOL +
 
 _usage = _usage + os.EOL + 'Groups' + os.EOL +
 	_getCmdHelp(createGroup) + os.EOL +
-	_getCmdHelp(deleteGroup) + os.EOL;
+	_getCmdHelp(deleteGroup) + os.EOL +
+	_getCmdHelp(addMemberToGroup) + os.EOL +
+	_getCmdHelp(removeMemberFromGroup) + os.EOL;
 
 _usage = _usage + os.EOL + 'Local Environment' + os.EOL +
 	_getCmdHelp(createEncryptionKey) + os.EOL +
@@ -4347,7 +4389,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...deleteGroup.example[0])
 				.example(...deleteGroup.example[1])
@@ -4355,6 +4397,56 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${deleteGroup.command}\n\n${deleteGroup.usage.long}`);
+		})
+	.command([addMemberToGroup.command, addMemberToGroup.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
+				})
+				.option('role', {
+					alias: 'r',
+					description: 'The role [' + getGroupMemberRoles().join(' | ') + '] to assign to the users or groups',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCE server'
+				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					return true;
+				})
+				.example(...addMemberToGroup.example[0])
+				.example(...addMemberToGroup.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${addMemberToGroup.command}\n\n${addMemberToGroup.usage.long}`);
+		})
+	.command([removeMemberFromGroup.command, removeMemberFromGroup.alias], false,
+		(yargs) => {
+			yargs.option('members', {
+					alias: 'm',
+					description: 'The comma separated list of user and group names',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCE server'
+				})
+				.example(...removeMemberFromGroup.example[0])
+				.example(...removeMemberFromGroup.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${removeMemberFromGroup.command}\n\n${removeMemberFromGroup.usage.long}`);
 		})
 	.command([createEncryptionKey.command, createEncryptionKey.alias], false,
 		(yargs) => {
@@ -6380,11 +6472,47 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--name', argv.name
 	];
-	
+
 	if (argv.server && typeof argv.server !== 'boolean') {
 		deleteGroupArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, deleteGroupArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+} else if (argv._[0] === addMemberToGroup.name || argv._[0] === addMemberToGroup.alias) {
+	let addMemberToGroupArgs = ['run', '-s', addMemberToGroup.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--role', argv.role
+	];
+
+	if (argv.users && typeof argv.users !== 'boolean') {
+		addMemberToGroupArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		addMemberToGroupArgs.push(...['--groups', argv.groups]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		addMemberToGroupArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, addMemberToGroupArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+} else if (argv._[0] === removeMemberFromGroup.name || argv._[0] === removeMemberFromGroup.alias) {
+	let removeMemberFromGroupArgs = ['run', '-s', removeMemberFromGroup.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--members', argv.members
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		removeMemberFromGroupArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, removeMemberFromGroupArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

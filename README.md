@@ -14,6 +14,12 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.1.1a
+
+**Updated**
+
+`doc/T2p.md` - Updated to use new create-site with -u option to preserve content IDs.
+
 # Updated to 20.1.1
 
 **No Changes**

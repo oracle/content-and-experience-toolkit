@@ -374,12 +374,12 @@ app.post('/updatefieldeditor', function (req, res) {
 
 	var updateurl = req.url.replace('/updatefieldeditor', ''),
 		params = serverUtils.getURLParameters(url.parse(updateurl).query);
-	
+
 	if (params) {
 		var compName = params['name'],
 			multi = params['multi'],
 			types = params['types'];
-			
+
 		console.log('field editor: ' + compName + ' multi: ' + multi + ' types: ' + types);
 		var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
 		if (appInfo) {
@@ -684,18 +684,23 @@ if (!app.locals.serverURL) {
 }
 
 function authenticateUser(env, params) {
-	var authFn = {
-		pod: authenticateUserOnPod,
-		dev: authenticateUserOnDevInstance,
-		dev_ec: authenticateUserOnDevECInstance,
-		dev_osso: authenticateUserOnOSSO,
-		pod_ec: authenticateUserOnPodEC
-	};
-
-	if (authFn[env]) {
-		authFn[env].call(null, params);
+	if (app.locals.server.env === 'dev_osso' && app.locals.server.oauthtoken) {
+		console.log('The OAuth token exists');
+		params.onsuccess.apply();
 	} else {
-		console.log('Unknown env type: ' + env);
+		var authFn = {
+			pod: authenticateUserOnPod,
+			dev: authenticateUserOnDevInstance,
+			dev_ec: authenticateUserOnDevECInstance,
+			dev_osso: authenticateUserOnOSSO,
+			pod_ec: authenticateUserOnPodEC
+		};
+
+		if (authFn[env]) {
+			authFn[env].call(null, params);
+		} else {
+			console.log('Unknown env type: ' + env);
+		}
 	}
 }
 

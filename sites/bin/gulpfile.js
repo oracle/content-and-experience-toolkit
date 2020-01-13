@@ -1545,6 +1545,29 @@ gulp.task('delete-group', function (done) {
 	});
 });
 
+/**
+ * Add member to group
+ */
+gulp.task('add-member-to-group', function (done) {
+	'use strict';
+
+	grouplib.addMemberToGroup(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Remove member from group
+ */
+gulp.task('remove-member-from-group', function (done) {
+	'use strict';
+
+	grouplib.removeMemberFromGroup(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
 
 gulp.task('check-version', function (done) {
 	'use strict';
