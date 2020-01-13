@@ -817,6 +817,7 @@ var compiler = {
 	setup: function (args) {
 		var self = this;
 
+		self.context = args.context;
 		self.sitePrefix = args.sitePrefix;
 		self.pageModel = args.pageModel;
 		self.localePageModel = args.localePageModel;
@@ -910,6 +911,12 @@ var compiler = {
 							channelToken: channelAccessToken || '',
 							isCompiler: true
 						});
+
+						// override the expand macros function to use the compiler tokens expansion
+						// this is because the relative page URLs are only known to the compiler 
+						self.contentClients[type || 'default'].expandMacros = function (value) {
+							return resolveLinks(value, self.context, self.sitePrefix);
+						};
 					}
 
 					if (getLocalTemplateURL) {
@@ -2025,6 +2032,7 @@ function createPage(context, pageInfo) {
 
 				// setup the compiler for this page
 				compiler.setup({
+					"context": context,
 					"sitePrefix": sitePrefix,
 					"pageModel": (pageData.base || pageData),
 					"pageLocale": context.pageLocale,

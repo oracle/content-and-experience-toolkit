@@ -2651,7 +2651,7 @@ var _createGroup = function (request, server, name, type) {
 						if (response && response.statusCode === 200) {
 							resolve(data);
 						} else {
-							var msg = response.statusMessage || response.statusCode;
+							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
 							console.log('ERROR: failed to create group ' + name + ' : ' + msg);
 							return resolve({
 								err: 'err'
@@ -2713,7 +2713,7 @@ var _deleteGroup = function (request, server, id, name) {
 						if (response && response.statusCode === 200) {
 							resolve({});
 						} else {
-							var msg = response.statusMessage || response.statusCode;
+							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
 							console.log('ERROR: failed to delete group ' + (name || id) + ' : ' + msg);
 							return resolve({
 								err: 'err'
@@ -2774,7 +2774,7 @@ var _addMemberToGroup = function (request, server, apiRandomID, id, name, member
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				var msg = response.statusMessage || response.statusCode;
+				var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
 				console.log('ERROR: add member ' + (memberName || memberId) + ' to group ' + (name || id) + ' : ' + msg);
 				return resolve({
 					err: 'err'
@@ -2851,7 +2851,7 @@ var _removeMemberFromGroup = function (request, server, apiRandomID, id, name, m
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				var msg = response.statusMessage || response.statusCode;
+				var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
 				console.log('ERROR: remove member ' + (memberName || memberId) + ' from group ' + (name || id) + ' : ' + msg);
 				return resolve({
 					err: 'err'

@@ -14,6 +14,17 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.1.1b
+
+**Added**
+
+- `cec add-member-to-group` - Adds users and groups to an OCE group on OCE server.
+- `cec remove-member-from-group` - Removes users and groups from an OCE group on OCE server.
+
+**Fixed**
+
+- `cec compile-template` - correctly handles macros in markdown fields.
+
 # New in Release 20.1.1a
 
 **Updated**
