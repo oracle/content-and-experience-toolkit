@@ -89,6 +89,22 @@ PersistenceStoreInterface.prototype = {
      */
     deleteJob: function (args) {
         return Promise.reject('PersistenceStoreInterface.deleteJob(): not implemented');
+    },
+    /**
+     * Create log stream to write log entries.
+     * @param {object} args Javascript object containing the getLogStream parameters.
+     * @param {string} args.jobId Identifier for the job in the persistence store. 
+     */
+    getLogStream: function (args) {
+        return Promise.reject('PersistenceStoreInterface.getLogStream(): not implemented');
+    },
+    /**
+     * Read log file of the job.
+     * @param {object} args Javascript object containing the readLog parameters.
+     * @param {string} args.jobId Identifier for the job in the persistence store. 
+     */
+    readLog: function (args) {
+        return Promise.reject('PersistenceStoreInterface.readLog(): not implemented');
     }
 };
 

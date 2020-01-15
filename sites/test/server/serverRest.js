@@ -2604,6 +2604,15 @@ var _createConnection = function (request, server) {
 		});
 	});
 };
+/**
+ * Establish OSN connection on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createConnection = function (args) {
+	return _createConnection(args.request, args.server);
+};
 
 var _createGroup = function (request, server, name, type) {
 	return new Promise(function (resolve, reject) {

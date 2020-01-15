@@ -289,5 +289,61 @@ SampleFilePersistenceStore.prototype.updateFileMetadata = function (args) {
 	return this.createFileMetadata(args);
 };
 
+/** @inheritdoc */
+SampleFilePersistenceStore.prototype.getLogStream = function (args) {
+	return new Promise(function (resolve, reject) {
+		var jobId = args.id,
+			jobDir = path.join(compilationJobsDir, jobId),
+			jobLogFile = path.join(jobDir, jobId + '.log');
+			// jobLogFile = path.join('/not', jobId + '-stream-log.log');
+
+		var stream = fs.createWriteStream(jobLogFile, {'flags': 'a'});
+
+		stream.on('error', function(err) {
+			console.log('SampleFilePersistenceStore.getLogStream(): failed to create log stream for:', jobId, 'due to', err);
+			reject({
+				errorCode: 500,
+				errorMessage: JSON.stringify(err)
+			});
+		});
+
+		stream.once('open', function() {
+			resolve(stream);
+		});
+	});
+};
+
+/** @inheritdoc */
+SampleFilePersistenceStore.prototype.readLog = function (args) {
+	return new Promise(function (resolve, reject) {
+		var jobId = args.id,
+			jobDir = path.join(compilationJobsDir, jobId),
+			jobLogFile = path.join(jobDir, jobId + '.log');
+
+		if (fs.existsSync(jobLogFile)) {
+			fs.readFile(jobLogFile, 'utf8', function (err, data) {
+				if (err) {
+					console.log('SampleFilePersistenceStore.readLog(): failed to log file for: ' + jobId);
+					reject({
+						errorCode: 500,
+						errorMessage: JSON.stringify(err)
+					});
+				} else {
+					resolve(data);
+				}
+			});
+		} else {
+			// no log file, reject
+			var errorMessage = 'SampleFilePersistenceStore.readLog(): no log file avilable for job: ' + jobId;
+			console.log(errorMessage);
+			reject({
+				errorCode: 404,
+				errorMessage: errorMessage
+			});
+		}
+	});
+};
+
+
 // Export the persistence store 
 module.exports = new SampleFilePersistenceStore();

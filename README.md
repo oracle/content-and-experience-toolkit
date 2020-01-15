@@ -14,6 +14,12 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.1.1c
+
+**Fixed**
+
+`cec upload-folder` - allow upload of a theme from src/themes directory without infinite loop caused by `_scs_theme_root_` softlink.
+
 # New in Release 20.1.1b
 
 **Added**

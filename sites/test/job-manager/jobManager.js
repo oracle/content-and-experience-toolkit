@@ -45,20 +45,49 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
     return new Promise(function (resolve, reject) {
 
+        var logStream;
+
         var logStdout = function(data) {
                 console.log('stdout:',  `${data}`);
+                logStream.write(`${data}`);
             },
             logStderr = function(data) {
                 console.log('stderr:', `${data}`);
+                logStream.write(`${data}`);
             },
             logCode = function(commndString, code) {
+                var message = commndString + ' child process exited with code ' + `${code}` + '\n';
                 console.log(commndString, 'child process exited with code', `${code}`);
+                logStream.write(message);
             },
             logDuration = function (jobConfig, step, startTime) {
+                var message = jobConfig.properties.id + ' ' + step + ' duration ' + Math.floor((Date.now() - startTime)/1000) + ' seconds' + '\n';
                 console.log(jobConfig.properties.id, step, 'duration', Math.floor((Date.now() - startTime)/1000), 'seconds');
+                logStream.write(message);
             };
 
-        var setTokenStep = function () {
+        var noop = -1,
+            // Write nothing in case log stream cannot be created
+            nullStream = {
+                write: function() { },
+                end: function() { }
+            },
+            getLogStreamStep = function () {
+                var args = {
+                        id: jobId
+                    };
+                    
+                // Resolve with a stream or the nullStream.
+                // In this way, caller only needs a then function.
+                return new Promise(function(resolve) {
+                    persistenceStore.getLogStream(args).then(function(stream) {
+                        resolve(stream);
+                    }, function () {
+                        resolve (nullStream);
+                    });
+                });
+            },
+            setTokenStep = function () {
                 return new Promise(function (resolveStep, rejectStep) {
                     var startTime = Date.now();
 
@@ -79,160 +108,178 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     });
                 });
             },
-            createTemplateStep = function() {
-                return new Promise(function (resolveStep, rejectStep) {
-                    var startTime = Date.now();
+            createTemplateStep = function(jobStatus) {
+                if (jobStatus !== 'CREATE_TEMPLATE') {
+                    return Promise.resolve(noop);
+                } else {
+                    return new Promise(function (resolveStep, rejectStep) {
+                        var startTime = Date.now();
 
-                    var createTemplateArgs = [
-                            'create-template',
-                            '-r',
-                            serverName,
-                            '-s',
-                            siteName,
-                            templateName
-                        ];
-                    var createTemplateCommand = spawn(cecCmd, createTemplateArgs, cecDefaults);
+                        var createTemplateArgs = [
+                                'create-template',
+                                '-r',
+                                serverName,
+                                '-s',
+                                siteName,
+                                templateName
+                            ];
+                        var createTemplateCommand = spawn(cecCmd, createTemplateArgs, cecDefaults);
 
-                    createTemplateCommand.stdout.on('data', logStdout);
-                    createTemplateCommand.stderr.on('data', logStderr);
-                    createTemplateCommand.on('close', (code) => {
-                        logCode('createTemplateCommand', code);
-                        logDuration(jobConfig, 'createTemplateCommand', startTime);
-                        code === 0 ? resolveStep(code) : rejectStep(code);
+                        createTemplateCommand.stdout.on('data', logStdout);
+                        createTemplateCommand.stderr.on('data', logStderr);
+                        createTemplateCommand.on('close', (code) => {
+                            logCode('createTemplateCommand', code);
+                            logDuration(jobConfig, 'createTemplateCommand', startTime);
+                            code === 0 ? resolveStep(code) : rejectStep(code);
+                        });
                     });
-                });
+                }
             },
-            getChannelTokenStep = function() {
-                return new Promise(function (resolveStep, rejectStep) {
-                    self.getSiteinfo(projectDir, templateName).then(function(siteinfo) {
-                        channelToken = siteinfo.properties.channelAccessTokens[0].value;
-                        resolveStep(siteinfo);
-                    }, function() {
-                        rejectStep();
+            getChannelTokenStep = function(jobStatus) {
+                if (jobStatus !== 'COMPILE_TEMPLATE') {
+                    return Promise.resolve(noop);
+                } else {
+                    return new Promise(function (resolveStep, rejectStep) {
+                        self.getSiteinfo(projectDir, templateName).then(function(siteinfo) {
+                            channelToken = siteinfo.properties.channelAccessTokens[0].value;
+                            resolveStep(siteinfo);
+                        }, function() {
+                            rejectStep();
+                        });
                     });
-                });
+                }
             },
-            compileStep = function() {
-                return new Promise(function (resolveStep, rejectStep) {
-                    var startTime = Date.now();
+            compileStep = function(jobStatus) {
+                if (jobStatus !== 'COMPILE_TEMPLATE') {
+                    return Promise.resolve(noop);
+                } else {
+                    return new Promise(function (resolveStep, rejectStep) {
+                        var startTime = Date.now();
 
-                    var compileArguments = [
-                            'compile-template',
-                            templateName,
-                            '-s',
-                            serverName,
-                            '-c',
-                            channelToken
-                        ];
-                    var compileCommand = spawn(cecCmd, compileArguments, cecDefaults);
+                        var compileArguments = [
+                                'compile-template',
+                                templateName,
+                                '-s',
+                                serverName,
+                                '-c',
+                                channelToken,
+                                '-t',
+                                'published',
+                                '-v'
+                            ];
+                        var compileCommand = spawn(cecCmd, compileArguments, cecDefaults);
 
-                    compileCommand.stdout.on('data', logStdout);
-                    compileCommand.stderr.on('data', logStderr);
-                    compileCommand.on('close', (code) => {
-                        logCode('compileCommand', code);
-                        logDuration(jobConfig, 'compileCommand', startTime);
-                        code === 0 ? resolveStep(code) : rejectStep(code);
+                        compileCommand.stdout.on('data', logStdout);
+                        compileCommand.stderr.on('data', logStderr);
+                        compileCommand.on('close', (code) => {
+                            logCode('compileCommand', code);
+                            logDuration(jobConfig, 'compileCommand', startTime);
+                            code === 0 ? resolveStep(code) : rejectStep(code);
+                        });
                     });
-                });
+                }
             },
-            uploadStep = function() {
-                return new Promise(function (resolveStep, rejectStep) {
-                    var startTime = Date.now();
+            uploadStep = function(jobStatus) {
+                if (jobStatus !== 'UPLOAD_STATIC') {
+                    return Promise.resolve(noop);
+                } else {
+                    return new Promise(function (resolveStep, rejectStep) {
+                        var startTime = Date.now();
 
-                    var uploadArguments = [
-                            'upload-static-site-files',
-                            path.join('src', 'templates', templateName, 'static'),
-                            '-s',
-                            siteName,
-                            '-r',
-                            serverName
-                        ],
-                        uploadCommand = spawn(cecCmd, uploadArguments, cecDefaults);
+                        var uploadArguments = [
+                                'upload-static-site-files',
+                                path.join('src', 'templates', templateName, 'static'),
+                                '-s',
+                                siteName,
+                                '-r',
+                                serverName
+                            ],
+                            uploadCommand = spawn(cecCmd, uploadArguments, cecDefaults);
 
-                    uploadCommand.stdout.on('data', logStdout);
-                    uploadCommand.stderr.on('data', logStderr);
-                    uploadCommand.on('close', (code) => {
-                        logCode('uploadCommand', code);
-                        logDuration(jobConfig, 'uploadCommand', startTime);
-                        code === 0 ? resolveStep(code) : rejectStep(code);
+                        uploadCommand.stdout.on('data', logStdout);
+                        uploadCommand.stderr.on('data', logStderr);
+                        uploadCommand.on('close', (code) => {
+                            logCode('uploadCommand', code);
+                            logDuration(jobConfig, 'uploadCommand', startTime);
+                            code === 0 ? resolveStep(code) : rejectStep(code);
+                        });
                     });
-                });
+                }
             },
-            rmTemplateDirStep = function() {
-                return new Promise(function (resolveStep, rejectStep) {
-                    var templateDir = path.join(templatesDir, templateName);
-                    var rmTemplateDirCommand;
+            rmTemplateDirStep = function(jobStatus) {
+                if (jobStatus !== 'UPLOAD_STATIC') {
+                    return Promise.resolve(noop);
+                } else {
+                    return new Promise(function (resolveStep, rejectStep) {
+                        var templateDir = path.join(templatesDir, templateName);
+                        var rmTemplateDirCommand;
 
-                    // Commands for remove directory are different on Windows and Linux.
-                    if (/^win/.test(process.platform)) {
-                        rmTemplateDirCommand = spawn('cmd', ['/c', 'rmdir', '/S', '/Q', templateDir], cecDefaults);
-                    } else {
-                        rmTemplateDirCommand = spawn('rm', ['-rf', templateDir], cecDefaults);
-                    }
+                        // Commands for remove directory are different on Windows and Linux.
+                        if (/^win/.test(process.platform)) {
+                            rmTemplateDirCommand = spawn('cmd', ['/c', 'rmdir', '/S', '/Q', templateDir], cecDefaults);
+                        } else {
+                            rmTemplateDirCommand = spawn('rm', ['-rf', templateDir], cecDefaults);
+                        }
 
-                    rmTemplateDirCommand.stdout.on('data', logStdout);
-                    rmTemplateDirCommand.stderr.on('data', logStderr);
-                    rmTemplateDirCommand.on('close', (code) => {
-                        logCode('rmTemplateDirCommand', code);
-                        code === 0 ? resolveStep(code) : rejectStep(code);
+                        rmTemplateDirCommand.stdout.on('data', logStdout);
+                        rmTemplateDirCommand.stderr.on('data', logStderr);
+                        rmTemplateDirCommand.on('close', (code) => {
+                            logCode('rmTemplateDirCommand', code);
+                            code === 0 ? resolveStep(code) : rejectStep(code);
+                        });
                     });
-                });
+                }
+            },
+            updateStatusStep = function(completionCode, jobStatus, percentage) {
+                if (completionCode === noop) {
+                    return Promise.resolve(jobConfig);
+                } else {
+                    return self.updateStatus(jobConfig, jobStatus, percentage);
+                }
             },
             stopNow = function(code) {
                 console.log('stop with code', code);
                 reject(self.updateStatus(jobConfig, 'FAILED'));
+                logStream.end();
             },
             steps = function() {
 
-                // Implementation node: While there is repeating code in the following case statements, in this way
-                // the steps could be stopped upon encountering error.
-
-                switch (['CREATE_TEMPLATE', 'COMPILE_TEMPLATE', 'UPLOAD_STATIC'].indexOf(jobConfig.status)) {
-                    case 0: // CREATE_TEMPLATE
-                        createTemplateStep().then(function() {
-                            self.updateStatus(jobConfig, 'COMPILE_TEMPLATE', 40);
-                            getChannelTokenStep().then(function() {
-                                compileStep().then(function() {
-                                    self.updateStatus(jobConfig, 'UPLOAD_STATIC', 70);
-                                    uploadStep().then(function() {
-                                        logDuration(jobConfig, 'compileSite', compileStartTime);
-                                        rmTemplateDirStep();
-                                        resolve(self.updateStatus(jobConfig, 'COMPILED', 100));
+                if (['CREATE_TEMPLATE', 'COMPILE_TEMPLATE', 'UPLOAD_STATIC'].indexOf(jobConfig.status) !== -1) {
+                    createTemplateStep(jobConfig.status).then(function(completionCode) {
+                        updateStatusStep(completionCode, 'COMPILE_TEMPLATE', 40).then(function(updatedJobConfig) {
+                            getChannelTokenStep(updatedJobConfig.status).then(function(completionCode) {
+                                compileStep(updatedJobConfig.status).then(function(completionCode) {
+                                    updateStatusStep(completionCode, 'UPLOAD_STATIC', 70).then(function(updatedJobConfig) {
+                                        uploadStep(updatedJobConfig.status).then(function(completionCode) {
+                                            if (completionCode !== noop) {
+                                                logDuration(updatedJobConfig, 'compileSite', compileStartTime);
+                                            }
+                                            rmTemplateDirStep(updatedJobConfig.status).then(function() {
+                                                updateStatusStep(completionCode, 'COMPILED', 100).then(function(updatedJobConfig) {
+                                                    resolve(updatedJobConfig);
+                                                    logStream.end();
+                                                }, stopNow);
+                                            });
+                                        }, stopNow);
                                     }, stopNow);
                                 }, stopNow);
                             }, stopNow);
                         }, stopNow);
-
-                        break;
-                    case 1: // COMPILE_TEMPLATE
-                        getChannelTokenStep().then(function() {
-                            compileStep().then(function() {
-                                self.updateStatus(jobConfig, 'UPLOAD_STATIC', 70);
-                                uploadStep().then(function() {
-                                    logDuration(jobConfig, 'compileSite', compileStartTime);
-                                    rmTemplateDirStep();
-                                    resolve(self.updateStatus(jobConfig, 'COMPILED', 100));
-                                }, stopNow);
-                            }, stopNow);
-                        }, stopNow);
-                        break;
-                    case 2: // UPLOAD_STATIC
-                        uploadStep().then(function() {
-                            logDuration(jobConfig, 'compileSite', compileStartTime);
-                            rmTemplateDirStep();
-                            resolve(self.updateStatus(jobConfig, 'COMPILED', 100));
-                        }, stopNow);
-                        break;
-                    default: 
-                        console.log('Should not be in compileSite when status is', jobConfig.status);
+                    }, stopNow);
+                } else {
+                    console.log('Should not be in compileSite when status is', jobConfig.status);
                 }
             };
 
-        if (token) {
-            setTokenStep().then(steps, stopNow);
-        } else {
-            steps();
-        }
+        getLogStreamStep().then(function(stream) {
+            logStream = stream;
+
+            if (token) {
+                setTokenStep().then(steps, stopNow);
+            } else {
+                steps();
+            }
+        });
     });
 };
 

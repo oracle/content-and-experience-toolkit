@@ -1316,33 +1316,37 @@ var _uploadFolder = function (argv, server) {
 				var subdirs = paths.dirs;
 				for (var i = 0; i < subdirs.length; i++) {
 					var subdir = subdirs[i];
-					subdir = subdir.substring(srcPath.length + 1);
-					folderContent.push({
-						fileFolder: subdir,
-						files: []
-					});
+					if (subdir.indexOf('_scs_theme_root_') < 0 && subdir.indexOf('_scs_design_name_') < 0) {
+						subdir = subdir.substring(srcPath.length + 1);
+						folderContent.push({
+							fileFolder: subdir,
+							files: []
+						});
+					}
 				}
 
 				var files = paths.files;
 				// group files under the same folder
 				for (var i = 0; i < files.length; i++) {
 					var src = files[i];
-					src = src.substring(srcPath.length + 1);
-					var fileFolder = src.indexOf(path.sep) > 0 ? src.substring(0, src.lastIndexOf(path.sep)) : '';
+					if (src.indexOf('_scs_theme_root_') < 0 && src.indexOf('_scs_design_name_') < 0) {
+						src = src.substring(srcPath.length + 1);
+						var fileFolder = src.indexOf(path.sep) > 0 ? src.substring(0, src.lastIndexOf(path.sep)) : '';
 
-					var found = false;
-					for (var j = 0; j < folderContent.length; j++) {
-						if (folderContent[j].fileFolder === fileFolder) {
-							found = true;
-							folderContent[j].files.push(files[i]);
-							break;
+						var found = false;
+						for (var j = 0; j < folderContent.length; j++) {
+							if (folderContent[j].fileFolder === fileFolder) {
+								found = true;
+								folderContent[j].files.push(files[i]);
+								break;
+							}
 						}
-					}
-					if (!found) {
-						folderContent.push({
-							fileFolder: fileFolder,
-							files: [files[i]]
-						});
+						if (!found) {
+							folderContent.push({
+								fileFolder: fileFolder,
+								files: [files[i]]
+							});
+						}
 					}
 				}
 				// console.log(folderContent);

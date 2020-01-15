@@ -129,8 +129,23 @@ CompilationService.prototype.getJob = function(req, res) {
                 progress: jobMetadata.progress
             });
 
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify(response));
+            if (jobMetadata.status === 'COMPILED' || jobMetadata.status === 'FAILED') {
+                var args = {
+                        id: jobId
+                    };
+                persistenceStore.readLog(args).then(function(data) {
+                    response.log = data;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify(response));
+                }, function(logError) {
+                    // Ignore error. Return job data only.
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify(response));
+                });
+            } else {
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify(response));
+            }
         }, function(error) {
             self.handleGetJobError(res, jobId, error);
         });

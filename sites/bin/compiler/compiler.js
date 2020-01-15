@@ -370,9 +370,16 @@ function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 		compileFile = path.join(themesFolder, themeName, "layouts", compilerName);
 
 	try {
-		// verify if we can load the file
+		// verify if file exists
 		require.resolve(compileFile);
+	} catch (e) {
+		compilationReporter.warn({
+			message: 'compileThemeLayout: no page compiler found: ' + compilerName
+		});
+		return Promise.resolve(layoutMarkup);
+	}
 
+	try {
 		// ok, file's there, load it in
 		var pageCompiler = require(compileFile);
 
@@ -397,7 +404,7 @@ function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 		}
 	} catch (e) {
 		compilationReporter.info({
-			message: 'compileThemeLayout: no page compiler found: ' + compileFile,
+			message: 'compileThemeLayout: fail to load page compiler ' + compileFile,
 			error: e
 		});
 		return Promise.resolve(layoutMarkup);
