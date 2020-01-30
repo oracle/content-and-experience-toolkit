@@ -323,7 +323,7 @@ module.exports.addContentLayoutMapping = function (argv, done) {
 		foundtype = false;
 	if (fs.existsSync(summaryfile)) {
 		summaryjson = JSON.parse(fs.readFileSync(summaryfile));
-		mappings = summaryjson["categoryLayoutMappings"] || [];
+		mappings = summaryjson["categoryLayoutMappings"] || summaryjson['contentTypeMappings'] || [];
 		// check if the content type is in the mappings
 		for (var i = 0; i < mappings.length; i++) {
 			if (mappings[i].type === contenttypename) {
@@ -376,7 +376,11 @@ module.exports.addContentLayoutMapping = function (argv, done) {
 			}
 		}
 	}
-	summaryjson["categoryLayoutMappings"] = mappings;
+	if (summaryjson.hasOwnProperty('contentTypeMappings')) {
+		summaryjson['contentTypeMappings'] = mappings;
+	} else {
+		summaryjson['categoryLayoutMappings'] = mappings;
+	}
 	if (summaryjson.hasOwnProperty("layoutComponents") && summaryjson.layoutComponents.indexOf(layoutname) < 0) {
 		summaryjson.layoutComponents[summaryjson.layoutComponents.length] = layoutname;
 	} else {
@@ -468,7 +472,7 @@ module.exports.removeContentLayoutMapping = function (argv, done) {
 	var summaryfile = path.join(templatesSrcDir, templatename, 'assets', 'contenttemplate', 'summary.json');
 	if (fs.existsSync(summaryfile)) {
 		var summaryjson = JSON.parse(fs.readFileSync(summaryfile));
-		var mappings = summaryjson["categoryLayoutMappings"];
+		var mappings = summaryjson["categoryLayoutMappings"] || summaryjson['contentTypeMappings'];
 
 		if (layoutstyle && layoutname) {
 			for (var i = 0; i < mappings.length; i++) {
@@ -507,7 +511,11 @@ module.exports.removeContentLayoutMapping = function (argv, done) {
 			}
 		}
 
-		summaryjson["categoryLayoutMappings"] = mappings;
+		if (summaryjson.hasOwnProperty('contentTypeMappings')) {
+			summaryjson['contentTypeMappings'] = mappings;
+		} else {
+			summaryjson['categoryLayoutMappings'] = mappings;
+		}
 		if (layoutname && summaryjson.hasOwnProperty("layoutComponents") &&
 			summaryjson.layoutComponents.indexOf(layoutname) >= 0) {
 			summaryjson.layoutComponents.splice(summaryjson.layoutComponents.indexOf(layoutname), 1);

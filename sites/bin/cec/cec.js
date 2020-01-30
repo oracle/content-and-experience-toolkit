@@ -741,6 +741,28 @@ const controlContent = {
 	]
 };
 
+const copyAssets = {
+	command: 'copy-assets <repository>',
+	alias: 'ca',
+	name: 'copy-assets',
+	usage: {
+		'short': 'Copies assets to another repository on CEC server.',
+		'long': (function () {
+			let desc = 'Copies assets to another repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec copy-assets Repo1 -t Repo2', 'Copy all assets in repository Repo1 to Repo2'],
+		['cec copy-assets Repo1 -t Repo2 -s UAT', 'Copy all assets in repository Repo1 to Repo2 on server UAT'],
+		['cec copy-assets Repo1 -a GUID1,GUID2 -t Repo2', 'Copy asset GUID1 and GUID2 and all their dependencies in Repo1 to Repo2'],
+		['cec copy-assets Repo1 -q \'fields.category eq "RECIPE"\' -t Repo2', 'Copy assets from repository Repo1, matching the query, plus any dependencies to Repo2'],
+		['cec copy-assets Repo1 -c Channel1 -t Repo2', 'Copy assets from the repository Repo1 and channel Channel1 to Repo2'],
+		['cec copy-assets Repo1 -l Collection1 -t Repo2', 'Copy assets from the repository Repo1 and collection Collection1 to Repo2'],
+		['cec copy-assets Repo1 -c Channel1 -q \'fields.category eq "RECIPE"\' -t Repo2', 'Copy assets from repository Repo1, channel Channel1, matching the query, plus any dependencies to Repo2']
+	]
+};
+
 const addComponentToTheme = {
 	command: 'add-component-to-theme <component>',
 	alias: 'actt',
@@ -906,8 +928,8 @@ const transferSite = {
 		})()
 	},
 	example: [
-		['cec transfer-site Site1 -s DEV -t UAT -r Repository1 -l LocalizationPolicy1', 'Creates site Site1 on server UAT based on site Site1 on server DEV'],
-		['cec transfer-site Site1 -s DEV -t UAT', 'Updates site Site1 on server UAT based on site Site1 on server DEV']
+		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1', 'Creates site Site1 on server UAT based on site Site1 on server DEV'],
+		['cec transfer-site Site1 -s DEV -d UAT', 'Updates site Site1 on server UAT based on site Site1 on server DEV']
 	]
 };
 
@@ -1811,6 +1833,7 @@ const registerServer = {
 	example: [
 		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -i http://idcs1.com -c clientid -s clientsecret -o https://primary-audience-and-scope', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1', 'The server is a tenant on Oracle Public cloud'],
+		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -m 60000', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.git.oraclecorp.com.com -u user1 -p Welcome1 -t dev_ec', 'The server is a standalone development instance'],
 		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -k ~/.ceckey', 'The password will be encrypted']
 	]
@@ -1911,7 +1934,8 @@ const compilationServer = {
 		['cec compilation-server -s DEV -u admin -w welcome1 -p 3001'],
 		['cec compilation-server -s DEV ', 'The username and password will be prompted to enter'],
 		['cec compilation-server -s DEV -u admin', 'The password will be prompted to enter'],
-		['cec compilation-server -s DEV -k ~/keys/key.pem -c ~/keys/cert.pem', 'The sync server will start over HTTPS']
+		['cec compilation-server -s DEV -k ~/keys/key.pem -c ~/keys/cert.pem', 'The sync server will start over HTTPS'],
+		['cec compilation-server -s DEV -l /usr/data/compilationlogs', 'Compilation log files will be stored in the directory specified.'],
 	]
 };
 
@@ -2077,26 +2101,27 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(refreshPrerenderCache) + os.EOL +
 	_getCmdHelp(migrateSite) + os.EOL;
 
-_usage = _usage + os.EOL + 'Content' + os.EOL +
-	_getCmdHelp(createContentLayout) + os.EOL +
-	_getCmdHelp(addContentLayoutMapping) + os.EOL +
-	_getCmdHelp(removeContentLayoutMapping) + os.EOL +
-	_getCmdHelp(listServerContentTypes) + os.EOL +
+_usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(downloadContent) + os.EOL +
 	_getCmdHelp(uploadContent) + os.EOL +
-	_getCmdHelp(controlContent) + os.EOL;
+	_getCmdHelp(controlContent) + os.EOL +
+	_getCmdHelp(listAssets) + os.EOL +
+	_getCmdHelp(copyAssets) + os.EOL +
+	_getCmdHelp(createAssetUsageReport) + os.EOL;
 
-_usage = _usage + os.EOL + 'Assets' + os.EOL +
+_usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(createRepository) + os.EOL +
 	_getCmdHelp(controlRepository) + os.EOL +
 	_getCmdHelp(shareRepository) + os.EOL +
 	_getCmdHelp(unshareRepository) + os.EOL +
 	_getCmdHelp(createChannel) + os.EOL +
 	_getCmdHelp(createLocalizationPolicy) + os.EOL +
+	_getCmdHelp(listServerContentTypes) + os.EOL +
 	_getCmdHelp(shareType) + os.EOL +
 	_getCmdHelp(unshareType) + os.EOL +
-	_getCmdHelp(listAssets) + os.EOL +
-	_getCmdHelp(createAssetUsageReport) + os.EOL +
+	_getCmdHelp(createContentLayout) + os.EOL +
+	_getCmdHelp(addContentLayoutMapping) + os.EOL +
+	_getCmdHelp(removeContentLayoutMapping) + os.EOL +
 	_getCmdHelp(migrateContent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
@@ -2858,6 +2883,45 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${controlContent.command}\n\n${controlContent.usage.long}`);
+		})
+	.command([copyAssets.command, copyAssets.alias], false,
+		(yargs) => {
+			yargs.option('collection', {
+					alias: 'l',
+					description: 'Collection name'
+				})
+				.option('channel', {
+					alias: 'c',
+					description: 'Channel name'
+				})
+				.option('query', {
+					alias: 'q',
+					description: 'Query to fetch the assets'
+				})
+				.option('assets', {
+					alias: 'a',
+					description: 'The comma separated list of asset GUIDS'
+				})
+				.option('target', {
+					alias: 't',
+					description: 'The target repository',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.example(...copyAssets.example[0])
+				.example(...copyAssets.example[1])
+				.example(...copyAssets.example[2])
+				.example(...copyAssets.example[3])
+				.example(...copyAssets.example[4])
+				.example(...copyAssets.example[5])
+				.example(...copyAssets.example[6])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${copyAssets.command}\n\n${copyAssets.usage.long}`);
 		})
 	.command([shareTheme.command, shareTheme.alias], false,
 		(yargs) => {
@@ -4498,6 +4562,10 @@ const argv = yargs.usage(_usage)
 					alias: 'o',
 					description: '<clientsecret> Scope'
 				})
+				.option('timeout', {
+					alias: 'm',
+					description: 'Timeout in millisecond when try to login to the server. Defaults to 30000ms.'
+				})
 				.check((argv) => {
 					if (argv.type && !getServerTypes().includes(argv.type) && argv.type.indexOf('dev_ec:') < 0) {
 						throw new Error(`${argv.type} is not a valid value for <type>`);
@@ -4514,6 +4582,9 @@ const argv = yargs.usage(_usage)
 								throw new Error('Please specify scope <scope>');
 							}
 						}
+						if (argv.timeout && (!Number.isInteger(argv.timeout) || argv.timeout < 30000))  {
+							throw new Error('Value for timeout should be an integer greater than 30000');
+						}
 					}
 					return true;
 				})
@@ -4521,6 +4592,7 @@ const argv = yargs.usage(_usage)
 				.example(...registerServer.example[1])
 				.example(...registerServer.example[2])
 				.example(...registerServer.example[3])
+				.example(...registerServer.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -4631,7 +4703,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('port', {
 					alias: 'p',
-					description: 'Set port. Defaults to 8086.'
+					description: 'Set port. Defaults to 8087.'
 				})
 				.option('key', {
 					alias: 'k',
@@ -4641,11 +4713,16 @@ const argv = yargs.usage(_usage)
 					alias: 'c',
 					description: 'The certificate file for HTTPS'
 				})
+				.option('logs', {
+					alias: 'l',
+					description: 'The directory for compilation logs'
+				})
 				.example(...compilationServer.example[0])
 				.example(...compilationServer.example[1])
 				.example(...compilationServer.example[2])
 				.example(...compilationServer.example[3])
 				.example(...compilationServer.example[4])
+				.example(...compilationServer.example[5])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -5261,6 +5338,33 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		controlContentArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, controlContentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === copyAssets.name || argv._[0] === copyAssets.alias) {
+	let copyAssetsArgs = ['run', '-s', copyAssets.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--repository', argv.repository,
+		'--target', argv.target
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		copyAssetsArgs.push(...['--server', argv.server]);
+	}
+	if (argv.collection) {
+		copyAssetsArgs.push(...['--collection', argv.collection]);
+	}
+	if (argv.channel) {
+		copyAssetsArgs.push(...['--channel', argv.channel]);
+	}
+	if (argv.query) {
+		copyAssetsArgs.push(...['--query', argv.query]);
+	}
+	if (argv.assets && typeof argv.assets !== 'boolean') {
+		copyAssetsArgs.push(...['--assets', argv.assets]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, copyAssetsArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -6363,6 +6467,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.scope) {
 		registerServerArgs.push(...['--scope'], argv.scope);
 	}
+	if (argv.timeout) {
+		registerServerArgs.push(...['--timeout'], argv.timeout);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, registerServerArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -6445,6 +6552,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.certificate && typeof argv.certificate !== 'boolean') {
 		compilationServerArgs.push(...['--certificate', argv.certificate]);
+	}
+	if (argv.logs) {
+		compilationServerArgs.push(...['--logs', argv.logs]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, compilationServerArgs, {
 		cwd,

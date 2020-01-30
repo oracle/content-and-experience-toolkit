@@ -63,9 +63,10 @@ ContentItem.prototype.getContentLayoutName = function (SCSCompileAPI, args) {
 		if (fs.existsSync(contentSummaryFile)) {
 			try {
 				// get the content layout mappings
-				var categoryLayoutMappings = JSON.parse(fs.readFileSync(contentSummaryFile, {
+				var summaryjson = JSON.parse(fs.readFileSync(contentSummaryFile, {
 					encoding: 'utf8'
-				})).categoryLayoutMappings;
+				}));
+				var categoryLayoutMappings = summaryjson.categoryLayoutMappings || summaryjson.contentTypeMappings;
 
 				// now locate the layout and the "default" entry
 				if (Array.isArray(categoryLayoutMappings)) {

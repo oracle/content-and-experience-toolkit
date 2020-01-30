@@ -455,17 +455,44 @@ var _getRegisteredServer = function (projectDir, name) {
 		server['fileexist'] = true;
 
 		var keyFile = server.key;
-		if (server.password && keyFile && fs.existsSync(keyFile)) {
-			// decrypt the password
+		if (keyFile && fs.existsSync(keyFile)) {
 			var key = fs.readFileSync(keyFile, 'utf8').toString();
-			try {
-				var buf = Buffer.from(server.password, 'base64');
-				var decrypted = crypto.privateDecrypt(key, buf);
-				server.password = decrypted.toString('utf8');
+			if (server.password) {
+				// decrypt the password
+				try {
+					var buf = Buffer.from(server.password, 'base64');
+					var decrypted = crypto.privateDecrypt(key, buf);
+					server.password = decrypted.toString('utf8');
 
-			} catch (e) {
-				console.log('ERROR: failed to decrypt the password');
-				console.log(e);
+				} catch (e) {
+					console.log('ERROR: failed to decrypt the password');
+					console.log(e);
+				}
+			}
+
+			if (server.client_id) {
+				// decrypt the password
+				try {
+					var buf = Buffer.from(server.client_id, 'base64');
+					var decrypted = crypto.privateDecrypt(key, buf);
+					server.client_id = decrypted.toString('utf8');
+
+				} catch (e) {
+					console.log('ERROR: failed to decrypt the client id');
+					console.log(e);
+				}
+			}
+			if (server.client_secret) {
+				// decrypt the password
+				try {
+					var buf = Buffer.from(server.client_secret, 'base64');
+					var decrypted = crypto.privateDecrypt(key, buf);
+					server.client_secret = decrypted.toString('utf8');
+
+				} catch (e) {
+					console.log('ERROR: failed to decrypt the client secret');
+					console.log(e);
+				}
 			}
 		}
 	}
@@ -473,27 +500,6 @@ var _getRegisteredServer = function (projectDir, name) {
 	return server;
 };
 
-/**
- * get request 
- */
-module.exports.getRequest = function () {
-	"use strict";
-	return _getRequest();
-};
-var _getRequest = function () {
-	var request = require('request');
-	request = request.defaults({
-		headers: {
-			connection: 'keep-alive'
-		},
-		pool: {
-			maxSockets: 50
-		},
-		jar: true,
-		proxy: null
-	});
-	return request;
-};
 
 /**
  * Get components in componentsDir.
@@ -664,7 +670,7 @@ var _getTemplateComponents = function (templateName) {
 	var summaryfile = path.join(tempSrcDir, 'assets', 'contenttemplate', 'summary.json');
 	if (fs.existsSync(summaryfile)) {
 		var summaryjson = JSON.parse(fs.readFileSync(summaryfile));
-		var mappings = summaryjson.categoryLayoutMappings || [];
+		var mappings = summaryjson.categoryLayoutMappings || summaryjson.contentTypeMappings || [];
 		for (var i = 0; i < mappings.length; i++) {
 			var catelist = mappings[i].categoryList;
 			for (var j = 0; j < catelist.length; j++) {
@@ -2022,6 +2028,8 @@ var _loginToPODServer = function (server) {
 			password = server.password;
 		/* jshint ignore:start */
 		var browser;
+		var timeout = server.timeout || 30000;
+		// console.log(timeout);
 		async function loginServer() {
 			try {
 				browser = await puppeteer.launch({
@@ -2036,7 +2044,17 @@ var _loginToPODServer = function (server) {
 
 				await page.goto(url);
 
-				await page.waitForSelector(usernameid);
+				try {
+					await page.waitForSelector(usernameid, {
+						timeout: timeout
+					});
+				} catch (err) {
+					console.log('Failed to open the login page');
+					await browser.close();
+					return resolve({
+						'status': false
+					});
+				}
 				await page.type(usernameid, username);
 
 				await page.waitForSelector(passwordid);
@@ -2047,7 +2065,7 @@ var _loginToPODServer = function (server) {
 
 				try {
 					await page.waitForSelector('#content-wrapper', {
-						timeout: 12000
+						timeout: timeout
 					});
 				} catch (err) {
 					// will continue, in headleass mode, after login redirect does not occur
@@ -2055,7 +2073,9 @@ var _loginToPODServer = function (server) {
 
 				// get OAuth token
 				var tokenurl = server.url + '/documents/web?IdcService=GET_OAUTH_TOKEN';
-				await page.goto(tokenurl);
+				await page.goto(tokenurl, {
+					timeout: timeout
+				});
 				try {
 					await page.waitForSelector('pre', {
 						timeout: 120000
@@ -2130,6 +2150,7 @@ var _loginToSSOServer = function (server) {
 			password = server.password;
 		/* jshint ignore:start */
 		var browser;
+		var timeout = server.timeout || 30000;
 		async function loginServer() {
 			try {
 				browser = await puppeteer.launch({
@@ -2144,7 +2165,18 @@ var _loginToSSOServer = function (server) {
 
 				await page.goto(url);
 
-				await page.waitForSelector(usernameid);
+				try {
+					await page.waitForSelector(usernameid, {
+						timeout: timeout
+					});
+				} catch (err) {
+					console.log('Failed to open the login page');
+					await browser.close();
+					return resolve({
+						'status': false
+					});
+				}
+
 				await page.type(usernameid, username);
 
 				await page.waitForSelector(passwordid);
@@ -2155,7 +2187,7 @@ var _loginToSSOServer = function (server) {
 
 				try {
 					await page.waitForSelector('#content-wrapper', {
-						timeout: 12000
+						timeout: timeout
 					});
 				} catch (err) {
 					// will continue, in headleass mode, after login redirect does not occur
@@ -2163,7 +2195,9 @@ var _loginToSSOServer = function (server) {
 
 				// get OAuth token
 				var tokenurl = server.url + '/documents/web?IdcService=GET_OAUTH_TOKEN';
-				await page.goto(tokenurl);
+				await page.goto(tokenurl, {
+					timeout: timeout
+				});
 				try {
 					await page.waitForSelector('pre', {
 						timeout: 120000
@@ -2238,6 +2272,8 @@ var _loginToICServer = function (server) {
 			password = server.password;
 		/* jshint ignore:start */
 		var browser;
+		var timeout = server.timeout || 30000;
+		// console.log(timeout);
 		async function loginServer() {
 			try {
 				browser = await puppeteer.launch({
@@ -2252,7 +2288,17 @@ var _loginToICServer = function (server) {
 
 				await page.goto(url);
 
-				await page.waitForSelector(usernameid);
+				try {
+					await page.waitForSelector(usernameid, {
+						timeout: timeout
+					});
+				} catch (err) {
+					console.log('Failed to open the login page');
+					await browser.close();
+					return resolve({
+						'status': false
+					});
+				}
 				await page.type(usernameid, username);
 
 				await page.waitForSelector(passwordid);
@@ -2263,7 +2309,7 @@ var _loginToICServer = function (server) {
 
 				try {
 					await page.waitForSelector('#content-wrapper', {
-						timeout: 32000
+						timeout: timeout
 					});
 				} catch (err) {
 					// will continue, in headleass mode, after login redirect does not occur
@@ -2290,7 +2336,9 @@ var _loginToICServer = function (server) {
 
 				// get OAuth token
 				var tokenurl = server.url + '/documents/web?IdcService=GET_OAUTH_TOKEN';
-				await page.goto(tokenurl);
+				await page.goto(tokenurl, {
+					timeout: timeout
+				});
 				try {
 					await page.waitForSelector('pre', {
 						timeout: 120000
@@ -3165,6 +3213,13 @@ var _getFolderIdFromResultSets = function (data, folderName) {
 	return folderId;
 };
 
+/**
+ * get request 
+ */
+module.exports.getRequest = function () {
+	"use strict";
+	return _getRequest();
+};
 var _getRequest = function () {
 	var request = require('request');
 	request = request.defaults({

@@ -8,9 +8,14 @@ var persistenceStore = require('../job-manager/persistenceStore').factory.create
 
 var CompilationService = function() {
         this.compileSiteInProgress = false;
-        this.restartJobs();
     },
-    apiVersion = 'v1';
+    apiVersion = 'v1',
+    logsDir = '';
+
+CompilationService.prototype.setLogsDir = function (inputLogsDir) {
+    logsDir = inputLogsDir;
+    jobManager.setLogsDir(inputLogsDir);
+};
 
 CompilationService.prototype.restartJobs = function () {
     var self = this;
@@ -131,7 +136,9 @@ CompilationService.prototype.getJob = function(req, res) {
 
             if (jobMetadata.status === 'COMPILED' || jobMetadata.status === 'FAILED') {
                 var args = {
-                        id: jobId
+                        id: jobId,
+                        siteName: jobMetadata.siteName,
+                        logsDir: logsDir
                     };
                 persistenceStore.readLog(args).then(function(data) {
                     response.log = data;

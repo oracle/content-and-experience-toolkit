@@ -6,6 +6,8 @@
 /* jshint esversion: 6 */
 var request = require('request'),
 	btoa = require('btoa'),
+	os = require('os'),
+	readline = require('readline'),
 	serverUtils = require('./serverUtils');
 
 //
@@ -1507,6 +1509,153 @@ module.exports.getItemOperationStatus = function (args) {
 	return _getItemOperationStatus(args.server, args.statusId);
 };
 
+var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, collection, itemIds) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+
+				var csrfToken = result && result.token;
+
+				var request = serverUtils.getRequest();
+
+				var q = '';
+
+				if (itemIds && itemIds.length > 0) {
+					for (var i = 0; i < itemIds.length; i++) {
+						if (q) {
+							q = q + ' or ';
+						}
+						q = q + 'id eq "' + itemIds[i] + '"';
+					}
+				} else {
+					if (collection && collection.id) {
+						q = 'collections co "' + collection.id + '"';
+					} else {
+						q = 'repositoryId eq "' + repositoryId + '"';
+						if (channel && channel.id) {
+							q = q + ' AND channels co "' + channel.id + '"';
+						}
+					}
+				}
+				var operations = {
+					copy: {
+						targetRepository: targetRepositoryId
+					}
+				};
+				if (collection && collection.name) {
+					operations.copy['collections'] = {
+						collectionName: collection.name
+					};
+				}
+				if (channel && channel.id && !channel.isSiteChannel) {
+					operations.copy['channels'] = {
+						targetToChannel: [{
+							id: channel.id
+						}]
+					};
+				}
+
+				var formData = {
+					q: q,
+					operations: operations
+				};
+				// console.log(JSON.stringify(formData));
+
+				var url = server.url + '/content/management/api/v1.1/bulkItemsOperations';
+				var auth = serverUtils.getRequestAuth(server);
+
+				var postData = {
+					method: 'POST',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					body: formData,
+					json: true
+				};
+
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to copy assets ');
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					};
+
+					if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
+						var statusId = response.headers && response.headers.location || '';
+						statusId = statusId.substring(statusId.lastIndexOf('/') + 1);
+
+						console.log(' - submit request');
+						var count = [];
+						var needNewLine = false;
+						var inter = setInterval(function () {
+							var jobPromise = _getItemOperationStatus(server, statusId);
+							jobPromise.then(function (data) {
+								if (!data || data.error || data.progress === 'failed') {
+									clearInterval(inter);
+									if (needNewLine) {
+										process.stdout.write(os.EOL);
+									}
+									// console.log(data);
+									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
+									console.log('ERROR: copy assets failed: ' + msg);
+
+									return resolve({
+										err: 'err'
+									});
+								}
+								if (data.completed) {
+									clearInterval(inter);
+									if (needNewLine) {
+										process.stdout.write(os.EOL);
+									}
+									return resolve({});
+								} else {
+									count.push('.');
+									process.stdout.write(' - copy assets in process ' + count.join(''));
+									readline.cursorTo(process.stdout, 0);
+									needNewLine = true;
+								}
+							});
+						}, 6000);
+					} else {
+						var msg = data ? (data.detail || data.title) : response.statusMessage;
+						console.log('Failed to copy assets - ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+
+			} // get token
+		});
+	});
+};
+/**
+ * Copy assets
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.copyAssets = function (args) {
+	return _copyAssets(args.server, args.repositoryId, args.targetRepositoryId, args.channel, args.collection,
+		args.itemIds);
+};
+
 // Get localization policies from server
 var _getLocalizationPolicies = function (server) {
 	return new Promise(function (resolve, reject) {
@@ -2832,7 +2981,7 @@ var _removeMemberFromGroup = function (request, server, apiRandomID, id, name, m
 		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members/' + memberId;
 		var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
 			'Basic ' + btoa(server.username + ':' + server.password);
-		
+
 		var postData = {
 			method: 'DELETE',
 			url: url,

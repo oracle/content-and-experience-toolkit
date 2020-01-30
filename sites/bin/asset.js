@@ -1443,7 +1443,9 @@ module.exports.listAssets = function (argv, done) {
 
 var _displayAssets = function (repository, collection, channel, items) {
 	var types = [];
+	var allIds = [];
 	for (var i = 0; i < items.length; i++) {
+		allIds.push(items[i].id);
 		if (!types.includes(items[i].type)) {
 			types.push(items[i].type);
 		}

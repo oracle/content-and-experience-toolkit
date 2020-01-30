@@ -1041,7 +1041,7 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 						}
 					}
 				});
-			}, 1000);
+			}, 5000);
 
 		}); // local
 
@@ -1453,7 +1453,7 @@ var _controlComponents = function (serverName, server, action, componentNames, d
 							});
 					}
 				});
-			}, 1000);
+			}, 5000);
 		}); // local
 	}); // login
 };

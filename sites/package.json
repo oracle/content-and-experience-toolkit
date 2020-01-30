@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "20.1.1c",
+	"version": "20.1.1d",
 	"license": "UPL-1.0",
 	"description": "Content and Experience Cloud custom components build system",
 	"main": "index.js",
@@ -40,6 +40,7 @@
 		"download-content": "gulp -LL --gulpfile bin/gulpfile.js download-content ",
 		"upload-content": "gulp -LL --gulpfile bin/gulpfile.js upload-content ",
 		"control-content": "gulp -LL --gulpfile bin/gulpfile.js control-content ",
+		"copy-assets": "gulp -LL --gulpfile bin/gulpfile.js copy-assets ",
 		"create-template": "gulp -LL --gulpfile bin/gulpfile.js create-template ",
 		"create-template-from-site": "gulp -LL --gulpfile bin/gulpfile.js create-template-from-site ",
 		"copy-template": "gulp -LL --gulpfile bin/gulpfile.js copy-template ",

@@ -1011,7 +1011,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 										}
 									}
 
-									if (page.links[j].status && page.links[j].status.toLowerCase() !== 'ok') {
+									if (page.links[j].status && (typeof page.links[j].status !== 'string' || page.links[j].status.toLowerCase() !== 'ok')) {
 										var msg = 'Page: \'' + page.name + '\' component: \'' + page.links[j].components +
 											'\' link: ' + page.links[j].url + ' status: ' + page.links[j].status;
 										issues.push(msg);

@@ -6,7 +6,12 @@ var persistenceStore = require('../job-manager/persistenceStore').factory.create
 
 const cecCmd = /^win/.test(process.platform) ? 'cec.cmd' : 'cec';
 
-var JobManager = function() {};
+var JobManager = function() {},
+    logsDir = '';
+
+JobManager.prototype.setLogsDir = function (inputLogsDir) {
+    logsDir = inputLogsDir;
+};
 
 JobManager.prototype.compileSite = function (jobConfig) {
     var self = this,
@@ -74,7 +79,9 @@ JobManager.prototype.compileSite = function (jobConfig) {
             },
             getLogStreamStep = function () {
                 var args = {
-                        id: jobId
+                        id: jobId,
+                        siteName: siteName,
+                        logsDir: logsDir
                     };
                     
                 // Resolve with a stream or the nullStream.

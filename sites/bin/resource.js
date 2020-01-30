@@ -123,6 +123,7 @@ module.exports.registerServer = function (argv, done) {
 	var client_id = argv.clientid;
 	var client_secret = argv.clientsecret;
 	var scope = argv.scope;
+	var timeout = argv.timeout;
 	var useRest = false;
 	if (type.indexOf('dev_ec') === 0) {
 		if (type.indexOf('rest') > 0) {
@@ -132,9 +133,11 @@ module.exports.registerServer = function (argv, done) {
 	}
 
 	var savedPassword = password;
+	var savedClientId = client_id;
+	var savedClientSecret = client_secret;
 	if (keyFile) {
+		var key = fs.readFileSync(keyFile, 'utf8');
 		try {
-			var key = fs.readFileSync(keyFile, 'utf8');
 			var encrypted = crypto.publicEncrypt({
 				key: key,
 			}, Buffer.from(password, 'utf8'));
@@ -145,6 +148,36 @@ module.exports.registerServer = function (argv, done) {
 			console.log(e);
 			done();
 			return;
+		}
+
+		if (client_id) {
+			try {
+				var encrypted = crypto.publicEncrypt({
+					key: key,
+				}, Buffer.from(client_id, 'utf8'));
+				savedClientId = encrypted.toString('base64');
+				console.log(' - encrypt the client id');
+			} catch (e) {
+				console.log('ERROR: failed to encrypt the client id');
+				console.log(e);
+				done();
+				return;
+			}
+		}
+
+		if (client_secret) {
+			try {
+				var encrypted = crypto.publicEncrypt({
+					key: key,
+				}, Buffer.from(client_secret, 'utf8'));
+				savedClientSecret = encrypted.toString('base64');
+				console.log(' - encrypt the client secret');
+			} catch (e) {
+				console.log('ERROR: failed to encrypt the client secret');
+				console.log(e);
+				done();
+				return;
+			}
 		}
 	}
 
@@ -167,9 +200,10 @@ module.exports.registerServer = function (argv, done) {
 		useRest: useRest,
 		key: keyFile,
 		idcs_url: idcs_url,
-		client_id: client_id,
-		client_secret: client_secret,
-		scope: scope
+		client_id: savedClientId,
+		client_secret: savedClientSecret,
+		scope: scope,
+		timeout: timeout
 	}
 	fs.writeFileSync(serverFile, JSON.stringify(serverjson));
 	console.log(' - server registered in ' + serverFile);
@@ -560,7 +594,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 			done();
 			return;
 		}
-	
+
 		var promises = (listChannels || listRepositories) ? [_getChannels(serverName, server)] : [];
 		var channels;
 

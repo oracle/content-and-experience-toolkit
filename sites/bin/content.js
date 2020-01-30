@@ -379,7 +379,8 @@ var _getChannelsFromServer = function (server) {
 							channels.push({
 								'id': channel.id,
 								'name': channel.name,
-								'token': token
+								'token': token,
+								'isSiteChannel': channel.isSiteChannel
 							});
 						}
 					}
@@ -549,6 +550,7 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 								}
 							} else if (status && status === 'FAILED') {
 								clearInterval(inter);
+								// console.log(data);
 								console.log('ERROR: export failed: ' + data.errorDescription);
 								return resolve({
 									err: 'err'
@@ -1444,6 +1446,265 @@ var _displayValidation = function (validations, action) {
 	}
 
 };
+
+module.exports.copyAssets = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	console.log(' - server: ' + server.url);
+
+	var repositoryName = argv.repository;
+	var targetName = argv.target;
+
+	var collectionName = argv.collection;
+	var channelName = argv.channel;
+
+	var query = argv.query;
+	var assetGUIDS = argv.assets ? argv.assets.split(',') : [];
+	var validAssetGUIDS = [];
+
+	var repository = undefined;
+	var targetRepository = undefined;
+	var channel;
+	var collection;
+
+	serverRest.getRepositories({
+			server: server
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+
+			var repositories = result || [];
+			for (var i = 0; i < repositories.length; i++) {
+				if (repositories[i].name.toLowerCase() === repositoryName.toLowerCase()) {
+					repository = repositories[i];
+				} else if (repositories[i].name.toLowerCase() === targetName.toLowerCase()) {
+					targetRepository = repositories[i];
+				}
+				if (repository && targetRepository) {
+					break;
+				}
+			}
+			if (!repository || !repository.id) {
+				console.log('ERROR: repository ' + repositoryName + ' does not exist');
+				return Promise.reject();
+			}
+			if (!targetRepository || !targetRepository.id) {
+				console.log('ERROR: repository ' + targetName + ' does not exist');
+				return Promise.reject();
+			}
+			console.log(' - verify source repository ' + repository.name + ' (Id: ' + repository.id + ')');
+			console.log(' - verify target repository ' + targetRepository.name + ' (Id: ' + targetRepository.id + ')');
+
+			var collectionPromises = [];
+			if (collectionName) {
+				collectionPromises.push(serverRest.getCollectionWithName({
+					server: server,
+					repositoryId: repository.id,
+					name: collectionName
+				}));
+			}
+
+			return Promise.all(collectionPromises);
+		})
+		.then(function (results) {
+			if (collectionName) {
+				if (!results || !results[0] || results[0].err || !results[0].data) {
+					console.log('ERROR: collection ' + collectionName + ' not found in repository ' + repositoryName);
+					return Promise.reject();
+				}
+				collection = results[0].data;
+				console.log(' - validate collection (Id: ' + collection.id + ')');
+			}
+
+			var channelPromises = [];
+			if (channelName) {
+				channelPromises.push(_getChannelsFromServer(server));
+			}
+
+			return Promise.all(channelPromises);
+		})
+		.then(function (results) {
+
+			if (channelName) {
+				var channels = results && results[0] && results[0].channels || [];
+				for (var i = 0; i < channels.length; i++) {
+					if (channels[i].name.toLowerCase() === channelName.toLowerCase()) {
+						channel = channels[i];
+						break;
+					}
+				}
+				
+				if (!channel) {
+					console.log('ERROR: channel ' + channelName + ' does not exist');
+					return Promise.reject();
+				}
+				console.log(' - verify channel ' + channel.name + ' (Id: ' + channel.id + ')');
+
+				// verify the channel is in the repository
+				var channelInRepository = false;
+				for (var i = 0; i < repository.channels.length; i++) {
+					if (repository.channels[i].id === channel.id) {
+						channelInRepository = true;
+						break;
+					}
+				}
+				if (!channelInRepository) {
+					console.log('ERROR: channel ' + channelName + ' is not associated with repository ' + repositoryName);
+					return Promise.reject();
+				}
+			}
+			var queryItemPromises = [];
+			var q;
+			if (assetGUIDS && assetGUIDS.length > 0) {
+				q = '';
+				for (var i = 0; i < assetGUIDS.length; i++) {
+					if (q) {
+						q = q + ' or ';
+					}
+					q = q + 'id eq "' + assetGUIDS[i] + '"';
+				}
+				queryItemPromises.push(serverRest.queryItems({
+					server: server,
+					q: q
+				}));
+			}
+
+			return Promise.all(queryItemPromises);
+
+		})
+		.then(function (results) {
+			if (assetGUIDS && assetGUIDS.length > 0) {
+				if (!results || !results[0] || results[0].err) {
+					return Promise.reject();
+				}
+				var items = results[0].data || [];
+				for (var j = 0; j < assetGUIDS.length; j++) {
+					var found = false;
+					for (var i = 0; i < items.length; i++) {
+						if (items[i].id === assetGUIDS[j]) {
+							found = true;
+							validAssetGUIDS.push(assetGUIDS[j]);
+							break;
+						}
+					}
+					if (!found) {
+						console.log('ERROR: item with GUID ' + assetGUIDS[j] + ' not found');
+					}
+				}
+			}
+
+			var queryItemPromises = [];
+			var q;
+			if (query) {
+				q = '';
+				if (repository) {
+					q = '(repositoryId eq "' + repository.id + '")';
+				}
+				if (collection) {
+					if (q) {
+						q = q + ' AND ';
+					}
+					q = q + '(collections co "' + collection.id + '")';
+				}
+				if (channel) {
+					if (q) {
+						q = q + ' AND ';
+					}
+					q = q + '(channels co "' + channel.id + '")';
+				}
+
+				if (q) {
+					q = q + ' AND ';
+				}
+				q = q + '(' + query + ')';
+
+				console.log(' - query: ' + q);
+
+				queryItemPromises.push(serverRest.queryItems({
+					server: server,
+					q: q
+				}));
+			}
+
+			return Promise.all(queryItemPromises);
+		})
+		.then(function (results) {
+			var guids = [];
+			if (query) {
+				if (!results || !results[0] || results[0].err) {
+					return Promise.reject();
+				}
+				var items = results[0].data || [];
+				console.log(' - total items from query: ' + items.length);
+
+				// the copy items have to be in both query result and specified item list
+				for (var i = 0; i < items.length; i++) {
+					var add = true;
+					if (validAssetGUIDS.length > 0) {
+						add = false;
+						for (var j = 0; j < validAssetGUIDS.length; j++) {
+							if (items[i].id === validAssetGUIDS[j]) {
+								add = true;
+								break;
+							}
+						}
+					}
+
+					if (add) {
+						guids.push(items[i].id);
+					}
+				}
+			} else {
+				guids = validAssetGUIDS;
+			}
+
+			if (assetGUIDS && assetGUIDS.length > 0 || query) {
+				console.log(' - total items to copy: ' + guids.length);
+				if (guids.length === 0) {
+					console.log('ERROR: no asset to copy');
+					return Promise.reject();
+				}
+			}
+
+			return serverRest.copyAssets({
+				server: server,
+				repositoryId: repository.id,
+				targetRepositoryId: targetRepository.id,
+				collection: collection,
+				channel: channel,
+				itemIds: guids
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+
+			console.log(' - assets copied to repository ' + targetName);
+
+			done(true);
+		})
+		.catch((error) => {
+			if (error) {
+				console.log(error);
+			}
+			done();
+		});
+};
+
 
 module.exports.migrateContent = function (argv, done) {
 	'use strict';

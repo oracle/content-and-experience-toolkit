@@ -14,6 +14,18 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.1.1d
+
+**Added**
+
+- `cec copy-assets` - Copies assets from one repository to another.
+- `cec register-server` - Now encrypts client id and secret.
+- `cec register-server` - Adds support for a login timeout. 
+
+**Fixed**
+
+- `cec index-site` - Handles invalid html in large text fields.
+
 # New in Release 20.1.1c
 
 **Fixed**

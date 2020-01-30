@@ -877,7 +877,13 @@ var _addKeywords = function (strings) {
 };
 
 var _unescapeHTML = function (str) {
-	return he.decode(str);
+	try {
+		return he.decode(str);
+	} catch(e) {
+		// console.log('WARNING: failed processing ' + str);
+		// console.log(e);
+		return str;
+	}
 };
 
 /**
@@ -960,6 +966,7 @@ var _generatePageIndex = function (site, pages, pageData, pageContent, typeTextF
 								var value = fields[key];
 								if (value && typeTextFields[i].type === 'largetext') {
 									// unescape richtext 
+									// console.log(value);
 									value = _unescapeHTML(value);
 								}
 								if (value) {

@@ -377,6 +377,24 @@ gulp.task('compilation-server', function (done) {
 		process.env['CEC_TOOLKIT_COMPILATION_HTTPS_CERTIFICATE'] = certPath;
 	}
 
+	var compilationLogsDir = argv.logs;
+	if (compilationLogsDir) {
+		if (!path.isAbsolute(compilationLogsDir)) {
+			compilationLogsDir = path.join(projectDir, compilationLogsDir);
+		}
+		compilationLogsDir = path.resolve(compilationLogsDir);
+		if (!fs.existsSync(compilationLogsDir)) {
+			try {
+				fs.mkdirSync(compilationLogsDir);
+			} catch (err) {
+				console.log('ERROR: Failed to create logs directory. REASON:', err.message);
+				done();
+				return;
+			}
+		}
+
+		process.env['CEC_TOOLKIT_COMPILATION_LOGS_DIR'] = compilationLogsDir;
+	}
 
 	var rl = readline.createInterface({
 		input: process.stdin,
@@ -876,6 +894,18 @@ gulp.task('control-content', function (done) {
 	'use strict';
 
 	contentlib.controlContent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Copy assets to another repository
+ */
+gulp.task('copy-assets', function (done) {
+	'use strict';
+
+	contentlib.copyAssets(argv, function (success) {
 		process.exitCode = success ? 0 : 1;
 		done();
 	});

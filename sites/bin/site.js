@@ -420,7 +420,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 								});
 						}
 					}); // idc token
-				}, 1000);
+				}, 5000);
 			}); // local
 		});
 	} catch (e) {
@@ -1509,7 +1509,7 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 				}
 			}); // idc token request
 
-		}, 1000);
+		}, 5000);
 	}); // local 
 };
 
@@ -2872,7 +2872,7 @@ var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, 
 								});
 						}
 					}); // idc token
-				}, 1000);
+				}, 5000);
 			}); // local
 		});
 	} catch (e) {

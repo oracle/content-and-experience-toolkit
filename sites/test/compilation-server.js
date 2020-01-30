@@ -122,6 +122,17 @@ process.on('uncaughtException', function (err) {
 	}
 });
 
+var startCompilationService = function() {
+		// Compilation logs directory
+		var compilationLogsDir = process.env.CEC_TOOLKIT_COMPILATION_LOGS_DIR;
+
+		if (compilationLogsDir) {
+			compiler.setLogsDir(compilationLogsDir);
+			console.log('Compilation log files will be written to', compilationLogsDir);
+		}
+		compiler.restartJobs();
+	};
+
 // start the server
 
 if (keyPath && fs.existsSync(keyPath) && certPath && fs.existsSync(certPath)) {
@@ -134,10 +145,12 @@ if (keyPath && fs.existsSync(keyPath) && certPath && fs.existsSync(certPath)) {
 	var localhost = 'https://localhost:' + port;
 	https.createServer(httpsOptions, app).listen(port, function () {
 		console.log('Server starts: ' + localhost);
+		startCompilationService();
 	});
 } else {
 	var localhost = 'http://localhost:' + port;
 	var localServer = server.listen(port, function () {
 		console.log('Server starts: ' + localhost + ' (WARNING: Not Secure)');
+		startCompilationService();
 	});
 }

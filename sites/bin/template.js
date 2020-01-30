@@ -1218,7 +1218,7 @@ module.exports.downloadTemplate = function (argv, done) {
 						}
 					}
 				});
-			}, 1000);
+			}, 5000);
 
 		});
 
@@ -1469,7 +1469,7 @@ module.exports.deleteTemplate = function (argv, done) {
 						_cmdEnd(done);
 					}
 				});
-			}, 1000);
+			}, 5000);
 
 		});
 
@@ -2753,7 +2753,7 @@ var _IdcCopySites = function (request, server, name, fFolderGUID, doCopyToTempla
 						}
 					});
 
-				}, 1000);
+				}, 5000);
 			}); // local 
 		}); // login
 	});
@@ -2972,7 +2972,7 @@ var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpubl
 
 					}); // get idcToken
 
-				}, 1000);
+				}, 5000);
 			}); // local 
 		}); // login
 	});
