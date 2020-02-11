@@ -158,12 +158,18 @@ router.get('/*', (req, res) => {
 
 	} else {
 		// if the file exists under '<template>/static', return it first
-		var urlBits = filePathSuffix.split('/'),
+
+		// use standard string to determine user agent
+		var ua = req.get('User-Agent') || '';
+		var isMobile = /Mobi|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua) && !/iPad/i.test(ua);
+
+		var staticFilePath = isMobile ? '_mobilefiles' : '_files',
+			urlBits = filePathSuffix.split('/'),
 			templateName = urlBits.shift(),
 			pageName = urlBits.pop(),
-			pagePath = urlBits.join('/') + '/_files/' + pageName,
+			pagePath = urlBits.join('/') + '/' + staticFilePath + '/' + pageName,
 			detailPageName = urlBits.pop(),
-			detailPagePath = urlBits.join('/') + '/_files/' + detailPageName,
+			detailPagePath = urlBits.join('/') + '/' + staticFilePath + '/' + detailPageName,
 			isSitePage = false;
 
 		// normal case, find the site file

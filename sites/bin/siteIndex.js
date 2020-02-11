@@ -29,7 +29,7 @@ var verifyRun = function (argv) {
 	serversSrcDir = path.join(srcfolder, 'servers');
 
 	return true;
-}
+};
 
 var localServer;
 
@@ -401,7 +401,7 @@ var _readFile = function (server, id, fileName) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve({
 					id: fileName.substring(0, fileName.indexOf('.')),
@@ -841,7 +841,7 @@ var _stripHTMLTags = function (str) {
 		newStr = serverUtils.replaceAll(newStr, '\n', ' ');
 	}
 	return newStr;
-}
+};
 
 /**
  * Return an array of strings and each string is no more than 2000 characters
@@ -1107,7 +1107,7 @@ var _addPageIndexItemsToChannel = function (request, localhost, channelId, itemI
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (error) {};
+			} catch (error) {}
 
 			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
 				console.log(' - add page index items to site channel');
@@ -1142,7 +1142,7 @@ var _removePageIndexItemsFromChannel = function (request, localhost, itemIds, pa
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (error) {};
+			} catch (error) {}
 
 			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
 				console.log(' - remove page index items for page ' + pageNames + ' from site channel');
@@ -1176,7 +1176,7 @@ var _itemsSetAsTranslated = function (request, localhost, itemIds, locale) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (error) {};
+			} catch (error) {}
 
 			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
 				console.log(' - set page index items in ' + locale + ' as translated');
@@ -1208,7 +1208,7 @@ var _itemPublishInfo = function (request, localhost, itemId, pageName) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (error) {};
+			} catch (error) {}
 
 			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
 				resolve({
@@ -1245,7 +1245,7 @@ var _unpublishPageIndexItemsRequest = function (request, localhost, itemIds, pag
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (error) {};
+			} catch (error) {}
 
 			if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
 				console.log(' - send unpublish page index items for page ' + pageNames + localemsg);
@@ -1361,7 +1361,7 @@ var _deletePageIndexItems = function (request, localhost, itemIds, pageNames, lo
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (error) {};
+			} catch (error) {}
 
 			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
 				console.log(' - delete page index items for page ' + pageNames + localemsg);
@@ -1393,7 +1393,7 @@ var _getItemOperationStatus = function (request, localhost, statusId, op) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (error) {};
+			} catch (error) {}
 
 			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
 				// console.log('get status for operation ' + op);
@@ -1457,7 +1457,7 @@ var _masterSiteStructure;
 var _masterPageData = [];
 var _contentTypesOnPages = [];
 var _contentTextFields = [];
-var _pageContentIds = [];;
+var _pageContentIds = [];
 var _pageIndexToUpdate = [];
 var _pageIndexToCreate = [];
 var _pageIndexToDelete = [];
@@ -2172,7 +2172,7 @@ var _indexSite = function (server, request, localhost, site, contenttype, publis
 				_SiteInfo.defaultLanguage, isMaster, _masterSiteStructure);
 			indexSiteLocalePromise.then(function (result) {
 				var locales = [];
-				var translation
+				var translation;
 				for (var i = 0; i < _requiredLangs.length; i++) {
 					if (_requiredLangs[i] !== _SiteInfo.defaultLanguage) {
 						locales.push(_requiredLangs[i]);

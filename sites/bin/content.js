@@ -1151,6 +1151,8 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 
 		var channelName = argv.channel;
 		var action = argv.action;
+		var repositoryName = argv.repository;
+		var repository;
 
 		var request = serverUtils.getRequest();
 
@@ -1208,27 +1210,61 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 
 				console.log(' - get channel (token: ' + channelToken + ')');
 
+				var repositoryPromises = [];
+				if (action === 'add' && repositoryName) {
+					repositoryPromises.push(serverRest.getRepositoryWithName({
+						server: server,
+						name: repositoryName
+					}));
+				}
+
+				return Promise.all(repositoryPromises);
+
+			})
+			.then(function (results) {
+				if (action === 'add' && repositoryName) {
+					if (!results || !results[0] || results[0].err || !results[0].data) {
+						console.log('ERROR: repository ' + repositoryName + ' does not exist');
+						return Promise.reject();
+					}
+					repository = results[0].data;
+					console.log(' - get repository');
+				}
+
 				//
 				// get items in the channel
 				//
-				return serverRest.getChannelItems({
+				var itemsPromise = action !== 'add' ? serverRest.getChannelItems({
 					server: server,
 					channelToken: channelToken,
 					fields: 'isPublished,status'
+				}) : serverRest.queryItems({
+					server: server,
+					q: '(repositoryId eq "' + repository.id + '")'
 				});
+
+				return itemsPromise;
 			})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
 				}
 
-				var items = result || [];
+				var items = (action === 'add' ? result.data : result) ||  [];
 				if (items.length === 0) {
-					console.log(' - no item in the channel');
+					if (action === 'add') {
+						console.log(' - no item in the repository');
+					} else {
+						console.log(' - no item in the channel');
+					}
 					return cmdSuccess(done);
 				}
 
-				console.log(' - channel has ' + items.length + (items.length > 1 ? ' items' : ' item'));
+				if (action === 'add') {
+					console.log(' - repository has ' + items.length + (items.length > 1 ? ' items' : ' item'));
+				} else {
+					console.log(' - channel has ' + items.length + (items.length > 1 ? ' items' : ' item'));
+				}
 
 				// publish policy: anythingPublished | onlyApproved
 				var publishPolicy = channel.publishPolicy;
@@ -1287,6 +1323,17 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						}
 					});
 
+				} else if (action === 'add') {
+					var opPromise = _performOneOp(server, action, channel.id, itemIds, true, 'true');
+					opPromise.then(function (result) {
+						if (result.err) {
+							return cmdEnd(done);
+						} else {
+							console.log(' - ' + itemIds.length + ' items added to channel');
+							return cmdSuccess(done, true);
+						}
+					});
+
 				} else if (action === 'remove') {
 					var unpublishPromises = [];
 					if (hasPublishedItems) {
@@ -1294,7 +1341,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					}
 					Promise.all(unpublishPromises).then(function (result) {
 						// continue to remove
-						var removePromise = _performOneOp(server, action, channel.id, itemIds, true);
+						var removePromise = _performOneOp(server, action, channel.id, itemIds, true, 'true');
 						removePromise.then(function (result) {
 							if (result.err) {
 								console.log('ERROR: removing items from channel');
@@ -1319,7 +1366,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 	}
 };
 
-var _performOneOp = function (server, action, channelId, itemIds, showerror) {
+var _performOneOp = function (server, action, channelId, itemIds, showerror, async) {
 	return new Promise(function (resolve, reject) {
 		var opPromise;
 		if (action === 'publish') {
@@ -1334,11 +1381,19 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror) {
 				channelId: channelId,
 				itemIds: itemIds
 			});
+		} else if (action === 'add') {
+			opPromise = serverRest.addItemsToChanel({
+				server: server,
+				channelId: channelId,
+				itemIds: itemIds,
+				async: async
+			});
 		} else {
 			opPromise = serverRest.removeItemsFromChanel({
 				server: server,
 				channelId: channelId,
-				itemIds: itemIds
+				itemIds: itemIds,
+				async: async
 			});
 		}
 		opPromise.then(function (result) {
@@ -1348,7 +1403,7 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror) {
 				});
 			}
 
-			if (action === 'remove') {
+			if (!result || !result.statusId) {
 				return resolve({});
 			} else {
 				//
@@ -1473,8 +1528,8 @@ module.exports.copyAssets = function (argv, done) {
 	var assetGUIDS = argv.assets ? argv.assets.split(',') : [];
 	var validAssetGUIDS = [];
 
-	var repository = undefined;
-	var targetRepository = undefined;
+	var repository;
+	var targetRepository;
 	var channel;
 	var collection;
 
@@ -1546,7 +1601,7 @@ module.exports.copyAssets = function (argv, done) {
 						break;
 					}
 				}
-				
+
 				if (!channel) {
 					console.log('ERROR: channel ' + channelName + ' does not exist');
 					return Promise.reject();
@@ -2151,7 +2206,7 @@ var _exportContentIC = function (request, server, collectionId, exportfilepath) 
 				});
 			}
 		});
-	})
+	});
 
 };
 
@@ -2409,7 +2464,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 
 					console.log(' - item ' + item.name + (argv.action === 'CREATE' ? ' created ' : ' updated ') + ' on server ' + destServer.name);
 					done(true);
-				})
+				});
 			} else {
 				console.log(' - item ' + item.name + (argv.action === 'CREATE' ? ' created ' : ' updated ') + ' on server ' + destServer.name);
 				done(true);

@@ -37,7 +37,7 @@ var verifyRun = function (argv) {
 	serversSrcDir = path.join(srcfolder, 'servers');
 
 	return true;
-}
+};
 
 
 module.exports.createEncryptionKey = function (argv, done) {
@@ -204,7 +204,7 @@ module.exports.registerServer = function (argv, done) {
 		client_secret: savedClientSecret,
 		scope: scope,
 		timeout: timeout
-	}
+	};
 	fs.writeFileSync(serverFile, JSON.stringify(serverjson));
 	console.log(' - server registered in ' + serverFile);
 	done(true);
@@ -354,12 +354,12 @@ module.exports.listServerResources = function (argv, done) {
 
 	var types = argv.types ? argv.types.split(',') : [];
 
-	var listChannels = types.length === 0 || types.includes('channels')
-	var listComponents = types.length === 0 || types.includes('components')
-	var listLocalizationpolicies = types.length === 0 || types.includes('localizationpolicies')
-	var listRepositories = types.length === 0 || types.includes('repositories')
-	var listSites = types.length === 0 || types.includes('sites')
-	var listTemplates = types.length === 0 || types.includes('templates')
+	var listChannels = types.length === 0 || types.includes('channels');
+	var listComponents = types.length === 0 || types.includes('components');
+	var listLocalizationpolicies = types.length === 0 || types.includes('localizationpolicies');
+	var listRepositories = types.length === 0 || types.includes('repositories');
+	var listSites = types.length === 0 || types.includes('sites');
+	var listTemplates = types.length === 0 || types.includes('templates');
 	var listTranslationConnectors = true;
 
 	if (!listChannels && !listComponents && !listLocalizationpolicies && !listRepositories && !listSites && !listTemplates) {
@@ -516,8 +516,8 @@ module.exports.listServerResources = function (argv, done) {
 						var site = sites[i];
 						var type = site.xScsIsEnterprise === '1' ? 'Enterprise' : 'Standard';
 						var published = site.xScsSitePublishStatus === 'published' ? '    √' : '';
-						var online = site.xScsIsSiteActive === '1' ? '  √' : ''
-						console.log(sprintf(siteFormat, site.fFolderName, site.xScsSiteTheme, type, published, online))
+						var online = site.xScsIsSiteActive === '1' ? '  √' : '';
+						console.log(sprintf(siteFormat, site.fFolderName, site.xScsSiteTheme, type, published, online));
 					}
 					console.log('');
 				}
@@ -570,12 +570,12 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 
 	var types = argv.types ? argv.types.split(',') : [];
 
-	var listChannels = types.length === 0 || types.includes('channels')
-	var listComponents = types.length === 0 || types.includes('components')
-	var listLocalizationpolicies = types.length === 0 || types.includes('localizationpolicies')
-	var listRepositories = types.length === 0 || types.includes('repositories')
-	var listSites = types.length === 0 || types.includes('sites')
-	var listTemplates = types.length === 0 || types.includes('templates')
+	var listChannels = types.length === 0 || types.includes('channels');
+	var listComponents = types.length === 0 || types.includes('components');
+	var listLocalizationpolicies = types.length === 0 || types.includes('localizationpolicies');
+	var listRepositories = types.length === 0 || types.includes('repositories');
+	var listSites = types.length === 0 || types.includes('sites');
+	var listTemplates = types.length === 0 || types.includes('templates');
 
 	if (!listChannels && !listComponents && !listLocalizationpolicies && !listRepositories && !listSites && !listTemplates) {
 		console.log('ERROR: invalid resource types: ' + argv.types);
@@ -734,8 +734,8 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 						var site = sites[i];
 						var type = site.isEnterprise ? 'Enterprise' : 'Standard';
 						var published = site.publishStatus === 'published' ? '    √' : '';
-						var online = site.runtimeStatus === 'online' ? '  √' : ''
-						console.log(sprintf(siteFormat, site.name, site.themeName, type, published, online))
+						var online = site.runtimeStatus === 'online' ? '  √' : '';
+						console.log(sprintf(siteFormat, site.name, site.themeName, type, published, online));
 					}
 					console.log('');
 				}

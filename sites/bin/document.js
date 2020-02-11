@@ -10,7 +10,6 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	os = require('os'),
 	readline = require('readline'),
-	dir = require('node-dir'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	path = require('path'),
@@ -1300,7 +1299,7 @@ var _uploadFolder = function (argv, server) {
 
 		// get all files to upload
 		var folderContent = [];
-		dir.paths(srcPath, function (err, paths) {
+		serverUtils.paths(srcPath, function (err, paths) {
 			if (err) {
 				console.log(err);
 				return reject();

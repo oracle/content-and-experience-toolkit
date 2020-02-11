@@ -59,7 +59,9 @@ var siteFolder, // Z:/sitespublish/SiteC/
 	defaultContentType, // type of content to fetch ['draft' | 'published'] if querying from server
 	server, // server to use for any content calls
 	useDefaultDetailPageLink, // whether to compile a detail page using the default detail page if no detail page specified
-	detailPageContentLayoutSnippet; // whether to only output the content layout snippet for compiled detail page (used for Eloqua integration)
+	detailPageContentLayoutSnippet, // whether to only output the content layout snippet for compiled detail page (used for Eloqua integration)
+	targetDevice = '', // 'mobile' or 'desktop' (no value implies compile for both if RegEx is specified)
+	mobilePages = false; // whether we are compiling mobile pages
 
 
 // Global Variables
@@ -628,8 +630,8 @@ function getPageLinkData(pageEntry, sitePrefix, structureMap, pageLocale) {
 				if (pageUrl) {
 					// maintain locale for navigation between pages
 					var locale = pageLocale; // this.data.locale;
-					var isDefaultLocale = pageLocale === rootSiteInfo.properties.defaultLanguage; 
-					var includeLocale = locale && (!isDefaultLocale || defaultLocale);  // include locale if it is not the default or if includeLocale set
+					var isDefaultLocale = pageLocale === rootSiteInfo.properties.defaultLanguage;
+					var includeLocale = locale && (!isDefaultLocale || defaultLocale); // include locale if it is not the default or if includeLocale set
 
 					if (includeLocale) {
 						var siteLocalePrefix = combineUrlSegments(sitePrefix, locale);
@@ -719,17 +721,16 @@ function getTokenValue(token, evaluationContext) {
 		for (var j = 0; j < (segments.length - 1); j++) {
 			if (currentObject[segments[j]] && (typeof currentObject[segments[j]] === "object")) {
 				currentObject = currentObject[segments[j]];
-			}
-			else {
+			} else {
 				currentObject = null;
 				break;
 			}
 		}
 
 		if (currentObject) {
-			value = (typeof currentObject[segments[segments.length - 1]] === "string")
-				? currentObject[segments[segments.length - 1]]
-				: "";
+			value = (typeof currentObject[segments[segments.length - 1]] === "string") ?
+				currentObject[segments[segments.length - 1]] :
+				"";
 		}
 	}
 
@@ -859,6 +860,7 @@ var compiler = {
 			pageLocale: self.pageLocale,
 			detailContentItem: self.detailContentItem,
 			channelAccessToken: channelAccessToken,
+			deviceInfo: self.context.deviceInfo,
 			snippetOnly: creatingDetailPages && detailPageContentLayoutSnippet,
 			getContentClient: function (type) {
 				return new Promise(function (resolve, reject) {
@@ -1373,10 +1375,12 @@ function resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, conte
 		"siteInfo": context.siteInfo,
 		"pageState": 'compiled',
 		//    "placeholderContent": this.data.placeholderContent,
-		//    "deviceInfo": SCS.getDeviceInfo(),
 		"sitesCloudCDN": ((typeof sitesCloudCDN === 'string') && sitesCloudCDN) || '',
 		"cacheKeys": cacheKeys || null,
 	};
+	if (context.deviceInfo) {
+		SCSInfo.deviceInfo = context.deviceInfo;
+	}
 
 	var SCSInfoStr = JSON.stringify(SCSInfo);
 	var renderInfo = '';
@@ -1964,7 +1968,8 @@ function writePage(pageUrl, pageMarkup) {
 
 	if (outputAlternateHierarchy) {
 		// Add an extra "_files" folder into the path just before the file name
-		pageUrl = pageUrl.replace(/(\/?)([^/]+)$/m, "$1_files/$2");
+		var folderName = mobilePages ? '_mobilefiles' : '_files';
+		pageUrl = pageUrl.replace(/(\/?)([^/]+)$/m, "$1" + folderName + "/$2");
 	}
 
 	var filePath = path.join(outputFolder, pageUrl);
@@ -2030,7 +2035,8 @@ function createPage(context, pageInfo) {
 
 				var pageDatas = getPageData(context, pageInfo.id);
 				var pageData = pageDatas.pageData;
-				var layoutName = (pageData.base || pageData).properties.pageLayout;
+				var mobileLayoutName = mobilePages && (pageData.base || pageData).properties.mobileLayout;
+				var layoutName = mobileLayoutName || (pageData.base || pageData).properties.pageLayout;
 				var sitePrefix = computeSitePrefix(context, pageInfo.pageUrl, pageInfo);
 				var pageId = pageInfo.id;
 
@@ -2299,8 +2305,95 @@ function setupContext(language) {
 		});
 	}
 
+	// setup the deviceInfo if "compile mobile pages" is requested
+	if (mobilePages) {
+		context.deviceInfo = {
+			isMobile: true
+		};
+	}
+
+
 	return context;
 }
+
+var compilePages = function (compileTargetDevice) {
+	if (!targetDevice) {
+		// no device type specified, if trying to compile mobile, check against RegEx
+		if (compileTargetDevice === 'mobile') {
+			// ToDo: Check that RegEx exists
+			// if no RegEx, mobile compilation is not required
+			return Promise.resolve();
+		}
+	} else if (targetDevice !== compileTargetDevice) {
+		// compiled device type not required
+		return Promise.resolve();
+	}
+
+	// setup context for creating pages
+	creatingDetailPages = false;
+	mobilePages = compileTargetDevice === 'mobile';
+
+	// compile the pages
+	var message = "Compiling: " + compileTargetDevice + " pages";
+	console.log(message);
+	console.log("-".repeat(message.length));
+
+	// create the pages 
+	var createPagePromises = [];
+
+	var languages = getAvailableLanguages();
+	languages.forEach(function (language) {
+		try {
+			// Initialize the context for this set of pages
+			var context = setupContext(language);
+
+			// get the array of pages to compile
+			pagesToCompile = getPagesToCompile(context, pages, recurse);
+
+			// create the array of functions that will execute the createPage promise when called
+			pagesToCompile.forEach(function (pageInfo) {
+				createPagePromises.push(function () {
+					return createPage(context, pageInfo);
+				});
+			});
+		} catch (e) {
+			compilationReporter.error({
+				message: 'failed to setup context for pages for language: "' + (language || 'default') + '".  Continuing with any other languages',
+				error: e
+			});
+		}
+	});
+
+	// execute page promises serially
+	var doCreatePages = createPagePromises.reduce(function (previousPromise, nextPromise) {
+			return previousPromise.then(function () {
+				// wait for the previous promise to complete and then call the function to start executing the next promise
+				return nextPromise();
+			});
+		},
+		// Start with a previousPromise value that is a resolved promise 
+		Promise.resolve());
+
+	// wait until all pages have been created
+	return doCreatePages.then(function () {
+		console.log('All page creation calls complete.');
+
+		// create detail pages as well if they were found during page compilation
+		if (compileDetailPages && Object.keys(detailPageList).length > 0) {
+			console.log('');
+			console.log('Creating detail pages:');
+			creatingDetailPages = true;
+			return createDetailPages().then(function () {
+				console.log('All detail page creation calls complete.');
+			});
+		} 
+	}).catch(function (e) {
+		if (e) {
+			console.log(e);
+		}
+		return Promise.reject();
+	});
+};
 
 var compileSite = function (args) {
 	siteFolder = args.siteFolder;
@@ -2313,6 +2406,7 @@ var compileSite = function (args) {
 	recurse = args.recurse;
 	includeLocale = args.includeLocale;
 	verbose = args.verbose;
+	targetDevice = args.targetDevice;
 	compileDetailPages = !(args.noDetailPages);
 	useDefaultDetailPageLink = !(args.noDefaultDetailPageLink);
 	detailPageContentLayoutSnippet = !!(args.contentLayoutSnippet);
@@ -2363,65 +2457,18 @@ var compileSite = function (args) {
 		defaultLocale = rootSiteInfo && rootSiteInfo.properties && rootSiteInfo.properties.defaultLanguage;
 	}
 
-	// create the pages 
-	var createPagePromises = [];
+	// compile pages for desktop 
+	return compilePages('desktop').then(function() {
+		console.log('');
 
-	var languages = getAvailableLanguages();
-	languages.forEach(function (language) {
-		try {
-			// Initialize the context for this set of pages
-			var context = setupContext(language);
+		// note that we're now compiling for mobile
+		process.env.scsIsMobile = true;
 
-			// get the array of pages to compile
-			pagesToCompile = getPagesToCompile(context, pages, recurse);
-
-			// create the array of functions that will execute the createPage promise when called
-			pagesToCompile.forEach(function (pageInfo) {
-				createPagePromises.push(function () {
-					return createPage(context, pageInfo);
-				});
-			});
-		} catch (e) {
-			compilationReporter.error({
-				message: 'failed to setup context for pages for language: "' + (language || 'default') + '".  Continuing with any other languages',
-				error: e
-			});
-		}
-	});
-
-	// execute page promises serially
-	var doCreatePages = createPagePromises.reduce(function (previousPromise, nextPromise) {
-			return previousPromise.then(function () {
-				// wait for the previous promise to complete and then call the function to start executing the next promise
-				return nextPromise();
-			});
-		},
-		// Start with a previousPromise value that is a resolved promise 
-		Promise.resolve());
-
-	// wait until all pages have been created
-	return doCreatePages.then(function () {
-		console.log('All page creation calls complete.');
-
-		// create detail pages as well if they were found during page compilation
-		if (compileDetailPages && Object.keys(detailPageList).length > 0) {
-			console.log('');
-			console.log('Creating detail pages:');
-			creatingDetailPages = true;
-			return createDetailPages().then(function () {
-				console.log('All detail page creation calls complete.');
-				compilationReporter.renderReport();
-				return compilationReporter.hasErrors ? Promise.reject() : Promise.resolve();
-			});
-		} else {
+		// compile pages for mobile 
+		return compilePages('mobile').then(function () {
 			compilationReporter.renderReport();
 			return compilationReporter.hasErrors ? Promise.reject() : Promise.resolve();
-		}
-	}).catch(function (e) {
-		if (e) {
-			console.log(e);
-		}
-		return Promise.reject();
+		});
 	});
 };
 

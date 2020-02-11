@@ -14,6 +14,18 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.1.2
+
+**Added**
+
+- `create-site-map` - Excludes page links not from the same domain.
+- `control-content` - Add action add to content items to a channel.
+
+**Note:** 
+
+- Node version 10 or later is now required.
+
+
 # New in Release 20.1.1d
 
 **Added**

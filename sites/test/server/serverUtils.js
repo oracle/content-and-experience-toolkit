@@ -14,16 +14,15 @@ var express = require('express'),
 	crypto = require('crypto'),
 	os = require('os'),
 	fs = require('fs'),
+	fsp = require('fs').promises,
 	fse = require('fs-extra'),
 	path = require('path'),
-	ps = require('ps-node'),
 	readline = require('readline'),
 	uuid4 = require('uuid/v4'),
 	puppeteer = require('puppeteer'),
-	btoa = require('btoa'),
 	url = require('url'),
-	sitesRest = require('./sitesRest.js'),
-	Client = require('node-rest-client').Client;
+	_ = require('underscore'),
+	sitesRest = require('./sitesRest.js');
 
 var componentsDir,
 	connectionsDir,
@@ -282,7 +281,7 @@ var _verifyServer = function (serverName, currPath, showError) {
 		return server;
 	}
 
-	server['valid'] = true;
+	server.valid = true;
 	return server;
 };
 
@@ -311,7 +310,7 @@ module.exports.endsWith = (str, end) => {
 	return _endsWith(str, end);
 };
 var _endsWith = function (str, end) {
-	return str.lastIndexOf(end) === str.length - end.length;
+	return end.length <= str.length && str.lastIndexOf(end) === str.length - end.length;
 };
 
 module.exports.trimString = (str, search) => {
@@ -451,8 +450,8 @@ var _getRegisteredServer = function (projectDir, name) {
 		var serverstr = fs.readFileSync(serverpath).toString(),
 			serverjson = JSON.parse(serverstr);
 		server = serverjson;
-		server['fileloc'] = serverpath;
-		server['fileexist'] = true;
+		server.fileloc = serverpath;
+		server.fileexist = true;
 
 		var keyFile = server.key;
 		if (keyFile && fs.existsSync(keyFile)) {
@@ -473,9 +472,7 @@ var _getRegisteredServer = function (projectDir, name) {
 			if (server.client_id) {
 				// decrypt the password
 				try {
-					var buf = Buffer.from(server.client_id, 'base64');
-					var decrypted = crypto.privateDecrypt(key, buf);
-					server.client_id = decrypted.toString('utf8');
+					server.client_id = crypto.privateDecrypt(key, Buffer.from(server.client_id, 'base64')).toString('utf8');
 
 				} catch (e) {
 					console.log('ERROR: failed to decrypt the client id');
@@ -485,9 +482,7 @@ var _getRegisteredServer = function (projectDir, name) {
 			if (server.client_secret) {
 				// decrypt the password
 				try {
-					var buf = Buffer.from(server.client_secret, 'base64');
-					var decrypted = crypto.privateDecrypt(key, buf);
-					server.client_secret = decrypted.toString('utf8');
+					server.client_secret = crypto.privateDecrypt(key, Buffer.from(server.client_secret, 'base64')).toString('utf8');
 
 				} catch (e) {
 					console.log('ERROR: failed to decrypt the client secret');
@@ -571,7 +566,7 @@ module.exports.getComponentTemplates = function (projectDir, compName) {
 
 	for (var i = 0; i < alltemps.length; i++) {
 		var tempname = alltemps[i].name,
-			tempcomps = _getTemplateComponents(tempname)
+			tempcomps = _getTemplateComponents(tempname);
 		for (var j = 0; j < tempcomps.length; j++) {
 			if (tempcomps[j] === compName) {
 				temps[temps.length] = alltemps[i].name;
@@ -617,7 +612,7 @@ module.exports.getTemplateComponents = function (projectDir, templateName) {
 	_setupSourceDir(projectDir);
 
 	return _getTemplateComponents(templateName);
-}
+};
 var _getTemplateComponents = function (templateName) {
 	var comps = [],
 		tempSrcDir = path.join(templatesDir, templateName);
@@ -628,12 +623,9 @@ var _getTemplateComponents = function (templateName) {
 	}
 
 	var pages = fs.readdirSync(path.join(tempSrcDir, 'pages'));
-	for (var i = 0; i < pages.length; i++) {
-		var pagepath = path.join(tempSrcDir, 'pages', pages[i]),
-			pagestr = fs.readFileSync(pagepath),
-			pagejson = JSON.parse(pagestr),
-			componentInstances = pagejson.componentInstances || {},
-			compvalues;
+
+	var processInstances = function (componentInstances) {
+		var compvalues;
 
 		Object.keys(componentInstances).forEach(function (key) {
 			compvalues = componentInstances[key];
@@ -650,36 +642,50 @@ var _getTemplateComponents = function (templateName) {
 				}
 			}
 		});
+	};
+	for (var i = 0; i < pages.length; i++) {
+		var pagepath = path.join(tempSrcDir, 'pages', pages[i]),
+			pagestr = fs.readFileSync(pagepath),
+			pagejson = JSON.parse(pagestr);
+		processInstances(pagejson.componentInstances);
 	}
+
 
 	// get all content layouts used by this template
 	var contentmapfile = path.join(tempSrcDir, 'caas_contenttypemap.json');
 	if (fs.existsSync(contentmapfile)) {
 		var contenttypes = JSON.parse(fs.readFileSync(contentmapfile));
-		for (var i = 0; i < contenttypes.length; i++) {
-			var ctype = contenttypes[i];
+		contenttypes.forEach(function (ctype) {
 			for (var j = 0; j < ctype.categoryList.length; j++) {
 				var layout = ctype.categoryList[j].layoutName;
 				if (layout && comps.indexOf(layout) < 0) {
 					comps[comps.length] = layout;
 				}
 			}
-		}
+		});
 	}
 
 	var summaryfile = path.join(tempSrcDir, 'assets', 'contenttemplate', 'summary.json');
 	if (fs.existsSync(summaryfile)) {
 		var summaryjson = JSON.parse(fs.readFileSync(summaryfile));
 		var mappings = summaryjson.categoryLayoutMappings || summaryjson.contentTypeMappings || [];
-		for (var i = 0; i < mappings.length; i++) {
-			var catelist = mappings[i].categoryList;
+		mappings.forEach(function (entry) {
+			var catelist = entry.categoryList;
 			for (var j = 0; j < catelist.length; j++) {
 				var layout = catelist[j].layoutName;
 				if (layout && comps.indexOf(layout) < 0) {
 					comps[comps.length] = layout;
 				}
 			}
-		}
+
+			var editorList = entry.editorList || [];
+			editorList.forEach(function (listEntry) {
+				var editor = listEntry.editorName;
+				if (editor && comps.indexOf(editor) < 0) {
+					comps.push(editor);
+				}
+			});
+		});
 	}
 
 	comps.sort();
@@ -696,7 +702,7 @@ module.exports.getTemplateIcon = function (projectDir, templateName) {
 	_setupSourceDir(projectDir);
 
 	return _getTemplateIcon(templateName);
-}
+};
 
 var _getTemplateIcon = function (templateName) {
 	var icon = '',
@@ -772,10 +778,10 @@ module.exports.getContentLayoutItems = function (projectDir, layoutName) {
 	}
 	console.log(' - types: ' + JSON.stringify(contenttypes));
 
-	for (var j = 0; j < contenttypes.length; j++) {
-		var tempname = contenttypes[j].template,
+	contenttypes.forEach(function (entry) {
+		var tempname = entry.template,
 			temppath = path.join(templatesDir, tempname),
-			ctype = contenttypes[j].type,
+			ctype = entry.type,
 			itemspath = path.join(temppath, 'assets', 'contenttemplate',
 				'Content Template of ' + tempname, 'ContentItems', ctype);
 
@@ -798,11 +804,11 @@ module.exports.getContentLayoutItems = function (projectDir, layoutName) {
 						type: itemjson.type,
 						template: tempname,
 						data: itemjson
-					}
+					};
 				}
 			}
 		}
-	}
+	});
 
 	// sort by item name
 	if (items.length > 0) {
@@ -815,9 +821,9 @@ module.exports.getContentLayoutItems = function (projectDir, layoutName) {
 		items = byName;
 
 		var msgs = '';
-		for (var i = 0; i < items.length; i++) {
-			msgs = msgs + items[i].type + ':' + items[i].name + ' ';
-		}
+		items.forEach(function (item) {
+			msgs = msgs + item.type + ':' + item.name + ' ';
+		});
 		console.log(' - items ' + msgs);
 	}
 
@@ -865,7 +871,7 @@ module.exports.getContentType = function (projectDir, typeName, templateName) {
 	_setupSourceDir(projectDir);
 
 	var contenttype = {},
-		alltypes = _getContentTypes()
+		alltypes = _getContentTypes();
 
 	for (var i = 0; i < alltypes.length; i++) {
 		if (typeName === alltypes[i].type.name &&
@@ -884,8 +890,8 @@ module.exports.getContentType = function (projectDir, typeName, templateName) {
 module.exports.getContentTypesFromServer = function (server) {
 	var contentTypesPromise = new Promise(function (resolve, reject) {
 		if (!server || !server.url || !server.username || !server.password) {
-			return console.log('ERROR: no server is configured');
-			resolve({
+			console.log('ERROR: no server is configured');
+			return resolve({
 				err: 'no server'
 			});
 		}
@@ -911,7 +917,7 @@ module.exports.getContentTypesFromServer = function (server) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
@@ -957,7 +963,7 @@ module.exports.getContentTypeFromServer = function (server, typename) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
@@ -1002,7 +1008,7 @@ module.exports.getContentTypeFieldsFromServer = function (server, typeName, call
 			data = JSON.parse(body);
 		} catch (e) {
 			data = body;
-		};
+		}
 		if (response && response.statusCode === 200) {
 			fields = data && data.fields;
 			callback(fields);
@@ -1036,7 +1042,7 @@ module.exports.getCaasCSRFToken = function (server) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				return resolve(data);
 			} else {
@@ -1457,35 +1463,12 @@ module.exports.getLocalizationPolicyFromServer = function (request, server, poli
 	return policyPromise;
 };
 
-/**
- * Check if node server is up
- */
-var _isNodeServerUp = function (callback) {
-	ps.lookup({
-		command: 'node'
-	}, function (err, resultList) {
-		if (err) {
-			console.log('ERROR: ' + err);
-			return callback(false);
-		}
-
-		var result = false;
-		resultList.forEach(function (process) {
-			if (process) {
-				// console.log('PID: %s, COMMAND: %s, ARGUMENTS: %s', process.pid, process.command, process.arguments);
-				if (process.command === 'node' && JSON.stringify(process.arguments).indexOf('test/server.js') >= 0) {
-					result = true;
-				}
-			}
-		});
-		//console.log('_isNodeServerUp: result=' + result);
-		callback(result);
-	});
+var _btoa = function (value) {
+	var encoding = (value instanceof Buffer) ? 'utf8' : 'binary';
+	return Buffer.from(value, encoding).toString('base64');
 };
-
-module.exports.isNodeServerUp = function () {
-	"use strict";
-	return _isNodeServerUp();
+module.exports.btoa = function (value) {
+	return _btoa(value);
 };
 
 
@@ -1497,15 +1480,18 @@ module.exports.getDocumentRendition = function (app, doc, callback) {
 		return;
 	}
 
-	var client = new Client(),
-		docname = doc.name,
+	var docname = doc.name,
 		resturl = 'http://localhost:' + app.locals.port + '/documents/api/1.2/folders/search/items?fulltext=' + encodeURIComponent(docname);
 	// console.log(' -- get document id ');
 
-	client.get(resturl, function (data, response) {
+	var request = _getRequest();
+	request.get({
+		url: resturl
+	}, function (err, response, body) {
 		if (response && response.statusCode === 200) {
+			var data = JSON.parse(body);
 			if (data && data.totalCount > 0) {
-				var docobj
+				var docobj;
 				for (var j = 0; j < data.items.length; j++) {
 					if (data.items[j].name && data.items[j].name.indexOf(docname) === 0) {
 						docobj = data.items[j];
@@ -1526,7 +1512,9 @@ module.exports.getDocumentRendition = function (app, doc, callback) {
 				var page = 'page1';
 				resturl = 'http://localhost:' + app.locals.port + '/documents/api/1.2/files/' + doc.id + '/data/rendition?rendition=' + page;
 				// console.log(' -- get document rendition');
-				client.get(resturl, function (data, response) {
+				request.get({
+					url: resturl
+				}, function (err, response, body) {
 					if (response && response.statusCode === 200) {
 						console.log(' -- rendition exists, doc: ' + docname + ' page: ' + page);
 						doc.renditionReady = true;
@@ -1540,10 +1528,12 @@ module.exports.getDocumentRendition = function (app, doc, callback) {
 								IsJson: 1
 							},
 							headers: {
-								'Authorization': "Basic " + btoa(app.locals.server.username + ":" + app.locals.server.password)
+								'Authorization': "Basic " + _btoa(app.locals.server.username + ":" + app.locals.server.password)
 							}
 						};
-						client.post(resturl, function (data, response) {
+						request.post({
+							url: resturl
+						}, function (err, response, body) {
 							doc.finished = true;
 							if (response && response.statusCode === 200) {
 								setTimeout(function () {
@@ -1564,7 +1554,7 @@ module.exports.getDocumentRendition = function (app, doc, callback) {
 			} else {
 				console.log(' -- no document found with name ' + docname);
 				doc.valid = false;
-				callback(doc)
+				callback(doc);
 			}
 		} else {
 			console.log(' -- failed to get metadata for ' + docname);
@@ -1681,7 +1671,7 @@ module.exports.uploadFileToServer = function (request, server, folderPath, fileP
 					'filename': fileName
 				};
 				if (fileId && fileId !== 'undefined') {
-					formData['item'] = 'fFileGUID:' + fileId;
+					formData.item = 'fFileGUID:' + fileId;
 				}
 				var postData = {
 					method: 'POST',
@@ -2511,140 +2501,146 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 		app.post('/documents/web', function (req, res) {
 			// console.log('POST: ' + req.url);
 			if (req.url.indexOf('CHECKIN_UNIVERSAL') > 0) {
-				var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-				fileId = params.fileId;
-				filePath = params.filePath;
-				fileName = params.fileName;
-				var folderId = params.folderId;
-				var uploadUrl = server.url + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
-				var formData = {
-					'parent': 'fFolderGUID:' + folderId,
-					'idcToken': idcToken,
-					'primaryFile': fs.createReadStream(filePath),
-					'filename': fileName
-				};
-				if (fileId && fileId !== 'undefined') {
-					formData['item'] = 'fFileGUID:' + fileId;
-				}
-				var postData = {
-					method: 'POST',
-					url: uploadUrl,
-					'auth': {
-						bearer: server.oauthtoken
-					},
-					'formData': formData
-				};
-				console.log(' - uploading file ' + fileName);
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						_fixHeaders(response, res);
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						// console.log(' - upload finished: '+filePath);
-						res.end();
-					});
-
+				(function () {
+					var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+					fileId = params.fileId;
+					filePath = params.filePath;
+					fileName = params.fileName;
+					var folderId = params.folderId;
+					var uploadUrl = server.url + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
+					var formData = {
+						'parent': 'fFolderGUID:' + folderId,
+						'idcToken': idcToken,
+						'primaryFile': fs.createReadStream(filePath),
+						'filename': fileName
+					};
+					if (fileId && fileId !== 'undefined') {
+						formData.item = 'fFileGUID:' + fileId;
+					}
+					var postData = {
+						method: 'POST',
+						url: uploadUrl,
+						'auth': {
+							bearer: server.oauthtoken
+						},
+						'formData': formData
+					};
+					console.log(' - uploading file ' + fileName);
+					request(postData).on('response', function (response) {
+							// fix headers for cross-domain and capitalization issues
+							_fixHeaders(response, res);
+						})
+						.pipe(res)
+						.on('finish', function (err) {
+							// console.log(' - upload finished: '+filePath);
+							res.end();
+						});
+				})();
 			} else if (req.url.indexOf('SCS_IMPORT_TEMPLATE_PACKAGE') > 0) {
-				var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-				importedFileId = params.importedFileId;
-				var importUrl = server.url + '/documents/web?IdcService=SCS_IMPORT_TEMPLATE_PACKAGE';
-				var data = {
-					'item': 'fFileGUID:' + importedFileId,
-					'idcToken': idcToken,
-					'useBackgroundThread': true,
-					'ThemeConflictResolution': 'overwrite',
-					'TemplateConflictResolution': 'overwrite',
-					'DefaultComponentConflictResolution': true,
-					'allowCrossTenant': true
-				};
-				var postData = {
-					method: 'POST',
-					url: importUrl,
-					'auth': {
-						bearer: server.oauthtoken
-					},
-					'form': data
-				};
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						_fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						res.write({
-							err: err
+				(function () {
+					var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+					importedFileId = params.importedFileId;
+					var importUrl = server.url + '/documents/web?IdcService=SCS_IMPORT_TEMPLATE_PACKAGE';
+					var data = {
+						'item': 'fFileGUID:' + importedFileId,
+						'idcToken': idcToken,
+						'useBackgroundThread': true,
+						'ThemeConflictResolution': 'overwrite',
+						'TemplateConflictResolution': 'overwrite',
+						'DefaultComponentConflictResolution': true,
+						'allowCrossTenant': true
+					};
+					var postData = {
+						method: 'POST',
+						url: importUrl,
+						'auth': {
+							bearer: server.oauthtoken
+						},
+						'form': data
+					};
+					request(postData).on('response', function (response) {
+							// fix headers for cross-domain and capitalization issues
+							_fixHeaders(response, res);
+						})
+						.on('error', function (err) {
+							res.write({
+								err: err
+							});
+							res.end();
+						})
+						.pipe(res)
+						.on('finish', function (err) {
+							// console.log(' - template import finished');
+							res.end();
 						});
-						res.end();
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						// console.log(' - template import finished');
-						res.end();
-					});
-
+				})();
 			} else if (req.url.indexOf('SCS_IMPORT_COMPONENT') > 0) {
-				var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-				importedFileId = params.importedFileId;
-				var importCompUrl = server.url + '/documents/web?IdcService=SCS_IMPORT_COMPONENT';
-				var data = {
-					'item': 'fFileGUID:' + importedFileId,
-					'idcToken': idcToken,
-					'ComponentConflictResolution': 'overwrite'
-				};
-				var postData = {
-					method: 'POST',
-					url: importCompUrl,
-					'auth': {
-						bearer: server.oauthtoken
-					},
-					'form': data
-				};
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						_fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						res.write({
-							err: err
+				(function () {
+					var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+					importedFileId = params.importedFileId;
+					var importCompUrl = server.url + '/documents/web?IdcService=SCS_IMPORT_COMPONENT';
+					var data = {
+						'item': 'fFileGUID:' + importedFileId,
+						'idcToken': idcToken,
+						'ComponentConflictResolution': 'overwrite'
+					};
+					var postData = {
+						method: 'POST',
+						url: importCompUrl,
+						'auth': {
+							bearer: server.oauthtoken
+						},
+						'form': data
+					};
+					request(postData).on('response', function (response) {
+							// fix headers for cross-domain and capitalization issues
+							_fixHeaders(response, res);
+						})
+						.on('error', function (err) {
+							res.write({
+								err: err
+							});
+							res.end();
+						})
+						.pipe(res)
+						.on('finish', function (err) {
+							// console.log(' - component import finished');
+							res.end();
 						});
-						res.end();
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						// console.log(' - component import finished');
-						res.end();
-					});
+				})();
 			} else if (req.url.indexOf('SCS_ACTIVATE_COMPONENT') > 0) {
-				var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-				importedCompFolderId = params.importedCompFolderId;
-				var publishCompUrl = server.url + '/documents/web?IdcService=SCS_ACTIVATE_COMPONENT';
-				var data = {
-					'item': 'fFolderGUID:' + importedCompFolderId,
-					'idcToken': idcToken
-				};
-				var postData = {
-					method: 'POST',
-					url: publishCompUrl,
-					'auth': {
-						bearer: server.oauthtoken
-					},
-					'form': data
-				};
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						_fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						res.write({
-							err: err
+				(function () {
+					var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+					importedCompFolderId = params.importedCompFolderId;
+					var publishCompUrl = server.url + '/documents/web?IdcService=SCS_ACTIVATE_COMPONENT';
+					var data = {
+						'item': 'fFolderGUID:' + importedCompFolderId,
+						'idcToken': idcToken
+					};
+					var postData = {
+						method: 'POST',
+						url: publishCompUrl,
+						'auth': {
+							bearer: server.oauthtoken
+						},
+						'form': data
+					};
+					request(postData).on('response', function (response) {
+							// fix headers for cross-domain and capitalization issues
+							_fixHeaders(response, res);
+						})
+						.on('error', function (err) {
+							res.write({
+								err: err
+							});
+							res.end();
+						})
+						.pipe(res)
+						.on('finish', function (err) {
+							// console.log(' - component publish finished');
+							res.end();
 						});
-						res.end();
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						// console.log(' - component publish finished');
-						res.end();
-					});
+				})();
 			}
 		});
 		var socketNum = 0;
@@ -2847,10 +2843,10 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 										}
 									}
 
-									for (var i = 0; i < rows.length; i++) {
-										var msg = rows[i][conflictIdx] + ': ' + rows[i][nameIdx] + ' owned by ' + rows[i][ownerIdx] + ' ' + rows[i][resolutionIdx];
+									rows.forEach(function (row) {
+										var msg = row[conflictIdx] + ': ' + row[nameIdx] + ' owned by ' + row[ownerIdx] + ' ' + row[resolutionIdx];
 										console.log('   ' + msg);
-									}
+									});
 								}
 								return resolve({
 									err: 'err'
@@ -2987,7 +2983,7 @@ function _browseFolder(request, server, host, folderId, folderName) {
 			url: url
 		};
 		if (server.env !== 'dev_ec') {
-			options['auth'] = {
+			options.auth = {
 				bearer: server.oauthtoken
 			};
 		}
@@ -3149,13 +3145,12 @@ var _getFileIdFromResultSets = function (data, fileName) {
 				break;
 			}
 		}
-		for (var i = 0; i < files.rows.length; i++) {
-			var obj = files.rows[i];
-			if (obj[fFileNameIdx] === fileName) {
-				fileId = obj[fFileGUIDIdx];
-				// console.log(' - File ' + fileName + ' exists, ID: ' + fileId);
-				break;
-			}
+		var entry = files.rows.find(function (obj) {
+			return obj[fFileNameIdx] === fileName;
+		});
+
+		if (entry) {
+			fileId = entry[fFileGUIDIdx];
 		}
 	}
 	return fileId;
@@ -3421,7 +3416,7 @@ module.exports.getSiteFolderAfterLogin = function (server, site) {
 };
 
 module.exports.getTheme = function (request, server, theme) {
-	return _getTheme(request, server, theme)
+	return _getTheme(request, server, theme);
 };
 var _getTheme = function (request, server, theme) {
 	var themePromise = new Promise(function (resolve, reject) {
@@ -3468,9 +3463,9 @@ var _getTheme = function (request, server, theme) {
 					var themejson = {};
 					for (var i = 0; i < themes.length; i++) {
 						if (themes[i].fFolderName.toLowerCase() === theme.toLowerCase()) {
-							themejson['id'] = themes[i].fFolderGUID;
-							themejson['name'] = themes[i].fFolderName;
-							themejson['owner'] = themes[i].fCreatorFullName;
+							themejson.id = themes[i].fFolderGUID;
+							themejson.name = themes[i].fFolderName;
+							themejson.owner = themes[i].fCreatorFullName;
 							break;
 						}
 					}
@@ -3532,10 +3527,10 @@ var _getContentTypeLayoutMapping = function (request, server, typeName) {
 
 			var fields = data.ResultSets && data.ResultSets.ContentTypeCategoryLayoutMapping && data.ResultSets.ContentTypeCategoryLayoutMapping.fields || [];
 			var rows = data.ResultSets && data.ResultSets.ContentTypeCategoryLayoutMapping && data.ResultSets.ContentTypeCategoryLayoutMapping.rows;
-			var mappings = []
-			for (var j = 0; j < rows.length; j++) {
+			var mappings = [];
+			rows.forEach(function (row) {
 				mappings.push({});
-			}
+			});
 			for (var i = 0; i < fields.length; i++) {
 				var attr = fields[i].name;
 				for (var j = 0; j < rows.length; j++) {
@@ -3657,13 +3652,13 @@ var _getBackgroundServiceStatus = function (request, host, jobId) {
 			var jobInfo = data.ResultSets && data.ResultSets.JobInfo;
 			if (jobInfo) {
 				var statusIdx, percentageIdx;
-				for (var i = 0; i < jobInfo.fields.length; i++) {
-					if (jobInfo.fields[i].name === 'JobStatus') {
-						statusIdx = i;
-					} else if (jobInfo.fields[i].name === 'JobPercentage') {
-						percentageIdx = i;
+				jobInfo.fields.forEach(function (field, index) {
+					if (field.name === 'JobStatus') {
+						statusIdx = index;
+					} else if (field.name === 'JobPercentage') {
+						percentageIdx = index;
 					}
-				}
+				});
 				status = statusIdx ? jobInfo.rows[0][statusIdx] : '';
 				percentage = percentageIdx ? jobInfo.rows[0][percentageIdx] : '';
 			}
@@ -3845,10 +3840,10 @@ module.exports.browseSitesOnServer = function (request, server, fApplication) {
 
 			var fields = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.fields || [];
 			var rows = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.rows;
-			var sites = []
-			for (var j = 0; j < rows.length; j++) {
+			var sites = [];
+			rows.forEach(function (row) {
 				sites.push({});
-			}
+			});
 			for (var i = 0; i < fields.length; i++) {
 				var attr = fields[i].name;
 				for (var j = 0; j < rows.length; j++) {
@@ -3859,23 +3854,25 @@ module.exports.browseSitesOnServer = function (request, server, fApplication) {
 			var mFields = data.ResultSets && data.ResultSets.dSiteMetaCollection && data.ResultSets.dSiteMetaCollection.fields || [];
 			var mRows = data.ResultSets && data.ResultSets.dSiteMetaCollection && data.ResultSets.dSiteMetaCollection.rows || [];
 			var siteMetadata = [];
-			for (var j = 0; j < mRows.length; j++) {
+			mRows.forEach(function (row) {
 				siteMetadata.push({});
-			}
-			for (var i = 0; i < mFields.length; i++) {
-				var attr = mFields[i].name;
-				for (var j = 0; j < mRows.length; j++) {
-					siteMetadata[j][attr] = mRows[j][i];
-				}
-			}
-			for (var i = 0; i < sites.length; i++) {
-				for (var j = 0; j < siteMetadata.length; j++) {
-					if (sites[i].fFolderGUID === siteMetadata[j].dIdentifier) {
-						Object.assign(sites[i], siteMetadata[j]);
-						break;
+			});
+			(function () {
+				for (var i = 0; i < mFields.length; i++) {
+					var attr = mFields[i].name;
+					for (var j = 0; j < mRows.length; j++) {
+						siteMetadata[j][attr] = mRows[j][i];
 					}
 				}
-			}
+				sites.forEach(function (site) {
+					for (var j = 0; j < siteMetadata.length; j++) {
+						if (site.fFolderGUID === siteMetadata[j].dIdentifier) {
+							Object.assign(site, siteMetadata[j]);
+							break;
+						}
+					}
+				});
+			})();
 			resolve({
 				data: sites
 			});
@@ -3939,10 +3936,10 @@ module.exports.browseComponentsOnServer = function (request, server) {
 
 			var fields = data.ResultSets && data.ResultSets.AppInfo && data.ResultSets.AppInfo.fields || [];
 			var rows = data.ResultSets && data.ResultSets.AppInfo && data.ResultSets.AppInfo.rows;
-			var comps = []
-			for (var j = 0; j < rows.length; j++) {
+			var comps = [];
+			rows.forEach(function (row) {
 				comps.push({});
-			}
+			});
 			for (var i = 0; i < fields.length; i++) {
 				var attr = fields[i].name;
 				for (var j = 0; j < rows.length; j++) {
@@ -3954,23 +3951,25 @@ module.exports.browseComponentsOnServer = function (request, server) {
 			var mFields = data.ResultSets && data.ResultSets.dAppMetaCollection && data.ResultSets.dAppMetaCollection.fields || [];
 			var mRows = data.ResultSets && data.ResultSets.dAppMetaCollection && data.ResultSets.dAppMetaCollection.rows || [];
 			var appMetadata = [];
-			for (var j = 0; j < mRows.length; j++) {
-				appMetadata.push({});
-			}
-			for (var i = 0; i < mFields.length; i++) {
-				var attr = mFields[i].name;
-				for (var j = 0; j < mRows.length; j++) {
-					appMetadata[j][attr] = mRows[j][i];
-				}
-			}
-			for (var i = 0; i < comps.length; i++) {
-				for (var j = 0; j < appMetadata.length; j++) {
-					if (comps[i].fFolderGUID === appMetadata[j].dIdentifier) {
-						Object.assign(comps[i], appMetadata[j]);
-						break;
+			(function () {
+				mRows.forEach(function (row) {
+					appMetadata.push({});
+				});
+				for (var i = 0; i < mFields.length; i++) {
+					var attr = mFields[i].name;
+					for (var j = 0; j < mRows.length; j++) {
+						appMetadata[j][attr] = mRows[j][i];
 					}
 				}
-			}
+				comps.forEach(function (comp) {
+					for (var j = 0; j < appMetadata.length; j++) {
+						if (comp.fFolderGUID === appMetadata[j].dIdentifier) {
+							Object.assign(comp, appMetadata[j]);
+							break;
+						}
+					}
+				});
+			})();
 
 			resolve({
 				data: comps
@@ -4040,10 +4039,10 @@ var _browseThemesOnServer = function (request, server, params) {
 
 			var fields = data.ResultSets && data.ResultSets.ThemeInfo && data.ResultSets.ThemeInfo.fields || [];
 			var rows = data.ResultSets && data.ResultSets.ThemeInfo && data.ResultSets.ThemeInfo.rows;
-			var themes = []
-			for (var j = 0; j < rows.length; j++) {
+			var themes = [];
+			rows.forEach(function (row) {
 				themes.push({});
-			}
+			});
 			for (var i = 0; i < fields.length; i++) {
 				var attr = fields[i].name;
 				for (var j = 0; j < rows.length; j++) {
@@ -4112,10 +4111,10 @@ var _browseCollectionsOnServer = function (request, server, params) {
 
 			var fields = data.ResultSets && data.ResultSets.Collections && data.ResultSets.Collections.fields || [];
 			var rows = data.ResultSets && data.ResultSets.Collections && data.ResultSets.Collections.rows || [];
-			var collections = []
-			for (var j = 0; j < rows.length; j++) {
+			var collections = [];
+			rows.forEach(function (row) {
 				collections.push({});
-			}
+			});
 			for (var i = 0; i < fields.length; i++) {
 				var attr = fields[i].name;
 				for (var j = 0; j < rows.length; j++) {
@@ -4180,10 +4179,10 @@ module.exports.browseTranslationConnectorsOnServer = function (request, server) 
 
 			var fields = data.ResultSets && data.ResultSets.ConnectorInstanceInfo && data.ResultSets.ConnectorInstanceInfo.fields || [];
 			var rows = data.ResultSets && data.ResultSets.ConnectorInstanceInfo && data.ResultSets.ConnectorInstanceInfo.rows;
-			var connectors = []
-			for (var j = 0; j < rows.length; j++) {
+			var connectors = [];
+			rows.forEach(function (row) {
 				connectors.push({});
-			}
+			});
 			for (var i = 0; i < fields.length; i++) {
 				var attr = fields[i].name;
 				for (var j = 0; j < rows.length; j++) {
@@ -4290,7 +4289,7 @@ module.exports.getServerVersion = function (request, server) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 
 			var cecVersion, cecVersion2;
 			if (isPod) {
@@ -4334,6 +4333,89 @@ module.exports.getServerVersion = function (request, server) {
 			// console.log(' CEC server: ' + server.url + '  version: ' + cecVersion);
 			return resolve({
 				version: cecVersion
+			});
+		});
+	});
+};
+
+/**
+ * Recursively get the files in a given directory
+ */
+var _paths = function (dir) {
+	return new Promise(function (resolve, reject) {
+		fsp.readdir(dir).then((files) => {
+			Promise.all(files.map((file) => {
+				return new Promise(function (resolve, reject) {
+					file = path.join(dir, file);
+					fsp.stat(file).then((stat) => {
+						if (stat.isDirectory()) {
+							_paths(file).then((results) => {
+								results.dirs.push(file);
+								resolve(results);
+							}).catch((error) => {
+								resolve({
+									files: [],
+									dirs: []
+								});
+							});
+						} else {
+							resolve({
+								files: [file],
+								dirs: []
+							});
+						}
+					});
+				});
+			})).then(function (results) {
+				resolve({
+					files: [].concat.apply([], _.pluck(results, "files")),
+					dirs: [].concat.apply([], _.pluck(results, "dirs")),
+				});
+			});
+		}).catch((error) => reject(error));
+	});
+};
+module.exports.paths = function(dir, callback) {
+	_paths(dir).then((paths) => {
+		callback(null, paths);
+	}).catch((error) => {
+		callback(error);
+	});
+};
+
+/**
+ * Following an unzip, remove the one child directory inside the given dir.
+ * For example, after unzipping subdir.zip into dir, you may have this:
+ *   dir/subdir/files*
+ * calling stripTopDirectory(dir) results in
+ *   dir/files*
+ */
+module.exports.stripTopDirectory = function(dir) {
+	return new Promise(function (resolve, reject) {
+		fsp.readdir(dir).then((children) => {
+			// verify that the given directory has just a single child directory
+			if (children.length != 1) {
+				reject("dir should contain only a single sub-directory");
+			}
+			var subdir = path.join(dir, children[0]);
+			fsp.stat(subdir).then((stat) => {
+				if (!stat.isDirectory()) {
+					reject("dir should contain only a single sub-directory");
+				}
+				// get the files in the subdir
+				fsp.readdir(subdir).then((children) => {
+					Promise.all(children.map((child) => {
+						// move each child into dir
+						var srcfile = path.join(subdir, child);
+						var tgtfile = path.join(dir, child);
+						return fse.move(srcfile, tgtfile);
+					})).then(() => {
+						// finally remove the empty subdir
+						fse.remove(subdir).then(() => {
+							resolve();
+						});
+					});
+				});
 			});
 		});
 	});

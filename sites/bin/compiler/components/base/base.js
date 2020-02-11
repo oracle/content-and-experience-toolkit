@@ -125,9 +125,11 @@ Base.prototype.computeVisibilty = function () {
 		isVisible = viewModel.visible; // default to desktop visibility
 
 	// check if visible on mobile
-	if (isVisible && typeof viewModel.visibleOnMobile === 'boolean') {
-		// must be visible on both desktop and mobile
-		isVisible = viewModel.visibleOnMobile;
+	if (process.env.scsIsMobile) {
+		if (typeof viewModel.visibleOnMobile === 'boolean') {
+			// override with visibility on mobile device
+			isVisible = viewModel.visibleOnMobile;
+		}
 	}
 
 	// now check it has necessary visual attributes to render

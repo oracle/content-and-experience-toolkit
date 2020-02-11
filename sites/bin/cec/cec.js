@@ -127,7 +127,7 @@ var getSiteActions = function () {
 };
 
 var getContentActions = function () {
-	const actions = ['publish', 'unpublish', 'remove'];
+	const actions = ['publish', 'unpublish', 'add', 'remove'];
 	return actions;
 };
 
@@ -395,7 +395,7 @@ const createTemplate = {
 		'long': (function () {
 			let desc = 'Creates the template <name>. By default, it creates a StarterTemplate. Optionally specify -f <source> to create from different source.\n\nValid values for <source> are: \n';
 			desc = getTemplateSources().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			desc = desc + os.EOL + ' To create template based on a site on CEC server, specify -s <site> and specify the server with -r <server> or use the one specified in cec.properties file.'
+			desc = desc + os.EOL + ' To create template based on a site on CEC server, specify -s <site> and specify the server with -r <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -553,10 +553,11 @@ const compileTemplate = {
 				'Optionally specify -c <channelToken> to use this channelToken when generating any content URLs.\n' +
 				'Optionally specify -t <contentType> [draft | published] content to retrieve from the server type, defaults to published.\n' +
 				'Optionally specify -p <pages> the set of pages to compile.\n' +
-				'Optionally specify -d to start the compilation with --inspect-brk flag.\n' +
-				'Optionally specify -r recurse through all child pages of specified pages.\n' +
-				'Optionally specify -l include default locale when creating pages.\n' +
-				'Optionally specify -v to display all warning messages during compilation.\n';
+				'Optionally specify -d <debug> to start the compilation with --inspect-brk flag.\n' +
+				'Optionally specify -r <recurse> recurse through all child pages of specified pages.\n' +
+				'Optionally specify -l <includeLocale> include default locale when creating pages.\n' +
+				'Optionally specify -a <targetDevice> [desktop | mobile] target device type when using adaptive layouts.\n' +
+				'Optionally specify -v <verbose> to display all warning messages during compilation.\n';
 			return desc;
 		})()
 	},
@@ -678,6 +679,48 @@ const removeContentLayoutMapping = {
 	]
 };
 
+const addFieldEditor = {
+	command: 'add-field-editor <name>',
+	alias: 'afe',
+	name: 'add-field-editor',
+	usage: {
+		'short': 'Adds a field editor to a field in a content type.',
+		'long': (function () {
+			let desc = 'Adds a field editor to a field in a content type. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec add-field-editor editor1 -t BlogTemplate -c BlogPost -f summary',
+			'Use editor1 as the appearance for field summary in content type BlogPost from local template at src/templates/BlogTemplate'
+		],
+		['cec add-field-editor editor1 -t BlogTemplateContent -n -c BlogPost -f summary',
+			'Use editor1 as the appearance for field summary in content type BlogPost from local template at src/content/BlogTemplateContent'
+		]
+	]
+};
+
+const removeFieldEditor = {
+	command: 'remove-field-editor <name>',
+	alias: 'rfe',
+	name: 'remove-field-editor',
+	usage: {
+		'short': 'Removes a field editor from a field in a content type.',
+		'long': (function () {
+			let desc = 'Removes a field editor from a field in a content type. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec remove-field-editor editor1 -t BlogTemplate -c BlogPost -f summary',
+			'Remove editor1 as the appearance for field summary in content type BlogPost from local template at src/templates/BlogTemplate'
+		],
+		['cec remove-field-editor editor1 -t BlogTemplateContent -n -c BlogPost -f summary',
+			'Remove editor1 as the appearance for field summary in content type BlogPost from local template at src/content/BlogTemplateContent'
+		]
+	]
+};
+
 const downloadContent = {
 	command: 'download-content <channel>',
 	alias: 'dlc',
@@ -737,6 +780,7 @@ const controlContent = {
 		['cec control-content publish -c Channel1', 'Publish all items in channel Channel1 on the server specified in cec.properties file'],
 		['cec control-content publish -c Channel1 -s UAT', 'Publish all items in channel Channel1 on the registered server UAT'],
 		['cec control-content unpublish -c Channel1 -s UAT', 'Unpublish all items in channel Channel1 on the registered server UAT'],
+		['cec control-content add -c Channel1 -r Repo1 -s UAT', 'Add all items in repository Repo1 to channel Channel1 on the registered server UAT'],
 		['cec control-content remove -c Channel1 -s UAT', 'Remove all items in channel Channel1 on the registered server UAT']
 	]
 };
@@ -1949,7 +1993,6 @@ const createGroup = {
 			let desc = 'Creates an OCE group on OCE server. Specify the server with -s <server>. ' +
 				'Set the group type with -t <type>. The valid group types are\n\n';
 			return getGroupTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			return desc;
 		})()
 	},
 	example: [
@@ -2122,6 +2165,8 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
 	_getCmdHelp(addContentLayoutMapping) + os.EOL +
 	_getCmdHelp(removeContentLayoutMapping) + os.EOL +
+	_getCmdHelp(addFieldEditor) + os.EOL +
+	_getCmdHelp(removeFieldEditor) + os.EOL +
 	_getCmdHelp(migrateContent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
@@ -2489,10 +2534,10 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: 'The registered CEC server'
 				}).option('channelToken', {
 					alias: 'c',
-					description: '<channelToken> The channel access token to use for content URLs'
+					description: 'The channel access token to use for content URLs'
 				})
 				.option('type', {
 					alias: 't',
@@ -2518,6 +2563,10 @@ const argv = yargs.usage(_usage)
 					alias: 'o',
 					description: 'Do not generate compiled detail page for items/content lists that use the default detail page'
 				})
+				.option('targetDevice', {
+					alias: 'a',
+					description: 'The target device type when using adaptive layouts [desktop | mobile]'
+				})
 				.option('includeLocale', {
 					alias: 'l',
 					description: 'Include default locale when creating pages'
@@ -2529,6 +2578,8 @@ const argv = yargs.usage(_usage)
 				.check((argv) => {
 					if (argv.type && argv.type !== 'draft' && argv.type !== 'published') {
 						throw new Error(`${argv.type} is not a valid value for <type>`);
+					} else if (argv.targetDevice && argv.targetDevice !== 'mobile' && argv.targetDevice !== 'desktop') {
+						throw new Error(`${argv.targetDevice} is not a valid value for <targetDevice>`);
 					} else if (argv.server && !argv.channelToken) {
 						throw new Error(`Specifying calls to <server>: ${argv.server} for content queries also requires <channelToken> to also be specified.`);
 					} else if (argv.type && argv.type !== 'published' && !argv.server) {
@@ -2758,6 +2809,62 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${removeContentLayoutMapping.command}\n\n${removeContentLayoutMapping.usage.long}`);
 		})
+	.command([addFieldEditor.command, addFieldEditor.alias], false,
+		(yargs) => {
+			yargs.option('template', {
+					alias: 't',
+					description: 'The template the content type is from',
+					demandOption: true
+				})
+				.option('contenttype', {
+					alias: 'c',
+					description: 'The content type',
+					demandOption: true
+				})
+				.option('field', {
+					alias: 'f',
+					description: 'The field the field editor is for',
+					demandOption: true
+				})
+				.option('contenttemplate', {
+					alias: 'n',
+					description: 'Flag to indicate the template is a content template'
+				})
+				.example(...addFieldEditor.example[0])
+				.example(...addFieldEditor.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${addFieldEditor.command}\n\n${addFieldEditor.usage.long}`);
+		})
+	.command([removeFieldEditor.command, removeFieldEditor.alias], false,
+		(yargs) => {
+			yargs.option('template', {
+					alias: 't',
+					description: 'The template the content type is from',
+					demandOption: true
+				})
+				.option('contenttype', {
+					alias: 'c',
+					description: 'The content type',
+					demandOption: true
+				})
+				.option('field', {
+					alias: 'f',
+					description: 'The field the field editor is for',
+					demandOption: true
+				})
+				.option('contenttemplate', {
+					alias: 'n',
+					description: 'Flag to indicate the template is a content template'
+				})
+				.example(...removeFieldEditor.example[0])
+				.example(...removeFieldEditor.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${removeFieldEditor.command}\n\n${removeFieldEditor.usage.long}`);
+		})
 	.command([downloadContent.command, downloadContent.alias], false,
 		(yargs) => {
 			yargs.option('publishedassets', {
@@ -2859,26 +2966,34 @@ const argv = yargs.usage(_usage)
 	.command([controlContent.command, controlContent.alias], false,
 		(yargs) => {
 			yargs
-				.check((argv) => {
-					if (argv.action && !getContentActions().includes(argv.action)) {
-						throw new Error(`${argv.action} is not a valid value for <action>`);
-					} else {
-						return true;
-					}
-				})
 				.option('channel', {
 					alias: 'c',
-					description: '<channel> Channel',
+					description: 'Channel',
 					demandOption: true
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'Repository, required when <action> is add'
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: 'The registered CEC server'
 				})
+				.check((argv) => {
+					if (argv.action && !getContentActions().includes(argv.action)) {
+						throw new Error(`${argv.action} is not a valid value for <action>`);
+					}
+					if (argv.action === 'add' && !argv.repository) {
+						throw new Error('Please specify repository to add content items to the channel');
+					}
+					return true;
+				})
+				
 				.example(...controlContent.example[0])
 				.example(...controlContent.example[1])
 				.example(...controlContent.example[2])
 				.example(...controlContent.example[3])
+				.example(...controlContent.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -4582,7 +4697,7 @@ const argv = yargs.usage(_usage)
 								throw new Error('Please specify scope <scope>');
 							}
 						}
-						if (argv.timeout && (!Number.isInteger(argv.timeout) || argv.timeout < 30000))  {
+						if (argv.timeout && (!Number.isInteger(argv.timeout) || argv.timeout < 30000)) {
 							throw new Error('Value for timeout should be an integer greater than 30000');
 						}
 					}
@@ -5151,6 +5266,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.verbose) {
 		compileTemplateArgs.push(...['--verbose', argv.verbose]);
 	}
+	if (argv.targetDevice) {
+		compileTemplateArgs.push(...['--targetDevice', argv.targetDevice]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, compileTemplateArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -5265,6 +5383,42 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === addFieldEditor.name || argv._[0] === addFieldEditor.alias) {
+	let addFieldEditorArgs = ['run', '-s', addFieldEditor.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--template', argv.template,
+		'--contenttype', argv.contenttype,
+		'--field', argv.field
+	];
+	if (argv.contenttemplate) {
+		addFieldEditorArgs.push(...['--contenttemplate', argv.contenttemplate]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, addFieldEditorArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === removeFieldEditor.name || argv._[0] === removeFieldEditor.alias) {
+	let removeFieldEditorArgs = ['run', '-s', removeFieldEditor.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--template', argv.template,
+		'--contenttype', argv.contenttype,
+		'--field', argv.field
+	];
+	if (argv.contenttemplate) {
+		removeFieldEditorArgs.push(...['--contenttemplate', argv.contenttemplate]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, removeFieldEditorArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === downloadContent.name || argv._[0] === downloadContent.alias) {
 	let downloadContentArgs = ['run', '-s', downloadContent.name, '--prefix', appRoot,
 		'--',
@@ -5334,6 +5488,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--action', argv.action,
 		'--channel', argv.channel
 	];
+	if (argv.repository) {
+		controlContentArgs.push(...['--repository', argv.repository]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlContentArgs.push(...['--server', argv.server]);
 	}

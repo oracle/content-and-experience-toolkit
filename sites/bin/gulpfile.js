@@ -77,8 +77,8 @@ gulp.task('install-src', function (done) {
 	if (version0.startsWith('v')) {
 		version0 = version0.substring(1);
 	}
-	if (version0 < 8) {
-		console.log('ERROR: requires Node version 8 or above, please upgrade');
+	if (version0 < 10) {
+		console.log('ERROR: requires Node version 10 or above, please upgrade');
 		done();
 		return;
 	}
@@ -207,14 +207,14 @@ gulp.task('sync-server', function (done) {
 		console.log('ERROR: source server ' + srcServerName + ' does not exist');
 		done();
 		return;
-	};
+	}
 
 	var destServerName = argv.destination;
 	if (!fs.existsSync(path.join(serversSrcDir, destServerName, 'server.json'))) {
 		console.log('ERROR: destination server ' + destServerName + ' does not exist');
 		done();
 		return;
-	};
+	}
 
 	var port = argv.port || '8086';
 	process.env['CEC_TOOLKIT_SYNC_PORT'] = port;
@@ -340,7 +340,7 @@ gulp.task('compilation-server', function (done) {
 		console.log('ERROR: source server ' + srcServerName + ' does not exist');
 		done();
 		return;
-	};
+	}
 
 	var port = argv.port || '8087';
 	process.env['CEC_TOOLKIT_COMPILATION_PORT'] = port;
@@ -700,6 +700,31 @@ gulp.task('remove-contentlayout-mapping', function (done) {
 		done();
 	});
 });
+
+/**
+ * Add field editor to a content type field in a template
+ */
+gulp.task('add-field-editor', function (done) {
+	'use strict';
+
+	contentlayoutlib.addFieldEditor(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Remove field editor from a content type field in a template
+ */
+gulp.task('remove-field-editor', function (done) {
+	'use strict';
+
+	contentlayoutlib.removeFieldEditor(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
 
 /**
  * Create template
@@ -1647,7 +1672,7 @@ gulp.task('check-version', function (done) {
 			data = JSON.parse(body);
 		} catch (e) {
 			data = body;
-		};
+		}
 
 		var cecVersion, cecVersion2;
 		if (isPod) {

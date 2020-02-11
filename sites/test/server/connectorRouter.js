@@ -8,7 +8,6 @@
  * Router handling /pxysvs requests
  */
 var express = require('express'),
-	btoa = require('btoa'),
 	fs = require('fs'),
 	serverUtils = require('./serverUtils.js'),
 	router = express.Router(),
@@ -61,7 +60,7 @@ router.get('/*', (req, res) => {
 		return;
 	}
 	
-	var basicAuth = 'Basic ' + btoa(connector.user + ':' + connector.password);
+	var basicAuth = 'Basic ' + serverUtils.btoa(connector.user + ':' + connector.password);
 	var headers = {};
 	headers['Authorization'] = basicAuth;
 	for (var i = 0; i < connector.fields.length; i++) {
@@ -191,7 +190,7 @@ router.post('/*', (req, res) => {
 
 	var formData = {};
 
-	var basicAuth = 'Basic ' + btoa(connector.user + ':' + connector.password);
+	var basicAuth = 'Basic ' + serverUtils.btoa(connector.user + ':' + connector.password);
 	var headers = {};
 	headers['Authorization'] = basicAuth;
 	for (var i = 0; i < connector.fields.length; i++) {
@@ -284,7 +283,7 @@ router.delete('/*', (req, res) => {
 		return;
 	}
 
-	var basicAuth = 'Basic ' + btoa(connector.user + ':' + connector.password);
+	var basicAuth = 'Basic ' + serverUtils.btoa(connector.user + ':' + connector.password);
 	var headers = {};
 	headers['Authorization'] = basicAuth;
 	for (var i = 0; i < connector.fields.length; i++) {

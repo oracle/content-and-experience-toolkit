@@ -5,7 +5,6 @@
 /* global module, process */
 /* jshint esversion: 6 */
 var request = require('request'),
-	btoa = require('btoa'),
 	os = require('os'),
 	readline = require('readline'),
 	serverUtils = require('./serverUtils');
@@ -138,7 +137,7 @@ var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
 				}
 			}
 			resolve(parentFolder);
-		})
+		});
 	});
 };
 /**
@@ -218,7 +217,7 @@ var _getChildItems = function (server, parentID, limit) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
@@ -265,7 +264,7 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				// find the requested folder
 				var items = (data && data.items || []);
@@ -342,7 +341,7 @@ var _createFile = function (server, parentID, filename, contents) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
 			} else {
@@ -391,7 +390,7 @@ var _readFile = function (server, fFileGUID) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
@@ -437,7 +436,7 @@ var _getFile = function (server, id) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
@@ -565,7 +564,7 @@ var _getFileVersions = function (server, fFileGUID) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
@@ -611,7 +610,7 @@ var _getItem = function (server, id, expand) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				return resolve(data);
 			} else {
@@ -657,7 +656,7 @@ var _getItemRelationships = function (server, id) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				var referenceIds = [];
 				var referencedByIds = [];
@@ -720,7 +719,7 @@ var _getItemVariations = function (server, id) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				return resolve({
 					id: id,
@@ -788,7 +787,7 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				return resolve({
 					data: data && data.items,
@@ -859,9 +858,9 @@ var _createCollection = function (server, repositoryId, name, channels) {
 					var data;
 					try {
 						data = JSON.parse(body);
-					} catch (error) {
+					} catch (err) {
 						data = body;
-					};
+					}
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
@@ -905,7 +904,7 @@ var _createChannel = function (server, name, channelType, description, publishPo
 					'publishPolicy': publishPolicy || 'anythingPublished'
 				};
 				if (localizationPolicy) {
-					payload.localizationPolicy = localizationPolicy
+					payload.localizationPolicy = localizationPolicy;
 				}
 
 				var url = server.url + '/content/management/api/v1.1/channels';
@@ -934,9 +933,9 @@ var _createChannel = function (server, name, channelType, description, publishPo
 					var data;
 					try {
 						data = JSON.parse(body);
-					} catch (error) {
+					} catch (err) {
 						data = body;
-					};
+					}
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
@@ -999,9 +998,9 @@ var _deleteChannel = function (server, id) {
 					var data;
 					try {
 						data = JSON.parse(body);
-					} catch (error) {
+					} catch (err) {
 						data = body;
-					};
+					}
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
@@ -1073,9 +1072,9 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 					var data;
 					try {
 						data = JSON.parse(body);
-					} catch (error) {
+					} catch (err) {
 						data = body;
-					};
+					}
 
 					if (response && response.statusCode === 200) {
 						resolve(data);
@@ -1128,7 +1127,7 @@ var _getChannels = function (server) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
@@ -1173,7 +1172,7 @@ var _getChannel = function (server, channelId) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
@@ -1262,7 +1261,7 @@ var _getChannelItems = function (server, channelToken, fields) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
@@ -1288,7 +1287,7 @@ module.exports.getChannelItems = function (args) {
 };
 
 // perform bulk operation on items in a channel from server
-var _opChannelItems = function (server, operation, channelIds, itemIds, queryString) {
+var _opChannelItems = function (server, operation, channelIds, itemIds, queryString, async) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -1344,15 +1343,19 @@ var _opChannelItems = function (server, operation, channelIds, itemIds, queryStr
 				};
 				// console.log(JSON.stringify(formData));
 
+				var headers = {
+					'Content-Type': 'application/json',
+					'X-CSRF-TOKEN': csrfToken,
+					'X-REQUESTED-WITH': 'XMLHttpRequest'
+				};
+				if (async && async === 'true') {
+					headers.Prefer = 'respond-async';
+				}
 				var postData = {
 					method: 'POST',
 					url: url,
 					auth: auth,
-					headers: {
-						'Content-Type': 'application/json',
-						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
-					},
+					headers: headers,
 					body: formData,
 					json: true
 				};
@@ -1371,7 +1374,7 @@ var _opChannelItems = function (server, operation, channelIds, itemIds, queryStr
 						data = JSON.parse(body);
 					} catch (e) {
 						data = body;
-					};
+					}
 
 					if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
 						var statusId = response.headers && response.headers.location || '';
@@ -1426,7 +1429,8 @@ module.exports.unpublishChannelItems = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.removeItemsFromChanel = function (args) {
-	return _opChannelItems(args.server, 'removeChannels', [args.channelId], args.itemIds);
+	var async = args.async ? args.async : 'false';
+	return _opChannelItems(args.server, 'removeChannels', [args.channelId], args.itemIds, '', async);
 };
 
 /**
@@ -1438,7 +1442,8 @@ module.exports.removeItemsFromChanel = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.addItemsToChanel = function (args) {
-	return _opChannelItems(args.server, 'addChannels', [args.channelId], args.itemIds);
+	var async = args.async ? args.async : 'false';
+	return _opChannelItems(args.server, 'addChannels', [args.channelId], args.itemIds, '', async);
 };
 
 /**
@@ -1465,7 +1470,7 @@ module.exports.validateChannelItems = function (args) {
 };
 
 var _getItemOperationStatus = function (server, statusId) {
-	return statusPromise = new Promise(function (resolve, reject) {
+	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/bulkItemsOperations/' + statusId;
 		var options = {
 			method: 'GET',
@@ -1485,7 +1490,7 @@ var _getItemOperationStatus = function (server, statusId) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
 				resolve(data);
 			} else {
@@ -1593,7 +1598,7 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 						data = JSON.parse(body);
 					} catch (e) {
 						data = body;
-					};
+					}
 
 					if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
 						var statusId = response.headers && response.headers.location || '';
@@ -1678,7 +1683,7 @@ var _getLocalizationPolicies = function (server) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
@@ -1723,7 +1728,7 @@ var _getLocalizationPolicy = function (server, id) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				return resolve(data);
 			} else {
@@ -1789,9 +1794,9 @@ var _createLocalizationPolicy = function (server, name, description, requiredLan
 					var data;
 					try {
 						data = JSON.parse(body);
-					} catch (error) {
+					} catch (err) {
 						data = body;
-					};
+					}
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
@@ -1844,7 +1849,7 @@ var _getRepositories = function (server) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
@@ -1889,7 +1894,7 @@ var _getRepository = function (server, repoId) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
@@ -1973,7 +1978,7 @@ var _getCollections = function (server, repositoryId) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
@@ -2058,7 +2063,7 @@ var _getResourcePermissions = function (server, id, type) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve({
 					resource: id,
@@ -2132,16 +2137,16 @@ var _createRepository = function (server, name, description, contentTypes, chann
 							err: 'err'
 						});
 					}
+					var data;
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
-						var data;
 						try {
 							data = JSON.parse(body);
-						} catch (error) {
+						} catch (err) {
 							data = body;
-						};
+						}
 						resolve(data);
 					} else {
-						var msg = data && data.detail ? data.detail : response.statusMessage || response.statusCode;
+						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
 						console.log('Failed to create repository ' + name + ' - ' + msg);
 						resolve({
 							err: 'err'
@@ -2208,9 +2213,9 @@ var _updateRepository = function (server, repository, contentTypes, channels) {
 						var data;
 						try {
 							data = JSON.parse(body);
-						} catch (error) {
+						} catch (err) {
 							data = body;
-						};
+						}
 						resolve(data);
 					} else {
 						console.log('Failed to update repository repository ' + repository.name + ' - ' + response.statusMessage);
@@ -2317,7 +2322,7 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 						data = JSON.parse(body);
 					} catch (e) {
 						data = body;
-					};
+					}
 
 					if (response && response.statusCode === 200) {
 						var failedRoles = data && data.operations[operation] && data.operations[operation].failedRoles;
@@ -2388,7 +2393,7 @@ var _getContentType = function (server, typeName) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
@@ -2433,7 +2438,7 @@ var _getUser = function (server, userName) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
@@ -2478,7 +2483,7 @@ var _getFolderUsers = function (server, folderId) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				var users = [];
 				if (data && data.items && data.items.length > 0) {
@@ -2642,7 +2647,7 @@ var _getGroups = function (server) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
@@ -2687,12 +2692,12 @@ var _getGroupMembers = function (server, id, name) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
 				var msg = response.statusMessage || response.statusCode;
-				console.log('ERROR: failed to get members of group '(name || id) + ' : ' + msg);
+				console.log('ERROR: failed to get members of group ' + (name || id) + ' : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -2716,9 +2721,9 @@ var _createConnection = function (request, server) {
 		var url = server.url + '/osn/social/api/v1/connections';
 		/*
 		var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
-			'Basic ' + btoa(server.username + ':' + server.password);
+			'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
 			*/
-		var auth = 'Basic ' + btoa(server.username + ':' + server.password);
+		var auth = 'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
 		var postData = {
 			method: 'POST',
 			url: url,
@@ -2739,7 +2744,7 @@ var _createConnection = function (request, server) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			// console.log(data);
 			if (response && response.statusCode === 200) {
 				resolve(data);
@@ -2775,7 +2780,7 @@ var _createGroup = function (request, server, name, type) {
 				} else {
 					var url = server.url + '/osn/social/api/v1/groups';
 					var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
-						'Basic ' + btoa(server.username + ':' + server.password);
+						'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
 					var payload = {
 						name: name,
 						groupType: type
@@ -2804,7 +2809,7 @@ var _createGroup = function (request, server, name, type) {
 							data = JSON.parse(body);
 						} catch (e) {
 							data = body;
-						};
+						}
 
 						if (response && response.statusCode === 200) {
 							resolve(data);
@@ -2842,7 +2847,7 @@ var _deleteGroup = function (request, server, id, name) {
 				} else {
 					var url = server.url + '/osn/social/api/v1/groups/' + id;
 					var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
-						'Basic ' + btoa(server.username + ':' + server.password);
+						'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
 
 					var postData = {
 						method: 'DELETE',
@@ -2866,7 +2871,7 @@ var _deleteGroup = function (request, server, id, name) {
 							data = JSON.parse(body);
 						} catch (e) {
 							data = body;
-						};
+						}
 
 						if (response && response.statusCode === 200) {
 							resolve({});
@@ -2897,7 +2902,7 @@ var _addMemberToGroup = function (request, server, apiRandomID, id, name, member
 
 		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members';
 		var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
-			'Basic ' + btoa(server.username + ':' + server.password);
+			'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
 		var payload = {
 			member: memberName,
 			role: role,
@@ -2927,7 +2932,7 @@ var _addMemberToGroup = function (request, server, apiRandomID, id, name, member
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			// console.log(data);
 			if (response && response.statusCode === 200) {
 				resolve(data);
@@ -2980,7 +2985,7 @@ var _removeMemberFromGroup = function (request, server, apiRandomID, id, name, m
 
 		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members/' + memberId;
 		var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
-			'Basic ' + btoa(server.username + ':' + server.password);
+			'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
 
 		var postData = {
 			method: 'DELETE',
@@ -3004,7 +3009,7 @@ var _removeMemberFromGroup = function (request, server, apiRandomID, id, name, m
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			// console.log(data);
 			if (response && response.statusCode === 200) {
 				resolve(data);

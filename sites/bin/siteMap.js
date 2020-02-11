@@ -52,7 +52,7 @@ var verifyRun = function (argv) {
 	serversSrcDir = path.join(srcfolder, 'servers');
 
 	return true;
-}
+};
 
 var localServer;
 var _cmdEnd = function (done, success) {
@@ -322,7 +322,7 @@ var _readFile = function (server, id, fileName) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve({
 					id: fileName.substring(0, fileName.indexOf('.')),
@@ -750,14 +750,14 @@ var _getMasterPageData = function (pageid) {
  * @param {*} siteInfo 
  * @param {*} pages 
  */
-var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq, toppagepriority,
+var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, changefreq, toppagepriority,
 	siteMapFile, newlink, noDefaultDetailPageLink) {
 
 	var prefix = siteUrl;
 	if (prefix.substring(prefix.length - 1) === '/') {
 		prefix = prefix.substring(0, prefix.length - 1);
 	}
-	
+
 	var detailPageUrl;
 	var urls = [];
 	var months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
@@ -771,7 +771,8 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 		var masterPageData = _getMasterPageData(pageId);
 		var properties = masterPageData && masterPageData.properties;
 		var noIndex = properties && properties.noIndex;
-		if (!pages[i].isDetailPage && !noIndex) {
+		var isExternalLink = pages[i].linkUrl && pages[i].linkUrl.indexOf(server.url) < 0;
+		if (!pages[i].isDetailPage && !noIndex && !isExternalLink) {
 
 			var includeLocale = pages[i].locale && pages[i].locale !== _SiteInfo.defaultLanguage;
 			
@@ -807,8 +808,9 @@ var _generateSiteMapXML = function (siteUrl, pages, pageFiles, items, changefreq
 			}
 
 			// console.log('page: ' + pages[i].id + ' parent: ' + pages[i].parentId + ' url: ' + pages[i].pageUrl + ' priority: ' + priority + ' lastmod: ' + lastmod);
+			var loc = pages[i].linkUrl || (prefix + '/' + (includeLocale ? (pages[i].locale + '/') : '') + pages[i].pageUrl);
 			urls.push({
-				loc: prefix + '/' + (includeLocale ? (pages[i].locale + '/') : '') + pages[i].pageUrl,
+				loc: loc,
 				lastmod: lastmod,
 				priority: priority,
 				changefreq: pageChangefreq
@@ -1387,6 +1389,7 @@ var _createSiteMap = function (server, serverName, request, localhost, site, sit
 							page.pageUrl = masterPages[j].pageUrl;
 							page.isDetailPage = masterPages[j].isDetailPage;
 							page.parentId = masterPages[j].parentId;
+							page.linkUrl = masterPages[j].linkUrl;
 							break;
 						}
 					}
@@ -1411,7 +1414,7 @@ var _createSiteMap = function (server, serverName, request, localhost, site, sit
 			//
 			// create site map
 			//
-			_generateSiteMapXML(siteUrl, allPages, allPageFiles, allItems, changefreq, toppagepriority, siteMapFile, newlink, noDefaultDetailPageLink);
+			_generateSiteMapXML(server, siteUrl, allPages, allPageFiles, allItems, changefreq, toppagepriority, siteMapFile, newlink, noDefaultDetailPageLink);
 
 			if (publish) {
 				// Upload site map to the server

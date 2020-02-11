@@ -62,7 +62,7 @@ var verifyRun = function (argv) {
 	componentsBuildDir = path.join(buildfolder, 'components');
 
 	return true;
-}
+};
 
 var _getRequest = function () {
 	var request = require('request');
@@ -879,10 +879,11 @@ module.exports.describeTemplate = function (argv, done) {
 	}
 
 	// Content layout mapping
-	console.log('Content Layout mappings:');
-	var contentmapfile = path.join(tempSrcDir, 'caas_contenttypemap.json');
+	console.log('Content Type mappings:');
+	var contentmapfile = path.join(tempSrcDir, 'assets', 'contenttemplate', 'summary.json');
 	if (fs.existsSync(contentmapfile)) {
-		var contenttypes = JSON.parse(fs.readFileSync(contentmapfile));
+		var summaryjson = JSON.parse(fs.readFileSync(contentmapfile));
+		var contenttypes = summaryjson.categoryLayoutMappings || summaryjson.contentTypeMappings || [];
 		for (var i = 0; i < contenttypes.length; i++) {
 			var j;
 			var ctype = contenttypes[i];
@@ -935,20 +936,29 @@ module.exports.describeTemplate = function (argv, done) {
 				mappings = byName;
 			}
 
+			console.log('        Content Layout:');
 			if (defaultLayout) {
-				console.log('        ' + defaultLayout.categoryName + ' => ' + defaultLayout.layoutName);
+				console.log('            ' + defaultLayout.categoryName + ' => ' + defaultLayout.layoutName);
 			}
 			if (conentListDefault) {
-				console.log('        ' + conentListDefault.categoryName + ' => ' + conentListDefault.layoutName);
+				console.log('            ' + conentListDefault.categoryName + ' => ' + conentListDefault.layoutName);
 			}
 			if (emptyListDefault) {
-				console.log('        ' + emptyListDefault.categoryName + ' => ' + emptyListDefault.layoutName);
+				console.log('           ' + emptyListDefault.categoryName + ' => ' + emptyListDefault.layoutName);
 			}
 			if (contentPlaceholderDefault) {
-				console.log('        ' + contentPlaceholderDefault.categoryName + ' => ' + contentPlaceholderDefault.layoutName);
+				console.log('            ' + contentPlaceholderDefault.categoryName + ' => ' + contentPlaceholderDefault.layoutName);
 			}
 			for (j = 0; j < mappings.length; j++) {
-				console.log('        ' + mappings[j].categoryName + ' => ' + mappings[j].layoutName);
+				console.log('            ' + mappings[j].categoryName + ' => ' + mappings[j].layoutName);
+			}
+
+			var editorList = ctype.editorList || [];
+			if (editorList.length > 0) {
+				console.log('        Editors:');
+				for (j = 0; j < editorList.length; j++) {
+					console.log('            ' + editorList[j].editorName);
+				}
 			}
 		}
 	}
@@ -1460,7 +1470,7 @@ module.exports.deleteTemplate = function (argv, done) {
 											_cmdEnd(done, success);
 										});
 								}
-							})
+							});
 					}
 					total += 1;
 					if (total >= 10) {
@@ -1509,12 +1519,12 @@ module.exports.createTemplateFromSite = function (argv, done) {
 					} else {
 						_cmdEnd(done, true);
 					}
-				})
+				});
 		}
 
 	} catch (err) {
 		console.log(err);
-		_cmdEnd(done)
+		_cmdEnd(done);
 	}
 };
 
@@ -2259,7 +2269,7 @@ var _getServerTemplate = function (request, localhost, name) {
 
 			var fields = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.fields || [];
 			var rows = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.rows;
-			var sites = []
+			var sites = [];
 			for (var j = 0; j < rows.length; j++) {
 				sites.push({});
 			}
@@ -2310,7 +2320,7 @@ var _getServerTemplateFromTrash = function (request, localhost, name) {
 
 			var fields = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.fields || [];
 			var rows = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.rows;
-			var sites = []
+			var sites = [];
 			for (var j = 0; j < rows.length; j++) {
 				sites.push({});
 			}
@@ -2396,7 +2406,7 @@ var _getHomeFolderFile = function (request, localhost, fileName) {
 
 			var fields = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.fields || [];
 			var rows = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.rows;
-			var files = []
+			var files = [];
 			for (var j = 0; j < rows.length; j++) {
 				files.push({});
 			}
@@ -2528,7 +2538,7 @@ var _getFolderFromTrash = function (request, localhost, realItemGUID) {
 
 			var fields = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.fields || [];
 			var rows = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.rows;
-			var folders = []
+			var folders = [];
 			for (var j = 0; j < rows.length; j++) {
 				folders.push({});
 			}
@@ -3043,6 +3053,7 @@ module.exports.compileTemplate = function (argv, done) {
 	var pages = argv.pages,
 		recurse = typeof argv.recurse === 'boolean' ? argv.recurse : argv.recurse === 'true',
 		verbose = typeof argv.verbose === 'boolean' ? argv.verbose : argv.verbose === 'true',
+		targetDevice = argv.targetDevice || '',
 		includeLocale = typeof argv.includeLocale === 'boolean' ? argv.includeLocale : argv.includeLocale === 'true',
 		noDetailPages = typeof argv.noDetailPages === 'boolean' ? argv.noDetailPages : argv.noDetailPages === 'true',
 		noDefaultDetailPageLink = typeof argv.noDefaultDetailPageLink === 'boolean' ? argv.noDefaultDetailPageLink : argv.noDefaultDetailPageLink === 'true',
@@ -3101,6 +3112,7 @@ module.exports.compileTemplate = function (argv, done) {
 		pages: pages,
 		recurse: recurse,
 		verbose: verbose,
+		targetDevice: targetDevice,
 		noDetailPages: noDetailPages,
 		noDefaultDetailPageLink: noDefaultDetailPageLink,
 		contentLayoutSnippet: contentLayoutSnippet,
@@ -3773,7 +3785,7 @@ module.exports.shareTemplate = function (argv, done) {
 						tempId = result.id;
 					} else {
 						var temps = result.data || [];
-						for(var i = 0; i < temps.length; i++) {
+						for (var i = 0; i < temps.length; i++) {
 							if (temps[i].fFolderName.toLowerCase() === name.toLowerCase()) {
 								tempId = temps[i].fFolderGUID;
 								break;
@@ -3973,7 +3985,7 @@ module.exports.unshareTemplate = function (argv, done) {
 						tempId = result.id;
 					} else {
 						var temps = result.data || [];
-						for(var i = 0; i < temps.length; i++) {
+						for (var i = 0; i < temps.length; i++) {
 							if (temps[i].fFolderName.toLowerCase() === name.toLowerCase()) {
 								tempId = temps[i].fFolderGUID;
 								break;

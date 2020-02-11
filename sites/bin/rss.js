@@ -30,7 +30,7 @@ var verifyRun = function (argv) {
 	serversSrcDir = path.join(srcfolder, 'servers');
 
 	return true;
-}
+};
 
 var localServer;
 var _cmdEnd = function (done, success) {
@@ -94,7 +94,7 @@ var _createRSSFeed = function (server, argv, done) {
 
 	var siteName = argv.site;
 
-	var tempPath = argv.template || path.join(rssDataDir, 'rss.xml')
+	var tempPath = argv.template || path.join(rssDataDir, 'rss.xml');
 	if (!path.isAbsolute(tempPath)) {
 		tempPath = path.join(projectDir, tempPath);
 	}
@@ -339,7 +339,7 @@ var _getOneIdcService = function (request, localhost, service, params, errorMsg)
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {};
+			} catch (e) {}
 
 			if (response && response.statusCode !== 200) {
 				var msg = (data && data.LocalData ? data.LocalData.StatusMessage : (response.statusMessage || response.statusCode));
@@ -382,7 +382,7 @@ var _getContentItems = function (request, host, channelToken, query, limit, orde
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {};
+			} catch (e) {}
 
 			if (!response || response.statusCode !== 200) {
 				var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
@@ -542,7 +542,7 @@ var _getRSSDate = function (date) {
 		];
 
 	return parts.join(' ');
-}
+};
 
 var _pubishRSSFile = function (server, siteUrl, siteName, rssFile, done) {
 

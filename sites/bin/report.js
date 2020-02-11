@@ -270,7 +270,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			done();
 			return;
 		}
-		server['login'] = true;
+		server.login = true;
 
 		var sitePromise = server.useRest ? sitesRest.getSite({
 			server: server,

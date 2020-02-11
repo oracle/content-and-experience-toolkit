@@ -90,11 +90,9 @@ SectionLayout.prototype = {
 				applyStyles($grid.find('.scs-container-styles'), slData);
 
 				// Set the initial state to hidden if so configured
-				var isMobile = false; // renderAPI.getDeviceInfo().isMobile;
+				var isMobile = process.env.scsIsMobile; // renderAPI.getDeviceInfo().isMobile; (compiler environment notes if compiling for mobile)
 				var visibleIsFalse = (slData.visible === false);
-				var isVisible = (isMobile && (typeof slData.visibleOnMobile === 'boolean')) ?
-					this.data.visibleOnMobile :
-					!visibleIsFalse;
+				var isVisible = (isMobile && (typeof slData.visibleOnMobile === 'boolean')) ? slData.visibleOnMobile : !visibleIsFalse;
 				if (!isVisible) {
 					$grid.find('.scs-container-styles').css('display', 'none');
 				}

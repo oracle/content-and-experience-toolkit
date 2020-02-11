@@ -11,7 +11,6 @@
 
 var path = require('path'),
 	gulp = require('gulp'),
-	btoa = require('btoa'),
 	extract = require('extract-zip'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
@@ -54,7 +53,7 @@ var verifyRun = function (argv) {
 	transBuildDir = path.join(buildfolder, 'translationJobs');
 
 	return true;
-}
+};
 
 /**
  * Global variables 
@@ -141,7 +140,7 @@ var _getTranslationJobs = function (server, jobType) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				var jobs = data && data.items || [];
 				resolve({
@@ -188,7 +187,7 @@ var _getTranslationJob = function (server, jobId) {
 				data = JSON.parse(body);
 			} catch (e) {
 				data = body;
-			};
+			}
 			if (response && response.statusCode === 200) {
 				resolve({
 					id: jobId,
@@ -243,7 +242,7 @@ var _updateTranslationJobStatus = function (server, csrfToken, job, status) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (error) {};
+				} catch (err) {}
 				resolve({
 					data
 				});
@@ -326,7 +325,7 @@ var _validateTranslationJob = function (request, server, translationJobType, job
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (error) {};
+			} catch (error) {}
 
 			if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
 				var statusUrl = response.headers && response.headers.location || '';
@@ -388,7 +387,7 @@ var _deployTranslationJob = function (request, server, translationJobType, job, 
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (error) {};
+			} catch (error) {}
 
 			if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
 				var statusUrl = response.headers && response.headers.location || '';
@@ -687,7 +686,7 @@ var _execdeployTranslationJob = function (server, request, validateonly, folder,
 								} else {
 									console.log(' - validating: percentage ' + data.JobPercentage);
 								}
-							})
+							});
 						}, 5000);
 					})
 					.catch((error) => {
@@ -813,7 +812,7 @@ var _getSiteGUID = function (request, localhost, site) {
 
 			var fields = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.fields || [];
 			var rows = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.rows;
-			var sites = []
+			var sites = [];
 			for (var j = 0; j < rows.length; j++) {
 				sites.push({});
 			}
@@ -1123,7 +1122,7 @@ var _createConnectorJob = function (request, translationconnector, jobName) {
 			'name': jobName
 		};
 
-		var basicAuth = 'Basic ' + btoa(translationconnector.user + ':' + translationconnector.password);
+		var basicAuth = 'Basic ' + serverUtils.btoa(translationconnector.user + ':' + translationconnector.password);
 		var headers = {};
 		headers['Authorization'] = basicAuth;
 		for (var i = 0; i < translationconnector.fields.length; i++) {
@@ -1174,7 +1173,7 @@ var _sendFileToConnector = function (request, translationconnector, jobId, fileP
 	var filePromise = new Promise(function (resolve, reject) {
 		var url = translationconnector.url + '/v1/job/' + jobId + '/translate';
 
-		var basicAuth = 'Basic ' + btoa(translationconnector.user + ':' + translationconnector.password);
+		var basicAuth = 'Basic ' + serverUtils.btoa(translationconnector.user + ':' + translationconnector.password);
 		var headers = {};
 		headers['Authorization'] = basicAuth;
 		headers['Content-type'] = 'application/octet-stream';
@@ -1219,7 +1218,7 @@ var _refreshConnectorJob = function (request, translationconnector, connection, 
 	var jobPromise = new Promise(function (resolve, reject) {
 		var url = translationconnector.url + '/v1/job/' + jobId + '/refreshTranslation?connection=' + connection;
 
-		var basicAuth = 'Basic ' + btoa(translationconnector.user + ':' + translationconnector.password);
+		var basicAuth = 'Basic ' + serverUtils.btoa(translationconnector.user + ':' + translationconnector.password);
 		var headers = {};
 		headers['Authorization'] = basicAuth;
 		for (var i = 0; i < translationconnector.fields.length; i++) {
@@ -1267,7 +1266,7 @@ var _refreshConnectorJob = function (request, translationconnector, connection, 
 var _getJobFromConnector = function (request, translationconnector, jobId, jobName) {
 	var jobPromise = new Promise(function (resolve, reject) {
 		var url = translationconnector.url + '/v1/job/' + jobId;
-		var basicAuth = 'Basic ' + btoa(translationconnector.user + ':' + translationconnector.password);
+		var basicAuth = 'Basic ' + serverUtils.btoa(translationconnector.user + ':' + translationconnector.password);
 		var headers = {};
 		headers['Authorization'] = basicAuth;
 		for (var i = 0; i < translationconnector.fields.length; i++) {
@@ -1308,7 +1307,7 @@ var _getTranslationFromConnector = function (request, translationconnector, jobI
 	var transPromise = new Promise(function (resolve, reject) {
 		var url = translationconnector.url + '/v1/job/' + jobId + '/translation';
 
-		var basicAuth = 'Basic ' + btoa(translationconnector.user + ':' + translationconnector.password);
+		var basicAuth = 'Basic ' + serverUtils.btoa(translationconnector.user + ':' + translationconnector.password);
 		var headers = {};
 		headers['Authorization'] = basicAuth;
 		for (var i = 0; i < translationconnector.fields.length; i++) {
@@ -1631,7 +1630,7 @@ var _listServerTranslationJobs = function (argv, done) {
 var _getconnectorServerInfo = function (connectorServer, user, password) {
 	var serverInfoPromise = new Promise(function (resolve, reject) {
 		var request = _getRequest();
-		var url = connectorServer + '/v1/server'
+		var url = connectorServer + '/v1/server';
 		request.get(url, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: failed to query translation connector: ' + err);
@@ -1816,7 +1815,7 @@ module.exports.downloadTranslationJob = function (argv, done) {
 							} else {
 								done(true);
 							}
-						})
+						});
 					});
 			} else {
 				// no need to change status
@@ -1829,7 +1828,7 @@ module.exports.downloadTranslationJob = function (argv, done) {
 					} else {
 						done(true);
 					}
-				})
+				});
 			}
 		}); // job zip downloaded
 
@@ -2401,7 +2400,7 @@ var _ingestServerTranslationJob = function (argv, done) {
 		var idcToken;
 		serverUtils.browseTranslationConnectorsOnServer(request, server)
 			.then(function (result) {
-				connectors = result && result.data || []
+				connectors = result && result.data || [];
 
 				// verify the name
 				var jobPromises = [_getTranslationJobs(server, 'assets'), _getTranslationJobs(server, 'sites')];
@@ -2605,7 +2604,7 @@ var _refreshServerTranslationJob = function (argv, done) {
 		var idcToken;
 		serverUtils.browseTranslationConnectorsOnServer(request, server)
 			.then(function (result) {
-				connectors = result && result.data || []
+				connectors = result && result.data || [];
 
 				// verify the name
 				var jobPromises = [_getTranslationJobs(server, 'assets'), _getTranslationJobs(server, 'sites')];

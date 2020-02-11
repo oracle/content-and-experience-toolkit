@@ -98,7 +98,7 @@ var _getResource = function (server, type, id, name, expand, showError) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -228,7 +228,7 @@ var _getSiteAccess = function (server, id, name) {
 
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -299,7 +299,7 @@ var _removeSiteAccess = function (server, id, name, member) {
 
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -369,7 +369,7 @@ var _grantSiteAccess = function (server, id, name, member) {
 
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -442,7 +442,7 @@ var _setSiteRuntimeAccess = function (server, id, name, accessList) {
 
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -516,7 +516,7 @@ var _refreshSiteContent = function (server, id, name) {
 
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -592,7 +592,7 @@ var _exportResource = function (server, type, id, name) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -678,7 +678,7 @@ var _publishResource = function (server, type, id, name) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -750,7 +750,7 @@ var _publishResourceAsync = function (server, type, id, name) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -764,7 +764,7 @@ var _publishResourceAsync = function (server, type, id, name) {
 			url: server.url + url
 		};
 		if (server.env !== 'dev_ec') {
-			options.headers['Authorization'] = _getAuthorization(server);
+			options.headers.Authorization = _getAuthorization(server);
 
 		} else {
 			options.auth = {
@@ -855,7 +855,7 @@ var _unpublishResource = function (server, type, id, name) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -927,7 +927,7 @@ var _unpublishResource = function (server, type, id, name) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -999,7 +999,7 @@ var _setSiteOnlineStatus = function (server, id, name, status) {
 
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -1086,7 +1086,7 @@ var _validateSite = function (server, id, name) {
 
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -1157,7 +1157,7 @@ var _softDeleteResource = function (server, type, id, name) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -1216,7 +1216,7 @@ var _hardDeleteResource = function (server, type, id, name, showError) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
-			url = url + id
+			url = url + id;
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
@@ -1426,7 +1426,7 @@ var _createTemplateFromSite = function (server, name, siteName, includeUnpublish
 			json: true
 		};
 		if (server.env !== 'dev_ec') {
-			options.headers['Authorization'] = _getAuthorization(server);
+			options.headers.Authorization = _getAuthorization(server);
 		} else {
 			options.auth = {
 				user: server.username,
@@ -1524,7 +1524,7 @@ var _importTemplate = function (server, name, fileId) {
 			json: true
 		};
 		if (server.env !== 'dev_ec') {
-			options.headers['Authorization'] = _getAuthorization(server);
+			options.headers.Authorization = _getAuthorization(server);
 		} else {
 			options.auth = {
 				user: server.username,
@@ -1629,7 +1629,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 			json: true
 		};
 		if (server.env !== 'dev_ec') {
-			options.headers['Authorization'] = _getAuthorization(server);
+			options.headers.Authorization = _getAuthorization(server);
 		} else {
 			options.auth = {
 				user: server.username,

@@ -1,6 +1,6 @@
 {
   "name": "cec",
-  "version": "20.1.1d",
+  "version": "20.1.2",
   "description": "CLI for cec",
   "license": "UPL-1.0",
   "main": "cec.js",
@@ -11,7 +11,7 @@
     "cec": "cec.js"
   },
   "dependencies": {
-    "yargs": "11.1.0"
+    "yargs": "13.2.4"
   },
   "author": "Oracle"
 }

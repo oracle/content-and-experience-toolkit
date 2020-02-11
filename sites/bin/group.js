@@ -291,7 +291,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 						name: groups[i].name,
 						isGroup: true,
 						role: role
-					})
+					});
 				}
 
 				return serverRest.addMembersToGroup({

@@ -10,7 +10,6 @@
 var express = require('express'),
 	serverUtils = require('./serverUtils.js'),
 	router = express.Router(),
-	dir = require('node-dir'),
 	fs = require('fs'),
 	path = require('path'),
 	url = require('url');
@@ -83,13 +82,19 @@ var _returnSlugItems = function (res, slug) {
 	}
 };
 
-_findItemBySlug = function (contentdir, slug) {
-	var srcPath = path.join(contentdir, 'ContentItems');
-	var item;
-
-	var files = dir.files(srcPath, {
-		sync: true
+_getItemFilesPath = function (contentdir) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.paths(path.join(contentdir, 'ContentItems'), function (err, paths) {
+			if (err) {
+				return resolve([]);
+			} else {
+				return resolve(paths.files);
+			}
+		});
 	});
+};
+
+_findItemBySlug = function (files, slug) {
 	for (var i = 0; i < files.length; i++) {
 		var slugJson;
 		try {
@@ -147,11 +152,11 @@ router.get('/*', (req, res) => {
 		};
 		if (location.indexOf('8080') > 0 || app.locals.server.env !== 'dev_ec') {
 			if (app.locals.server.env !== 'dev_ec' && location.indexOf('assets') > 0) {
-				options['auth'] = {
+				options.auth = {
 					bearer: app.locals.server.oauthtoken
 				};
 			} else {
-				options['auth'] = {
+				options.auth = {
 					user: app.locals.server.username,
 					password: app.locals.server.password
 				};
@@ -225,15 +230,15 @@ router.get('/*', (req, res) => {
 		// handle item query (used by content-list component)
 		//
 		var params = serverUtils.getURLParameters(cntURL.query),
-			contentType = params['contentType'],
-			fields = params['fields'],
+			contentType = params.contentType,
+			fields = params.fields,
 			fieldName = '',
 			fieldValue = '',
-			orderBy = decodeURIComponent(params['orderBy'] || ''),
-			limit = Number(params['limit'] || 10),
-			offset = Number(params['offset'] || 0),
-			q = decodeURIComponent(params['q'] || ''),
-			defaultValue = decodeURIComponent(params['default'] || ''),
+			orderBy = decodeURIComponent(params.orderBy || ''),
+			limit = Number(params.limit || 10),
+			offset = Number(params.offset || 0),
+			q = decodeURIComponent(params.q || ''),
+			defaultValue = decodeURIComponent(params.default || ''),
 			contentItemType = params['field:type:equals'] || '',
 			language = '',
 			otherConditions = [],
@@ -310,7 +315,7 @@ router.get('/*', (req, res) => {
 			var items = [];
 			for (var i = 0; i < ids.length; i++) {
 				// find the item type from metadata.json
-				var itemType = getItemTypeFromMetadata(contentdir, ids[i])
+				var itemType = getItemTypeFromMetadata(contentdir, ids[i]);
 				// console.log(' - item id: ' + id + ' type: ' + itemType);
 				if (itemType) {
 					var itemfile = path.join(contentdir, 'ContentItems', itemType, ids[i] + '.json');
@@ -325,14 +330,14 @@ router.get('/*', (req, res) => {
 			}
 			for (var i = 0; i < items.length; i++) {
 				if (!items[i].fields && items[i].data) {
-					items[i]['fields'] = items[i].data;
+					items[i].fields = items[i].data;
 				}
 			}
 
 			var results = {};
 
 			if (cntPath.indexOf('1.1') > 0) {
-				results['items'] = items;
+				results.items = items;
 			} else {
 				var items2 = {};
 				for (var i = 0; i < items.length; i++) {
@@ -340,7 +345,7 @@ router.get('/*', (req, res) => {
 						data = items[i];
 					items2[id] = data;
 				}
-				results['items'] = items2;
+				results.items = items2;
 			}
 			// return the result
 			console.log(' - returned items: ' + items.length);
@@ -506,6 +511,8 @@ router.get('/*', (req, res) => {
 		} else {
 			console.log(' - no content item is specified, no item is returned')
 		}
+		res.writeHead(200, {});
+		res.end();
 
 	} else if (cntPath.indexOf('/content/published/api/v1/items/') === 0 ||
 		cntPath.indexOf('/content/published/api/v1.1/items/') === 0) {
@@ -524,7 +531,7 @@ router.get('/*', (req, res) => {
 		if (id === 'bulk') {
 			// get id from url parameters
 			var params = serverUtils.getURLParameters(cntURL.query);
-			ids = params['ids'].split(',');
+			ids = params.ids.split(',');
 			isBulk = true;
 		}
 
@@ -535,128 +542,135 @@ router.get('/*', (req, res) => {
 		}
 		// console.log('language=' + language);
 
-		var items = [];
-		for (var i = 0; i < ids.length; i++) {
-			// find the item type from metadata.json
-			var itemType = getItemTypeFromMetadata(contentdir, ids[i])
-			// console.log(' - item id: ' + id + ' type: ' + itemType);
-			if (itemType) {
-				var itemfile = path.join(contentdir, 'ContentItems', itemType, ids[i] + '.json');
-				if (fs.existsSync(itemfile)) {
-					var itemjson = JSON.parse(fs.readFileSync(itemfile));
-					// console.log('item: ' + itemjson.name + ' ' + itemjson.language);
-					if (!language || language === itemjson.language || itemjson.translatable === false) {
-						if (language === itemjson.language) {
-							console.log(' - found item language matched');
-						} else if (itemjson.translatable === false) {
-							console.log(' - non-translatable item');
-						}
-						items.push(itemjson);
-					} else if (language) {
-						// check the item's variation file
-						var found = false;
-						var variationfile = path.join(contentdir, 'ContentItems', 'VariationSets', ids[i] + '.json');
-						var itemHasVariationFile = false;
-						if (fs.existsSync(variationfile)) {
-							itemHasVariationFile = true;
-							var variationjson = JSON.parse(fs.readFileSync(variationfile));
-							if (variationjson && variationjson.length > 0) {
-								for (var k = 0; k < variationjson.length; k++) {
-									for (var j = 0; j < variationjson[k].items.length; j++) {
-										var vitem = variationjson[k].items[j];
-										if (vitem.id !== itemjson.id && vitem.varType === 'language' && vitem.value === language) {
-											console.log(' - found item in ' + language + '(direct variation set) id: ' + vitem.id);
-											var variationitemfile = path.join(contentdir, 'ContentItems', itemType, vitem.id + '.json');
-											if (fs.existsSync(variationitemfile)) {
-												items.push(JSON.parse(fs.readFileSync(variationitemfile)));
-												found = true;
-												break;
+		_getItemFilesPath(contentdir)
+			.then(function (result) {
+				var itemFiles = result;
+
+				var items = [];
+				for (var i = 0; i < ids.length; i++) {
+					// find the item type from metadata.json
+					var itemType = getItemTypeFromMetadata(contentdir, ids[i]);
+					// console.log(' - item id: ' + id + ' type: ' + itemType);
+					if (itemType) {
+						var itemfile = path.join(contentdir, 'ContentItems', itemType, ids[i] + '.json');
+						if (fs.existsSync(itemfile)) {
+							var itemjson = JSON.parse(fs.readFileSync(itemfile));
+							// console.log('item: ' + itemjson.name + ' ' + itemjson.language);
+							if (!language || language === itemjson.language || itemjson.translatable === false) {
+								if (language === itemjson.language) {
+									console.log(' - found item language matched');
+								} else if (itemjson.translatable === false) {
+									console.log(' - non-translatable item');
+								}
+								items.push(itemjson);
+							} else if (language) {
+								// check the item's variation file
+								var found = false;
+								var variationfile = path.join(contentdir, 'ContentItems', 'VariationSets', ids[i] + '.json');
+								var itemHasVariationFile = false;
+								if (fs.existsSync(variationfile)) {
+									itemHasVariationFile = true;
+									var variationjson = JSON.parse(fs.readFileSync(variationfile));
+									if (variationjson && variationjson.length > 0) {
+										for (var k = 0; k < variationjson.length; k++) {
+											for (var j = 0; j < variationjson[k].items.length; j++) {
+												var vitem = variationjson[k].items[j];
+												if (vitem.id !== itemjson.id && vitem.varType === 'language' && vitem.value === language) {
+													console.log(' - found item in ' + language + '(direct variation set) id: ' + vitem.id);
+													var variationitemfile = path.join(contentdir, 'ContentItems', itemType, vitem.id + '.json');
+													if (fs.existsSync(variationitemfile)) {
+														items.push(JSON.parse(fs.readFileSync(variationitemfile)));
+														found = true;
+														break;
+													}
+												}
+											} // go through the list in variation set file
+										}
+									}
+								} // item has variation
+
+								// check the variation file the item is in
+								if (!found && !itemHasVariationFile) {
+									var files = fs.readdirSync(path.join(contentdir, 'ContentItems', 'VariationSets'));
+									var vitemId = '';
+									for (var i = 0; i < files.length; i++) {
+										var variationfile = path.join(contentdir, 'ContentItems', 'VariationSets', files[i]);
+										var variationjson = JSON.parse(fs.readFileSync(variationfile));
+										var itemInVariation = false;
+										for (var k = 0; k < variationjson.length; k++) {
+											for (var j = 0; j < variationjson[k].items.length; j++) {
+												var vitem = variationjson[k].items[j];
+												if (vitem.id === itemjson.id) {
+													itemInVariation = true;
+												}
+												if (vitem.id !== itemjson.id && vitem.varType === 'language' && vitem.value === language) {
+													vitemId = vitem.id;
+												}
 											}
 										}
-									} // go through the list in variation set file
-								}
-							}
-						} // item has variation
-
-						// check the variation file the item is in
-						if (!found && !itemHasVariationFile) {
-							var files = fs.readdirSync(path.join(contentdir, 'ContentItems', 'VariationSets'));
-							var vitemId = '';
-							for (var i = 0; i < files.length; i++) {
-								var variationfile = path.join(contentdir, 'ContentItems', 'VariationSets', files[i]);
-								var variationjson = JSON.parse(fs.readFileSync(variationfile));
-								var itemInVariation = false;
-								for (var k = 0; k < variationjson.length; k++) {
-									for (var j = 0; j < variationjson[k].items.length; j++) {
-										var vitem = variationjson[k].items[j];
-										if (vitem.id === itemjson.id) {
-											itemInVariation = true;
+										if (itemInVariation && vitemId) {
+											break;
 										}
-										if (vitem.id !== itemjson.id && vitem.varType === 'language' && vitem.value === language) {
-											vitemId = vitem.id;
+									}
+									if (vitemId) {
+										console.log(' - found item in ' + language + '(cross variation set) id: ' + vitemId);
+										var variationitemfile = path.join(contentdir, 'ContentItems', itemType, vitemId + '.json');
+										if (fs.existsSync(variationitemfile)) {
+											items.push(JSON.parse(fs.readFileSync(variationitemfile)));
 										}
 									}
 								}
-								if (itemInVariation && vitemId) {
-									break;
-								}
 							}
-							if (vitemId) {
-								console.log(' - found item in ' + language + '(cross variation set) id: ' + vitemId);
-								var variationitemfile = path.join(contentdir, 'ContentItems', itemType, vitemId + '.json');
-								if (fs.existsSync(variationitemfile)) {
-									items.push(JSON.parse(fs.readFileSync(variationitemfile)));
-								}
-							}
+						} else {
+							console.log(' - item file ' + itemfile + ' does not exist');
+						}
+					} else {
+						console.log(' - item type not found for ' + ids[i]);
+						// could be slug
+						console.log(' - query item with slug ' + ids[i]);
+						var item = _findItemBySlug(itemFiles, ids[i]);
+						if (item) {
+							items.push(item);
 						}
 					}
-				} else {
-					console.log(' - item file ' + itemfile + ' does not exist');
 				}
-			} else {
-				console.log(' - item type not found for ' + ids[i]);
-				// could be slug
-				console.log(' - query item with slug ' + ids[i]);
-				var item = _findItemBySlug(contentdir, ids[i]);
-				if (item) {
-					items.push(item);
-				}
-			}
-		}
-		//console.log(items);
-		if (items.length > 0) {
-			var results = {};
-			if (isBulk) {
-				var items2 = {};
-				for (var i = 0; i < items.length; i++) {
-					var id = items[i].id,
-						data = items[i];
-					if (!items[i].fields && items[i].data) {
-						items[i]['fields'] = items[i].data;
-					} else if (items[i].fields && !items[i].data) {
-						items[i]['data'] = items[i].fields;
+				// console.log(items);
+				if (items.length > 0) {
+					var results = {};
+					if (isBulk) {
+						var items2 = {};
+						for (var i = 0; i < items.length; i++) {
+							var id = items[i].id,
+								data = items[i];
+							if (!items[i].fields && items[i].data) {
+								items[i].fields = items[i].data;
+							} else if (items[i].fields && !items[i].data) {
+								items[i].data = items[i].fields;
+							}
+							items2[id] = data;
+						}
+						results = {
+							items: items2
+						};
+					} else {
+						results = items[0];
+						if (!results.fields && results.data) {
+							results.fields = results.data;
+						} else if (results.fields && !results.data) {
+							results.data = results.fields;
+						}
 					}
-					items2[id] = data;
+					console.log(' - returned item(s): ' + items.length);
+					// return the result
+					res.write(JSON.stringify(results));
+					res.end();
+					return;
+				} else {
+					console.log(' - no item found');
+					res.writeHead(200, {});
+					res.end();
 				}
-				results = {
-					items: items2
-				};
-			} else {
-				results = items[0];
-				if (!results.fields && results.data) {
-					results.fields = results.data;
-				} else if (results.fields && !results.data) {
-					results.data = results.fields;
-				}
-			}
-			console.log(' - returned item(s): ' + items.length);
-			// return the result
-			res.write(JSON.stringify(results));
-			res.end();
-			return;
-		} else {
-			console.log(' - no item found');
-		}
+			});
 
 	} else if (cntPath.indexOf('/content/published/api/v1/digital-assets/') === 0 ||
 		cntPath.indexOf('/content/published/api/v1.1/assets/') === 0) {
@@ -685,9 +699,11 @@ router.get('/*', (req, res) => {
 		} else {
 			console.log(' - digit asset ' + assetjsonfile + ' does not exist');
 		}
+		res.writeHead(200, {});
+		res.end();
 	} else if (cntPath === '/content/management/api/v1/aggregates/types') {
 		var params = serverUtils.getURLParameters(cntURL.query),
-			limitstr = params['limit'] || '',
+			limitstr = params.limit || '',
 			alltypes = serverUtils.getContentTypes(),
 			typenames = [],
 			types = [];
@@ -718,10 +734,9 @@ router.get('/*', (req, res) => {
 
 	} else {
 		console.log(' - !!! not supported yet');
+		res.writeHead(200, {});
+		res.end();
 	}
-
-	res.writeHead(200, {});
-	res.end();
 
 });
 

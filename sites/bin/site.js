@@ -7,7 +7,6 @@
 
 var fs = require('fs'),
 	fse = require('fs-extra'),
-	dir = require('node-dir'),
 	path = require('path'),
 	semver = require('semver'),
 	sprintf = require('sprintf-js').sprintf,
@@ -36,7 +35,7 @@ var verifyRun = function (argv) {
 	serversSrcDir = path.join(srcfolder, 'servers');
 
 	return true;
-}
+};
 
 var localServer;
 var _cmdEnd = function (done, success) {
@@ -180,7 +179,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 					'descriptions': description,
 					'items': 'fFolderGUID:' + templateGUID,
 					'useBackgroundThread': 1
-				}
+				};
 
 				// keep the existing ids
 				if (updateContent) {
@@ -513,7 +512,7 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 								done();
 							} else {
 								console.log(' - site created');
-								done(true)
+								done(true);
 							}
 						});
 
@@ -1131,7 +1130,7 @@ var _setSiteRuntimeStatus = function (request, server, action, siteId) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (error) {};
+				} catch (error) {}
 
 				var msg = data ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to ' + action + ' the site - ' + msg);
@@ -1599,7 +1598,7 @@ var _getOneIdcService = function (request, localhost, server, service, params) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {};
+			} catch (e) {}
 
 			if (response && response.statusCode !== 200) {
 				var msg = data && data.LocalData ? data.LocalData.StatusMessage : (response.statusMessage || response.statusCode);
@@ -1671,7 +1670,7 @@ var _controlSiteREST = function (request, server, action, siteName, done) {
 				actionPromise = sitesRest.unpublishSite({
 					server: server,
 					name: siteName
-				})
+				});
 			} else if (action === 'bring-online') {
 				actionPromise = sitesRest.activateSite({
 					server: server,
@@ -2239,7 +2238,7 @@ module.exports.validateSite = function (argv, done) {
 									}
 
 									if (!site.defaultLanguage) {
-										console.log(' - site ' + siteName + ' is not configured with a default language')
+										console.log(' - site ' + siteName + ' is not configured with a default language');
 										return Promise.reject();
 									}
 
@@ -2273,7 +2272,7 @@ module.exports.validateSite = function (argv, done) {
 									var siteValidation;
 									try {
 										siteValidation = JSON.parse(result.LocalData && result.LocalData.SiteValidation);
-									} catch (e) {};
+									} catch (e) {}
 
 									if (!siteValidation) {
 										console.log('ERROR: failed to get site validation');
@@ -2423,7 +2422,7 @@ var _validateSiteREST = function (request, server, siteName, done) {
 				return Promise.reject();
 			}
 			if (!site.defaultLanguage) {
-				console.log(' - site ' + siteName + ' is not configured with a default language')
+				console.log(' - site ' + siteName + ' is not configured with a default language');
 				return Promise.reject();
 			}
 
@@ -2538,10 +2537,10 @@ module.exports.setSiteSecurity = function (argv, done) {
 			console.log(' - ignore argument <access>');
 		}
 		if (addUserNames.length > 0) {
-			console.log(' - ignore argument <addusers>')
+			console.log(' - ignore argument <addusers>');
 		}
 		if (deleteUserNames.length > 0) {
-			console.log(' - ignore argument <deleteusers>')
+			console.log(' - ignore argument <deleteusers>');
 		}
 	} else {
 		for (var i = 0; i < deleteUserNames.length; i++) {
@@ -2969,7 +2968,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 			}
 
 			var siteId;
-			var siteSecurity
+			var siteSecurity;
 			var siteMembers = [];
 			var users = [];
 			var accessValues = [];
@@ -3312,7 +3311,7 @@ module.exports.uploadStaticSite = function (argv, done) {
 
 var _prepareStaticSite = function (srcPath) {
 	return new Promise(function (resolve, reject) {
-		dir.paths(srcPath, function (err, paths) {
+		serverUtils.paths(srcPath, function (err, paths) {
 			if (err) {
 				console.log(err);
 				return resolve({
@@ -3359,11 +3358,12 @@ var _prepareStaticSite = function (srcPath) {
 
 						// create _files folder
 						var filesFolder;
-						if (serverUtils.endsWith(fileFolder, '_files')) {
+						if (serverUtils.endsWith(fileFolder, '_files') || serverUtils.endsWith(fileFolder, '_mobilefiles')) {
 							filesFolder = path.join(staticFolder, fileFolder);
 						} else {
 							filesFolder = path.join(staticFolder, fileFolder, '_files');
 						}
+						
 						if (!fs.existsSync(filesFolder)) {
 							fse.mkdirSync(filesFolder, {
 								recursive: true
@@ -3509,7 +3509,7 @@ module.exports.downloadStaticSite = function (argv, done) {
 
 var _processDownloadedStaticSite = function (srcPath) {
 	return new Promise(function (resolve, reject) {
-		dir.paths(srcPath, function (err, paths) {
+		serverUtils.paths(srcPath, function (err, paths) {
 			if (err) {
 				console.log(err);
 				return resolve({

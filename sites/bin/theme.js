@@ -8,9 +8,6 @@
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
-	decompress = require('decompress'),
-	fs = require('fs'),
-	fse = require('fs-extra'),
 	path = require('path');
 
 
@@ -103,7 +100,7 @@ var _controlTheme = function (serverName, server, action, themeName, done) {
 					url: url,
 				};
 
-				options['auth'] = auth;
+				options.auth = auth;
 
 				request(options).on('response', function (response) {
 						// fix headers for cross-domain and capitalization issues
@@ -188,7 +185,7 @@ var _controlTheme = function (serverName, server, action, themeName, done) {
 								for (var j = 0; j < themes.length; j++) {
 									if (themeName.toLowerCase() === themes[j].fFolderName.toLowerCase()) {
 										found = true;
-										themeId = themes[j].fFolderGUID
+										themeId = themes[j].fFolderGUID;
 										break;
 									}
 								}
