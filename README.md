@@ -19,9 +19,9 @@ Templates and resources for development platforms.
 **Added**
 
 - `create-site-map` - Excludes page links not from the same domain.
-- `control-content` - Add action add to content items to a channel.
+- `control-content` - Added the Add action for adding content items to a channel.
 
-**Note:** 
+**Note** 
 
 - Node version 10 or later is now required.
 
