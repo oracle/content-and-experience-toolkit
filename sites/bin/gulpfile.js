@@ -37,8 +37,8 @@ var serverUtils = require('../test/server/serverUtils.js');
 
 var cecDir = path.join(__dirname, ".."),
 	configDataDir = path.join(cecDir, 'data', 'config'),
-	buildDataDir = path.join(cecDir, 'data', 'build') ;
-	testDataDir = path.join(cecDir, 'data', 'test') ;
+	buildDataDir = path.join(cecDir, 'data', 'build'),
+	testDataDir = path.join(cecDir, 'data', 'test');
 
 var projectDir,
 	serversSrcDir;
@@ -217,12 +217,12 @@ gulp.task('sync-server', function (done) {
 	}
 
 	var port = argv.port || '8086';
-	process.env['CEC_TOOLKIT_SYNC_PORT'] = port;
-	process.env['CEC_TOOLKIT_SYNC_SRC'] = srcServerName;
-	process.env['CEC_TOOLKIT_SYNC_DEST'] = destServerName;
-	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
-	process.env['CEC_TOOLKIT_SYNC_HTTPS_KEY'] = '';
-	process.env['CEC_TOOLKIT_SYNC_HTTPS_CERTIFICATE'] = '';
+	process.env.CEC_TOOLKIT_SYNC_PORT = port;
+	process.env.CEC_TOOLKIT_SYNC_SRC = srcServerName;
+	process.env.CEC_TOOLKIT_SYNC_DEST = destServerName;
+	process.env.CEC_TOOLKIT_PROJECTDIR = projectDir;
+	process.env.CEC_TOOLKIT_SYNC_HTTPS_KEY = '';
+	process.env.CEC_TOOLKIT_SYNC_HTTPS_CERTIFICATE = '';
 
 	var keyPath = argv.key;
 	if (keyPath) {
@@ -235,7 +235,7 @@ gulp.task('sync-server', function (done) {
 			done();
 			return;
 		}
-		process.env['CEC_TOOLKIT_SYNC_HTTPS_KEY'] = keyPath;
+		process.env.CEC_TOOLKIT_SYNC_HTTPS_KEY = keyPath;
 	}
 
 	var certPath = argv.certificate;
@@ -249,81 +249,99 @@ gulp.task('sync-server', function (done) {
 			done();
 			return;
 		}
-		process.env['CEC_TOOLKIT_SYNC_HTTPS_CERTIFICATE'] = certPath;
+		process.env.CEC_TOOLKIT_SYNC_HTTPS_CERTIFICATE = certPath;
 	}
 
+	var authMethod = argv.authorization || 'basic';
+	process.env.CEC_TOOLKIT_SYNC_AUTH = authMethod;
 
-	var rl = readline.createInterface({
-		input: process.stdin,
-		output: process.stdout
-	});
+	var args = ['run', 'start-sync', '--prefix', cecDir];
+	var spawnCmd;
 
-	rl._writeToOutput = function _writeToOutput(stringToWrite) {
-		if (rl.stdoutMuted) {
-			var str = stringToWrite.replace(/(\r\n|\n|\r)/gm, '').trim();
-			if (str) {
-				rl.output.write("*");
-			}
-		} else {
-			rl.output.write(stringToWrite);
-		}
-	};
-
-	var username = argv.username || '';
-	var password = argv.password || '';
-
-	var usernamePromises = [];
-	if (!username) {
-		usernamePromises.push(_promptInput(rl, 'Please enter username: '));
-	}
-	Promise.all(usernamePromises)
-		.then(function (results) {
-			if (!username) {
-				username = results[0].value;
-				if (!username) {
-					console.log('ERROR: username is empty');
-					return Promise.reject();
-				}
-			}
-
-			var passwordPromises = [];
-			if (!password) {
-				rl.stdoutMuted = true;
-				passwordPromises.push(_promptInput(rl, 'Please enter password: '));
-			}
-
-			return Promise.all(passwordPromises);
-		})
-		.then(function (results) {
-			if (!password) {
-				password = results[0].value;
-				if (!password) {
-					console.log('ERROR: password is empty');
-					return Promise.reject();
-				}
-				console.log('');
-			}
-
-			rl.stdoutMuted = false;
-			rl.close();
-
-			process.env['CEC_TOOLKIT_SYNC_USERNAME'] = username;
-			process.env['CEC_TOOLKIT_SYNC_PASSWORD'] = password;
-
-			var args = ['run', 'start-sync', '--prefix', cecDir];
-
-			var spawnCmd = childProcess.spawnSync(npmCmd, args, {
-				projectDir,
-				stdio: 'inherit'
-			});
-
-			done();
-		})
-		.catch((error) => {
-			rl.stdoutMuted = false;
-			rl.close();
-			done();
+	if (authMethod === 'basic') {
+		var rl = readline.createInterface({
+			input: process.stdin,
+			output: process.stdout
 		});
+
+		rl._writeToOutput = function _writeToOutput(stringToWrite) {
+			if (rl.stdoutMuted) {
+				var str = stringToWrite.replace(/(\r\n|\n|\r)/gm, '').trim();
+				if (str) {
+					rl.output.write("*");
+				}
+			} else {
+				rl.output.write(stringToWrite);
+			}
+		};
+
+		var username = argv.username || '';
+		var password = argv.password || '';
+
+		var usernamePromises = [];
+		if (!username) {
+			usernamePromises.push(_promptInput(rl, 'Please enter username: '));
+		}
+		Promise.all(usernamePromises)
+			.then(function (results) {
+				if (!username) {
+					username = results[0].value;
+					if (!username) {
+						console.log('ERROR: username is empty');
+						return Promise.reject();
+					}
+				}
+
+				var passwordPromises = [];
+				if (!password) {
+					rl.stdoutMuted = true;
+					passwordPromises.push(_promptInput(rl, 'Please enter password: '));
+				}
+
+				return Promise.all(passwordPromises);
+			})
+			.then(function (results) {
+				if (!password) {
+					password = results[0].value;
+					if (!password) {
+						console.log('ERROR: password is empty');
+						return Promise.reject();
+					}
+					console.log('');
+				}
+
+				rl.stdoutMuted = false;
+				rl.close();
+
+				process.env.CEC_TOOLKIT_SYNC_USERNAME = username;
+				process.env.CEC_TOOLKIT_SYNC_PASSWORD = password;
+
+				spawnCmd = childProcess.spawnSync(npmCmd, args, {
+					projectDir,
+					stdio: 'inherit'
+				});
+
+				done();
+			})
+			.catch((error) => {
+				rl.stdoutMuted = false;
+				rl.close();
+				done();
+			});
+	} else if (authMethod === 'header') {
+		process.env.CEC_TOOLKIT_SYNC_AUTH_HEADER = argv.values;
+
+		spawnCmd = childProcess.spawnSync(npmCmd, args, {
+			projectDir,
+			stdio: 'inherit'
+		});
+	} else {
+		// none
+		spawnCmd = childProcess.spawnSync(npmCmd, args, {
+			projectDir,
+			stdio: 'inherit'
+		});
+	}
 
 });
 
@@ -1675,6 +1693,7 @@ gulp.task('check-version', function (done) {
 		}
 
 		var cecVersion, cecVersion2;
+		var arr;
 		if (isPod) {
 			cecVersion = data ? data.toString() : '';
 			if (!cecVersion) {
@@ -1692,7 +1711,7 @@ gulp.task('check-version', function (done) {
 				cecVersion = cecVersion.substring(0, cecVersion.indexOf('/'));
 			}
 
-			var arr = cecVersion.split('.');
+			arr = cecVersion.split('.');
 			var versionstr = arr.length >= 2 ? arr[1] : '';
 
 			// the version is a string such as 1922ec
@@ -1710,7 +1729,7 @@ gulp.task('check-version', function (done) {
 				done();
 				return;
 			}
-			var arr = cecVersion.split('.');
+			arr = cecVersion.split('.');
 			cecVersion2 = arr.length >= 2 ? arr[0] + '.' + arr[1] : (arr.length > 0 ? arr[0] : '');
 		}
 		// console.log(' CEC server: ' + server.url + '  version: ' + cecVersion + ' version2: ' + cecVersion2);

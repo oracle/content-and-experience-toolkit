@@ -166,6 +166,11 @@ var getServerTypes = function () {
 	return roles;
 };
 
+var getSyncServerAuths = function () {
+	const auths = ['none', 'basic', 'header'];
+	return auths;
+};
+
 var getSiteSignIn = function () {
 	const roles = ['yes', 'no'];
 	return roles;
@@ -183,6 +188,11 @@ var getGroupTypes = function () {
 
 var getGroupMemberRoles = function () {
 	var names = ['MANAGER', 'MEMBER'];
+	return names;
+};
+
+var getResourceTypes = function () {
+	var names = ['channels', 'components', 'localizationpolicies', 'repositories', 'sites', 'templates', 'taxonomies', 'translationconnectors'];
 	return names;
 };
 
@@ -902,14 +912,8 @@ const listResources = {
 		'short': 'Lists local or server resources.',
 		'long': (function () {
 			let desc = 'Lists local or server resources such components and templates. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -t <types> to list specific types of resources on the CEC server. ' +
-				os.EOL + os.EOL + 'Valid values for <types> on the server are: ' + os.EOL +
-				'  channels' + os.EOL +
-				'  components' + os.EOL +
-				'  localizationpolicies' + os.EOL +
-				'  repositories' + os.EOL +
-				'  sites' + os.EOL +
-				'  templates' + os.EOL;
-			return desc;
+				os.EOL + os.EOL + 'Valid values for <types> on the server are: ' + os.EOL + os.EOL;
+			return getResourceTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
@@ -1946,16 +1950,20 @@ const syncServer = {
 		'short': 'Starts a sync server.',
 		'long': (function () {
 			let desc = 'Starts a sync server in the current folder to sync changes notified by web hook from <server> to <destination> server. Specify the source server with -s <server> and the destination server with -d <destination>. ' +
-				'Specify -u <username> and -w <password> for authenticating web hook events. Optionally specify -p <port> to set the port, default port is 8086. ' +
-				'To run the sync server over HTTPS, specify the key file with -k <key> and the certificate file with -c <certificate>.';
-			return desc;
+				'Optionally specify -p <port> to set the port, default port is 8086. ' +
+				'To run the sync server over HTTPS, specify the key file with -k <key> and the certificate file with -c <certificate>. ' +
+				'Set authorization option with -a and the valid values are \n\n';
+			return getSyncServerAuths().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			
 		})()
 	},
 	example: [
-		['cec sync-server -s DEV -d UAT -u admin -w welcome1'],
-		['cec sync-server -s DEV -d UAT -u admin -w welcome1 -p 7878'],
-		['cec sync-server -s DEV -d UAT', 'The username and password will be prompted to enter'],
-		['cec sync-server -s DEV -d UAT -u admin', 'The password will be prompted to enter'],
+		['cec sync-server -s DEV -d UAT -u admin -w welcome1', 'Use Basic authorization'],
+		['cec sync-server -s DEV -d UAT -u admin -w welcome1 -p 7878', 'Use Basic authorization and port set to 7878'],
+		['cec sync-server -s DEV -d UAT', 'Use Basic authorization and the username and password will be prompted to enter'],
+		['cec sync-server -s DEV -d UAT -u admin', 'Use Basic authorization and the password will be prompted to enter'],
+		['cec sync-server -s DEV -d UAT -a header -v key1:value1,key2:value2', 'Use Header authorization'],
+		['cec sync-server -s DEV -d UAT -a none', 'No authorization'],
 		['cec sync-server -s DEV -d UAT -k ~/keys/key.pem -c ~/keys/cert.pem', 'The sync server will start over HTTPS']
 	]
 };
@@ -4770,13 +4778,21 @@ const argv = yargs.usage(_usage)
 					description: 'The registered CEC server for sync destination',
 					demandOption: true
 				})
+				.option('authorization', {
+					alias: 'a',
+					description: 'The authorization method [' + getSyncServerAuths().join(' | ') + '] for the web hook event, defaults to basic'
+				})
 				.option('username', {
 					alias: 'u',
-					description: 'The username used to authenticate the web hook event'
+					description: 'The username used to authenticate the web hook event when <authorization> is basic'
 				})
 				.option('password', {
 					alias: 'w',
-					description: 'The password used to authenticate the web hook event'
+					description: 'The password used to authenticate the web hook event when <authorization> is basic'
+				})
+				.option('values', {
+					alias: 'v',
+					description: 'The comma separated list of name-value pairs used to authenticate the web hook event when <authorization> is header'
 				})
 				.option('port', {
 					alias: 'p',
@@ -4790,11 +4806,27 @@ const argv = yargs.usage(_usage)
 					alias: 'c',
 					description: 'The certificate file for HTTPS'
 				})
+				.check((argv) => {
+					if (argv.authorization && !getSyncServerAuths().includes(argv.authorization)) {
+						throw new Error(`${argv.authorization} is not a valid value for <authorization>`);
+					}
+					if (argv.authorization && argv.authorization === 'header') {
+						if (!argv.values) {
+							throw new Error('Please specify values for authorization header');
+						} 
+						if (argv.values.indexOf(':') < 0) {
+							throw new Error('The value for authorization header is not valid, should be <key>:<value>');
+						}
+					}
+					return true;
+				})
 				.example(...syncServer.example[0])
 				.example(...syncServer.example[1])
 				.example(...syncServer.example[2])
 				.example(...syncServer.example[3])
 				.example(...syncServer.example[4])
+				.example(...syncServer.example[5])
+				.example(...syncServer.example[6])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -6670,11 +6702,17 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--server', argv.server,
 		'--destination', argv.destination
 	];
+	if (argv.authorization && typeof argv.authorization !== 'boolean') {
+		syncServerArgs.push(...['--authorization', argv.authorization]);
+	}
 	if (argv.username && typeof argv.username !== 'boolean') {
 		syncServerArgs.push(...['--username', argv.username]);
 	}
 	if (argv.password && typeof argv.password !== 'boolean') {
 		syncServerArgs.push(...['--password', argv.password]);
+	}
+	if (argv.values) {
+		syncServerArgs.push(...['--values', argv.values]);
 	}
 	if (argv.port) {
 		syncServerArgs.push(...['--port', argv.port]);

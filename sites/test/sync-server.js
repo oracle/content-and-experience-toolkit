@@ -35,31 +35,34 @@ var destServerName = process.env.CEC_TOOLKIT_SYNC_DEST;
 if (!srcServerName) {
 	console.log('ERROR: sync source server is not specified');
 	process.exit(1);
-};
+}
 if (!fs.existsSync(path.join(serversDir, srcServerName, 'server.json'))) {
 	console.log('ERROR: sync source server ' + srcServerName + ' does not exist');
 	process.exit(1);
-};
+}
 var srcServer = serverUtils.verifyServer(srcServerName, projectDir);
 if (!srcServer || !srcServer.valid) {
 	process.exit(1);
-};
+}
 if (!destServerName) {
 	console.log('ERROR: sync destination server is not specified');
 	process.exit(1);
-};
+}
 if (!fs.existsSync(path.join(serversDir, destServerName, 'server.json'))) {
 	console.log('ERROR: sync destination server ' + destServerName + ' does not exist');
 	process.exit(1);
-};
+}
 var destServer = serverUtils.verifyServer(destServerName, projectDir);
 if (!destServer || !destServer.valid) {
 	process.exit(1);
-};
+}
 
 var keyPath = process.env.CEC_TOOLKIT_SYNC_HTTPS_KEY;
 var certPath = process.env.CEC_TOOLKIT_SYNC_HTTPS_CERTIFICATE;
 
+var authMethod = process.env.CEC_TOOLKIT_SYNC_AUTH;
+var headerStr = process.env.CEC_TOOLKIT_SYNC_AUTH_HEADER;
+var header = headerStr ? headerStr.split(',') : [];
 var username = process.env.CEC_TOOLKIT_SYNC_USERNAME;
 var password = process.env.CEC_TOOLKIT_SYNC_PASSWORD;
 
@@ -123,15 +126,49 @@ app.post('/*', function (req, res) {
 	});
 	res.end();
 
+	var webHookName = req.body.webhook && req.body.webhook.name;
+	// console.log('!!! event from ' + webHookName);
+
 	// console.log(req.headers);
-	if (req.headers.authorization && req.headers.authorization.indexOf('Basic ') >= 0) {
-		const base64Credentials = req.headers.authorization.split(' ')[1];
-		const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
-		if (!credentials || credentials !== username + ':' + password) {
-			console.log('ERROR: Invalid Authentication Credentials');
+	if (authMethod === 'basic') {
+		if (req.headers.authorization && req.headers.authorization.indexOf('Basic ') >= 0) {
+			const base64Credentials = req.headers.authorization.split(' ')[1];
+			const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
+			if (!credentials || credentials !== username + ':' + password) {
+				console.log('Webhook: ' + webHookName + ' ERROR: Invalid Basic Authentication Credentials');
+				return;
+			}
+		} else {
+			console.log('Webhook: ' + webHookName + ' ERROR: No Basic Authentication Credentials');
 			return;
 		}
+	} else if (authMethod === 'header') {
+		for (var i = 0; i < header.length; i++) {
+			var arr = header[i].split(':');
+			var name = arr[0];
+			var value = arr[1];
+			var matched = false;
+			var found = false;
+			Object.keys(req.headers).forEach(function (key) {
+				if (name === key) {
+					found = true;
+					if (value === req.headers[key]) {
+						matched = true;
+					}
+				}
+			});
+			if (!found) {
+				console.log('Webhook: ' + webHookName + ' ERROR: Invalid Authentication Header: ' + name + ' not found');
+				return;
+			}
+			if (!matched) {
+				console.log('Webhook: ' + webHookName + ' ERROR: Invalid Authentication Header: ' + name + ' does not match');
+				return;
+			}
+
+		}
 	}
+
 	// console.log(req.body);
 	var action = req.body.event.name;
 	var objectId = req.body.entity.id;
@@ -152,9 +189,9 @@ app.post('/*', function (req, res) {
 		action === 'DIGITALASSET_UPDATED' ||
 		action === 'DIGITALASSET_DELETED' ||
 		action === 'CHANNEL_ASSETPUBLISHED' ||
-		action === 'CHANNEL_ASSETUNPUBLISHED' || 
+		action === 'CHANNEL_ASSETUNPUBLISHED' ||
 		action === 'SITE_STATUSUPDATED' ||
-		action === 'SITE_UNPUBLISHED' || 
+		action === 'SITE_UNPUBLISHED' ||
 		action === 'SITE_PUBLISHED') {
 		var events = [];
 		if (fs.existsSync(eventsFilePath)) {
@@ -169,7 +206,7 @@ app.post('/*', function (req, res) {
 		event['__processed'] = false;
 		events.push(event);
 
-		console.log('!!! Queue event: action: ' + action + ' Id: ' + objectId + ' (total: ' + events.length + ')');
+		console.log('!!! Queue event: webhook: ' + webHookName + ' action: ' + action + ' Id: ' + objectId + ' (total: ' + events.length + ')');
 
 		fs.writeFileSync(eventsFilePath, JSON.stringify(events, null, 4));
 
@@ -255,7 +292,7 @@ var _updateEvent = function (eventId, success, retry) {
 					newList.push(events[i]);
 				} else {
 					// check if need retry
-					if (events[i].__retry !== undefined &&  events[i].__retry > 10) {
+					if (events[i].__retry !== undefined && events[i].__retry > 10) {
 						console.log(' -- already tried ' + events[i].__retry + ' times, give up');
 						events[i].__processed = true;
 						newList.push(events[i]);
@@ -380,7 +417,7 @@ var _processEvent = function () {
 			} else {
 				siteAction = 'unpublish';
 			}
-			
+
 			var args = {
 				projectDir: projectDir,
 				server: srcServer,
@@ -394,7 +431,7 @@ var _processEvent = function () {
 				console.log('*** action finished');
 				_updateEvent(event.__id, success);
 			});
-		} 
+		}
 
 	} // event exists
 };

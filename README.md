@@ -14,6 +14,17 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.1.2a
+
+**Added**
+
+- Can now use local or server based Content Items in component tests on local server
+
+**Fixed**
+
+- `cec transfer-file` - Now works correctly with OAuth.
+
+
 # New in Release 20.1.2
 
 **Added**

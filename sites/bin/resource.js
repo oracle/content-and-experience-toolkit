@@ -225,7 +225,7 @@ module.exports.setOAuthToken = function (argv, done) {
 		return;
 	}
 
-	var server = serverUtils.getRegisteredServer(projectDir, serverName);
+	server = serverUtils.getRegisteredServer(projectDir, serverName);
 	var serverPath = path.join(serversSrcDir, serverName, "server.json");
 	if (fs.existsSync(serverPath)) {
 		var serverstr = fs.readFileSync(serverPath).toString(),
@@ -360,9 +360,11 @@ module.exports.listServerResources = function (argv, done) {
 	var listRepositories = types.length === 0 || types.includes('repositories');
 	var listSites = types.length === 0 || types.includes('sites');
 	var listTemplates = types.length === 0 || types.includes('templates');
-	var listTranslationConnectors = true;
+	var listTranslationConnectors = types.length === 0 || types.includes('translationconnectors');
+	var listTaxonomies = types.length === 0 || types.includes('taxonomies');
 
-	if (!listChannels && !listComponents && !listLocalizationpolicies && !listRepositories && !listSites && !listTemplates) {
+	if (!listChannels && !listComponents && !listLocalizationpolicies && !listRepositories && !listSites &&
+		!listTemplates && !listTaxonomies && !listTranslationConnectors) {
 		console.log('ERROR: invalid resource types: ' + argv.types);
 		done();
 		return;
@@ -539,6 +541,42 @@ module.exports.listServerResources = function (argv, done) {
 						var type = temp.xScsIsEnterprise === '1' ? 'Enterprise' : 'Standard';
 						console.log(sprintf(format3, temp.fFolderName, temp.xScsSiteTheme, type));
 					}
+					console.log('');
+				}
+
+				promises = listTaxonomies ? [serverRest.getTaxonomies({
+					server: server
+				})] : [];
+
+				return Promise.all(promises);
+
+			})
+			.then(function (results) {
+				//
+				// list taxonomies
+				//
+				if (listTaxonomies) {
+					var taxonomies = results && results.length > 0 ? results[0] : [];
+					console.log('Taxonomies:');
+					var taxFormat = '  %-45s  %-12s  %-14s  %-10s  %-8s  %-10s  %-s';
+					console.log(sprintf(taxFormat, 'Name', 'Abbreviation', 'isPublishable', 'Status', 'Version', 'Published', 'Published Channels'));
+					taxonomies.forEach(function (tax) {
+						var publishable = tax.isPublishable ? '     √' : '';
+						var channels = [];
+						var publishedChannels = tax.publishedChannels || [];
+						publishedChannels.forEach(function (channel) {
+							channels.push(channel.name);
+						});
+						var states = tax.availableStates;
+						for (var i = 0; i < states.length; i++) {
+							var name = i === 0 ? tax.name : '';
+							var abbr = i === 0 ? tax.shortName : '';
+							var version = states[i].version || '';
+							var published = states[i].published ? '    √' : '';
+							var channelLabel = states[i].published ? channels.join(', ') : '';
+							console.log(sprintf(taxFormat, name, abbr, publishable, states[i].status, version, published, channelLabel));
+						}
+					});
 					console.log('');
 				}
 

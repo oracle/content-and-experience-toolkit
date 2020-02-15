@@ -17,11 +17,13 @@ var express = require('express'),
 var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), '');
 var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
 var defaultTemplatesDir;
+var defaultContentDir;
 
 var _setupSourceDir = function () {
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
 	defaultTemplatesDir = path.join(srcfolder, 'templates');
+	defaultContentDir = path.join(srcfolder, 'content');
 };
 
 var context = {};
@@ -130,8 +132,11 @@ router.get('/*', (req, res) => {
 	//
 	var contentitem = app.locals.currentContentItem;
 
+	console.log('   server channel token: ' + app.locals.channelToken);
+
 	if ((app.locals.useCAASServer && app.locals.currentTemplate) ||
 		(contentitem && contentitem.id && contentitem.isRemote) ||
+		app.locals.channelToken ||
 		cntPath.indexOf('/content/management/api') === 0) {
 		if (!app.locals.connectToServer) {
 			console.log('No remote server for remote traffic ', requestUrl);
@@ -141,10 +146,14 @@ router.get('/*', (req, res) => {
 		}
 		location = app.locals.serverURL + requestUrl;
 		// use management api 
-		location = location.replace('/published/', '/management/');
-		if (location.indexOf('channelToken=') > 0) {
-			// remove channel token
-			location = location.substring(0, location.indexOf('channelToken='));
+		if (app.locals.channelToken) {
+			location = location + '&channelToken=' + app.locals.channelToken;
+		} else {
+			location = location.replace('/published/', '/management/');
+			if (location.indexOf('channelToken=') > 0) {
+				// remove channel token
+				location = location.substring(0, location.indexOf('channelToken='));
+			}
 		}
 		console.log('Remote traffic:', location);
 		var options = {
@@ -170,7 +179,8 @@ router.get('/*', (req, res) => {
 	}
 
 	// console.log(' - currentContentItem.template=' + app.locals.currentContentItem.template + ' currentTemplate=' + app.locals.currentTemplate);
-	var temp = currentTemplate,
+	console.log(' - currentTemplate=' + currentTemplate + ' app.locals.localTemplate=' + app.locals.localTemplate);
+	var temp = currentTemplate || app.locals.localTemplate,
 		comp = app.locals.currentComponent;
 	if (!temp) {
 		if (cntPath.indexOf('/content/published/api/v1/digital-assets/') === 0 ||
@@ -210,9 +220,16 @@ router.get('/*', (req, res) => {
 		}
 	}
 
-	var tempdir = path.join(defaultTemplatesDir, temp),
-		contentdir = path.join(tempdir, 'assets', 'contenttemplate', 'Content Template of ' + temp),
+	var tempdir, 
+		contentdir,
 		filePath = '';
+	if (fs.existsSync(path.join(defaultTemplatesDir, temp))) {
+		tempdir = path.join(defaultTemplatesDir, temp);
+		contentdir = path.join(tempdir, 'assets', 'contenttemplate', 'Content Template of ' + temp);
+	} else {
+		tempdir = path.join(defaultContentDir, temp);
+		contentdir = path.join(tempdir, 'contentexport');
+	}
 
 	context.contentdir = contentdir;
 

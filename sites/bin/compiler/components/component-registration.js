@@ -896,6 +896,7 @@
 						'handlePickerSelectedinEdit',
 						'isCaaSLayoutDefined',
 						'openFilePicker',
+						'openFileEditor',
 						'targetedChannels',
 						'validComponentImplementation'
 					],

@@ -9,6 +9,7 @@
  */
 var express = require('express'),
 	serverUtils = require('./serverUtils.js'),
+	serverRest = require('./serverRest.js'),
 	router = express.Router(),
 	fs = require('fs'),
 	argv = require('yargs').argv,
@@ -29,11 +30,15 @@ var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
 var templatesDir,
 	themesDir,
 	componentsDir,
+	contentDir,
+	customTemplate = '',
+	customChannelToken = '';
 	customThemeName = '';
 
 var _setupSourceDir = function (req, compName) {
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
+	contentDir = path.join(srcfolder, 'content');
 	templatesDir = path.join(srcfolder, 'templates');
 	themesDir = path.join(srcfolder, 'themes');
 	componentsDir = path.join(srcfolder, 'components');
@@ -41,6 +46,8 @@ var _setupSourceDir = function (req, compName) {
 	// if the request is for the components page, then setup the custom theme if passed in as well
 	if (req.path === '/components/' + compName + '/') {
 		customThemeName = req.query.theme;
+		customTemplate = req.query.template;
+		customChannelToken = req.query.token;
 	}
 };
 
@@ -56,6 +63,14 @@ router.get('/*', (req, res) => {
 		compName = filePathSuffix.indexOf('/') > 0 ? filePathSuffix.substring(0, filePathSuffix.indexOf('/')) : filePathSuffix;
 
 	_setupSourceDir(req, compName);
+	
+	app.locals.localTemplate = '';
+	app.locals.channelToken = '';
+	if (customTemplate) {
+		app.locals.localTemplate = customTemplate;
+	} else if (customChannelToken) {
+		app.locals.channelToken = customChannelToken;
+	}
 
 	// console.log(' **** filePathSuffix=' + filePathSuffix + ' comp=' + compName);
 
@@ -350,7 +365,7 @@ router.get('/*', (req, res) => {
 			for (var i = 0; i < comps.length; i++) {
 				tabData[comps[i]] = {
 					'label': '  ' + (i + 1) + '  '
-				}
+				};
 			}
 			compvalues.data.tabData = tabData;
 		} else if (apptype === 'contentlayout') {
@@ -361,7 +376,7 @@ router.get('/*', (req, res) => {
 			compvalues.data.componentName = itemname;
 			compvalues.data.contentTypes = [itemtype];
 			compvalues.data.description = itemname + ' : Default';
-			compvalues.data.contentIds = [itemid]
+			compvalues.data.contentIds = [itemid];
 		} else {
 			comptype = 'scs-component';
 			compvalues.id = compName;
@@ -482,7 +497,7 @@ router.get('/*', (req, res) => {
 				if (editHtml.indexOf('oraclemapsv2') > 0) {
 					fieldEditorType = 'map';
 				} else {
-					fieldEditorType = 'fieldeditor'
+					fieldEditorType = 'fieldeditor';
 				}
 			}
 			buf = buf.replace('_devcs_component_fieldeditor_type', fieldEditorType);
@@ -509,8 +524,94 @@ router.get('/*', (req, res) => {
 			// handle theme resources
 			buf = buf.replace('_devcs_theme_resources', themedesigns.replace('selectTheme()', 'selectThemeResource()').replace('"themedesign"', '"themeresource"'));
 
-			res.write(buf);
-			res.end();
+			if (compType === 'contentlayout') {
+				buf = buf.replace('_devcs_local_content', '');
+				buf = buf.replace('_devcs_server_content', '');
+				res.write(buf);
+				res.end();
+
+			} else {
+				var localContentHtml = '<div class="themedesign"><span>Local Content</span>' +
+					'<select id="localcontent" class="themedesign-select" onchange="selectLocalContent()">' +
+					'<option value="none">None</option>';
+				var templates = fs.readdirSync(templatesDir);
+				console.log('    site templates: ' + templates);
+				templates.forEach(function (tempName) {
+					if (fs.existsSync(path.join(templatesDir, tempName, 'assets', 'contenttemplate', 'Content Template of ' + tempName))) {
+						localContentHtml += '<option value="' + tempName + '"';
+						if (app.locals.localTemplate && tempName === app.locals.localTemplate) {
+							localContentHtml += ' selected="selected"';
+						}
+						localContentHtml += '>' + tempName + '</option>';
+					}
+				});
+				templates = fs.readdirSync(contentDir);
+				console.log('    content templates: ' + templates);
+				templates.forEach(function (tempName) {
+					if (fs.existsSync(path.join(contentDir, tempName, 'contentexport'))) {
+						localContentHtml += '<option value="' + tempName + '"';
+						if (app.locals.localTemplate && tempName === app.locals.localTemplate) {
+							localContentHtml += ' selected="selected"';
+						}
+						localContentHtml += '>' + tempName + '</option>';
+					}
+				});
+				localContentHtml += '</select></div>';
+				buf = buf.replace('_devcs_local_content', localContentHtml);
+
+				var serverContentHtml = '<div class="themedesign"><span>Server Content</span>' +
+					'<select id="servercontent" class="themedesign-select" onchange="selectServerContent()">' +
+					'<option value="none">None</option>';
+				if (!app.locals.connectToServer) {
+					serverContentHtml += '</select></div>';
+					buf = buf.replace('_devcs_server_content', serverContentHtml);
+
+					res.write(buf);
+					res.end();
+				} else {
+					serverRest.getChannels({
+							server: app.locals.server
+						})
+						.then(function (result) {
+							// console.log(result);
+							var channels = [];
+							var channelNames = [];
+							if (result && result.length > 0) {
+								result.forEach(function (channel) {
+									var channelToken;
+									var tokens = channel.channelTokens || [];
+									for (var i = 0; i < tokens.length; i++) {
+										if (tokens[i].name === 'defaultToken') {
+											channelToken = tokens[i].token;
+											break;
+										}
+									}
+									if (!channelToken && tokens.length > 0) {
+										channelToken = tokens[0].value;
+									}
+									channelNames.push(channel.name);
+									channels.push({
+										name: channel.name,
+										token: channelToken
+									});
+								});
+							}
+							console.log('    server channels: ' + channelNames);
+							channels.forEach(function (channel) {
+								serverContentHtml += '<option value="' + channel.token + '"';
+								if (app.locals.channelToken && app.locals.channelToken === channel.token) {
+									serverContentHtml += ' selected="selected"';
+								}
+								serverContentHtml += '>' + channel.name + '</option>';
+							});
+							serverContentHtml += '</select></div>';
+							buf = buf.replace('_devcs_server_content', serverContentHtml);
+
+							res.write(buf);
+							res.end();
+						});
+				}
+			}
 		} else if (filePath.indexOf('settings.html') > 0) {
 			// 
 			// update the SitesSDK for settings
@@ -540,7 +641,7 @@ router.get('/*', (req, res) => {
 
 				var structurejson = JSON.parse(structurebuf);
 
-				structurejson.siteInfo.base.properties['siteConnections'] = {
+				structurejson.siteInfo.base.properties.siteConnections = {
 					VBCSConnection: vbcsconn
 				};
 

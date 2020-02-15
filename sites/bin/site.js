@@ -713,11 +713,11 @@ module.exports.transferSite = function (argv, done) {
 					'useBackgroundThread': 1,
 					'doPreserveCaaSGUID': 1
 				};
-
+				
 				var postData = {
 					method: 'POST',
 					url: url,
-					auth: auth,
+					auth: serverUtils.getRequestAuth(destServer),
 					formData: formData
 				};
 				if (destServer.cookies) {
@@ -1532,7 +1532,7 @@ var _postOneIdcService = function (request, localhost, server, service, action, 
 			} catch (e) {}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to ' + action + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
+				console.log('ERROR: failed to ' + action + ' - ' + (data && data.LocalData ? data.LocalData.StatusMessage : response.statusMessage || response.statusCode));
 				return resolve({
 					err: 'err'
 				});

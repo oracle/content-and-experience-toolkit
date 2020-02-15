@@ -2002,6 +2002,52 @@ module.exports.getCollections = function (args) {
 	return _getCollections(args.server, args.repositoryId);
 };
 
+// Get taxonomies from server
+var _getTaxonomies = function (server) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/taxonomies?fields=all&limit=9999&q=(status eq "all")';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get taxonomies');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve(data && data.items);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get taxonomies : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get all taxonomies on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getTaxonomies = function (args) {
+	return _getTaxonomies(args.server);
+};
+
 /**
  * Get a collection with name on server 
  * @param {object} args JavaScript object containing parameters. 

@@ -57,11 +57,17 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			<a href="/public">Developer</a>&nbsp;&gt;&nbsp;
 			<a href="/public/components.html">Components</a>&nbsp;&gt;&nbsp;_devcs_component_name
 		</div>
-		<div class "themedesign">
+		
+		<div class="contentoptions">
+		_devcs_local_content
+		_devcs_server_content
+		</div>
+
+		<div class="themedesign">
 			<span>Theme Design</span>
 			_devcs_theme_designs
 		</div>
-		<div class "themeresources">
+		<div class="themeresources">
 			<span>Theme Resources</span>
 			_devcs_theme_resources
 		</div>
@@ -353,6 +359,20 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 					}
 				}
 			}
+		};
+		var selectLocalContent = function () {
+			var tempName = document.getElementById("localcontent").value;
+			console.log('select template: ' + tempName);
+			var newURL = window.location.href.replace(/\?.*/, '');
+			window.location.href = newURL + (tempName === 'none' ? '' : '?template=' + tempName);
+			
+		};
+		var selectServerContent = function () {
+			var channelToken = document.getElementById("servercontent").value;
+			console.log('select channel token: ' + channelToken);
+			var newURL = window.location.href.replace(/\?.*/, '');
+			window.location.href = newURL + (channelToken === 'none' ? '' : '?token=' + channelToken);
+			
 		};
 	</script>
 	<script data-main="/_sitescloud/renderer/renderer.js" src="/libs/requirejs/require.js"></script>

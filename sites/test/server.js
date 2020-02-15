@@ -62,6 +62,8 @@ app.locals.serverURL = app.locals.server.url;
 app.locals.useCAASServer = useCAASServer;
 app.locals.connectToServer = false;
 app.locals.currentTemplate = '';
+app.locals.localTemplate = '';
+app.locals.channelToken = '';
 app.locals.currentComponent = '';
 app.locals.currentContentItem = {
 	template: '',
@@ -317,6 +319,7 @@ app.get('/getcontentlayoutitems*', function (req, res) {
 	res.end();
 });
 
+
 app.post('/setcontentlayoutitem*', function (req, res) {
 	"use strict";
 
@@ -324,16 +327,18 @@ app.post('/setcontentlayoutitem*', function (req, res) {
 		params = serverUtils.getURLParameters(url.parse(itemurl).query);
 
 	if (params) {
-		var template = params['template'],
-			itemtype = params['type'],
-			itemid = params['id'],
-			isRemote = params['isRemote'],
-			alltypes = params['types'];
+		var template = params.template,
+			itemtype = params.type,
+			itemid = params.id,
+			isRemote = params.isRemote,
+			alltypes = params.types;
 
 		app.locals.currentContentTypes = alltypes ? alltypes.split(',') : [];
 
 		if ((template || isRemote) && itemtype && itemid) {
 			app.locals.currentTemplate = '';
+			app.locals.localTemplate = '';
+			app.locals.channelToken = '';
 			app.locals.currentContentItem.template = template;
 			app.locals.currentContentItem.type = itemtype;
 			app.locals.currentContentItem.id = itemid;
@@ -358,7 +363,7 @@ app.post('/clearcontentlayoutitem', function (req, res) {
 		name: '',
 		isRemote: false
 	};
-
+	
 	res.end();
 	return;
 });
@@ -575,6 +580,8 @@ app.get('/getcontentlayoutmappings', function (req, res) {
 app.get('/public/components', function (req, res) {
 	"use strict";
 	app.locals.currentTemplate = '';
+	app.locals.localTemplate = '';
+	app.locals.channelToken = '';
 	app.locals.currentContentItem = {
 		template: '',
 		type: '',
@@ -586,6 +593,8 @@ app.get('/public/components', function (req, res) {
 app.get('/public/templates', function (req, res) {
 	"use strict";
 	app.locals.currentTemplate = '';
+	app.locals.localTemplate = '';
+	app.locals.channelToken = '';
 	app.locals.currentContentItem = {
 		template: '',
 		type: '',
@@ -597,6 +606,8 @@ app.get('/public/templates', function (req, res) {
 app.get('/public/translationconnections', function (req, res) {
 	"use strict";
 	app.locals.currentTemplate = '';
+	app.locals.localTemplate = '';
+	app.locals.channelToken = '';
 	app.locals.currentContentItem = {
 		template: '',
 		type: '',

@@ -426,6 +426,7 @@ margin-right: 0px;*/
 
 .themedesign-select {
 	margin-left: 10px !important;
+	margin-right: 10px !important;
 }
 
 .connectorcontainer {
@@ -494,4 +495,9 @@ div pre {
 }
 .fieldvaluediv {
 	flex: 50%
+}
+
+.contentoptions {
+	display: flex;
+	margin-left: auto;
 }
