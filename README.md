@@ -22,7 +22,7 @@ Templates and resources for development platforms.
 
 **Fixed**
 
-- `cec transfer-file` - Now works correctly with OAuth.
+- `cec transfer-site` - Now works correctly with OAuth.
 
 
 # New in Release 20.1.2
