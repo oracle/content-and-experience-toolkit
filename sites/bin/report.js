@@ -218,14 +218,14 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			console.log('Page ' + page.id);
 			console.log(sprintf(format, 'name', page.name));
 			console.log(sprintf(format, 'version', page.version));
-			if (page.contentlist.length > 0) {
+			if (page.contentlist && page.contentlist.length > 0) {
 				var types = [];
 				for (var j = 0; j < page.contentlist.length; j++) {
 					types.push(page.contentlist[j].contentType);
 				}
 				console.log(sprintf(format, 'contentlist', types.join(', ')));
 			}
-			if (page.contentitems.length > 0) {
+			if (page.contentitems && page.contentitems.length > 0) {
 				for (var j = 0; j < page.contentitems.length; j++) {
 					var item = page.contentitems[j];
 					var msg = 'id:' + item.id + ' name:' + item.name + ' type:' + item.contentType;
@@ -237,10 +237,10 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 					console.log(sprintf(format, (j === 0 ? 'items' : ' '), msg));
 				}
 			}
-			if (page.components.length > 0) {
+			if (page.components && page.components.length > 0) {
 				console.log(sprintf(format, 'components', page.components.join(', ')));
 			}
-			if (page.links.length > 0) {
+			if (page.links && page.links.length > 0) {
 				for (var j = 0; j < page.links.length; j++) {
 					var link = page.links[j];
 					var msg = 'URL: ' + link.url + '  status: ' + link.status;
@@ -563,14 +563,17 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			.then(function (result) {
 				structurePages = result.structurePages || [];
 				pages = result.pages || [];
+				// console.log(structurePages.length + ' ' + pages.length);
 				// console.log(structurePages);
 
 				for (var i = 0; i < structurePages.length; i++) {
 					var page = structurePages[i];
 					var fileName = page.id + '.json';
 					// console.log('page: id=' + page.id + ' name=' + page.name);
+					var found = false;
 					for (var j = 0; j < pages.length; j++) {
 						if (fileName === pages[j].name) {
+							found = true;
 							page['version'] = pages[j].version;
 
 							var triggerActions = [];
@@ -765,6 +768,11 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 
 						}
 					}
+
+					if (!found) {
+						issues.push('Page ' + page.name + ' does not have page JSON file ' + page.id + '.json');
+					}
+
 				}
 
 				return _verifyPageDocs(server, sitejson.id, structurePages);
@@ -914,35 +922,37 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 
 				for (var i = 0; i < structurePages.length; i++) {
 					var page = structurePages[i];
-					for (var j = 0; j < page.contentitems.length; j++) {
-						var exist = false;
-						var name;
-						var itemChannels = [];
-						for (var k = 0; k < pageItems.length; k++) {
-							if (page.contentitems[j].id === pageItems[k].id) {
-								name = pageItems[k].name;
-								itemChannels = pageItems[k].channels && pageItems[k].channels.data;
-								exist = true;
-								break;
+					if (page.contentitems) {
+						for (var j = 0; j < page.contentitems.length; j++) {
+							var exist = false;
+							var name;
+							var itemChannels = [];
+							for (var k = 0; k < pageItems.length; k++) {
+								if (page.contentitems[j].id === pageItems[k].id) {
+									name = pageItems[k].name;
+									itemChannels = pageItems[k].channels && pageItems[k].channels.data;
+									exist = true;
+									break;
+								}
 							}
-						}
 
-						var existInChannel = false;
-						for (var k = 0; k < itemChannels.length; k++) {
-							if (itemChannels[k].id === channel.id) {
-								existInChannel = true;
+							var existInChannel = false;
+							for (var k = 0; k < itemChannels.length; k++) {
+								if (itemChannels[k].id === channel.id) {
+									existInChannel = true;
+								}
 							}
-						}
-						page.contentitems[j]['name'] = name;
-						page.contentitems[j]['exist'] = exist;
-						page.contentitems[j]['existInChannel'] = existInChannel;
+							page.contentitems[j]['name'] = name;
+							page.contentitems[j]['exist'] = exist;
+							page.contentitems[j]['existInChannel'] = existInChannel;
 
-						if (!exist) {
-							var msg = 'Page \'' + page.name + '\' : item ' + page.contentitems[j].id + ' does not exist';
-							issues.push(msg);
-						} else if (!existInChannel) {
-							var msg = 'Page \'' + page.name + '\' : item ' + page.contentitems[j].id + '(' + name + ') is not in site channel';
-							issues.push(msg);
+							if (!exist) {
+								var msg = 'Page \'' + page.name + '\' : item ' + page.contentitems[j].id + ' does not exist';
+								issues.push(msg);
+							} else if (!existInChannel) {
+								var msg = 'Page \'' + page.name + '\' : item ' + page.contentitems[j].id + '(' + name + ') is not in site channel';
+								issues.push(msg);
+							}
 						}
 					}
 				}
@@ -950,16 +960,18 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				// verify SCS_DIGITAL_ASSET
 				for (var i = 0; i < structurePages.length; i++) {
 					var page = structurePages[i];
-					for (var j = 0; j < page.links.length; j++) {
-						var link = page.links[j].url;
-						if (link.indexOf('SCS_DIGITAL_ASSET') > 0) {
-							var value = _getMatchString(/\[!--\$\s*SCS_DIGITAL_ASSET\s*--\]\s*(.*?)\s*\[\/!--\$\s*SCS_DIGITAL_ASSET\s*--\]/g, link);
-							if (value) {
-								value = value.indexOf(',') > 0 ? value.substring(0, value.indexOf(',')) : value;
-								// console.log(link + ' => ' + value);
-								for (var k = 0; k < pageItems.length; k++) {
-									if (value === pageItems[k].id) {
-										page.links[j].status = 'OK';
+					if (page.links) {
+						for (var j = 0; j < page.links.length; j++) {
+							var link = page.links[j].url;
+							if (link.indexOf('SCS_DIGITAL_ASSET') > 0) {
+								var value = _getMatchString(/\[!--\$\s*SCS_DIGITAL_ASSET\s*--\]\s*(.*?)\s*\[\/!--\$\s*SCS_DIGITAL_ASSET\s*--\]/g, link);
+								if (value) {
+									value = value.indexOf(',') > 0 ? value.substring(0, value.indexOf(',')) : value;
+									// console.log(link + ' => ' + value);
+									for (var k = 0; k < pageItems.length; k++) {
+										if (value === pageItems[k].id) {
+											page.links[j].status = 'OK';
+										}
 									}
 								}
 							}
@@ -970,20 +982,22 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				var pageLinks = [];
 				for (var i = 0; i < structurePages.length; i++) {
 					var page = structurePages[i];
-					for (var j = 0; j < page.links.length; j++) {
-						if (!page.links[j].status) {
-							var found = false;
-							for (var k = 0; k < pageLinks.length; k++) {
-								if (page.links[j].url === pageLinks[k].url) {
-									found = true;
-									break;
+					if (page.links) {
+						for (var j = 0; j < page.links.length; j++) {
+							if (!page.links[j].status) {
+								var found = false;
+								for (var k = 0; k < pageLinks.length; k++) {
+									if (page.links[j].url === pageLinks[k].url) {
+										found = true;
+										break;
+									}
 								}
-							}
-							if (!found) {
-								pageLinks.push({
-									pageId: page.id,
-									url: page.links[j].url
-								});
+								if (!found) {
+									pageLinks.push({
+										pageId: page.id,
+										url: page.links[j].url
+									});
+								}
 							}
 						}
 					}
@@ -1034,33 +1048,35 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 					var page = structurePages[i];
 					if (page) {
 						// set status for trigger actions
-						for (var j = 0; j < page.triggerActions.length; j++) {
-							var action = page.triggerActions[j];
-							if (action.type === 'pageId' && action.value) {
-								var found = false;
-								for (var k = 0; k < structurePages.length; k++) {
-									if (parseInt(action.value) === structurePages[k].id) {
-										found = true;
-										break;
+						if (page.triggerActions) {
+							for (var j = 0; j < page.triggerActions.length; j++) {
+								var action = page.triggerActions[j];
+								if (action.type === 'pageId' && action.value) {
+									var found = false;
+									for (var k = 0; k < structurePages.length; k++) {
+										if (parseInt(action.value) === structurePages[k].id) {
+											found = true;
+											break;
+										}
 									}
-								}
-								action.status = found ? 'OK' : 'Page NOT FOUND';
-							} else if (action.type === 'fileId' && action.value) {
-								var found = false;
-								for (var k = 0; k < files.length; k++) {
-									if (action.value === files[k].id) {
-										found = true;
-										break;
+									action.status = found ? 'OK' : 'Page NOT FOUND';
+								} else if (action.type === 'fileId' && action.value) {
+									var found = false;
+									for (var k = 0; k < files.length; k++) {
+										if (action.value === files[k].id) {
+											found = true;
+											break;
+										}
 									}
+									action.status = found ? 'OK' : 'Document NOT FOUND';
 								}
-								action.status = found ? 'OK' : 'Document NOT FOUND';
-							}
 
-							if (!action.status || action.status.toLowerCase() !== 'ok') {
-								var msg = 'Page: \'' + page.name + '\' component: \'' + action.component +
-									'\' triggerAction: ' + action.action + ' ' + action.type + ': ' + action.value +
-									' status: ' + action.status;
-								issues.push(msg);
+								if (!action.status || action.status.toLowerCase() !== 'ok') {
+									var msg = 'Page: \'' + page.name + '\' component: \'' + action.component +
+										'\' triggerAction: ' + action.action + ' ' + action.type + ': ' + action.value +
+										' status: ' + action.status;
+									issues.push(msg);
+								}
 							}
 						}
 

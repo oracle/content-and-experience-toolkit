@@ -799,11 +799,11 @@ module.exports.deployTemplate = function (argv, done) {
 			return;
 		}
 		total += 1;
-		if (total >= 20) {
+		if (total >= 30) {
 			clearInterval(inter);
 			console.log('ERROR: file ' + zipfile + ' does not exist');
 		}
-	}, 3000);
+	}, 6000);
 };
 
 module.exports.describeTemplate = function (argv, done) {
