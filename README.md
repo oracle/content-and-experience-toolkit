@@ -19,7 +19,7 @@ Templates and resources for development platforms.
 
 **Fixed**
 
-- `cec create-asset-report` - Fixed issue where no results were returned for a site.
+- `cec create-asset-report` - Fixed issue where site metadata caused no results to be returned when reporting on a site.
 
 
 # New in Release 20.1.2a
