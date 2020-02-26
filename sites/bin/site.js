@@ -713,7 +713,7 @@ module.exports.transferSite = function (argv, done) {
 					'useBackgroundThread': 1,
 					'doPreserveCaaSGUID': 1
 				};
-				
+
 				var postData = {
 					method: 'POST',
 					url: url,
@@ -875,7 +875,7 @@ module.exports.transferSite = function (argv, done) {
 								server: destServer,
 								parentID: 'self',
 								filename: fileName,
-								contents: fs.readFileSync(templatePath)
+								contents: fs.createReadStream(templatePath)
 							}));
 						}
 						return Promise.all(uploadFilePromises);
@@ -1060,6 +1060,8 @@ module.exports.controlSite = function (argv, done) {
 		var action = argv.action;
 		var siteName = argv.site;
 
+		var staticOnly = typeof argv.staticonly === 'string' && argv.staticonly.toLowerCase() === 'true';
+
 		var request = serverUtils.getRequest();
 
 		serverUtils.loginToServer(server, request).then(function (result) {
@@ -1071,7 +1073,7 @@ module.exports.controlSite = function (argv, done) {
 			if (server.useRest) {
 				_controlSiteREST(request, server, action, siteName, done);
 			} else {
-				_controlSiteSCS(request, server, action, siteName, done);
+				_controlSiteSCS(request, server, action, siteName, staticOnly, done);
 			}
 		});
 
@@ -1143,185 +1145,11 @@ var _setSiteRuntimeStatus = function (request, server, action, siteId) {
 	return sitePromise;
 };
 
-/**
- * Use Idc service to publish / unpublish a site
- */
-var _IdcControlSite = function (request, server, action, siteId) {
-	var controlPromise = new Promise(function (resolve, reject) {
-
-		var loginPromise = serverUtils.loginToServer(server, request);
-		loginPromise.then(function (result) {
-			if (!result.status) {
-				console.log(' - failed to connect to the server');
-				done();
-				return;
-			}
-
-			var express = require('express');
-			var app = express();
-
-			var port = '9191';
-			var localhost = 'http://localhost:' + port;
-
-			var dUser = '';
-			var idcToken;
-
-			var auth = serverUtils.getRequestAuth(server);
-
-			app.get('/*', function (req, res) {
-				// console.log('GET: ' + req.url);
-				if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-					var url = server.url + req.url;
-
-					var options = {
-						url: url,
-					};
-
-					options['auth'] = auth;
-
-					request(options).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
-						.on('error', function (err) {
-							console.log('ERROR: GET request failed: ' + req.url);
-							console.log(error);
-							return resolve({
-								err: 'err'
-							});
-						})
-						.pipe(res);
-
-				} else {
-					console.log('ERROR: GET request not supported: ' + req.url);
-					res.write({});
-					res.end();
-				}
-			});
-			app.post('/documents/web', function (req, res) {
-				// console.log('POST: ' + req.url);
-				if (req.url.indexOf('SCS_PUBLISH_SITE') > 0 || req.url.indexOf('SCS_UNPUBLISH_SITE') > 0) {
-					var url = server.url + '/documents/web?IdcService=' + (req.url.indexOf('SCS_PUBLISH_SITE') > 0 ? 'SCS_PUBLISH_SITE' : 'SCS_UNPUBLISH_SITE');
-					var formData = {
-						'idcToken': idcToken,
-						'item': 'fFolderGUID:' + siteId
-					};
-
-					var postData = {
-						method: 'POST',
-						url: url,
-						'auth': auth,
-						'formData': formData
-					};
-
-					request(postData).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
-						.on('error', function (err) {
-							console.log('ERROR: Failed to ' + action + ' site');
-							console.log(error);
-							return resolve({
-								err: 'err'
-							});
-						})
-						.pipe(res)
-						.on('finish', function (err) {
-							res.end();
-						});
-				} else {
-					console.log('ERROR: POST request not supported: ' + req.url);
-					res.write({});
-					res.end();
-				}
-			});
-
-			localServer = app.listen(0, function () {
-				port = localServer.address().port;
-				localhost = 'http://localhost:' + port;
-				localServer.setTimeout(0);
-
-				var inter = setInterval(function () {
-					// console.log(' - getting login user: ' + total);
-					var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-					request.get(url, function (err, response, body) {
-						var data = JSON.parse(body);
-						dUser = data && data.LocalData && data.LocalData.dUser;
-						idcToken = data && data.LocalData && data.LocalData.idcToken;
-						if (dUser && dUser !== 'anonymous' && idcToken) {
-							// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-							clearInterval(inter);
-							console.log(' - establish user session');
-
-							url = localhost + '/documents/web?IdcService=' + (action === 'publish' ? 'SCS_PUBLISH_SITE' : 'SCS_UNPUBLISH_SITE');
-
-							request.post(url, function (err, response, body) {
-								if (err) {
-									console.log('ERROR: Failed to ' + action + ' site');
-									console.log(err);
-									return resolve({
-										err: 'err'
-									});
-								}
-
-								var data;
-								try {
-									data = JSON.parse(body);
-								} catch (e) {}
-
-								if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-									console.log('ERROR: failed to ' + action + ' site ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-									return resolve({
-										err: 'err'
-									});
-								}
-
-								if (action === 'unpublish') {
-									return resolve({});
-								} else {
-									var jobId = data.LocalData.JobID;
-
-									// wait create to finish
-									var inter = setInterval(function () {
-										var jobPromise = serverUtils.getBackgroundServiceJobStatus(server, request, idcToken, jobId);
-										jobPromise.then(function (data) {
-											if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
-												clearInterval(inter);
-												console.log(data);
-												// try to get error message
-												console.log('ERROR: ' + action + ' site failed: ' + (data && data.JobMessage));
-												return resolve({
-													err: 'err'
-												});
-
-											}
-											if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
-												clearInterval(inter);
-
-												return resolve({});
-
-											} else {
-												console.log(' - ' + action + 'ing: percentage ' + data.JobPercentage);
-											}
-										});
-									}, 5000);
-								}
-							}); // publish / unpublish
-						}
-					}); // idc token request
-
-				}, 6000);
-			}); // local 
-		}); // login
-	});
-	return controlPromise;
-};
 
 /**
  * Use Idc service to control a site
  */
-var _controlSiteSCS = function (request, server, action, siteName, done) {
+var _controlSiteSCS = function (request, server, action, siteName, staticOnly, done) {
 
 	var express = require('express');
 	var app = express();
@@ -1378,6 +1206,9 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 		if (req.url.indexOf('SCS_ACTIVATE_SITE') > 0 || req.url.indexOf('SCS_DEACTIVATE_SITE') > 0) {
 			formData['isSitePublishV2'] = 1;
 		}
+		if (req.url.indexOf('SCS_PUBLISH_SITE') && staticOnly > 0) {
+			formData.doStaticFilePublishOnly = 1;
+		}
 
 		var postData = {
 			method: 'POST',
@@ -1385,7 +1216,7 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 			'auth': auth,
 			'formData': formData
 		};
-
+		// console.log(postData);
 		request(postData).on('response', function (response) {
 				// fix headers for cross-domain and capitalization issues
 				serverUtils.fixHeaders(response, res);
@@ -1496,6 +1327,12 @@ var _controlSiteSCS = function (request, server, action, siteName, done) {
 									console.log(' - site ' + siteName + ' is online now');
 								} else if (action === 'take-offline') {
 									console.log(' - site ' + siteName + ' is offline now');
+								} else if (action === 'publish') {
+									if (staticOnly) {
+										console.log(' - ' + action + ' ' + siteName + ' (static files) finished');
+									} else {
+										console.log(' - ' + action + ' ' + siteName + ' finished');
+									}
 								} else {
 									console.log(' - ' + action + ' ' + siteName + ' finished');
 								}
@@ -3363,7 +3200,7 @@ var _prepareStaticSite = function (srcPath) {
 						} else {
 							filesFolder = path.join(staticFolder, fileFolder, '_files');
 						}
-						
+
 						if (!fs.existsSync(filesFolder)) {
 							fse.mkdirSync(filesFolder, {
 								recursive: true
@@ -4084,7 +3921,7 @@ module.exports.migrateSite = function (argv, done) {
 						server: destServer,
 						parentID: folderId,
 						filename: fileName,
-						contents: fs.readFileSync(templatePath)
+						contents: fs.createReadStream(templatePath)
 					});
 				})
 				.then(function (result) {

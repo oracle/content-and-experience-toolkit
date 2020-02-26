@@ -196,6 +196,16 @@ var getResourceTypes = function () {
 	return names;
 };
 
+var getTaxonomyStatus = function () {
+	var names = ['promoted', 'published'];
+	return names;
+};
+
+var getTaxonomyActions = function () {
+	const actions = ['promote', 'publish', 'unpublish'];
+	return actions;
+};
+
 /*********************
  * Command definitions
  **********************/
@@ -453,7 +463,7 @@ const exportTemplate = {
 	usage: {
 		'short': 'Exports the template <name> as a zip file.',
 		'long': (function () {
-			let desc = 'Exports the template <name> as a zip file and provides the location of the zip file.';
+			let desc = 'Exports the template <name> as a zip file and provides the location of the zip file. ';
 			return desc;
 		})()
 	},
@@ -817,6 +827,44 @@ const copyAssets = {
 	]
 };
 
+const downloadTaxonomy = {
+	command: 'download-taxonomy <name>',
+	alias: 'dltx',
+	name: 'download-taxonomy',
+	usage: {
+		'short': 'Downloads a taxonomy from CEC server.',
+		'long': (function () {
+			let desc = 'Downloads a taxonomy from CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Specify the status of the taxonomy with -t and the valid values are\n\n';
+			return getTaxonomyStatus().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec download-taxonomy Taxonomy1 -t promoted'],
+		['cec download-taxonomy Taxonomy1 -t published -s UAT']
+	]
+};
+
+const controlTaxonomy = {
+	command: 'control-taxonomy <action>',
+	alias: 'cttx',
+	name: 'control-taxonomy',
+	usage: {
+		'short': 'Performs action on taxonomy on CEC server.',
+		'long': (function () {
+			let desc = 'Perform <action> on taxonomy on CEC server. Specify the taxonomy with -t. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			return getTaxonomyActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec control-taxonomy promote -t Taxonomy1', 'Promote taxonomy Taxonomy1 and not allow publishing'],
+		['cec control-taxonomy promote -t Taxonomy1 -p', 'Promote taxonomy Taxonomy1 and allow publishing'],
+		['cec control-taxonomy publish -t Taxonomy1 -c Channel1,Channel2'],
+		['cec control-taxonomy unpublish -t Taxonomy1 -c Channel1'],
+		['cec control-taxonomy publish -t Taxonomy1 -c Channel1 -s UAT']
+	]
+};
+
 const addComponentToTheme = {
 	command: 'add-component-to-theme <component>',
 	alias: 'actt',
@@ -957,6 +1005,7 @@ const controlSite = {
 	},
 	example: [
 		['cec control-site publish -s Site1', 'Publish site Site1 on the server specified in cec.properties file'],
+		['cec control-site publish -s Site1 -t ', 'Only publish the static files of site Site1'],
 		['cec control-site publish -s Site1 -r UAT', 'Publish site Site1 on the registered server UAT'],
 		['cec control-site unpublish -s Site1 -r UAT', 'Unpublish site Site1 on the registered server UAT'],
 		['cec control-site bring-online -s Site1 -r UAT', 'Bring site Site1 online on the registered server UAT'],
@@ -1954,7 +2003,7 @@ const syncServer = {
 				'To run the sync server over HTTPS, specify the key file with -k <key> and the certificate file with -c <certificate>. ' +
 				'Set authorization option with -a and the valid values are \n\n';
 			return getSyncServerAuths().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			
+
 		})()
 	},
 	example: [
@@ -2176,6 +2225,12 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(addFieldEditor) + os.EOL +
 	_getCmdHelp(removeFieldEditor) + os.EOL +
 	_getCmdHelp(migrateContent) + os.EOL;
+
+/*
+_usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
+	_getCmdHelp(downloadTaxonomy) + os.EOL +
+	_getCmdHelp(controlTaxonomy) + os.EOL;
+*/
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(listTranslationJobs) + os.EOL +
@@ -2996,7 +3051,7 @@ const argv = yargs.usage(_usage)
 					}
 					return true;
 				})
-				
+
 				.example(...controlContent.example[0])
 				.example(...controlContent.example[1])
 				.example(...controlContent.example[2])
@@ -3045,6 +3100,69 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${copyAssets.command}\n\n${copyAssets.usage.long}`);
+		})
+	.command([downloadTaxonomy.command, downloadTaxonomy.alias], false,
+		(yargs) => {
+			yargs.option('status', {
+					alias: 't',
+					description: 'The taxonomy status [' + getTaxonomyStatus().join(' | ') + ']',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.check((argv) => {
+					if (!getTaxonomyStatus().includes(argv.status)) {
+						throw new Error(`${argv.status} is not a valid value for <status>`);
+					}
+					return true;
+				})
+				.example(...downloadTaxonomy.example[0])
+				.example(...downloadTaxonomy.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${downloadTaxonomy.command}\n\n${downloadTaxonomy.usage.long}`);
+		})
+	.command([controlTaxonomy.command, controlTaxonomy.alias], false,
+		(yargs) => {
+			yargs
+				.option('taxonomy', {
+					alias: 't',
+					description: 'Taxonomy',
+					demandOption: true
+				})
+				.option('publishable', {
+					alias: 'p',
+					description: 'Allow publishing when promote'
+				})
+				.option('channels', {
+					alias: 'c',
+					description: 'List of channels to publish or unpublish, required when <action> is publish or unpublish'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.check((argv) => {
+					if (argv.action && !getTaxonomyActions().includes(argv.action)) {
+						throw new Error(`${argv.action} is not a valid value for <action>`);
+					}
+					if ((argv.action === 'publish' || argv.action === 'unpublish') && !argv.channels) {
+						throw new Error(`Please specify channel for action ${argv.action}`);
+					}
+					return true;
+				})
+				.example(...controlTaxonomy.example[0])
+				.example(...controlTaxonomy.example[1])
+				.example(...controlTaxonomy.example[2])
+				.example(...controlTaxonomy.example[3])
+				.example(...controlTaxonomy.example[4])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${controlTaxonomy.command}\n\n${controlTaxonomy.usage.long}`);
 		})
 	.command([shareTheme.command, shareTheme.alias], false,
 		(yargs) => {
@@ -3273,6 +3391,10 @@ const argv = yargs.usage(_usage)
 					description: '<site> Site',
 					demandOption: true
 				})
+				.option('staticonly', {
+					alias: 't',
+					description: 'Only publish site static files'
+				})
 				.option('server', {
 					alias: 'r',
 					description: '<server> The registered CEC server'
@@ -3282,6 +3404,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlSite.example[2])
 				.example(...controlSite.example[3])
 				.example(...controlSite.example[4])
+				.example(...controlSite.example[5])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -4813,7 +4936,7 @@ const argv = yargs.usage(_usage)
 					if (argv.authorization && argv.authorization === 'header') {
 						if (!argv.values) {
 							throw new Error('Please specify values for authorization header');
-						} 
+						}
 						if (argv.values.indexOf(':') < 0) {
 							throw new Error('The value for authorization header is not valid, should be <key>:<value>');
 						}
@@ -5558,6 +5681,42 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === downloadTaxonomy.name || argv._[0] === downloadTaxonomy.alias) {
+	let downloadTaxonomyArgs = ['run', '-s', downloadTaxonomy.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--status', argv.status
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		downloadTaxonomyArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, downloadTaxonomyArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === controlTaxonomy.name || argv._[0] === controlTaxonomy.alias) {
+	let controlTaxonomyArgs = ['run', '-s', controlTaxonomy.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--action', argv.action,
+		'--taxonomy', argv.taxonomy
+	];
+	if (argv.publishable) {
+		controlTaxonomyArgs.push(...['--publishable', argv.publishable]);
+	}
+	if (argv.channels) {
+		controlTaxonomyArgs.push(...['--channels', argv.channels]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		controlTaxonomyArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, controlTaxonomyArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === addComponentToTheme.name || argv._[0] === addComponentToTheme.alias) {
 	let addComponentToThemeArgs = ['run', '-s', addComponentToTheme.name, '--prefix', appRoot,
 		'--',
@@ -5778,6 +5937,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--action', argv.action,
 		'--site', argv.site
 	];
+	if (argv.staticonly) {
+		controlSiteArgs.push(...['--staticonly', argv.staticonly]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlSiteArgs.push(...['--server', argv.server]);
 	}

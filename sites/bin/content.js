@@ -659,7 +659,7 @@ var _uploadContentFromZipFile = function (args) {
 			server: server,
 			parentID: 'self',
 			filename: contentfilename,
-			contents: fs.readFileSync(zippath)
+			contents: fs.createReadStream(zippath)
 		});
 
 		var contentZipFileId;

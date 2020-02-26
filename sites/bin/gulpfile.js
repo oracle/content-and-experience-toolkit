@@ -22,6 +22,7 @@ var gulp = require('gulp'),
 	siteUpdateLib = require('./siteUpdate.js'),
 	siteIndexlib = require('./siteIndex.js'),
 	siteMaplib = require('./siteMap.js'),
+	taxonomylib = require('./taxonomy.js'),
 	themelib = require('./theme.js'),
 	translationlib = require('./translation.js'),
 	fs = require('fs'),
@@ -973,6 +974,30 @@ gulp.task('sync-content', function (done) {
 	'use strict';
 
 	contentlib.syncContent(argv, done);
+});
+
+/**
+ * download taxonomy from server
+ */
+gulp.task('download-taxonomy', function (done) {
+	'use strict';
+
+	taxonomylib.downloadTaxonomy(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * control taxonomy on server
+ */
+gulp.task('control-taxonomy', function (done) {
+	'use strict';
+
+	taxonomylib.controlTaxonomy(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
 /**

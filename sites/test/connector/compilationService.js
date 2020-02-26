@@ -278,7 +278,7 @@ CompilationService.prototype.submitCompileSite = function(req, res) {
             jobId: jobId
         }).then(function(originalMetadata) {
 
-            jobManager.updateStatus(originalMetadata, "CREATE_TEMPLATE").then(function(updatedJobConfig) {
+            jobManager.updateStatus(originalMetadata, "PUBLISH_SITE").then(function(updatedJobConfig) {
 
                 compileSiteJobQueue.enqueue(updatedJobConfig);
 

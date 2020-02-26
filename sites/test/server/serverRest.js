@@ -342,6 +342,7 @@ var _createFile = function (server, parentID, filename, contents) {
 			} catch (e) {
 				data = body;
 			}
+			// console.log(data);
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
 			} else {
@@ -1348,7 +1349,7 @@ var _opChannelItems = function (server, operation, channelIds, itemIds, queryStr
 					'X-CSRF-TOKEN': csrfToken,
 					'X-REQUESTED-WITH': 'XMLHttpRequest'
 				};
-				if (async && async === 'true') {
+				if (async &&async ==='true') {
 					headers.Prefer = 'respond-async';
 				}
 				var postData = {
@@ -3101,4 +3102,311 @@ module.exports.removeMembersFromGroup = function (args) {
 				}
 			});
 	});
+};
+
+var _getTaxonomyExportStatus = function (server, id, jobId) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/taxonomies/' + id + '/export/' + jobId;
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: get taxonomy export status');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
+				resolve(data);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get taxonomy export status' + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+// Export taxonomy on server
+var _exportTaxonomy = function (server, id, name, status) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var payload = {
+					status: status
+				};
+
+				var url = server.url + '/content/management/api/v1.1/taxonomies/' + id + '/export';
+				var auth = serverUtils.getRequestAuth(server);
+				var postData = {
+					method: 'POST',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					body: payload,
+					json: true
+				};
+
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('ERROR: failed to export taxonomy ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						var jobId = data && data.jobId;
+						if (jobId) {
+							console.log(' - submit request');
+							var count = [];
+							var needNewLine = false;
+							var inter = setInterval(function () {
+								var jobPromise = _getTaxonomyExportStatus(server, id, jobId);
+								jobPromise.then(function (data) {
+									if (!data || data.status === 'FAILED') {
+										clearInterval(inter);
+										if (needNewLine) {
+											process.stdout.write(os.EOL);
+										}
+										var msg = data && data.summary ? data.summary : '';
+										console.log('ERROR: export taxonomy failed: ' + msg);
+
+										return resolve({
+											err: 'err'
+										});
+									}
+									if (data.status === 'COMPLETED') {
+										clearInterval(inter);
+										if (needNewLine) {
+											process.stdout.write(os.EOL);
+										}
+
+										var downloadLink;
+										if (data.downloadLink) {
+											for (var i = 0; i < data.downloadLink.length; i++) {
+												if (data.downloadLink[i].rel === 'self' && data.downloadLink[i].href) {
+													downloadLink = data.downloadLink[i].href;
+													break;
+												}
+											}
+											downloadLink = downloadLink || data.downloadLink[0].href;
+										}
+										return resolve({
+											downloadLink: downloadLink
+										});
+									} else {
+										count.push('.');
+										process.stdout.write(' - export taxonomy in process ' + count.join(''));
+										readline.cursorTo(process.stdout, 0);
+										needNewLine = true;
+									}
+								});
+							}, 6000);
+						} else {
+							console.log('ERROR: no job Id is found');
+							resolve({
+								err: 'err'
+							});
+						}
+					} else {
+						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
+						console.log('ERROR: failed to export taxonomy ' + name + ' - ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Export taxonomy on server by channel name
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the taxonomy
+ * @param {string} args.id The id of the taxonomy
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.exportTaxonomy = function (args) {
+	return _exportTaxonomy(args.server, args.id, args.name, args.status);
+};
+
+var _getTaxonomyActionStatus = function (server, url) {
+	return new Promise(function (resolve, reject) {
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: get ' + action + ' taxonomy  status');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
+				resolve(data);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get ' + action + ' taxonomy status' + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+// perform action on taxonomy
+var _controlTaxonomy = function (server, id, name, action, isPublishable, channels) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var payload = {};
+				if (action === 'promote') {
+					payload.isPublishable = isPublishable;
+				} else {
+					payload.channels = channels;
+				}
+
+				var url = server.url + '/content/management/api/v1.1/taxonomies/' + id + '/' + action;
+				var auth = serverUtils.getRequestAuth(server);
+				var postData = {
+					method: 'POST',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					body: payload,
+					json: true
+				};
+				// console.log(postData);
+
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('ERROR: failed to ' + action + ' taxonomy ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					}
+					// console.log(data);
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						var statusUrl = response.headers && response.headers.location;
+						if (statusUrl) {
+							console.log(' - submit request');
+							var count = [];
+							var needNewLine = false;
+							var inter = setInterval(function () {
+								var jobPromise = _getTaxonomyActionStatus(server, statusUrl);
+								jobPromise.then(function (data) {
+									if (!data || data.progress === 'failed' || data.progress === 'aborted') {
+										clearInterval(inter);
+										if (needNewLine) {
+											process.stdout.write(os.EOL);
+										}
+										var msg = data && data.summary ? data.summary : '';
+										console.log('ERROR: export taxonomy failed: ' + msg);
+
+										return resolve({
+											err: 'err'
+										});
+									}
+									if (data.completed && data.progress === 'succeeded') {
+										clearInterval(inter);
+										if (needNewLine) {
+											process.stdout.write(os.EOL);
+										}
+										return resolve({});
+
+									} else {
+										count.push('.');
+										process.stdout.write(' - ' + action + ' taxonomy in process ' + count.join(''));
+										readline.cursorTo(process.stdout, 0);
+										needNewLine = true;
+									}
+								});
+							}, 5000);
+						} else {
+							console.log('ERROR: no job info is found');
+							resolve({
+								err: 'err'
+							});
+						}
+					} else {
+						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
+						console.log('ERROR: failed to ' + action + ' taxonomy ' + name + ' - ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Control taxonomy on server by channel name
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the taxonomy
+ * @param {string} args.id The id of the taxonomy
+ * @param {string} args.action The action to perform [promote | publish | unpublish]
+ * @param {boolean} args.isPublishable Allow publishing when promote
+ * @param {array} channels Channels when publish or unpublish
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.controlTaxonomy = function (args) {
+	return _controlTaxonomy(args.server, args.id, args.name, args.action, args.isPublishable, args.channels);
 };

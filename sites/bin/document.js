@@ -266,7 +266,7 @@ var _uploadFile = function (argv, server) {
 					server: server,
 					parentID: result.id,
 					filename: fileName,
-					contents: fs.readFileSync(filePath)
+					contents: fs.createReadStream(filePath)
 				});
 			})
 			.then(function (result) {
@@ -1436,7 +1436,7 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 									server: server,
 									parentID: parentFolder.id,
 									filename: fileName,
-									contents: fs.readFileSync(filePath)
+									contents: fs.createReadStream(filePath)
 								}));
 							}
 

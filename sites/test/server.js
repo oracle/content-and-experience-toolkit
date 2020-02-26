@@ -411,7 +411,7 @@ app.get('/isAuthenticated', function (req, res) {
 	var location = app.locals.serverURL + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
 	var options = {
 		isJson: true,
-		timeout: 1000
+		timeout: 600000
 	};
 
 	if (app.locals.server.env !== 'dev_ec') {

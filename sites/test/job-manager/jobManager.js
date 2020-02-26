@@ -70,6 +70,19 @@ JobManager.prototype.compileSite = function (jobConfig) {
                 console.log(jobConfig.properties.id, step, 'duration', Math.floor((Date.now() - startTime)/1000), 'seconds');
                 logStream.write(message);
             };
+            logCommand = function (commandArgs) {
+                var line = '================================================================================';
+                var message = 'Execute: ' + cecCmd;
+                commandArgs.forEach(function(a) {
+                    message += ' ' + a;
+                });
+                console.log(line);
+                console.log(message);
+                line += '\n';
+                message += '\n';
+                logStream.write(line);
+                logStream.write(message);
+            };
 
         var noop = -1,
             // Write nothing in case log stream cannot be created
@@ -115,6 +128,34 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     });
                 });
             },
+            publishSiteStep = function(jobStatus) {
+                if (jobStatus !== 'PUBLISH_SITE') {
+                    return Promise.resolve(noop);
+                } else {
+                    return new Promise(function (resolveStep, rejectStep) {
+                        var startTime = Date.now();
+
+                        var publishSiteArgs = [
+                                'control-site',
+                                'publish',
+                                '-r',
+                                serverName,
+                                '-s',
+                                siteName
+                            ];
+                        logCommand(publishSiteArgs);
+                        var publishSiteCommand = spawn(cecCmd, publishSiteArgs, cecDefaults);
+
+                        publishSiteCommand.stdout.on('data', logStdout);
+                        publishSiteCommand.stderr.on('data', logStderr);
+                        publishSiteCommand.on('close', (code) => {
+                            logCode('publishSiteCommand', code);
+                            logDuration(jobConfig, 'publishSiteCommand', startTime);
+                            code === 0 ? resolveStep(code) : rejectStep(code);
+                        });
+                    });
+                }
+            },
             createTemplateStep = function(jobStatus) {
                 if (jobStatus !== 'CREATE_TEMPLATE') {
                     return Promise.resolve(noop);
@@ -130,6 +171,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                                 siteName,
                                 templateName
                             ];
+                        logCommand(createTemplateArgs);
                         var createTemplateCommand = spawn(cecCmd, createTemplateArgs, cecDefaults);
 
                         createTemplateCommand.stdout.on('data', logStdout);
@@ -174,6 +216,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                                 'published',
                                 '-v'
                             ];
+                        logCommand(compileArguments);
                         var compileCommand = spawn(cecCmd, compileArguments, cecDefaults);
 
                         compileCommand.stdout.on('data', logStdout);
@@ -200,14 +243,44 @@ JobManager.prototype.compileSite = function (jobConfig) {
                                 siteName,
                                 '-r',
                                 serverName
-                            ],
-                            uploadCommand = spawn(cecCmd, uploadArguments, cecDefaults);
+                            ];
+                        logCommand(uploadArguments);
+                        var uploadCommand = spawn(cecCmd, uploadArguments, cecDefaults);
 
                         uploadCommand.stdout.on('data', logStdout);
                         uploadCommand.stderr.on('data', logStderr);
                         uploadCommand.on('close', (code) => {
                             logCode('uploadCommand', code);
                             logDuration(jobConfig, 'uploadCommand', startTime);
+                            code === 0 ? resolveStep(code) : rejectStep(code);
+                        });
+                    });
+                }
+            },
+            publishStaticStep = function(jobStatus) {
+                if (jobStatus !== 'PUBLISH_STATIC') {
+                    return Promise.resolve(noop);
+                } else {
+                    return new Promise(function (resolveStep, rejectStep) {
+                        var startTime = Date.now();
+
+                        var publishStaticArgs = [
+                                'control-site',
+                                'publish',
+                                '-r',
+                                serverName,
+                                '-s',
+                                siteName,
+                                '-t'
+                            ];
+                        logCommand(publishStaticArgs);
+                        var publishStaticCommand = spawn(cecCmd, publishStaticArgs, cecDefaults);
+
+                        publishStaticCommand.stdout.on('data', logStdout);
+                        publishStaticCommand.stderr.on('data', logStderr);
+                        publishStaticCommand.on('close', (code) => {
+                            logCode('publishStaticCommand', code);
+                            logDuration(jobConfig, 'publishStaticCommand', startTime);
                             code === 0 ? resolveStep(code) : rejectStep(code);
                         });
                     });
@@ -251,22 +324,30 @@ JobManager.prototype.compileSite = function (jobConfig) {
             },
             steps = function() {
 
-                if (['CREATE_TEMPLATE', 'COMPILE_TEMPLATE', 'UPLOAD_STATIC'].indexOf(jobConfig.status) !== -1) {
-                    createTemplateStep(jobConfig.status).then(function(completionCode) {
-                        updateStatusStep(completionCode, 'COMPILE_TEMPLATE', 40).then(function(updatedJobConfig) {
-                            getChannelTokenStep(updatedJobConfig.status).then(function(completionCode) {
-                                compileStep(updatedJobConfig.status).then(function(completionCode) {
-                                    updateStatusStep(completionCode, 'UPLOAD_STATIC', 70).then(function(updatedJobConfig) {
-                                        uploadStep(updatedJobConfig.status).then(function(completionCode) {
-                                            if (completionCode !== noop) {
-                                                logDuration(updatedJobConfig, 'compileSite', compileStartTime);
-                                            }
-                                            rmTemplateDirStep(updatedJobConfig.status).then(function() {
-                                                updateStatusStep(completionCode, 'COMPILED', 100).then(function(updatedJobConfig) {
-                                                    resolve(updatedJobConfig);
-                                                    logStream.end();
+                if (['PUBLISH_SITE', 'CREATE_TEMPLATE', 'COMPILE_TEMPLATE', 'UPLOAD_STATIC', 'PUBLISH_STATIC'].indexOf(jobConfig.status) !== -1) {
+                    publishSiteStep(jobConfig.status).then(function(completionCode) {
+                        updateStatusStep(completionCode, 'CREATE_TEMPLATE', 20).then(function(updatedJobConfig) {
+                            createTemplateStep(jobConfig.status).then(function(completionCode) {
+                                updateStatusStep(completionCode, 'COMPILE_TEMPLATE', 40).then(function(updatedJobConfig) {
+                                    getChannelTokenStep(updatedJobConfig.status).then(function(completionCode) {
+                                        compileStep(updatedJobConfig.status).then(function(completionCode) {
+                                            updateStatusStep(completionCode, 'UPLOAD_STATIC', 60).then(function(updatedJobConfig) {
+                                                uploadStep(updatedJobConfig.status).then(function(completionCode) {
+                                                    updateStatusStep(completionCode, 'PUBLISH_STATIC', 80).then(function(updatedJobConfig) {
+                                                        publishStaticStep(updatedJobConfig.status).then(function(completionCode) {
+                                                            if (completionCode !== noop) {
+                                                                logDuration(updatedJobConfig, 'compileSite', compileStartTime);
+                                                            }
+                                                            rmTemplateDirStep(updatedJobConfig.status).then(function() {
+                                                                updateStatusStep(completionCode, 'COMPILED', 100).then(function(updatedJobConfig) {
+                                                                    resolve(updatedJobConfig);
+                                                                    logStream.end();
+                                                                }, stopNow);
+                                                            });
+                                                        }, stopNow);
+                                                    }, stopNow);
                                                 }, stopNow);
-                                            });
+                                            }, stopNow);
                                         }, stopNow);
                                     }, stopNow);
                                 }, stopNow);
@@ -349,7 +430,7 @@ JobManager.prototype.compileSiteJob = function (jobConfig) {
 };
 
 /**
-* @property {('CREATED'|'CREATE_TEMPLATE'|'COMPILE_TEMPLATE'|'UPLOAD_STATIC'|'COMPILED'|'FAILED')} status The new status of the job.
+* @property {('CREATED'|'PUBLISH_SITE'|'CREATE_TEMPLATE'|'COMPILE_TEMPLATE'|'UPLOAD_STATIC'|'PUBLISH_STATIC'|'COMPILED'|'FAILED')} status The new status of the job.
 */
 JobManager.prototype.updateStatus = function (jobConfig, status, progress) {
 

@@ -160,7 +160,7 @@ router.get('/*', (req, res) => {
 			url: location
 		};
 		if (location.indexOf('8080') > 0 || app.locals.server.env !== 'dev_ec') {
-			if (app.locals.server.env !== 'dev_ec' && location.indexOf('assets') > 0) {
+			if (app.locals.server.oauthtoken) {
 				options.auth = {
 					bearer: app.locals.server.oauthtoken
 				};
@@ -171,6 +171,7 @@ router.get('/*', (req, res) => {
 				};
 			}
 		}
+		// console.log(options);
 		request(options).on('response', function (response) {
 			// fix headers for cross-domain and capitalization issues
 			serverUtils.fixHeaders(response, res);

@@ -3335,7 +3335,7 @@ var _importTemplateToServerRest = function (server, name, folder, zipfile) {
 					server: server,
 					parentID: folderId,
 					filename: fileName,
-					contents: fs.readFileSync(zipfile)
+					contents: fs.createReadStream(zipfile)
 				});
 
 			}).then(function (result) {

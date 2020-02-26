@@ -15,6 +15,14 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 20.1.2c
+
+**Fixed**
+
+- `cec migrate-site` - Now handles site templates larger than 2GB.
+- Test content layouts on local server with server content.
+
+
 # New in Release 20.1.2b
 
 **Fixed**

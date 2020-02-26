@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global console, __dirname, process, console */
@@ -20,6 +20,7 @@ var projectDir,
 	contentSrcDir,
 	serversSrcDir,
 	transSrcDir,
+	taxonomiesSrcDir,
 	templatesSrcDir;
 
 var verifyRun = function (argv) {
@@ -33,6 +34,7 @@ var verifyRun = function (argv) {
 	connectorsSrcDir = path.join(srcfolder, 'connectors');
 	connectionsSrcDir = path.join(srcfolder, 'connections');
 	contentSrcDir = path.join(srcfolder, 'content');
+	taxonomiesSrcDir = path.join(srcfolder, 'taxonomies');
 	transSrcDir = path.join(srcfolder, 'translationJobs');
 	serversSrcDir = path.join(srcfolder, 'servers');
 
@@ -293,6 +295,29 @@ module.exports.listLocalResources = function (argv, done) {
 	if (contentNames) {
 		contentNames.forEach(function (name) {
 			if (fs.existsSync(path.join(contentSrcDir, name, 'contentexport'))) {
+				console.log('    ' + name);
+			}
+		});
+	}
+
+	//
+	// Taxonomies
+	//
+	console.log('Taxonomies:');
+	var taxonomyNames = fs.existsSync(taxonomiesSrcDir) ? fs.readdirSync(taxonomiesSrcDir) : [];
+	if (taxonomyNames) {
+		taxonomyNames.forEach(function (name) {
+			var files = fs.readdirSync(path.join(taxonomiesSrcDir, name));
+			var jsonExist = false;
+			if (files) {
+				for (var i = 0; i < files.length; i++) {
+					if (serverUtils.endsWith(files[i], '.json')) {
+						jsonExist = true;
+						break;
+					}
+				}
+			}
+			if (jsonExist) {
 				console.log('    ' + name);
 			}
 		});
