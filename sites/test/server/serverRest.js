@@ -3139,7 +3139,7 @@ var _getTaxonomyExportStatus = function (server, id, jobId) {
 		});
 	});
 };
-// Export taxonomy on server
+// Export taxonomy from server
 var _exportTaxonomy = function (server, id, name, status) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
@@ -3249,7 +3249,7 @@ var _exportTaxonomy = function (server, id, name, status) {
 	});
 };
 /**
- * Export taxonomy on server by channel name
+ * Export taxonomy from server
  * @param {object} args JavaScript object containing parameters. 
  * @param {object} args.server the server object
  * @param {string} args.name The name of the taxonomy
@@ -3258,6 +3258,153 @@ var _exportTaxonomy = function (server, id, name, status) {
  */
 module.exports.exportTaxonomy = function (args) {
 	return _exportTaxonomy(args.server, args.id, args.name, args.status);
+};
+
+var _getTaxonomyImportStatus = function (server, jobId) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/taxonomies/import/' + jobId;
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: get taxonomy import status');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			// console.log(data);
+			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
+				resolve(data);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get taxonomy import status' + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+// Import taxonomy to server
+var _importTaxonomy = function (server, fileId, name, isNew) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var payload = {
+					exportDocId: fileId,
+					taxonomy: {}
+				};
+				if (isNew) {
+					payload.isNew = isNew;
+				}
+				var url = server.url + '/content/management/api/v1.1/taxonomies/import';
+				var auth = serverUtils.getRequestAuth(server);
+				var postData = {
+					method: 'POST',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					body: payload,
+					json: true
+				};
+				// console.log(postData);
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('ERROR: failed to import taxonomy ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					// console.log(data);
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						var jobId = data && data.jobId;
+						if (jobId) {
+							console.log(' - submit request');
+							var count = [];
+							var needNewLine = false;
+							var inter = setInterval(function () {
+								var jobPromise = _getTaxonomyImportStatus(server, jobId);
+								jobPromise.then(function (data) {
+									if (!data || data.status === 'FAILED') {
+										clearInterval(inter);
+										if (needNewLine) {
+											process.stdout.write(os.EOL);
+										}
+										var msg = data && data.errorDescription ? data.errorDescription : '';
+										console.log('ERROR: import taxonomy failed: ' + msg);
+
+										return resolve({
+											err: 'err'
+										});
+									}
+									if (data.status === 'COMPLETED') {
+										clearInterval(inter);
+										if (needNewLine) {
+											process.stdout.write(os.EOL);
+										}
+										return resolve({});
+
+									} else {
+										count.push('.');
+										process.stdout.write(' - export taxonomy in process ' + count.join(''));
+										readline.cursorTo(process.stdout, 0);
+										needNewLine = true;
+									}
+								});
+							}, 6000);
+						} else {
+							console.log('ERROR: no job Id is found');
+							resolve({
+								err: 'err'
+							});
+						}
+					} else {
+						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
+						console.log('ERROR: failed to export taxonomy ' + name + ' - ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Import taxonomy to server
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.fileId The file id
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.importTaxonomy = function (args) {
+	return _importTaxonomy(args.server, args.fileId, args.name, args.isNew);
 };
 
 var _getTaxonomyActionStatus = function (server, url) {

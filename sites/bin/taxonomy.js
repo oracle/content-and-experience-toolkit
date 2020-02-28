@@ -150,6 +150,147 @@ module.exports.downloadTaxonomy = function (argv, done) {
 		});
 };
 
+module.exports.uploadTaxonomy = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	console.log(' - server: ' + server.url);
+
+	var name = argv.name;
+	var taxPath = path.join(taxonomiesSrcDir, name);
+	if (!fs.existsSync(taxPath)) {
+		console.log('ERROR: taxonomy ' + name + ' does not exist');
+		done();
+		return;
+	}
+	if (!fs.statSync(taxPath).isDirectory()) {
+		console.log('ERROR: ' + name + ' is not a valid taxonomy');
+		done();
+		return;
+	}
+	var files = fs.readdirSync(taxPath);
+	if (!files || files.length === 0) {
+		console.log('ERROR: no JSON file found for ' + name);
+		done();
+		return;
+	}
+	var jsonFile;
+	files.forEach(function (fileName) {
+		if (serverUtils.endsWith(fileName, '.json')) {
+			jsonFile = fileName;
+		}
+	});
+	if (!jsonFile) {
+		console.log('ERROR: no JSON file found for ' + name);
+		done();
+		return;
+	}
+	var jsonPath = path.join(taxonomiesSrcDir, name, jsonFile);
+	var jsonData;
+	var taxonomyId, taxonomyName;
+	try {
+		var str = fs.readFileSync(jsonPath);
+		jsonData = JSON.parse(str);
+		taxonomyId = jsonData && jsonData.id;
+		taxonomyName = jsonData && jsonData.name;
+	} catch (e) {}
+
+	if (!taxonomyId || !taxonomyName) {
+		console.log('ERROR: invalid taxonomy JSON file for ' + name);
+		done();
+		return;
+	}
+
+	var fileId;
+	var taxonomy;
+
+	serverRest.getTaxonomies({
+			server: server
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+
+			var taxonomies = result || [];
+			for (var i = 0; i < taxonomies.length; i++) {
+				if (taxonomies[i].id === taxonomyId) {
+					taxonomy = taxonomies[i];
+					break;
+				}
+			}
+			if (taxonomy && taxonomy.id) {
+				console.log(' - taxonomy ' + taxonomyName + ' (Id ' + taxonomyId + ' exists');
+				// console.log(taxonomy);
+				var availableStates = taxonomy.availableStates || [];
+				var foundDraft = false;
+				availableStates.forEach(function (state) {
+					if (state.status === 'draft') {
+						foundDraft = true;
+					}
+				});
+				if (foundDraft) {
+					console.log('ERROR: taxonomy ' + name + ' already has a draft version, promote it first');
+					return Promise.reject();
+				}
+			}
+
+			return serverRest.createFile({
+				server: server,
+				parentID: 'self',
+				filename: jsonFile,
+				contents: fs.createReadStream(jsonPath)
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err || !result.id) {
+				return Promise.reject();
+			}
+			console.log(' - upload taxonomy file ' + jsonPath);
+			fileId = result.id;
+
+			return serverRest.importTaxonomy({
+				server: server,
+				fileId: fileId,
+				name: taxonomyName,
+				isNew: !taxonomy
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+
+			console.log(' - taxonomy ' + name + ' imported');
+
+			return serverRest.deleteFile({
+				server: server,
+				fFileGUID: fileId
+			});
+		})
+		.then(function (result) {
+			done(true);
+		})
+		.catch((error) => {
+			if (error) {
+				console.log(error);
+			}
+			done();
+		});
+
+};
+
+
 module.exports.controlTaxonomy = function (argv, done) {
 	'use strict';
 

@@ -307,18 +307,21 @@ module.exports.listLocalResources = function (argv, done) {
 	var taxonomyNames = fs.existsSync(taxonomiesSrcDir) ? fs.readdirSync(taxonomiesSrcDir) : [];
 	if (taxonomyNames) {
 		taxonomyNames.forEach(function (name) {
-			var files = fs.readdirSync(path.join(taxonomiesSrcDir, name));
-			var jsonExist = false;
-			if (files) {
-				for (var i = 0; i < files.length; i++) {
-					if (serverUtils.endsWith(files[i], '.json')) {
-						jsonExist = true;
-						break;
+			var taxPath = path.join(taxonomiesSrcDir, name);
+			if (fs.statSync(taxPath).isDirectory()) {
+				var files = fs.readdirSync(path.join(taxonomiesSrcDir, name));
+				var jsonExist = false;
+				if (files) {
+					for (var i = 0; i < files.length; i++) {
+						if (serverUtils.endsWith(files[i], '.json')) {
+							jsonExist = true;
+							break;
+						}
 					}
 				}
-			}
-			if (jsonExist) {
-				console.log('    ' + name);
+				if (jsonExist) {
+					console.log('    ' + name);
+				}
 			}
 		});
 	}
@@ -581,7 +584,7 @@ module.exports.listServerResources = function (argv, done) {
 				// list taxonomies
 				//
 				if (listTaxonomies) {
-					var taxonomies = results && results.length > 0 ? results[0] : [];
+					var taxonomies = results && results.length > 0 && results[0] && results[0].length > 0 ? results[0] : [];
 					console.log('Taxonomies:');
 					var taxFormat = '  %-45s  %-12s  %-14s  %-10s  %-8s  %-10s  %-s';
 					console.log(sprintf(taxFormat, 'Name', 'Abbreviation', 'isPublishable', 'Status', 'Version', 'Published', 'Published Channels'));

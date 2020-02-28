@@ -160,7 +160,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 				// console.log('POST: ' + req.url);
 				var url = server.url + req.url;
 
-				var repositoryPrefix = cecVersion && semver.gte(semver.coerce(cecVersion), '19.4.3') ? 'arCaaSGUID' : 'fFolderGUID';
+				var repositoryPrefix = 'arCaaSGUID';
 				// console.log(' - CEC version: ' + cecVersion + ' repositoryPrefix: ' + repositoryPrefix);
 				var formData = createEnterprise ? {
 					'idcToken': idcToken,
@@ -248,11 +248,6 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 										console.log('ERROR: site ' + siteName + ' already exists');
 										return Promise.reject();
 									}
-
-									return serverUtils.getServerVersion(request, server);
-								})
-								.then(function (result) {
-									cecVersion = result && result.version;
 
 									// Verify template
 									return serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
@@ -699,7 +694,7 @@ module.exports.transferSite = function (argv, done) {
 				// console.log('POST: ' + req.url);
 
 				var url = destServer.url + req.url;
-				var repositoryPrefix = cecVersion && semver.gte(semver.coerce(cecVersion), '19.4.3') ? 'arCaaSGUID' : 'fFolderGUID';
+				var repositoryPrefix = 'arCaaSGUID';
 				var formData = {
 					'idcToken': idcToken,
 					'names': siteName,
@@ -929,11 +924,6 @@ module.exports.transferSite = function (argv, done) {
 
 							templateId = results[0].id;
 						}
-
-						return serverUtils.getServerVersion(request, destServer);
-					})
-					.then(function (result) {
-						cecVersion = result && result.version;
 
 						return serverUtils.getIdcToken(destServer);
 					})
@@ -3795,7 +3785,7 @@ module.exports.migrateSite = function (argv, done) {
 					});
 			} else if (req.url.indexOf('SCS_COPY_SITES') > 0) {
 				var url = destServer.url + req.url;
-				var repositoryPrefix = cecVersion && semver.gte(semver.coerce(cecVersion), '19.4.3') ? 'arCaaSGUID' : 'fFolderGUID';
+				var repositoryPrefix = 'arCaaSGUID';
 				var formData = {
 					'idcToken': idcToken,
 					'names': siteName,
@@ -3960,11 +3950,6 @@ module.exports.migrateSite = function (argv, done) {
 					}
 
 					templateGUID = result.id;
-
-					return serverUtils.getServerVersion(request, destServer);
-				})
-				.then(function (result) {
-					cecVersion = result && result.version;
 
 					return serverUtils.getIdcToken(destServer);
 				})

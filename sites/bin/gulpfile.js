@@ -989,6 +989,18 @@ gulp.task('download-taxonomy', function (done) {
 });
 
 /**
+ * upload taxonomy to server
+ */
+gulp.task('upload-taxonomy', function (done) {
+	'use strict';
+
+	taxonomylib.uploadTaxonomy(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
  * control taxonomy on server
  */
 gulp.task('control-taxonomy', function (done) {
@@ -1726,7 +1738,7 @@ gulp.task('check-version', function (done) {
 				done();
 				return;
 			}
-
+			// console.log(cecVersion);
 			if (cecVersion.indexOf('Revision:') >= 0) {
 				cecVersion = cecVersion.substring(cecVersion.indexOf('Revision:') + 'Revision:'.length);
 			}
@@ -1738,10 +1750,14 @@ gulp.task('check-version', function (done) {
 
 			arr = cecVersion.split('.');
 			var versionstr = arr.length >= 2 ? arr[1] : '';
-
 			// the version is a string such as 1922ec
 			if (versionstr && versionstr.length >= 3) {
+				if (versionstr.indexOf('Smart_Content_') >= 0) {
+					versionstr = versionstr.replace('Smart_Content_', '');
+				}
+
 				cecVersion2 = versionstr.charAt(0) + versionstr.charAt(1) + '.' + versionstr.charAt(2);
+
 				cecVersion = cecVersion2;
 				if (versionstr.length > 3) {
 					cecVersion = cecVersion + '.' + versionstr.charAt(3);
@@ -1777,7 +1793,7 @@ gulp.task('check-version', function (done) {
 		var toolkitVersion2 = arr.length >= 2 ? arr[0] + '.' + arr[1] : (arr.length > 0 ? arr[0] : '');
 		// console.log(' toolkit version ' + packagejsonpath + ' version: ' + toolkitVersion + ' version2: ' + toolkitVersion2);
 
-		if (cecVersion2 && toolkitVersion2 && semver.gt(semver.coerce(cecVersion2), semver.coerce(toolkitVersion2))) {
+		if (cecVersion2 && toolkitVersion2 && semver.valid(semver.coerce(cecVersion2)) && semver.gt(semver.coerce(cecVersion2), semver.coerce(toolkitVersion2))) {
 			var format = '%-1s %-50s  %-s';
 			var sep = '*';
 			console.log('');

@@ -845,6 +845,23 @@ const downloadTaxonomy = {
 	]
 };
 
+const uploadTaxonomy = {
+	command: 'upload-taxonomy <name>',
+	alias: 'ultx',
+	name: 'upload-taxonomy',
+	usage: {
+		'short': 'Uploads a taxonomy to CEC server.',
+		'long': (function () {
+			let desc = 'Uploads a taxonomy to CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec upload-taxonomy Taxonomy1'],
+		['cec upload-taxonomy Taxonomy1 -s UAT']
+	]
+};
+
 const controlTaxonomy = {
 	command: 'control-taxonomy <action>',
 	alias: 'cttx',
@@ -2229,6 +2246,7 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 /*
 _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
 	_getCmdHelp(downloadTaxonomy) + os.EOL +
+	_getCmdHelp(uploadTaxonomy) + os.EOL +
 	_getCmdHelp(controlTaxonomy) + os.EOL;
 */
 
@@ -3124,6 +3142,19 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${downloadTaxonomy.command}\n\n${downloadTaxonomy.usage.long}`);
+		})
+	.command([uploadTaxonomy.command, uploadTaxonomy.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.example(...uploadTaxonomy.example[0])
+				.example(...uploadTaxonomy.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${uploadTaxonomy.command}\n\n${uploadTaxonomy.usage.long}`);
 		})
 	.command([controlTaxonomy.command, controlTaxonomy.alias], false,
 		(yargs) => {
@@ -5692,6 +5723,20 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		downloadTaxonomyArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, downloadTaxonomyArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === uploadTaxonomy.name || argv._[0] === uploadTaxonomy.alias) {
+	let uploadTaxonomyArgs = ['run', '-s', uploadTaxonomy.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		uploadTaxonomyArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, uploadTaxonomyArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
