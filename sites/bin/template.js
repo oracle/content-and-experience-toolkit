@@ -1033,7 +1033,7 @@ module.exports.downloadTemplate = function (argv, done) {
 					url: url,
 				};
 
-				options['auth'] = auth;
+				options.auth = auth;
 
 				request(options).on('response', function (response) {
 						// fix headers for cross-domain and capitalization issues
@@ -1290,7 +1290,7 @@ module.exports.deleteTemplate = function (argv, done) {
 					url: url,
 				};
 
-				options['auth'] = auth;
+				options.auth = auth;
 
 				request(options).on('response', function (response) {
 						// fix headers for cross-domain and capitalization issues
@@ -2281,8 +2281,8 @@ var _getServerTemplate = function (request, localhost, name) {
 			}
 			var tempGUID;
 			for (var i = 0; i < sites.length; i++) {
-				if (sites[i]['fFolderName'] === name) {
-					tempGUID = sites[i]['fFolderGUID'];
+				if (sites[i].fFolderName === name) {
+					tempGUID = sites[i].fFolderGUID;
 					break;
 				}
 			}
@@ -2332,9 +2332,9 @@ var _getServerTemplateFromTrash = function (request, localhost, name) {
 			}
 			var tempGUID, tempFolderGUID;
 			for (var i = 0; i < sites.length; i++) {
-				if (sites[i]['fFolderName'] === name) {
-					tempGUID = sites[i]['fRealItemGUID'];
-					tempFolderGUID = sites[i]['fFolderGUID'];
+				if (sites[i].fFolderName === name) {
+					tempGUID = sites[i].fRealItemGUID;
+					tempFolderGUID = sites[i].fFolderGUID;
 					break;
 				}
 			}
@@ -2418,8 +2418,8 @@ var _getHomeFolderFile = function (request, localhost, fileName) {
 			}
 			var fileGUID;
 			for (var i = 0; i < files.length; i++) {
-				if (files[i]['fFileName'] === fileName) {
-					fileGUID = files[i]['fFileGUID'];
+				if (files[i].fFileName === fileName) {
+					fileGUID = files[i].fFileGUID;
 					break;
 				}
 			}
@@ -2550,8 +2550,8 @@ var _getFolderFromTrash = function (request, localhost, realItemGUID) {
 			}
 			var folderGUIDInTrash;
 			for (var i = 0; i < folders.length; i++) {
-				if (folders[i]['fRealItemGUID'] === realItemGUID) {
-					folderGUIDInTrash = folders[i]['fFolderGUID'];
+				if (folders[i].fRealItemGUID === realItemGUID) {
+					folderGUIDInTrash = folders[i].fFolderGUID;
 					break;
 				}
 			}
@@ -2627,7 +2627,7 @@ var _IdcCopySites = function (request, server, name, fFolderGUID, doCopyToTempla
 						url: url,
 					};
 
-					options['auth'] = auth;
+					options.auth = auth;
 
 					request(options).on('response', function (response) {
 							// fix headers for cross-domain and capitalization issues
@@ -2819,7 +2819,7 @@ var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpubl
 						url: url,
 					};
 
-					options['auth'] = auth;
+					options.auth = auth;
 					if (server.cookies) {
 						options.headers = {
 							Cookie: server.cookies
@@ -3428,7 +3428,7 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 						url: url,
 					};
 
-					options['auth'] = auth;
+					options.auth = auth;
 					if (server.cookies) {
 						options.headers = {
 							Cookie: server.cookies
@@ -3728,7 +3728,7 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 
 					}); // get idcToken
 
-				}, 5000);
+				}, 10000);
 			}); // local 
 		}); // login
 	});

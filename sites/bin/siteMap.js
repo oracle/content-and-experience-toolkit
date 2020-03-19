@@ -437,7 +437,7 @@ var _getDetailPageContentTypes = function (pageData) {
 			var pageContentTypes = [];
 			var componentInstances = pageData[i].data.componentInstances || {};
 			Object.keys(componentInstances).forEach(key => {
-				var type = componentInstances[key].type
+				var type = componentInstances[key].type;
 				var data = componentInstances[key].data;
 				if (data && (data.contentPlaceholder || type === 'scs-contentlist') && data.contentTypes && data.contentTypes.length > 0) {
 					for (var j = 0; j < data.contentTypes.length; j++) {

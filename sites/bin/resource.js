@@ -385,19 +385,20 @@ module.exports.listServerResources = function (argv, done) {
 	var listChannels = types.length === 0 || types.includes('channels');
 	var listComponents = types.length === 0 || types.includes('components');
 	var listLocalizationpolicies = types.length === 0 || types.includes('localizationpolicies');
+	var listRecommendations = types.length === 0 || types.includes('recommendations');
 	var listRepositories = types.length === 0 || types.includes('repositories');
 	var listSites = types.length === 0 || types.includes('sites');
 	var listTemplates = types.length === 0 || types.includes('templates');
 	var listTranslationConnectors = types.length === 0 || types.includes('translationconnectors');
 	var listTaxonomies = types.length === 0 || types.includes('taxonomies');
 
-	if (!listChannels && !listComponents && !listLocalizationpolicies && !listRepositories && !listSites &&
+	if (!listChannels && !listComponents && !listLocalizationpolicies && !listRecommendations &&
+		!listRepositories && !listSites &&
 		!listTemplates && !listTaxonomies && !listTranslationConnectors) {
 		console.log('ERROR: invalid resource types: ' + argv.types);
 		done();
 		return;
 	}
-
 
 	var format3 = '  %-45s  %-36s  %-s';
 
@@ -410,7 +411,7 @@ module.exports.listServerResources = function (argv, done) {
 			return;
 		}
 
-		var promises = (listChannels || listRepositories) ? [_getChannels(serverName, server)] : [];
+		var promises = (listChannels || listRepositories || listRecommendations) ? [_getChannels(serverName, server)] : [];
 		var channels;
 
 		Promise.all(promises).then(function (results) {
@@ -495,7 +496,7 @@ module.exports.listServerResources = function (argv, done) {
 					console.log('');
 				}
 
-				promises = listRepositories ? [serverRest.getRepositories({
+				promises = (listRepositories || listRecommendations) ? [serverRest.getRepositories({
 					server: server
 				})] : [];
 
@@ -529,6 +530,73 @@ module.exports.listServerResources = function (argv, done) {
 					console.log('');
 				}
 
+				promises = [];
+				if (listRecommendations) {
+					repositories.forEach(function (repo) {
+						promises.push(serverRest.getRecommendations({
+							server: server,
+							repositoryId: repo.id,
+							repositoryName: repo.name
+						}));
+					});
+				}
+
+				return Promise.all(promises);
+			})
+			.then(function (results) {
+				//
+				// list recommendations
+				//
+				if (listRecommendations) {
+					console.log('Recommendations:');
+					var allRecommendations = results.length > 0 ? results : [];
+					var recFormat = '  %-45s  %-24s  %-7s  %-16s  %-10s  %-10s  %-24s  %-32s  %-s';
+					console.log(sprintf(recFormat, 'Repository', 'Name', 'Version', 'API Name', 'Status',
+						'Published', 'Content Type', 'Channels', 'Published Channels'));
+
+					allRecommendations.forEach(function (value) {
+						if (value && value.repositoryId && value.data) {
+							var recommendations = value.data;
+							for (var i = 0; i < recommendations.length; i++) {
+								var repositoryLabel = i === 0 ? value.repositoryName : '';
+								var recomm = recommendations[i];
+								var publishLabel = recomm.isPublished ? '   √' : '';
+								var versionLabel = '  ' + recomm.version;
+								var contentTypes = [];
+								var j, k;
+								for (j = 0; j < recomm.contentTypes.length; j++) {
+									contentTypes.push(recomm.contentTypes[j].name);
+								}
+								var channelNames = [];
+								if (recomm.channels && recomm.channels.length > 0 && channels.length > 0) {
+									for (j = 0; j < recomm.channels.length; j++) {
+										for (k = 0; k < channels.length; k++) {
+											if (recomm.channels[j].id === channels[k].id) {
+												channelNames.push(channels[k].name);
+												break;
+											}
+										}
+									}
+								}
+								var publishedChannelNames = [];
+								if (recomm.publishedChannels && recomm.publishedChannels.length > 0 && channels.length > 0) {
+									for (j = 0; j < recomm.publishedChannels.length; j++) {
+										for (k = 0; k < channels.length; k++) {
+											if (recomm.publishedChannels[j].id === channels[k].id) {
+												publishedChannelNames.push(channels[k].name);
+												break;
+											}
+										}
+									}
+								}
+								console.log(sprintf(recFormat, repositoryLabel, recomm.name, versionLabel, recomm.apiName,
+									recomm.status, publishLabel, contentTypes.join(', '),
+									channelNames.join(', '), publishedChannelNames.join(', ')));
+							}
+						}
+					});
+					console.log('');
+				}
 				promises = listSites ? [serverUtils.browseSitesOnServer(request, server)] : [];
 				return Promise.all(promises);
 			})
@@ -586,8 +654,8 @@ module.exports.listServerResources = function (argv, done) {
 				if (listTaxonomies) {
 					var taxonomies = results && results.length > 0 && results[0] && results[0].length > 0 ? results[0] : [];
 					console.log('Taxonomies:');
-					var taxFormat = '  %-45s  %-12s  %-14s  %-10s  %-8s  %-10s  %-s';
-					console.log(sprintf(taxFormat, 'Name', 'Abbreviation', 'isPublishable', 'Status', 'Version', 'Published', 'Published Channels'));
+					var taxFormat = '  %-45s  %-32s  %-12s  %-14s  %-10s  %-8s  %-10s  %-s';
+					console.log(sprintf(taxFormat, 'Name', 'Id', 'Abbreviation', 'isPublishable', 'Status', 'Version', 'Published', 'Published Channels'));
 					taxonomies.forEach(function (tax) {
 						var publishable = tax.isPublishable ? '     √' : '';
 						var channels = [];
@@ -598,11 +666,12 @@ module.exports.listServerResources = function (argv, done) {
 						var states = tax.availableStates;
 						for (var i = 0; i < states.length; i++) {
 							var name = i === 0 ? tax.name : '';
-							var abbr = i === 0 ? tax.shortName : '';
-							var version = states[i].version || '';
+							var id = i === 0 ? tax.id : '';
+							var abbr = i === 0 ? '    ' + tax.shortName : '';
+							var version = states[i].version ? '   ' + states[i].version : '';
 							var published = states[i].published ? '    √' : '';
 							var channelLabel = states[i].published ? channels.join(', ') : '';
-							console.log(sprintf(taxFormat, name, abbr, publishable, states[i].status, version, published, channelLabel));
+							console.log(sprintf(taxFormat, name, id, abbr, publishable, states[i].status, version, published, channelLabel));
 						}
 					});
 					console.log('');

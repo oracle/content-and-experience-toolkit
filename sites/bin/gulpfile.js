@@ -846,6 +846,30 @@ gulp.task('describe-template', function (done) {
 });
 
 /**
+ * create template report
+ */
+gulp.task('create-template-report', function (done) {
+	'use strict';
+
+	reportlib.createTemplateReport(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * cleanup template
+ */
+gulp.task('cleanup-template', function (done) {
+	'use strict';
+
+	reportlib.cleanupTemplate(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
  * download template from server
  */
 gulp.task('download-template', function (done) {

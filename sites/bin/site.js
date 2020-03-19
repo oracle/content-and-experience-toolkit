@@ -135,7 +135,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 						url: url,
 					};
 
-					options['auth'] = auth;
+					options.auth = auth;
 
 					request(options).on('response', function (response) {
 							// fix headers for cross-domain and capitalization issues
@@ -183,7 +183,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 
 				// keep the existing ids
 				if (updateContent) {
-					formData['doPreserveCaaSGUID'] = 1;
+					formData.doPreserveCaaSGUID = 1;
 				}
 
 				var postData = {
@@ -658,7 +658,9 @@ module.exports.transferSite = function (argv, done) {
 	var creatNewSite = false;
 	var repository;
 	var policy;
+	var srcPolicy;
 	var site;
+	var destSite;
 	var templateId;
 
 	var cecVersion, idcToken;
@@ -746,7 +748,8 @@ module.exports.transferSite = function (argv, done) {
 				// verify site on source server
 				sitesRest.getSite({
 						server: server,
-						name: siteName
+						name: siteName,
+						expand: 'channel'
 					})
 					.then(function (result) {
 						if (!result || result.err) {
@@ -755,16 +758,35 @@ module.exports.transferSite = function (argv, done) {
 						site = result;
 						console.log(' - verify site (defaultLanguage: ' + site.defaultLanguage + ')');
 
-						// check site on destination server
-						return sitesRest.resourceExist({
-							server: destServer,
-							type: 'sites',
-							name: siteName
+						return serverRest.getLocalizationPolicy({
+							server: server,
+							id: site.channel.localizationPolicy
 						});
 					})
 					.then(function (result) {
 						if (!result || result.err) {
+							return Promise.reject();
+						}
+						srcPolicy = result;
+						console.log(' - verify site localization policy: ' + srcPolicy.name +
+							' (defaultValue: ' + srcPolicy.defaultValue +
+							' requiredValues: ' + srcPolicy.requiredValues +
+							' optionalValues: ' + srcPolicy.optionalValues + ')');
+
+						// check site on destination server
+						return sitesRest.resourceExist({
+							server: destServer,
+							type: 'sites',
+							name: siteName,
+							expand: 'channel'
+						});
+
+					})
+					.then(function (result) {
+						if (!result || result.err) {
 							creatNewSite = true;
+						} else {
+							destSite = result;
 						}
 						console.log(' - will ' + (creatNewSite ? 'create' : 'update') + ' site ' + siteName + ' on ' + destServer.url);
 
@@ -863,67 +885,52 @@ module.exports.transferSite = function (argv, done) {
 							return Promise.reject();
 						}
 
-						var uploadFilePromises = [];
-						if (creatNewSite) {
-							// upload template file to destination server
-							uploadFilePromises.push(serverRest.createFile({
-								server: destServer,
-								parentID: 'self',
-								filename: fileName,
-								contents: fs.createReadStream(templatePath)
-							}));
-						}
-						return Promise.all(uploadFilePromises);
+
+						// upload template file to destination server
+						return serverRest.createFile({
+							server: destServer,
+							parentID: 'self',
+							filename: fileName,
+							contents: fs.createReadStream(templatePath)
+						});
 					})
-					.then(function (results) {
-						if (creatNewSite) {
-							if (!results || !results[0] || results[0].err || !results[0].id) {
-								console.log('ERROR: failed to upload template file');
-								return Promise.reject();
-							}
-							var uploadedFile = results[0];
-							fileId = uploadedFile.id;
-							console.log(' - file ' + fileName + ' uploaded to Home folder (Id: ' + fileId + ' version:' + uploadedFile.version + ')');
-						}
+					.then(function (result) {
 
-						var importTemplatePromises = [];
-						if (creatNewSite) {
-							importTemplatePromises.push(sitesRest.importTemplate({
-								server: destServer,
-								name: templateName,
-								fileId: fileId
-							}));
+						if (!result || result.err || !result.id) {
+							console.log('ERROR: failed to upload template file');
+							return Promise.reject();
 						}
+						var uploadedFile = result;
+						fileId = uploadedFile.id;
+						console.log(' - file ' + fileName + ' uploaded to Home folder (Id: ' + fileId + ' version:' + uploadedFile.version + ')');
 
-						return Promise.all(importTemplatePromises);
+
+						return sitesRest.importTemplate({
+							server: destServer,
+							name: templateName,
+							fileId: fileId
+						});
+
 					})
-					.then(function (results) {
-						if (creatNewSite) {
-							if (!results || !results[0] || results[0].err) {
-								console.log('ERROR: failed to import template');
-								return Promise.reject();
-							}
+					.then(function (result) {
+						if (!result || result.err) {
+							console.log('ERROR: failed to import template');
+							return Promise.reject();
 						}
 
-						var queryTemplatePromises = [];
-						if (creatNewSite) {
-							queryTemplatePromises.push(sitesRest.getTemplate({
-								server: destServer,
-								name: templateName
-							}));
-						}
+						return sitesRest.getTemplate({
+							server: destServer,
+							name: templateName
+						});
 
-						return Promise.all(queryTemplatePromises);
 					})
-					.then(function (results) {
-						if (creatNewSite) {
-							if (!results || !results[0] || results[0].err || !results[0].id) {
-								console.log('ERROR: failed to query template');
-								return Promise.reject();
-							}
-
-							templateId = results[0].id;
+					.then(function (result) {
+						if (!result || result.err || !result.id) {
+							console.log('ERROR: failed to query template');
+							return Promise.reject();
 						}
+
+						templateId = result.id;
 
 						return serverUtils.getIdcToken(destServer);
 					})
@@ -960,21 +967,18 @@ module.exports.transferSite = function (argv, done) {
 							}
 						}
 
-						var deleteFilePromises = [];
-						if (creatNewSite && fileId) {
-							// delete template file
-							deleteFilePromises.push(serverRest.deleteFile({
-								server: destServer,
-								fFileGUID: fileId
-							}));
-						}
 
-						return Promise.all(deleteFilePromises);
+						// delete template file
+						return serverRest.deleteFile({
+							server: destServer,
+							fFileGUID: fileId
+						});
+
 					})
 					.then(function (results) {
 
 						var deleteTemplatePromises = [];
-						if (creatNewSite && templateId) {
+						if (templateId) {
 							// delete template
 							deleteTemplatePromises.push(sitesRest.deleteTemplate({
 								server: destServer,
@@ -999,7 +1003,21 @@ module.exports.transferSite = function (argv, done) {
 							if (actionSuccess) {
 								console.log(' - site ' + siteName + ' created on ' + destServer.url);
 							}
-							_cmdEnd(done, actionSuccess);
+							// update the localization policy
+							serverRest.updateLocalizationPolicy({
+								server: destServer,
+								id: policy.id,
+								name: policy.name,
+								data: srcPolicy
+							}).then(function (result) {
+								if (!result || result.err) {
+									actionSuccess = false;
+								} else {
+									var newPolicy = result;
+									console.log(' - update site localization policy ' + newPolicy.name);
+								}
+								_cmdEnd(done, actionSuccess);
+							});
 
 						} else {
 							var updateSiteArgs = {
@@ -1010,7 +1028,40 @@ module.exports.transferSite = function (argv, done) {
 							};
 							siteUpdateLib.updateSite(updateSiteArgs, function (success) {
 								console.log(' - update site finished');
-								_cmdEnd(done, success);
+
+								if (success) {
+									serverRest.getLocalizationPolicy({
+											server: destServer,
+											id: destSite.channel.localizationPolicy
+										})
+										.then(function (result) {
+											if (!result || result.err) {
+												return Promise.reject();
+											}
+											policy = result;
+											// update the localization policy
+											return serverRest.updateLocalizationPolicy({
+													server: destServer,
+													id: policy.id,
+													name: policy.name,
+													data: srcPolicy
+												})
+												.then(function (result) {
+													if (!result || result.err) {
+														return Promise.reject();
+													}
+													var newPolicy = result;
+													console.log(' - update site localization policy ' + newPolicy.name);
+													_cmdEnd(done, success);
+												});
+										})
+										.catch((error) => {
+											if (error) {
+												console.log(error);
+											}
+											_cmdEnd(done);
+										});
+								}
 							});
 						}
 
@@ -1050,6 +1101,8 @@ module.exports.controlSite = function (argv, done) {
 		var action = argv.action;
 		var siteName = argv.site;
 
+		var usedContentOnly = typeof argv.usedcontentonly === 'string' && argv.usedcontentonly.toLowerCase() === 'true';
+		var compileSite = typeof argv.compilesite === 'string' && argv.compilesite.toLowerCase() === 'true';
 		var staticOnly = typeof argv.staticonly === 'string' && argv.staticonly.toLowerCase() === 'true';
 
 		var request = serverUtils.getRequest();
@@ -1063,7 +1116,7 @@ module.exports.controlSite = function (argv, done) {
 			if (server.useRest) {
 				_controlSiteREST(request, server, action, siteName, done);
 			} else {
-				_controlSiteSCS(request, server, action, siteName, staticOnly, done);
+				_controlSiteSCS(request, server, action, siteName, usedContentOnly, compileSite, staticOnly, done);
 			}
 		});
 
@@ -1122,7 +1175,7 @@ var _setSiteRuntimeStatus = function (request, server, action, siteId) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (error) {}
+				} catch (err) {}
 
 				var msg = data ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to ' + action + ' the site - ' + msg);
@@ -1139,7 +1192,7 @@ var _setSiteRuntimeStatus = function (request, server, action, siteId) {
 /**
  * Use Idc service to control a site
  */
-var _controlSiteSCS = function (request, server, action, siteName, staticOnly, done) {
+var _controlSiteSCS = function (request, server, action, siteName, usedContentOnly, compileSite, staticOnly, done) {
 
 	var express = require('express');
 	var app = express();
@@ -1163,7 +1216,7 @@ var _controlSiteSCS = function (request, server, action, siteName, staticOnly, d
 				url: url,
 			};
 
-			options['auth'] = auth;
+			options.auth = auth;
 
 			request(options).on('response', function (response) {
 					// fix headers for cross-domain and capitalization issues
@@ -1194,11 +1247,22 @@ var _controlSiteSCS = function (request, server, action, siteName, staticOnly, d
 		};
 
 		if (req.url.indexOf('SCS_ACTIVATE_SITE') > 0 || req.url.indexOf('SCS_DEACTIVATE_SITE') > 0) {
-			formData['isSitePublishV2'] = 1;
+			formData.isSitePublishV2 = 1;
 		}
-		if (req.url.indexOf('SCS_PUBLISH_SITE') && staticOnly > 0) {
-			formData.doStaticFilePublishOnly = 1;
+		if (req.url.indexOf('SCS_PUBLISH_SITE')) {
+			if (staticOnly > 0) {
+				formData.doStaticFilePublishOnly = 1;
+				formData.skipCompileSiteCheck = 1;
+			} else if (!compileSite) {
+				formData.skipCompileSiteCheck = 1;
+			}
+
+			if (usedContentOnly) {
+				formData.publishUsedContentOnly = 1;
+			}
 		}
+
+		// console.log('controlSite formData', formData);
 
 		var postData = {
 			method: 'POST',
@@ -1206,7 +1270,6 @@ var _controlSiteSCS = function (request, server, action, siteName, staticOnly, d
 			'auth': auth,
 			'formData': formData
 		};
-		// console.log(postData);
 		request(postData).on('response', function (response) {
 				// fix headers for cross-domain and capitalization issues
 				serverUtils.fixHeaders(response, res);
@@ -1318,7 +1381,9 @@ var _controlSiteSCS = function (request, server, action, siteName, staticOnly, d
 								} else if (action === 'take-offline') {
 									console.log(' - site ' + siteName + ' is offline now');
 								} else if (action === 'publish') {
-									if (staticOnly) {
+									if (compileSite) {
+										console.log(' - ' + action + ' ' + siteName + ' (compile and publish) finished');
+									} else if (staticOnly) {
 										console.log(' - ' + action + ' ' + siteName + ' (static files) finished');
 									} else {
 										console.log(' - ' + action + ' ' + siteName + ' finished');
@@ -1368,7 +1433,7 @@ var _postOneIdcService = function (request, localhost, server, service, action, 
 			var jobId = data.LocalData.JobID;
 
 			if (jobId) {
-				console.log(' - submit ' + action);
+				console.log(' - submit ' + action + ' BACKGROUND_JOB_ID ' + jobId);
 				// wait action to finish
 				var inter = setInterval(function () {
 					var jobPromise = serverUtils.getBackgroundServiceJobStatus(server, request, idcToken, jobId);
@@ -1983,7 +2048,7 @@ module.exports.validateSite = function (argv, done) {
 						url: url,
 					};
 
-					options['auth'] = auth;
+					options.auth = auth;
 
 					request(options).on('response', function (response) {
 							// fix headers for cross-domain and capitalization issues
@@ -2426,7 +2491,7 @@ var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, 
 						url: url,
 					};
 
-					options['auth'] = auth;
+					options.auth = auth;
 
 					request(options).on('response', function (response) {
 							// fix headers for cross-domain and capitalization issues
@@ -2465,7 +2530,7 @@ var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, 
 					'xScsIsSecureSite': xScsIsSecureSiteNew
 				};
 				if (userList) {
-					formData['userList'] = userList;
+					formData.userList = userList;
 				}
 				var postData = {
 					method: 'POST',
@@ -2580,7 +2645,7 @@ var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, 
 												for (var i = 0; i < allUsers.length; i++) {
 													if (allUsers[i].loginName.toLowerCase() === addUserNames[k].toLowerCase()) {
 														var user = allUsers[i];
-														user['action'] = 'add';
+														user.action = 'add';
 														users.push(allUsers[i]);
 														found = true;
 														break;
@@ -2598,7 +2663,7 @@ var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, 
 												for (var i = 0; i < allUsers.length; i++) {
 													if (allUsers[i].loginName.toLowerCase() === deleteUserNames[k].toLowerCase()) {
 														var user = allUsers[i];
-														user['action'] = 'delete';
+														user.action = 'delete';
 														users.push(allUsers[i]);
 														found = true;
 														break;
@@ -2892,7 +2957,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 									if (allUsers[i].loginName.toLowerCase() === deleteUserNames[k].toLowerCase()) {
 										if (siteMembers.includes(allUsers[i].loginName)) {
 											var user = allUsers[i];
-											user['action'] = 'delete';
+											user.action = 'delete';
 											users.push(allUsers[i]);
 										}
 										found = true;
@@ -3541,7 +3606,7 @@ module.exports.refreshPrerenderCache = function (argv, done) {
 	});
 };
 
-var _importTemplateSCS = function (localhost, request, name) {
+var _importTemplateSCS = function (server, localhost, request, idcToken, name) {
 	return new Promise(function (resolve, reject) {
 		url = localhost + '/documents/web?IdcService=SCS_IMPORT_TEMPLATE_PACKAGE';
 		request.post(url, function (err, response, body) {
@@ -3594,21 +3659,45 @@ var _importTemplateSCS = function (localhost, request, name) {
 				if (data && data.LocalData) {
 					if (data.LocalData.StatusCode !== '0') {
 						console.log(' - failed to import ' + name + ': ' + importResult.LocalData.StatusMessage);
+						return resolve({
+							err: 'err'
+						});
 					} else if (data.LocalData.ImportConflicts) {
 						// console.log(data.LocalData);
 						console.log(' - failed to import ' + name + ': the template already exists and you do not have privilege to override it');
+						return resolve({
+							err: 'err'
+						});
 					} else if (data.JobInfo && data.JobInfo.JobStatus && data.JobInfo.JobStatus === 'FAILED') {
 						console.log(' - failed to import: ' + data.JobInfo.JobMessage);
+						return resolve({
+							err: 'err'
+						});
 					} else {
-						success = true;
-						console.log(' - template ' + name + ' imported');
+						serverUtils.getBackgroundServiceJobData(server, request, idcToken, jobId)
+							.then(function (data) {
+								var fields = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.fields || [];
+								var rows = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.rows || [];
+								var siteInfo = {};
+								if (rows.length > 0) {
+									for (var i = 0; i < fields.length; i++) {
+										var attr = fields[i].name;
+										siteInfo[attr] = rows[0][i];
+									}
+								}
+								// console.log(siteInfo);
+								console.log(' - template ' + (siteInfo && siteInfo.fFolderName || name) + ' imported');
+								return resolve({
+									siteInfo: siteInfo
+								});
+							});
 					}
 				} else {
 					console.log(' - failed to import ' + name);
+					return resolve({
+						err: 'err'
+					});
 				}
-				return success ? resolve({}) : resolve({
-					err: 'err'
-				});
 			});
 		});
 	});
@@ -3729,7 +3818,7 @@ module.exports.migrateSite = function (argv, done) {
 					})
 					.on('error', function (err) {
 						console.log('ERROR: GET request failed: ' + req.url);
-						console.log(error);
+						console.log(err);
 						return resolve({
 							err: 'err'
 						});
@@ -3931,13 +4020,18 @@ module.exports.migrateSite = function (argv, done) {
 					}
 					// console.log(' - get idcToken: ' + idcToken);
 
-					return _importTemplateSCS(localhost, request, templateName);
+					return _importTemplateSCS(destServer, localhost, request, idcToken, templateName);
 				})
 				.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
 					}
 
+					// the template zip name may be different from the real template name
+					// take the name from import template result
+					if (result.siteInfo && result.siteInfo.fFolderName) {
+						templateName = result.siteInfo.fFolderName;
+					}
 					return sitesRest.getTemplate({
 						server: destServer,
 						name: templateName

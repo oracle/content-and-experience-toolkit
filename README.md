@@ -15,6 +15,19 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 20.1.2e
+
+**Fixed**
+
+- `cec transfer-site` - Will also update localization policy on the destination server. 
+
+**Added**
+
+- `cec list` - Now includes recommendations. 
+- `cec create-template-report` - Generates an asset usage report for a template package.
+- `cec create-asset-report` - Enhanced to include site content and report any unused documents.
+
+
 # New in Release 20.1.2d
 
 **Fixed**

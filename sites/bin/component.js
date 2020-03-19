@@ -473,7 +473,7 @@ module.exports.deployComponent = function (argv, done) {
 		}
 
 		if (server.useRest) {
-
+			var request = serverUtils.getRequest();
 			var loginPromise = serverUtils.loginToServer(server, request);
 			loginPromise.then(function (result) {
 				if (!result.status) {

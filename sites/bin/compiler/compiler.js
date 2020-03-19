@@ -958,6 +958,38 @@ var compiler = {
 			getPageLinkData: function (pageId) {
 				return getPageLinkData(pageId, self.sitePrefix, self.structureMap, self.pageLocale);
 			},
+			getSiteProperty: function (propertyName) {
+				var value;
+
+				if (propertyName && (typeof propertyName == 'string') &&
+					self.siteInfo && self.siteInfo.properties &&
+					(typeof self.siteInfo.properties === 'object') &&
+					Object.prototype.hasOwnProperty.call(self.siteInfo.properties, propertyName)) {
+					value = self.siteInfo.properties[propertyName];
+
+					if (value && (propertyName === 'customProperties') && (typeof value === 'object')) {
+						value = JSON.parse(JSON.stringify(value));
+					}
+				}
+
+				return value;
+			},
+			getCustomSiteProperty: function (propertyName) {
+				var value;
+
+				if (propertyName && (typeof propertyName == 'string') &&
+					self.siteInfo && self.siteInfo.properties &&
+					(typeof self.siteInfo.properties === 'object')) {
+					var properties = self.siteInfo.properties['customProperties'];
+					if( properties && (typeof properties === 'object') &&
+						Object.prototype.hasOwnProperty.call(properties, propertyName)) {
+						properties = JSON.parse(JSON.stringify(properties));
+						value = properties[propertyName];
+					}
+				}
+
+				return value;
+			},
 			compileDetailPage: function (detailPageId, contentItem) {
 				var pageId = detailPageId;
 

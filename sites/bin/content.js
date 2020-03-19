@@ -2187,7 +2187,10 @@ var _exportContentIC = function (request, server, collectionId, exportfilepath) 
 							}
 						} else if (status && status === 'FAILED') {
 							clearInterval(inter);
+							var statusFile = path.join(buildfolder, 'export_content_status.json');
+							fs.writeFileSync(statusFile, JSON.stringify(data, null, 4));
 							console.log('ERROR: export failed: ' + data.errorDescription);
+							console.log('  find more info in ' + statusFile);
 							return resolve({
 								err: 'err'
 							});

@@ -18,6 +18,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
         jobId = jobConfig.properties.id,
         siteName = jobConfig.siteName,
         serverName = jobConfig.serverName,
+        publishUsedContentOnly = jobConfig.publishUsedContentOnly,
         token = jobConfig.token,
         match = /[a-z]*([0-9]*)/.exec(jobId),
         id = match[1], // group 1 has the digits, e.g. 123456 of job123456
@@ -52,7 +53,27 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
         var logStream;
 
-        var logStdout = function(data) {
+        var logPublishSiteStdout = function(data) {
+                var out = `${data}`,
+                    found = out.trim().match(/publish BACKGROUND_JOB_ID (?<id>.*)$/);
+
+                if (found && found.groups && found.groups.id) {
+                    jobConfig.publishSiteBackgroundJobId = found.groups.id;
+                }
+
+                logStdout(data);
+            },
+            logPublishStaticStdout = function(data) {
+                var out = `${data}`,
+                    found = out.trim().match(/publish BACKGROUND_JOB_ID (?<id>.*)$/);
+
+                if (found && found.groups && found.groups.id) {
+                    jobConfig.publishStaticBackgroundJobId = found.groups.id;
+                }
+
+                logStdout(data);                
+            },
+            logStdout = function(data) {
                 console.log('stdout:',  `${data}`);
                 logStream.write(`${data}`);
             },
@@ -143,10 +164,13 @@ JobManager.prototype.compileSite = function (jobConfig) {
                                 '-s',
                                 siteName
                             ];
+                        if (publishUsedContentOnly === 1) {
+                            publishSiteArgs.push('-u');
+                        }
                         logCommand(publishSiteArgs);
                         var publishSiteCommand = spawn(cecCmd, publishSiteArgs, cecDefaults);
 
-                        publishSiteCommand.stdout.on('data', logStdout);
+                        publishSiteCommand.stdout.on('data', logPublishSiteStdout);
                         publishSiteCommand.stderr.on('data', logStderr);
                         publishSiteCommand.on('close', (code) => {
                             logCode('publishSiteCommand', code);
@@ -276,7 +300,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                         logCommand(publishStaticArgs);
                         var publishStaticCommand = spawn(cecCmd, publishStaticArgs, cecDefaults);
 
-                        publishStaticCommand.stdout.on('data', logStdout);
+                        publishStaticCommand.stdout.on('data', logPublishStaticStdout);
                         publishStaticCommand.stderr.on('data', logStderr);
                         publishStaticCommand.on('close', (code) => {
                             logCode('publishStaticCommand', code);
@@ -325,6 +349,9 @@ JobManager.prototype.compileSite = function (jobConfig) {
             steps = function() {
 
                 if (['PUBLISH_SITE', 'CREATE_TEMPLATE', 'COMPILE_TEMPLATE', 'UPLOAD_STATIC', 'PUBLISH_STATIC'].indexOf(jobConfig.status) !== -1) {
+                    if (jobConfig.hasOwnProperty('publishSiteBackgroundJobId')) {
+                        delete jobConfig.publishSiteBackgroundJobId;
+                    }
                     publishSiteStep(jobConfig.status).then(function(completionCode) {
                         updateStatusStep(completionCode, 'CREATE_TEMPLATE', 20).then(function(updatedJobConfig) {
                             createTemplateStep(jobConfig.status).then(function(completionCode) {
@@ -334,6 +361,9 @@ JobManager.prototype.compileSite = function (jobConfig) {
                                             updateStatusStep(completionCode, 'UPLOAD_STATIC', 60).then(function(updatedJobConfig) {
                                                 uploadStep(updatedJobConfig.status).then(function(completionCode) {
                                                     updateStatusStep(completionCode, 'PUBLISH_STATIC', 80).then(function(updatedJobConfig) {
+                                                        if (jobConfig.hasOwnProperty('publishStaticBackgroundJobId')) {
+                                                            delete jobConfig.publishStaticBackgroundJobId;
+                                                        }
                                                         publishStaticStep(updatedJobConfig.status).then(function(completionCode) {
                                                             if (completionCode !== noop) {
                                                                 logDuration(updatedJobConfig, 'compileSite', compileStartTime);

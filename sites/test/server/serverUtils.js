@@ -647,7 +647,9 @@ var _getTemplateComponents = function (templateName) {
 		var pagepath = path.join(tempSrcDir, 'pages', pages[i]),
 			pagestr = fs.readFileSync(pagepath),
 			pagejson = JSON.parse(pagestr);
-		processInstances(pagejson.componentInstances);
+		if (pagejson.componentInstances) {
+			processInstances(pagejson.componentInstances);
+		}
 	}
 
 
@@ -4375,7 +4377,7 @@ var _paths = function (dir) {
 		}).catch((error) => reject(error));
 	});
 };
-module.exports.paths = function(dir, callback) {
+module.exports.paths = function (dir, callback) {
 	_paths(dir).then((paths) => {
 		callback(null, paths);
 	}).catch((error) => {
@@ -4390,7 +4392,7 @@ module.exports.paths = function(dir, callback) {
  * calling stripTopDirectory(dir) results in
  *   dir/files*
  */
-module.exports.stripTopDirectory = function(dir) {
+module.exports.stripTopDirectory = function (dir) {
 	return new Promise(function (resolve, reject) {
 		fsp.readdir(dir).then((children) => {
 			// verify that the given directory has just a single child directory

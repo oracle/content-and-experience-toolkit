@@ -973,7 +973,7 @@ module.exports.shareType = function (argv, done) {
 				resourceName: name,
 				resourceType: 'type',
 				groups: revokeGroups
-			})
+			});
 		})
 		.then(function (result) {
 
@@ -1184,7 +1184,7 @@ module.exports.createChannel = function (argv, done) {
 					server: server
 				}));
 			}
-			return Promise.all(localizationPolicyPromises)
+			return Promise.all(localizationPolicyPromises);
 		})
 		.then(function (results) {
 			var policies = results.length > 0 ? results[0] : [];

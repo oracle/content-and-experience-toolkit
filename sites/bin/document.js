@@ -933,7 +933,7 @@ module.exports.downloadFolder = function (argv, done) {
 	}).catch(function (error) {
 		done();
 	});
-}
+};
 
 var _downloadFolder = function (argv, server, showError, showDetail) {
 	return new Promise(function (resolve, reject) {
@@ -1666,7 +1666,7 @@ var localServer;
 var _deleteDone = function (success, resolve) {
 	if (localServer) {
 		localServer.close();
-	};
+	}
 	return success ? resolve({}) : resolve({
 		err: 'err'
 	});
@@ -1816,7 +1816,7 @@ var _deletePermanentSCS = function (request, server, id, isFile) {
 											fields = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.fields || [];
 											rows = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.rows;
 										}
-										var items = []
+										var items = [];
 										for (var j = 0; j < rows.length; j++) {
 											items.push({});
 										}

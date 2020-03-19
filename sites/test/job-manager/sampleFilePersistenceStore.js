@@ -114,6 +114,7 @@ SampleFilePersistenceStore.prototype.createJob = function (args) {
 		var name = args.name,
 			siteName = args.siteName,
 			serverName = args.serverName,
+			publishUsedContentOnly = args.publishUsedContentOnly,
 			token = args.token || ''; // Optional
 
 		// generate a random number directory for the job
@@ -131,6 +132,7 @@ SampleFilePersistenceStore.prototype.createJob = function (args) {
 				name: name,
 				siteName: siteName,
 				serverName: serverName,
+				publishUsedContentOnly: publishUsedContentOnly,
 				token: token,
 				status: 'CREATED',
 				progress: 0,

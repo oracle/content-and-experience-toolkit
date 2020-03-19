@@ -208,12 +208,14 @@ CompilationService.prototype.createJob = function(req, res, compileServerName) {
     }).then(function(args) {
         var name = args.data.name,
             siteName = args.data.siteName,
+            publishUsedContentOnly = args.data.publishUsedContentOnly,
             token = args.data.token || ''; // Optional
 
         persistenceStore.createJob({
             name: name,
             siteName: siteName,
             serverName: compileServerName,
+            publishUsedContentOnly: publishUsedContentOnly,
             token: token
         }).then(function(newJob) {
             console.log('newJob', newJob);

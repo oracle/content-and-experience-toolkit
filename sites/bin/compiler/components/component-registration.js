@@ -1512,7 +1512,9 @@
 						'width'
 					],
 					'transientProperties': [
-						'openFilePicker'
+						'openFilePicker',
+						'hasPublishedVersion',
+						'isAdvancedVideoItem'
 					],
 					'instanceProperties': [
 						'posterName',
@@ -1534,8 +1536,30 @@
 							'propType': 'string'
 						}
 					],
+					'supportedDataFlavors': [
+						'videos/mp4',
+						'videos/mpg',
+						'videos/mpeg',
+						'videos/mov',
+						'videos/asf',
+						'videos/asx',
+						'videos/m4v',
+						'videos/avi',
+						'videos/ogg',
+						'videos/webm',
+						'advancedvideos/mp4'
+					],
 					'supportedFileExtensions': [
-						'mp4'
+						'mp4',
+						'mpg',
+						'mpeg',
+						'mov',
+						'asf',
+						'asx',
+						'm4v',
+						'avi',
+						'ogg',
+						'webm'
 					]
 				}
 			},

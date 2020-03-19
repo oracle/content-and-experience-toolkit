@@ -1828,6 +1828,77 @@ module.exports.createLocalizationPolicy = function (args) {
 		args.requiredLanguages, args.defaultLanguage, args.optionalLanguages);
 };
 
+
+// Update localization policy on server
+var _updateLocalizationPolicy = function (server, id, name, data) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var payload = data;
+				payload.id = id;
+				payload.name = name;
+				
+				var url = server.url + '/content/management/api/v1.1/localizationPolicies/' + id;
+				var auth = serverUtils.getRequestAuth(server);
+				var postData = {
+					method: 'PUT',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					body: payload,
+					json: true
+				};
+
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to update localization policy ' + (name || id));
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
+						console.log('Failed to update localization policy ' + (name || id) + ' : ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Update localization policy on server
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.id The id of the localization policy to update.
+ * @param {string} args.name The name of the localization policy.
+ * @param {string} args.data The info to update the localization policy
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.updateLocalizationPolicy = function (args) {
+	return _updateLocalizationPolicy(args.server, args.id, args.name, args.data);
+};
+
+
 // Get repositories from server
 var _getRepositories = function (server) {
 	return new Promise(function (resolve, reject) {
@@ -3297,7 +3368,7 @@ var _getTaxonomyImportStatus = function (server, jobId) {
 	});
 };
 // Import taxonomy to server
-var _importTaxonomy = function (server, fileId, name, isNew) {
+var _importTaxonomy = function (server, fileId, name, isNew, hasNewIds, taxonomy) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -3307,11 +3378,11 @@ var _importTaxonomy = function (server, fileId, name, isNew) {
 
 				var payload = {
 					exportDocId: fileId,
-					taxonomy: {}
+					isNew: isNew,
+					hasNewIds: hasNewIds,
+					taxonomy: taxonomy
 				};
-				if (isNew) {
-					payload.isNew = isNew;
-				}
+
 				var url = server.url + '/content/management/api/v1.1/taxonomies/import';
 				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
@@ -3404,10 +3475,10 @@ var _importTaxonomy = function (server, fileId, name, isNew) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.importTaxonomy = function (args) {
-	return _importTaxonomy(args.server, args.fileId, args.name, args.isNew);
+	return _importTaxonomy(args.server, args.fileId, args.name, args.isNew, args.hasNewIds, args.taxonomy);
 };
 
-var _getTaxonomyActionStatus = function (server, url) {
+var _getTaxonomyActionStatus = function (server, url, action) {
 	return new Promise(function (resolve, reject) {
 		var options = {
 			method: 'GET',
@@ -3496,7 +3567,7 @@ var _controlTaxonomy = function (server, id, name, action, isPublishable, channe
 							var count = [];
 							var needNewLine = false;
 							var inter = setInterval(function () {
-								var jobPromise = _getTaxonomyActionStatus(server, statusUrl);
+								var jobPromise = _getTaxonomyActionStatus(server, statusUrl, action);
 								jobPromise.then(function (data) {
 									if (!data || data.progress === 'failed' || data.progress === 'aborted') {
 										clearInterval(inter);
@@ -3556,4 +3627,54 @@ var _controlTaxonomy = function (server, id, name, action, isPublishable, channe
  */
 module.exports.controlTaxonomy = function (args) {
 	return _controlTaxonomy(args.server, args.id, args.name, args.action, args.isPublishable, args.channels);
+};
+
+// Get recommendations from server
+var _getRecommendations = function (server, repositoryId, repositoryName) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/personalization/recommendations';
+		url = url + '?q=(repositoryId eq "' + repositoryId + '")&fields=all&links=none&limit=9999';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get recommendations');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve({
+					repositoryId: repositoryId,
+					repositoryName: repositoryName,
+					data: data && data.items
+				});
+			} else {
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get recommendations  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get all recommendations on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getRecommendations = function (args) {
+	return _getRecommendations(args.server, args.repositoryId, args.repositoryName);
 };
