@@ -19,6 +19,7 @@ var fs = require('fs'),
 
 var projectDir,
 	documentsSrcDir,
+	templatesSrcDir,
 	serversSrcDir;
 
 //
@@ -33,6 +34,7 @@ var verifyRun = function (argv) {
 	// reset source folders
 	documentsSrcDir = path.join(srcfolder, 'documents');
 	serversSrcDir = path.join(srcfolder, 'servers');
+	templatesSrcDir = path.join(srcfolder, 'templates');
 
 	return true;
 };
@@ -3703,6 +3705,119 @@ var _importTemplateSCS = function (server, localhost, request, idcToken, name) {
 	});
 };
 
+var _migrateICGUID = function (templateName) {
+	return new Promise(function (resolve, reject) {
+		var tempSrc = path.join(templatesSrcDir, templateName);
+		var digitalAssetPath = path.join(tempSrc, 'assets', 'contenttemplate',
+			'Content Template of ' + templateName, 'ContentItems', 'DigitalAsset');
+		if (!fs.existsSync(digitalAssetPath)) {
+			console.log(' - template does not have digital assets');
+			return resolve({});
+		}
+
+		var jsonFiles = fs.readdirSync(digitalAssetPath);
+		if (!jsonFiles || jsonFiles.length === 0) {
+			console.log(' - template does not have digital assets');
+			return resolve({});
+		}
+
+		console.log(' - processing template digital assets');
+
+		var idMap = new Map();
+
+		jsonFiles.forEach(function (file) {
+			var filePath = path.join(digitalAssetPath, file);
+			var stat = fs.statSync(filePath);
+			if (stat.isFile() && file.startsWith('DigitalAsset_proxy_') && file.endsWith('.json')) {
+				var id = file.substring(0, file.indexOf('.'));
+				var newId = id.replace('DigitalAsset_proxy_', '');
+				newId = serverUtils.replaceAll(newId, '-', '');
+				newId = 'CONT' + newId.toUpperCase();
+				// console.log(' - id: ' + id + ' => ' + newId);
+
+				idMap.set(id, newId);
+
+				// rename the json file
+				var newFile = newId + '.json';
+				var newFilePath = path.join(digitalAssetPath, newFile);
+				fs.renameSync(filePath, newFilePath);
+				console.log('   rename file ' + file + ' => ' + newFile);
+			}
+		});
+
+		if (idMap.size === 0) {
+			return resolve({});
+		}
+
+		// console.log(idMap);
+
+		// rename the folder name
+		var files = fs.readdirSync(path.join(digitalAssetPath, 'files'));
+		files.forEach(function (folder) {
+			var folderPath = path.join(digitalAssetPath, 'files', folder);
+			var stat = fs.statSync(folderPath);
+			if (stat.isDirectory() && folder.startsWith('DigitalAsset_proxy_')) {
+				var newFolder = idMap.get(folder);
+				if (newFolder) {
+					fse.moveSync(folderPath, path.join(digitalAssetPath, 'files', newFolder));
+					console.log(' - rename folder ' + folder + ' => ' + newFolder);
+				}
+			}
+		});
+
+		// update all site pages
+		var pagesPath = path.join(tempSrc, 'pages');
+		var pageFiles = fs.readdirSync(pagesPath);
+		if (!pageFiles || pageFiles.length === 0) {
+			console.log(' - template does not have pages');
+		} else {
+			pageFiles.forEach(function (file) {
+				var filePath = path.join(pagesPath, file);
+				var stat = fs.statSync(filePath);
+				if (stat.isFile() && file.endsWith('.json')) {
+					var fileSrc = fs.readFileSync(filePath).toString();
+					var newFileSrc = fileSrc;
+					for (const [id, newId] of idMap.entries()) {
+						newFileSrc = serverUtils.replaceAll(newFileSrc, id, newId);
+					}
+
+					if (fileSrc !== newFileSrc) {
+						fs.writeFileSync(filePath, newFileSrc);
+						console.log(' - update ' + filePath.replace((projectDir + path.sep), '') + ' with new IDs');
+					}
+				}
+			});
+		}
+
+		// update all json files under content assets
+		var contenttemplatePath = path.join(tempSrc, 'assets', 'contenttemplate');
+		serverUtils.paths(contenttemplatePath, function (err, paths) {
+			if (err) {
+				console.log(err);
+			} else {
+				var files = paths.files;
+				for (var i = 0; i < files.length; i++) {
+					var filePath = files[i];
+					if (filePath.endsWith('.json')) {
+						var fileSrc = fs.readFileSync(filePath).toString();
+						var newFileSrc = fileSrc;
+						for (const [id, newId] of idMap.entries()) {
+							newFileSrc = serverUtils.replaceAll(newFileSrc, id, newId);
+						}
+
+						if (fileSrc !== newFileSrc) {
+							fs.writeFileSync(filePath, newFileSrc);
+							console.log(' - update ' + filePath.replace((projectDir + path.sep), '') + ' with new IDs');
+						}
+					}
+				}
+			}
+			return resolve({});
+		});
+
+	});
+};
+
 /**
  * create non-MLS enterprise site
  */
@@ -3994,6 +4109,28 @@ module.exports.migrateSite = function (argv, done) {
 							return Promise.reject();
 						}
 					}
+
+					return templateUtils.unzipTemplateUtil(argv, templateName, templatePath, false);
+
+				})
+				.then(function (result) {
+
+					// process template
+					return _migrateICGUID(templateName);
+
+				})
+				.then(function (result) {
+
+					// create template package again
+					return templateUtils.zipTemplate(argv, templateName);
+
+				})
+				.then(function (result) {
+					if (!result || !result.zipfile) {
+						return Promise.reject();
+					}
+					var templatePath = result.zipfile;
+					console.log(' - template file: ' + templatePath);
 
 					// upload template file
 					return serverRest.createFile({

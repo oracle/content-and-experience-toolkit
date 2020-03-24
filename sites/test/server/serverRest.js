@@ -346,7 +346,7 @@ var _createFile = function (server, parentID, filename, contents) {
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
 			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to create file ' + filename + ' : ' + msg);
 				resolve({
 					err: 'err'
@@ -3641,7 +3641,7 @@ var _getRecommendations = function (server, repositoryId, repositoryName) {
 		};
 		request(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get recommendations');
+				console.log('ERROR: failed to get recommendations from repository ' + (repositoryName || repositoryId));
 				console.log(error);
 				return resolve({
 					err: 'err'
@@ -3661,7 +3661,7 @@ var _getRecommendations = function (server, repositoryId, repositoryName) {
 				});
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get recommendations  : ' + msg);
+				console.log('ERROR: failed to get recommendations from repository ' + (repositoryName || repositoryId) + ' : ' + msg);
 				return resolve({
 					err: 'err'
 				});

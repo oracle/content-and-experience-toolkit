@@ -15,10 +15,13 @@ JobManager.prototype.setLogsDir = function (inputLogsDir) {
 
 JobManager.prototype.compileSite = function (jobConfig) {
     var self = this,
-        jobId = jobConfig.properties.id,
+        jobId = jobConfig.id,
         siteName = jobConfig.siteName,
-        serverName = jobConfig.serverName,
         publishUsedContentOnly = jobConfig.publishUsedContentOnly,
+        serverName = 'serverForCompilation',
+        serverEndpoint = jobConfig.serverEndpoint,
+        serverUser = jobConfig.serverUser,
+        serverPass = jobConfig.serverPass,
         token = jobConfig.token,
         match = /[a-z]*([0-9]*)/.exec(jobId),
         id = match[1], // group 1 has the digits, e.g. 123456 of job123456
@@ -87,8 +90,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
                 logStream.write(message);
             },
             logDuration = function (jobConfig, step, startTime) {
-                var message = jobConfig.properties.id + ' ' + step + ' duration ' + Math.floor((Date.now() - startTime)/1000) + ' seconds' + '\n';
-                console.log(jobConfig.properties.id, step, 'duration', Math.floor((Date.now() - startTime)/1000), 'seconds');
+                var message = jobConfig.id + ' ' + step + ' duration ' + Math.floor((Date.now() - startTime)/1000) + ' seconds' + '\n';
+                console.log(jobConfig.id, step, 'duration', Math.floor((Date.now() - startTime)/1000), 'seconds');
                 logStream.write(message);
             };
             logCommand = function (commandArgs) {
@@ -125,6 +128,44 @@ JobManager.prototype.compileSite = function (jobConfig) {
                         resolve(stream);
                     }, function () {
                         resolve (nullStream);
+                    });
+                });
+            },
+            registerServerStep = function () {
+                return new Promise(function (resolveStep, rejectStep) {
+                    var startTime = Date.now();
+                    // Server is a dev instance. For internal development use only.
+                    var serverType = 'dev_ec';
+
+                    // server user and pass are not passed for pod instance.
+                    if (!serverUser || !serverPass) {
+                        // Server is a pod instance. Token is expected to be set.
+                        serverType = 'dev_osso';
+                        // Use dummy value
+                        serverUser = 'x';
+                        serverPass = 'x';
+                    }
+                    var registerServerArgs = [
+                            'register-server',
+                            serverName,
+                            '-e',
+                            serverEndpoint,
+                            '-u',
+                            serverUser,
+                            '-p',
+                            serverPass,
+                            '-t',
+                            serverType
+                        ];
+
+                    var registerServerCommand = spawn(cecCmd, registerServerArgs, cecDefaults);
+    
+                    registerServerCommand.stdout.on('data', logStdout);
+                    registerServerCommand.stderr.on('data', logStderr);
+                    registerServerCommand.on('close', (code) => {
+                        logCode('registerServerCommand', code);
+                        logDuration(jobConfig, 'registerServerCommand', startTime);
+                        code === 0 ? resolveStep(code) : rejectStep(code);
                     });
                 });
             },
@@ -392,11 +433,13 @@ JobManager.prototype.compileSite = function (jobConfig) {
         getLogStreamStep().then(function(stream) {
             logStream = stream;
 
-            if (token) {
-                setTokenStep().then(steps, stopNow);
-            } else {
-                steps();
-            }
+            registerServerStep().then(function () {
+                if (token) {
+                    setTokenStep().then(steps, stopNow);
+                } else {
+                    steps();
+                }
+            });
         });
     });
 };
@@ -482,7 +525,7 @@ JobManager.prototype.updateJob = function(jobConfig, data) {
 
     updates.map(function(key) {
         // List of properties that can be updated internally.
-        if (['name', 'siteName', 'serverName', 'token', 'status', 'progress'].indexOf(key) !== -1) {
+        if (['name', 'siteName', 'serverEndpoint', 'publishUsedContentOnly', 'serverUser', 'serverPass', 'token', 'status', 'progress'].indexOf(key) !== -1) {
             newProps[key] = data[key];
         }
     });

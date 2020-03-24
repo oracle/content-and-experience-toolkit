@@ -97,6 +97,7 @@ _getItemFilesPath = function (contentdir) {
 };
 
 _findItemBySlug = function (files, slug) {
+	var item;
 	for (var i = 0; i < files.length; i++) {
 		var slugJson;
 		try {
@@ -541,6 +542,9 @@ router.get('/*', (req, res) => {
 			ids = [],
 			isBulk = false;
 
+		if (id.startsWith('.by.slug/')) {
+			id = id.replace('.by.slug/', '');
+		}
 		if (id.indexOf('/') > 0) {
 			id = id.substring(0, id.indexOf('/'));
 		}

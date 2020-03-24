@@ -1952,6 +1952,24 @@ const downloadFile = {
 	]
 };
 
+const downloadRecommendation = {
+	command: 'download-recommendation <name>',
+	alias: 'dlr',
+	name: 'download-recommendation',
+	usage: {
+		'short': 'Downloads the recommendation <name> from the CEC server.',
+		'long': (function () {
+			let desc = 'Downloads the recommendation <name> from the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify repository with -r <repository>.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec download-recommendation Recommendation1'],
+		['cec download-recommendation Recommendation1 -s UAT'],
+		['cec download-recommendation Recommendation1 -r Repo1'],
+	]
+};
+
 const createEncryptionKey = {
 	command: 'create-encryption-key <file>',
 	alias: 'cek',
@@ -2082,19 +2100,17 @@ const compilationServer = {
 	usage: {
 		'short': 'Starts a compilation server.',
 		'long': (function () {
-			let desc = 'Starts a compilation server to accept compilation request from <server>. Specify the server with -s <server>. ' +
-				'Specify -u <username> and -w <password> for authenticating requests. Optionally specify -p <port> to set the port, default port is 8087. ' +
+			let desc = 'Starts a compilation server to accept compilation request from server.' +
+				'Optionally specify -p <port> to set the port, default port is 8087.' +
+				'Optionally specify -l <logs-directory> to save output of compilation.' +
 				'To run the compilation server over HTTPS, specify the key file with -k <key> and the certificate file with -c <certificate>.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec compilation-server -s DEV -u admin -w welcome1'],
-		['cec compilation-server -s DEV -u admin -w welcome1 -p 3001'],
-		['cec compilation-server -s DEV ', 'The username and password will be prompted to enter'],
-		['cec compilation-server -s DEV -u admin', 'The password will be prompted to enter'],
-		['cec compilation-server -s DEV -k ~/keys/key.pem -c ~/keys/cert.pem', 'The sync server will start over HTTPS'],
-		['cec compilation-server -s DEV -l /usr/data/compilationlogs', 'Compilation log files will be stored in the directory specified.'],
+		['cec compilation-server -p 3001'],
+		['cec compilation-server -l /usr/data/compilationlogs', 'Compilation log files will be stored in the directory specified.'],
+		['cec compilation-server -k ~/keys/key.pem -c ~/keys/cert.pem', 'The sync server will start over HTTPS']
 	]
 };
 
@@ -4903,6 +4919,24 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${removeMemberFromGroup.command}\n\n${removeMemberFromGroup.usage.long}`);
 		})
+	.command([downloadRecommendation.command, downloadRecommendation.alias], false,
+		(yargs) => {
+			yargs.option('repository', {
+					alias: 'r',
+					description: 'The repository'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...downloadRecommendation.example[0])
+				.example(...downloadRecommendation.example[1])
+				.example(...downloadRecommendation.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${downloadRecommendation.command}\n\n${downloadRecommendation.usage.long}`);
+		})
 	.command([createEncryptionKey.command, createEncryptionKey.alias], false,
 		(yargs) => {
 			yargs.example(...createEncryptionKey.example[0])
@@ -5103,22 +5137,13 @@ const argv = yargs.usage(_usage)
 	.command([compilationServer.command, compilationServer.alias], false,
 		(yargs) => {
 			yargs
-				.option('server', {
-					alias: 's',
-					description: 'The registered CEC server for compilation',
-					demandOption: true
-				})
-				.option('username', {
-					alias: 'u',
-					description: 'The username used to authenticate requests'
-				})
-				.option('password', {
-					alias: 'w',
-					description: 'The password used to authenticate requests'
-				})
 				.option('port', {
 					alias: 'p',
 					description: 'Set port. Defaults to 8087.'
+				})
+				.option('logs', {
+					alias: 'l',
+					description: 'The directory for compilation logs'
 				})
 				.option('key', {
 					alias: 'k',
@@ -5128,16 +5153,9 @@ const argv = yargs.usage(_usage)
 					alias: 'c',
 					description: 'The certificate file for HTTPS'
 				})
-				.option('logs', {
-					alias: 'l',
-					description: 'The directory for compilation logs'
-				})
 				.example(...compilationServer.example[0])
 				.example(...compilationServer.example[1])
 				.example(...compilationServer.example[2])
-				.example(...compilationServer.example[3])
-				.example(...compilationServer.example[4])
-				.example(...compilationServer.example[5])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -6997,6 +7015,24 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === downloadRecommendation.name || argv._[0] === downloadRecommendation.alias) {
+	let downloadRecommendationArgs = ['run', '-s', downloadRecommendation.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.repository) {
+		downloadRecommendationArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		downloadRecommendationArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, downloadRecommendationArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === createEncryptionKey.name || argv._[0] === createEncryptionKey.alias) {
 	let createEncryptionKeyArgs = ['run', '-s', createEncryptionKey.name, '--prefix', appRoot,
 		'--',
@@ -7109,26 +7145,19 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 } else if (argv._[0] === compilationServer.name || argv._[0] === compilationServer.alias) {
 	let compilationServerArgs = ['run', '-s', compilationServer.name, '--prefix', appRoot,
 		'--',
-		'--projectDir', cwd,
-		'--server', argv.server
+		'--projectDir', cwd
 	];
-	if (argv.username && typeof argv.username !== 'boolean') {
-		compilationServerArgs.push(...['--username', argv.username]);
-	}
-	if (argv.password && typeof argv.password !== 'boolean') {
-		compilationServerArgs.push(...['--password', argv.password]);
-	}
 	if (argv.port) {
 		compilationServerArgs.push(...['--port', argv.port]);
+	}
+	if (argv.logs) {
+		compilationServerArgs.push(...['--logs', argv.logs]);
 	}
 	if (argv.key && typeof argv.key !== 'boolean') {
 		compilationServerArgs.push(...['--key', argv.key]);
 	}
 	if (argv.certificate && typeof argv.certificate !== 'boolean') {
 		compilationServerArgs.push(...['--certificate', argv.certificate]);
-	}
-	if (argv.logs) {
-		compilationServerArgs.push(...['--logs', argv.logs]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, compilationServerArgs, {
 		cwd,

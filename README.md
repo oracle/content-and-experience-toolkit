@@ -15,6 +15,15 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 20.1.2f
+
+**Fixed**
+
+- `cec migrate-site` - Now updates digital asset IDs to new format.
+
+- Fixed issue with using slugs in detail page links in local testing.
+
+
 # New in Release 20.1.2e
 
 **Fixed**

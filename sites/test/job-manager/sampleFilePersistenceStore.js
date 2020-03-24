@@ -113,8 +113,10 @@ SampleFilePersistenceStore.prototype.createJob = function (args) {
 		// create a job based on the name & random ID
 		var name = args.name,
 			siteName = args.siteName,
-			serverName = args.serverName,
 			publishUsedContentOnly = args.publishUsedContentOnly,
+			serverEndpoint = args.serverEndpoint,
+			serverUser = args.serverUser || '', // Optional
+			serverPass = args.serverPass || '', // Optional
 			token = args.token || ''; // Optional
 
 		// generate a random number directory for the job
@@ -129,16 +131,16 @@ SampleFilePersistenceStore.prototype.createJob = function (args) {
 		// write out the initial data
 		var jobMetadataFile = path.join(jobDir, jobId + '.json'),
 			jobMetadata = {
+				id: jobId,
 				name: name,
 				siteName: siteName,
-				serverName: serverName,
 				publishUsedContentOnly: publishUsedContentOnly,
+				serverEndpoint: serverEndpoint,
+				serverUser: serverUser,
+				serverPass: serverPass,
 				token: token,
 				status: 'CREATED',
-				progress: 0,
-				properties: {
-					id: jobId
-				}
+				progress: 0
 			};
 
 		fs.writeFile(jobMetadataFile, JSON.stringify(jobMetadata), function (err) {
@@ -207,7 +209,7 @@ SampleFilePersistenceStore.prototype.updateJob = function (updatedJobMetadata) {
 
 	return new Promise(function (resolve, reject) {
 		// update the job
-		var jobId = updatedJobMetadata.properties.id,
+		var jobId = updatedJobMetadata.id,
 			jobDir = path.join(compilationJobsDir, jobId),
 			jobMetadataFile = path.join(jobDir, jobId + '.json');
 
@@ -219,7 +221,7 @@ SampleFilePersistenceStore.prototype.updateJob = function (updatedJobMetadata) {
 			/*
 			var updates = Object.getOwnPropertyNames(updatedJobMetadata);
 			updates.map(function(key) {
-				if (['name', 'siteName', 'serverName', 'token', 'status', 'progress'].indexOf(key) !== -1) {
+				if (['name', 'siteName', 'token', 'status', 'progress'].indexOf(key) !== -1) {
 					if (jobMetadata[key] !== updatedJobMetadata[key]) {
 						console.log('updateJob property:', key, 'new value:', updatedJobMetadata[key]);
 					}

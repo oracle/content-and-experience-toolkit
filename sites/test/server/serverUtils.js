@@ -338,6 +338,9 @@ module.exports.replaceAll = (str, search, replacement) => {
 	return _replaceAll(str, search, replacement);
 };
 var _replaceAll = function (str, search, replacement) {
+	if (!str) {
+		return str;
+	}
 	var re = new RegExp(search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
 	return str.replace(re, replacement || '');
 };
@@ -3787,7 +3790,7 @@ module.exports.getBackgroundServiceJobData = function (server, request, idcToken
 /**
  * Get sites or templates from server using IdcService
  */
-module.exports.browseSitesOnServer = function (request, server, fApplication) {
+module.exports.browseSitesOnServer = function (request, server, fApplication, siteCountStr) {
 	var sitePromise = new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -3807,6 +3810,9 @@ module.exports.browseSitesOnServer = function (request, server, fApplication) {
 		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_SITES';
 		if (fApplication) {
 			url = url + '&fApplication=' + fApplication;
+		}
+		if (siteCountStr) {
+			url = url + '&' + siteCountStr;
 		}
 		var options = {
 			method: 'GET',

@@ -52,6 +52,13 @@ Video.prototype.compile = function () {
 		content: content
 	});
 };
+Video.prototype.canCompile = function () {
+	// can't compile digital asset videos as they may be advanced videos
+	// ToDo: Look at making the additional query to determine if advanced video and compile standard video digital assets
+	var isDigitialAssetVideo = this.contentId;
+
+	return this.computeVisibilty() && !isDigitialAssetVideo;
+};
 
 Video.prototype.hasVisualData = function () {
 	return this.videoUrl && this.isHybridLink(this.videoUrl) || this.validateFilename(this.videoUrl);
@@ -64,7 +71,7 @@ Video.prototype.computeStyle = function () {
 Video.prototype.computeHtml = function () {
 		var viewModel = this;
 
-		var t = '<video width="100%" src="';
+		var t = '<video width="100%" class="scs-standard-video" src="';
 
 		// Note: links will be resolved in the compiler.js code
 		t += viewModel.videoUrl + '"';

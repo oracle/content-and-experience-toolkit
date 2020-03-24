@@ -25,6 +25,7 @@ var gulp = require('gulp'),
 	taxonomylib = require('./taxonomy.js'),
 	themelib = require('./theme.js'),
 	translationlib = require('./translation.js'),
+	recommendationlib = require('./recommendation.js'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	path = require('path'),
@@ -354,17 +355,30 @@ gulp.task('compilation-server', function (done) {
 		return;
 	}
 
-	var srcServerName = argv.server;
-	if (!fs.existsSync(path.join(serversSrcDir, srcServerName, 'server.json'))) {
-		console.log('ERROR: source server ' + srcServerName + ' does not exist');
-		done();
-		return;
+	var port = argv.port || '8087';
+
+	process.env['CEC_TOOLKIT_COMPILATION_PORT'] = port;
+	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
+
+	var compilationLogsDir = argv.logs;
+	if (compilationLogsDir) {
+		if (!path.isAbsolute(compilationLogsDir)) {
+			compilationLogsDir = path.join(projectDir, compilationLogsDir);
+		}
+		compilationLogsDir = path.resolve(compilationLogsDir);
+		if (!fs.existsSync(compilationLogsDir)) {
+			try {
+				fs.mkdirSync(compilationLogsDir);
+			} catch (err) {
+				console.log('ERROR: Failed to create logs directory. REASON:', err.message);
+				done();
+				return;
+			}
+		}
+
+		process.env['CEC_TOOLKIT_COMPILATION_LOGS_DIR'] = compilationLogsDir;
 	}
 
-	var port = argv.port || '8087';
-	process.env['CEC_TOOLKIT_COMPILATION_PORT'] = port;
-	process.env['CEC_TOOLKIT_COMPILATION_SERVER'] = srcServerName;
-	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
 	process.env['CEC_TOOLKIT_COMPILATION_HTTPS_KEY'] = '';
 	process.env['CEC_TOOLKIT_COMPILATION_HTTPS_CERTIFICATE'] = '';
 
@@ -396,97 +410,14 @@ gulp.task('compilation-server', function (done) {
 		process.env['CEC_TOOLKIT_COMPILATION_HTTPS_CERTIFICATE'] = certPath;
 	}
 
-	var compilationLogsDir = argv.logs;
-	if (compilationLogsDir) {
-		if (!path.isAbsolute(compilationLogsDir)) {
-			compilationLogsDir = path.join(projectDir, compilationLogsDir);
-		}
-		compilationLogsDir = path.resolve(compilationLogsDir);
-		if (!fs.existsSync(compilationLogsDir)) {
-			try {
-				fs.mkdirSync(compilationLogsDir);
-			} catch (err) {
-				console.log('ERROR: Failed to create logs directory. REASON:', err.message);
-				done();
-				return;
-			}
-		}
+	var args = ['run', 'start-compilation', '--prefix', cecDir];
 
-		process.env['CEC_TOOLKIT_COMPILATION_LOGS_DIR'] = compilationLogsDir;
-	}
-
-	var rl = readline.createInterface({
-		input: process.stdin,
-		output: process.stdout
+	childProcess.spawnSync(npmCmd, args, {
+		projectDir,
+		stdio: 'inherit'
 	});
 
-	rl._writeToOutput = function _writeToOutput(stringToWrite) {
-		if (rl.stdoutMuted) {
-			var str = stringToWrite.replace(/(\r\n|\n|\r)/gm, '').trim();
-			if (str) {
-				rl.output.write("*");
-			}
-		} else {
-			rl.output.write(stringToWrite);
-		}
-	};
-
-	var username = argv.username || '';
-	var password = argv.password || '';
-
-	var usernamePromises = [];
-	if (!username) {
-		usernamePromises.push(_promptInput(rl, 'Please enter username: '));
-	}
-	Promise.all(usernamePromises)
-		.then(function (results) {
-			if (!username) {
-				username = results[0].value;
-				if (!username) {
-					console.log('ERROR: username is empty');
-					return Promise.reject();
-				}
-			}
-
-			var passwordPromises = [];
-			if (!password) {
-				rl.stdoutMuted = true;
-				passwordPromises.push(_promptInput(rl, 'Please enter password: '));
-			}
-
-			return Promise.all(passwordPromises);
-		})
-		.then(function (results) {
-			if (!password) {
-				password = results[0].value;
-				if (!password) {
-					console.log('ERROR: password is empty');
-					return Promise.reject();
-				}
-				console.log('');
-			}
-
-			rl.stdoutMuted = false;
-			rl.close();
-
-			process.env['CEC_TOOLKIT_COMPILATION_USERNAME'] = username;
-			process.env['CEC_TOOLKIT_COMPILATION_PASSWORD'] = password;
-
-			var args = ['run', 'start-compilation', '--prefix', cecDir];
-
-			var spawnCmd = childProcess.spawnSync(npmCmd, args, {
-				projectDir,
-				stdio: 'inherit'
-			});
-
-			done();
-		})
-		.catch((error) => {
-			rl.stdoutMuted = false;
-			rl.close();
-			done();
-		});
-
+	done();
 });
 
 var _promptInput = function (rl, question) {
@@ -1150,6 +1081,17 @@ gulp.task('control-component', function (done) {
 	});
 });
 
+/**
+ * download recommendation from server
+ */
+gulp.task('download-recommendation', function (done) {
+	'use strict';
+
+	recommendationlib.downloadRecommendation(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
 
 /**
  * Copy the configured libraries from node_modules into library folder

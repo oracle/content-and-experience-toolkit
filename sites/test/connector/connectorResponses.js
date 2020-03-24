@@ -25,15 +25,18 @@ var responses = {
               "authenticationType": "{{authenticationType}}",
             },
             "/v1/job/{{jobId}}": {
-                properties: {
-                    "id": "{{jobId}}",
-                    "name": "{{name}}",
-                    "siteName": "{{siteName}}",
-                    "serverName": "{{serverName}}",
-                    "token": "{{token}}",
-                    "status": "{{status}}",
-                    "progress": "{{progress}}"
-                }
+              "id": "{{jobId}}",
+              "name": "{{name}}",
+              "siteName": "{{siteName}}",
+              "publishUsedContentOnly": "{{publishUsedContentOnly}}",
+              "serverEndpoint": "{{{serverEndpoint}}}",
+              "serverUser": "{{serverUser}}",
+              "serverPass": "{{serverPass}}",
+              "token": "{{token}}",
+              "status": "{{status}}",
+              "progress": "{{progress}}",
+              "publishSiteBackgroundJobId": "{{publishSiteBackgroundJobId}}",
+              "publishStaticBackgroundJobId": "{{publishStaticBackgroundJobId}}"
             },
             "/jobNotFound": {
               "errorCode": "404",
@@ -42,25 +45,28 @@ var responses = {
         },
         "POST": {
             "/v1/job": {
-              properties: {
-                  "id": "{{jobId}}",
-                  "name": "{{name}}",
-                  "siteName": "{{siteName}}",
-                  "serverName": "{{serverName}}",
-                  "token": "{{token}}",
-                  "status": "{{status}}"
-              }
+              "id": "{{jobId}}",
+              "name": "{{name}}",
+              "siteName": "{{siteName}}",
+              "publishUsedContentOnly": "{{publishUsedContentOnly}}",
+              "serverEndpoint": "{{{serverEndpoint}}}",
+              "serverUser": "{{serverUser}}",
+              "serverPass": "{{serverPass}}",
+              "token": "{{token}}",
+              "status": "{{status}}",
+              "progress": "{{progress}}"
             },
             "/v1/job/{{jobId}}": {
-              properties: {
-                  "id": "{{jobId}}",
-                  "name": "{{name}}",
-                  "siteName": "{{siteName}}",
-                  "serverName": "{{serverName}}",
-                  "token": "{{token}}",
-                  "status": "{{status}}",
-                  "progress": "{{progress}}"
-              }
+              "id": "{{jobId}}",
+              "name": "{{name}}",
+              "siteName": "{{siteName}}",
+              "publishUsedContentOnly": "{{{publishUsedContentOnly}}}",
+              "serverEndpoint": "{{serverEndpoint}}",
+              "serverUser": "{{serverUser}}",
+              "serverPass": "{{serverPass}}",
+              "token": "{{token}}",
+              "status": "{{status}}",
+              "progress": "{{progress}}"
             },
             "/v1/job/{{jobId}}/compile/queued": {
                 "id": "{{jobId}}",

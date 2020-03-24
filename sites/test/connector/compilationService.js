@@ -29,9 +29,9 @@ CompilationService.prototype.restartJobs = function () {
             return ['FAILED', 'CREATED', 'COMPILED'].indexOf(jobConfig.status) === -1;
         }).map(function (jobConfig) {
             // ok, we have a running job that we need to re-start, kick it off again
-            console.log('RESTART enqueue jobId:' + jobConfig.properties.id + ' from: ' + jobConfig.status);
+            console.log('RESTART enqueue jobId:' + jobConfig.id + ' from: ' + jobConfig.status);
             compileSiteJobQueue.enqueue(jobConfig);
-            return jobConfig.properties.id;
+            return jobConfig.id;
         }).reduce(function (acc, id) {
             console.log('RESTART compile jobId', id);
             self.compileSite();
@@ -85,7 +85,9 @@ CompilationService.prototype.getApiVersions = function(req, res) {
 
 CompilationService.prototype.getServer = function(req, res) {
     var response = responses.formatResponse("GET", "/" + apiVersion + "/server", {
-            authenticationType: "NO_AUTH"
+            // TODO: If there is a way to differentiate between dev instance and pod instance,
+            // then the value should indicate USER_PASS for dev instance and OAUTH_TOKEN for pod instance.
+            authenticationType: "OAUTH_TOKEN"
         });
 
     res.setHeader('Content-Type', 'application/json');
@@ -125,13 +127,18 @@ CompilationService.prototype.getJob = function(req, res) {
             jobId: jobId
         }).then(function(jobMetadata) {
             var response = responses.formatResponse("GET", self.prependApiVersion("/job/") + jobId, {
-                jobId: jobMetadata.properties.id,
+                jobId: jobMetadata.id,
                 name: jobMetadata.name,
                 siteName: jobMetadata.siteName,
-                serverName: jobMetadata.serverName,
+                publishUsedContentOnly: jobMetadata.publishUsedContentOnly,
+                serverEndpoint: jobMetadata.serverEndpoint,
+                serverUser: jobMetadata.serverUser,
+                serverPass: jobMetadata.serverPass,
                 token: jobMetadata.token,
                 status: jobMetadata.status,
-                progress: jobMetadata.progress
+                progress: jobMetadata.progress,
+                publishSiteBackgroundJobId: jobMetadata.publishSiteBackgroundJobId,
+                publishStaticBackgroundJobId: jobMetadata.publishStaticBackgroundJobId
             });
 
             if (jobMetadata.status === 'COMPILED' || jobMetadata.status === 'FAILED') {
@@ -177,10 +184,13 @@ CompilationService.prototype.updateJob = function(req, res) {
         }).then(function(jobMetadata) {
             jobManager.updateJobPublic(jobMetadata, data).then(function(updatedJobMetadata) {
                 var response = responses.formatResponse("POST", self.prependApiVersion("/job/") + jobId, {
-                        jobId: updatedJobMetadata.properties.id,
+                        jobId: updatedJobMetadata.id,
                         name: updatedJobMetadata.name,
                         siteName: updatedJobMetadata.siteName,
-                        serverName: updatedJobMetadata.serverName,
+                        publishUsedContentOnly: updatedJobMetadata.publishUsedContentOnly,
+                        serverEndpoint: updatedJobMetadata.serverEndpoint,
+                        serverUser: updatedJobMetadata.serverUser,
+                        serverPass: updatedJobMetadata.serverPass,
                         token: updatedJobMetadata.token,
                         status: updatedJobMetadata.status,
                         progress: updatedJobMetadata.progress
@@ -200,7 +210,7 @@ CompilationService.prototype.updateJob = function(req, res) {
 };
 
 
-CompilationService.prototype.createJob = function(req, res, compileServerName) {
+CompilationService.prototype.createJob = function(req, res) {
     var self = this;
 
     this.validateRequest(req, {
@@ -209,24 +219,33 @@ CompilationService.prototype.createJob = function(req, res, compileServerName) {
         var name = args.data.name,
             siteName = args.data.siteName,
             publishUsedContentOnly = args.data.publishUsedContentOnly,
+            serverEndpoint = args.data.serverEndpoint,
+            serverUser = args.data.serverUser || '', // Optional
+            serverPass = args.data.serverPass || '', // Optional
             token = args.data.token || ''; // Optional
 
         persistenceStore.createJob({
             name: name,
             siteName: siteName,
-            serverName: compileServerName,
             publishUsedContentOnly: publishUsedContentOnly,
+            serverEndpoint: serverEndpoint,
+            serverUser: serverUser,
+            serverPass: serverPass,
             token: token
         }).then(function(newJob) {
             console.log('newJob', newJob);
 
             var response = responses.formatResponse("POST", self.prependApiVersion("/job"), {
-                    jobId: newJob.properties.id,
+                    jobId: newJob.id,
                     name: newJob.name,
                     siteName: newJob.siteName,
-                    serverName: newJob.serverName,
+                    publishUsedContentOnly: newJob.publishUsedContentOnly,
+                    serverEndpoint: newJob.serverEndpoint,
+                    serverUser: newJob.serverUser,
+                    serverPass: newJob.serverPass,
                     token: newJob.token,
-                    status: newJob.status
+                    status: newJob.status,
+                    progress: newJob.progress
                 });
 
             res.setHeader('Content-Type', 'application/json');
@@ -280,23 +299,32 @@ CompilationService.prototype.submitCompileSite = function(req, res) {
             jobId: jobId
         }).then(function(originalMetadata) {
 
-            jobManager.updateStatus(originalMetadata, "PUBLISH_SITE").then(function(updatedJobConfig) {
+            if (originalMetadata.status !== 'CREATED') {
+                var error = {
+                        errorCode: 400, // Bad Request
+                        errorMessage: 'CompilationService: resubmiting a compilation job is not supported'
+                    };
 
-                compileSiteJobQueue.enqueue(updatedJobConfig);
-
-                var response = responses.formatResponse("POST", self.prependApiVersion("/job/") + jobId + "/compile/queued", {
-                    jobId: jobId
-                });
-        
-                res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify(response));
-        
-                self.compileSite();
-
-            }, function(error) {
-                console.log('submitCompileSite failed to update job status');
                 self.respondWithError(res, error);
-            });
+            } else {
+                jobManager.updateStatus(originalMetadata, "PUBLISH_SITE").then(function(updatedJobConfig) {
+
+                    compileSiteJobQueue.enqueue(updatedJobConfig);
+
+                    var response = responses.formatResponse("POST", self.prependApiVersion("/job/") + jobId + "/compile/queued", {
+                        jobId: jobId
+                    });
+            
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify(response));
+            
+                    self.compileSite();
+
+                }, function(error) {
+                    console.log('submitCompileSite failed to update job status');
+                    self.respondWithError(res, error);
+                });
+            }
         }, function(error) {
             self.handleGetJobError(res, jobId, error);
         });
