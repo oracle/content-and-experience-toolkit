@@ -277,7 +277,7 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 
 			// folder not found
 			if (showError) {
-				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : '';
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to find ' + (itemtype ? itemtype : ' File') + ': ' + filename + ' ' + msg);
 			}
 			return resolve({
@@ -569,7 +569,7 @@ var _getFileVersions = function (server, fFileGUID) {
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to get file version ' + fFileGUID + ' : ' + msg);
 				resolve();
 			}
@@ -795,7 +795,7 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 					query: query
 				});
 			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to query items with ' + query + ' : ' + msg);
 				return resolve({
 					err: 'err'
@@ -1076,11 +1076,11 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 					} catch (err) {
 						data = body;
 					}
-
+					
 					if (response && response.statusCode === 200) {
 						resolve(data);
 					} else {
-						var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+						var msg = data ? JSON.stringify(data) : (response.statusMessage || response.statusCode);
 						console.log('Failed to add channel ' + channelName + ' to repository ' + repository.name + ' : ' + msg);
 						resolve({
 							err: 'err'
@@ -1841,7 +1841,7 @@ var _updateLocalizationPolicy = function (server, id, name, data) {
 				var payload = data;
 				payload.id = id;
 				payload.name = name;
-				
+
 				var url = server.url + '/content/management/api/v1.1/localizationPolicies/' + id;
 				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
@@ -2321,22 +2321,24 @@ var _updateRepository = function (server, repository, contentTypes, channels) {
 
 				request(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to add channel ' + channelName + ' to repository ' + repository.name);
+						console.log('Failed to add channel to repository ' + repository.name);
 						console.log(error);
 						resolve({
 							err: 'err'
 						});
 					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					
 					if (response && response.statusCode === 200) {
-						var data;
-						try {
-							data = JSON.parse(body);
-						} catch (err) {
-							data = body;
-						}
 						resolve(data);
 					} else {
-						console.log('Failed to update repository repository ' + repository.name + ' - ' + response.statusMessage);
+						var msg = data ? JSON.stringify(data) : (response.statusMessage || response.statusCode);
+						console.log('Failed to add channel to repository ' + repository.name + ' - ' + msg);
 						resolve({
 							err: 'err'
 						});
@@ -2378,12 +2380,15 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 				var userArr = [];
 				for (var i = 0; i < users.length; i++) {
 					userArr.push({
-						id: users[i].loginName
+						name: users[i].loginName,
+						type: 'user'
 					});
 				}
+				
 				for (var i = 0; i < groups.length; i++) {
 					userArr.push({
-						id: groups[i].groupID
+						name: groups[i].name,
+						type: 'group'
 					});
 				}
 				var resource = {
@@ -2446,9 +2451,10 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 						var failedRoles = data && data.operations[operation] && data.operations[operation].failedRoles;
 						var msg = '';
 						if (failedRoles && failedRoles.length > 0) {
+							console.log(JSON.stringify(failedRoles, null, 2));
 							for (var i = 0; i < failedRoles.length; i++) {
 								for (var j = 0; j < failedRoles[i].users.length; j++) {
-									msg = msg + ' ' + failedRoles[i].users[j].message;
+									msg = msg + ' ' + (failedRoles[i].users[j].name || failedRoles[i].users[j].id) + ': ' + failedRoles[i].users[j].message;
 								}
 							}
 							console.log('ERROR: failed to ' + operation + ' resource: ' + msg);

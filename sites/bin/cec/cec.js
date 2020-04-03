@@ -540,7 +540,8 @@ const createTemplateReport = {
 		['cec create-template-report StarterTemplate'],
 		['cec create-template-report StarterTemplate -o', 'The report will be saved to StarterTemplateAssetUsage.json at the current local location'],
 		['cec create-template-report StarterTemplate -o ~/Documents', 'The report will be saved to ~/Documents/StarterTemplateAssetUsage.json'],
-		['cec create-template-report StarterTemplate -o ~/Documents/StarterTemplateReport.json', 'The report will be saved to ~/Documents/StarterTemplateReport.json']
+		['cec create-template-report StarterTemplate -o ~/Documents/StarterTemplateReport.json', 'The report will be saved to ~/Documents/StarterTemplateReport.json'],
+		['cec create-template-report StarterTemplate -i', 'Include validating page links'],
 	]
 };
 
@@ -2301,12 +2302,10 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(removeFieldEditor) + os.EOL +
 	_getCmdHelp(migrateContent) + os.EOL;
 
-/*
 _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
 	_getCmdHelp(downloadTaxonomy) + os.EOL +
 	_getCmdHelp(uploadTaxonomy) + os.EOL +
 	_getCmdHelp(controlTaxonomy) + os.EOL;
-*/
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(listTranslationJobs) + os.EOL +
@@ -2885,7 +2884,10 @@ const argv = yargs.usage(_usage)
 		})
 	.command([createTemplateReport.command, createTemplateReport.alias], false,
 		(yargs) => {
-			yargs.option('output', {
+			yargs.option('includepagelinks', {
+					alias: 'i',
+					description: 'Include validating page links'
+				}).option('output', {
 					alias: 'o',
 					description: 'Output the report to a JSON file'
 				})
@@ -2893,6 +2895,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTemplateReport.example[1])
 				.example(...createTemplateReport.example[2])
 				.example(...createTemplateReport.example[3])
+				.example(...createTemplateReport.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3404,7 +3407,7 @@ const argv = yargs.usage(_usage)
 					description: '<theme> Theme',
 					demandOption: true
 				})
-				.example(...addComponentToTheme.example[0])
+				.example(...removeComponentFromTheme.example[0])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -5669,6 +5672,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--name', argv.name
 	];
 
+	if (argv.includepagelinks) {
+		createTemplateReportArgs.push(...['--includepagelinks', argv.includepagelinks]);
+	}
 	if (argv.output) {
 		var outputVal = typeof argv.output === 'boolean' ? './' : argv.output;
 		createTemplateReportArgs.push(...['--output', outputVal]);

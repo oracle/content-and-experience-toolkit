@@ -531,7 +531,7 @@ module.exports.listServerResources = function (argv, done) {
 				}
 
 				promises = [];
-				if (listRecommendations) {
+				if (listRecommendations && repositories && repositories.length > 0) {
 					repositories.forEach(function (repo) {
 						promises.push(serverRest.getRecommendations({
 							server: server,

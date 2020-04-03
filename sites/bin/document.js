@@ -52,7 +52,7 @@ module.exports.createFolder = function (argv, done) {
 
 	var request = serverUtils.getRequest();
 
-	serverUtils.loginToServer(server, request, true).then(function (result) {
+	serverUtils.loginToServer(server, request).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -540,7 +540,7 @@ module.exports.shareFolder = function (argv, done) {
 	}
 	console.log(' - server: ' + server.url);
 
-	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -714,7 +714,7 @@ module.exports.unshareFolder = function (argv, done) {
 	}
 	console.log(' - server: ' + server.url);
 
-	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();

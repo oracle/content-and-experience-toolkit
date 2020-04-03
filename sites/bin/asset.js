@@ -468,6 +468,8 @@ module.exports.shareRepository = function (argv, done) {
 			}
 
 			var existingPermissions = result && result.permissions || [];
+			// console.log(existingPermissions);
+
 			var revokeGroups = [];
 			for (var i = 0; i < groups.length; i++) {
 				for (var j = 0; j < existingPermissions.length; j++) {
@@ -478,12 +480,24 @@ module.exports.shareRepository = function (argv, done) {
 					}
 				}
 			}
+			
+			var revokeUsers = [];
+			for (var i = 0; i < users.length; i++) {
+				for (var j = 0; j < existingPermissions.length; j++) {
+					var perm = existingPermissions[j];
+					if (perm.type === 'user' && perm.id === users[i].loginName) {
+						revokeUsers.push(users[i]);
+						break;
+					}
+				}
+			}
 
 			return serverRest.performPermissionOperation({
 				server: server,
 				operation: 'unshare',
 				resourceId: repository.id,
 				resourceType: 'repository',
+				users: revokeUsers,
 				groups: revokeGroups
 			});
 		})
@@ -551,6 +565,7 @@ module.exports.shareRepository = function (argv, done) {
 									var resource = results[i].resource;
 									var perms = results[i] && results[i].permissions || [];
 									var revokeGroups = [];
+									var revokeUsers = [];
 									for (var j = 0; j < perms.length; j++) {
 										if (perms[j].type === 'group') {
 											for (var k = 0; k < groups.length; k++) {
@@ -559,15 +574,22 @@ module.exports.shareRepository = function (argv, done) {
 													break;
 												}
 											}
-
+										} else if (perms[j].type === 'user') {
+											for (var k = 0; k < users.length; k++) {
+												if (perms[j].id === users[k].loginName) {
+													revokeUsers.push(users[k]);
+													break;
+												}
+											}
 										}
 									}
-									if (revokeGroups.length > 0) {
+									if (revokeGroups.length > 0 || revokeUsers.length > 0) {
 										unshareTypePromises.push(serverRest.performPermissionOperation({
 											server: server,
 											operation: 'unshare',
 											resourceName: resource,
 											resourceType: 'type',
+											users: revokeUsers,
 											groups: revokeGroups
 										}));
 									}
@@ -618,7 +640,9 @@ module.exports.shareRepository = function (argv, done) {
 					.catch((error) => {
 						done(success);
 					});
-			} // types
+			} else {
+				done(true);
+			}
 
 		})
 		.catch((error) => {
@@ -957,11 +981,22 @@ module.exports.shareType = function (argv, done) {
 
 			var existingPermissions = result && result.permissions || [];
 			var revokeGroups = [];
-			for (var i = 0; i < groups.length; i++) {
-				for (var j = 0; j < existingPermissions.length; j++) {
+			var i, j;
+			for (i = 0; i < groups.length; i++) {
+				for (j = 0; j < existingPermissions.length; j++) {
 					var perm = existingPermissions[j];
 					if (perm.type === 'group' && perm.fullName === groups[i].name) {
 						revokeGroups.push(groups[i]);
+						break;
+					}
+				}
+			}
+			var revokeUsers = [];
+			for (i = 0; i < users.length; i++) {
+				for (j = 0; j < existingPermissions.length; j++) {
+					var perm = existingPermissions[j];
+					if (perm.type === 'user' && perm.id === users[i].loginName) {
+						revokeUsers.push(users[i]);
 						break;
 					}
 				}
@@ -972,6 +1007,7 @@ module.exports.shareType = function (argv, done) {
 				operation: 'unshare',
 				resourceName: name,
 				resourceType: 'type',
+				users: revokeUsers,
 				groups: revokeGroups
 			});
 		})

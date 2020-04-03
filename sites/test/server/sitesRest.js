@@ -143,7 +143,7 @@ var _getResource = function (server, type, id, name, expand, showError) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				if (showError) {
 					console.log('ERROR: failed to get ' + type.substring(0, type.length - 1) + ' ' + (id || name) + ' : ' + msg);
 				}
@@ -270,7 +270,7 @@ var _getSiteAccess = function (server, id, name) {
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items || []);
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to get site access ' + (id || name) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -339,7 +339,7 @@ var _removeSiteAccess = function (server, id, name, member) {
 			if (response && response.statusCode <= 300) {
 				resolve(data);
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to remove ' + member + ' from accessing site ' + (id || name) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -412,7 +412,7 @@ var _grantSiteAccess = function (server, id, name, member) {
 			if (response && response.statusCode <= 300) {
 				resolve(data);
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg =(data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to grant ' + member + ' to access site ' + (id || name) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -486,7 +486,7 @@ var _setSiteRuntimeAccess = function (server, id, name, accessList) {
 			if (response && response.statusCode < 300) {
 				resolve(data);
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to set runtime access for site ' + (id || name) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -637,7 +637,7 @@ var _exportResource = function (server, type, id, name) {
 					file: fileLocation
 				});
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to export ' + type.substring(0, type.length - 1) + ' ' + (id || name) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -721,7 +721,7 @@ var _publishResource = function (server, type, id, name) {
 					name: name
 				});
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to publish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -898,7 +898,7 @@ var _unpublishResource = function (server, type, id, name) {
 					name: name
 				});
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to unpublish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -970,7 +970,7 @@ var _unpublishResource = function (server, type, id, name) {
 					name: name
 				});
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to unpublish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -1044,7 +1044,7 @@ var _setSiteOnlineStatus = function (server, id, name, status) {
 					name: name
 				});
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to ' + action + ' site ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -1127,7 +1127,7 @@ var _validateSite = function (server, id, name) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to validate site ' + (name || id) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -1200,7 +1200,7 @@ var _softDeleteResource = function (server, type, id, name) {
 					name: name
 				});
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -1260,7 +1260,7 @@ var _hardDeleteResource = function (server, type, id, name, showError) {
 					name: name
 				});
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				if (showError) {
 					console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
 				}
@@ -1336,7 +1336,7 @@ var _importComponent = function (server, name, fileId) {
 					name: name
 				});
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to import component ' + name + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -1396,7 +1396,7 @@ var _getBackgroundServiceJobStatus = function (server, url) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to get status from ' + endpoint + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -1473,7 +1473,7 @@ var _createTemplateFromSite = function (server, name, siteName, includeUnpublish
 					});
 				}, 5000);
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to create template ' + name + ' from site ' + siteName + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -1676,7 +1676,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 					});
 				}, 5000);
 			} else {
-				var msg = data ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to create site ' + name + ' from template ' + templateName + ' : ' + msg);
 				resolve({
 					err: msg || 'err'

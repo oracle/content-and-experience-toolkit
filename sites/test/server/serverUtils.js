@@ -579,6 +579,7 @@ module.exports.getComponentTemplates = function (projectDir, compName) {
 	return temps;
 };
 
+
 /**
  * Get templates in templatesDir.
  */
@@ -698,6 +699,7 @@ var _getTemplateComponents = function (templateName) {
 	// console.log('getTemplateComponents: template=' + templateName + ' components=' + JSON.stringify(comps));
 	return comps;
 };
+
 
 /**
  * Get the icon of a template (_folder_icon.png or _folder_icon.jpg)
@@ -2415,6 +2417,14 @@ var _loginToServer = function (server, request, restCall) {
 		});
 	} else if (env === 'pod_ec' && server.idcs_url && server.client_id && server.client_secret && server.scope) {
 		return _getOAuthTokenFromIDCS(server);
+	} else if (env === 'pod_ec') {
+		if (server.oauthtoken) {
+			return Promise.resolve({
+				status: true
+			});
+		} else {
+			return _loginToPODServer(server);
+		}
 	} else if (env === 'dev_osso') {
 		if (server.oauthtoken) {
 			return Promise.resolve({

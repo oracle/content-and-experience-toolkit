@@ -625,6 +625,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 							page.contentitems = pageResult.contentitems;
 							page.components = pageResult.components;
 							page.orphanComponents = pageResult.orphanComponents;
+							page.orphanComponentDetails = pageResult.orphanComponentDetails;
 
 							// page.orphanComponents = pageResult.orphanComponents;
 
@@ -1050,7 +1051,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 							contentlist: page.contentlist,
 							contentitems: page.contentitems,
 							components: page.components,
-							orphanComponents: page.orphanComponents,
+							orphanComponents: page.orphanComponentDetails,
 							links: page.links,
 							triggerActions: page.triggerActions
 						});
@@ -1114,15 +1115,16 @@ var _getChildComponents = function (componentInstances, comp, children) {
 		if (comp.data && comp.data.sectionLayoutInstanceId) {
 			children.push(comp.data.sectionLayoutInstanceId);
 			_getChildComponents(componentInstances, _getComponentInstance(componentInstances, comp.data.sectionLayoutInstanceId), children);
-		};
+		}
 	}
-}
+};
 
 var _examPageSource = function (slots, componentInstances, links, triggerActions, fileIds, itemIds, typeNames, compNames) {
 	var contentlist = [];
 	var contentitems = [];
 	var components = [];
 	var orphanComponents = [];
+	var orphanComponentDetails = [];
 	var slotComponentIds = [];
 	var checkOrphan = false;
 	if (slots) {
@@ -1282,6 +1284,7 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 			Object.keys(componentInstances).forEach(function (key) {
 				var comp = componentInstances[key];
 				var children = [];
+				var childGrid = '';
 				_getChildComponents(componentInstances, comp, children);
 				// console.log('comp: ' + key + ' children: ' + children);
 				if (slotComponentIds.includes(key)) {
@@ -1293,11 +1296,29 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 
 			Object.keys(componentInstances).forEach(function (key) {
 				var comp = componentInstances[key];
+				if (comp.type !== 'scs-inline-text' && comp.type !== 'scs-inline-image') {
+					if (!slotComponentIds.includes(key)) {
+						var foundInGrid = false;
+						for (var i = 0; i < slotComponentIds.length; i++) {
+							var slotComp = _getComponentInstance(componentInstances, slotComponentIds[i]);
+							var grid = slotComp && slotComp.data && slotComp.data.grid;
+							if (grid && grid.indexOf(key) >= 0) {
+								foundInGrid = true;
+								break;
+							}
+						}
 
-				if (!slotComponentIds.includes(key)) {
-					console.log('Cpmponent ' + key + ' ' + comp.type + ' ' + comp.id + ' is NOT in a slot');
-					var name = comp.type === 'scs-component' ? comp.data.componentId || comp.data.componentName : comp.data.appName;
-					orphanComponents.push(name || comp.id);
+						if (!foundInGrid) {
+							// console.log('Component ' + key + ' ' + comp.type + ' ' + comp.id + ' is NOT in a slot');
+							var name = comp.type === 'scs-component' ? comp.data.componentId || comp.data.componentName : comp.data.appName;
+							orphanComponents.push(name || comp.id);
+							orphanComponentDetails.push({
+								key: key,
+								type: comp.type,
+								name: name || comp.id
+							});
+						}
+					}
 				}
 			});
 		}
@@ -1307,7 +1328,8 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 		contentlist: contentlist,
 		contentitems: contentitems,
 		components: components,
-		orphanComponents: orphanComponents
+		orphanComponents: orphanComponents,
+		orphanComponentDetails: orphanComponentDetails
 	};
 };
 
@@ -1763,6 +1785,8 @@ var _verifyHrefLinks = function (server, pageLinks) {
 		} else {
 			var total = pageLinks.length;
 			console.log(' - total links: ' + total);
+			var timestamp = (new Date()).toISOString().substring(0, 19);
+			console.log(' - ' + timestamp);
 			var groups = [];
 			var limit = 20;
 			var start, end;
@@ -1817,6 +1841,8 @@ var _verifyHrefLinks = function (server, pageLinks) {
 
 			doVerifyLinks.then(function (result) {
 				process.stdout.write(os.EOL);
+				timestamp = (new Date()).toISOString().substring(0, 19);
+				console.log(' - ' + timestamp);
 				resolve(links);
 			});
 		}
@@ -1953,6 +1979,8 @@ module.exports.createTemplateReport = function (argv, done) {
 			return;
 		}
 	}
+
+	var includePageLinks = typeof argv.includepagelinks === 'string' && argv.includepagelinks.toLowerCase() === 'true';
 
 	var request = serverUtils.getRequest();
 
@@ -2128,6 +2156,7 @@ module.exports.createTemplateReport = function (argv, done) {
 			page.contentitems = pageResult.contentitems;
 			page.components = pageResult.components;
 			page.orphanComponents = pageResult.orphanComponents;
+			page.orphanComponentDetails = pageResult.orphanComponentDetails;
 
 			var pageLinks = _processLinks(undefined, links);
 
@@ -2242,37 +2271,66 @@ module.exports.createTemplateReport = function (argv, done) {
 				issues.push('Site content \'' + item.name + '\' is hidden');
 			}
 		});
+		/*
+		if (otherLinks && otherLinks.length > 0) {
+			var byName = otherLinks.slice(0);
+			byName.sort(function (x, y) {
+				return (x < y ? -1 : x > y ? 1 : 0);
+			});
+			otherLinks = byName;
+		}
+		console.log(otherLinks);
+		*/
 
-		_verifyHrefLinks(undefined, otherLinks)
-			.then(function (result) {
-				var allLinks = result || [];
+		var verifyLinksPromises = includePageLinks ? [_verifyHrefLinks(undefined, otherLinks)] : [];
 
-				pages.forEach(function (page) {
-					try {
-						if (page.links) {
-							// set the link status after ping (full url)
-							for (var j = 0; j < page.links.length; j++) {
-								if (page.links[j]) {
+		Promise.all(verifyLinksPromises)
+			.then(function (results) {
 
-									for (var k = 0; k < allLinks.length; k++) {
-										if (page.links[j].url === allLinks[k].url) {
-											page.links[j].status = allLinks[k].status;
-											break;
+				if (includePageLinks) {
+					var allLinks = results && results[0] || [];
+
+					pages.forEach(function (page) {
+						try {
+							if (page.links) {
+								// set the link status after ping (full url)
+								for (var j = 0; j < page.links.length; j++) {
+									if (page.links[j]) {
+
+										for (var k = 0; k < allLinks.length; k++) {
+											if (page.links[j].url === allLinks[k].url) {
+												page.links[j].status = allLinks[k].status;
+												break;
+											}
 										}
-									}
 
-									if (page.links[j].status && (typeof page.links[j].status !== 'string' || page.links[j].status.toLowerCase() !== 'ok')) {
-										var msg = 'Page: \'' + page.name + '\' component: \'' + page.links[j].components +
-											'\' link: ' + page.links[j].url + ' status: ' + page.links[j].status;
-										issues.push(msg);
+										if (page.links[j].status && (typeof page.links[j].status !== 'string' || page.links[j].status.toLowerCase() !== 'ok')) {
+											var msg = 'Page: \'' + page.name + '\' component: \'' + page.links[j].components +
+												'\' link: ' + page.links[j].url + ' status: ' + page.links[j].status;
+											issues.push(msg);
+										}
 									}
 								}
 							}
+						} catch (e) {
+							console.log(e);
 						}
-					} catch (e) {
-						console.log(e);
-					}
+					});
+				}
 
+				// generate issues for orphan components
+				pages.forEach(function (page) {
+					if (page.orphanComponentDetails && page.orphanComponentDetails.length > 0) {
+						for (var i = 0; i < page.orphanComponentDetails.length; i++) {
+							var orphan = page.orphanComponentDetails[i];
+							var msg = 'Page: \'' + page.name + '\' orphan component: ' + orphan.name +
+								'(key: ' + orphan.key + ' type: ' + orphan.type + ')';
+							issues.push(msg);
+						}
+					}
+				});
+
+				pages.forEach(function (page) {
 					pagesOutput.push({
 						id: page.id,
 						name: page.name,
@@ -2281,7 +2339,7 @@ module.exports.createTemplateReport = function (argv, done) {
 						contentlist: page.contentlist,
 						contentitems: page.contentitems,
 						components: page.components,
-						orphanComponents: page.orphanComponents,
+						orphanComponents: page.orphanComponentDetails,
 						links: page.links,
 						triggerActions: page.triggerActions
 					});

@@ -110,6 +110,10 @@
 						'visibleOnMobile',
 						'width'
 					],
+					'asynchronousUpdateProperties': [
+						'imageName',
+						'title'
+					],
 					'transientProperties': [
 						'hasPublishedVersion',
 						'openFilePicker'
@@ -628,6 +632,9 @@
 						'visibleOnMobile',
 						'width'
 					],
+					'asynchronousUpdateProperties': [
+						'hrefName'
+					],
 					'instanceProperties': [
 						'actions',
 						'linkType',
@@ -877,7 +884,8 @@
 						'nestedComponents',
 						'visibleNestedComponents',
 						'initialized',
-						'componentConfig'
+						'componentConfig',
+						'componentName'
 					],
 					'supportedFileExtensions': [
 						'gif',
@@ -1511,6 +1519,9 @@
 						'visibleOnMobile',
 						'width'
 					],
+					'asynchronousUpdateProperties': [
+						'videoName'
+					],
 					'transientProperties': [
 						'openFilePicker',
 						'hasPublishedVersion',
@@ -1643,13 +1654,13 @@
 						'borderStyle': 'none',
 						'borderWidth': 1,
 						'categoryFilters': [],
-						'categoryOptions': [],
 						'contentTypes': [],
 						'dateFilter': 'all',
 						'dateFilterNumber': 1,
 						'dateFilterNumber2': 1,
 						'dateFilterUnits': 'days',
 						'emptyListLayoutCategory': 'None',
+						'includeChildCategories': true,
 						'firstItem': 0,
 						'fontColor': '#333333',
 						'fontFamily': '\'Helvetica Neue\', Helvetica, Arial, sans-serif',
@@ -1685,7 +1696,6 @@
 						'borderStyle',
 						'borderWidth',
 						'categoryFilters',
-						'categoryOptions',
 						'contentTypes',
 						'customSettingsData',
 						'dateFilter',
@@ -1702,6 +1712,7 @@
 						'fontColorHover',
 						'fontFamily',
 						'fontSize',
+						'includeChildCategories',
 						'language',
 						'lastLabel',
 						'layoutCategory',

@@ -844,7 +844,7 @@ module.exports.describeTemplate = function (argv, done) {
 
 	// custom components
 	var comps = serverUtils.getTemplateComponents(projectDir, name);
-	console.log('Components: ');
+	console.log('Components used in the template:');
 	if (comps) {
 		comps.forEach(function (name) {
 			if (fs.existsSync(path.join(componentsSrcDir, name, 'appinfo.json'))) {
@@ -859,6 +859,7 @@ module.exports.describeTemplate = function (argv, done) {
 	themeComps.forEach(function (comp) {
 		console.log('    ' + comp.id);
 	});
+
 
 	// Content types
 	console.log('Content types:');
@@ -1545,6 +1546,7 @@ module.exports.addThemeComponent = function (argv, done) {
 		done();
 		return;
 	}
+	
 	var compstr = fs.readFileSync(compfolderfile),
 		compjson = JSON.parse(compstr),
 		appType = compjson && compjson.appType;
@@ -1554,8 +1556,13 @@ module.exports.addThemeComponent = function (argv, done) {
 		done();
 		return;
 	}
-	if (appType === 'sectionlayout' || appType === 'contentlayout') {
+	if (appType === 'contentlayout') {
 		console.error('ERROR: The content layout cannot be added to the theme');
+		done();
+		return;
+	}
+	if (appType === 'fieldeditor') {
+		console.error('ERROR: The field editor cannot be added to the theme');
 		done();
 		return;
 	}

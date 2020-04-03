@@ -105,7 +105,12 @@ router.get('/*', (req, res) => {
 			var filePath = path.join(compSiteDir, 'fieldeditorrender.html');
 			var htmlSrc = fs.readFileSync(filePath).toString();
 			var newHtmlSrc = htmlSrc.replace('_devcs_component_fieldeditor_edit_html_path', '/components/' + compName + '/assets/edit.html');
-			newHtmlSrc = newHtmlSrc.replace('_devcs_component_fieldeditor_iframe_height', iframeHeight);
+			var viewHtmlFilePath = '/components/' + compName + '/assets/view.html';
+			if (!fs.existsSync(path.join(componentsDir, compName, 'assets', 'view.html'))) {
+				viewHtmlFilePath = '/components/' + compName + '/assets/edit.html';
+			}
+			newHtmlSrc = newHtmlSrc.replace('_devcs_component_fieldeditor_view_html_path', viewHtmlFilePath);
+			newHtmlSrc = serverUtils.replaceAll(newHtmlSrc, '_devcs_component_fieldeditor_iframe_height', iframeHeight);
 			console.log(newHtmlSrc);
 
 			filePath = path.join(compSiteDir, 'fieldeditorrender.js');

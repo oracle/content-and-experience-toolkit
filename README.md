@@ -14,6 +14,16 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.2.1
+
+**Added**
+
+- `cec download-taxonomy` - Downloads a taxonomy from an OCE server.
+- `cec upload-taxonomy` - Uploads a taxonomy to an OCE server.           
+- `cec control-taxonomy` - Performs actions on taxonomy on OCE server.
+- `cec create-template-report` - Now checks for orphaned components.
+
+- Now also shows content field editor's view mode when testing on the local server.
 
 # New in Release 20.1.2f
 
