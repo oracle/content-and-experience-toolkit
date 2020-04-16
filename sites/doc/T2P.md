@@ -67,22 +67,6 @@ cec control-site bring-online -s blog-site --server DEV
 ```
 
 # Propagate a Site from DEV to UAT instance for the first time
-Use the following commands to pull a Site from DEV into local file system, and then push to the UAT instance for testing.
-
-Export the site called blog-site from the DEV instance into the local file system, this is done via a template, so that we include the theme, custom components, and content used in the site.  The old version of the template is deleted in DEV before being re-created.
-
-```
-cec delete-template blog-template -p --server DEV
-cec create-template-from-site blog-template --site blog-site -i --server DEV
-cec download-template blog-template --server DEV
-```
-
-At this point you can optionally test the template in the local server:
-
-```
-cec develop &
-open http://localhost:8085/templates/blog-template
-```
 
 The UAT instance must have a repository, and localization policy, which you can create as follows:
 
@@ -91,16 +75,10 @@ cec create-repository Repo1 --server UAT
 cec create-localization-policy Policy1 -r en-US -l en-US --server UAT
 ```
 
-Upload the site to the UAT instance.  This is done via the template, which will create content types, components and the theme on upload.
+Transfer the site to the UAT instance. 
 
 ```
-cec upload-template blog-template --server UAT
-```
-
-Create the content site - and upload the content to the site with "update" option to keep the IDs
-
-```
-cec create-site blog-site -t blog-template -u -r Repo1 -l Policy1 -d en-US --server UAT
+cec transfer-site blog-site --server DEV --destination UAT --repository Repo1 --localizationPolicy Policy1
 ```
 
 Publish blog-site and content.
@@ -115,25 +93,11 @@ cec control-site bring-online -s blog-site --server UAT
 Using Asset repository and Site Builder, make changes to the Site and Content.
 
 # Propagate the updated site and content from DEV to UAT 
-Export the site into the local file system.
+
+Update the site and content
 
 ```
-cec delete-template blog-template -p --server DEV
-cec create-template-from-site blog-template --site blog-site -i --server DEV
-cec download-template blog-template --server DEV
-```
-
-Upload the template to the UAT instance to update components, theme, content types.
-
-```
-cec delete-template blog-template -p --server UAT
-cec upload-template blog-template --server UAT
-```
-
-Update the site and content from changes in the template in the local file system.
-
-```
-cec update-site blog-site -t blog-template --server UAT
+cec transfer-site blog-site --server DEV --destination UAT 
 ```
 
 Re-publish blog-site and content.
