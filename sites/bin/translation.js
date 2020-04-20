@@ -789,7 +789,7 @@ var _getSiteInfoFile = function (request, localhost, site) {
 
 var _getSiteGUID = function (request, localhost, site) {
 	var sitesPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=SCS_BROWSE_SITES';
+		var url = localhost + '/documents/web?IdcService=SCS_BROWSE_SITES&siteCount=-1';
 		request.get(url, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get site Id');

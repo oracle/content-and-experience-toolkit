@@ -633,7 +633,7 @@ var _getTemplateComponents = function (templateName) {
 
 		Object.keys(componentInstances).forEach(function (key) {
 			compvalues = componentInstances[key];
-			if (compvalues && (compvalues.type === 'scs-component' || compvalues.type === 'scs-componentgroup' || compvalues.type === 'scs-app') && compvalues.id) {
+			if (compvalues && (compvalues.type === 'scs-component' || compvalues.type === 'scs-componentgroup' || compvalues.type === 'scs-app' || compvalues.type === 'scs-sectionlayout') && compvalues.id) {
 				var added = false;
 				for (var j = 0; j < comps.length; j++) {
 					if (compvalues.id === comps[j]) {
@@ -1424,7 +1424,7 @@ module.exports.getLocalizationPolicyFromServer = function (request, server, poli
 
 		var auth = _getRequestAuth(server);
 
-		var url = server.url + '/content/management/api/v1.1/policy';
+		var url = server.url + '/content/management/api/v1.1/policy?limit=9999';
 
 		var options = {
 			url: url,
@@ -3376,7 +3376,7 @@ var _getSiteGUID = function (server, site) {
 
 			var auth = _getRequestAuth(server);
 			var options = {
-				url: server.url + '/documents/web?IdcService=SCS_BROWSE_SITES',
+				url: server.url + '/documents/web?IdcService=SCS_BROWSE_SITES&name=' + site,
 				auth: auth
 			};
 			request.get(options, function (err, response, body) {
@@ -3800,7 +3800,7 @@ module.exports.getBackgroundServiceJobData = function (server, request, idcToken
 /**
  * Get sites or templates from server using IdcService
  */
-module.exports.browseSitesOnServer = function (request, server, fApplication, siteCountStr) {
+module.exports.browseSitesOnServer = function (request, server, fApplication, name) {
 	var sitePromise = new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -3817,13 +3817,14 @@ module.exports.browseSitesOnServer = function (request, server, fApplication, si
 
 		var auth = _getRequestAuth(server);
 
-		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_SITES';
+		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_SITES&siteCount=-1';
 		if (fApplication) {
 			url = url + '&fApplication=' + fApplication;
 		}
-		if (siteCountStr) {
-			url = url + '&' + siteCountStr;
+		if (name) {
+			url = url + '&name=' + name;
 		}
+		
 		var options = {
 			method: 'GET',
 			url: url,
@@ -3919,7 +3920,7 @@ module.exports.browseComponentsOnServer = function (request, server) {
 
 		var auth = _getRequestAuth(server);
 
-		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_APPS';
+		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_APPS&appCount=-1';
 
 		var options = {
 			method: 'GET',
@@ -4021,7 +4022,7 @@ var _browseThemesOnServer = function (request, server, params) {
 
 		var auth = _getRequestAuth(server);
 
-		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_THEMES';
+		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_THEMES&themeCount=-1';
 		if (params) {
 			url = url + '&' + params;
 		}

@@ -161,6 +161,11 @@ var getResourceRoles = function () {
 	return roles;
 };
 
+var getContentTypeRoles = function () {
+	const roles = ['manager', 'contributor'];
+	return roles;
+};
+
 var getServerTypes = function () {
 	const roles = ['pod_ec', 'pod_ic', 'dev_ec', 'dev_osso'];
 	return roles;
@@ -1079,12 +1084,13 @@ const transferSite = {
 	usage: {
 		'short': 'Transfers Enterprise Site from one CEC server to another.',
 		'long': (function () {
-			let desc = 'Transfers Enterprise Site from one CEC server to another. Specify the source server with -s <server> and the destination server with -d <destination>.';
+			let desc = 'Transfers Enterprise Site from one CEC server to another. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>.';
 			return desc;
 		})()
 	},
 	example: [
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1', 'Creates site Site1 on server UAT based on site Site1 on server DEV'],
+		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -p', 'Creates site Site1 on server UAT based on site Site1 on server DEV with published assets'],
 		['cec transfer-site Site1 -s DEV -d UAT', 'Updates site Site1 on server UAT based on site Site1 on server DEV']
 	]
 };
@@ -1426,8 +1432,11 @@ const shareRepository = {
 			let desc = 'Shares repository with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -t to also share the content types in the repository with the users. ' +
 				'Optionally specify -y <typerole> to share the types with different role. ' +
-				'The valid roles are\n\n';
-			return getResourceRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+				'The valid roles for a repository are' + os.EOL + os.EOL;
+			desc = getResourceRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + 'The valid roles for a type are ' + os.EOL + os.EOL;
+			desc = getContentTypeRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return desc;
 		})()
 	},
 	example: [
@@ -1468,7 +1477,7 @@ const shareType = {
 		'long': (function () {
 			let desc = 'Shares type with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
-			return getResourceRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return getContentTypeRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
@@ -1971,6 +1980,23 @@ const downloadRecommendation = {
 	]
 };
 
+const uploadRecommendation = {
+	command: 'upload-recommendation <name>',
+	alias: 'ulr',
+	name: 'upload-recommendation',
+	usage: {
+		'short': 'Uploads the recommendation <name> to the CEC server.',
+		'long': (function () {
+			let desc = 'Uploads the recommendation <name> to repository <repository> on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec upload-recommendation Recommendation1 -r Repo1'],
+		['cec upload-recommendation Recommendation1 -r Repo1 -s UAT']
+	]
+};
+
 const createEncryptionKey = {
 	command: 'create-encryption-key <file>',
 	alias: 'cek',
@@ -2111,6 +2137,8 @@ const compilationServer = {
 	example: [
 		['cec compilation-server -p 3001'],
 		['cec compilation-server -l /usr/data/compilationlogs', 'Compilation log files will be stored in the directory specified.'],
+		['cec compilation-server -j /usr/data/compilationjobs', 'Compilation jobs data will be stored in the directory specified.'],
+		['cec compilation-server -t 120000', 'The compile-template step will use the specified timeout value in milliseconds.'],
 		['cec compilation-server -k ~/keys/key.pem -c ~/keys/cert.pem', 'The sync server will start over HTTPS']
 	]
 };
@@ -3523,8 +3551,13 @@ const argv = yargs.usage(_usage)
 					alias: 'l',
 					description: 'Localization policy, required for creating enterprise site'
 				})
+				.option('publishedassets', {
+					alias: 'p',
+					description: 'The flag to indicate published assets only'
+				})
 				.example(...transferSite.example[0])
 				.example(...transferSite.example[1])
+				.example(...transferSite.example[2])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -4148,7 +4181,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('typerole', {
 					alias: 'y',
-					description: 'The role [' + getResourceRoles().join(' | ') + '] to assign to the users or groups for types'
+					description: 'The role [' + getContentTypeRoles().join(' | ') + '] to assign to the users or groups for types'
 				})
 				.option('server', {
 					alias: 's',
@@ -4161,8 +4194,11 @@ const argv = yargs.usage(_usage)
 					if (argv.role && !getResourceRoles().includes(argv.role)) {
 						throw new Error(`${argv.role} is not a valid value for <role>`);
 					}
-					if (argv.typerole && !getResourceRoles().includes(argv.typerole)) {
+					if (argv.typerole && !getContentTypeRoles().includes(argv.typerole)) {
 						throw new Error(`${argv.typerole} is not a valid value for <typerole>`);
+					}
+					if (argv.role && argv.role === 'viewer' && argv.types && !argv.typerole) {
+						throw new Error('Please specify the role for the types');
 					}
 					return true;
 				})
@@ -4221,7 +4257,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('role', {
 					alias: 'r',
-					description: 'The role [' + getResourceRoles().join(' | ') + '] to assign to the users or groups',
+					description: 'The role [' + getContentTypeRoles().join(' | ') + '] to assign to the users or groups',
 					demandOption: true
 				})
 				.option('server', {
@@ -4232,7 +4268,7 @@ const argv = yargs.usage(_usage)
 					if (!argv.users && !argv.groups) {
 						throw new Error('Please specify users or groups');
 					}
-					if (argv.role && !getResourceRoles().includes(argv.role)) {
+					if (argv.role && !getContentTypeRoles().includes(argv.role)) {
 						throw new Error(`${argv.role} is not a valid value for <role>`);
 					}
 					return true;
@@ -4940,6 +4976,24 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${downloadRecommendation.command}\n\n${downloadRecommendation.usage.long}`);
 		})
+	.command([uploadRecommendation.command, uploadRecommendation.alias], false,
+		(yargs) => {
+			yargs.option('repository', {
+					alias: 'r',
+					description: 'The repository',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered CEC server'
+				})
+				.example(...uploadRecommendation.example[0])
+				.example(...uploadRecommendation.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${uploadRecommendation.command}\n\n${uploadRecommendation.usage.long}`);
+		})
 	.command([createEncryptionKey.command, createEncryptionKey.alias], false,
 		(yargs) => {
 			yargs.example(...createEncryptionKey.example[0])
@@ -5148,6 +5202,14 @@ const argv = yargs.usage(_usage)
 					alias: 'l',
 					description: 'The directory for compilation logs'
 				})
+				.option('jobs', {
+					alias: 'j',
+					description: 'The directory for jobs data'
+				})
+				.option('timeout', {
+					alias: 't',
+					description: 'Timeout value for compile-template'
+				})
 				.option('key', {
 					alias: 'k',
 					description: 'The key file for HTTPS'
@@ -5159,6 +5221,8 @@ const argv = yargs.usage(_usage)
 				.example(...compilationServer.example[0])
 				.example(...compilationServer.example[1])
 				.example(...compilationServer.example[2])
+				.example(...compilationServer.example[3])
+				.example(...compilationServer.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -6160,6 +6224,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.localizationPolicy && typeof argv.localizationPolicy !== 'boolean') {
 		transferSiteArgs.push(...['--localizationPolicy', argv.localizationPolicy]);
 	}
+	if (argv.publishedassets) {
+		transferSiteArgs.push(...['--publishedassets', argv.publishedassets]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, transferSiteArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -7039,6 +7106,23 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === uploadRecommendation.name || argv._[0] === uploadRecommendation.alias) {
+	let uploadRecommendationArgs = ['run', '-s', uploadRecommendation.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--repository', argv.repository
+	];
+	
+	if (argv.server && typeof argv.server !== 'boolean') {
+		uploadRecommendationArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, uploadRecommendationArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === createEncryptionKey.name || argv._[0] === createEncryptionKey.alias) {
 	let createEncryptionKeyArgs = ['run', '-s', createEncryptionKey.name, '--prefix', appRoot,
 		'--',
@@ -7158,6 +7242,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.logs) {
 		compilationServerArgs.push(...['--logs', argv.logs]);
+	}
+	if (argv.jobs) {
+		compilationServerArgs.push(...['--jobs', argv.jobs]);
+	}
+	if (argv.timeout) {
+		compilationServerArgs.push(...['--timeout', argv.timeout]);
 	}
 	if (argv.key && typeof argv.key !== 'boolean') {
 		compilationServerArgs.push(...['--key', argv.key]);

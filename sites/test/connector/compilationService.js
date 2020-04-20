@@ -1,27 +1,32 @@
 /* globals app, module, __dirname */
 
-var persistenceStore = require('../job-manager/persistenceStore').factory.create(),
-    responses = require('./connectorResponses'),
+var responses = require('./connectorResponses'),
     jobManager = require('../job-manager/jobManager'),
     compileSiteJobQueue = require('../job-manager/jobQueue');
 
 
-var CompilationService = function() {
-        this.compileSiteInProgress = false;
+var CompilationService = function(args) {
+        this.ps = args.ps;
+        this.jobQueue = new compileSiteJobQueue(args);
+        this.jobManager = new jobManager(args);
     },
     apiVersion = 'v1',
     logsDir = '';
 
 CompilationService.prototype.setLogsDir = function (inputLogsDir) {
     logsDir = inputLogsDir;
-    jobManager.setLogsDir(inputLogsDir);
+    this.jobManager.setLogsDir(inputLogsDir);
+};
+
+CompilationService.prototype.setCompileStepTimeoutValue = function (timeoutValue) {
+    this.jobManager.setCompileStepTimeoutValue(timeoutValue);
 };
 
 CompilationService.prototype.restartJobs = function () {
     var self = this;
 
     // get all the the existing jobs
-    persistenceStore.getAllJobs().then(function (allJobConfigs) {
+    self.ps.getAllJobs().then(function (allJobConfigs) {
         // get all the jobs that need to be re-started
         allJobConfigs.filter(function (jobConfig) {
             // If the job is not finished (i.e.: COMPILED), we need to re-start it
@@ -30,7 +35,7 @@ CompilationService.prototype.restartJobs = function () {
         }).map(function (jobConfig) {
             // ok, we have a running job that we need to re-start, kick it off again
             console.log('RESTART enqueue jobId:' + jobConfig.id + ' from: ' + jobConfig.status);
-            compileSiteJobQueue.enqueue(jobConfig);
+            self.jobQueue.enqueue(jobConfig);
             return jobConfig.id;
         }).reduce(function (acc, id) {
             console.log('RESTART compile jobId', id);
@@ -76,7 +81,7 @@ CompilationService.prototype.validateRequest = function(req, checks) {
 
 CompilationService.prototype.prependApiVersion = function(path) {
     return '/' + apiVersion + path;
-}
+};
 
 CompilationService.prototype.getApiVersions = function(req, res) {
     res.setHeader('Content-Type', 'application/json');
@@ -123,7 +128,7 @@ CompilationService.prototype.getJob = function(req, res) {
 
         console.log('GET getJob for', jobId);
 
-        persistenceStore.getJob({
+        self.ps.getJob({
             jobId: jobId
         }).then(function(jobMetadata) {
             var response = responses.formatResponse("GET", self.prependApiVersion("/job/") + jobId, {
@@ -147,7 +152,7 @@ CompilationService.prototype.getJob = function(req, res) {
                         siteName: jobMetadata.siteName,
                         logsDir: logsDir
                     };
-                persistenceStore.readLog(args).then(function(data) {
+                self.ps.readLog(args).then(function(data) {
                     response.log = data;
                     res.setHeader('Content-Type', 'application/json');
                     res.end(JSON.stringify(response));
@@ -179,10 +184,10 @@ CompilationService.prototype.updateJob = function(req, res) {
 
         console.log('POST updateJob for', jobId);
 
-        persistenceStore.getJob({
+        self.ps.getJob({
             jobId: jobId
         }).then(function(jobMetadata) {
-            jobManager.updateJobPublic(jobMetadata, data).then(function(updatedJobMetadata) {
+            self.jobManager.updateJobPublic(jobMetadata, data).then(function(updatedJobMetadata) {
                 var response = responses.formatResponse("POST", self.prependApiVersion("/job/") + jobId, {
                         jobId: updatedJobMetadata.id,
                         name: updatedJobMetadata.name,
@@ -224,7 +229,7 @@ CompilationService.prototype.createJob = function(req, res) {
             serverPass = args.data.serverPass || '', // Optional
             token = args.data.token || ''; // Optional
 
-        persistenceStore.createJob({
+        self.ps.createJob({
             name: name,
             siteName: siteName,
             publishUsedContentOnly: publishUsedContentOnly,
@@ -264,10 +269,10 @@ CompilationService.prototype.deleteJob = function(req, res) {
     }).then(function(args) {
         var jobId = args.params.id;
 
-        persistenceStore.getJob({
+        self.ps.getJob({
             jobId: jobId
         }).then(function(jobMetadata) {
-            persistenceStore.deleteJob({
+            this.ps.deleteJob({
                 jobId: jobId
             }).then(function() {
                 var response = responses.formatResponse("DELETE", self.prependApiVersion("/job/") + jobId, {
@@ -295,7 +300,7 @@ CompilationService.prototype.submitCompileSite = function(req, res) {
     }).then(function(args) {
         var jobId = args.params.id;
 
-        persistenceStore.getJob({
+        self.ps.getJob({
             jobId: jobId
         }).then(function(originalMetadata) {
 
@@ -307,9 +312,9 @@ CompilationService.prototype.submitCompileSite = function(req, res) {
 
                 self.respondWithError(res, error);
             } else {
-                jobManager.updateStatus(originalMetadata, "PUBLISH_SITE").then(function(updatedJobConfig) {
+                self.jobManager.updateStatus(originalMetadata, "PUBLISH_SITE").then(function(updatedJobConfig) {
 
-                    compileSiteJobQueue.enqueue(updatedJobConfig);
+                    self.jobQueue.enqueue(updatedJobConfig);
 
                     var response = responses.formatResponse("POST", self.prependApiVersion("/job/") + jobId + "/compile/queued", {
                         jobId: jobId
@@ -356,7 +361,7 @@ CompilationService.prototype.compileSiteDone = function() {
     self.setCompileSiteBusy(false);
 
     // Check qeueue
-    if (!compileSiteJobQueue.isEmpty()) {
+    if (!self.jobQueue.isEmpty()) {
         console.log('Dequeue next compile site request');
         setTimeout(this.compileSite.bind(self), 0);
     }
@@ -365,7 +370,7 @@ CompilationService.prototype.compileSiteDone = function() {
 CompilationService.prototype.compileSite = function() {
     var self = this;
 
-    if (compileSiteJobQueue.isEmpty()) {
+    if (self.jobQueue.isEmpty()) {
         console.log('compileSite called when job queue is empty');
         return;
     } else if (self.isCompileSiteBusy()) {
@@ -373,18 +378,20 @@ CompilationService.prototype.compileSite = function() {
         return;
     }
 
-    var originalMetadata = compileSiteJobQueue.dequeue();
+    var originalMetadata = self.jobQueue.dequeue();
 
     // Set busy after dequeue
     self.setCompileSiteBusy(true);
 
     console.log('--------------------- Compile site begin ---------------------');
 
-    jobManager.compileSiteJob(originalMetadata).then(function() {
+    self.jobManager.compileSiteJob(originalMetadata).then(function() {
         self.compileSiteDone();
     }, function() {
         self.compileSiteDone();
     });
 };
 
-module.exports = new CompilationService();
+module.exports = function (args) {
+	return new CompilationService(args);
+};

@@ -16,17 +16,21 @@
  */
 var fs = require('fs'),
     path = require('path'),
-    Base = require('../base/base');
+    cheerio = require('cheerio'),
+    Base = require('../base/base'),
+    Component = require('../component/component');
 
 
 var compilationReporter = require('../../reporter.js');
 
-var Title = function (compId, compInstance) {
+var Title = function (compId, compInstance, componentsFolder) {
     this.init(compInstance.type, compId, compInstance);
+    this.componentsFolder = componentsFolder;
 };
 Title.prototype = Object.create(Base.prototype);
 
-Title.prototype.compile = function () {
+Title.prototype.compile = function (args) {
+
     // make sure we can compile
     if (!this.canCompile) {
         return Promise.resolve({
@@ -34,6 +38,10 @@ Title.prototype.compile = function () {
             content: ''
         });
     }
+
+    // store the compile args
+    this.compileArgs = args;
+    this.SCSCompileAPI = args && args.SCSCompileAPI;
 
     // extend the model with any contentsearch specific values
     this.subType = this.toolbarGroups ? 'scs-text' : '';
@@ -45,9 +53,13 @@ Title.prototype.compile = function () {
 
     var content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'title.html'), 'utf8'));
 
-    return Promise.resolve({
-        hydrate: true,
-        content: content
+    // render any asychnronous items into the content
+    return this.renderAscynchronousItems(content).then(function (allContent) {
+        // now we're done, return the fully rendered content
+        return Promise.resolve({
+            hydrate: true,
+            content: allContent
+        });
     });
 };
 
@@ -70,8 +82,9 @@ Title.prototype.getViewUserText = function () {
     currentVal = currentVal.replace(/javascript:/gi, 'java-script:');
     currentVal = currentVal.replace(/vbscript:/gi, 'vb-script:');
 
-    // update the src attributes for images to point to the macro expansion value
+    // update the src and poster attributes for images and videos to point to the macro expansion value
     currentVal = currentVal.replace(/data-scs-src/g, 'src');
+    currentVal = currentVal.replace(/data-scs-poster/g, 'poster');
 
     return currentVal;
 };
@@ -111,5 +124,94 @@ Title.prototype.getStyleClassName = function () {
     return this.styleClassName || subType || this.type;
 };
 
+
+// render any asynchronous items that may exist in the title such as "content items"
+Title.prototype.renderAscynchronousItems = function (origContent) {
+    var self = this,
+        content = origContent,
+        contentItemPromises = [];
+
+
+    // find all the content items in the content 
+    var $ = cheerio.load('<div id="scsTitleCompileContent">' + content + '</div>');
+    $('div.scs-rte-contentitem').each(function (i, element) {
+        var $element = $(element);
+
+        // extract all the attribute properties
+        var categoryLayout = $element.attr('data-categorylayout'),
+            contentId = $element.attr('data-contentid'),
+            contentName = $element.attr('data-contentname'),
+            contentType = $element.attr('data-contenttype'),
+            detailPageId = $element.attr('data-detailpageid') || self.SCSCompileAPI.getDetailPageId(),
+            contentViewing = $element.attr('data-contentviewing');
+
+        if (contentId && contentType) {
+            var compId = self.generateUUID(),
+                compInstance = {
+                    'type': 'scs-component',
+                    'id': 'scsCaaSLayout',
+                    'data': {
+                        'actions': self.actions, // content items in a content list inherit the content list actions
+                        'componentId': '',
+                        'componentName': 'scsContentQueryItemInstance',
+                        'contentId': contentId,
+                        'contentLayoutCategory': categoryLayout,
+                        'contentPlaceholder': false,
+                        'contentTypes': [contentType],
+                        'contentViewing': 'v1.1',
+                        'isCaaSLayout': true,
+                        'detailPageId': detailPageId,
+                        'marginBottom': 0,
+                        'marginLeft': 0,
+                        'marginRight': 0,
+                        'marginTop': 0
+                    }
+                };
+
+            // create a new content item
+            var contentItem = new Component(compId, compInstance, self.componentsFolder);
+
+            // compile the content item
+            contentItemPromises.push(contentItem.compile(self.compileArgs).then(function (compiledContent) {
+                // resolve with all the known data
+                return Promise.resolve({
+                    contentItem: contentItem,
+                    element: element,
+                    compiledContent: compiledContent
+                });
+            }));
+        }
+    });
+
+    // once all the content items have completed
+    return Promise.all(contentItemPromises).then(function (compiledItems) {
+        // replace each content item entry with the corresponding result
+        compiledItems.forEach(function (compiledItem) {
+            var compileResult = compiledItem.compiledContent || {};
+
+            // if the compiled item has data, we can insert it now and note it needs to be hydrated
+            if (compileResult.content) {
+                var $element = $(compiledItem.element),
+                    compId = compiledItem.contentItem.id;
+                // insert the item into the Rich Text element
+                $element.html('<div id="' + compId + '" class="scs-component-container"><div class="scs-component-bounding-box">' + compileResult.content + '</div></div>');
+
+                // note whether this element should be hydrated within the page
+                if (compileResult.hydrate) {
+                    $element.attr('data-scs-hydrate', true);
+                }
+
+                // note content item was compiled so that we don't try to re-render it at runtime
+                $element.attr('data-scs-compiled', true);
+
+                // note the GUID created for the component
+                $element.attr('data-scs-compid', compId);
+            }
+        });
+
+        // finally return the updated content
+        return Promise.resolve($('#scsTitleCompileContent').html());
+    });
+};
 
 module.exports = Title;

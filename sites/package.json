@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "20.2.1",
+	"version": "20.2.1a",
 	"license": "UPL-1.0",
 	"description": "Content and Experience Cloud custom components build system",
 	"main": "index.js",
@@ -114,6 +114,7 @@
 		"add-member-to-group": "gulp -LL --gulpfile bin/gulpfile.js add-member-to-group ",
 		"remove-member-from-group": "gulp -LL --gulpfile bin/gulpfile.js remove-member-from-group ",
 		"download-recommendation": "gulp -LL --gulpfile bin/gulpfile.js download-recommendation ",
+		"upload-recommendation": "gulp -LL --gulpfile bin/gulpfile.js upload-recommendation ",
 		"create-encryption-key": "gulp -LL --gulpfile bin/gulpfile.js create-encryption-key ",
 		"register-server": "gulp -LL --gulpfile bin/gulpfile.js register-server ",
 		"set-oauth-token": "gulp -LL --gulpfile bin/gulpfile.js set-oauth-token ",

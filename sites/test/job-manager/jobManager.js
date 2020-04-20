@@ -1,16 +1,22 @@
 /* globals app, module, __dirname */
-var persistenceStore = require('../job-manager/persistenceStore').factory.create(),
-    path = require('path'),
-    { spawn } = require('child_process'),
+var path = require('path'),
+    exec = require('child_process').exec,
     fs = require('fs');
 
 const cecCmd = /^win/.test(process.platform) ? 'cec.cmd' : 'cec';
 
-var JobManager = function() {},
-    logsDir = '';
+var JobManager = function(args) {
+        this.ps = args.ps;
+    },
+    logsDir = '',
+    compileStepTimeoutValue = 0;
 
 JobManager.prototype.setLogsDir = function (inputLogsDir) {
     logsDir = inputLogsDir;
+};
+
+JobManager.prototype.setCompileStepTimeoutValue = function (timeoutValue) {
+    compileStepTimeoutValue = timeoutValue;
 };
 
 JobManager.prototype.compileSite = function (jobConfig) {
@@ -28,7 +34,14 @@ JobManager.prototype.compileSite = function (jobConfig) {
         templateName = siteName + id + 'ForCompile',
         channelToken,
         compileStartTime = Date.now(),
-        processEnv = process.env;
+        processEnv = process.env,
+        inDocker = false; // In docker container or not?
+
+    if (fs.existsSync("/.dockerenv")) {
+        inDocker = true;
+    }
+
+    var scriptFile = path.join(__dirname, 'compileExec.sh');
 
     // Use the project dir in the env
     var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR;
@@ -48,9 +61,14 @@ JobManager.prototype.compileSite = function (jobConfig) {
     processEnv.NO_UPDATE_NOTIFIER = true;
 
     var cecDefaults = {
-        cwd: projectDir,
-        env: processEnv
-    };
+            cwd: projectDir,
+            env: processEnv
+        },
+        cecDefaultsForCompileStep = Object.assign({}, cecDefaults);
+
+    if (compileStepTimeoutValue) {
+        cecDefaultsForCompileStep.timeout = compileStepTimeoutValue;
+    }
 
     return new Promise(function (resolve, reject) {
 
@@ -106,6 +124,21 @@ JobManager.prototype.compileSite = function (jobConfig) {
                 message += '\n';
                 logStream.write(line);
                 logStream.write(message);
+            },
+            getExecCommand = function (cmd, commandArgs) {
+                var spawnCommand = scriptFile,
+                    changeDir = 'cd ' + projectDir + '; ',
+                    command = cmd;
+
+                commandArgs.forEach(function(a) {
+                    command += ' ' + a;
+                });
+
+                // In docker container, the command includes the script. E.g.
+                //      /compileExec.sh 'cd /home/compileagent/cec-src; cec...'
+                // Otherwise, the command is simply the cec command. E.g.
+                //      cec...
+                return inDocker ? spawnCommand + " '"  + changeDir + command + "'" : command;
             };
 
         var noop = -1,
@@ -124,7 +157,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                 // Resolve with a stream or the nullStream.
                 // In this way, caller only needs a then function.
                 return new Promise(function(resolve) {
-                    persistenceStore.getLogStream(args).then(function(stream) {
+                    self.ps.getLogStream(args).then(function(stream) {
                         resolve(stream);
                     }, function () {
                         resolve (nullStream);
@@ -158,7 +191,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                             serverType
                         ];
 
-                    var registerServerCommand = spawn(cecCmd, registerServerArgs, cecDefaults);
+                    var registerServerCommand = exec(getExecCommand(cecCmd, registerServerArgs), cecDefaults);
     
                     registerServerCommand.stdout.on('data', logStdout);
                     registerServerCommand.stderr.on('data', logStderr);
@@ -179,8 +212,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
                             serverName,
                             token
                         ];
-                    var setTokenCommand = spawn(cecCmd, setTokenArgs, cecDefaults);
-    
+                    var setTokenCommand = exec(getExecCommand(cecCmd, setTokenArgs), cecDefaults);
+
                     setTokenCommand.stdout.on('data', logStdout);
                     setTokenCommand.stderr.on('data', logStderr);
                     setTokenCommand.on('close', (code) => {
@@ -209,7 +242,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                             publishSiteArgs.push('-u');
                         }
                         logCommand(publishSiteArgs);
-                        var publishSiteCommand = spawn(cecCmd, publishSiteArgs, cecDefaults);
+                        var publishSiteCommand = exec(getExecCommand(cecCmd, publishSiteArgs), cecDefaults);
 
                         publishSiteCommand.stdout.on('data', logPublishSiteStdout);
                         publishSiteCommand.stderr.on('data', logStderr);
@@ -237,7 +270,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                                 templateName
                             ];
                         logCommand(createTemplateArgs);
-                        var createTemplateCommand = spawn(cecCmd, createTemplateArgs, cecDefaults);
+                        var createTemplateCommand = exec(getExecCommand(cecCmd, createTemplateArgs), cecDefaults);
 
                         createTemplateCommand.stdout.on('data', logStdout);
                         createTemplateCommand.stderr.on('data', logStderr);
@@ -282,7 +315,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
                                 '-v'
                             ];
                         logCommand(compileArguments);
-                        var compileCommand = spawn(cecCmd, compileArguments, cecDefaults);
+
+                        var compileCommand = exec(getExecCommand(cecCmd, compileArguments), cecDefaultsForCompileStep);
 
                         compileCommand.stdout.on('data', logStdout);
                         compileCommand.stderr.on('data', logStderr);
@@ -310,7 +344,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                                 serverName
                             ];
                         logCommand(uploadArguments);
-                        var uploadCommand = spawn(cecCmd, uploadArguments, cecDefaults);
+                        var uploadCommand = exec(getExecCommand(cecCmd, uploadArguments), cecDefaults);
 
                         uploadCommand.stdout.on('data', logStdout);
                         uploadCommand.stderr.on('data', logStderr);
@@ -339,7 +373,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                                 '-t'
                             ];
                         logCommand(publishStaticArgs);
-                        var publishStaticCommand = spawn(cecCmd, publishStaticArgs, cecDefaults);
+                        var publishStaticCommand = exec(getExecCommand(cecCmd, publishStaticArgs), cecDefaults);
 
                         publishStaticCommand.stdout.on('data', logPublishStaticStdout);
                         publishStaticCommand.stderr.on('data', logStderr);
@@ -352,18 +386,19 @@ JobManager.prototype.compileSite = function (jobConfig) {
                 }
             },
             rmTemplateDirStep = function(jobStatus) {
-                if (jobStatus !== 'UPLOAD_STATIC') {
+                if (jobStatus !== 'PUBLISH_STATIC') {
                     return Promise.resolve(noop);
                 } else {
                     return new Promise(function (resolveStep, rejectStep) {
                         var templateDir = path.join(templatesDir, templateName);
                         var rmTemplateDirCommand;
 
+                        console.log('rmTemplateDirStep');
                         // Commands for remove directory are different on Windows and Linux.
                         if (/^win/.test(process.platform)) {
-                            rmTemplateDirCommand = spawn('cmd', ['/c', 'rmdir', '/S', '/Q', templateDir], cecDefaults);
+                            rmTemplateDirCommand = exec(getExecCommand('cmd', ['/c', 'rmdir', '/S', '/Q', templateDir]), cecDefaults);
                         } else {
-                            rmTemplateDirCommand = spawn('rm', ['-rf', templateDir], cecDefaults);
+                            rmTemplateDirCommand = exec(getExecCommand('rm', ['-rf', templateDir]), cecDefaults);
                         }
 
                         rmTemplateDirCommand.stdout.on('data', logStdout);
@@ -532,7 +567,7 @@ JobManager.prototype.updateJob = function(jobConfig, data) {
 
     var updatedJobConfig = Object.assign(jobConfig, newProps);
 
-    return persistenceStore.updateJob(updatedJobConfig);
+    return this.ps.updateJob(updatedJobConfig);
 };
 
 JobManager.prototype.updateJobPublic = function(jobConfig, data) {
@@ -551,7 +586,9 @@ JobManager.prototype.updateJobPublic = function(jobConfig, data) {
 
     var updatedJobConfig = Object.assign(jobConfig, newProps);
 
-    return persistenceStore.updateJob(updatedJobConfig);
+    return this.ps.updateJob(updatedJobConfig);
 };
 
-module.exports = new JobManager();
+module.exports = function (args) {
+	return new JobManager(args);
+};

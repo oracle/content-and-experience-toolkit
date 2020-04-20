@@ -87,6 +87,7 @@ var _cmdEnd = function (done, success) {
 	}
 };
 
+
 var _createLocalTemplateFromSite = function (name, siteName, server, excludeContent, done) {
 	var request = serverUtils.getRequest();
 
@@ -200,6 +201,17 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 				};
 				fs.writeFileSync(path.join(themeSrcPath, '_folder.json'), JSON.stringify(folderJson));
 
+				var downloadContentPromises = excludeContent || !isEnterprise ? [] : [_downloadContent(request, server, name, channelId)];
+
+				return Promise.all(downloadContentPromises);
+			})
+			.then(function (results) {
+				if (!excludeContent && isEnterprise) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
+				}
+
 				// get components on template
 				var comps = serverUtils.getTemplateComponents(projectDir, name);
 
@@ -232,111 +244,115 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					}
 				}
 
-				if (excludeContent || !isEnterprise) {
-					console.log('*** template is ready to test: http://localhost:8085/templates/' + name);
-					done(true);
-				} else {
-					// download content
-					serverRest.getChannel({
-							server: server,
-							id: channelId
-						})
-						.then(function (result) {
-							if (!result || result.err) {
-								return Promise.reject();
-							}
+				console.log('*** template is ready to test: http://localhost:8085/templates/' + name);
+				done(true);
 
-							channelName = result.name;
-
-							// download all content from the site channel
-							return contentUtils.downloadContent({
-								projectDir: projectDir,
-								server: server,
-								channel: channelName,
-								name: name + '_content',
-								publishedassets: false
-							});
-						})
-						.then(function (result) {
-							if (!result || result.err) {
-								return Promise.reject();
-							}
-
-							// move content to template folder
-							var tempAssetPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate');
-							var contentPath = path.join(contentSrcDir, name + '_content');
-							fse.moveSync(contentPath, tempAssetPath);
-							var contentexportPath = path.join(tempAssetPath, 'contentexport');
-							var tempContentPath = path.join(tempAssetPath, 'Content Template of ' + name);
-							fse.moveSync(contentexportPath, tempContentPath);
-
-							var summaryStr = fs.readFileSync(path.join(tempContentPath, 'Summary.json'));
-							assetSummaryJson = JSON.parse(summaryStr);
-							var contentTypes = assetSummaryJson && assetSummaryJson.types ? assetSummaryJson.types.split(',') : [];
-							var typePromises = [];
-
-							for (var i = 0; i < contentTypes.length; i++) {
-								if (contentTypes[i] !== 'DigitalAsset') {
-									typePromises.push(serverUtils.getContentTypeLayoutMapping(request, server, contentTypes[i]));
-									assetContentTypes.push(contentTypes[i]);
-								}
-							}
-
-							return Promise.all(typePromises);
-						})
-						.then(function (results) {
-							var mappings = results || [];
-
-							var items = assetSummaryJson && assetSummaryJson.items ? assetSummaryJson.items.split(',') : [];
-
-							var layoutComponents = [];
-							var categoryLayoutMappings = [];
-							var typeName = assetContentTypes[i];
-							for (var i = 0; i < mappings.length; i++) {
-								if (mappings[i].data && mappings[i].data.length > 0) {
-									var typeMappings = mappings[i].data;
-									var categoryList = [];
-									for (var j = 0; j < typeMappings.length; j++) {
-										if (!layoutComponents.includes(typeMappings[j].xCaasLayoutName)) {
-											layoutComponents.push(typeMappings[j].xCaasLayoutName);
-										}
-										categoryList.push({
-											categoryName: typeMappings[j].xCaasCategoryName,
-											layoutName: typeMappings[j].xCaasLayoutName
-										});
-									}
-									categoryLayoutMappings.push({
-										type: mappings[i].type,
-										categoryList: categoryList
-									});
-								}
-							}
-							// create summary.json
-							var summaryJson = {
-								summary: {
-									contentTypes: assetContentTypes,
-									contentItems: items
-								},
-								categoryLayoutMappings: categoryLayoutMappings,
-								layoutComponents: layoutComponents
-							};
-							var summaryPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate', 'summary.json');
-							fs.writeFileSync(summaryPath, JSON.stringify(summaryJson, null, 4));
-
-							console.log('*** template is ready to test: http://localhost:8085/templates/' + name);
-
-							done(true);
-						})
-						.catch((error) => {
-							console.log(error);
-							done();
-						});
-				}
 			})
 			.catch((error) => {
 				done();
 			});
 
+	});
+};
+
+var _downloadContent = function (request, server, name, channelId) {
+	return new Promise(function (resolve, reject) {
+		var channelName;
+		var assetSummaryJson;
+		var assetContentTypes = [];
+		serverRest.getChannel({
+				server: server,
+				id: channelId
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				channelName = result.name;
+
+				// download all content from the site channel
+				return contentUtils.downloadContent({
+					projectDir: projectDir,
+					server: server,
+					channel: channelName,
+					name: name + '_content',
+					publishedassets: false
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				// move content to template folder
+				var tempAssetPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate');
+				var contentPath = path.join(contentSrcDir, name + '_content');
+				fse.moveSync(contentPath, tempAssetPath);
+				var contentexportPath = path.join(tempAssetPath, 'contentexport');
+				var tempContentPath = path.join(tempAssetPath, 'Content Template of ' + name);
+				fse.moveSync(contentexportPath, tempContentPath);
+
+				var summaryStr = fs.readFileSync(path.join(tempContentPath, 'Summary.json'));
+				assetSummaryJson = JSON.parse(summaryStr);
+				var contentTypes = assetSummaryJson && assetSummaryJson.types ? assetSummaryJson.types.split(',') : [];
+				var typePromises = [];
+
+				for (var i = 0; i < contentTypes.length; i++) {
+					if (contentTypes[i] !== 'DigitalAsset') {
+						typePromises.push(serverUtils.getContentTypeLayoutMapping(request, server, contentTypes[i]));
+						assetContentTypes.push(contentTypes[i]);
+					}
+				}
+
+				return Promise.all(typePromises);
+			})
+			.then(function (results) {
+				var mappings = results || [];
+
+				var items = assetSummaryJson && assetSummaryJson.items ? assetSummaryJson.items.split(',') : [];
+
+				var layoutComponents = [];
+				var categoryLayoutMappings = [];
+				var typeName = assetContentTypes[i];
+				for (var i = 0; i < mappings.length; i++) {
+					if (mappings[i].data && mappings[i].data.length > 0) {
+						var typeMappings = mappings[i].data;
+						var categoryList = [];
+						for (var j = 0; j < typeMappings.length; j++) {
+							if (!layoutComponents.includes(typeMappings[j].xCaasLayoutName)) {
+								layoutComponents.push(typeMappings[j].xCaasLayoutName);
+							}
+							categoryList.push({
+								categoryName: typeMappings[j].xCaasCategoryName,
+								layoutName: typeMappings[j].xCaasLayoutName
+							});
+						}
+						categoryLayoutMappings.push({
+							type: mappings[i].type,
+							categoryList: categoryList
+						});
+					}
+				}
+				// create summary.json
+				var summaryJson = {
+					summary: {
+						contentTypes: assetContentTypes,
+						contentItems: items
+					},
+					categoryLayoutMappings: categoryLayoutMappings,
+					layoutComponents: layoutComponents
+				};
+				var summaryPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate', 'summary.json');
+				fs.writeFileSync(summaryPath, JSON.stringify(summaryJson, null, 4));
+
+				return resolve({});
+			})
+			.catch((error) => {
+				return resolve({
+					err: 'err'
+				});
+			});
 	});
 };
 
@@ -1546,7 +1562,7 @@ module.exports.addThemeComponent = function (argv, done) {
 		done();
 		return;
 	}
-	
+
 	var compstr = fs.readFileSync(compfolderfile),
 		compjson = JSON.parse(compstr),
 		appType = compjson && compjson.appType;
@@ -2267,7 +2283,7 @@ var getContents = function (path) {
 
 var _getServerTemplate = function (request, localhost, name) {
 	var sitesPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=SCS_BROWSE_SITES';
+		var url = localhost + '/documents/web?IdcService=SCS_BROWSE_SITES&siteCount=-1';
 		url = url + '&fApplication=framework.site.template';
 		request.get(url, function (err, response, body) {
 			if (err) {
@@ -2958,7 +2974,7 @@ var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpubl
 									//
 									// verify site
 									//
-									return serverUtils.browseSitesOnServer(request, server);
+									return serverUtils.browseSitesOnServer(request, server, '', siteName);
 								})
 								.then(function (result) {
 									if (result.err) {
@@ -3612,7 +3628,7 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 							console.log(' - establish user session');
 
 							// verify template
-							var templatesPromise = serverUtils.browseSitesOnServer(request, server, 'framework.site.template', 'siteCount=-1');
+							var templatesPromise = serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
 							templatesPromise.then(function (result) {
 									if (result.err) {
 										return Promise.reject();
@@ -3634,7 +3650,7 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 									//
 									// verify site
 									//
-									return serverUtils.browseSitesOnServer(request, server, '', 'siteCount=-1');
+									return serverUtils.browseSitesOnServer(request, server, '');
 								})
 								.then(function (result) {
 									if (result.err) {
@@ -3664,7 +3680,7 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 										return Promise.reject();
 									}
 
-									return serverUtils.browseSitesOnServer(request, server, 'framework.site.template', 'siteCount=-1');
+									return serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
 								})
 								.then(function (result) {
 									if (result.err) {
@@ -3798,7 +3814,7 @@ module.exports.shareTemplate = function (argv, done) {
 			var tempPromise = server.useRest ? sitesRest.getTemplate({
 				server: server,
 				name: name
-			}) : serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
+			}) : serverUtils.browseSitesOnServer(request, server, 'framework.site.template', name);
 			tempPromise.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
@@ -3998,7 +4014,7 @@ module.exports.unshareTemplate = function (argv, done) {
 			var tempPromise = server.useRest ? sitesRest.getTemplate({
 				server: server,
 				name: name
-			}) : serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
+			}) : serverUtils.browseSitesOnServer(request, server, 'framework.site.template', name);
 			tempPromise.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();

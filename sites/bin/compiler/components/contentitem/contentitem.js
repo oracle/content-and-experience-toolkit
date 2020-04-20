@@ -242,7 +242,7 @@ ContentItem.prototype.compile = function (args) {
 								error = 'failed in:  ' + compileFile + ' - ' + e.toString();
 							}
 							compilationReporter.error({
-								message: 'failed to compile content item: ' + contentId + '. The component will render in the client.',
+								message: 'failed to compile content item: ' + contentId + ' with layout: ' + compileFile + '. The component will render in the client.',
 								error: error
 							});
 							return resolve({

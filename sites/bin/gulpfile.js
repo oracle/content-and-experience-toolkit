@@ -154,7 +154,7 @@ gulp.task('install-src', function (done) {
 
 	// install dependencies
 	console.log('Install dependencies from package.json:');
-	var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', projectDir], {
+	var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', projectDir, projectDir], {
 		projectDir,
 		stdio: 'inherit'
 	});
@@ -377,6 +377,26 @@ gulp.task('compilation-server', function (done) {
 		}
 
 		process.env['CEC_TOOLKIT_COMPILATION_LOGS_DIR'] = compilationLogsDir;
+	}
+
+	var compilationJobsDir = argv.jobs;
+	if (compilationJobsDir) {
+		if (!path.isAbsolute(compilationJobsDir)) {
+			compilationJobsDir = path.join(projectDir, compilationJobsDir);
+		}
+		compilationJobsDir = path.resolve(compilationJobsDir);
+		if (!fs.existsSync(compilationJobsDir)) {
+			console.log('ERROR:', compilationJobsDir, 'directory does not exist for jobs directory.');
+			done();
+			return;
+		}
+
+		process.env['CEC_TOOLKIT_COMPILATION_JOBS_DIR'] = compilationJobsDir;
+	}
+
+	var compilationTimeout = argv.timeout;
+	if (compilationTimeout) {
+		process.env['CEC_TOOLKIT_COMPILATION_COMPILE_STEP_TIMEOUT'] = compilationTimeout;
 	}
 
 	process.env['CEC_TOOLKIT_COMPILATION_HTTPS_KEY'] = '';
@@ -1089,6 +1109,18 @@ gulp.task('download-recommendation', function (done) {
 	'use strict';
 
 	recommendationlib.downloadRecommendation(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * upload recommendation to server
+ */
+gulp.task('upload-recommendation', function (done) {
+	'use strict';
+
+	recommendationlib.uploadRecommendation(argv, function (success) {
 		process.exitCode = success ? 0 : 1;
 		done();
 	});

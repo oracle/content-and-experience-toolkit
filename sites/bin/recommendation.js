@@ -167,3 +167,76 @@ module.exports.downloadRecommendation = function (argv, done) {
 	});
 
 };
+
+module.exports.uploadRecommendation = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+	var repositoryName = argv.repository;
+
+	// verify the recommendation
+	var recommendationPath = path.join(recommendationSrcDir, name);
+	if (!fs.existsSync(recommendationPath)) {
+		console.log('ERROR: recommendation folder ' + recommendationPath + ' does not exist');
+		done();
+		return;
+	}
+
+	var recommendation;
+	var repositories;
+	var repository;
+
+	var request = serverUtils.getRequest();
+
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		serverRest.getRepositories({
+				server: server
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				repositories = result || [];
+				repositories.forEach(function (repo) {
+					if (repositoryName && repositoryName.toLowerCase() === repo.name.toLowerCase()) {
+						repository = repo;
+					}
+				});
+
+				if (!repository) {
+					console.log('ERROR: repository ' + repositoryName + ' does not exist');
+					return Promise.reject();
+				}
+				console.log(' - verify repository');
+
+				console.log('import recommendation under development...');
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};

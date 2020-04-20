@@ -252,7 +252,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 									}
 
 									// Verify template
-									return serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
+									return serverUtils.browseSitesOnServer(request, server, 'framework.site.template', templateName);
 
 								})
 								.then(function (result) {
@@ -648,6 +648,8 @@ module.exports.transferSite = function (argv, done) {
 		return;
 	}
 
+	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
+
 	var siteName = argv.name;
 	var repositoryName = argv.repository;
 	var localizationPolicyName = argv.localizationPolicy;
@@ -758,7 +760,18 @@ module.exports.transferSite = function (argv, done) {
 							return Promise.reject();
 						}
 						site = result;
+						// console.log(site);
+						if (!site.isEnterprise) {
+							console.log('ERROR: site ' + siteName + ' is not Enterprise Site');
+							return Promise.reject();
+						}
+
 						console.log(' - verify site (defaultLanguage: ' + site.defaultLanguage + ')');
+
+						if (!site.channel || !site.channel.localizationPolicy) {
+							console.log('ERROR: failed to get site channel ' + (site.channel ? JSON.stringify(site.channel) : ''));
+							return Promise.reject();
+						}
 
 						return serverRest.getLocalizationPolicy({
 							server: server,
@@ -864,7 +877,7 @@ module.exports.transferSite = function (argv, done) {
 							server: server,
 							name: templateName,
 							siteName: siteName,
-							includeUnpublishedAssets: true
+							includeUnpublishedAssets: publishedassets ? false : true
 						};
 
 						// create template on the source server and download
@@ -1309,7 +1322,7 @@ var _controlSiteSCS = function (request, server, action, siteName, usedContentOn
 					console.log(' - establish user session');
 
 					// verify site 
-					var sitePromise = serverUtils.browseSitesOnServer(request, server);
+					var sitePromise = serverUtils.browseSitesOnServer(request, server, '', siteName);
 					sitePromise.then(function (result) {
 							if (result.err) {
 								return Promise.reject();
@@ -2091,7 +2104,7 @@ module.exports.validateSite = function (argv, done) {
 							console.log(' - establish user session');
 
 							// verify site 
-							var sitePromise = serverUtils.browseSitesOnServer(request, server);
+							var sitePromise = serverUtils.browseSitesOnServer(request, server, '', siteName);
 							sitePromise.then(function (result) {
 									if (result.err) {
 										return Promise.reject();
@@ -2578,7 +2591,7 @@ var _setSiteSecuritySCS = function (server, name, signin, access, addUserNames, 
 							console.log(' - establish user session');
 
 							// verify site 
-							var sitePromise = serverUtils.browseSitesOnServer(request, server);
+							var sitePromise = serverUtils.browseSitesOnServer(request, server, '', name);
 							sitePromise.then(function (result) {
 									if (result.err) {
 										return Promise.reject();

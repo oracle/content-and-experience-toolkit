@@ -6,24 +6,8 @@
 /* jshint esversion: 6 */
 var fs = require('fs'),
 	path = require('path'),
-	persistenceStoreApi = require('./persistenceStore').api,
-	extract = require('extract-zip');
-var gulp = require('gulp'),
-	zip = require('gulp-zip');
-
-// initialize the "out" folder for the persistence data
-var persistenceDir = path.join(__dirname, 'out');
-if (!fs.existsSync(persistenceDir)) {
-	fs.mkdirSync(persistenceDir);
-}
-var connectorDir = path.join(persistenceDir, 'connector-data');
-if (!fs.existsSync(connectorDir)) {
-	fs.mkdirSync(connectorDir);
-}
-var compilationJobsDir = path.join(connectorDir, 'compilation-jobs');
-if (!fs.existsSync(compilationJobsDir)) {
-	fs.mkdirSync(compilationJobsDir);
-}
+	os = require('os'),
+	persistenceStoreApi = require('./persistenceStore').api;
 
 /**
  * Manage persistence of the job during the jobs lifecycle. <br/>
@@ -45,7 +29,33 @@ if (!fs.existsSync(compilationJobsDir)) {
  * @alias SampleFilePersistenceStore
  * @augments PersistenceStoreInterface
  */
-var SampleFilePersistenceStore = function () {};
+var SampleFilePersistenceStore = function (args) {
+		// If jobsDir is specified, use it. Otherwise,
+		// initialize the "out" folder for the persistence data
+		var persistenceDir = args && args.jobsDir ? path.normalize(args.jobsDir) : path.join(__dirname, 'out');
+		if (!fs.existsSync(persistenceDir)) {
+			fs.mkdirSync(persistenceDir);
+		}
+
+		var connectorDir = path.join(persistenceDir, 'connector-data');
+		if (!fs.existsSync(connectorDir)) {
+			fs.mkdirSync(connectorDir);
+		}
+		
+		this.compilationJobsDir = path.join(connectorDir, 'compilation-jobs');
+		if (!fs.existsSync(this.compilationJobsDir)) {
+			fs.mkdirSync(this.compilationJobsDir);
+		}
+		// Job queue file has the host name in the suffix.
+		var queueFileName = 'queue-' + os.hostname() + '.json';
+
+		this.queueFilePath = path.join(this.compilationJobsDir, queueFileName);
+		if (!fs.existsSync(this.queueFilePath)) {
+			var emptyArray = [];
+			fs.writeFileSync(this.queueFilePath, JSON.stringify(emptyArray), { mode: 0600 });
+			console.log('SampleFilePersistenceStore queueFilePath', this.queueFilePath);
+		}
+	};
 
 SampleFilePersistenceStore.prototype = Object.create(persistenceStoreApi.prototype);
 
@@ -55,8 +65,8 @@ SampleFilePersistenceStore.prototype.getAllJobs = function () {
 
 	return new Promise(function (resolve, reject) {
 		// get all the jobs
-		if (fs.existsSync(compilationJobsDir)) {
-			var jobDirs = fs.readdirSync(compilationJobsDir),
+		if (fs.existsSync(self.compilationJobsDir)) {
+			var jobDirs = fs.readdirSync(self.compilationJobsDir),
 				allJobs = [],
 				allConfigs = [];
 
@@ -109,66 +119,74 @@ SampleFilePersistenceStore.prototype.getAllJobs = function () {
 // 
 /** @inheritdoc */
 SampleFilePersistenceStore.prototype.createJob = function (args) {
+	var self = this;
+
 	return new Promise(function (resolve, reject) {
-		// create a job based on the name & random ID
-		var name = args.name,
-			siteName = args.siteName,
-			publishUsedContentOnly = args.publishUsedContentOnly,
-			serverEndpoint = args.serverEndpoint,
-			serverUser = args.serverUser || '', // Optional
-			serverPass = args.serverPass || '', // Optional
-			token = args.token || ''; // Optional
 
-		// generate a random number directory for the job
-		var jobId = 'job' + Math.floor(100000 + Math.random() * 900000);
+		try {
+			// create a job based on the name & random ID
+			var name = args.name,
+				siteName = args.siteName,
+				publishUsedContentOnly = args.publishUsedContentOnly,
+				serverEndpoint = args.serverEndpoint,
+				serverUser = args.serverUser || '', // Optional
+				serverPass = args.serverPass || '', // Optional
+				token = args.token || ''; // Optional
 
-		// create the job directory
-		var jobDir = path.join(compilationJobsDir, jobId);
-		if (!fs.existsSync(jobDir)) {
-			fs.mkdirSync(jobDir);
-		}
+			// generate a random number directory for the job
+			var jobId = 'job' + Math.floor(100000 + Math.random() * 900000);
 
-		// write out the initial data
-		var jobMetadataFile = path.join(jobDir, jobId + '.json'),
-			jobMetadata = {
-				id: jobId,
-				name: name,
-				siteName: siteName,
-				publishUsedContentOnly: publishUsedContentOnly,
-				serverEndpoint: serverEndpoint,
-				serverUser: serverUser,
-				serverPass: serverPass,
-				token: token,
-				status: 'CREATED',
-				progress: 0
-			};
-
-		fs.writeFile(jobMetadataFile, JSON.stringify(jobMetadata), function (err) {
-			if (err) {
-				console.log('SampleFilePersistenceStore.createJob(): failed to write job.json file for: ' + jobId);
-				reject({
-					errorCode: 500,
-					errorMessage: JSON.stringify(err)
-				});
-			} else {
-				// return the generated job metadata
-				resolve(jobMetadata);
+			// create the job directory
+			console.log('createJob self.compilationJobsDir', self.compilationJobsDir);
+			var jobDir = path.join(self.compilationJobsDir, jobId);
+			if (!fs.existsSync(jobDir)) {
+				fs.mkdirSync(jobDir);
 			}
-		});
-	}).catch(function (err) {
-		console.log('SampleFilePersistenceStore.createJob(): failed to create job directory for: ' + jobId);
-		reject({
-			errorCode: 500,
-			errorMessage: JSON.stringify(err)
-		});
+
+			// write out the initial data
+			var jobMetadataFile = path.join(jobDir, jobId + '.json'),
+				jobMetadata = {
+					id: jobId,
+					name: name,
+					siteName: siteName,
+					publishUsedContentOnly: publishUsedContentOnly,
+					serverEndpoint: serverEndpoint,
+					serverUser: serverUser,
+					serverPass: serverPass,
+					token: token,
+					status: 'CREATED',
+					progress: 0
+				};
+
+			fs.writeFile(jobMetadataFile, JSON.stringify(jobMetadata), function (err) {
+				if (err) {
+					console.log('SampleFilePersistenceStore.createJob(): failed to write job.json file for: ' + jobId);
+					reject({
+						errorCode: 500,
+						errorMessage: JSON.stringify(err)
+					});
+				} else {
+					// return the generated job metadata
+					resolve(jobMetadata);
+				}
+			});
+		} catch (err) {
+			console.log('SampleFilePersistenceStore.createJob(): failed to create job directory for job name: ' + args.name + err);
+			reject({
+				errorCode: 500,
+				errorMessage: JSON.stringify(err)
+			});
+		}
 	});
 };
 /** @inheritdoc */
 SampleFilePersistenceStore.prototype.getJob = function (args) {
+	var self = this;
+
 	return new Promise(function (resolve, reject) {
 		// get the job folder
 		var jobId = args.jobId,
-			jobDir = path.join(compilationJobsDir, jobId),
+			jobDir = path.join(self.compilationJobsDir, jobId),
 			jobMetadataFile = path.join(jobDir, jobId + '.json');
 
 		// read in the file
@@ -210,7 +228,7 @@ SampleFilePersistenceStore.prototype.updateJob = function (updatedJobMetadata) {
 	return new Promise(function (resolve, reject) {
 		// update the job
 		var jobId = updatedJobMetadata.id,
-			jobDir = path.join(compilationJobsDir, jobId),
+			jobDir = path.join(self.compilationJobsDir, jobId),
 			jobMetadataFile = path.join(jobDir, jobId + '.json');
 
 		self.getJob({
@@ -253,10 +271,12 @@ SampleFilePersistenceStore.prototype.updateJob = function (updatedJobMetadata) {
 };
 /** @inheritdoc */
 SampleFilePersistenceStore.prototype.deleteJob = function (args) {
+	var self = this;
+
 	return new Promise(function (resolve, reject) {
 		// delete the job
 		var jobId = args.jobId,
-			jobFilePath = path.join(compilationJobsDir, jobId);
+			jobFilePath = path.join(self.compilationJobsDir, jobId);
 
 		// delete the directory
 		try {
@@ -290,7 +310,7 @@ SampleFilePersistenceStore.prototype.deleteJob = function (args) {
 var getJobLogFile = function(args) {
 		var jobId = args.id,
 			siteName = args.siteName,
-			jobDir = args.logsDir || path.join(compilationJobsDir, jobId),
+			jobDir = args.logsDir || path.join(this.compilationJobsDir, jobId),
 			jobLogFile = path.join(jobDir, siteName + '-' + jobId + '.log');
 
 		return jobLogFile;
@@ -354,6 +374,38 @@ SampleFilePersistenceStore.prototype.readLog = function (args) {
 	});
 };
 
+/** @inheritdoc */
+SampleFilePersistenceStore.prototype.getQueue = function (args) {
+	var queueObject = [];
+
+	try {
+		if (fs.existsSync(this.queueFilePath)) {
+			var data = fs.readFileSync(this.queueFilePath, { encoding: 'utf8' });
+
+			return JSON.parse(data);
+		}
+	} catch (error) {
+		console.log('SampleFilePersistenceStore.getQueue encountered error', error);
+	}
+	return queueObject;
+};
+
+/** @inheritdoc */
+SampleFilePersistenceStore.prototype.setQueue = function (args) {
+
+	try {
+		var queueObject = args.items;
+
+		if (fs.existsSync(this.queueFilePath)) {
+			fs.writeFileSync(this.queueFilePath, JSON.stringify(queueObject));
+		}
+
+	} catch (error) {
+		console.log('SampleFilePersistenceStore.setQueue encountered error', error);
+	}
+};
 
 // Export the persistence store 
-module.exports = new SampleFilePersistenceStore();
+module.exports = function (args) {
+	return new SampleFilePersistenceStore(args);
+};

@@ -14,6 +14,20 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.2.1a
+
+**Added**
+
+- `cec create-template` - Now also includes section layouts.
+- `cec share-repository` - Support IDCS groups.
+- `cec unshare-repository` - Support IDCS groups.
+- `cec share-type` - Support IDCS groups.
+- `cec unshare-type` - Support IDCS groups.
+- `cec transfer-site` - Now has option to transfer published assets only.
+
+- Several commands can now handle much larger numbers of sites, components and themes.
+
+
 # New in Release 20.2.1
 
 **Added**

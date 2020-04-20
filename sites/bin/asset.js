@@ -349,6 +349,8 @@ module.exports.shareRepository = function (argv, done) {
 	var goodUserName = [];
 	var goodGroupNames = [];
 	var typeNames = [];
+	var usersToGrant = [];
+	var groupsToGrant = [];
 
 	serverRest.getRepositories({
 			server: server
@@ -403,7 +405,6 @@ module.exports.shareRepository = function (argv, done) {
 					if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
 						found = true;
 						groups.push(allGroups[j]);
-						goodGroupNames.push(groupNames[i]);
 						break;
 					}
 				}
@@ -439,7 +440,6 @@ module.exports.shareRepository = function (argv, done) {
 				for (var i = 0; i < allUsers.length; i++) {
 					if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 						users.push(allUsers[i]);
-						goodUserName.push(userNames[k]);
 						found = true;
 						break;
 					}
@@ -470,38 +470,40 @@ module.exports.shareRepository = function (argv, done) {
 			var existingPermissions = result && result.permissions || [];
 			// console.log(existingPermissions);
 
-			var revokeGroups = [];
 			for (var i = 0; i < groups.length; i++) {
+				var groupGranted = false;
 				for (var j = 0; j < existingPermissions.length; j++) {
 					var perm = existingPermissions[j];
-					if (perm.type === 'group' && perm.fullName === groups[i].name) {
-						revokeGroups.push(groups[i]);
+					if (perm.roleName === role && perm.type === 'group' &&
+						perm.groupType === groups[i].groupOriginType && perm.fullName === groups[i].name) {
+						groupGranted = true;
 						break;
 					}
 				}
-			}
-			
-			var revokeUsers = [];
-			for (var i = 0; i < users.length; i++) {
-				for (var j = 0; j < existingPermissions.length; j++) {
-					var perm = existingPermissions[j];
-					if (perm.type === 'user' && perm.id === users[i].loginName) {
-						revokeUsers.push(users[i]);
-						break;
-					}
+				if (groupGranted) {
+					console.log(' - group ' + groups[i].name + ' already granted with role ' + role + ' on repository ' + name);
+				} else {
+					groupsToGrant.push(groups[i]);
+					goodGroupNames.push(groups[i].name);
 				}
 			}
 
-			return serverRest.performPermissionOperation({
-				server: server,
-				operation: 'unshare',
-				resourceId: repository.id,
-				resourceType: 'repository',
-				users: revokeUsers,
-				groups: revokeGroups
-			});
-		})
-		.then(function (result) {
+			for (var i = 0; i < users.length; i++) {
+				var granted = false;
+				for (var j = 0; j < existingPermissions.length; j++) {
+					var perm = existingPermissions[j];
+					if (perm.roleName === role && perm.type === 'user' && perm.id === users[i].loginName) {
+						granted = true;
+						break;
+					}
+				}
+				if (granted) {
+					console.log(' - user ' + users[i].loginName + ' already granted with role ' + role + ' on repository ' + name);
+				} else {
+					usersToGrant.push(users[i]);
+					goodUserName.push(users[i].loginName);
+				}
+			}
 
 			return serverRest.performPermissionOperation({
 				server: server,
@@ -509,8 +511,8 @@ module.exports.shareRepository = function (argv, done) {
 				resourceId: repository.id,
 				resourceType: 'repository',
 				role: role,
-				users: users,
-				groups: groups
+				users: usersToGrant,
+				groups: groupsToGrant
 			});
 		})
 		.then(function (result) {
@@ -559,81 +561,89 @@ module.exports.shareRepository = function (argv, done) {
 
 						Promise.all(typePermissionPromises)
 							.then(function (results) {
-								var revokeGroups = [];
-								var unshareTypePromises = [];
+								var shareTypePromises = [];
+
 								for (var i = 0; i < results.length; i++) {
 									var resource = results[i].resource;
 									var perms = results[i] && results[i].permissions || [];
-									var revokeGroups = [];
-									var revokeUsers = [];
-									for (var j = 0; j < perms.length; j++) {
-										if (perms[j].type === 'group') {
-											for (var k = 0; k < groups.length; k++) {
-												if (perms[j].fullName === groups[k].name) {
-													revokeGroups.push(groups[k]);
-													break;
-												}
-											}
-										} else if (perms[j].type === 'user') {
-											for (var k = 0; k < users.length; k++) {
-												if (perms[j].id === users[k].loginName) {
-													revokeUsers.push(users[k]);
-													break;
-												}
+									var typeUsersToGrant = [];
+									var typeGroupsToGrant = [];
+
+									groups.forEach(function (group) {
+										var granted = false;
+										for (var j = 0; j < perms.length; j++) {
+											if (perms[j].roleName === typeRole && perms[j].fullName === group.name &&
+												perms[j].type === 'group' && perms[j].groupType === group.groupOriginType) {
+												granted = true;
+												break;
 											}
 										}
-									}
-									if (revokeGroups.length > 0 || revokeUsers.length > 0) {
-										unshareTypePromises.push(serverRest.performPermissionOperation({
-											server: server,
-											operation: 'unshare',
-											resourceName: resource,
-											resourceType: 'type',
-											users: revokeUsers,
-											groups: revokeGroups
-										}));
-									}
-								}
+										if (granted) {
+											console.log(' - group ' + group.name + ' already granted with role ' + typeRole + ' on type ' + resource);
+										} else {
+											typeGroupsToGrant.push(group);
+										}
+									});
 
-								return Promise.all(unshareTypePromises);
+									users.forEach(function (user) {
+										var granted = false;
+										for (var j = 0; j < perms.length; j++) {
+											if (perms[j].roleName === typeRole && perms[j].type === 'user' && perms[j].id === user.loginName) {
+												granted = true;
+												break;
+											}
+										}
+										if (granted) {
+											console.log(' - user ' + user.loginName + ' already granted with role ' + typeRole + ' on type ' + resource);
+										} else {
+											typeUsersToGrant.push(user);
+										}
+									});
 
-							})
-							.then(function (results) {
-
-								var shareTypePromises = [];
-								for (var i = 0; i < goodTypeNames.length; i++) {
 									shareTypePromises.push(serverRest.performPermissionOperation({
 										server: server,
 										operation: 'share',
-										resourceName: goodTypeNames[i],
+										resourceName: resource,
 										resourceType: 'type',
 										role: typeRole,
-										users: users,
-										groups: groups
+										users: typeUsersToGrant,
+										groups: typeGroupsToGrant
 									}));
 								}
+
 								return Promise.all(shareTypePromises);
 							})
 							.then(function (results) {
-								var sharedTypes = [];
+
 								for (var i = 0; i < results.length; i++) {
 									if (results[i].operations) {
 										var obj = results[i].operations.share;
-										if (obj.resource && obj.resource.name) {
-											sharedTypes.push(obj.resource.name);
+										var resourceName = obj.resource && obj.resource.name;
+										var grants = obj.roles && obj.roles[0] && obj.roles[0].users || [];
+										var userNames = [];
+										var groupNames = [];
+										grants.forEach(function (grant) {
+											if (grant.type === 'group') {
+												groupNames.push(grant.name);
+											} else {
+												userNames.push(grant.name);
+											}
+										});
+										if (userNames.length > 0 || groupNames.length > 0) {
+											var msg = ' -';
+											if (userNames.length > 0) {
+												msg = msg + ' user ' + userNames.join(', ');
+											}
+											if (groupNames.length > 0) {
+												msg = msg + ' group ' + groupNames.join(', ');
+											}
+											msg = msg + ' granted with role ' + typeRole + ' on type ' + resourceName;
+											console.log(msg);
 										}
 									}
 								}
-								if (sharedTypes.length > 0) {
-									if (goodUserName.length > 0) {
-										console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + typeRole + ' on type ' + sharedTypes.join(', '));
-									}
-									if (goodGroupNames.length > 0) {
-										console.log(' - group ' + (goodGroupNames.join(', ')) + ' granted with role ' + typeRole + ' on type ' + sharedTypes.join(', '));
-									}
-								}
-								done(true);
 
+								done(true);
 
 							});
 					})
@@ -915,7 +925,6 @@ module.exports.shareType = function (argv, done) {
 					if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
 						found = true;
 						groups.push(allGroups[j]);
-						goodGroupNames.push(groupNames[i]);
 						break;
 					}
 				}
@@ -951,7 +960,6 @@ module.exports.shareType = function (argv, done) {
 				for (var i = 0; i < allUsers.length; i++) {
 					if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 						users.push(allUsers[i]);
-						goodUserName.push(userNames[k]);
 						found = true;
 						break;
 					}
@@ -980,38 +988,43 @@ module.exports.shareType = function (argv, done) {
 			}
 
 			var existingPermissions = result && result.permissions || [];
-			var revokeGroups = [];
 			var i, j;
+			var groupsToGrant = [];
 			for (i = 0; i < groups.length; i++) {
+				var groupGranted = false;
 				for (j = 0; j < existingPermissions.length; j++) {
 					var perm = existingPermissions[j];
-					if (perm.type === 'group' && perm.fullName === groups[i].name) {
-						revokeGroups.push(groups[i]);
+					if (perm.roleName === role && perm.type === 'group' &&
+						perm.groupType === groups[i].groupOriginType && perm.fullName === groups[i].name) {
+						groupGranted = true;
 						break;
 					}
 				}
-			}
-			var revokeUsers = [];
-			for (i = 0; i < users.length; i++) {
-				for (j = 0; j < existingPermissions.length; j++) {
-					var perm = existingPermissions[j];
-					if (perm.type === 'user' && perm.id === users[i].loginName) {
-						revokeUsers.push(users[i]);
-						break;
-					}
+				if (groupGranted) {
+					console.log(' - group ' + groups[i].name + ' already granted with role ' + role + ' on repository ' + name);
+				} else {
+					groupsToGrant.push(groups[i]);
+					goodGroupNames.push(groups[i].name);
 				}
 			}
 
-			return serverRest.performPermissionOperation({
-				server: server,
-				operation: 'unshare',
-				resourceName: name,
-				resourceType: 'type',
-				users: revokeUsers,
-				groups: revokeGroups
-			});
-		})
-		.then(function (result) {
+			var usersToGrant = [];
+			for (i = 0; i < users.length; i++) {
+				var granted = false;
+				for (j = 0; j < existingPermissions.length; j++) {
+					var perm = existingPermissions[j];
+					if (perm.roleName === role && perm.type === 'user' && perm.id === users[i].loginName) {
+						granted = true;
+						break;
+					}
+				}
+				if (granted) {
+					console.log(' - user ' + users[i].loginName + ' already granted with role ' + role + ' on repository ' + name);
+				} else {
+					usersToGrant.push(users[i]);
+					goodUserName.push(users[i].loginName);
+				}
+			}
 
 			return serverRest.performPermissionOperation({
 				server: server,
@@ -1019,8 +1032,8 @@ module.exports.shareType = function (argv, done) {
 				resourceName: name,
 				resourceType: 'type',
 				role: role,
-				users: users,
-				groups: groups
+				users: usersToGrant,
+				groups: groupsToGrant
 			});
 		})
 		.then(function (result) {

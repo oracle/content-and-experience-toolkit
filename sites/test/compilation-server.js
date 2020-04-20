@@ -12,47 +12,67 @@
 var express = require('express'),
 	fs = require('fs'),
 	https = require('https'),
-	path = require('path'),
 	bodyParser = require('body-parser'),
-	compiler = require('./connector/compilationService.js'),
+	persistenceStore = require('./job-manager/persistenceStore.js').factory.create(),
+	compilationService = require('./connector/compilationService.js'),
 	server = express(),
-	router = express.Router();
+	router = express.Router(),
+	self = this;
 
 var port = process.env.CEC_TOOLKIT_COMPILATION_PORT || 8087;
 
 var keyPath = process.env.CEC_TOOLKIT_COMPILATION_HTTPS_KEY;
 var certPath = process.env.CEC_TOOLKIT_COMPILATION_HTTPS_CERTIFICATE;
 
+var jobsDir = process.env.CEC_TOOLKIT_COMPILATION_JOBS_DIR || '';
+
+var compileStepTimeoutValue = process.env.CEC_TOOLKIT_COMPILATION_COMPILE_STEP_TIMEOUT || 0;
+
+var psArgs = {};
+
+// If jobsDir is defined, then pass it to persistence store.
+if (jobsDir) {
+	psArgs.jobsDir = jobsDir;
+	console.log('Compilation jobs files will be written to', jobsDir);
+}
+
+// Initialize compilation service with a persistence store object.
+var compilationArgs = {
+		ps: new persistenceStore(psArgs)
+	};
+
+this.compilation = new compilationService(compilationArgs);
+
 server.set('port', port);
 server.use(bodyParser.json());
 server.use('/', router);
 
 router.get('/compiler/rest/api', (request,response)=>{
-	compiler.getApiVersions(request, response);
+	this.compilation.getApiVersions(request, response);
   });
   
   router.get('/compiler/rest/api/v1/server', (request,response)=>{
-	compiler.getServer(request, response);
+	this.compilation.getServer(request, response);
   });
   
   router.get('/compiler/rest/api/v1/job/:id', (request,response)=>{
-	compiler.getJob(request, response);
+	this.compilation.getJob(request, response);
   });
   
   router.post('/compiler/rest/api/v1/job', (request,response)=>{
-	compiler.createJob(request, response);
+	this.compilation.createJob(request, response);
   });
   
   router.post('/compiler/rest/api/v1/job/:id/compilesite', (request,response)=>{
-	compiler.submitCompileSite(request, response);
+	this.compilation.submitCompileSite(request, response);
   });
 
   router.post('/compiler/rest/api/v1/job/:id', (request,response)=>{
-	compiler.updateJob(request, response);
+	this.compilation.updateJob(request, response);
   });
 
   router.delete('/compiler/rest/api/v1/job/:id', (request,response)=>{
-	compiler.deleteJob(request, response);
+	this.compilation.deleteJob(request, response);
   });
 
 // Handle startup errors
@@ -72,10 +92,19 @@ var startCompilationService = function() {
 		var compilationLogsDir = process.env.CEC_TOOLKIT_COMPILATION_LOGS_DIR;
 
 		if (compilationLogsDir) {
-			compiler.setLogsDir(compilationLogsDir);
+			this.compilation.setLogsDir(compilationLogsDir);
 			console.log('Compilation log files will be written to', compilationLogsDir);
 		}
-		compiler.restartJobs();
+
+		if (compileStepTimeoutValue) {
+			if (typeof compileStepTimeoutValue === 'string') {
+				compileStepTimeoutValue = parseInt(compileStepTimeoutValue);
+			}
+			this.compilation.setCompileStepTimeoutValue(compileStepTimeoutValue);
+			console.log('compile-template timeout value is', compileStepTimeoutValue);
+		}
+
+		this.compilation.restartJobs();
 	};
 
 // start the server
@@ -91,12 +120,12 @@ if (keyPath && fs.existsSync(keyPath) && certPath && fs.existsSync(certPath)) {
 	var localhost = 'https://localhost:' + port;
 	https.createServer(httpsOptions, server).listen(port, function () {
 		console.log('Server starts: ' + localhost);
-		startCompilationService();
+		startCompilationService.bind(self)();
 	});
 } else {
 	var localhost = 'http://localhost:' + port;
 	var localServer = server.listen(port, function () {
 		console.log('Server starts: ' + localhost + ' (WARNING: Not Secure)');
-		startCompilationService();
+		startCompilationService.bind(self)();
 	});
 }

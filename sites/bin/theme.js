@@ -212,7 +212,7 @@ var _controlTheme = function (serverName, server, action, themeName, done) {
 							});
 					}
 				});
-			}, 2000);
+			}, 5000);
 		}); // local
 	}); // login
 };

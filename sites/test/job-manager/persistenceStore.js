@@ -105,6 +105,20 @@ PersistenceStoreInterface.prototype = {
      */
     readLog: function (args) {
         return Promise.reject('PersistenceStoreInterface.readLog(): not implemented');
+    },
+    /**
+     * Get queue file
+     * @param {object} args
+     */
+    getQueue: function (args) {
+        return Promise.reject('PersistenceStoreInterface.getQueue(): not implemented');
+    },
+    /**
+     * Set queue file
+     * @param {object} args
+     */
+    setQueue: function (args) {
+        return Promise.reject('PersistenceStoreInterface.setQueue(): not implemented');
     }
 };
 

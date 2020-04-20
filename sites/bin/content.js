@@ -211,13 +211,13 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 					}
 					if (collection) {
 						if (q) {
-							q = ' AND ';
+							q = q + ' AND ';
 						}
 						q = '(collections co "' + collection.id + '")';
 					}
 					if (query) {
 						if (q) {
-							q = ' AND ';
+							q = q + ' AND ';
 						}
 						q = q + '(' + query + ')';
 					}
@@ -1447,7 +1447,7 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror, asy
 							if (needNewLine) {
 								process.stdout.write(os.EOL);
 							}
-							console.log(' - ' + action + 'ed ' + itemIds.length + ' items');
+							console.log(' - ' + action + ' ' + itemIds.length + ' items finished');
 							return resolve({});
 						} else {
 							count.push('.');

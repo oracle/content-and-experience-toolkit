@@ -310,7 +310,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			server: server,
 			name: siteName,
 			expand: 'ownedBy,repository,channel'
-		}) : serverUtils.browseSitesOnServer(request, server);
+		}) : serverUtils.browseSitesOnServer(request, server, '', siteName);
 		sitePromise.then(function (result) {
 				if (server.useRest) {
 					if (result.err) {
@@ -399,7 +399,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 					server: server,
 					name: templateName,
 					expand: 'ownedBy'
-				}) : serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
+				}) : serverUtils.browseSitesOnServer(request, server, 'framework.site.template', templateName);
 
 				return templatePromise;
 			})
@@ -709,6 +709,26 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 					}
 
 				}
+
+				// check if there are any unused pages
+				pages.forEach(function (page) {
+					var pageName = page.name;
+					var pageIdStr = pageName.substring(0, pageName.indexOf('.'));
+					if (pageIdStr.indexOf('_') > 0) {
+						pageIdStr = pageIdStr.substring(pageIdStr.indexOf('_') + 1);
+					}
+					var pageId = parseInt(pageIdStr);
+					var found = false;
+					for (var i = 0; i < structurePages.length; i++) {
+						if (structurePages[i].id === pageId) {
+							found = true;
+							break;
+						}
+					}
+					if (!found) {
+						issues.push('Page ' + pageName + ' is not used (not in structure.json)');
+					}
+				});
 
 				return _getSiteContent(server, sitejson.id);
 
@@ -2139,6 +2159,25 @@ module.exports.createTemplateReport = function (argv, done) {
 
 		});
 		structurePages = _pages;
+
+		var allPages = fs.readdirSync(path.join(tempSrcDir, 'pages'));
+		allPages.forEach(function (pageFile) {
+			var pageIdStr = pageFile.substring(0, pageFile.indexOf('.'));
+			if (pageIdStr.indexOf('_') > 0) {
+				pageIdStr = pageIdStr.substring(pageIdStr.indexOf('_') + 1);
+			}
+			var pageId = parseInt(pageIdStr);
+			var found = false;
+			for (var i = 0; i < structurePages.length; i++) {
+				if (structurePages[i].id === pageId) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				issues.push('Page ' + pageFile + ' is not used (not in structure.json)');
+			}
+		});
 
 		var usedContentFiles = [];
 		var usedContentFiles4Sure = [];

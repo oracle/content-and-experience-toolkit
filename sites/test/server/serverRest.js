@@ -2388,7 +2388,8 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 				for (var i = 0; i < groups.length; i++) {
 					userArr.push({
 						name: groups[i].name,
-						type: 'group'
+						type: 'group',
+						groupType: groups[i].groupOriginType || 'CEC'
 					});
 				}
 				var resource = {
@@ -2451,7 +2452,7 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 						var failedRoles = data && data.operations[operation] && data.operations[operation].failedRoles;
 						var msg = '';
 						if (failedRoles && failedRoles.length > 0) {
-							console.log(JSON.stringify(failedRoles, null, 2));
+							// console.log(JSON.stringify(failedRoles, null, 2));
 							for (var i = 0; i < failedRoles.length; i++) {
 								for (var j = 0; j < failedRoles[i].users.length; j++) {
 									msg = msg + ' ' + (failedRoles[i].users[j].name || failedRoles[i].users[j].id) + ': ' + failedRoles[i].users[j].message;
@@ -2752,7 +2753,7 @@ module.exports.unshareFolder = function (args) {
 
 var _getGroups = function (server) {
 	return new Promise(function (resolve, reject) {
-		var url = server.url + '/osn/social/api/v1/groups';
+		var url = server.url + '/osn/social/api/v1/groups?count=999';
 		var options = {
 			method: 'GET',
 			url: url,
