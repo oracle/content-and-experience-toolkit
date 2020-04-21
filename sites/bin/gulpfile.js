@@ -154,7 +154,7 @@ gulp.task('install-src', function (done) {
 
 	// install dependencies
 	console.log('Install dependencies from package.json:');
-	var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', projectDir, projectDir], {
+	var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', projectDir], {
 		projectDir,
 		stdio: 'inherit'
 	});
