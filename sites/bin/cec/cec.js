@@ -1969,12 +1969,13 @@ const downloadRecommendation = {
 	usage: {
 		'short': 'Downloads the recommendation <name> from the CEC server.',
 		'long': (function () {
-			let desc = 'Downloads the recommendation <name> from the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify repository with -r <repository>.';
+			let desc = 'Downloads the recommendation <name> from the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify repository with -r <repository>. Optionally specify -p to download the published version.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec download-recommendation Recommendation1'],
+		['cec download-recommendation Recommendation1', 'Downloads Recommendation1'],
+		['cec download-recommendation Recommendation1 -p -c Channel1', 'Downloads Recommendation1 published to channel Channel1'],
 		['cec download-recommendation Recommendation1 -s UAT'],
 		['cec download-recommendation Recommendation1 -r Repo1'],
 	]
@@ -4964,13 +4965,28 @@ const argv = yargs.usage(_usage)
 					alias: 'r',
 					description: 'The repository'
 				})
+				.option('published', {
+					alias: 'p',
+					description: 'The flag to indicate published version'
+				})
+				.option('channel', {
+					alias: 'c',
+					description: 'Channel name, required when <published> is set'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered CEC server'
 				})
+				.check((argv) => {
+					if (argv.published && !argv.channel) {
+						throw new Error(`<channel> is required when <published> is set`);
+					}
+					return true;
+				})
 				.example(...downloadRecommendation.example[0])
 				.example(...downloadRecommendation.example[1])
 				.example(...downloadRecommendation.example[2])
+				.example(...downloadRecommendation.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -7094,6 +7110,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--name', argv.name
 	];
+	if (argv.published) {
+		downloadRecommendationArgs.push(...['--published', argv.published]);
+	}
+	if (argv.channel) {
+		downloadRecommendationArgs.push(...['--channel', argv.channel]);
+	}
 	if (argv.repository) {
 		downloadRecommendationArgs.push(...['--repository', argv.repository]);
 	}

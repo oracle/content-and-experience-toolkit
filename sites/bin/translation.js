@@ -209,11 +209,7 @@ var _getTranslationJob = function (server, jobId) {
 var _updateTranslationJobStatus = function (server, csrfToken, job, status) {
 	var updatePromise = new Promise(function (resolve, reject) {
 
-		var request = require('request');
-		request = request.defaults({
-			jar: true,
-			proxy: null
-		});
+		var request = serverUtils.getRequest();
 
 		var url = server.url + '/content/management/api/v1.1/translationJobs/' + job.id;
 		job.status = status;
@@ -1629,7 +1625,7 @@ var _listServerTranslationJobs = function (argv, done) {
 
 var _getconnectorServerInfo = function (connectorServer, user, password) {
 	var serverInfoPromise = new Promise(function (resolve, reject) {
-		var request = _getRequest();
+		var request = serverUtils.getRequest();
 		var url = connectorServer + '/v1/server';
 		request.get(url, function (err, response, body) {
 			if (err) {
@@ -1697,20 +1693,6 @@ var _getConnectionInfo = function (connection) {
 	return connectionjson;
 };
 
-var _getRequest = function () {
-	var request = require('request');
-	request = request.defaults({
-		headers: {
-			connection: 'keep-alive'
-		},
-		pool: {
-			maxSockets: 50
-		},
-		jar: true,
-		proxy: null
-	});
-	return request;
-};
 
 ///////////////////////////////////////////////////////////////////////////////////
 //
@@ -1892,7 +1874,7 @@ module.exports.uploadTranslationJob = function (argv, done) {
 			var zippath = path.join(projectDir, 'dist', name + '.zip');
 			console.log(' - created translation job zip file ' + zippath);
 
-			var request = _getRequest();
+			var request = serverUtils.getRequest();
 
 			var loginPromise = serverUtils.loginToServer(server, request);
 			loginPromise.then(function (result) {
@@ -1954,7 +1936,7 @@ module.exports.createTranslationJob = function (argv, done) {
 	var exportType = argv.type || 'siteAll';
 	var connector = argv.connector;
 
-	var request = _getRequest();
+	var request = serverUtils.getRequest();
 
 	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
@@ -2144,7 +2126,7 @@ module.exports.listTranslationJobs = function (argv, done) {
 	// check jobs sent the connector
 	var connectJobPromises = [];
 
-	var request = _getRequest();
+	var request = serverUtils.getRequest();
 	for (var i = 0; i < jobs.length; i++) {
 		var jobConnectionInfo = _getJobConnectionInfo(jobs[i].jobName);
 		if (jobConnectionInfo && jobConnectionInfo.connection && jobConnectionInfo.jobId) {
@@ -2232,7 +2214,7 @@ module.exports.submitTranslationJob = function (argv, done) {
 			var zippath = path.join(projectDir, 'dist', name + '.zip');
 			console.log(' - created translation job zip file ' + zippath);
 
-			var request = _getRequest();
+			var request = serverUtils.getRequest();
 
 			// 
 			// create connector job
@@ -2329,7 +2311,7 @@ module.exports.ingestTranslationJob = function (argv, done) {
 	var connectionJobId = jobConnectionInfo.jobId;
 
 	console.log(' - query translation connection to get job status');
-	var request = _getRequest();
+	var request = serverUtils.getRequest();
 	var connectionJobPromise = _getJobFromConnector(request, connectionjson, connectionJobId, name);
 	connectionJobPromise.then(function (result) {
 		if (result.err || !result.properties) {

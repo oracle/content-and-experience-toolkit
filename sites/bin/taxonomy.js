@@ -116,6 +116,8 @@ module.exports.downloadTaxonomy = function (argv, done) {
 					if (state.published) {
 						foundPublished = true;
 					}
+				} else if (state.status === 'published') {
+					foundPublished = true;
 				}
 			});
 
@@ -359,7 +361,7 @@ module.exports.uploadTaxonomy = function (argv, done) {
 			if (createNew || !taxonomy) {
 				console.log(' - taxonomy ' + (newName || taxonomyName) + ' created');
 			} else {
-				console.log(' - new draft created for ' + taxonomyName);
+				console.log(' - new draft created for ' + taxonomy.name);
 			}
 
 			return serverRest.deleteFile({

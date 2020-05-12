@@ -1616,17 +1616,7 @@ module.exports.createSiteMap = function (argv, done) {
 
 	var toppagepriority = argv.toppagepriority;
 
-	var request = require('request');
-	request = request.defaults({
-		headers: {
-			connection: 'keep-alive'
-		},
-		pool: {
-			maxSockets: 50
-		},
-		jar: true,
-		proxy: null
-	});
+	var request = serverUtils.getRequest();
 
 	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {

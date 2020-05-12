@@ -27,7 +27,7 @@
 	"dependencies": {
 		"chai": "4.2.0",
 		"del": "5.1.0",
-		"fs-extra": "8.0.1",
+		"fs-extra": "9.0.0",
 		"gulp": "4.0.2",
 		"gulp-clean-css": "4.2.0",
 		"gulp-noop": "1.0.0",

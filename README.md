@@ -14,6 +14,20 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.2.2
+
+**Fixed**
+
+- `cec transfer-site` - Now cleans up template and template zip file on both source and target server.
+- `cec donwload-taxonomy` - Now handles case where promoted and published are different versions.
+- `cec sync-server` - Sync content items without creating temporary channel.
+
+- For all request to the server, the following environment variables are respected:
+ `HTTP_PROXY/http_proxy` Used to proxy non-SSL requests.  
+ `HTTPS_PROXY/https_proxy` Used to proxy SSL requests.
+ `NO_PROXY/no_proxy` A comma separated list of hosts to opt out of proxying. 
+
+
 # New in Release 20.2.1b
 
 **Fixed**

@@ -278,6 +278,7 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 			// folder not found
 			if (showError) {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				msg = msg === 'OK' ? '' : msg;
 				console.log('ERROR: failed to find ' + (itemtype ? itemtype : ' File') + ': ' + filename + ' ' + msg);
 			}
 			return resolve({
@@ -1076,7 +1077,7 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 					} catch (err) {
 						data = body;
 					}
-					
+
 					if (response && response.statusCode === 200) {
 						resolve(data);
 					} else {
@@ -2333,7 +2334,7 @@ var _updateRepository = function (server, repository, contentTypes, channels) {
 					} catch (err) {
 						data = body;
 					}
-					
+
 					if (response && response.statusCode === 200) {
 						resolve(data);
 					} else {
@@ -2384,7 +2385,7 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 						type: 'user'
 					});
 				}
-				
+
 				for (var i = 0; i < groups.length; i++) {
 					userArr.push({
 						name: groups[i].name,
@@ -3684,4 +3685,296 @@ var _getRecommendations = function (server, repositoryId, repositoryName) {
  */
 module.exports.getRecommendations = function (args) {
 	return _getRecommendations(args.server, args.repositoryId, args.repositoryName);
+};
+
+var _getContentJobStatus = function (server, jobId) {
+	return new Promise(function (resolve, reject) {
+		var statusUrl = server.url + '/content/management/api/v1.1/content-templates/exportjobs/' + jobId;
+		var auth = serverUtils.getRequestAuth(server);
+		var options = {
+			url: statusUrl,
+			'auth': auth
+		};
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get export job status');
+				console.log(err);
+				return resolve({
+					status: 'err'
+				});
+			}
+			if (response && response.statusCode === 200) {
+				var data = JSON.parse(body);
+				return resolve({
+					status: 'success',
+					data: data
+				});
+			} else {
+				console.log('ERROR: Failed to get export job status: ' + response.statusCode);
+				return resolve({
+					status: response.statusCode
+				});
+			}
+		});
+	});
+};
+/**
+ * Check export/import status on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getContentJobStatus = function (args) {
+	return _getContentJobStatus(args.server, args.jobId);
+};
+
+var _exportRecommendation = function (server, id, name, published, publishedChannelId) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var url = server.url + '/content/management/api/v1.1/content-templates/exportjobs';
+				var auth = serverUtils.getRequestAuth(server);
+				var contentTemplateName = 'contentexport';
+				var postData = {
+					'name': contentTemplateName,
+					'items': {
+						contentItems: [id]
+					}
+				};
+
+				if (published && publishedChannelId) {
+					postData.exportPublishedItems = true;
+					postData.channelIds = [{id: publishedChannelId}];
+				}
+
+				var options = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					auth: auth,
+					body: JSON.stringify(postData)
+				};
+				// console.log(options);
+
+				request(options, function (err, response, body) {
+					if (err) {
+						console.log('ERROR: Failed to export recommendation ' + name);
+						console.log(err);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					}
+					// console.log(data);
+					if (response && (response.statusCode === 200 || response.statusCode === 201)) {
+						var jobId = data && data.jobId;
+						if (!jobId) {
+							return resolve({
+								err: 'err'
+							});
+						} else {
+							return resolve({
+								jobId: jobId
+							});
+						}
+					} else {
+						// console.log(data);
+						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
+						console.log('ERROR: failed to export: ' + msg);
+						return resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Export a recommendation on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.exportRecommendation = function (args) {
+	return _exportRecommendation(args.server, args.id, args.name, args.published, args.publishedChannelId);
+};
+
+var _importContent = function (server, fileId, repositoryId, channelId, update) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+				var url = server.url + '/content/management/api/v1.1/content-templates/importjobs';
+
+				var auth = serverUtils.getRequestAuth(server);
+
+				var postData = {
+					'exportDocId': fileId,
+					'repositoryId': repositoryId,
+					'channelIds': channelId ? [channelId] : []
+				};
+				if (update) {
+					postData.source = 'sites';
+				}
+
+				var options = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					auth: auth,
+					body: JSON.stringify(postData)
+				};
+				// console.log(options);
+				request(options, function (err, response, body) {
+					if (err) {
+						console.log('ERROR: Failed to import');
+						console.log(err);
+						return resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					}
+					// console.log(data);
+					if (response && (response.statusCode === 200 || response.statusCode === 201)) {
+						var jobId = data && data.jobId;
+						if (!jobId) {
+							return resolve({
+								err: 'err'
+							});
+						} else {
+							return resolve({
+								jobId: jobId
+							});
+						}
+					} else {
+						// console.log(data);
+						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
+						console.log('ERROR: failed to import: ' + msg);
+						return resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Import content package to server
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.importContent = function (args) {
+	return _importContent(args.server, args.fileId, args.repositoryId, args.channelId, args.update);
+};
+
+var _exportContentItem = function (server, id, name, published) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var url = server.url + '/content/management/api/v1.1/content-templates/exportjobs';
+				var auth = serverUtils.getRequestAuth(server);
+				var contentTemplateName = 'contentexport';
+				var postData = {
+					'name': contentTemplateName,
+					'items': {
+						contentItems: [id]
+					}
+				};
+
+				if (published) {
+					postData.exportPublishedItems = true;
+				}
+
+				var options = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					auth: auth,
+					body: JSON.stringify(postData)
+				};
+				// console.log(options);
+
+				request(options, function (err, response, body) {
+					if (err) {
+						console.log('ERROR: Failed to export content item ' + (name || id));
+						console.log(err);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					}
+					// console.log(data);
+					if (response && (response.statusCode === 200 || response.statusCode === 201)) {
+						var jobId = data && data.jobId;
+						if (!jobId) {
+							return resolve({
+								err: 'err'
+							});
+						} else {
+							return resolve({
+								jobId: jobId
+							});
+						}
+					} else {
+						// console.log(data);
+						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
+						console.log('ERROR: failed to export: ' + msg);
+						return resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Export a content item on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.exportContentItem = function (args) {
+	return _exportContentItem(args.server, args.id, args.name, args.published);
 };

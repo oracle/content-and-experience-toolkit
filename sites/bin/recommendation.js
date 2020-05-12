@@ -63,10 +63,16 @@ module.exports.downloadRecommendation = function (argv, done) {
 	}
 
 	var name = argv.name;
+	var published = typeof argv.published === 'string' && argv.published.toLowerCase() === 'true';
+
 	var repositoryName = argv.repository;
+	var channelName = argv.channel;
+
 	var recommendation;
 	var repositories;
 	var repository;
+	var queryChannel = false;
+	var channel;
 
 	var request = serverUtils.getRequest();
 
@@ -153,10 +159,161 @@ module.exports.downloadRecommendation = function (argv, done) {
 					}
 				}
 
+				if (published && !recommendation.isPublished) {
+					console.log('ERROR: recommendation ' + name + ' has not been published yet');
+					return Promise.reject();
+				}
+
 				console.log(' - verify recommendation (Id: ' + recommendation.id + ' repository: ' + repository.name + ')');
 
-				console.log('export recommendation under development...');
-				done(true);
+				var channelPromises = [];
+				if (published && recommendation.publishedChannels && recommendation.publishedChannels.length > 0) {
+					queryChannel = true;
+					recommendation.publishedChannels.forEach(function (channel) {
+						channelPromises.push(serverRest.getChannel({
+							server: server,
+							id: channel.id
+						}));
+					});
+				}
+
+				return Promise.all(channelPromises);
+			})
+			.then(function (results) {
+				if (queryChannel) {
+					var channels = [];
+					for (var i = 0; i < results.length; i++) {
+						if (!results[i].err && results[i].id) {
+							channels.push(results[i]);
+						}
+					}
+					if (channels.length === 0) {
+						console.log('ERROR: no published channel is found');
+						return Promise.reject();
+					}
+
+					for (var i = 0; i < channels.length; i++) {
+						if (channelName.toLowerCase() === channels[i].name.toLowerCase()) {
+							channel = channels[i];
+							break;
+						}
+					}
+
+					if (!channel) {
+						console.log('ERROR: recommendation ' + name + ' is not published to channel ' + channelName);
+						return Promise.reject();
+					}
+				}
+
+				return serverRest.exportRecommendation({
+					server: server,
+					id: recommendation.id,
+					name: recommendation.name,
+					published: published,
+					publishedChannelId: channel && channel.id
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.jobId) {
+					return Promise.reject();
+				}
+
+				console.log(' - submit export job');
+				var jobId = result.jobId;
+				// Wait for job to finish
+				var inter = setInterval(function () {
+					var checkExportStatusPromise = serverRest.getContentJobStatus({
+						server: server,
+						jobId: jobId
+					});
+					checkExportStatusPromise.then(function (result) {
+							if (result.status !== 'success') {
+								clearInterval(inter);
+								return Promise.reject();
+							}
+
+							var data = result.data;
+							var status = data.status;
+							// console.log(data);
+							if (status && status === 'SUCCESS') {
+								clearInterval(inter);
+								var downloadLink = data.downloadLink[0].href;
+								if (downloadLink) {
+									var options = {
+										url: downloadLink,
+										auth: serverUtils.getRequestAuth(server),
+										headers: {
+											'Content-Type': 'application/zip'
+										},
+										encoding: null
+									};
+									//
+									// Download the export zip
+									request.get(options, function (err, response, body) {
+										if (err) {
+											console.log('ERROR: Failed to download');
+											console.log(err);
+											done();
+										}
+										if (response && response.statusCode === 200) {
+
+											console.log(' - download export file');
+											var destdir = path.join(projectDir, 'dist');
+											if (!fs.existsSync(destdir)) {
+												fs.mkdirSync(destdir);
+											}
+											var exportfilepath = path.join(destdir, name + '_export.zip');
+											fs.writeFileSync(exportfilepath, body);
+											console.log(' - save export to ' + exportfilepath);
+
+											if (!fs.existsSync(recommendationSrcDir)) {
+												fs.mkdirSync(recommendationSrcDir);
+											}
+
+											// unzip to src/recommendations
+											var recoPath = path.join(recommendationSrcDir, name);
+											if (fs.existsSync(recoPath)) {
+												fse.removeSync(recoPath);
+											}
+											fs.mkdirSync(recoPath);
+
+											extract(exportfilepath, {
+												dir: recoPath
+											}, function (err) {
+												if (err) {
+													done();
+												} else {
+													console.log(' - recommendation ' + name + ' is available at ' + recoPath);
+													done(true);
+												}
+											});
+
+										} else {
+											console.log('ERROR: Failed to download, status=' + response.statusCode);
+											done();
+										}
+									});
+								}
+							} else if (status && status === 'FAILED') {
+								clearInterval(inter);
+								// console.log(data);
+								console.log('ERROR: export failed: ' + data.errorDescription);
+								clearInterval(inter);
+								done();
+							} else if (status && status === 'INPROGRESS') {
+								console.log(' - export job in progress...');
+							}
+
+						})
+						.catch((error) => {
+							if (error) {
+								console.log(error);
+							}
+							done();
+						});
+
+				}, 5000);
+
 			})
 			.catch((error) => {
 				if (error) {
@@ -166,6 +323,24 @@ module.exports.downloadRecommendation = function (argv, done) {
 			});
 	});
 
+};
+
+var _zipRecommendation = function (srcPath, fileName) {
+	return new Promise(function (resolve, reject) {
+		//
+		// create the content zip file
+		// 
+		var exportzippath = path.join(srcPath, 'export.zip');
+		gulp.src([srcPath + '/**', '!' + exportzippath])
+			.pipe(zip(fileName))
+			.pipe(gulp.dest(path.join(projectDir, 'dist')))
+			.on('end', function () {
+				var zippath = path.join(projectDir, 'dist', fileName);
+				return resolve({
+					zipPath: zippath
+				});
+			});
+	});
 };
 
 module.exports.uploadRecommendation = function (argv, done) {
@@ -198,6 +373,9 @@ module.exports.uploadRecommendation = function (argv, done) {
 	var repositories;
 	var repository;
 
+	var fileName = name + '_export.zip';
+	var fileId;
+
 	var request = serverUtils.getRequest();
 
 	var loginPromise = serverUtils.loginToServer(server, request);
@@ -229,8 +407,90 @@ module.exports.uploadRecommendation = function (argv, done) {
 				}
 				console.log(' - verify repository');
 
-				console.log('import recommendation under development...');
-				done(true);
+				return _zipRecommendation(recommendationPath, fileName);
+			})
+			.then(function (result) {
+				if (!result || !result.zipPath) {
+					return Promise.reject();
+				}
+
+				var zipPath = result.zipPath;
+				console.log(' - created file ' + zipPath);
+
+				// upload file
+				return serverRest.createFile({
+					server: server,
+					parentID: 'self',
+					filename: fileName,
+					contents: fs.createReadStream(zipPath)
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+				fileId = result.id;
+				console.log(' - upload file ' + result.name + ' (Id: ' + fileId + ' version: ' + result.version + ')');
+
+				return serverRest.importContent({
+					server: server,
+					fileId: fileId,
+					repositoryId: repository.id,
+					update: true
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.jobId) {
+					return Promise.reject();
+				}
+
+				console.log(' - submit import job');
+				var jobId = result.jobId;
+				// Wait for job to finish
+				var inter = setInterval(function () {
+					var checkExportStatusPromise = serverRest.getContentJobStatus({
+						server: server,
+						jobId: jobId
+					});
+					checkExportStatusPromise.then(function (result) {
+							if (result.status !== 'success') {
+								clearInterval(inter);
+								return Promise.reject();
+							}
+
+							var data = result.data;
+							var status = data.status;
+
+							if (status && status === 'SUCCESS') {
+								clearInterval(inter);
+								console.log(' - recommendation imported');
+								// delete the zip file
+								serverRest.deleteFile({
+									server: server,
+									fFileGUID: fileId
+								}).then(function (result) {
+									done(true);
+								});
+
+							} else if (status && status === 'FAILED') {
+								clearInterval(inter);
+								// console.log(data);
+								console.log('ERROR: import failed: ' + data.errorDescription);
+								clearInterval(inter);
+								done();
+							} else if (status && status === 'INPROGRESS') {
+								console.log(' - import job in progress...');
+							}
+
+						})
+						.catch((error) => {
+							if (error) {
+								console.log(error);
+							}
+							done();
+						});
+
+				}, 5000);
 			})
 			.catch((error) => {
 				if (error) {

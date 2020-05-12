@@ -150,7 +150,7 @@ app.post('/*', function (req, res) {
 			var matched = false;
 			var found = false;
 			Object.keys(req.headers).forEach(function (key) {
-				if (name === key) {
+				if (name.toLowerCase() === key.toLowerCase()) {
 					found = true;
 					if (value === req.headers[key]) {
 						matched = true;

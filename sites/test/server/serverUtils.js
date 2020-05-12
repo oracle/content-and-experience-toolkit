@@ -2473,18 +2473,7 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 
 		var express = require('express');
 		var app = express();
-		var request = require('request');
-		request = request.defaults({
-			headers: {
-				connection: 'keep-alive'
-			},
-			pool: {
-				maxSockets: 50
-			},
-			jar: true,
-			proxy: null
-		});
-
+		var request = _getRequest();
 		var port = '8181';
 		var localhost = 'http://localhost:' + port;
 
@@ -3239,11 +3228,12 @@ var _getRequest = function () {
 		pool: {
 			maxSockets: 50
 		},
-		jar: true,
-		proxy: null
+		jar: true
+		
 	});
 	return request;
 };
+
 var _getSiteInfo = function (server, site) {
 	var sitesPromise = new Promise(function (resolve, reject) {
 		'use strict';
@@ -3824,7 +3814,6 @@ module.exports.browseSitesOnServer = function (request, server, fApplication, na
 		if (name) {
 			url = url + '&name=' + name;
 		}
-		
 		var options = {
 			method: 'GET',
 			url: url,
@@ -4280,6 +4269,149 @@ module.exports.getTranslationConnectorJobOnServer = function (request, server, j
 		});
 	});
 	return jobPromise;
+};
+
+
+/**
+ * Delete a file from trash using IdcService
+ */
+module.exports.deleteFileFromTrash = function (server, fileName) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			return resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			return console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var auth = _getRequestAuth(server);
+
+		var url = server.url + '/documents/web?IdcService=FLD_BROWSE_TRASH&fileCount=-1';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth,
+		};
+
+		var request = _getRequest();
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to query trash');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: failed to browse trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				return resolve({
+					'err': err
+				});
+			} else {
+				var idcToken = data.LocalData.idcToken;
+				var fields;
+				var rows;
+				var fields = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.fields || [];
+				var rows = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.rows;
+
+				var items = [];
+				var i, j;
+				for (j = 0; j < rows.length; j++) {
+					items.push({});
+				}
+				for (i = 0; i < fields.length; i++) {
+					var attr = fields[i].name;
+					for (j = 0; j < rows.length; j++) {
+						items[j][attr] = rows[j][i];
+					}
+				}
+
+				var idInTrash;
+				for (i = 0; i < items.length; i++) {
+					if (items[i].fFileName === fileName) {
+						idInTrash = items[i].fFileGUID;
+						break;
+					}
+				}
+
+				if (idInTrash) {
+					url = server.url + '/documents/web?IdcService=FLD_DELETE_FROM_TRASH';
+					var formData = {
+						'idcToken': idcToken,
+						'items': 'fFileGUID:' + idInTrash
+					};
+					var postData = {
+						'form': formData
+					};
+					request.post(url, postData, function (err, response, body) {
+						if (err) {
+							return resolve({
+								'err': err
+							});
+						}
+
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {}
+
+						if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+							console.log('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+							return resolve({
+								'err': err
+							});
+						} else {
+							console.log(' - file ' + fileName + ' deleted permanently');
+							return resolve({});
+						}
+					});
+
+				} else {
+					console.log(' - file ' + fileName + ' is not in trash');
+					return resolve({});
+				}
+			}
+		});
+	});
+};
+
+module.exports.templateHasContentItems = function (projectDir, templateName) {
+	_setupSourceDir(projectDir);
+
+	var tempExist = false;
+	var templates = fs.readdirSync(templatesDir);
+	for (var i = 0; i < templates.length; i++) {
+		if (templateName === templates[i]) {
+			tempExist = true;
+			break;
+		}
+	}
+	if (!tempExist) {
+		return false;
+	}
+
+	var hasContent = false;
+	var summaryfile = path.join(templatesDir, templateName, 'assets', 'contenttemplate', 'summary.json');
+	if (fs.existsSync(summaryfile)) {
+		var summaryjson = JSON.parse(fs.readFileSync(summaryfile));
+		if (summaryjson && summaryjson.summary) {
+			hasContent = summaryjson.summary.contentTypes && summaryjson.summary.contentTypes.length > 0;
+		}
+	}
+
+	return hasContent;
 };
 
 /**

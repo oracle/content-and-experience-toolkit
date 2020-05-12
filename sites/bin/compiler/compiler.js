@@ -1180,7 +1180,7 @@ var compiler = {
 			// Add in the grid
 			//*********************************************
 			if (slotConfig.grid && !slotConfig.preRenderedByController) {
-				var $ = cheerio.load('<div/>'),
+				var $ = cheerio.load('<div></div>'),
 					$slotObj = $('<div>' + slotConfig.grid + '</div>'),
 					tempSlotMarkup = slotConfig.grid,
 					gridUpdated = false,

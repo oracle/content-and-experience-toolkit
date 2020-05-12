@@ -889,6 +889,15 @@ module.exports.transferSite = function (argv, done) {
 							return Promise.reject();
 						}
 
+						// delete template on the source server
+						return sitesRest.deleteTemplate({
+							server: server,
+							name: templateName,
+							hard: true
+						});
+					})
+					.then(function (result) {
+
 						fileName = templateName + '.zip';
 						var destdir = path.join(projectDir, 'dist');
 						if (!fs.existsSync(destdir)) {
@@ -982,16 +991,6 @@ module.exports.transferSite = function (argv, done) {
 							}
 						}
 
-
-						// delete template file
-						return serverRest.deleteFile({
-							server: destServer,
-							fFileGUID: fileId
-						});
-
-					})
-					.then(function (results) {
-
 						var deleteTemplatePromises = [];
 						if (templateId) {
 							// delete template
@@ -1000,6 +999,13 @@ module.exports.transferSite = function (argv, done) {
 								name: templateName,
 								hard: true
 							}));
+
+							// delete the template file permanently
+							var deleteArgv = {
+								file: templateName + '.zip',
+								permanent: 'true'
+							};
+							deleteTemplatePromises.push(documentUtils.deleteFile(deleteArgv, destServer, false));
 						}
 
 						return Promise.all(deleteTemplatePromises);
@@ -1076,6 +1082,8 @@ module.exports.transferSite = function (argv, done) {
 											}
 											_cmdEnd(done);
 										});
+								} else {
+									_cmdEnd(done);
 								}
 							});
 						}

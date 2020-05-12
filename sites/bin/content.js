@@ -113,7 +113,7 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 			fs.mkdirSync(destdir);
 		}
 
-		var request = _getRequest();
+		var request = serverUtils.getRequest();
 
 		var channelId = '';
 		var channelName = '';
@@ -320,20 +320,6 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 	});
 };
 
-var _getRequest = function () {
-	var request = require('request');
-	request = request.defaults({
-		headers: {
-			connection: 'keep-alive'
-		},
-		pool: {
-			maxSockets: 50
-		},
-		jar: true,
-		proxy: null
-	});
-	return request;
-};
 
 /**
  * Get channels from server
@@ -648,7 +634,7 @@ var _uploadContentFromZipFile = function (args) {
 		updateContent = args.updateContent,
 		errorMessage;
 
-	var request = _getRequest();
+	var request = serverUtils.getRequest();
 
 	return new Promise(function (resolve, reject) {
 
@@ -802,7 +788,7 @@ module.exports.uploadContent = function (argv, done) {
 
 var _uploadContent = function (server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip) {
 	return new Promise(function (resolve, reject) {
-		var request = _getRequest();
+		var request = serverUtils.getRequest();
 
 		var repository, repositoryId;
 		var channelId;
@@ -1250,7 +1236,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					return Promise.reject();
 				}
 
-				var items = (action === 'add' ? result.data : result) ||  [];
+				var items = (action === 'add' ? result.data : result) || [];
 				if (items.length === 0) {
 					if (action === 'add') {
 						console.log(' - no item in the repository');
@@ -2294,6 +2280,105 @@ module.exports.syncPublishUnpublishItems = function (argv, done) {
 
 };
 
+var _syncExportItemFromSource = function (request, server, id, name, filePath) {
+	return new Promise(function (resolve, reject) {
+		serverRest.exportContentItem({
+				server: server,
+				id: id,
+				name: name
+			}).then(function (result) {
+				if (!result || result.err || !result.jobId) {
+					return Promise.reject();
+				}
+				console.log(' - submit export job');
+				var jobId = result.jobId;
+				// Wait for job to finish
+				var inter = setInterval(function () {
+					var checkExportStatusPromise = serverRest.getContentJobStatus({
+						server: server,
+						jobId: jobId
+					});
+					checkExportStatusPromise.then(function (result) {
+							if (result.status !== 'success') {
+								clearInterval(inter);
+								return Promise.reject();
+							}
+
+							var data = result.data;
+							var status = data.status;
+
+							if (status && status === 'SUCCESS') {
+								clearInterval(inter);
+								var downloadLink = data.downloadLink[0].href;
+								if (downloadLink) {
+									options = {
+										url: downloadLink,
+										auth: serverUtils.getRequestAuth(server),
+										headers: {
+											'Content-Type': 'application/zip'
+										},
+										encoding: null
+									};
+									//
+									// Download the export zip
+									request.get(options, function (err, response, body) {
+										if (err) {
+											console.log('ERROR: Failed to download');
+											console.log(err);
+											return resolve({
+												err: 'err'
+											});
+										}
+										if (response && response.statusCode === 200) {
+											console.log(' - download export file');
+
+											fs.writeFileSync(filePath, body);
+											console.log(' - save export to ' + filePath);
+
+											return resolve({});
+										} else {
+											console.log('ERROR: Failed to download, status=' + response.statusCode);
+											return resolve({
+												err: 'err'
+											});
+										}
+									});
+								}
+
+							} else if (status && status === 'FAILED') {
+								clearInterval(inter);
+								// console.log(data);
+								console.log('ERROR: export failed: ' + data.errorDescription);
+								return resolve({
+									err: 'err'
+								});
+							} else if (status && status === 'INPROGRESS') {
+								console.log(' - export job in progress...');
+							}
+
+						})
+						.catch((error) => {
+							if (error) {
+								console.log(error);
+							}
+							return resolve({
+								err: 'err'
+							});
+						});
+
+				}, 5000);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				return resolve({
+					err: 'err'
+				});
+			});
+	});
+};
+
 module.exports.syncCreateUpdateItem = function (argv, done) {
 	'use strict';
 
@@ -2310,9 +2395,17 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 
 	var id = argv.id;
 	var repositoryId = argv.repositoryId;
-
 	var item, srcRepository, destRepository;
-	var srcChannel;
+
+	var fileId;
+	var fileName = id + '_export.zip';
+	var filePath = path.join(projectDir, 'dist', fileName);
+	var destdir = path.join(projectDir, 'dist');
+	if (!fs.existsSync(destdir)) {
+		fs.mkdirSync(destdir);
+	}
+
+	var request = serverUtils.getRequest();
 
 	// Verify item
 	serverRest.getItem({
@@ -2366,114 +2459,93 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 
 			console.log(' - validate repository on destination server: ' + destRepository.name + ' (id: ' + destRepository.id + ')');
 
-			// create a new channel to export the item
-			var channelName = 'SyncItemChannel' + serverUtils.createGUID();
-			return serverRest.createChannel({
-				server: srcServer,
-				name: channelName
-			});
 
+			return _syncExportItemFromSource(request, srcServer, id, item.name, filePath);
 		})
 		.then(function (result) {
 			if (result.err) {
 				return Promise.reject();
 			}
 
-			srcChannel = result;
-			console.log(' - create channel ' + srcChannel.name);
-
-			return serverRest.addChannelToRepository({
-				server: srcServer,
-				id: srcChannel.id,
-				name: srcChannel.name,
-				repository: srcRepository
+			// upload file
+			return serverRest.createFile({
+				server: destServer,
+				parentID: 'self',
+				filename: fileName,
+				contents: fs.createReadStream(filePath)
 			});
-
 		})
 		.then(function (result) {
-			if (result.err) {
+			if (!result || result.err || !result.id) {
+				return Promise.reject();
+			}
+			fileId = result.id;
+			console.log(' - upload file ' + result.name + ' (Id: ' + fileId + ' version: ' + result.version + ')');
+	
+			return serverRest.importContent({
+				server: destServer,
+				fileId: fileId,
+				repositoryId: destRepository.id,
+				update: true
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err || !result.jobId) {
 				return Promise.reject();
 			}
 
-			console.log(' - add channel to repository ' + srcRepository.name);
-
-			// add item to the channel
-			return serverRest.addItemsToChanel({
-				server: srcServer,
-				channelId: srcChannel.id,
-				itemIds: [id]
-			});
-
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-
-			console.log(' - add the item to channel');
-
-			// download content from source
-			return _downloadContent(srcServer, srcChannel.id, false);
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			// delete the channel
-			return serverRest.deleteChannel({
-				server: srcServer,
-				id: srcChannel.id
-			});
-		})
-		.then(function (result) {
-			if (!result.err) {
-				console.log(' - delete channel ' + srcChannel.name + ' on server ' + srcServer.name);
-			}
-
-			// upload content to destination 
-			var updateContent = true;
-			var contentpath = path.join(contentSrcDir, srcChannel.name);
-			var contentfilename = srcChannel.name + '.zip';
-			return _uploadContent(destServer, destRepository.name, '', srcChannel.name, updateContent, contentpath, contentfilename, true);
-
-		})
-		.then(function (result) {
-			// clean up local resource
-			fse.removeSync(path.join(contentSrcDir, srcChannel.name));
-			fse.removeSync(path.join(projectDir, 'dist', srcChannel.name + '.zip'));
-			fse.removeSync(path.join(projectDir, 'dist', srcChannel.name + '_export.zip'));
-
-			return serverRest.getChannels({
-				server: destServer
-			});
-		})
-		.then(function (result) {
-			var channels = result || [];
-			var channelId;
-			for (var i = 0; i < channels.length; i++) {
-				if (srcChannel.name.toLowerCase() === channels[i].name.toLowerCase()) {
-					channelId = channels[i].id;
-					break;
-				}
-			}
-			if (channelId) {
-				serverRest.deleteChannel({
+			console.log(' - submit import job');
+			var jobId = result.jobId;
+			// Wait for job to finish
+			var inter = setInterval(function () {
+				var checkExportStatusPromise = serverRest.getContentJobStatus({
 					server: destServer,
-					id: channelId
-				}).then(function (result) {
-					if (!result.err) {
-						console.log(' - delete channel ' + srcChannel.name + ' on server ' + destServer.name);
-					}
-
-					console.log(' - item ' + item.name + (argv.action === 'CREATE' ? ' created ' : ' updated ') + ' on server ' + destServer.name);
-					done(true);
+					jobId: jobId
 				});
-			} else {
-				console.log(' - item ' + item.name + (argv.action === 'CREATE' ? ' created ' : ' updated ') + ' on server ' + destServer.name);
-				done(true);
-			}
+				checkExportStatusPromise.then(function (result) {
+						if (result.status !== 'success') {
+							clearInterval(inter);
+							return Promise.reject();
+						}
+
+						var data = result.data;
+						var status = data.status;
+
+						if (status && status === 'SUCCESS') {
+							clearInterval(inter);
+							console.log(' - content item imported');
+							// delete the zip file
+							serverRest.deleteFile({
+								server: destServer,
+								fFileGUID: fileId
+							}).then(function (result) {
+								done(true);
+							});
+
+						} else if (status && status === 'FAILED') {
+							clearInterval(inter);
+							// console.log(data);
+							console.log('ERROR: import failed: ' + data.errorDescription);
+							clearInterval(inter);
+							done();
+						} else if (status && status === 'INPROGRESS') {
+							console.log(' - import job in progress...');
+						}
+
+					})
+					.catch((error) => {
+						if (error) {
+							console.log(error);
+						}
+						done();
+					});
+
+			}, 5000);
 		})
 		.catch((error) => {
+			if (error) {
+				console.log(error);
+			}
 			done();
 		});
 

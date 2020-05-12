@@ -18,6 +18,7 @@ var projectDir,
 	connectionsSrcDir,
 	connectorsSrcDir,
 	contentSrcDir,
+	recommendationSrcDir,
 	serversSrcDir,
 	transSrcDir,
 	taxonomiesSrcDir,
@@ -34,6 +35,7 @@ var verifyRun = function (argv) {
 	connectorsSrcDir = path.join(srcfolder, 'connectors');
 	connectionsSrcDir = path.join(srcfolder, 'connections');
 	contentSrcDir = path.join(srcfolder, 'content');
+	recommendationSrcDir = path.join(srcfolder, 'recommendations');
 	taxonomiesSrcDir = path.join(srcfolder, 'taxonomies');
 	transSrcDir = path.join(srcfolder, 'translationJobs');
 	serversSrcDir = path.join(srcfolder, 'servers');
@@ -301,6 +303,19 @@ module.exports.listLocalResources = function (argv, done) {
 	}
 
 	//
+	// Recommendations
+	//
+	console.log('Recommendations:');
+	var recoNames = fs.existsSync(recommendationSrcDir) ? fs.readdirSync(recommendationSrcDir) : [];
+	if (recoNames) {
+		recoNames.forEach(function (name) {
+			if (fs.existsSync(path.join(recommendationSrcDir, name, 'contentexport'))) {
+				console.log('    ' + name);
+			}
+		});
+	}
+
+	//
 	// Taxonomies
 	//
 	console.log('Taxonomies:');
@@ -550,48 +565,51 @@ module.exports.listServerResources = function (argv, done) {
 				if (listRecommendations) {
 					console.log('Recommendations:');
 					var allRecommendations = results.length > 0 ? results : [];
-					var recFormat = '  %-45s  %-24s  %-7s  %-16s  %-10s  %-10s  %-24s  %-32s  %-s';
-					console.log(sprintf(recFormat, 'Repository', 'Name', 'Version', 'API Name', 'Status',
-						'Published', 'Content Type', 'Channels', 'Published Channels'));
+					var recFormat = '  %-36s  %-7s  %-16s  %-10s  %-10s  %-24s  %-32s  %-s';
+					// console.log(sprintf(recFormat, 'Name', 'Version', 'API Name', 'Status', 'Published', 'Content Type', 'Channels', 'Published Channels'));
 
 					allRecommendations.forEach(function (value) {
 						if (value && value.repositoryId && value.data) {
 							var recommendations = value.data;
-							for (var i = 0; i < recommendations.length; i++) {
-								var repositoryLabel = i === 0 ? value.repositoryName : '';
-								var recomm = recommendations[i];
-								var publishLabel = recomm.isPublished ? '   √' : '';
-								var versionLabel = '  ' + recomm.version;
-								var contentTypes = [];
-								var j, k;
-								for (j = 0; j < recomm.contentTypes.length; j++) {
-									contentTypes.push(recomm.contentTypes[j].name);
-								}
-								var channelNames = [];
-								if (recomm.channels && recomm.channels.length > 0 && channels.length > 0) {
-									for (j = 0; j < recomm.channels.length; j++) {
-										for (k = 0; k < channels.length; k++) {
-											if (recomm.channels[j].id === channels[k].id) {
-												channelNames.push(channels[k].name);
-												break;
+							if (recommendations.length > 0) {
+								console.log('  Repository: ' + value.repositoryName);
+								console.log(sprintf(recFormat, 'Name', 'Version', 'API Name', 'Status', 'Published', 'Content Type', 'Channels', 'Published Channels'));
+								for (var i = 0; i < recommendations.length; i++) {
+									var repositoryLabel = i === 0 ? value.repositoryName : '';
+									var recomm = recommendations[i];
+									var publishLabel = recomm.isPublished ? '   √' : '';
+									var versionLabel = '  ' + recomm.version;
+									var contentTypes = [];
+									var j, k;
+									for (j = 0; j < recomm.contentTypes.length; j++) {
+										contentTypes.push(recomm.contentTypes[j].name);
+									}
+									var channelNames = [];
+									if (recomm.channels && recomm.channels.length > 0 && channels.length > 0) {
+										for (j = 0; j < recomm.channels.length; j++) {
+											for (k = 0; k < channels.length; k++) {
+												if (recomm.channels[j].id === channels[k].id) {
+													channelNames.push(channels[k].name);
+													break;
+												}
 											}
 										}
 									}
-								}
-								var publishedChannelNames = [];
-								if (recomm.publishedChannels && recomm.publishedChannels.length > 0 && channels.length > 0) {
-									for (j = 0; j < recomm.publishedChannels.length; j++) {
-										for (k = 0; k < channels.length; k++) {
-											if (recomm.publishedChannels[j].id === channels[k].id) {
-												publishedChannelNames.push(channels[k].name);
-												break;
+									var publishedChannelNames = [];
+									if (recomm.publishedChannels && recomm.publishedChannels.length > 0 && channels.length > 0) {
+										for (j = 0; j < recomm.publishedChannels.length; j++) {
+											for (k = 0; k < channels.length; k++) {
+												if (recomm.publishedChannels[j].id === channels[k].id) {
+													publishedChannelNames.push(channels[k].name);
+													break;
+												}
 											}
 										}
 									}
+									console.log(sprintf(recFormat, recomm.name, versionLabel, recomm.apiName,
+										recomm.status, publishLabel, contentTypes.join(', '),
+										channelNames.join(', '), publishedChannelNames.join(', ')));
 								}
-								console.log(sprintf(recFormat, repositoryLabel, recomm.name, versionLabel, recomm.apiName,
-									recomm.status, publishLabel, contentTypes.join(', '),
-									channelNames.join(', '), publishedChannelNames.join(', ')));
 							}
 						}
 					});

@@ -191,7 +191,8 @@ ContentItem.prototype.compile = function (args) {
 							contentClient: contentClient,
 							contentId: contentId,
 							compVM: args.compVM,
-							template: SCSCompileAPI.getSiteId()
+							template: SCSCompileAPI.getSiteId(),
+							SCSCompileAPI: SCSCompileAPI
 						}).then(function (content) {
 							var detailPageId = args.compVM.detailPageId || SCSCompileAPI.getDetailPageId(),
 								detailPageURL = self.getDetailPageUrl(SCSCompileAPI.getPageURL(detailPageId), {
@@ -264,17 +265,25 @@ ContentItem.prototype.compile = function (args) {
 ContentItem.prototype.getContentItem = function (args) {
 	var contentClient = args.contentClient,
 		contentId = args.contentId,
-		compVM = args.compVM;
+		compVM = args.compVM,
+		SCSCompileAPI = args.SCSCompileAPI;
 
 	if (compVM && compVM.contentItemCache && compVM.contentItemCache.data) {
 		// if we've already got the data (content list) then use it
 		return Promise.resolve(compVM.contentItemCache.data);
 	} else {
 		// otherwise, fetch the data
-		return contentClient.getItem({
+		var getItemArgs = {
 			id: contentId,
 			template: args.template
-		});
+		};
+
+		// if langauge defined, use it
+		if (SCSCompileAPI && SCSCompileAPI.pageLocale) {
+			getItemArgs.language = SCSCompileAPI.pageLocale;
+		}
+
+		return contentClient.getItem(getItemArgs);
 	}
 };
 

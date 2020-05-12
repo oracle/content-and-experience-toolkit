@@ -553,11 +553,7 @@ module.exports.deployComponent = function (argv, done) {
 				});
 			});
 		} else {
-			var request = require('request');
-			request = request.defaults({
-				jar: true,
-				proxy: null
-			});
+			var request = serverUtils.getRequest();
 
 			var loginPromise = serverUtils.loginToDevServer(server, request);
 

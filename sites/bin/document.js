@@ -1800,7 +1800,7 @@ var _deletePermanentSCS = function (request, server, id, isFile) {
 								_deleteDone(false, resolve);
 							} else {
 								// query the GUID in the trash folder
-								url = localhost + '/documents/web?IdcService=FLD_BROWSE_TRASH';
+								url = localhost + '/documents/web?IdcService=FLD_BROWSE_TRASH&fileCount=-1';
 								request.get(url, function (err, response, body) {
 									var data = JSON.parse(body);
 									if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
@@ -1884,14 +1884,14 @@ module.exports.deleteFile = function (argv, done) {
 	}
 	console.log(' - server: ' + server.url);
 
-	_deleteFile(argv, server).then(function () {
+	_deleteFile(argv, server, true).then(function () {
 		done(true);
 	}).catch(function (error) {
 		done();
 	});
 };
 
-var _deleteFile = function (argv, server) {
+var _deleteFile = function (argv, server, toReject) {
 
 	var permanent = typeof argv.permanent === 'string' && argv.permanent.toLowerCase() === 'true';
 
@@ -2030,7 +2030,11 @@ var _deleteFile = function (argv, server) {
 				}
 			})
 			.catch((error) => {
-				return Promise.reject();
+				if (toReject) {
+					return Promise.reject();
+				} else {
+					return Promise.resolve({err: 'err'});
+				}
 			});
 	}); // login
 };

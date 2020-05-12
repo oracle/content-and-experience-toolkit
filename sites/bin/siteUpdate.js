@@ -545,20 +545,34 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 
 	// wait for remove content to complete and then import the assets
 	return removeContentPromise.then(function (removeResult) {
-		// Re-import the items, adding uploaded items back into the site's channel & collection
-		return contentLib.uploadContentFromTemplate({
-			projectDir: projectDir,
-			registeredServerName: argv.server,
-			siteInfo: siteInfo,
-			templateName: argv.template,
-			updateContent: true
-		}).then(function (result) {
-			numErrors += (result.error ? 1 : 0);
+		if (!serverUtils.templateHasContentItems(projectDir, argv.template)) {
+			console.log(' - site does not has content');
 			return Promise.resolve({
 				errors: numErrors,
 				name: stepName
 			});
-		});
+		} else {
+			// Re-import the items, adding uploaded items back into the site's channel & collection
+			return contentLib.uploadContentFromTemplate({
+				projectDir: projectDir,
+				registeredServerName: argv.server,
+				siteInfo: siteInfo,
+				templateName: argv.template,
+				updateContent: true
+			}).then(function (result) {
+				numErrors += (result.error ? 1 : 0);
+
+				// delete the content file from trash 
+				// (TODO: move this to uploadConent API when change to use OAuth)
+				return serverUtils.deleteFileFromTrash(server, argv.template + '_export.zip')
+					.then(function (result) {
+						return Promise.resolve({
+							errors: numErrors,
+							name: stepName
+						});
+					});
+			});
+		}
 	});
 };
 

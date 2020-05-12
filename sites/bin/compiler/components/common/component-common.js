@@ -28,7 +28,7 @@
     } else if (typeof exports === 'object' && exports && typeof exports.nodeName !== 'string') {
         // NodeJS (CommonJS), pass in the exports object and populate it
         factory(exports,
-            require('cheerio').load('<div/>'),
+            require('cheerio').load('<div></div>'),
             require('./component-constants').constants,
             require('../component-registration')['component-registration']);
     } else {
@@ -41,7 +41,7 @@
 
     // For XSS, we need to encode all strings on output.
     //
-    // Most encoding will be handled by $('<div/>').text() and encodeURI().
+    // Most encoding will be handled by $('<div></div>').text() and encodeURI().
     // Anything we want to handle in addition to these should be entered 
     // in the corresponding array below. 
     // These arrays are used within encodeURL() & encodeHTML()
@@ -325,7 +325,7 @@
 		// encode all HTML tags by setting the <div> text attribute then extract the encoded HTML
 		var viewModel = this,
 			origVal = val ? (typeof val === 'function' ? val().toString() : val.toString()) : '',
-			htmlEncoded = $('<div/>').text(origVal).html();
+			htmlEncoded = $('<div></div>').text(origVal).html();
 
 		// follow up by encoding any additional non-encoded attributes (e.g.: ")
 		return viewModel.encodeString(htmlEncoded, this.xssEncoding.htmlTags);
@@ -353,7 +353,7 @@
     };
 
     ComponentCommon.prototype.parseURL = function (parseURL) {
-        var domAnchor = $('<a/>')[0],
+        var domAnchor = $('<a></a>')[0],
             searchObject = {},
             queries, i;
 

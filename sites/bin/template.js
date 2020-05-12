@@ -64,21 +64,6 @@ var verifyRun = function (argv) {
 	return true;
 };
 
-var _getRequest = function () {
-	var request = require('request');
-	request = request.defaults({
-		headers: {
-			connection: 'keep-alive'
-		},
-		pool: {
-			maxSockets: 50
-		},
-		jar: true,
-		proxy: null
-	});
-	return request;
-};
-
 var localServer;
 var _cmdEnd = function (done, success) {
 	done(success);
@@ -994,7 +979,7 @@ module.exports.downloadTemplate = function (argv, done) {
 		fs.mkdirSync(destdir);
 	}
 
-	var request = _getRequest();
+	var request = serverUtils.getRequest();
 
 	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
@@ -1261,7 +1246,7 @@ module.exports.deleteTemplate = function (argv, done) {
 		return;
 	}
 
-	var request = _getRequest();
+	var request = serverUtils.getRequest();
 
 	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
@@ -3741,7 +3726,11 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 									fs.writeFileSync(zippath, result.data);
 									console.log(' - template download to ' + zippath);
 
-									return _moveToTrash(request, localhost);
+									var deleteArgv = {
+										file: templateZipFile,
+										permanent: 'true'
+									};
+									return documentUtils.deleteFile(deleteArgv, server, false);
 
 								})
 								.then(function (result) {

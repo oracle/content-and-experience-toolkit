@@ -212,7 +212,7 @@ ContentList.prototype.compileSectionLayout = function (args, contentItems) {
 			return Promise.resolve('');
 		}
 
-		var $ = cheerio.load('<div/>'),
+		var $ = cheerio.load('<div></div>'),
 			$compiledGrid = $('<div><div id="' + self.sectionLayoutInstanceId + '" class="scs-component-container scs-sectionlayout">' + content + '</div></div>');
 
 		// insert the compiled content for each content item
