@@ -22,10 +22,10 @@ Templates and resources for development platforms.
 - `cec donwload-taxonomy` - Now handles case where promoted and published are different versions.
 - `cec sync-server` - Sync content items without creating temporary channel.
 
-- For all request to the server, the following environment variables are respected:
+- For all request to the server, the following environment variables are respected:  
  `HTTP_PROXY/http_proxy` Used to proxy non-SSL requests.  
- `HTTPS_PROXY/https_proxy` Used to proxy SSL requests.
- `NO_PROXY/no_proxy` A comma separated list of hosts to opt out of proxying. 
+ `HTTPS_PROXY/https_proxy` Used to proxy SSL requests.  
+ `NO_PROXY/no_proxy` A comma separated list of hosts to opt out of proxying.   
 
 
 # New in Release 20.2.1b
