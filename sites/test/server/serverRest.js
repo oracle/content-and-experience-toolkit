@@ -790,10 +790,12 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 			} catch (e) {
 				data = body;
 			}
+			
 			if (response && response.statusCode === 200) {
 				return resolve({
 					data: data && data.items,
-					query: query
+					query: query,
+					hasMore: data && data.hasMore
 				});
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
@@ -1267,7 +1269,7 @@ var _getChannelItems = function (server, channelToken, fields) {
 			if (response && response.statusCode === 200) {
 				resolve(data && data.items);
 			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to get channel items  : ' + msg);
 				return resolve({
 					err: 'err'

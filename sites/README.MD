@@ -2,7 +2,8 @@
 
 To learn about developing components for Content and Experience Cloud, see the links below:
 
-[Developing for Oracle Content and Experience Cloud](https://docs.oracle.com/en/cloud/paas/content-cloud/developer/develop-oracle-content-and-experience-toolkit.html)
+[Developing for Oracle Content and Experience Cloud](
+https://docs.oracle.com/en/cloud/paas/content-cloud/developer/develop-oracle-content-and-experience-toolkit.html )
 
 [Test to Production](doc/T2P.md) – Use the OCE toolkit for Test to Production
 

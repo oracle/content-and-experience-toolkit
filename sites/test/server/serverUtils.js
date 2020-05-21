@@ -928,7 +928,7 @@ module.exports.getContentTypesFromServer = function (server) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to get types  : ' + msg);
 				resolve({
 					err: 'err'
@@ -3229,7 +3229,7 @@ var _getRequest = function () {
 			maxSockets: 50
 		},
 		jar: true
-		
+
 	});
 	return request;
 };
@@ -4271,6 +4271,86 @@ module.exports.getTranslationConnectorJobOnServer = function (request, server, j
 	return jobPromise;
 };
 
+/**
+ * Get content types used in a site from server using IdcService
+ */
+module.exports.getSiteContentTypes = function (request, server, siteId) {
+	var compPromise = new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var auth = _getRequestAuth(server);
+
+		var url = server.url + '/documents/web?IdcService=GET_METADATA&items=fFolderGUID:' + siteId;
+
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth
+		};
+		if (server.cookies) {
+			options.headers = {
+				Cookie: server.cookies
+			};
+		}
+
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get site content types');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get site content types ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.xScsContentTypesUsedCollection && data.ResultSets.xScsContentTypesUsedCollection.fields || [];
+			var rows = data.ResultSets && data.ResultSets.xScsContentTypesUsedCollection && data.ResultSets.xScsContentTypesUsedCollection.rows || [];
+			var usedTypes = [];
+			rows.forEach(function (row) {
+				usedTypes.push({});
+			});
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				for (var j = 0; j < rows.length; j++) {
+					usedTypes[j][attr] = rows[j][i];
+				}
+			}
+
+			var typeNames = [];
+			usedTypes.forEach(function (type) {
+				if (!typeNames.includes(type.xScsContentTypesUsedName)) {
+					typeNames.push(type.xScsContentTypesUsedName);
+				}
+			});
+
+			resolve({
+				data: typeNames
+			});
+		});
+	});
+	return compPromise;
+};
 
 /**
  * Delete a file from trash using IdcService
@@ -4353,9 +4433,11 @@ module.exports.deleteFileFromTrash = function (server, fileName) {
 						'items': 'fFileGUID:' + idInTrash
 					};
 					var postData = {
+						url: url,
+						'auth': auth,
 						'form': formData
 					};
-					request.post(url, postData, function (err, response, body) {
+					request.post(postData, function (err, response, body) {
 						if (err) {
 							return resolve({
 								'err': err

@@ -126,7 +126,7 @@ module.exports.downloadRecommendation = function (argv, done) {
 					if (value && value.repositoryId && value.data) {
 						var recommendations = value.data;
 						for (var i = 0; i < recommendations.length; i++) {
-							if (name.toLowerCase() === recommendations[i].name.toLowerCase()) {
+							if (name === recommendations[i].name || name.toLowerCase() === recommendations[i].name.toLowerCase()) {
 								nameMatched.push(recommendations[i]);
 								if (repository && repository.id === recommendations[i].repositoryId) {
 									recommendation = recommendations[i];

@@ -1207,6 +1207,17 @@ gulp.task('transfer-site', function (done) {
 	});
 });
 
+/**
+ * Create transfer enterprise site content scripts
+ */
+gulp.task('transfer-site-content', function (done) {
+	'use strict';
+
+	contentlib.transferSiteContent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
 
 /**
  * Create non-MLS enterprise site

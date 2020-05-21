@@ -25,7 +25,7 @@ var Image = function (compId, compInstance) {
 };
 Image.prototype = Object.create(Base.prototype);
 
-Image.prototype.compile = function () {
+Image.prototype.compile = function (args) {
 	// make sure we can compile
 	if (!this.canCompile) {
 		return Promise.resolve({
@@ -33,6 +33,8 @@ Image.prototype.compile = function () {
 			content: ''
 		});
 	}
+
+	this.SCSCompileAPI = args && args.SCSCompileAPI;
 
 	// extend the model with any divider specific values
 	this.imageId = 'scs-image-' + this.id;
@@ -48,30 +50,51 @@ Image.prototype.compile = function () {
 		this.componentTagAttribute = this.data.componentTagAttribute;
 	}
 
-	if (!(this.linkType === 'scs-link-lightbox' || this.imageHref)) {
-		if (this.data.clickHandler) {
-			this.hrefAttr = '';
-			this.computedTarget = '';
-		}
+	// for content item links, the href can only be found asynchronously,
+	var getHref;
+	if (this.linkType === 'scs-link-item' && this.linkContentId) {
+		var self = this;
+		getHref = new Promise(function (resolve, reject) {
+			self.getDetailPageLinkURL(self.SCSCompileAPI, {
+				href: self.imageHref,
+				contentId: self.linkContentId,
+				contentType: self.linkContentType
+			}).then(function(url) {
+				self.imageHref = url;
+				resolve();
+			});
+		});
 	} else {
-		this.hrefAttr = 'href="' + (this.linkType === 'scs-link-lightbox' ? '#' : this.imageHref) + '"';
+		getHref = Promise.resolve();
 	}
 
-	if (this.linkType === 'scs-link-file') {
-		this.downloadFileName = this.getNameFromURL(this.imageHref, this.imageHrefName);
-	}
+	// render the content after getHref resolves
+	return getHref.then(function() {
+		if (!(this.linkType === 'scs-link-lightbox' || this.imageHref)) {
+			if (this.data.clickHandler) {
+				this.hrefAttr = '';
+				this.computedTarget = '';
+			}
+		} else {
+			this.hrefAttr = 'href="' + (this.linkType === 'scs-link-lightbox' ? '#' : this.imageHref) + '"';
+		}
 
-	// see if this image has a link (either click or href)
-	// for gallyerGrid, it will pass in a click handler
-	this.linkHandler = !!(this.data.clickHandler || this.imageHref || this.linkType === 'scs-link-lightbox');
+		if (this.linkType === 'scs-link-file') {
+			this.downloadFileName = 'download="' + encodeURI(this.getNameFromURL(this.imageHref, this.imageHrefName)) + '"';
+		}
 
-	// render the content
-	var content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'image.html'), 'utf8'));
+		// see if this image has a link (either click or href)
+		// for gallyerGrid, it will pass in a click handler
+		this.linkHandler = !!(this.data.clickHandler || this.imageHref || this.linkType === 'scs-link-lightbox');
 
-	return Promise.resolve({
-		hydrate: true,
-		content: content
-	});
+		// render the content
+		var content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'image.html'), 'utf8'));
+
+		return Promise.resolve({
+			hydrate: true,
+			content: content
+		});
+	}.bind(this));
 };
 
 Image.prototype.hasVisualData = function () {

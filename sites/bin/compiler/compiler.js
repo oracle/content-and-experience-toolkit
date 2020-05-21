@@ -1866,6 +1866,14 @@ function getStyleMarkup(id, selector, context, sitePrefix, stylesArray) {
 					value = property.substring(index + 1).trim();
 					if ((name.indexOf(">") < 0) && (name.indexOf("<") < 0) &&
 						(value.indexOf(">") < 0) && (value.indexOf("<") < 0)) {
+
+						// Encode any url() values in the CSS.  URLs produced by Site Builder are
+						// of the form url("[!--$SCS_CONTENT_URL--]/...") and need to be escaped.
+						value = value.replace(/url\(\s*"\[!--\$SCS_CONTENT_URL--\]\/([^"]+)"\s*\)/g, function(match, fileName) {
+							var replacement = 'url("[!--$SCS_CONTENT_URL--]/' + encodeURIComponent(fileName) + '")';
+							return replacement;
+						});
+
 						value = resolveLinks(value, context, sitePrefix);
 						css += "\n\t" + name + ": " + value + ";";
 					}

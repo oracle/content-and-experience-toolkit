@@ -17,10 +17,8 @@
 
 var fs = require('fs'),
 	path = require('path'),
-	constants = require('../common/component-constants'),
 	compReg = require('../component-registration')['component-registration'],
-	Base = require('../base/base'),
-	Image = require('../image/image');
+	Base = require('../base/base');
 
 var compilationReporter = require('../../reporter.js');
 
@@ -29,7 +27,7 @@ var Gallery = function (compId, compInstance) {
 };
 Gallery.prototype = Object.create(Base.prototype);
 
-Gallery.prototype.compile = function () {
+Gallery.prototype.compile = function (args) {
 	var self = this;
 
 	// make sure we can compile
@@ -39,6 +37,8 @@ Gallery.prototype.compile = function () {
 			content: ''
 		});
 	}
+
+	this.SCSCompileAPI = args && args.SCSCompileAPI;
 
 	return new Promise(function (resolve, reject) {
 		// extend the model with any values specific to this component type
@@ -56,20 +56,27 @@ Gallery.prototype.compile = function () {
 		// create an hydrate ID for adding handlers to the slider
 		self.hydrateId = 'slider_hydrate_' + self.id;
 
-		// render the content
-		var content = '';
-		try {
-			content = self.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'gallery.html'), 'utf8'));
-		} catch (e) {
-			compilationReporter.error({
-				message: 'failed to render gallery component',
-				error: e
-			});
-		}
+		// wait until all the getHref promises are resolved
+		Promise.all(self.computedImages.filter(function(image) {
+			return image.hasLink;
+		}).map(function(image) {
+			return image.getHref;
+		})).then(function () {
+			// render the content
+			var content = '';
+			try {
+				content = self.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'gallery.html'), 'utf8'));
+			} catch (e) {
+				compilationReporter.error({
+					message: 'failed to render gallery component',
+					error: e
+				});
+			}
 
-		resolve({
-			hydrate: true,
-			content: content
+			resolve({
+				hydrate: true,
+				content: content
+			});
 		});
 	});
 };
@@ -108,14 +115,30 @@ Gallery.prototype.computeImages = function () {
 
 		image.imageURL = contentId ? '[!--$SCS_DIGITAL_ASSET--]' + digitalAsset + '[/!--$SCS_DIGITAL_ASSET--]' : imageUrl;
 		image.linkURL = image.link;
-		image.hasLink = !!(image.link);
+		image.hasLink = !!(image.link || (image.linkType === 'scs-link-item' && image.linkContentId));
 		image.isMap = image.linkType === 'scs-link-map';
 		image.isNotMap = !image.isMap;
 
 		if (image.hasLink) {
 			// if download file, add in the download entry
 			if (image.linkType === 'scs-link-file') {
-				image.downloadName = 'download="' + viewModel.getNameFromURL(image.linkURL, image.linkName) + '"';
+				image.downloadName = 'download="' + viewModel.getNameFromURL(image.link, image.linkName) + '"';
+			}
+
+			// if content item link, then asynchronously get the link
+			if (image.linkType === 'scs-link-item' && image.linkContentId) {
+				image.getHref = new Promise(function (resolve, reject) {
+					viewModel.getDetailPageLinkURL(viewModel.SCSCompileAPI, {
+						href: image.link,
+						contentId: image.linkContentId,
+						contentType: image.linkContentType
+					}).then(function(url) {
+						image.linkURL = url;
+						resolve();
+					});
+				});
+			} else {
+				image.getHref = Promise.resolve();
 			}
 		} else {
 			// if use lightbox, add in the index

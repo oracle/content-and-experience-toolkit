@@ -10,6 +10,7 @@
  */
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
+	sitesRest = require('../test/server/sitesRest.js'),
 	extract = require('extract-zip'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
@@ -25,6 +26,7 @@ var projectDir,
 	serversSrcDir,
 	templatesSrcDir;
 var buildfolder;
+var distFolder;
 
 /**
  * Verify the source structure before proceed the command
@@ -42,6 +44,11 @@ var verifyRun = function (argv) {
 	buildfolder = serverUtils.getBuildFolder(projectDir);
 	if (!fs.existsSync(buildfolder)) {
 		fs.mkdirSync(buildfolder);
+	}
+
+	distFolder= path.join(projectDir, 'dist');
+	if (!fs.existsSync(distFolder)) {
+		fs.mkdirSync(distFolder);
 	}
 
 	return true;
@@ -1054,7 +1061,7 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 };
 module.exports.uploadContentFromTemplate = function (args) {
 	var projectDir = args.projectDir,
-		registeredServerName = args.registeredServerName,
+		server = args.server,
 		siteInfo = args.siteInfo,
 		templateName = args.templateName,
 		updateContent = args.updateContent;
@@ -1063,7 +1070,6 @@ module.exports.uploadContentFromTemplate = function (args) {
 		projectDir: projectDir
 	});
 
-	var server = serverUtils.verifyServer(registeredServerName, projectDir);
 	if (!server || !server.valid) {
 		return Promise.resolve({
 			err: 'Invalid server'
@@ -1115,7 +1121,7 @@ module.exports.uploadContentFromTemplate = function (args) {
 	});
 };
 
-module.exports.controlContent = function (argv, done, sucessCallback, errorCallback) {
+module.exports.controlContent = function (argv, done, sucessCallback, errorCallback, loginServer) {
 	'use strict';
 
 	var cmdEnd = errorCallback ? errorCallback : _cmdEnd,
@@ -1127,7 +1133,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 		}
 
 		var serverName = argv.server;
-		var server = serverUtils.verifyServer(serverName, projectDir);
+		var server = loginServer ? loginServer : serverUtils.verifyServer(serverName, projectDir);
 		if (!server || !server.valid) {
 			done();
 			return;
@@ -2199,6 +2205,268 @@ var _exportContentIC = function (request, server, collectionId, exportfilepath) 
 
 };
 
+
+/**
+ * Create transfer enterprise site content scripts
+ */
+module.exports.transferSiteContent = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server;
+	server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var destServerName = argv.destination;
+	var destServer = serverUtils.verifyServer(destServerName, projectDir);
+	if (!destServer || !destServer.valid) {
+		done();
+		return;
+	}
+
+	if (server.url === destServer.url) {
+		console.log('ERROR: source and destination server are the same');
+		done();
+		return;
+	}
+
+	var executeScripts = typeof argv.execute === 'string' && argv.execute.toLowerCase() === 'true';
+	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
+	var siteName = argv.name;
+	var repositoryName = argv.repository;
+	var limit = argv.number || 500;
+
+	var site;
+	var channelId;
+	var channelName;
+	var channelToken;
+
+	var isWindows = /^win/.test(process.platform) ? true : false;
+
+	var siteName2 = serverUtils.replaceAll(siteName, ' ', '');
+	var downloadContentFileName = siteName2 + '_downloadcontent' + (isWindows ? '.bat' : '');
+	var uploadContentFileName = siteName2 + '_uploadcontent' + (isWindows ? '.bat' : '');
+	var downloadContentFilePath = path.join(projectDir, downloadContentFileName);
+	var uploadContentFilePath = path.join(projectDir, uploadContentFileName);
+
+	var request = serverUtils.getRequest();
+	serverUtils.loginToServer(server, request)
+		.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server ' + server.url);
+				return Promise.reject();
+			}
+
+			return serverUtils.loginToServer(destServer, request);
+		})
+		.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server ' + destServer.url);
+				return Promise.reject();
+			}
+
+			// verify site on source server
+			return sitesRest.getSite({
+				server: server,
+				name: siteName,
+				expand: 'channel'
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+			site = result;
+			// console.log(site);
+			if (!site.isEnterprise) {
+				console.log('ERROR: site ' + siteName + ' is not Enterprise Site');
+				return Promise.reject();
+			}
+
+			console.log(' - verify site (Id: ' + site.id + ')');
+
+			if (!site.channel || !site.channel.id) {
+				console.log('ERROR: site channel is not found');
+				return Promise.reject();
+			}
+
+			channelId = site.channel.id;
+			channelName = site.channel.name;
+
+			var tokens = site.channel.channelTokens;
+			if (tokens && tokens.length === 1) {
+				channelToken = tokens[0].token;
+			} else if (tokens && tokens.length > 0) {
+				for (var j = 0; j < tokens.length; j++) {
+					if (tokens[j].name === 'defaultToken') {
+						channelToken = tokens[j].token;
+						break;
+					}
+				}
+				if (!channelToken) {
+					token = tokens[0].channelToken;
+				}
+			}
+
+			console.log(' - site channel (Id: ' + channelId + ' token: ' + channelToken + ')');
+
+			// query the respotiory on the destination server
+			return serverRest.getRepositoryWithName({
+				server: destServer,
+				name: repositoryName
+			});
+
+		})
+		.then(function (result) {
+			if (!result || result.err || !result.data) {
+				console.log('ERROR: repository ' + repositoryName + ' does not exist');
+				return Promise.reject();
+			}
+			console.log(' - verify repository');
+
+			// query all items in the channel
+			var q = 'channels co "' + channelId + '"';
+			return serverRest.queryItems({
+				server: server,
+				q: q
+			});
+
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+
+			var items = result.data;
+			if (!items || items.length === 0) {
+				console.log('ERROR: no item in the site channle');
+				return Promise.reject();
+			}
+
+			var total = items.length;
+			console.log(' - total items: ' + total);
+
+			var downloadScript = 'cd ' + projectDir + os.EOL + os.EOL;
+			var uploadScript = 'cd ' + projectDir + os.EOL + os.EOL;
+			var cmd;
+			var winCall = isWindows ? 'call ' : '';
+			var zipPath;
+
+			if (total <= limit) {
+				cmd = winCall + 'cec download-content ' + channelName;
+				if (publishedassets) {
+					cmd += ' -p';
+				}
+				cmd += ' -s ' + serverName;
+				downloadScript += 'echo "' + cmd + '"' + os.EOL;
+				downloadScript += cmd;
+
+				zipPath = path.join(distFolder, channelName + '_export.zip');
+				cmd = winCall + 'cec upload-content ' + zipPath + ' -f -u';
+				cmd += ' -r ' + repositoryName;
+				cmd += ' -s ' + destServerName;
+				uploadScript += 'echo "' + cmd + '"' + os.EOL;
+				uploadScript += cmd;
+
+			} else {
+				var count = 0;
+				var ids = [];
+				var groups = [];
+				items.forEach(function (item) {
+					ids.push(item.id);
+					count += 1;
+
+					if (count === limit) {
+						groups.push(ids.toString());
+						ids = [];
+						count = 0;
+					}
+				});
+				if (ids.length > 0) {
+					groups.push(ids.toString());
+				}
+				// console.log(groups);
+
+				console.log(' - total batches: ' + groups.length);
+
+				for (var i = 0; i < groups.length; i++) {
+					var ids = groups[i];
+					var groupName = siteName2 + '_content_batch_' + i.toString();
+
+					// download command for this group
+					cmd = winCall + 'cec download-content ' + channelName;
+					if (publishedassets) {
+						cmd += ' -p';
+					}
+					cmd += ' -n ' + groupName;
+					cmd += ' -s ' + serverName;
+					cmd += ' -a ' + ids;
+
+					downloadScript += 'echo "*** download-content ' + groupName + '"' + os.EOL;
+					downloadScript += cmd + os.EOL + os.EOL;
+
+					// upload command for this group
+					zipPath = path.join(distFolder, groupName + '_export.zip');
+					cmd = winCall + 'cec upload-content ' + zipPath + ' -f -u';
+					cmd += ' -r ' + repositoryName;
+					cmd += ' -c ' + channelName;
+					cmd += ' -s ' + destServerName;
+
+					uploadScript += 'echo "*** upload-content ' + groupName + '"' + os.EOL;
+					uploadScript += cmd + os.EOL + os.EOL;
+
+				}
+			}
+
+
+			fs.writeFileSync(downloadContentFilePath, downloadScript);
+			fs.writeFileSync(uploadContentFilePath, uploadScript);
+			fs.chmodSync(downloadContentFilePath, '755');
+			fs.chmodSync(uploadContentFilePath, '755');
+
+			console.log(' - create script ' + downloadContentFilePath);
+			console.log(' - create script ' + uploadContentFilePath);
+
+			if (executeScripts) {
+				var childProcess = require('child_process');
+				console.log('');
+				console.log('Executing script ' + downloadContentFileName + ' ...');
+				var downloadCmd = childProcess.execSync(downloadContentFilePath, {
+					stdio: 'inherit'
+				});
+
+				console.log('');
+				console.log('Executing script ' + uploadContentFileName + ' ...');
+				var uploadCmd = childProcess.execSync(uploadContentFilePath, {
+					stdio: 'inherit'
+				});
+
+				console.log('');
+				process.exitCode = 0;
+				done(true);
+			} else {
+				console.log('Please execute ' + downloadContentFileName + ' first to download content from the source server, then execute ' + uploadContentFileName + ' to upload the content to the destination server.');
+				done(true);
+			}
+		})
+		.catch((error) => {
+			if (error) {
+				console.log(error);
+			}
+			done();
+		});
+
+};
+
+
 //////////////////////////////////////////////////////////////////////////
 //    Sync server event handlers
 //////////////////////////////////////////////////////////////////////////
@@ -2481,7 +2749,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 			}
 			fileId = result.id;
 			console.log(' - upload file ' + result.name + ' (Id: ' + fileId + ' version: ' + result.version + ')');
-	
+
 			return serverRest.importContent({
 				server: destServer,
 				fileId: fileId,

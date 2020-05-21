@@ -1091,7 +1091,28 @@ const transferSite = {
 	example: [
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1', 'Creates site Site1 on server UAT based on site Site1 on server DEV'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -p', 'Creates site Site1 on server UAT based on site Site1 on server DEV with published assets'],
+		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -x', 'Creates site Site1 on server UAT based on site Site1 on server DEV without content'],
 		['cec transfer-site Site1 -s DEV -d UAT', 'Updates site Site1 on server UAT based on site Site1 on server DEV']
+	]
+};
+
+const transferSiteContent = {
+	command: 'transfer-site-content <name>',
+	alias: 'tsc',
+	name: 'transfer-site-content',
+	usage: {
+		'short': 'Creates scripts to transfer site content from one CEC server to another.',
+		'long': (function () {
+			let desc = 'Creates scripts to transfer Enterprise Site content from one CEC server to another. This command is used to transfer large number of content items and the items are transferred in batches. By default the scripts will not be executed by this command. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>. ';
+			desc = desc + 'Optionally specify -n for the number of items in each batch, defaults to 500.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1', 'Generate script Site1_downloadcontent and Site1_uploadcontent'],
+		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -e', 'Generate script Site1_downloadcontent and Site1_uploadcontent and execute them'],
+		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -n 200'],
+		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -p']
 	]
 };
 
@@ -2235,7 +2256,7 @@ var _checkVersion = function () {
 	});
 };
 
-var _format = '  cec %-45s  %-70s  [alias: %4s]';
+var _format = '  cec %-45s  %-72s  [alias: %4s]';
 var _getCmdHelp = function (cmd) {
 	return sprintf(_format, cmd.command, cmd.usage.short, cmd.alias);
 };
@@ -2291,6 +2312,7 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(createSite) + os.EOL +
 	_getCmdHelp(updateSite) + os.EOL +
 	_getCmdHelp(transferSite) + os.EOL +
+	_getCmdHelp(transferSiteContent) + os.EOL +
 	_getCmdHelp(validateSite) + os.EOL +
 	_getCmdHelp(controlSite) + os.EOL +
 	_getCmdHelp(shareSite) + os.EOL +
@@ -3556,13 +3578,62 @@ const argv = yargs.usage(_usage)
 					alias: 'p',
 					description: 'The flag to indicate published assets only'
 				})
+				.option('excludecontent', {
+					alias: 'x',
+					description: 'Exclude content'
+				})
 				.example(...transferSite.example[0])
 				.example(...transferSite.example[1])
 				.example(...transferSite.example[2])
+				.example(...transferSite.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${transferSite.command}\n\n${transferSite.usage.long}`);
+		})
+	.command([transferSiteContent.command, transferSiteContent.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered CEC server the site is from',
+					demandOption: true,
+				})
+				.option('destination', {
+					alias: 'd',
+					description: 'The registered CEC server to transfer the content',
+					demandOption: true
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'Repository',
+					demandOption: true
+				})
+				.option('publishedassets', {
+					alias: 'p',
+					description: 'The flag to indicate published assets only'
+				})
+				.option('number', {
+					alias: 'n',
+					description: 'The number of items in each batch, defaults to 500'
+				})
+				.option('execute', {
+					alias: 'e',
+					description: 'Execute the scripts'
+				})
+				.check((argv) => {
+					if (argv.limit === 0 || argv.limit && (!Number.isInteger(argv.limit) || argv.limit <= 0)) {
+						throw new Error('Value for limit should be an integer greater than 0');
+					}
+					return true;
+				})
+				.example(...transferSiteContent.example[0])
+				.example(...transferSiteContent.example[1])
+				.example(...transferSiteContent.example[2])
+				.example(...transferSiteContent.example[3])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${transferSiteContent.command}\n\n${transferSiteContent.usage.long}`);
 		})
 	.command([controlSite.command, controlSite.alias], false,
 		(yargs) => {
@@ -6243,7 +6314,33 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.publishedassets) {
 		transferSiteArgs.push(...['--publishedassets', argv.publishedassets]);
 	}
+	if (argv.excludecontent) {
+		transferSiteArgs.push(...['--excludecontent', argv.excludecontent]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, transferSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === transferSiteContent.name || argv._[0] === transferSiteContent.alias) {
+	let transferSiteContentArgs = ['run', '-s', transferSiteContent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--server', argv.server,
+		'--destination', argv.destination,
+		'--repository', argv.repository
+	];
+	if (argv.publishedassets) {
+		transferSiteContentArgs.push(...['--publishedassets', argv.publishedassets]);
+	}
+	if (argv.number) {
+		transferSiteContentArgs.push(...['--number', argv.number]);
+	}
+	if (argv.execute) {
+		transferSiteContentArgs.push(...['--execute', argv.execute]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, transferSiteContentArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -7135,7 +7232,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--name', argv.name,
 		'--repository', argv.repository
 	];
-	
+
 	if (argv.server && typeof argv.server !== 'boolean') {
 		uploadRecommendationArgs.push(...['--server', argv.server]);
 	}

@@ -14,6 +14,31 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.2.2a
+
+**Added**
+Support transfer large sites from OCE server to another OCE server in two steps.  
+
+First transfer site without content:  
+- `cec transfer-site <site> -s <source server> -d <destination server> -r <repository> -l <localizationPolicy> -x`  
+
+Then transfer site content in batches using command:
+- `cec transfer-site-content`  
+
+This command will create scripts to download the site content in batches from the source server and then upload it to the destination server.  By default, the command will not automatically execute the scripts, however you can pass the parameter `-e` to execute if wanted.
+
+Examples:
+- (1) use the default batch size 500, create scripts and execute  
+  `cec transfer-site-content <site> -s <source server> -d <destination server> -r <repository> -e`  
+- (2) set the batch size to 200, create the scripts and execute  
+  `cec transfer-site-content <site> -s <source server> -d <destination server> -r <repository> -n 200 -e`  
+- (3) use the default batch size 500, create the script without execute  
+  `cec transfer-site-content <site> -s <source server> -d <destination server> -r <repository>`  
+- (4) sete the batch size to 200, create the script without execute
+  `cec transfer-site-content <site> -s <source server> -d <destination server> -r <repository> -n 200`  
+
+Both commands can be repeated for the same site.
+
 # New in Release 20.2.2
 
 **Fixed**

@@ -19,6 +19,7 @@ var fs = require('fs'),
 	mustache = require('mustache'),
 	compReg = require('../component-registration')['component-registration'],
 	ComponentCommon = require('../common/component-common').ComponentCommon,
+	constants = require('../common/component-constants').constants,
 	serverUtils = require('../../../../test/server/serverUtils.js');
 
 var compilationReporter = require('../../reporter.js');
@@ -233,6 +234,84 @@ Base.prototype.generateUUID = function (options) {
     }
 
     return guid;
+};
+
+Base.prototype.getDetailPageUrl = function (pageUrl, options) {
+	var dotPos = pageUrl.lastIndexOf('.');
+	var slashPos = pageUrl.lastIndexOf('/');
+
+	var detailSuffix = options.contentType + '/' + options.contentId + '/';
+	if (options.contentSlug && (typeof options.contentSlug === 'string')) {
+		// slug only navigation:  <slug>          - "honda-civic-lx"
+		detailSuffix = options.contentSlug;
+	} else {
+		// normal navigation:  <type>/<id>/<slug> - "Car/123456789/honda-civic-lx"
+		//                or:  <type>/<id>        - "Car/123456789"
+		detailSuffix = options.contentType + '/' + options.contentId + '/';
+		if (options.contentName && (typeof options.contentName === 'string')) {
+			detailSuffix += options.contentName;
+		}
+	}
+
+	if (dotPos > slashPos + 1) {
+		// "products/detail.html" --> "products/detail/Car/123456789/honda-civic-lx"
+		pageUrl = pageUrl.substring(0, dotPos) + '/';
+	} else if (dotPos === slashPos + 1) {
+		// "detail/.html" --> "/detail/Car/123456789/honda-civic-lx"
+		pageUrl = pageUrl.substring(0, dotPos);
+	} else if (slashPos === pageUrl.length - 1) {
+		// "detail/" --> "detail/Car/123456789/honda-civic-lx"
+	} else if (slashPos < pageUrl.length) {
+		pageUrl += '/';
+	}
+
+	pageUrl += detailSuffix;
+
+	return pageUrl;
+};
+
+Base.prototype.getDetailPageLinkURL = function (SCSCompileAPI, args) {
+	var self = this,
+		href = args.href,
+		contentId = args.contentId,
+		contentType = args.contentType;
+
+	return new Promise(function (resolve, reject) {
+		// get the content item
+		SCSCompileAPI.getContentClient().then(function (contentClient) {
+			contentClient.getItem({
+				id: contentId,
+				template: SCSCompileAPI.getSiteId()
+			}).then(function (content) {
+				// method to parse string like [!--$SCS_PAGE--]201[/!--$SCS_PAGE--]
+				var getIdFromPageLink = function (pageLink) {
+					var pageId;
+					if (pageLink && pageLink.indexOf(constants.LINK_PAGE_PREFIX) >= 0) {
+						pageId = pageLink.split(constants.LINK_PAGE_PREFIX)[1].split(constants.LINK_PAGE_SUFFIX)[0];
+					} else {
+						pageId = pageLink || '';
+					}
+					return pageId;
+				};
+
+				// get the detail page URL
+				var detailPageId = getIdFromPageLink(href) || SCSCompileAPI.getDetailPageId(),
+					detailPageURL = self.getDetailPageUrl(SCSCompileAPI.getPageURL(detailPageId), {
+						contentType: contentType,
+						contentId: contentId
+					});
+
+				// compile the detail page with the content item
+				SCSCompileAPI.compileDetailPage(detailPageId, content);
+
+				resolve(detailPageURL);
+			}).catch(function (e) {
+				reject(e);
+			});
+		}).catch(function (e) {
+			reject(e);
+		});
+	});
 };
 
 

@@ -891,7 +891,7 @@ var _readFile = function (server, fFileGUID, fileName, folderPath) {
 			if (error) {
 				console.log('ERROR: failed to get file ' + fileName);
 				console.log(error);
-				resolve();
+				resolve({});
 			}
 			if (response && response.statusCode === 200) {
 				resolve({
@@ -902,7 +902,7 @@ var _readFile = function (server, fFileGUID, fileName, folderPath) {
 				});
 			} else {
 				console.log('ERROR: failed to get file ' + fileName + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
-				resolve();
+				resolve({});
 			}
 
 		});
@@ -935,7 +935,7 @@ module.exports.downloadFolder = function (argv, done) {
 	});
 };
 
-var _downloadFolder = function (argv, server, showError, showDetail) {
+var _downloadFolder = function (argv, server, showError, showDetail, excludeFolder) {
 	return new Promise(function (resolve, reject) {
 		var targetPath;
 		if (argv.folder) {
@@ -1053,7 +1053,7 @@ var _downloadFolder = function (argv, server, showError, showDetail) {
 					}
 					folderId = result.id;
 
-					return _downloadFolderWithId(server, folderId, inputPath);
+					return _downloadFolderWithId(server, folderId, inputPath, excludeFolder);
 				})
 				.then(function (result) {
 
@@ -1078,26 +1078,28 @@ var _downloadFolder = function (argv, server, showError, showDetail) {
 
 					for (var i = 0; i < results.length; i++) {
 						var file = results[i];
-						var folderPathStr = serverUtils.trimString(file.folderPath, '/');
+						if (file && file.id && file.name && file.data) {
+							var folderPathStr = serverUtils.trimString(file.folderPath, '/');
 
-						// do not create folder hierarchy on the server when save to different local folder
-						if (inputPath && folderPathStr.startsWith(inputPath)) {
-							folderPathStr = folderPathStr.substring(inputPath.length);
-						}
-
-						var fileFolderPath = folderPathStr ? folderPathStr.split('/') : [];
-						var targetFile = targetPath;
-						for (var j = 0; j < fileFolderPath.length; j++) {
-							var targetFile = path.join(targetFile, fileFolderPath[j]);
-							if (!fs.existsSync(targetFile)) {
-								fse.mkdirSync(targetFile);
+							// do not create folder hierarchy on the server when save to different local folder
+							if (inputPath && folderPathStr.startsWith(inputPath)) {
+								folderPathStr = folderPathStr.substring(inputPath.length);
 							}
-						}
-						targetFile = path.join(targetFile, file.name);
 
-						fs.writeFileSync(targetFile, file.data);
-						if (showDetail) {
-							console.log(' - save file ' + targetFile);
+							var fileFolderPath = folderPathStr ? folderPathStr.split('/') : [];
+							var targetFile = targetPath;
+							for (var j = 0; j < fileFolderPath.length; j++) {
+								var targetFile = path.join(targetFile, fileFolderPath[j]);
+								if (!fs.existsSync(targetFile)) {
+									fse.mkdirSync(targetFile);
+								}
+							}
+							targetFile = path.join(targetFile, file.name);
+
+							fs.writeFileSync(targetFile, file.data);
+							if (showDetail) {
+								console.log(' - save file ' + targetFile);
+							}
 						}
 					}
 
@@ -1167,7 +1169,7 @@ var _readAllFiles = function (server, files) {
 	});
 };
 
-var _downloadFolderWithId = function (server, parentId, parentPath) {
+var _downloadFolderWithId = function (server, parentId, parentPath, excludeFolder) {
 	// console.log(' - folder: id=' + parentId + ' path=' + parentPath);
 	return new Promise(function (resolve, reject) {
 		serverRest.getChildItems({
@@ -1185,14 +1187,18 @@ var _downloadFolderWithId = function (server, parentId, parentPath) {
 				for (var i = 0; i < items.length; i++) {
 					if (items[i].type === 'file') {
 						// console.log(' - file: id=' + items[i].id + ' path=' + parentPath + '/' + items[i].name);
-						_files.push({
-							id: items[i].id,
-							name: items[i].name,
-							folderPath: parentPath
-						});
-
+						if (excludeFolder && parentPath.indexOf(excludeFolder) === 0) {
+							// excluded
+							// console.log(' - exclude: ' + parentPath + '/' + items[i].name);
+						} else {
+							_files.push({
+								id: items[i].id,
+								name: items[i].name,
+								folderPath: parentPath
+							});
+						}
 					} else {
-						subfolderPromises.push(_downloadFolderWithId(server, items[i].id, parentPath + '/' + items[i].name));
+						subfolderPromises.push(_downloadFolderWithId(server, items[i].id, parentPath + '/' + items[i].name, excludeFolder));
 					}
 				}
 				return Promise.all(subfolderPromises);
@@ -1696,6 +1702,11 @@ var _deletePermanentSCS = function (request, server, id, isFile) {
 				};
 
 				options['auth'] = auth;
+				if (server.cookies) {
+					options.headers = {
+						Cookie: server.cookies
+					};
+				}
 
 				request(options).on('response', function (response) {
 						// fix headers for cross-domain and capitalization issues
@@ -1743,6 +1754,11 @@ var _deletePermanentSCS = function (request, server, id, isFile) {
 				'auth': auth,
 				'formData': formData
 			};
+			if (server.cookies) {
+				postData.headers = {
+					Cookie: server.cookies
+				};
+			}
 
 			request(postData).on('response', function (response) {
 					// fix headers for cross-domain and capitalization issues
@@ -1771,7 +1787,11 @@ var _deletePermanentSCS = function (request, server, id, isFile) {
 				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
 
 				request.get(url, function (err, response, body) {
-					var data = JSON.parse(body);
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {}
+
 					dUser = data && data.LocalData && data.LocalData.dUser;
 					idcToken = data && data.LocalData && data.LocalData.idcToken;
 					if (dUser && dUser !== 'anonymous' && idcToken) {
@@ -1946,7 +1966,13 @@ var _deleteFile = function (argv, server, toReject) {
 	return Promise.all(loginPromises).then(function (results) {
 		if ((resourceFolder || permanent) && (!results || results.length === 0 || !results[0].status)) {
 			console.log(' - failed to connect to the server');
-			return Promise.reject();
+			if (toReject) {
+				return Promise.reject();
+			} else {
+				return Promise.resolve({
+					err: 'err'
+				});
+			}
 		}
 
 		var resourcePromises = [];
@@ -2033,7 +2059,9 @@ var _deleteFile = function (argv, server, toReject) {
 				if (toReject) {
 					return Promise.reject();
 				} else {
-					return Promise.resolve({err: 'err'});
+					return Promise.resolve({
+						err: 'err'
+					});
 				}
 			});
 	}); // login

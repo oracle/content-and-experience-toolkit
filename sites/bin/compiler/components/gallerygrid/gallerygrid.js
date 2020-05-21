@@ -28,7 +28,7 @@ var Gallerygrid = function (compId, compInstance) {
 };
 Gallerygrid.prototype = Object.create(Base.prototype);
 
-Gallerygrid.prototype.compile = function () {
+Gallerygrid.prototype.compile = function (args) {
 	var self = this;
 
 	// make sure we can compile
@@ -38,6 +38,8 @@ Gallerygrid.prototype.compile = function () {
 			content: ''
 		});
 	}
+
+	this.SCSCompileAPI = args && args.SCSCompileAPI;
 
 	return new Promise(function (resolve, reject) {
 		var render = function () {
@@ -62,7 +64,7 @@ Gallerygrid.prototype.compile = function () {
 
 		self.computedContentStyle = self.encodeCSS(self.computeContentStyle());
 
-		self.computeImages().then(function (images) {
+		self.computeImages(args).then(function (images) {
 			self.galleryImages = images;
 			render();
 		}, function () {
@@ -101,7 +103,7 @@ Gallerygrid.prototype.computeContentStyle = function () {
 	return computedWidthStyle;
 };
 
-Gallerygrid.prototype.computeImages = function () {
+Gallerygrid.prototype.computeImages = function (args) {
 	var viewModel = this;
 
 	return new Promise(function (resolve, reject) {
@@ -133,6 +135,10 @@ Gallerygrid.prototype.computeImages = function () {
 					title: image.title || '',
 					caption: image.description || '',
 					linkType: image.linkType,
+					linkContentId: image.linkContentId,
+					linkContentType: image.linkContentType,
+					linkContentViewing: image.linkContentViewing,
+					linkContentName: image.linkContentName,
 					altText: image.altText || '',
 					imageHref: image.link,
 					imageHrefName: image.linkName,
@@ -149,7 +155,7 @@ Gallerygrid.prototype.computeImages = function () {
 
 			var imageComp = new Image(image.id, imageObj);
 
-			imagePromises.push(imageComp.compile());
+			imagePromises.push(imageComp.compile(args));
 		});
 
 		Promise.all(imagePromises).then(function (responses) {

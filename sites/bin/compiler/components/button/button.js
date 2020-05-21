@@ -26,7 +26,7 @@ var Button = function (compId, compInstance) {
 };
 Button.prototype = Object.create(Base.prototype);
 
-Button.prototype.compile = function () {
+Button.prototype.compile = function (args) {
 	// make sure we can compile
 	if (!this.canCompile) {
 		return Promise.resolve({
@@ -34,6 +34,8 @@ Button.prototype.compile = function () {
 			content: ''
 		});
 	}
+
+	this.SCSCompileAPI = args && args.SCSCompileAPI;
 
 	// extend the model with any component specific values
 	this.computedStyle = this.encodeCSS(this.computeStyle());
@@ -53,11 +55,12 @@ Button.prototype.compile = function () {
 	// Helpers for link types
 	this.linkTypeAction = (this.linkType === 'scs-link-action') && (this.actions && this.actions.length > 0);
 	this.linkTypeFile = (this.linkType === 'scs-link-file') && this.encodeString(this.href, this.xssEncoding.urlTags);
+	this.linkTypeItem = (this.linkType === 'scs-link-item') && this.linkContentId;
 	this.linkTypeFilePreview = (this.linkType === 'scs-link-file-preview') && this.encodeString(this.href, this.xssEncoding.urlTags);
 	this.linkTypeMap = (this.linkType === 'scs-link-map') && this.encodeString(this.href, this.xssEncoding.urlTags);
-	this.linkTypeOther = (this.linkType !== 'scs-link-no-link') && this.encodeString(this.href, this.xssEncoding.urlTags) && !(this.linkTypeFile || this.linkTypeFilePreview || this.linkTypeAction || this.linkTypeMap);
+	this.linkTypeOther = (this.linkType !== 'scs-link-no-link') && this.encodeString(this.href, this.xssEncoding.urlTags) && !(this.linkTypeFile || this.linkTypeFilePreview || this.linkTypeAction || this.linkTypeMap || this.linkTypeItem);
 
-	this.hasLink = this.linkTypeAction || this.linkTypeFile || this.linkTypeFilePreview || this.linkTypeOther || this.linkTypeMap;
+	this.hasLink = this.linkTypeAction || this.linkTypeFile || this.linkTypeFilePreview || this.linkTypeOther || this.linkTypeMap || this.linkTypeItem;
 	this.notHasLink = !this.hasLink;
 
 	if (this.linkType === 'scs-link-file') {
@@ -72,13 +75,33 @@ Button.prototype.compile = function () {
 		this.computedTarget = '';
 	}
 
-	// render the content
-	var content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'button.html'), 'utf8'));
+	// for content item links, the href can only be found asynchronously,
+	var getHref;
+	if (this.linkTypeItem) {
+		var self = this;
+		getHref = new Promise(function (resolve, reject) {
+			self.getDetailPageLinkURL(self.SCSCompileAPI, {
+				href: self.href,
+				contentId: self.linkContentId,
+				contentType: self.linkContentType
+			}).then(function(url) {
+				self.href = url;
+				resolve();
+			});
+		});
+	} else {
+		getHref = Promise.resolve();
+	}
 
-	return Promise.resolve({
-		hydrate: true,
-		content: content
-	});
+	// render the content after getHref resolves
+	return getHref.then(function() {
+		var content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'button.html'), 'utf8'));
+
+		return Promise.resolve({
+			hydrate: true,
+			content: content
+		});
+	}.bind(this));
 };
 
 Button.prototype.hasVisualData = function () {

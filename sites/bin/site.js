@@ -648,6 +648,7 @@ module.exports.transferSite = function (argv, done) {
 		return;
 	}
 
+	var excludecontent = typeof argv.excludecontent === 'string' && argv.excludecontent.toLowerCase() === 'true';
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
 
 	var siteName = argv.name;
@@ -666,8 +667,14 @@ module.exports.transferSite = function (argv, done) {
 	var site;
 	var destSite;
 	var templateId;
+	var contentLayoutNames = [];
 
 	var cecVersion, idcToken;
+
+	var destdir = path.join(projectDir, 'dist');
+	if (!fs.existsSync(destdir)) {
+		fs.mkdirSync(destdir);
+	}
 
 	var actionSuccess = true;
 
@@ -721,7 +728,7 @@ module.exports.transferSite = function (argv, done) {
 					auth: serverUtils.getRequestAuth(destServer),
 					formData: formData
 				};
-				if (destServer.cookies) {
+				if (server.cookies) {
 					postData.headers = {
 						Cookie: server.cookies
 					};
@@ -881,7 +888,8 @@ module.exports.transferSite = function (argv, done) {
 						};
 
 						// create template on the source server and download
-						return templateUtils.createTemplateFromSiteAndDownloadSCS(createTemplateArgv);
+						return excludecontent ? templateUtils.createLocalTemplateFromSite(argv, templateName, siteName, server, true) :
+							templateUtils.createTemplateFromSiteAndDownloadSCS(createTemplateArgv);
 
 					})
 					.then(function (result) {
@@ -889,26 +897,38 @@ module.exports.transferSite = function (argv, done) {
 							return Promise.reject();
 						}
 
+						if (excludecontent) {
+							contentLayoutNames = result.contentLayouts;
+							// console.log(' - content layouts: ' + contentLayoutNames);
+						}
+
 						// delete template on the source server
-						return sitesRest.deleteTemplate({
+						var deleteTemplatePromises = excludecontent ? [] : [sitesRest.deleteTemplate({
 							server: server,
 							name: templateName,
 							hard: true
-						});
+						})];
+
+						return Promise.all(deleteTemplatePromises);
 					})
-					.then(function (result) {
+					.then(function (results) {
+
+						var createTemplateZipPromises = excludecontent ? [templateUtils.zipTemplate(argv, templateName, false, false, contentLayoutNames)] : [];
+
+						return Promise.all(createTemplateZipPromises);
+					})
+					.then(function (results) {
 
 						fileName = templateName + '.zip';
-						var destdir = path.join(projectDir, 'dist');
-						if (!fs.existsSync(destdir)) {
-							fs.mkdirSync(destdir);
-						}
 						templatePath = path.join(destdir, fileName);
 						if (!fs.existsSync(templatePath)) {
-							console.log('ERROR: failed to download template ' + templateName);
+							if (excludecontent) {
+								console.log('ERROR: failed to export template ' + templateName);
+							} else {
+								console.log('ERROR: failed to download template ' + templateName);
+							}
 							return Promise.reject();
 						}
-
 
 						// upload template file to destination server
 						return serverRest.createFile({
@@ -928,7 +948,6 @@ module.exports.transferSite = function (argv, done) {
 						fileId = uploadedFile.id;
 						console.log(' - file ' + fileName + ' uploaded to Home folder (Id: ' + fileId + ' version:' + uploadedFile.version + ')');
 
-
 						return sitesRest.importTemplate({
 							server: destServer,
 							name: templateName,
@@ -940,6 +959,21 @@ module.exports.transferSite = function (argv, done) {
 						if (!result || result.err) {
 							console.log('ERROR: failed to import template');
 							return Promise.reject();
+						}
+
+						var importTemplateAgainPromises = [];
+						if (excludecontent && creatNewSite) {
+							importTemplateAgainPromises.push(_uploadTemplateWithoutContent(argv, templateName, destServer, destdir));
+						}
+
+						return Promise.all(importTemplateAgainPromises);
+					})
+					.then(function (results) {
+						if (excludecontent && creatNewSite) {
+							if (!results || !results[0] || results[0].err) {
+								return Promise.reject();
+							}
+							console.log(' - import template again without content template');
 						}
 
 						return sitesRest.getTemplate({
@@ -1012,7 +1046,7 @@ module.exports.transferSite = function (argv, done) {
 					})
 					.then(function (results) {
 						var unzipTemplatePromises = [];
-						if (!creatNewSite) {
+						if (!creatNewSite && !excludecontent) {
 							unzipTemplatePromises.push(templateUtils.unzipTemplate(templateName, templatePath, false));
 						}
 
@@ -1045,7 +1079,8 @@ module.exports.transferSite = function (argv, done) {
 								projectDir: projectDir,
 								name: siteName,
 								template: templateName,
-								server: destServerName
+								server: destServerName,
+								excludecontenttemplate: excludecontent ? 'true' : 'false'
 							};
 							siteUpdateLib.updateSite(updateSiteArgs, function (success) {
 								console.log(' - update site finished');
@@ -1097,6 +1132,53 @@ module.exports.transferSite = function (argv, done) {
 					});
 			});
 		});
+};
+
+var _uploadTemplateWithoutContent = function (argv, templateName, destServer, destdir) {
+	return new Promise(function (resolve, reject) {
+		var fileName = templateName + '.zip';
+		var templatePath = path.join(destdir, fileName);
+		templateUtils.zipTemplate(argv, templateName, false, true)
+			.then(function (result) {
+				// upload template file to destination server
+				return serverRest.createFile({
+					server: destServer,
+					parentID: 'self',
+					filename: fileName,
+					contents: fs.createReadStream(templatePath)
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					console.log('ERROR: failed to upload template file');
+					return Promise.reject();
+				}
+				var uploadedFile = result;
+				fileId = uploadedFile.id;
+				console.log(' - file ' + fileName + ' uploaded to Home folder (Id: ' + fileId + ' version:' + uploadedFile.version + ')');
+
+				return sitesRest.importTemplate({
+					server: destServer,
+					name: templateName,
+					fileId: fileId
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					console.log('ERROR: failed to import template again');
+					return Promise.reject();
+				}
+				return resolve({});
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				return resolve({
+					err: 'err'
+				});
+			});
+	});
 };
 
 /**
@@ -3678,10 +3760,9 @@ var _importTemplateSCS = function (server, localhost, request, idcToken, name) {
 			var importTempStatusPromise = serverUtils.getTemplateImportStatus(request, localhost, jobId);
 			importTempStatusPromise.then(function (data) {
 				var success = false;
-				// console.log(data);
 				if (data && data.LocalData) {
 					if (data.LocalData.StatusCode !== '0') {
-						console.log(' - failed to import ' + name + ': ' + importResult.LocalData.StatusMessage);
+						console.log(' - failed to import ' + name + ': ' + data.LocalData.StatusMessage);
 						return resolve({
 							err: 'err'
 						});
@@ -3942,7 +4023,7 @@ module.exports.migrateSite = function (argv, done) {
 					auth: auth
 				};
 
-				if (destServer.cookies) {
+				if (server.cookies) {
 					options.headers = {
 						Cookie: server.cookies
 					};
@@ -3987,7 +4068,7 @@ module.exports.migrateSite = function (argv, done) {
 					'auth': auth,
 					'form': data
 				};
-				if (destServer.cookies) {
+				if (server.cookies) {
 					postData.headers = {
 						Cookie: server.cookies
 					};
@@ -4029,7 +4110,7 @@ module.exports.migrateSite = function (argv, done) {
 					auth: auth,
 					formData: formData
 				};
-				if (destServer.cookies) {
+				if (server.cookies) {
 					postData.headers = {
 						Cookie: server.cookies
 					};

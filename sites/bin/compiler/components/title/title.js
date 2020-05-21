@@ -18,6 +18,7 @@ var fs = require('fs'),
     path = require('path'),
     cheerio = require('cheerio'),
     Base = require('../base/base'),
+	constants = require('../common/component-constants').constants,
     Component = require('../component/component');
 
 
@@ -51,16 +52,60 @@ Title.prototype.compile = function (args) {
     this.computedStyle = this.computeStyle();
     this.viewUserText = this.getViewUserText();
 
-    var content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'title.html'), 'utf8'));
+    var promises;
 
-    // render any asychnronous items into the content
-    return this.renderAscynchronousItems(content).then(function (allContent) {
-        // now we're done, return the fully rendered content
-        return Promise.resolve({
-            hydrate: true,
-            content: allContent
+    var CONTENT_DETAIL_LINK_G = /\[!--\$SCS_CONTENT_DETAIL--\]*(.*?) *\[\/!--\$SCS_CONTENT_DETAIL--\]/g;
+    var matches = this.viewUserText.match(CONTENT_DETAIL_LINK_G);
+    if (matches) {
+        var self = this;
+
+        // create a promise for each content detail link in the user text;
+        // each promise will asynchronously find the href that it resolves to.
+        promises = matches.map(function(contentItemLink) {
+            // each contentItemLink is a string matching the above regexp
+            if (contentItemLink) {
+                return new Promise(function (resolve, reject) {
+                    // Get contentId, contentType, contentViewing, contentName, and (optionally) detailPageId
+                    var CONTENT_DETAIL_LINK = /\[!--\$SCS_CONTENT_DETAIL--\]*(.*?) *\[\/!--\$SCS_CONTENT_DETAIL--\]/;
+                    var tokens = CONTENT_DETAIL_LINK.exec(contentItemLink)[1].split(',');
+                    self.getDetailPageLinkURL(args.SCSCompileAPI, {
+                        href: constants.LINK_PAGE_PREFIX + tokens[4] + constants.LINK_PAGE_SUFFIX,
+                        contentId: tokens[0],
+                        contentType: tokens[1]
+                    }).then(function(url) {
+                        resolve({
+                            contentItemLink: contentItemLink,
+                            url: url
+                        });
+                    });
+                });
+            } else {
+                return Promise.resolve();
+            }
         });
-    });
+    } else {
+        promises = [Promise.resolve()];
+    }
+
+    return Promise.all(promises).then(function(results) {
+        // for each contentItemLink macro, replace with the resolved url
+        results.forEach(function(contentItemLinkMapping) {
+            if (contentItemLinkMapping) {
+                this.viewUserText = this.viewUserText.replace(contentItemLinkMapping.contentItemLink, contentItemLinkMapping.url);
+            }
+        }.bind(this));
+
+        var content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'title.html'), 'utf8'));
+
+        // render any asychnronous items into the content
+        return this.renderAscynchronousItems(content).then(function (allContent) {
+            // now we're done, return the fully rendered content
+            return Promise.resolve({
+                hydrate: true,
+                content: allContent
+            });
+        });
+	}.bind(this));
 };
 
 Title.prototype.getViewUserText = function () {

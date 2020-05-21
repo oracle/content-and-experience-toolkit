@@ -11,6 +11,7 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	he = require('he'),
+	htmllint = require('htmllint'),
 	path = require('path'),
 	os = require('os'),
 	readline = require('readline'),
@@ -601,6 +602,8 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				// console.log(structurePages);
 				// console.log(pages);
 
+				var htmllintPromises = [];
+
 				for (var i = 0; i < structurePages.length; i++) {
 					var page = structurePages[i];
 					var fileName = page.id + '.json';
@@ -613,6 +616,8 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 
 							var triggerActions = [];
 							var links = [];
+
+							htmllintPromises.push(_runHTMLlint(page.id, pages[j].fileContent));
 
 							// fs.writeFileSync(path.join(projectDir, 'dist', page.id + '.json'), JSON.stringify(pages[j].fileContent));
 							var slots = pages[j].fileContent && pages[j].fileContent.slots;
@@ -701,6 +706,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 									}
 								}
 							}
+
 						}
 					}
 
@@ -729,6 +735,20 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 						issues.push('Page ' + pageName + ' is not used (not in structure.json)');
 					}
 				});
+
+				return Promise.all(htmllintPromises);
+			})
+			.then(function (results) {
+				// HTMLlint to check self close tags for page source
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].pageId) {
+						for (var j = 0; j < structurePages.length; j++) {
+							if (structurePages[j].id === results[i].pageId) {
+								structurePages[j].tagCloseIssues = results[i].tagCloseIssues || [];
+							}
+						}
+					}
+				}
 
 				return _getSiteContent(server, sitejson.id);
 
@@ -998,7 +1018,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			})
 			.then(function (result) {
 				var files = result || [];
-
+				var msg;
 				for (var i = 0; i < structurePages.length; i++) {
 					var page = structurePages[i];
 					if (page) {
@@ -1027,7 +1047,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 								}
 
 								if (!action.status || action.status.toLowerCase() !== 'ok') {
-									var msg = 'Page: \'' + page.name + '\' component: \'' + action.component +
+									msg = 'Page: \'' + page.name + '\' component: \'' + action.component +
 										'\' triggerAction: ' + action.action + ' ' + action.type + ': ' + action.value +
 										' status: ' + action.status;
 									issues.push(msg);
@@ -1039,9 +1059,20 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 
 				for (var i = 0; i < structurePages.length; i++) {
 					var page = structurePages[i];
+					if (page && page.tagCloseIssues && page.tagCloseIssues.length > 0) {
+						page.tagCloseIssues.forEach(function (issue) {
+							msg = 'Page: \'' + page.name + '\' file: ' + page.id + '.json';
+							msg = msg + ' line: ' + issue.line + ' column: ' + issue.column + ' HTML tag is not closed';
+							issues.push(msg);
+						});
+					}
+				}
+
+				for (var i = 0; i < structurePages.length; i++) {
+					var page = structurePages[i];
 					if (page && page.orphanComponents && page.orphanComponents.length > 0) {
 						page.orphanComponents.forEach(function (orphan) {
-							var msg = 'Page: \'' + page.name + '\' component: \'' + orphan + '\' is not in any slot';
+							msg = 'Page: \'' + page.name + '\' component: \'' + orphan + '\' is not in any slot';
 							issues.push(msg);
 						});
 					}
@@ -1655,6 +1686,31 @@ var _unescapeHTML = function (str) {
 	return he.decode(str);
 };
 
+var _runHTMLlint = function (pageId, source) {
+	return new Promise(function (resolve, reject) {
+		var tagCloseIssues = [];
+		var src = typeof source === 'object' ? JSON.stringify(source) : source;
+		htmllint(src).then(function (result) {
+				var issues = result || [];
+
+				for (var i = 0; i < issues.length; i++) {
+					if (issues[i].rule === 'tag-close') {
+						tagCloseIssues.push(issues[i]);
+					}
+				}
+				return resolve({
+					pageId: pageId,
+					tagCloseIssues: tagCloseIssues
+				});
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+			});
+	});
+};
+
 var _getHrefLinks = function (fileSource) {
 	const regex = /(?:ht)tps?:\/\/[-a-zA-Z0-9.]+\.[a-zA-Z]{2,3}(?:\/(?:[^"<=]|=)*)?/g;
 	var urls = [];
@@ -2147,6 +2203,7 @@ module.exports.createTemplateReport = function (argv, done) {
 		_pages.forEach(function (page) {
 			var fileName = page.id + '.json';
 			if (fs.existsSync(path.join(tempSrcDir, 'pages', fileName))) {
+
 				pages.push({
 					id: page.id,
 					name: page.name,
@@ -2183,11 +2240,15 @@ module.exports.createTemplateReport = function (argv, done) {
 		var usedContentFiles4Sure = [];
 		var otherLinks = [];
 
+		var htmllintPromises = [];
+
 		pages.forEach(function (page) {
 			var triggerActions = [];
 			var links = [];
 			var slots = page.fileContent && page.fileContent.slots;
 			var componentInstances = page.fileContent && page.fileContent.componentInstances;
+
+			htmllintPromises.push(_runHTMLlint(page.id, page.fileContent));
 
 			// console.log(' - page: ' + page.id);
 			var pageResult = _examPageSource(slots, componentInstances, links, triggerActions, fileIds, itemIds, typeNames, compNames);
@@ -2321,9 +2382,24 @@ module.exports.createTemplateReport = function (argv, done) {
 		console.log(otherLinks);
 		*/
 
-		var verifyLinksPromises = includePageLinks ? [_verifyHrefLinks(undefined, otherLinks)] : [];
+		Promise.all(htmllintPromises)
+			.then(function (results) {
+				// console.log(results);
+				// HTMLlint to check self close tags for page source
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].pageId) {
+						for (var j = 0; j < pages.length; j++) {
+							if (pages[j].id === results[i].pageId) {
+								pages[j].tagCloseIssues = results[i].tagCloseIssues || [];
+							}
+						}
+					}
+				}
 
-		Promise.all(verifyLinksPromises)
+				var verifyLinksPromises = includePageLinks ? [_verifyHrefLinks(undefined, otherLinks)] : [];
+
+				return Promise.all(verifyLinksPromises);
+			})
 			.then(function (results) {
 
 				if (includePageLinks) {
@@ -2366,6 +2442,18 @@ module.exports.createTemplateReport = function (argv, done) {
 								'(key: ' + orphan.key + ' type: ' + orphan.type + ')';
 							issues.push(msg);
 						}
+					}
+				});
+
+				// generate issues for HTML close tags
+				var msg;
+				pages.forEach(function (page) {
+					if (page && page.tagCloseIssues && page.tagCloseIssues.length > 0) {
+						page.tagCloseIssues.forEach(function (issue) {
+							msg = 'Page: \'' + page.name + '\' file: ' + page.id + '.json';
+							msg = msg + ' line: ' + issue.line + ' column: ' + issue.column + ' HTML tag is not closed';
+							issues.push(msg);
+						});
 					}
 				});
 
@@ -2418,6 +2506,21 @@ module.exports.createTemplateReport = function (argv, done) {
 		}
 		done();
 	}
+};
+
+var _readFileInLines = function (filePath) {
+	var src = '';
+	try {
+		var data = fs.readFileSync(filePath, 'UTF-8');
+		console.log(data);
+		var lines = data.split(/\r?\n/);
+		lines.forEach((line) => {
+			src = src + line + escape.EOL;
+		});
+	} catch (e) {
+
+	}
+	return src;
 };
 
 module.exports.cleanupTemplate = function (argv, done) {

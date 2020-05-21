@@ -540,13 +540,14 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 				// error callback - update errors and resolve, will continue in any case
 				numErrors++;
 				resolve({});
-			});
+			},
+			server);
 	});
 
 	// wait for remove content to complete and then import the assets
 	return removeContentPromise.then(function (removeResult) {
 		if (!serverUtils.templateHasContentItems(projectDir, argv.template)) {
-			console.log(' - site does not has content');
+			console.log(' - site does not have content');
 			return Promise.resolve({
 				errors: numErrors,
 				name: stepName
@@ -555,7 +556,7 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 			// Re-import the items, adding uploaded items back into the site's channel & collection
 			return contentLib.uploadContentFromTemplate({
 				projectDir: projectDir,
-				registeredServerName: argv.server,
+				server: server,
 				siteInfo: siteInfo,
 				templateName: argv.template,
 				updateContent: true
@@ -674,8 +675,10 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 					console.log('Update Site Results:');
 					var totalErr = 0;
 					results.forEach(function (result) {
-						totalErr = totalErr + result.errors;
-						console.log(' - ' + result.name.padEnd(20) + ': completed with ' + result.errors + ' errors.');
+						if (result) {
+							totalErr = totalErr + result.errors;
+							console.log(' - ' + result.name.padEnd(20) + ': completed with ' + result.errors + ' errors.');
+						}
 					});
 					done(totalErr === 0);
 				}).catch(function (err) {
