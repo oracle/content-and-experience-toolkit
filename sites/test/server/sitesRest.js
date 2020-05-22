@@ -1531,6 +1531,7 @@ var _importTemplate = function (server, name, fileId) {
 				password: server.password
 			};
 		}
+		// console.log(JSON.stringify(options, null, 4));
 		// console.log(options);
 		request(options, function (error, response, body) {
 			if (error) {
@@ -1547,7 +1548,7 @@ var _importTemplate = function (server, name, fileId) {
 			} catch (e) {
 				data = body;
 			}
-
+		
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.headers && response.headers.location;
 				var inter = setInterval(function () {
@@ -1556,6 +1557,7 @@ var _importTemplate = function (server, name, fileId) {
 						// console.log(data);
 						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
 							clearInterval(inter);
+							console.log(data);
 							var msg = data && data.error ? (data.error.detail || data.error.title) : '';
 							console.log('ERROR: import template failed: ' + msg);
 							return resolve({
@@ -1572,7 +1574,13 @@ var _importTemplate = function (server, name, fileId) {
 				}, 5000);
 
 			} else {
-				var msg = data ? (data.detail || data.title || data) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = response && (response.statusMessage || response.statusCode);
+				if (data) {
+					msg = data.detail || data.title;
+					if (data.status || data['o:errorCode']) {
+						msg = msg + ' (' + data.status + ' ' + data['o:errorCode'] + ')';
+					}
+				}
 				console.log('ERROR: failed to import template ' + name + ' : ' + msg);
 				resolve({
 					err: msg || 'err'

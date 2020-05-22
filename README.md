@@ -14,6 +14,13 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.2.2b
+
+**Fixed**
+
+- `cec transfer-site-content` - Now correctly handles repositories with spaces in their names. 
+
+
 # New in Release 20.2.2a
 
 **Added**

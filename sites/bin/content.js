@@ -46,7 +46,7 @@ var verifyRun = function (argv) {
 		fs.mkdirSync(buildfolder);
 	}
 
-	distFolder= path.join(projectDir, 'dist');
+	distFolder = path.join(projectDir, 'dist');
 	if (!fs.existsSync(distFolder)) {
 		fs.mkdirSync(distFolder);
 	}
@@ -2371,7 +2371,7 @@ module.exports.transferSiteContent = function (argv, done) {
 
 				zipPath = path.join(distFolder, channelName + '_export.zip');
 				cmd = winCall + 'cec upload-content ' + zipPath + ' -f -u';
-				cmd += ' -r ' + repositoryName;
+				cmd += ' -r "' + repositoryName + '"';
 				cmd += ' -s ' + destServerName;
 				uploadScript += 'echo "' + cmd + '"' + os.EOL;
 				uploadScript += cmd;
@@ -2416,7 +2416,7 @@ module.exports.transferSiteContent = function (argv, done) {
 					// upload command for this group
 					zipPath = path.join(distFolder, groupName + '_export.zip');
 					cmd = winCall + 'cec upload-content ' + zipPath + ' -f -u';
-					cmd += ' -r ' + repositoryName;
+					cmd += ' -r "' + repositoryName + '"';
 					cmd += ' -c ' + channelName;
 					cmd += ' -s ' + destServerName;
 
