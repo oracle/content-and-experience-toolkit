@@ -14,6 +14,13 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.2.2c
+
+**Fixed**
+
+- `cec transfer-site` - Fixed issue with internal theme ID when transferring site both with and without content.
+
+
 # New in Release 20.2.2b
 
 **Fixed**

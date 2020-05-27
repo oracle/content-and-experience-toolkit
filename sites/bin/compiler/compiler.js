@@ -507,7 +507,7 @@ function resolveLinks(pageModel, context, sitePrefix) {
 	// Also handle params [!--$SCS_PAGE--]42|param1=firstParam&amp;param2=secondParam[/!--$SCS_PAGE--] 
 	tempVar = tempVar.replace(regPageLink, function (match, pageId) {
 		var replacement;
-		var linkData = getPageLinkData(pageId, sitePrefix, context.navMap, context.pageLocale);
+		var linkData = getPageLinkData(pageId, sitePrefix, context.navMap, context.pageLocale, context.localeAlias);
 		if (linkData && (typeof linkData.href === 'string')) {
 			replacement = linkData.href;
 		}
@@ -601,7 +601,7 @@ function parsePageIdAndParams(linkText) {
 	return pageValues;
 }
 
-function getPageLinkData(pageEntry, sitePrefix, structureMap, pageLocale) {
+function getPageLinkData(pageEntry, sitePrefix, structureMap, pageLocale, localeAlias) {
 	var pageValues = parsePageIdAndParams(pageEntry),
 		url = '',
 		pageId = pageValues.pageId,
@@ -609,7 +609,6 @@ function getPageLinkData(pageEntry, sitePrefix, structureMap, pageLocale) {
 		hideInNavigation = false,
 		pageUrl = null,
 		target = "";
-
 
 	// Find the supplied pageId in the navigation, and obtain the pageUrl
 	if (structureMap &&
@@ -629,7 +628,7 @@ function getPageLinkData(pageEntry, sitePrefix, structureMap, pageLocale) {
 				pageUrl = navNode.pageUrl;
 				if (pageUrl) {
 					// maintain locale for navigation between pages
-					var locale = pageLocale; // this.data.locale;
+					var locale = localeAlias || pageLocale; // this.data.locale;
 					var isDefaultLocale = pageLocale === rootSiteInfo.properties.defaultLanguage;
 					var includeLocale = locale && (!isDefaultLocale || defaultLocale); // include locale if it is not the default or if includeLocale set
 
@@ -830,6 +829,7 @@ var compiler = {
 		self.pageModel = args.pageModel;
 		self.localePageModel = args.localePageModel;
 		self.pageLocale = args.pageLocale || args.siteInfo.properties.defaultLanguage || '';
+		self.localeAlias = args.localeAlias;
 		self.navigationRoot = args.navigationRoot;
 		self.navigationCurr = args.navigationCurr;
 		self.structureMap = args.structureMap;
@@ -858,6 +858,7 @@ var compiler = {
 			siteInfo: self.siteInfo,
 			siteFolder: siteFolder,
 			pageLocale: self.pageLocale,
+			localeAlias: self.localeAlias,
 			detailContentItem: self.detailContentItem,
 			channelAccessToken: channelAccessToken,
 			deviceInfo: self.context.deviceInfo,
@@ -956,7 +957,7 @@ var compiler = {
 				return getDefaultPage(self.structureMap, self.navigationRoot, 'isDetailPage');
 			},
 			getPageLinkData: function (pageId) {
-				return getPageLinkData(pageId, self.sitePrefix, self.structureMap, self.pageLocale);
+				return getPageLinkData(pageId, self.sitePrefix, self.structureMap, self.pageLocale, self.localeAlias);
 			},
 			getSiteProperty: function (propertyName) {
 				var value;
@@ -1412,6 +1413,9 @@ function resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, conte
 	};
 	if (context.deviceInfo) {
 		SCSInfo.deviceInfo = context.deviceInfo;
+	}
+	if (context.localeAlias) {
+		SCSInfo.localeAlias = context.localeAlias;
 	}
 
 	var SCSInfoStr = JSON.stringify(SCSInfo);
@@ -2071,7 +2075,8 @@ function createPage(context, pageInfo) {
 				resolve();
 			} else {
 				var locale = context.locale || defaultLocale;
-				console.log('createPage: Processing ' + (pageInfo.contentItem ? 'detail ' : '') + 'pageId ' + pageInfo.id + (locale ? ": Locale: " + locale : '') + '. Preview URL: ' + (outputURL ? outputURL : '') + (locale ? locale + '/' : '') + pageInfo.pageUrl);
+				var localeAlias = context.localeAlias;
+				console.log('createPage: Processing ' + (pageInfo.contentItem ? 'detail ' : '') + 'pageId ' + pageInfo.id + (locale ? ": Locale: " + locale : '') + (localeAlias ? ' (' + localeAlias + ')' : '') + '. Preview URL: ' + (outputURL ? outputURL : '') + ((localeAlias || locale) ? (localeAlias || locale) + '/' : '') + pageInfo.pageUrl);
 
 				var pageDatas = getPageData(context, pageInfo.id);
 				var pageData = pageDatas.pageData;
@@ -2089,6 +2094,7 @@ function createPage(context, pageInfo) {
 					"sitePrefix": sitePrefix,
 					"pageModel": (pageData.base || pageData),
 					"pageLocale": context.pageLocale,
+					"localeAlias": localeAlias,
 					"localePageModel": pageDatas.localePageData,
 					"navigationRoot": context.navRoot,
 					"navigationCurr": (pageId && typeof pageId == 'string') ? parseInt(pageId) : pageId,
@@ -2103,7 +2109,7 @@ function createPage(context, pageInfo) {
 						pageData = fixupPageDataWithSlotReuseData(context, pageData, layoutName, layoutMarkup);
 						// now fixup the page 
 						fixupPage(pageInfo.id, pageInfo.pageUrl, layoutMarkup, (pageData.base || pageData), pageDatas.localePageData, context, sitePrefix).then(function (pageMarkup) {
-								var pagePrefix = locale ? (locale + '/') : '';
+								var pagePrefix = (localeAlias || locale) ? ((localeAlias || locale) + '/') : '';
 								writePage(pagePrefix + pageInfo.pageUrl, pageMarkup);
 								resolve();
 							})
@@ -2335,6 +2341,18 @@ function setupContext(language) {
 	// update the context with the locale
 	context.locale = language;
 	context.pageLocale = language;
+
+	// Determine if there is a locale alias for this language code
+	var locale = language || defaultLocale;
+	var localeAliases = context.siteInfo && context.siteInfo.properties && context.siteInfo.properties.localeAliases;
+	if (locale && localeAliases) {
+		for(var alias in localeAliases) {
+			if (locale === localeAliases[alias]) {
+				context.localeAlias = alias;
+				break;
+			}
+		}
+	}
 
 	// include the default channelAccessToken entry if provided
 	if (channelAccessToken && context.siteInfo.properties) {

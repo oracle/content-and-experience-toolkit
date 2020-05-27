@@ -50,7 +50,6 @@ module.exports.downloadTaxonomy = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
 
 	var name = argv.name;
 	var id = argv.id;
@@ -62,136 +61,147 @@ module.exports.downloadTaxonomy = function (argv, done) {
 		fs.mkdirSync(taxonomiesSrcDir);
 	}
 
-	serverRest.getTaxonomies({
-			server: server
-		})
-		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
+	var request = serverUtils.getRequest();
 
-			var taxonomies = result || [];
-			var nameMatched = [];
-			var idMatched;
-			for (var i = 0; i < taxonomies.length; i++) {
-				if (name && taxonomies[i].name === name) {
-					nameMatched.push(taxonomies[i]);
-				}
-				if (id && taxonomies[i].id === id) {
-					idMatched = taxonomies[i];
-				}
-			}
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
 
-			if (!idMatched && nameMatched.length === 0) {
-				console.log('ERROR: taxonomy does not exist');
-				return Promise.reject();
-			}
-			if (!idMatched && nameMatched.length > 1) {
-				console.log('ERROR: there are ' + nameMatched.length + ' taxonomies with name ' + name + ':');
-				var format = '   %-32s  %-12s  %-24s  %-12s %-s';
-				console.log(sprintf(format, 'Id', 'Abbreviation', 'Creation Date', 'Publishable', 'Status'));
-				nameMatched.forEach(function (tax) {
-					var availableStates = tax.availableStates;
-					var status = [];
-					for (var i = 0; i < availableStates.length; i++) {
-						status.push(availableStates[i].status + (availableStates[i].published ? '(published)' : ''));
+		serverRest.getTaxonomies({
+				server: server
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var taxonomies = result || [];
+				var nameMatched = [];
+				var idMatched;
+				for (var i = 0; i < taxonomies.length; i++) {
+					if (name && taxonomies[i].name === name) {
+						nameMatched.push(taxonomies[i]);
 					}
-					console.log(sprintf(format, tax.id, tax.shortName, tax.createdDate && tax.createdDate.value,
-						(tax.isPublishable ? '    √' : ''), status.join(', ')));
-				});
-				console.log('Please try again with the taxonomy Id');
-				return Promise.reject();
-			}
+					if (id && taxonomies[i].id === id) {
+						idMatched = taxonomies[i];
+					}
+				}
 
-			taxonomy = idMatched || nameMatched[0];
-			console.log(' - validate taxonomy ' + taxonomy.name + ' (id: ' + taxonomy.id + ')');
-			// console.log(taxonomy);
-			var availableStates = taxonomy.availableStates || [];
+				if (!idMatched && nameMatched.length === 0) {
+					console.log('ERROR: taxonomy does not exist');
+					return Promise.reject();
+				}
+				if (!idMatched && nameMatched.length > 1) {
+					console.log('ERROR: there are ' + nameMatched.length + ' taxonomies with name ' + name + ':');
+					var format = '   %-32s  %-12s  %-24s  %-12s %-s';
+					console.log(sprintf(format, 'Id', 'Abbreviation', 'Creation Date', 'Publishable', 'Status'));
+					nameMatched.forEach(function (tax) {
+						var availableStates = tax.availableStates;
+						var status = [];
+						for (var i = 0; i < availableStates.length; i++) {
+							status.push(availableStates[i].status + (availableStates[i].published ? '(published)' : ''));
+						}
+						console.log(sprintf(format, tax.id, tax.shortName, tax.createdDate && tax.createdDate.value,
+							(tax.isPublishable ? '    √' : ''), status.join(', ')));
+					});
+					console.log('Please try again with the taxonomy Id');
+					return Promise.reject();
+				}
 
-			var foundPublished = false;
-			var foundPromoted = false;
-			availableStates.forEach(function (state) {
-				if (state.status === 'promoted') {
-					foundPromoted = true;
-					if (state.published) {
+				taxonomy = idMatched || nameMatched[0];
+				console.log(' - validate taxonomy ' + taxonomy.name + ' (id: ' + taxonomy.id + ')');
+				// console.log(taxonomy);
+				var availableStates = taxonomy.availableStates || [];
+
+				var foundPublished = false;
+				var foundPromoted = false;
+				availableStates.forEach(function (state) {
+					if (state.status === 'promoted') {
+						foundPromoted = true;
+						if (state.published) {
+							foundPublished = true;
+						}
+					} else if (state.status === 'published') {
 						foundPublished = true;
 					}
-				} else if (state.status === 'published') {
-					foundPublished = true;
-				}
-			});
-
-			if (status === 'promoted' && !foundPromoted) {
-				console.log('ERROR: taxonomy ' + taxonomy.name + ' does not have promoted version');
-				return Promise.reject();
-			}
-			if (status === 'published' && !foundPublished) {
-				console.log('ERROR: taxonomy ' + taxonomy.name + ' has not been published yet');
-				return Promise.reject();
-			}
-
-			return serverRest.exportTaxonomy({
-				server: server,
-				id: taxonomy.id,
-				name: name,
-				status: status
-			});
-		})
-		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
-
-			console.log(' - taxonomy exported');
-
-			var downloadLink = result.downloadLink;
-			if (downloadLink) {
-				var options = {
-					url: downloadLink,
-					auth: serverUtils.getRequestAuth(server),
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					encoding: null
-				};
-				//
-				// Download the export zip
-				var request = serverUtils.getRequest();
-				request.get(options, function (err, response, body) {
-					if (err) {
-						console.log('ERROR: Failed to download');
-						console.log(err);
-						return Promise.reject();
-					}
-					if (response && response.statusCode === 200) {
-						var taxPath = path.join(taxonomiesSrcDir, name);
-						if (!fs.existsSync(taxPath)) {
-							fs.mkdirSync(taxPath);
-						}
-						var fileName = downloadLink.substring(downloadLink.lastIndexOf('/') + 1);
-						var filePath = path.join(taxPath, fileName);
-						console.log(' - download export file');
-						fs.writeFileSync(filePath, body);
-						console.log(' - save export to ' + filePath);
-
-						done(true);
-					} else {
-						console.log('ERROR: Failed to download, status=' + response.statusCode);
-						return Promise.reject();
-					}
 				});
-			} else {
-				console.log('ERROR: no download link');
-				return Promise.reject();
-			}
 
-		})
-		.catch((error) => {
-			if (error) {
-				console.log(error);
-			}
-			done();
-		});
+				if (status === 'promoted' && !foundPromoted) {
+					console.log('ERROR: taxonomy ' + taxonomy.name + ' does not have promoted version');
+					return Promise.reject();
+				}
+				if (status === 'published' && !foundPublished) {
+					console.log('ERROR: taxonomy ' + taxonomy.name + ' has not been published yet');
+					return Promise.reject();
+				}
+
+				return serverRest.exportTaxonomy({
+					server: server,
+					id: taxonomy.id,
+					name: name,
+					status: status
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - taxonomy exported');
+
+				var downloadLink = result.downloadLink;
+				if (downloadLink) {
+					var options = {
+						url: downloadLink,
+						auth: serverUtils.getRequestAuth(server),
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						encoding: null
+					};
+					//
+					// Download the export zip
+					var request = serverUtils.getRequest();
+					request.get(options, function (err, response, body) {
+						if (err) {
+							console.log('ERROR: Failed to download');
+							console.log(err);
+							return Promise.reject();
+						}
+						if (response && response.statusCode === 200) {
+							var taxPath = path.join(taxonomiesSrcDir, name);
+							if (!fs.existsSync(taxPath)) {
+								fs.mkdirSync(taxPath);
+							}
+							var fileName = downloadLink.substring(downloadLink.lastIndexOf('/') + 1);
+							var filePath = path.join(taxPath, fileName);
+							console.log(' - download export file');
+							fs.writeFileSync(filePath, body);
+							console.log(' - save export to ' + filePath);
+
+							done(true);
+						} else {
+							console.log('ERROR: Failed to download, status=' + response.statusCode);
+							return Promise.reject();
+						}
+					});
+				} else {
+					console.log('ERROR: no download link');
+					return Promise.reject();
+				}
+
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
 };
 
 module.exports.uploadTaxonomy = function (argv, done) {
@@ -208,7 +218,6 @@ module.exports.uploadTaxonomy = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
 
 	var name = argv.taxonomy;
 	var isFile = typeof argv.file === 'string' && argv.file.toLowerCase() === 'true';
@@ -292,92 +301,102 @@ module.exports.uploadTaxonomy = function (argv, done) {
 	var fileId;
 	var taxonomy;
 
-	serverRest.getTaxonomies({
-			server: server
-		})
-		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
+	var request = serverUtils.getRequest();
 
-			var taxonomies = result || [];
-			for (var i = 0; i < taxonomies.length; i++) {
-				if (taxonomies[i].id === taxonomyId) {
-					taxonomy = taxonomies[i];
-					break;
-				}
-			}
-			if (taxonomy && taxonomy.id) {
-				console.log(' - taxonomy ' + taxonomyName + ' (Id: ' + taxonomyId + ') exists');
-				// console.log(taxonomy);
-				var availableStates = taxonomy.availableStates || [];
-				var foundDraft = false;
-				availableStates.forEach(function (state) {
-					if (state.status === 'draft') {
-						foundDraft = true;
-					}
-				});
-				if (foundDraft && !createNew) {
-					console.log('ERROR: taxonomy ' + name + ' already has a draft version, promote it first');
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+		serverRest.getTaxonomies({
+				server: server
+			})
+			.then(function (result) {
+				if (!result || result.err) {
 					return Promise.reject();
 				}
-				if (createNew) {
-					console.log(' - will create new taxonomy ' + (newName || taxonomyName));
+
+				var taxonomies = result || [];
+				for (var i = 0; i < taxonomies.length; i++) {
+					if (taxonomies[i].id === taxonomyId) {
+						taxonomy = taxonomies[i];
+						break;
+					}
 				}
-			}
+				if (taxonomy && taxonomy.id) {
+					console.log(' - taxonomy ' + taxonomyName + ' (Id: ' + taxonomyId + ') exists');
+					// console.log(taxonomy);
+					var availableStates = taxonomy.availableStates || [];
+					var foundDraft = false;
+					availableStates.forEach(function (state) {
+						if (state.status === 'draft') {
+							foundDraft = true;
+						}
+					});
+					if (foundDraft && !createNew) {
+						console.log('ERROR: taxonomy ' + name + ' already has a draft version, promote it first');
+						return Promise.reject();
+					}
+					if (createNew) {
+						console.log(' - will create new taxonomy ' + (newName || taxonomyName));
+					}
+				}
 
-			return serverRest.createFile({
-				server: server,
-				parentID: 'self',
-				filename: jsonFile,
-				contents: fs.createReadStream(jsonPath)
+				return serverRest.createFile({
+					server: server,
+					parentID: 'self',
+					filename: jsonFile,
+					contents: fs.createReadStream(jsonPath)
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+				console.log(' - upload taxonomy file ' + jsonPath);
+				fileId = result.id;
+
+				return serverRest.importTaxonomy({
+					server: server,
+					fileId: fileId,
+					name: taxonomyName,
+					isNew: createNew || !taxonomy,
+					hasNewIds: createNew,
+					taxonomy: createNew ? {
+						name: newName || taxonomyName,
+						shortName: newAbbr || taxonomyAbbr,
+						description: newDesc || taxonomyDesc
+					} : {}
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				if (createNew || !taxonomy) {
+					console.log(' - taxonomy ' + (newName || taxonomyName) + ' created');
+				} else {
+					console.log(' - new draft created for ' + taxonomy.name);
+				}
+
+				return serverRest.deleteFile({
+					server: server,
+					fFileGUID: fileId
+				});
+			})
+			.then(function (result) {
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
 			});
-		})
-		.then(function (result) {
-			if (!result || result.err || !result.id) {
-				return Promise.reject();
-			}
-			console.log(' - upload taxonomy file ' + jsonPath);
-			fileId = result.id;
-
-			return serverRest.importTaxonomy({
-				server: server,
-				fileId: fileId,
-				name: taxonomyName,
-				isNew: createNew || !taxonomy,
-				hasNewIds: createNew,
-				taxonomy: createNew ? {
-					name: newName || taxonomyName,
-					shortName: newAbbr || taxonomyAbbr,
-					description: newDesc || taxonomyDesc
-				} : {}
-			});
-		})
-		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
-
-			if (createNew || !taxonomy) {
-				console.log(' - taxonomy ' + (newName || taxonomyName) + ' created');
-			} else {
-				console.log(' - new draft created for ' + taxonomy.name);
-			}
-
-			return serverRest.deleteFile({
-				server: server,
-				fFileGUID: fileId
-			});
-		})
-		.then(function (result) {
-			done(true);
-		})
-		.catch((error) => {
-			if (error) {
-				console.log(error);
-			}
-			done();
-		});
+	});
 
 };
 
@@ -396,7 +415,6 @@ module.exports.controlTaxonomy = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
 
 	var action = argv.action;
 	var name = argv.name;
@@ -410,210 +428,221 @@ module.exports.controlTaxonomy = function (argv, done) {
 	var channels2 = [];
 	var publishedChannelNames = [];
 
-	serverRest.getTaxonomies({
-			server: server
-		})
-		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
+	var request = serverUtils.getRequest();
 
-			var taxonomies = result || [];
-			var nameMatched = [];
-			var idMatched;
-			for (var i = 0; i < taxonomies.length; i++) {
-				if (name && taxonomies[i].name === name) {
-					nameMatched.push(taxonomies[i]);
-				}
-				if (id && taxonomies[i].id === id) {
-					idMatched = taxonomies[i];
-				}
-			}
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
 
-			if (!idMatched && nameMatched.length === 0) {
-				console.log('ERROR: taxonomy does not exist');
-				return Promise.reject();
-			}
-			if (!idMatched && nameMatched.length > 1) {
-				console.log('ERROR: there are ' + nameMatched.length + ' taxonomies with name ' + name + ':');
-				var format = '   %-32s  %-12s  %-24s  %-12s %-s';
-				console.log(sprintf(format, 'Id', 'Abbreviation', 'Creation Date', 'Publishable', 'Status'));
-				nameMatched.forEach(function (tax) {
-					// console.log(tax);
-					var availableStates = tax.availableStates;
-					var status = [];
-					for (var i = 0; i < availableStates.length; i++) {
-						status.push(availableStates[i].status + (availableStates[i].published ? '(published)' : ''));
+		serverRest.getTaxonomies({
+				server: server
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var taxonomies = result || [];
+				var nameMatched = [];
+				var idMatched;
+				for (var i = 0; i < taxonomies.length; i++) {
+					if (name && taxonomies[i].name === name) {
+						nameMatched.push(taxonomies[i]);
 					}
-					console.log(sprintf(format, tax.id, tax.shortName, tax.createdDate && tax.createdDate.value,
-						(tax.isPublishable ? '    √' : ''), status.join(', ')));
-				});
-				console.log('Please try again with the taxonomy Id');
-				return Promise.reject();
-			}
-
-			taxonomy = idMatched || nameMatched[0];
-			console.log(' - validate taxonomy ' + taxonomy.name + ' (id: ' + taxonomy.id + ')');
-			// console.log(taxonomy);
-
-			var availableStates = taxonomy.availableStates || [];
-
-			var foundDraft = false;
-			var foundPromoted = false;
-			availableStates.forEach(function (state) {
-				if (state.status === 'draft') {
-					foundDraft = true;
-				}
-				if (state.status === 'promoted') {
-					foundPromoted = true;
-				}
-			});
-			if (action === 'promote') {
-				if (!foundDraft) {
-					console.log('ERROR: taxonomy ' + taxonomy.name + ' does not have draft version');
-					return Promise.reject();
-				}
-			} else if (action === 'publish') {
-				if (!foundPromoted) {
-					console.log('ERROR: taxonomy ' + taxonomy.name + ' does not have promoted version');
-					return Promise.reject();
-				}
-				if (!taxonomy.isPublishable) {
-					console.log('ERROR: taxonomy ' + taxonomy.name + ' is not publishable');
-					return Promise.reject();
-				}
-			} else if (action === 'unpublish') {
-				if (!taxonomy.isPublishable) {
-					console.log('ERROR: taxonomy ' + taxonomy.name + ' is not publishable');
-					return Promise.reject();
-				}
-				if (!taxonomy.publishedChannels || taxonomy.publishedChannels.length === 0) {
-					console.log('ERROR: taxonomy ' + taxonomy.name + ' is not currently published');
-					return Promise.reject();
-				}
-			}
-
-			var channelPromises = [];
-			if (channelRequired) {
-				channelPromises.push(serverRest.getChannels({
-					server: server
-				}));
-			}
-
-			return Promise.all(channelPromises);
-		})
-		.then(function (results) {
-			if (channelRequired) {
-				var allChannels = results.length > 0 ? results[0] : [];
-				for (var i = 0; i < channelNames.length; i++) {
-					var found = false;
-					for (var j = 0; j < allChannels.length; j++) {
-						if (channelNames[i].toLowerCase() === allChannels[j].name.toLowerCase()) {
-							found = true;
-							channels.push({
-								id: allChannels[j].id,
-								name: allChannels[j].name
-							});
-							break;
-						}
-					}
-					if (!found) {
-						console.log('ERROR: channel ' + channelNames[i] + ' does not exist');
+					if (id && taxonomies[i].id === id) {
+						idMatched = taxonomies[i];
 					}
 				}
 
-				if (channels.length === 0) {
-					// console.log('ERROR: no valid channel is defined');
+				if (!idMatched && nameMatched.length === 0) {
+					console.log('ERROR: taxonomy does not exist');
 					return Promise.reject();
 				}
-
-				var publishedChannels = taxonomy.publishedChannels || [];
-
-				if (action === 'publish') {
-					channels.forEach(function (channel) {
-						var alreadyPublished = false;
-						for (var i = 0; i < publishedChannels.length; i++) {
-							if (channel.id === publishedChannels[i].id) {
-								alreadyPublished = true;
-								break;
-							}
+				if (!idMatched && nameMatched.length > 1) {
+					console.log('ERROR: there are ' + nameMatched.length + ' taxonomies with name ' + name + ':');
+					var format = '   %-32s  %-12s  %-24s  %-12s %-s';
+					console.log(sprintf(format, 'Id', 'Abbreviation', 'Creation Date', 'Publishable', 'Status'));
+					nameMatched.forEach(function (tax) {
+						// console.log(tax);
+						var availableStates = tax.availableStates;
+						var status = [];
+						for (var i = 0; i < availableStates.length; i++) {
+							status.push(availableStates[i].status + (availableStates[i].published ? '(published)' : ''));
 						}
-
-						var promotedPublished = true;
-						for (i = 0; i < taxonomy.availableStates.length; i++) {
-							if (taxonomy.availableStates[i].status === 'promoted' && !taxonomy.availableStates[i].published) {
-								promotedPublished = false;
-								break;
-							}
-						}
-						if (alreadyPublished && promotedPublished) {
-							console.log('ERROR: the taxonomy is already published to channel ' + channel.name +
-								'. A new promoted version is required to publish it again');
-						} else {
-							channels2.push(channel);
-							publishedChannelNames.push(channel.name);
-						}
+						console.log(sprintf(format, tax.id, tax.shortName, tax.createdDate && tax.createdDate.value,
+							(tax.isPublishable ? '    √' : ''), status.join(', ')));
 					});
+					console.log('Please try again with the taxonomy Id');
+					return Promise.reject();
+				}
 
-					if (channels2.length === 0) {
-						// console.log('ERROR: no channel to publish');
+				taxonomy = idMatched || nameMatched[0];
+				console.log(' - validate taxonomy ' + taxonomy.name + ' (id: ' + taxonomy.id + ')');
+				// console.log(taxonomy);
+
+				var availableStates = taxonomy.availableStates || [];
+
+				var foundDraft = false;
+				var foundPromoted = false;
+				availableStates.forEach(function (state) {
+					if (state.status === 'draft') {
+						foundDraft = true;
+					}
+					if (state.status === 'promoted') {
+						foundPromoted = true;
+					}
+				});
+				if (action === 'promote') {
+					if (!foundDraft) {
+						console.log('ERROR: taxonomy ' + taxonomy.name + ' does not have draft version');
+						return Promise.reject();
+					}
+				} else if (action === 'publish') {
+					if (!foundPromoted) {
+						console.log('ERROR: taxonomy ' + taxonomy.name + ' does not have promoted version');
+						return Promise.reject();
+					}
+					if (!taxonomy.isPublishable) {
+						console.log('ERROR: taxonomy ' + taxonomy.name + ' is not publishable');
 						return Promise.reject();
 					}
 				} else if (action === 'unpublish') {
-					channels.forEach(function (channel) {
-						var alreadyPublished = false;
-						for (var i = 0; i < publishedChannels.length; i++) {
-							if (channel.id === publishedChannels[i].id) {
-								alreadyPublished = true;
-								break;
-							}
-						}
-						if (!alreadyPublished) {
-							console.log('ERROR: the taxonomy has not been published to channel ' + channel.name);
-						} else {
-							channels2.push(channel);
-							publishedChannelNames.push(channel.name);
-						}
-					});
-
-					if (channels2.length === 0) {
-						// console.log('ERROR: no channel to publish');
+					if (!taxonomy.isPublishable) {
+						console.log('ERROR: taxonomy ' + taxonomy.name + ' is not publishable');
+						return Promise.reject();
+					}
+					if (!taxonomy.publishedChannels || taxonomy.publishedChannels.length === 0) {
+						console.log('ERROR: taxonomy ' + taxonomy.name + ' is not currently published');
 						return Promise.reject();
 					}
 				}
 
-				console.log(' - verify channels');
-			}
+				var channelPromises = [];
+				if (channelRequired) {
+					channelPromises.push(serverRest.getChannels({
+						server: server
+					}));
+				}
 
-			return serverRest.controlTaxonomy({
-				server: server,
-				id: taxonomy.id,
-				name: name,
-				action: action,
-				isPublishable: isPublishable,
-				channels: channels2
+				return Promise.all(channelPromises);
+			})
+			.then(function (results) {
+				if (channelRequired) {
+					var allChannels = results.length > 0 ? results[0] : [];
+					for (var i = 0; i < channelNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allChannels.length; j++) {
+							if (channelNames[i].toLowerCase() === allChannels[j].name.toLowerCase()) {
+								found = true;
+								channels.push({
+									id: allChannels[j].id,
+									name: allChannels[j].name
+								});
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: channel ' + channelNames[i] + ' does not exist');
+						}
+					}
+
+					if (channels.length === 0) {
+						// console.log('ERROR: no valid channel is defined');
+						return Promise.reject();
+					}
+
+					var publishedChannels = taxonomy.publishedChannels || [];
+
+					if (action === 'publish') {
+						channels.forEach(function (channel) {
+							var alreadyPublished = false;
+							for (var i = 0; i < publishedChannels.length; i++) {
+								if (channel.id === publishedChannels[i].id) {
+									alreadyPublished = true;
+									break;
+								}
+							}
+
+							var promotedPublished = true;
+							for (i = 0; i < taxonomy.availableStates.length; i++) {
+								if (taxonomy.availableStates[i].status === 'promoted' && !taxonomy.availableStates[i].published) {
+									promotedPublished = false;
+									break;
+								}
+							}
+							if (alreadyPublished && promotedPublished) {
+								console.log('ERROR: the taxonomy is already published to channel ' + channel.name +
+									'. A new promoted version is required to publish it again');
+							} else {
+								channels2.push(channel);
+								publishedChannelNames.push(channel.name);
+							}
+						});
+
+						if (channels2.length === 0) {
+							// console.log('ERROR: no channel to publish');
+							return Promise.reject();
+						}
+					} else if (action === 'unpublish') {
+						channels.forEach(function (channel) {
+							var alreadyPublished = false;
+							for (var i = 0; i < publishedChannels.length; i++) {
+								if (channel.id === publishedChannels[i].id) {
+									alreadyPublished = true;
+									break;
+								}
+							}
+							if (!alreadyPublished) {
+								console.log('ERROR: the taxonomy has not been published to channel ' + channel.name);
+							} else {
+								channels2.push(channel);
+								publishedChannelNames.push(channel.name);
+							}
+						});
+
+						if (channels2.length === 0) {
+							// console.log('ERROR: no channel to publish');
+							return Promise.reject();
+						}
+					}
+
+					console.log(' - verify channels');
+				}
+
+				return serverRest.controlTaxonomy({
+					server: server,
+					id: taxonomy.id,
+					name: name,
+					action: action,
+					isPublishable: isPublishable,
+					channels: channels2
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				if (action === 'publish') {
+					console.log(' - taxonomy ' + taxonomy.name + ' published to channel ' + publishedChannelNames.join(', '));
+				} else if (action === 'unpublish') {
+					console.log(' - taxonomy ' + taxonomy.name + ' unpublished from channel ' + publishedChannelNames.join(', '));
+				} else if (action === 'promote') {
+					console.log(' - taxonomy ' + taxonomy.name + ' promoted');
+				}
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
 			});
-
-		})
-		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
-
-			if (action === 'publish') {
-				console.log(' - taxonomy ' + taxonomy.name + ' published to channel ' + publishedChannelNames.join(', '));
-			} else if (action === 'unpublish') {
-				console.log(' - taxonomy ' + taxonomy.name + ' unpublished from channel ' + publishedChannelNames.join(', '));
-			} else if (action === 'promote') {
-				console.log(' - taxonomy ' + taxonomy.name + ' promoted');
-			}
-
-			done(true);
-		})
-		.catch((error) => {
-			if (error) {
-				console.log(error);
-			}
-			done();
-		});
+	});
 };

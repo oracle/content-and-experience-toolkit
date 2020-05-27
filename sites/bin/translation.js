@@ -1731,90 +1731,100 @@ module.exports.downloadTranslationJob = function (argv, done) {
 		fs.mkdirSync(destdir);
 	}
 
-	// verify the name
-	var jobPromises = [_getTranslationJobs(server, 'assets'), _getTranslationJobs(server, 'sites')];
-	Promise.all(jobPromises).then(function (values) {
-		var job;
-		for (var i = 0; i < values.length; i++) {
-			for (var j = 0; j < values[i].jobs.length; j++) {
-				if (values[i].jobs[j].name === jobName) {
-					job = values[i].jobs[j];
+	var request = serverUtils.getRequest();
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		// verify the name
+		var jobPromises = [_getTranslationJobs(server, 'assets'), _getTranslationJobs(server, 'sites')];
+		Promise.all(jobPromises).then(function (values) {
+			var job;
+			for (var i = 0; i < values.length; i++) {
+				for (var j = 0; j < values[i].jobs.length; j++) {
+					if (values[i].jobs[j].name === jobName) {
+						job = values[i].jobs[j];
+						break;
+					}
+				}
+				if (job) {
 					break;
 				}
 			}
-			if (job) {
-				break;
-			}
-		}
-		if (!job) {
-			console.log('ERROR: job ' + jobName + ' does not exist');
-			done();
-			return;
-		}
-		if (job.status === 'PREPARING') {
-			console.log(' - the trabslation job is under preparing, try to download later');
-			done();
-			return;
-		}
-		// console.log(job);
-		var fFileGUID = job.fFileGUID;
-		var downloadPromise = serverRest.downloadFile({
-			server: server,
-			fFileGUID: job.fFileGUID
-		});
-		downloadPromise.then(function (result) {
-			if (result.err) {
+			if (!job) {
+				console.log('ERROR: job ' + jobName + ' does not exist');
 				done();
 				return;
 			}
-			var fileName = jobName + '.zip';
-			var filePath = path.join(destdir, fileName);
-			fs.writeFileSync(filePath, result.data);
-			console.log(' - translation job downloaded to ' + filePath);
-			if (job.status === 'READY') {
-				// change to INPROGRESS
-				var tokenPromise = serverUtils.getCaasCSRFToken(server);
-				tokenPromise
-					.then(function (result) {
-						if (result.err) {
-							done();
-							return;
-						}
-						var token = result && result.token;
-						// console.log('token: ' + token);
-						return _updateTranslationJobStatus(server, token, job, 'INPROGRESS');
-					})
-					.then(function (result) {
-						if (!result.err) {
-							console.log(' - update the translation job status to INPROGRESS');
-						}
-
-						// import into local
-						var importPromise = _importJob(filePath);
-						importPromise.then(function (result) {
-							if (result && result.err) {
-								done();
-							} else {
-								done(true);
-							}
-						});
-					});
-			} else {
-				// no need to change status
-
-				// import into local
-				var importPromise = _importJob(filePath);
-				importPromise.then(function (result) {
-					if (result && result.err) {
-						done();
-					} else {
-						done(true);
-					}
-				});
+			if (job.status === 'PREPARING') {
+				console.log(' - the trabslation job is under preparing, try to download later');
+				done();
+				return;
 			}
-		}); // job zip downloaded
+			// console.log(job);
+			var fFileGUID = job.fFileGUID;
+			var downloadPromise = serverRest.downloadFile({
+				server: server,
+				fFileGUID: job.fFileGUID
+			});
+			downloadPromise.then(function (result) {
+				if (result.err) {
+					done();
+					return;
+				}
+				var fileName = jobName + '.zip';
+				var filePath = path.join(destdir, fileName);
+				fs.writeFileSync(filePath, result.data);
+				console.log(' - translation job downloaded to ' + filePath);
+				if (job.status === 'READY') {
+					// change to INPROGRESS
+					var tokenPromise = serverUtils.getCaasCSRFToken(server);
+					tokenPromise
+						.then(function (result) {
+							if (result.err) {
+								done();
+								return;
+							}
+							var token = result && result.token;
+							// console.log('token: ' + token);
+							return _updateTranslationJobStatus(server, token, job, 'INPROGRESS');
+						})
+						.then(function (result) {
+							if (!result.err) {
+								console.log(' - update the translation job status to INPROGRESS');
+							}
 
-	}); // query jobs
+							// import into local
+							var importPromise = _importJob(filePath);
+							importPromise.then(function (result) {
+								if (result && result.err) {
+									done();
+								} else {
+									done(true);
+								}
+							});
+						});
+				} else {
+					// no need to change status
+
+					// import into local
+					var importPromise = _importJob(filePath);
+					importPromise.then(function (result) {
+						if (result && result.err) {
+							done();
+						} else {
+							done(true);
+						}
+					});
+				}
+			}); // job zip downloaded
+
+		}); // query jobs
+	});
 };
 
 /**

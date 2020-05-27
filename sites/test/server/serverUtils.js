@@ -4067,6 +4067,103 @@ var _browseThemesOnServer = function (request, server, params) {
 
 
 /**
+ * Get folder info from server using IdcService
+ */
+module.exports.getFolderInfoOnServer = function (request, server, folderId) {
+	
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var auth = _getRequestAuth(server);
+
+		var url = server.url + '/documents/web?IdcService=FLD_INFO&item=fFolderGUID:' + folderId + '&doRetrieveMetadata=1';
+		
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth,
+		};
+		if (server.cookies) {
+			options.headers = {
+				Cookie: server.cookies
+			};
+		}
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get folder info');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get folder info' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.FolderInfo && data.ResultSets.FolderInfo.fields || [];
+			var rows = data.ResultSets && data.ResultSets.FolderInfo && data.ResultSets.FolderInfo.rows;
+			var folders = [];
+			rows.forEach(function (row) {
+				folders.push({});
+			});
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				for (var j = 0; j < rows.length; j++) {
+					folders[j][attr] = rows[j][i];
+				}
+			}
+
+			// add metadata
+			var mFields = data.ResultSets && data.ResultSets.dCommonSCSMetaCollection && data.ResultSets.dCommonSCSMetaCollection.fields || [];
+			var mRows = data.ResultSets && data.ResultSets.dCommonSCSMetaCollection && data.ResultSets.dCommonSCSMetaCollection.rows || [];
+			var appMetadata = [];
+			(function () {
+				mRows.forEach(function (row) {
+					appMetadata.push({});
+				});
+				for (var i = 0; i < mFields.length; i++) {
+					var attr = mFields[i].name;
+					for (var j = 0; j < mRows.length; j++) {
+						appMetadata[j][attr] = mRows[j][i];
+					}
+				}
+				folders.forEach(function (folder) {
+					for (var j = 0; j < appMetadata.length; j++) {
+						if (folder.fFolderGUID === appMetadata[j].dIdentifier) {
+							Object.assign(folder, appMetadata[j]);
+							break;
+						}
+					}
+				});
+			})();
+			
+			return resolve({
+				folderInfo: folders[0]
+			});
+		});
+	});
+};
+
+/**
  * Get collections from server using IdcService (IC)
  */
 module.exports.browseCollectionsOnServer = function (request, server, params) {

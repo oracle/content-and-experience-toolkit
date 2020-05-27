@@ -204,10 +204,17 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 				})
 				.then(function (result) {
 					console.log(' - download theme files');
+
+					return serverUtils.getFolderInfoOnServer(request, server, themeId);
+
+				}).then(function (result) {
+					// get the theme identity in folde info
+					var itemGUID = result && result.folderInfo && result.folderInfo.xScsItemGUID || themeId;
+				
 					// create _folder.json for theme
 					var folderJson = {
 						themeName: themeName,
-						itemGUID: themeId
+						itemGUID: itemGUID
 					};
 					fs.writeFileSync(path.join(themeSrcPath, '_folder.json'), JSON.stringify(folderJson));
 
@@ -1599,6 +1606,7 @@ module.exports.deleteTemplate = function (argv, done) {
 													}
 
 													templateGUIDInTrash = result.folderGUIDInTrash;
+													console.log(' - deleting template from trash');
 													return _deleteFromTrash(request, localhost);
 												})
 												.then(function (result) {
