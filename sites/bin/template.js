@@ -158,7 +158,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						folder: tempSrcPath
 					};
 					console.log(' - downloading site files');
-					var excludeFolder = '/publish';
+					var excludeFolder = ['/publish', '/variants'];
 					return documentUtils.downloadFolder(downloadArgv, server, true, false, excludeFolder);
 				})
 				.then(function (result) {
@@ -2081,7 +2081,7 @@ var unzipTemplateUtil = function (argv, tempName, tempPath, useNewGUID) {
  * Private
  * Export a template
  */
-var _exportTemplate = function (name, optimize, excludeContentTemplate, extraComponents) {
+var _exportTemplate = function (name, optimize, excludeContentTemplate, extraComponents, excludeSiteContent) {
 	return new Promise(function (resolve, reject) {
 		var tempSrcDir = path.join(templatesSrcDir, name),
 			tempBuildDir = path.join(templatesBuildDir, name);
@@ -2104,6 +2104,14 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 			fse.removeSync(metainfbuilddir);
 		}
 		*/
+
+		if (excludeSiteContent) {
+			var siteContentBuidDir = path.join(tempBuildDir, 'template', 'content');
+			if (fs.existsSync(siteContentBuidDir)) {
+				console.log(' - exclude site content');
+				fse.removeSync(siteContentBuidDir);
+			}
+		}
 
 		// get the used theme
 		var siteinfofile = path.join(tempSrcDir, 'siteinfo.json'),
@@ -2271,7 +2279,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 
 		// remove the content directory if it exists and should be excluded
 		if (excludeContentTemplate && fs.existsSync(contentdir)) {
-			console.log(' - excluding content template');
+			console.log(' - exclude content template');
 			fse.removeSync(contentdir);
 		}
 
@@ -2302,9 +2310,9 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 	});
 };
 
-var _exportTemplateUtil = function (argv, name, optimize, excludeContentTemplate, extraComponents) {
+var _exportTemplateUtil = function (argv, name, optimize, excludeContentTemplate, extraComponents, excludeSiteContent) {
 	verifyRun(argv);
-	return _exportTemplate(name, optimize, excludeContentTemplate, extraComponents);
+	return _exportTemplate(name, optimize, excludeContentTemplate, extraComponents, excludeSiteContent);
 };
 
 /**

@@ -11,6 +11,7 @@
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
+	documentUtils = require('./document.js').utils,
 	extract = require('extract-zip'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
@@ -673,7 +674,7 @@ var _uploadContentFromZipFile = function (args) {
 				return serverUtils.getCaasCSRFToken(server);
 			})
 			.then(function (result) {
-				if (result.err) {
+				if (!result || result.err) {
 					return resolve(result);
 				}
 				var token = result && result.token;
@@ -697,10 +698,20 @@ var _uploadContentFromZipFile = function (args) {
 						importSuccess = true;
 					}
 					// delete the zip file
+					
+					var deleteArgv = {
+						file: contentfilename,
+						permanent: 'true'
+					};
+					var deleteFilePromise = documentUtils.deleteFile(deleteArgv, server, false);
+					
+					/*
 					var deleteFilePromise = serverRest.deleteFile({
 						server: server,
 						fFileGUID: contentZipFileId
 					});
+					*/
+
 					deleteFilePromise.then(function (result) {
 						// all done
 						return importSuccess ? resolve({}) : resolve({

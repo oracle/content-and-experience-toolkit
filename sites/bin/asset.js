@@ -1466,7 +1466,7 @@ module.exports.listAssets = function (argv, done) {
 			return serverRest.queryItems({
 				server: server,
 				q: q,
-				fields: 'name,status'
+				fields: 'name,status,slug'
 			});
 		})
 		.then(function (result) {
@@ -1481,6 +1481,7 @@ module.exports.listAssets = function (argv, done) {
 
 			if (total > 0) {
 				_displayAssets(repository, collection, channel, items);
+				console.log(' - total items: ' + total);
 			}
 
 			done(true);
@@ -1550,6 +1551,7 @@ var _displayAssets = function (repository, collection, channel, items) {
 
 	var format2 = '   %-38s %-38s %-11s %-s';
 	console.log(sprintf(format2, 'Type', 'Id', 'Status', 'Name'));
+	
 	for (var i = 0; i < list.length; i++) {
 		for (var j = 0; j < list[i].items.length; j++) {
 			var item = list[i].items[j];
@@ -1557,4 +1559,11 @@ var _displayAssets = function (repository, collection, channel, items) {
 			console.log(sprintf(format2, typeLabel, item.id, item.status, item.name));
 		}
 	}
+/*
+	items.forEach(function (item) {
+		if (item.slug && item.slug.indexOf('/') >= 0) {
+			console.log(sprintf('   %-38s %-38s  |  %-s', item.id, item.name, item.slug));
+		}
+	});
+	*/
 };

@@ -193,11 +193,14 @@ module.exports.deleteFolder = function (args) {
 };
 
 // Get child items with the parent folder
-var _getChildItems = function (server, parentID, limit) {
+var _getChildItems = function (server, parentID, limit, offset) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/documents/api/1.2/folders/' + parentID + '/items';
 		if (limit) {
 			url = url + '?limit=' + limit;
+		}
+		if (offset) {
+			url = url + '&offset=' + offset;
 		}
 		var options = {
 			method: 'GET',
@@ -239,7 +242,7 @@ var _getChildItems = function (server, parentID, limit) {
  * @returns {array} The array of data object returned by the server.
  */
 module.exports.getChildItems = function (args) {
-	return _getChildItems(args.server, args.parentID, args.limit);
+	return _getChildItems(args.server, args.parentID, args.limit, args.offset);
 };
 
 // Find file by name with the parent folder
@@ -347,7 +350,7 @@ var _createFile = function (server, parentID, filename, contents) {
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
 			} else {
-				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to create file ' + filename + ' : ' + msg);
 				resolve({
 					err: 'err'

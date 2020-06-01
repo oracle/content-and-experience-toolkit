@@ -651,6 +651,10 @@ module.exports.transferSite = function (argv, done) {
 	var excludecontent = typeof argv.excludecontent === 'string' && argv.excludecontent.toLowerCase() === 'true';
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
 
+	// when transfer site without content, the site content won't be included in the
+	// site template zip, they will be uploaded to site content folder after site is created
+	var excludeSiteContent = excludecontent;
+
 	var siteName = argv.name;
 	var repositoryName = argv.repository;
 	var localizationPolicyName = argv.localizationPolicy;
@@ -913,7 +917,7 @@ module.exports.transferSite = function (argv, done) {
 					})
 					.then(function (results) {
 
-						var createTemplateZipPromises = excludecontent ? [templateUtils.zipTemplate(argv, templateName, false, false, contentLayoutNames)] : [];
+						var createTemplateZipPromises = excludecontent ? [templateUtils.zipTemplate(argv, templateName, false, false, contentLayoutNames, excludeSiteContent)] : [];
 
 						return Promise.all(createTemplateZipPromises);
 					})
@@ -963,7 +967,7 @@ module.exports.transferSite = function (argv, done) {
 
 						var importTemplateAgainPromises = [];
 						if (excludecontent && creatNewSite) {
-							importTemplateAgainPromises.push(_uploadTemplateWithoutContent(argv, templateName, destServer, destdir));
+							importTemplateAgainPromises.push(_uploadTemplateWithoutContent(argv, templateName, destServer, destdir, excludeSiteContent));
 						}
 
 						return Promise.all(importTemplateAgainPromises);
@@ -1045,6 +1049,25 @@ module.exports.transferSite = function (argv, done) {
 						return Promise.all(deleteTemplatePromises);
 					})
 					.then(function (results) {
+
+						// Now upload site content after the site is created in transfer site wo content mode
+						var uploadSiteContentPromises = [];
+						if (excludeSiteContent && creatNewSite) {
+							var siteContentPath = path.join(templatesSrcDir, templateName, 'content');
+							var uploadArgv = {
+								path: siteContentPath,
+								folder: 'site:' + siteName
+							};
+							uploadSiteContentPromises.push(documentUtils.uploadFolder(uploadArgv, destServer));
+						}
+
+						return Promise.all(uploadSiteContentPromises);
+
+					})
+					.then(function (results) {
+
+						// Unzip the site template file from server in transfer site w content mode and update mode
+						// files will be used by updateSite
 						var unzipTemplatePromises = [];
 						if (!creatNewSite && !excludecontent) {
 							unzipTemplatePromises.push(templateUtils.unzipTemplate(templateName, templatePath, false));
@@ -1134,11 +1157,12 @@ module.exports.transferSite = function (argv, done) {
 		});
 };
 
-var _uploadTemplateWithoutContent = function (argv, templateName, destServer, destdir) {
+
+var _uploadTemplateWithoutContent = function (argv, templateName, destServer, destdir, excludeSiteContent) {
 	return new Promise(function (resolve, reject) {
 		var fileName = templateName + '.zip';
 		var templatePath = path.join(destdir, fileName);
-		templateUtils.zipTemplate(argv, templateName, false, true)
+		templateUtils.zipTemplate(argv, templateName, false, true, [], excludeSiteContent)
 			.then(function (result) {
 				// upload template file to destination server
 				return serverRest.createFile({

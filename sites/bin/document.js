@@ -901,7 +901,7 @@ var _readFile = function (server, fFileGUID, fileName, folderPath) {
 					data: body
 				});
 			} else {
-				console.log('ERROR: failed to get file ' + fileName + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.log('ERROR: failed to get file ' + fileName + ' : ' + (response ? (response.statusMessage + ' ' + response.statusCode) : ''));
 				resolve({});
 			}
 
@@ -1117,7 +1117,7 @@ var _readAllFiles = function (server, files) {
 		var total = files.length;
 		console.log(' - total number of files: ' + total);
 		var groups = [];
-		var limit = 16;
+		var limit = 10;
 		var start, end;
 		for (var i = 0; i < total / limit; i++) {
 			start = i * limit;
@@ -1172,40 +1172,74 @@ var _readAllFiles = function (server, files) {
 var _downloadFolderWithId = function (server, parentId, parentPath, excludeFolder) {
 	// console.log(' - folder: id=' + parentId + ' path=' + parentPath);
 	return new Promise(function (resolve, reject) {
-		serverRest.getChildItems({
-				server: server,
-				parentID: parentId,
-				limit: 9999
-			})
-			.then(function (result) {
-				if (!result) {
-					resolve();
+		var doQuery = true;
+		if (excludeFolder && excludeFolder.length > 0) {
+			for (var j = 0; j < excludeFolder.length; j++) {
+				if (excludeFolder[j] && parentPath.indexOf(excludeFolder[j]) === 0) {
+					doQuery = false;
+					break;
 				}
+			}
+		}
+		if (doQuery) {
 
-				var items = result && result.items || [];
-				var subfolderPromises = [];
-				for (var i = 0; i < items.length; i++) {
-					if (items[i].type === 'file') {
-						// console.log(' - file: id=' + items[i].id + ' path=' + parentPath + '/' + items[i].name);
-						if (excludeFolder && parentPath.indexOf(excludeFolder) === 0) {
-							// excluded
-							// console.log(' - exclude: ' + parentPath + '/' + items[i].name);
-						} else {
+			var items;
+			serverRest.getChildItems({
+					server: server,
+					parentID: parentId,
+					limit: 10000
+				})
+				.then(function (result) {
+					if (!result) {
+						resolve();
+					}
+
+					items = result && result.items || [];
+
+					var queryAgainPromises = [];
+					if (result.hasMore && result.hasMore === '1') {
+						queryAgainPromises.push(serverRest.getChildItems({
+							server: server,
+							parentID: parentId,
+							limit: 10000,
+							offset: 10000
+						}));
+					}
+
+					return Promise.all(queryAgainPromises);
+
+				})
+				.then(function (results) {
+					var result = results && results[0];
+					var items2 = result && result.items || [];
+
+					if (items2.length > 0) {
+						items = items.concat(items2);
+					}
+
+					var subfolderPromises = [];
+					for (var i = 0; i < items.length; i++) {
+						if (items[i].type === 'file') {
+							// console.log(' - file: id=' + items[i].id + ' path=' + parentPath + '/' + items[i].name);
 							_files.push({
 								id: items[i].id,
 								name: items[i].name,
 								folderPath: parentPath
 							});
+						} else {
+							subfolderPromises.push(_downloadFolderWithId(server, items[i].id, parentPath + '/' + items[i].name, excludeFolder));
 						}
-					} else {
-						subfolderPromises.push(_downloadFolderWithId(server, items[i].id, parentPath + '/' + items[i].name, excludeFolder));
 					}
-				}
-				return Promise.all(subfolderPromises);
-			})
-			.then(function (results) {
-				resolve(results);
-			});
+					return Promise.all(subfolderPromises);
+
+				})
+				.then(function (results) {
+					resolve(results);
+				});
+		} else {
+			console.log(' - exclude ' + parentPath);
+			resolve({});
+		}
 	});
 };
 
@@ -1331,6 +1365,7 @@ var _uploadFolder = function (argv, server) {
 				}
 
 				var files = paths.files;
+				console.log(' - total files: ' + files.length);
 				// group files under the same folder
 				for (var i = 0; i < files.length; i++) {
 					var src = files[i];
@@ -1434,6 +1469,7 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 							folders2.pop();
 							var folderStr = rootParentFolderLabel + '/' + (folders2.length > 0 ? folders2.join('/') : '');
 							console.log(sprintf(format, 'Folder', folderStr + (folderStr.endsWith('/') ? '' : '/') + parentFolder.name));
+							/*
 							var filePromises = [];
 							for (var i = 0; i < param.files.length; i++) {
 								var filePath = param.files[i];
@@ -1455,6 +1491,8 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 									}
 								}
 							});
+							*/
+							return _createAllFiles(server, rootParentFolderLabel, folders, parentFolder, param.files);
 						}
 					});
 				});
@@ -1469,6 +1507,70 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 	});
 };
 
+var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFolder, files) {
+	return new Promise(function (resolve, reject) {
+		var total = files.length;
+		// console.log(' - total number of files to create: ' + total);
+		var groups = [];
+		var limit = 16;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+		// console.log(' - total number of groups: ' + groups.length);
+
+		var doWriteFile = groups.reduce(function (filePromise, param) {
+				return filePromise.then(function (result) {
+					var filePromises = [];
+					for (var i = param.start; i <= param.end; i++) {
+						var filePath = files[i];
+						var fileName = filePath.substring(filePath.lastIndexOf(path.sep) + 1);
+
+						filePromises.push(serverRest.createFile({
+							server: server,
+							parentID: parentFolder.id,
+							filename: fileName,
+							contents: fs.createReadStream(filePath)
+						}));
+					}
+
+
+					return Promise.all(filePromises).then(function (results) {
+						var folderStr = rootParentFolderLabel + '/' + (folders.length > 0 ? folders.join('/') : '');
+						for (var i = 0; i < results.length; i++) {
+							var file = results[i];
+							if (file && !file.err) {
+								console.log(sprintf(format, 'File', folderStr + '/' + file.name + ' (Version: ' + file.version + ')'));
+							}
+						}
+					});
+
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doWriteFile.then(function (result) {
+
+			resolve({});
+		});
+
+	});
+};
 
 var _getThemeGUID = function (request, server, themeName) {
 	return new Promise(function (resolve, reject) {
@@ -1535,12 +1637,21 @@ module.exports.deleteFolder = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
+	var request = serverUtils.getRequest();
 
-	_deleteFolder(argv, server).then(function () {
-		done(true);
-	}).catch(function (error) {
-		done();
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		_deleteFolder(argv, server).then(function () {
+			done(true);
+		}).catch(function (error) {
+			done();
+		});
 	});
 };
 
@@ -1902,12 +2013,22 @@ module.exports.deleteFile = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
 
-	_deleteFile(argv, server, true).then(function () {
-		done(true);
-	}).catch(function (error) {
-		done();
+	var request = serverUtils.getRequest();
+
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		_deleteFile(argv, server, true).then(function () {
+			done(true);
+		}).catch(function (error) {
+			done();
+		});
 	});
 };
 
@@ -1917,9 +2038,10 @@ var _deleteFile = function (argv, server, toReject) {
 
 	var filePath = argv.file;
 	var fileName = filePath;
-	if (fileName.indexOf('/') > 0) {
+	if (fileName.indexOf('/') >= 0) {
 		fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
 	}
+	// console.log('file: ' + filePath + ' fileName: ' + fileName);
 
 	var folderPathStr = filePath.indexOf('/') >= 0 ? filePath.substring(0, filePath.lastIndexOf('/')) : '';
 	var resourceFolder = false;

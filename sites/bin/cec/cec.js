@@ -1929,9 +1929,9 @@ const deleteFile = {
 		})()
 	},
 	example: [
-		['cec delete-file /docs/Projects.pdf'],
-		['cec delete-file /docs/Projects.pdf -s UAT'],
-		['cec delete-file /docs/Projects.pdf -p'],
+		['cec delete-file docs/Projects.pdf'],
+		['cec delete-file docs/Projects.pdf -s UAT'],
+		['cec delete-file docs/Projects.pdf -p'],
 		['cec delete-file site:blog1/docs/Projects.pdf'],
 		['cec delete-file theme:blog1Theme/docs/Projects.pdf'],
 		['cec delete-file component:Comp1/docs/Projects.pdf']
