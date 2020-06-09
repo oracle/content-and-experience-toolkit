@@ -1056,6 +1056,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 					return _downloadFolderWithId(server, folderId, inputPath, excludeFolder);
 				})
 				.then(function (result) {
+					// console.log(' _files: ' + _files.length);
 
 					return _readAllFiles(server, _files);
 				})
@@ -1184,10 +1185,11 @@ var _downloadFolderWithId = function (server, parentId, parentPath, excludeFolde
 		if (doQuery) {
 
 			var items;
+			var size = 10000;
 			serverRest.getChildItems({
 					server: server,
 					parentID: parentId,
-					limit: 10000
+					limit: size
 				})
 				.then(function (result) {
 					if (!result) {
@@ -1195,26 +1197,37 @@ var _downloadFolderWithId = function (server, parentId, parentPath, excludeFolde
 					}
 
 					items = result && result.items || [];
+					// console.log(' - total ' + result.childItemsCount);
+					// console.log(' - offset: ' + result.offset + ' count: ' + result.count);
 
+					var remaining = result.childItemsCount - size;
 					var queryAgainPromises = [];
-					if (result.hasMore && result.hasMore === '1') {
+					var extra = 1;
+					while (remaining > 0) {
+						var offset = size * extra;
 						queryAgainPromises.push(serverRest.getChildItems({
 							server: server,
 							parentID: parentId,
-							limit: 10000,
-							offset: 10000
+							limit: size,
+							offset: offset
 						}));
+						remaining = remaining - size;
+						extra = extra + 1;
 					}
 
 					return Promise.all(queryAgainPromises);
 
 				})
 				.then(function (results) {
-					var result = results && results[0];
-					var items2 = result && result.items || [];
 
-					if (items2.length > 0) {
-						items = items.concat(items2);
+					if (results && results.length > 0) {
+						for (var i = 0; i < results.length; i++) {
+							// console.log(' - ' + i + ' offset: ' + results[i].offset + ' count: ' + results[i].count);
+							var items2 = results[i] && results[i].items;
+							if (items2.length > 0) {
+								items = items.concat(items2);
+							}
+						}
 					}
 
 					var subfolderPromises = [];

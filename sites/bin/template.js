@@ -104,6 +104,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 			var contentTypeNames = [];
 			var contentLayoutNames = [];
 			var typePromises = [];
+			var comps = [];
 
 			sitesRest.getSite({
 					server: server,
@@ -208,7 +209,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					return serverUtils.getFolderInfoOnServer(request, server, themeId);
 
 				}).then(function (result) {
-					// get the theme identity in folde info
+					// get the theme identity in folder info
 					var itemGUID = result && result.folderInfo && result.folderInfo.xScsItemGUID || themeId;
 				
 					// create _folder.json for theme
@@ -333,7 +334,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					}
 
 					// get components on template
-					var comps = serverUtils.getTemplateComponents(projectDir, name);
+					var tempComps = serverUtils.getTemplateComponents(projectDir, name);
 
 					contentLayoutNames.forEach(function (layoutName) {
 						if (!comps.includes(layoutName)) {
@@ -341,7 +342,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						}
 					});
 
-					return _downloadComponents(comps, server);
+					return _downloadComponents(tempComps, server);
 				})
 				.then(function (result) {
 					downloadedComps = result;
@@ -353,12 +354,33 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					if (!result || result.err) {
 						return Promise.reject();
 					}
-					// create _folder.json for all components
 					console.log(' - query components');
-					var comps = result;
+					comps = result;
+
+					var compFolderInfoPromises = [];
+					for(var i = 0; i < comps.length; i++) {
+						compFolderInfoPromises.push(serverUtils.getFolderInfoOnServer(request, server, comps[i].id));
+					}
+	
+					return Promise.all(compFolderInfoPromises);
+
+				})
+				.then(function (results) {
+					var compFolderInfo = results || [];
+
+					// create _folder.json for all components
 					for (var i = 0; i < comps.length; i++) {
+						var itemGUID = comps[i].id;
+						// get the component's identity 
+						for(var j = 0; j < compFolderInfo.length; j++) {
+							var compInfo = compFolderInfo[j] && compFolderInfo[j].folderInfo;
+							if (compInfo && compInfo.fFolderGUID === comps[i].id && compInfo.xScsItemGUID) {
+								itemGUID = compInfo.xScsItemGUID;
+								break;
+							}
+						}
 						var folderJson = {
-							itemGUID: comps[i].id,
+							itemGUID: itemGUID,
 							appType: comps[i].type,
 							appIconUrl: '',
 							appIsHiddenInBuilder: comps[i].isHidden

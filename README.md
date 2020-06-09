@@ -14,6 +14,18 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+
+# New in Release 20.2.3
+
+**Added**
+
+- `cec control-content` - Can now add content in a repository to a collection and remove content from a collection.
+
+**Fixed**
+
+- `cec transfer-site` - Fixed issue with internal component IDs.
+
+
 # New in Release 20.2.2d
 
 **Fixed**

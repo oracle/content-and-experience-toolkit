@@ -1551,6 +1551,7 @@ var _importTemplate = function (server, name, fileId) {
 		
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.headers && response.headers.location;
+				console.log(' - import job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1));
 				var inter = setInterval(function () {
 					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
 					jobPromise.then(function (data) {

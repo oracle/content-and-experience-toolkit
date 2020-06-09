@@ -698,13 +698,13 @@ var _uploadContentFromZipFile = function (args) {
 						importSuccess = true;
 					}
 					// delete the zip file
-					
+
 					var deleteArgv = {
 						file: contentfilename,
 						permanent: 'true'
 					};
 					var deleteFilePromise = documentUtils.deleteFile(deleteArgv, server, false);
-					
+
 					/*
 					var deleteFilePromise = serverRest.deleteFile({
 						server: server,
@@ -1152,224 +1152,267 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 
 		console.log(' - server: ' + server.url);
 
-		var channelName = argv.channel;
-		var action = argv.action;
-		var repositoryName = argv.repository;
-		var repository;
-
 		var request = serverUtils.getRequest();
 
-		var channel, channelToken;
-		var itemIds = [];
-		var toPublishItemIds = [];
-		var hasPublishedItems = false;
+		var loginPromise = serverUtils.loginToServer(server, request);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
 
-		var chanelsPromise = serverRest.getChannels({
-			server: server
-		});
-		chanelsPromise.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
+			var channelName = argv.channel;
+			var collectionName = argv.collection;
+			var action = argv.action;
+			var repositoryName = argv.repository;
+			var repository;
 
-				var channels = result || [];
-				var channelId;
-				for (var i = 0; i < channels.length; i++) {
-					if (channelName.toLowerCase() === channels[i].name.toLowerCase()) {
-						channelId = channels[i].id;
-						break;
-					}
-				}
+			var channel, channelToken;
+			var collection;
+			var itemIds = [];
+			var toPublishItemIds = [];
+			var hasPublishedItems = false;
 
-				if (!channelId) {
-					console.log('ERROR: channel ' + channelName + ' does not exist');
-					return Promise.reject();
-				}
-
-				//
-				// get channel detail
-				//
-				return serverRest.getChannel({
+			var repositoryPromises = [];
+			if (repositoryName) {
+				repositoryPromises.push(serverRest.getRepositoryWithName({
 					server: server,
-					id: channelId
-				});
-			})
-			.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
+					name: repositoryName
+				}));
+			}
 
-				channel = result;
-				var tokens = channel.channelTokens;
-				for (var i = 0; i < tokens.length; i++) {
-					if (tokens[i].name === 'defaultToken') {
-						channelToken = tokens[i].token;
-						break;
+			Promise.all(repositoryPromises)
+				.then(function (results) {
+					if (repositoryName) {
+						if (!results || !results[0] || results[0].err || !results[0].data) {
+							console.log('ERROR: repository ' + repositoryName + ' does not exist');
+							return Promise.reject();
+						}
+						repository = results[0].data;
+						console.log(' - get repository');
 					}
-				}
-				if (!channelToken && tokens.length > 0) {
-					channelToken = tokens[0].token;
-				}
 
-				console.log(' - get channel (token: ' + channelToken + ')');
+					var channelPromises = [];
+					if (channelName) {
+						channelPromises.push(serverRest.getChannelWithName({
+							server: server,
+							name: channelName
+						}));
+					}
 
-				var repositoryPromises = [];
-				if (action === 'add' && repositoryName) {
-					repositoryPromises.push(serverRest.getRepositoryWithName({
+					return Promise.all(channelPromises);
+				})
+				.then(function (results) {
+					if (channelName) {
+						if (!results || !results[0] || results[0].err || !results[0].data) {
+							console.log('ERROR: channel ' + channelName + ' does not exist');
+							return Promise.reject();
+						}
+						channel = results[0].data;
+
+						var tokens = channel.channelTokens;
+						for (var i = 0; i < tokens.length; i++) {
+							if (tokens[i].name === 'defaultToken') {
+								channelToken = tokens[i].token;
+								break;
+							}
+						}
+						if (!channelToken && tokens.length > 0) {
+							channelToken = tokens[0].token;
+						}
+
+						console.log(' - get channel (token: ' + channelToken + ')');
+
+					}
+
+					var collectionPromises = [];
+					if (collectionName) {
+						collectionPromises.push(serverRest.getCollectionWithName({
+							server: server,
+							repositoryId: repository.id,
+							name: collectionName
+						}));
+					}
+
+					return Promise.all(collectionPromises);
+
+				})
+				.then(function (results) {
+					if (collectionName) {
+						if (!results || !results[0] || results[0].err || !results[0].data) {
+							console.log('ERROR: collection ' + collectionName + ' does not exist in repository ' + repositoryName);
+							return Promise.reject();
+						}
+						collection = results[0].data;
+						console.log(' - get collection');
+					}
+
+					//
+					// get items in the channel or collection
+					//
+					// query items
+					var q = '';
+					if (action === 'add') {
+						if (repository) {
+							q = '(repositoryId eq "' + repository.id + '")';
+						}
+					} else {
+						if (collection) {
+							if (q) {
+								q = q + ' AND ';
+							}
+							q = q + '(collections co "' + collection.id + '")';
+						}
+						if (channel) {
+							if (q) {
+								q = q + ' AND ';
+							}
+							q = q + '(channels co "' + channel.id + '")';
+						}
+					}
+					// console.log(' - q: ' + q);
+
+					return serverRest.queryItems({
 						server: server,
-						name: repositoryName
-					}));
-				}
-
-				return Promise.all(repositoryPromises);
-
-			})
-			.then(function (results) {
-				if (action === 'add' && repositoryName) {
-					if (!results || !results[0] || results[0].err || !results[0].data) {
-						console.log('ERROR: repository ' + repositoryName + ' does not exist');
+						q: q,
+						fields: 'name,status,isPublished'
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err) {
 						return Promise.reject();
 					}
-					repository = results[0].data;
-					console.log(' - get repository');
-				}
 
-				//
-				// get items in the channel
-				//
-				var itemsPromise = action !== 'add' ? serverRest.getChannelItems({
-					server: server,
-					channelToken: channelToken,
-					fields: 'isPublished,status'
-				}) : serverRest.queryItems({
-					server: server,
-					q: '(repositoryId eq "' + repository.id + '")'
-				});
+					var items = result.data || [];
+					if (items.length === 0) {
+						if (action === 'add') {
+							console.log(' - no item in the repository');
+						} else if (channel) {
+							console.log(' - no item in the channel');
+						} else if (collection) {
+							console.log(' - no item in the collection');
+						} else {
+							console.log(' - no item');
+						}
 
-				return itemsPromise;
-			})
-			.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
+						return cmdSuccess(done);
+					}
 
-				var items = (action === 'add' ? result.data : result) || [];
-				if (items.length === 0) {
 					if (action === 'add') {
-						console.log(' - no item in the repository');
-					} else {
-						console.log(' - no item in the channel');
-					}
-					return cmdSuccess(done);
-				}
-
-				if (action === 'add') {
-					console.log(' - repository has ' + items.length + (items.length > 1 ? ' items' : ' item'));
-				} else {
-					console.log(' - channel has ' + items.length + (items.length > 1 ? ' items' : ' item'));
-				}
-
-				// publish policy: anythingPublished | onlyApproved
-				var publishPolicy = channel.publishPolicy;
-				if (action === 'publish') {
-					console.log(' - publish policy: ' + (publishPolicy === 'onlyApproved' ? 'only approved items can be published' : 'anything can be published'));
-				}
-
-				for (var i = 0; i < items.length; i++) {
-					var item = items[i];
-
-					// all items include rejected, use for unpublish / remove
-					itemIds.push(item.id);
-
-					if (publishPolicy === 'onlyApproved') {
-						if (item.status === 'approved') {
-							toPublishItemIds.push(item.id);
-						}
-					} else {
-						if (item.status !== 'rejected' && item.status !== 'published') {
-							toPublishItemIds.push(item.id);
-						}
+						console.log(' - repository has ' + items.length + (items.length > 1 ? ' items' : ' item'));
+					} else if (channel) {
+						console.log(' - channel has ' + items.length + (items.length > 1 ? ' items' : ' item'));
+					} else if (collection) {
+						console.log(' - collection has ' + items.length + (items.length > 1 ? ' items' : ' item'));
 					}
 
-					if (item.isPublished) {
-						hasPublishedItems = true;
+					// publish policy: anythingPublished | onlyApproved
+
+					var publishPolicy = channel && channel.publishPolicy;
+					if (action === 'publish') {
+						console.log(' - publish policy: ' + (publishPolicy === 'onlyApproved' ? 'only approved items can be published' : 'anything can be published'));
 					}
-				}
 
-				if (action === 'publish' && toPublishItemIds.length === 0) {
-					console.log(' - no item to publish');
-					return Promise.reject();
-				}
+					for (var i = 0; i < items.length; i++) {
+						var item = items[i];
 
-				if (action === 'unpublish' && !hasPublishedItems) {
-					console.log(' - all items are already draft');
-					return Promise.reject();
-				}
+						// all items include rejected, use for unpublish / remove
+						itemIds.push(item.id);
 
-				if (action === 'publish') {
-					var opPromise = _performOneOp(server, action, channel.id, toPublishItemIds, true);
-					opPromise.then(function (result) {
-						if (result.err) {
-							return cmdEnd(done);
-						} else {
-							return cmdSuccess(done, true);
-						}
-					});
-
-				} else if (action === 'unpublish') {
-					var opPromise = _performOneOp(server, action, channel.id, itemIds, true);
-					opPromise.then(function (result) {
-						if (result.err) {
-							return cmdEnd(done);
-						} else {
-							return cmdSuccess(done, true);
-						}
-					});
-
-				} else if (action === 'add') {
-					var opPromise = _performOneOp(server, action, channel.id, itemIds, true, 'true');
-					opPromise.then(function (result) {
-						if (result.err) {
-							return cmdEnd(done);
-						} else {
-							console.log(' - ' + itemIds.length + ' items added to channel');
-							return cmdSuccess(done, true);
-						}
-					});
-
-				} else if (action === 'remove') {
-					var unpublishPromises = [];
-					if (hasPublishedItems) {
-						unpublishPromises.push(_performOneOp(server, 'unpublish', channel.id, itemIds, false));
-					}
-					Promise.all(unpublishPromises).then(function (result) {
-						// continue to remove
-						var removePromise = _performOneOp(server, action, channel.id, itemIds, true, 'true');
-						removePromise.then(function (result) {
-							if (result.err) {
-								console.log('ERROR: removing items from channel');
-								return cmdEnd(done);
+						if (publishPolicy) {
+							if (publishPolicy === 'onlyApproved') {
+								if (item.status === 'approved') {
+									toPublishItemIds.push(item.id);
+								}
+							} else {
+								if (item.status !== 'rejected' && item.status !== 'published') {
+									toPublishItemIds.push(item.id);
+								}
 							}
-							console.log(' - ' + itemIds.length + ' items removed from channel');
-							return cmdSuccess(done, true);
-						});
-					});
-				} else {
-					console.log('ERROR: action ' + action + ' not supported');
-					return cmdEnd(done);
-				}
-			})
-			.catch((error) => {
-				cmdEnd(done);
-			});
+						}
 
+						if (item.isPublished) {
+							hasPublishedItems = true;
+						}
+					}
+
+					if (action === 'publish' && toPublishItemIds.length === 0) {
+						console.log(' - no item to publish');
+						return Promise.reject();
+					}
+
+					if (action === 'unpublish' && !hasPublishedItems) {
+						console.log(' - all items are already draft');
+						return Promise.reject();
+					}
+
+					if (action === 'publish') {
+						var opPromise = _performOneOp(server, action, channel.id, toPublishItemIds, true);
+						opPromise.then(function (result) {
+							if (result.err) {
+								return cmdEnd(done);
+							} else {
+								return cmdSuccess(done, true);
+							}
+						});
+
+					} else if (action === 'unpublish') {
+						var opPromise = _performOneOp(server, action, channel.id, itemIds, true);
+						opPromise.then(function (result) {
+							if (result.err) {
+								return cmdEnd(done);
+							} else {
+								return cmdSuccess(done, true);
+							}
+						});
+
+					} else if (action === 'add') {
+
+						var opPromise = _performOneOp(server, action, channel ? channel.id : '', itemIds, true, 'true', collection ? collection.id : '');
+						opPromise.then(function (result) {
+							if (result.err) {
+								return cmdEnd(done);
+							} else {
+								console.log(' - ' + itemIds.length + ' items added to ' + (channel ? 'channel' : 'collection'));
+								return cmdSuccess(done, true);
+							}
+						});
+
+					} else if (action === 'remove') {
+						var unpublishPromises = [];
+						if (hasPublishedItems && channel) {
+							unpublishPromises.push(_performOneOp(server, 'unpublish', channel.id, itemIds, false));
+						}
+						Promise.all(unpublishPromises).then(function (result) {
+							// continue to remove
+							var removePromise = _performOneOp(server, action, channel ? channel.id : '', itemIds, true, 'true', collection ? collection.id : '');
+							removePromise.then(function (result) {
+								var label = channel ? 'channel' : 'collection';
+								if (result.err) {
+									console.log('ERROR: removing items from ' + label);
+									return cmdEnd(done);
+								}
+								console.log(' - ' + itemIds.length + ' items removed from ' + label);
+								return cmdSuccess(done, true);
+							});
+						});
+					} else {
+						console.log('ERROR: action ' + action + ' not supported');
+						return cmdEnd(done);
+					}
+				})
+				.catch((error) => {
+					cmdEnd(done);
+				});
+		});
 	} catch (e) {
 		console.log(e);
 		return cmdEnd(done);
 	}
 };
 
-var _performOneOp = function (server, action, channelId, itemIds, showerror, async) {
+var _performOneOp = function (server, action, channelId, itemIds, showerror, async, collectionId) {
 	return new Promise(function (resolve, reject) {
 		var opPromise;
 		if (action === 'publish') {
@@ -1385,16 +1428,26 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror, asy
 				itemIds: itemIds
 			});
 		} else if (action === 'add') {
-			opPromise = serverRest.addItemsToChanel({
+			opPromise = channelId ? serverRest.addItemsToChanel({
 				server: server,
 				channelId: channelId,
 				itemIds: itemIds,
 				async: async
+			}) : serverRest.addItemsToCollection({
+				server: server,
+				collectionId: collectionId,
+				itemIds: itemIds,
+				async: async
 			});
 		} else {
-			opPromise = serverRest.removeItemsFromChanel({
+			opPromise = channelId ? serverRest.removeItemsFromChanel({
 				server: server,
 				channelId: channelId,
+				itemIds: itemIds,
+				async: async
+			}) : serverRest.removeItemsFromCollection({
+				server: server,
+				collectionId: collectionId,
 				itemIds: itemIds,
 				async: async
 			});

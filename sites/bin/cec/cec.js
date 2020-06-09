@@ -842,7 +842,9 @@ const controlContent = {
 		['cec control-content publish -c Channel1 -s UAT', 'Publish all items in channel Channel1 on the registered server UAT'],
 		['cec control-content unpublish -c Channel1 -s UAT', 'Unpublish all items in channel Channel1 on the registered server UAT'],
 		['cec control-content add -c Channel1 -r Repo1 -s UAT', 'Add all items in repository Repo1 to channel Channel1 on the registered server UAT'],
-		['cec control-content remove -c Channel1 -s UAT', 'Remove all items in channel Channel1 on the registered server UAT']
+		['cec control-content remove -c Channel1 -s UAT', 'Remove all items in channel Channel1 on the registered server UAT'],
+		['cec control-content add -l Collection1 -r Repo1 -s UAT', 'Add all items in repository Repo1 to collection Collection1 on the registered server UAT'],
+		['cec control-content remove -l Collection -s UAT', 'Remove all items in collection Collection1 on the registered server UAT']
 	]
 };
 
@@ -3185,11 +3187,14 @@ const argv = yargs.usage(_usage)
 				.option('channel', {
 					alias: 'c',
 					description: 'Channel',
-					demandOption: true
 				})
 				.option('repository', {
 					alias: 'r',
 					description: 'Repository, required when <action> is add'
+				})
+				.option('collection', {
+					alias: 'l',
+					description: 'Collection'
 				})
 				.option('server', {
 					alias: 's',
@@ -3199,8 +3204,26 @@ const argv = yargs.usage(_usage)
 					if (argv.action && !getContentActions().includes(argv.action)) {
 						throw new Error(`${argv.action} is not a valid value for <action>`);
 					}
+					if (argv.action !== 'add' && argv.action !== 'remove' && !argv.channel) {
+						throw new Error('Please specify channel');
+					}
 					if (argv.action === 'add' && !argv.repository) {
-						throw new Error('Please specify repository to add content items to the channel');
+						throw new Error('Please specify repository to add content items to channel or collection');
+					}
+					if (argv.action === 'add' && !argv.channel && !argv.collection) {
+						throw new Error('Please specify channel or collection to add items');
+					}
+					if (argv.action === 'add' && argv.channel && argv.collection) {
+						throw new Error('Please specify either channel or collection to add items');
+					}
+					if (argv.action === 'remove' && !argv.channel && !argv.collection) {
+						throw new Error('Please specify channel or collection to remove items');
+					}
+					if (argv.action === 'remove' && argv.channel && argv.collection) {
+						throw new Error('Please specify either channel or collection to remove items');
+					}
+					if (argv.action === 'remove' && argv.collection && !argv.repository) {
+						throw new Error('Please specify repository to remove content items from collection');
 					}
 					return true;
 				})
@@ -3209,6 +3232,8 @@ const argv = yargs.usage(_usage)
 				.example(...controlContent.example[2])
 				.example(...controlContent.example[3])
 				.example(...controlContent.example[4])
+				.example(...controlContent.example[5])
+				.example(...controlContent.example[6])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -5989,9 +6014,14 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	let controlContentArgs = ['run', '-s', controlContent.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
-		'--action', argv.action,
-		'--channel', argv.channel
+		'--action', argv.action
 	];
+	if (argv.channel) {
+		controlContentArgs.push(...['--channel', argv.channel]);
+	}
+	if (argv.collection) {
+		controlContentArgs.push(...['--collection', argv.collection]);
+	}
 	if (argv.repository) {
 		controlContentArgs.push(...['--repository', argv.repository]);
 	}

@@ -793,7 +793,7 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 			} catch (e) {
 				data = body;
 			}
-			
+
 			if (response && response.statusCode === 200) {
 				return resolve({
 					data: data && data.items,
@@ -1294,7 +1294,7 @@ module.exports.getChannelItems = function (args) {
 };
 
 // perform bulk operation on items in a channel from server
-var _opChannelItems = function (server, operation, channelIds, itemIds, queryString, async) {
+var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString, async, collectionIds) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -1324,6 +1324,15 @@ var _opChannelItems = function (server, operation, channelIds, itemIds, queryStr
 					});
 				}
 
+				var collections = [];
+				if (collectionIds && collectionIds.length > 0) {
+					collectionIds.forEach(function (id) {
+						collections.push({
+							id: id
+						});
+					});
+				}
+
 				var url = server.url + '/content/management/api/v1.1/bulkItemsOperations';
 
 				var auth = serverUtils.getRequestAuth(server);
@@ -1332,6 +1341,10 @@ var _opChannelItems = function (server, operation, channelIds, itemIds, queryStr
 				if (operation === 'deleteItems') {
 					operations[operation] = {
 						value: 'true'
+					};
+				} else if (operation === 'addCollections' || operation === 'removeCollections') {
+					operations[operation] = {
+						collections: collections
 					};
 				} else {
 					operations[operation] = {
@@ -1412,7 +1425,7 @@ var _opChannelItems = function (server, operation, channelIds, itemIds, queryStr
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.publishChannelItems = function (args) {
-	return _opChannelItems(args.server, 'publish', [args.channelId], args.itemIds);
+	return _bulkOpItems(args.server, 'publish', [args.channelId], args.itemIds);
 };
 
 /**
@@ -1424,7 +1437,7 @@ module.exports.publishChannelItems = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.unpublishChannelItems = function (args) {
-	return _opChannelItems(args.server, 'unpublish', [args.channelId], args.itemIds);
+	return _bulkOpItems(args.server, 'unpublish', [args.channelId], args.itemIds);
 };
 
 /**
@@ -1437,7 +1450,7 @@ module.exports.unpublishChannelItems = function (args) {
  */
 module.exports.removeItemsFromChanel = function (args) {
 	var async = args.async ? args.async : 'false';
-	return _opChannelItems(args.server, 'removeChannels', [args.channelId], args.itemIds, '', async);
+	return _bulkOpItems(args.server, 'removeChannels', [args.channelId], args.itemIds, '', async);
 };
 
 /**
@@ -1450,7 +1463,33 @@ module.exports.removeItemsFromChanel = function (args) {
  */
 module.exports.addItemsToChanel = function (args) {
 	var async = args.async ? args.async : 'false';
-	return _opChannelItems(args.server, 'addChannels', [args.channelId], args.itemIds, '', async);
+	return _bulkOpItems(args.server, 'addChannels', [args.channelId], args.itemIds, '', async);
+};
+
+/**
+ * Remove items from a collection on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.collectionId The id of the collection to remove items.
+ * @param {array} args.itemIds The id of items to remove
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.removeItemsFromCollection = function (args) {
+	var async = args.async ? args.async : 'false';
+	return _bulkOpItems(args.server, 'removeCollections', [], args.itemIds, '', async, [args.collectionId]);
+};
+
+/**
+ * Add items to a collection on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.channelId The id of the collection to add items.
+ * @param {array} args.itemIds The id of items 
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.addItemsToCollection = function (args) {
+	var async = args.async ? args.async : 'false';
+	return _bulkOpItems(args.server, 'addCollections', [], args.itemIds, '', async, [args.collectionId]);
 };
 
 /**
@@ -1461,7 +1500,7 @@ module.exports.addItemsToChanel = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.deleteItems = function (args) {
-	return _opChannelItems(args.server, 'deleteItems', [], args.itemIds);
+	return _bulkOpItems(args.server, 'deleteItems', [], args.itemIds);
 };
 
 /**
@@ -1473,7 +1512,7 @@ module.exports.deleteItems = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.validateChannelItems = function (args) {
-	return _opChannelItems(args.server, 'validatePublish', [args.channelId], args.itemIds);
+	return _bulkOpItems(args.server, 'validatePublish', [args.channelId], args.itemIds);
 };
 
 var _getItemOperationStatus = function (server, statusId) {
@@ -3753,7 +3792,9 @@ var _exportRecommendation = function (server, id, name, published, publishedChan
 
 				if (published && publishedChannelId) {
 					postData.exportPublishedItems = true;
-					postData.channelIds = [{id: publishedChannelId}];
+					postData.channelIds = [{
+						id: publishedChannelId
+					}];
 				}
 
 				var options = {
