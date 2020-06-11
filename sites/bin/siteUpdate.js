@@ -365,28 +365,38 @@ SiteUpdate.prototype.updateSiteFolder = function (argv, siteEntry, stepName, fol
 	// make sure the folder exists
 	if (fs.existsSync(folderPath)) {
 		// delete the current site folder on the server
-		return documentUtils.deleteFolder({
-			path: siteFolder + '/' + folder
-		}, server).then(function () {
-			// upload the new folder to the site on the server
-			return documentUtils.uploadFolder({
-				path: folderPath,
-				folder: siteFolder
-			}, server).then(function () {
+
+		return documentUtils.findFolder(server, siteEntry.siteGUID, [folder], false)
+			.then(function (result) {
+				var deletePromises = [];
+				if (result && result.id) {
+					deletePromises.push(documentUtils.deleteFolder({
+						path: siteFolder + '/' + folder
+					}, server));
+				}
+				return Promise.all(deletePromises);
+			})
+			.then(function (results) {
+
+				// upload the new folder to the site on the server
+				return documentUtils.uploadFolder({
+					path: folderPath,
+					folder: siteFolder
+				}, server).then(function () {
+					return Promise.resolve({
+						name: stepName,
+						errors: 0
+					});
+				});
+			}).catch(function (e) {
+				var error = 'Error: failed to update site folder: ' + folder + '. Previous versions can be re-stored from trash on the server.';
+				console.log(error);
 				return Promise.resolve({
 					name: stepName,
-					errors: 0
+					error: error,
+					errors: 1
 				});
 			});
-		}).catch(function (e) {
-			var error = 'Error: failed to update site folder: ' + folder + '. Previous versions can be re-stored from trash on the server.';
-			console.log(error);
-			return Promise.resolve({
-				name: stepName,
-				error: error,
-				errors: 1
-			});
-		});
 	} else {
 		console.log(' - folder does not exist for update step: "' + stepName + '". Changes to the folder will not be propagated');
 	}

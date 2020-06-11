@@ -14,6 +14,12 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.2.3a
+
+**Fixed**
+
+- `cec create-rss-feed` - Now works correctly with the latest version of gulp cli.
+
 
 # New in Release 20.2.3
 

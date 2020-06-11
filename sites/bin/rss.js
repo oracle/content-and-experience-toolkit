@@ -145,7 +145,7 @@ var _createRSSFeed = function (server, argv, done) {
 
 		if (server.useRest) {
 			_createRSSFeedREST(request, server, siteName, argv.url, tempPath,
-				rssFile, query, limit, orderby, language, publish, argv.title, argv.description, argv.ttl, newlink, javascript, done);
+				rssFile, query, limit, orderby, language, publish, argv.rsstitle, argv.description, argv.ttl, newlink, javascript, done);
 			return;
 		}
 
@@ -297,7 +297,7 @@ var _createRSSFeed = function (server, argv, done) {
 									siteUrl = siteUrl.substring(0, siteUrl.length - 1);
 								}
 								if (_generateRSSFile(siteUrl, items, language, defaultDetailPage, tempPath,
-										argv.title, argv.description, argv.ttl, rssFile, newlink, javascript)) {
+										argv.rsstitle, argv.description, argv.ttl, rssFile, newlink, javascript)) {
 									console.log(' - create RSS file ' + rssFile);
 
 									if (publish) {

@@ -1150,7 +1150,7 @@ var _readAllFiles = function (server, files) {
 					}
 
 					count.push('.');
-					process.stdout.write(' - downloading files ' + count.join(''));
+					process.stdout.write(' - downloading files [' + param.start + ', ' + param.end + '] ...');
 					readline.cursorTo(process.stdout, 0);
 					return Promise.all(filePromises).then(function (results) {
 						fileData = fileData.concat(results);
@@ -2204,6 +2204,7 @@ var _deleteFile = function (argv, server, toReject) {
 
 // export non "command line" utility functions
 module.exports.utils = {
+	findFolder: _findFolder,
 	uploadFolder: _uploadFolder,
 	downloadFolder: _downloadFolder,
 	deleteFolder: _deleteFolder,

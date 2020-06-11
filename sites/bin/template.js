@@ -105,6 +105,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 			var contentLayoutNames = [];
 			var typePromises = [];
 			var comps = [];
+			var siteMetadata;
 
 			sitesRest.getSite({
 					server: server,
@@ -120,6 +121,15 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					console.log(' - verify site');
 					// console.log(site);
 
+					// query site metadata to get static site settings
+					return serverUtils.getSiteMetadata(request, server, site.id);
+				})
+				.then(function (result) {
+					
+					siteMetadata = result && result.data;
+					// console.log(siteMetadata);
+
+					// query to get the content types used in the site
 					return serverUtils.getSiteContentTypes(request, server, site.id);
 
 				})
@@ -159,7 +169,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						folder: tempSrcPath
 					};
 					console.log(' - downloading site files');
-					var excludeFolder = ['/publish', '/variants'];
+					var excludeFolder = ['/publish', '/variants', '/static'];
 					return documentUtils.downloadFolder(downloadArgv, server, true, false, excludeFolder);
 				})
 				.then(function (result) {
@@ -174,6 +184,12 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					folderJson.isEnterprise = isEnterprise ? 'true' : 'false';
 					folderJson.siteName = name;
 					folderJson.siteLongDescription = 'Template ' + name;
+					if (siteMetadata && siteMetadata.xScsSiteStaticResponseHeaders) {
+						folderJson.staticResponseHeaders = siteMetadata.xScsSiteStaticResponseHeaders;
+					}
+					if (siteMetadata && siteMetadata.xScsSiteMobileUserAgents) {
+						folderJson.mobileUserAgents = siteMetadata.xScsSiteMobileUserAgents;
+					}
 					fs.writeFileSync(path.join(tempSrcPath, '_folder.json'), JSON.stringify(folderJson));
 
 					// update siteinfo.json
@@ -211,7 +227,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 				}).then(function (result) {
 					// get the theme identity in folder info
 					var itemGUID = result && result.folderInfo && result.folderInfo.xScsItemGUID || themeId;
-				
+
 					// create _folder.json for theme
 					var folderJson = {
 						themeName: themeName,
@@ -358,10 +374,10 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					comps = result;
 
 					var compFolderInfoPromises = [];
-					for(var i = 0; i < comps.length; i++) {
+					for (var i = 0; i < comps.length; i++) {
 						compFolderInfoPromises.push(serverUtils.getFolderInfoOnServer(request, server, comps[i].id));
 					}
-	
+
 					return Promise.all(compFolderInfoPromises);
 
 				})
@@ -372,7 +388,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					for (var i = 0; i < comps.length; i++) {
 						var itemGUID = comps[i].id;
 						// get the component's identity 
-						for(var j = 0; j < compFolderInfo.length; j++) {
+						for (var j = 0; j < compFolderInfo.length; j++) {
 							var compInfo = compFolderInfo[j] && compFolderInfo[j].folderInfo;
 							if (compInfo && compInfo.fFolderGUID === comps[i].id && compInfo.xScsItemGUID) {
 								itemGUID = compInfo.xScsItemGUID;
@@ -2116,16 +2132,19 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 		fse.copySync(tempSrcDir, path.join(tempBuildDir, 'template'));
 		console.log(' - template ' + name);
 
+		// remove static folder 
+		var staticBuidDir = path.join(tempBuildDir, 'template', 'static');
+		if (fs.existsSync(staticBuidDir)) {
+			console.log(' - exclude site static files');
+			fse.removeSync(staticBuidDir);
+			// keep the empty folder
+			fs.mkdirSync(staticBuidDir);
+		}
+
 		var exportfile = path.join(tempBuildDir, 'template', 'assets', 'contenttemplate', 'export.zip');
 		if (fs.existsSync(exportfile)) {
 			fse.removeSync(exportfile);
 		}
-		/*
-		var metainfbuilddir = path.join(tempBuildDir, 'template', 'assets', 'contenttemplate', 'META-INF');
-		if (fs.existsSync(metainfbuilddir)) {
-			fse.removeSync(metainfbuilddir);
-		}
-		*/
 
 		if (excludeSiteContent) {
 			var siteContentBuidDir = path.join(tempBuildDir, 'template', 'content');

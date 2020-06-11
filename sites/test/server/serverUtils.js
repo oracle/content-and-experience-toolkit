@@ -16,6 +16,7 @@ var express = require('express'),
 	fs = require('fs'),
 	fsp = require('fs').promises,
 	fse = require('fs-extra'),
+	he = require('he'),
 	path = require('path'),
 	readline = require('readline'),
 	uuid4 = require('uuid/v4'),
@@ -343,6 +344,19 @@ var _replaceAll = function (str, search, replacement) {
 	}
 	var re = new RegExp(search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
 	return str.replace(re, replacement || '');
+};
+
+module.exports.unescapeHTML = function (str) {
+	return _unescapeHTML(str);
+};
+var _unescapeHTML = function (str) {
+	try {
+		return he.decode(str);
+	} catch (e) {
+		// console.log('WARNING: failed processing ' + str);
+		// console.log(e);
+		return str;
+	}
 };
 
 module.exports.fixHeaders = (origResponse, response) => {
@@ -4070,7 +4084,7 @@ var _browseThemesOnServer = function (request, server, params) {
  * Get folder info from server using IdcService
  */
 module.exports.getFolderInfoOnServer = function (request, server, folderId) {
-	
+
 	return new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -4088,7 +4102,7 @@ module.exports.getFolderInfoOnServer = function (request, server, folderId) {
 		var auth = _getRequestAuth(server);
 
 		var url = server.url + '/documents/web?IdcService=FLD_INFO&item=fFolderGUID:' + folderId + '&doRetrieveMetadata=1';
-		
+
 		var options = {
 			method: 'GET',
 			url: url,
@@ -4155,7 +4169,7 @@ module.exports.getFolderInfoOnServer = function (request, server, folderId) {
 					}
 				});
 			})();
-			
+
 			return resolve({
 				folderInfo: folders[0]
 			});
@@ -4448,6 +4462,163 @@ module.exports.getSiteContentTypes = function (request, server, siteId) {
 	});
 	return compPromise;
 };
+
+/**
+ * Get a site's metadata (text type) from server using IdcService
+ */
+module.exports.getSiteMetadata = function (request, server, siteId) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var auth = _getRequestAuth(server);
+
+		// set dMetadataSerializer to get value raw values (not escaped ones)
+		var url = server.url + '/documents/web?IdcService=GET_METADATA&items=fFolderGUID:' + siteId + '&dMetadataSerializer=BaseSerializer';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth
+		};
+		if (server.cookies) {
+			options.headers = {
+				Cookie: server.cookies
+			};
+		}
+
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get site metadata');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get site metadata ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.Metadata && data.ResultSets.Metadata.fields || [];
+			var rows = data.ResultSets && data.ResultSets.Metadata && data.ResultSets.Metadata.rows || [];
+			var metadata = {};
+
+			var dFieldNameIdx, dTextValueIdx;
+			for (var i = 0; i < fields.length; i++) {
+				if (fields[i].name === 'dFieldName') {
+					dFieldNameIdx = i;
+				}
+				if (fields[i].name === 'dTextValue') {
+					dTextValueIdx = i;
+				}
+			}
+
+			for (var j = 0; j < rows.length; j++) {
+				var attr = rows[j][dFieldNameIdx];
+				metadata[attr] = rows[j][dTextValueIdx];
+			}
+
+			resolve({
+				data: metadata
+			});
+		});
+	});
+
+};
+
+
+/**
+ * Set metadata for a site using IdcService
+ */
+module.exports.setSiteMetadata = function (request, server, idcToken, siteId, values) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var auth = _getRequestAuth(server);
+
+		var url = server.url + '/documents/web?IdcService=SET_METADATA';
+
+		var formData = {
+			'idcToken': idcToken,
+			'LocalData': {
+				'IdcService': 'SET_METADATA',
+				items: 'fFolderGUID:' + siteId
+			}
+		};
+		if (values) {
+			Object.keys(values).forEach(function (key) {
+				formData.LocalData[key] = values[key];
+			});
+		}
+		// console.log(formData);
+
+		var postData = {
+			method: 'POST',
+			url: url,
+			auth: auth,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-REQUESTED-WITH': 'XMLHttpRequest'
+			},
+			body: formData,
+			json: true
+		};
+
+		request(postData, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to set site metadata');
+				console.log(err);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+			
+			if (response && response.statusCode === 200) {
+				return resolve({});
+			} else {
+				console.log(' - failed to set site metadata : ' + (response.statusMessage || response.statusCode));
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+
+};
+
 
 /**
  * Delete a file from trash using IdcService

@@ -1094,6 +1094,7 @@ const transferSite = {
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1', 'Creates site Site1 on server UAT based on site Site1 on server DEV'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -p', 'Creates site Site1 on server UAT based on site Site1 on server DEV with published assets'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -x', 'Creates site Site1 on server UAT based on site Site1 on server DEV without content'],
+		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -i', 'Creates site Site1 on server UAT based on site Site1 on server DEV with static files from DEV'],
 		['cec transfer-site Site1 -s DEV -d UAT', 'Updates site Site1 on server UAT based on site Site1 on server DEV']
 	]
 };
@@ -3607,10 +3608,15 @@ const argv = yargs.usage(_usage)
 					alias: 'x',
 					description: 'Exclude content'
 				})
+				.option('includestaticfiles', {
+					alias: 'i',
+					description: 'Include site static files'
+				})
 				.example(...transferSite.example[0])
 				.example(...transferSite.example[1])
 				.example(...transferSite.example[2])
 				.example(...transferSite.example[3])
+				.example(...transferSite.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -6347,6 +6353,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.excludecontent) {
 		transferSiteArgs.push(...['--excludecontent', argv.excludecontent]);
 	}
+	if (argv.includestaticfiles) {
+		transferSiteArgs.push(...['--includestaticfiles', argv.includestaticfiles]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, transferSiteArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -6568,7 +6577,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		createRSSFeedArgs.push(...['--language', argv.language]);
 	}
 	if (argv.title) {
-		createRSSFeedArgs.push(...['--title', argv.title]);
+		createRSSFeedArgs.push(...['--rsstitle', argv.title]);
 	}
 	if (argv.description) {
 		createRSSFeedArgs.push(...['--description', argv.description]);

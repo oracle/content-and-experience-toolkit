@@ -650,6 +650,7 @@ module.exports.transferSite = function (argv, done) {
 
 	var excludecontent = typeof argv.excludecontent === 'string' && argv.excludecontent.toLowerCase() === 'true';
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
+	var includestaticfiles = typeof argv.includestaticfiles === 'string' && argv.includestaticfiles.toLowerCase() === 'true';
 
 	// when transfer site without content, the site content won't be included in the
 	// site template zip, they will be uploaded to site content folder after site is created
@@ -669,6 +670,7 @@ module.exports.transferSite = function (argv, done) {
 	var policy;
 	var srcPolicy;
 	var site;
+	var siteMetadata;
 	var destSite;
 	var templateId;
 	var contentLayoutNames = [];
@@ -783,6 +785,14 @@ module.exports.transferSite = function (argv, done) {
 							console.log('ERROR: failed to get site channel ' + (site.channel ? JSON.stringify(site.channel) : ''));
 							return Promise.reject();
 						}
+
+						// query site metadata to get static site settings
+						return serverUtils.getSiteMetadata(request, server, site.id);
+					})
+					.then(function (result) {
+
+						siteMetadata = result && result.data;
+						// console.log(siteMetadata);
 
 						return serverRest.getLocalizationPolicy({
 							server: server,
@@ -1054,11 +1064,13 @@ module.exports.transferSite = function (argv, done) {
 						var uploadSiteContentPromises = [];
 						if (excludeSiteContent && creatNewSite) {
 							var siteContentPath = path.join(templatesSrcDir, templateName, 'content');
-							var uploadArgv = {
-								path: siteContentPath,
-								folder: 'site:' + siteName
-							};
-							uploadSiteContentPromises.push(documentUtils.uploadFolder(uploadArgv, destServer));
+							if (fs.existsSync(siteContentPath)) {
+								var uploadArgv = {
+									path: siteContentPath,
+									folder: 'site:' + siteName
+								};
+								uploadSiteContentPromises.push(documentUtils.uploadFolder(uploadArgv, destServer));
+							}
 						}
 
 						return Promise.all(uploadSiteContentPromises);
@@ -1077,6 +1089,61 @@ module.exports.transferSite = function (argv, done) {
 
 					})
 					.then(function (results) {
+
+						// download static 
+						var downloadStaticFolderPromises = [];
+						if (includestaticfiles) {
+							var staticFileFolder;
+							if (creatNewSite && !excludeSiteContent) {
+								if (!fs.existsSync(path.join(documentsSrcDir, siteName))) {
+									fs.mkdirSync(path.join(documentsSrcDir, siteName));
+								}
+								staticFileFolder = path.join(documentsSrcDir, siteName, 'static');
+							} else {
+								staticFileFolder = path.join(templatesSrcDir, templateName, 'static');
+							}
+							if (fs.existsSync(staticFileFolder)) {
+								fse.removeSync(staticFileFolder);
+							}
+							fs.mkdirSync(staticFileFolder);
+
+							var downloadArgv = {
+								folder: staticFileFolder,
+								path: 'site:' + siteName + '/static'
+							};
+
+							downloadStaticFolderPromises.push(documentUtils.downloadFolder(downloadArgv, server, true, false));
+						}
+
+						return Promise.all(downloadStaticFolderPromises);
+
+					})
+					.then(function (results) {
+						if (includestaticfiles) {
+							console.log(' - download site static files');
+						}
+
+						// upload static files
+						var uploadStaticFolderPromises = [];
+						if (includestaticfiles && creatNewSite) {
+							var staticFolderPath = excludeSiteContent ? path.join(templatesSrcDir, templateName, 'static') :
+								path.join(documentsSrcDir, siteName, 'static');
+
+							var uploadArgv = {
+								path: staticFolderPath,
+								folder: 'site:' + siteName
+							};
+							uploadStaticFolderPromises.push(documentUtils.uploadFolder(uploadArgv, destServer));
+						}
+
+						return Promise.all(uploadStaticFolderPromises);
+
+					})
+					.then(function (results) {
+						if (includestaticfiles) {
+							console.log(' - upload site static files');
+						}
+
 						if (creatNewSite) {
 							if (actionSuccess) {
 								console.log(' - site ' + siteName + ' created on ' + destServer.url);
@@ -1098,6 +1165,7 @@ module.exports.transferSite = function (argv, done) {
 							});
 
 						} else {
+
 							var updateSiteArgs = {
 								projectDir: projectDir,
 								name: siteName,
@@ -1109,9 +1177,30 @@ module.exports.transferSite = function (argv, done) {
 								console.log(' - update site finished');
 
 								if (success) {
-									serverRest.getLocalizationPolicy({
-											server: destServer,
-											id: destSite.channel.localizationPolicy
+									serverUtils.getIdcToken(destServer)
+										.then(function (result) {
+											idcToken = result && result.idcToken;
+											if (!idcToken) {
+												console.log('ERROR: failed to get idcToken');
+												return Promise.reject();
+											}
+
+											// update static site settings
+											var staticSiteSettings = {
+												xScsSiteStaticResponseHeaders: siteMetadata ? siteMetadata.xScsSiteStaticResponseHeaders : '',
+												xScsSiteMobileUserAgents: siteMetadata ? siteMetadata.xScsSiteMobileUserAgents : ''
+											};
+											return serverUtils.setSiteMetadata(request, destServer, idcToken, destSite.id, staticSiteSettings);
+										})
+										.then(function (result) {
+											if (result && !result.err) {
+												console.log(' - update site static deliver');
+											}
+
+											return serverRest.getLocalizationPolicy({
+												server: destServer,
+												id: destSite.channel.localizationPolicy
+											});
 										})
 										.then(function (result) {
 											if (!result || result.err) {
