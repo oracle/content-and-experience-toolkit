@@ -91,6 +91,13 @@ PersistenceStoreInterface.prototype = {
         return Promise.reject('PersistenceStoreInterface.deleteJob(): not implemented');
     },
     /**
+     * Get log file path of the job.
+     * @param {object} args
+     */
+    getJobLogFile: function (args) {
+        return Promise.reject('PersistenceStoreInterface.getJobLogFile(): not implemented');
+    },
+    /**
      * Create log stream to write log entries.
      * @param {object} args Javascript object containing the getLogStream parameters.
      * @param {string} args.jobId Identifier for the job in the persistence store. 

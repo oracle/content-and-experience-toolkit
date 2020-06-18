@@ -307,15 +307,6 @@ SampleFilePersistenceStore.prototype.deleteJob = function (args) {
 	});
 };
 
-var getJobLogFile = function(args) {
-		var jobId = args.id,
-			siteName = args.siteName,
-			jobDir = args.logsDir || path.join(this.compilationJobsDir, jobId),
-			jobLogFile = path.join(jobDir, siteName + '-' + jobId + '.log');
-
-		return jobLogFile;
-	};
-
 /** @inheritdoc */
 SampleFilePersistenceStore.prototype.updateFileMetadata = function (args) {
 	// just overwrite the metadata file
@@ -323,12 +314,24 @@ SampleFilePersistenceStore.prototype.updateFileMetadata = function (args) {
 };
 
 /** @inheritdoc */
+SampleFilePersistenceStore.prototype.getJobLogFile = function (args) {
+	var jobId = args.id,
+		siteName = args.siteName,
+		jobDir = args.logsDir || path.join(this.compilationJobsDir, jobId),
+		jobLogFile = path.join(jobDir, siteName + '-compilation.log');
+
+	return jobLogFile;
+};
+
+/** @inheritdoc */
 SampleFilePersistenceStore.prototype.getLogStream = function (args) {
+	var self = this;
+
 	return new Promise(function (resolve, reject) {
 		var jobId = args.id,
-			jobLogFile = getJobLogFile(args);
+			jobLogFile = self.getJobLogFile(args);
 
-		var stream = fs.createWriteStream(jobLogFile, {'flags': 'a'});
+		var stream = fs.createWriteStream(jobLogFile);
 
 		stream.on('error', function(err) {
 			console.log('SampleFilePersistenceStore.getLogStream(): failed to create log stream for:', jobId, 'due to', err);
@@ -346,9 +349,11 @@ SampleFilePersistenceStore.prototype.getLogStream = function (args) {
 
 /** @inheritdoc */
 SampleFilePersistenceStore.prototype.readLog = function (args) {
+	var self = this;
+
 	return new Promise(function (resolve, reject) {
 		var jobId = args.id,
-			jobLogFile = getJobLogFile(args);
+			jobLogFile = self.getJobLogFile(args);
 
 		if (fs.existsSync(jobLogFile)) {
 			fs.readFile(jobLogFile, 'utf8', function (err, data) {

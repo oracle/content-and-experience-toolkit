@@ -947,3 +947,82 @@ var _getChannels = function (serverName, server) {
 			});
 	});
 };
+
+module.exports.executeGet = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	// console.log(' - server: ' + server.url);
+
+	var output = argv.file;
+
+	if (!path.isAbsolute(output)) {
+		output = path.join(projectDir, output);
+	}
+	output = path.resolve(output);
+
+	var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+	// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+	if (!fs.existsSync(outputFolder)) {
+		console.log('ERROR: folder ' + outputFolder + ' does not exist');
+		done();
+		return;
+	}
+
+	if (!fs.statSync(outputFolder).isDirectory()) {
+		console.log('ERROR: ' + outputFolder + ' is not a folder');
+		done();
+		return;
+	}
+
+	var endpoint = argv.endpoint;
+
+	var request = serverUtils.getRequest();
+
+	serverUtils.loginToServer(server, request).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server ' + server.url);
+			done();
+			return;
+		}
+
+		var url = server.url + endpoint;
+		var auth = serverUtils.getRequestAuth(server);
+		var options = {
+			url: url,
+			auth: auth,
+			encoding: null
+		};
+		
+		console.log(' - executing endpoint: ' + endpoint);
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to execute');
+				console.log(err);
+				done();
+				return;
+			}
+			console.log(' - status: ' + response.statusCode + ' (' + response.statusMessage + ')');
+			if (response && response.statusCode === 200) {
+				console.log(' - saving result to ' + output);
+				fs.writeFileSync(output, body);
+				console.log(' - finished');
+
+				done(true);
+			} else {
+				console.log('ERROR: Failed to execute');
+				done();
+			}
+		});
+
+	});
+};

@@ -2240,6 +2240,20 @@ const removeMemberFromGroup = {
 	]
 };
 
+const executeGet = {
+	command: 'execute-get <endpoint>',
+	alias: 'exeg',
+	name: 'execute-get',
+	usage: {
+		'short': 'Executes a GET on OCE server.',
+		'long': (function () {
+			let desc = 'Executes a GET on OCE server. Specify the server with -s <server>. ';
+			return desc;
+		})()
+	},
+	example: []
+};
+
 /*********************
  * Setup yargs
  **********************/
@@ -5212,6 +5226,22 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${setOAuthToken.command}\n\n${setOAuthToken.usage.long}`);
 		})
+	.command([executeGet.command, executeGet.alias], false,
+		(yargs) => {
+			yargs.option('file', {
+					alias: 'f',
+					description: 'The file to save the result',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered CEC server'
+				})
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${executeGet.command}\n\n${executeGet.usage.long}`);
+		})
 	.command([install.command, install.alias], false,
 		(yargs) => {
 			yargs.example(...install.example[0])
@@ -7480,6 +7510,21 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		removeMemberFromGroupArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, removeMemberFromGroupArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+} else if (argv._[0] === executeGet.name || argv._[0] === executeGet.alias) {
+	let executeGetArgs = ['run', '-s', executeGet.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--endpoint', argv.endpoint,
+		'--file', argv.file
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		executeGetArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, executeGetArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

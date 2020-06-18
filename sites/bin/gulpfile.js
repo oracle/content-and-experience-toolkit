@@ -1689,6 +1689,19 @@ gulp.task('remove-member-from-group', function (done) {
 	});
 });
 
+/**
+ * Execute
+ */
+gulp.task('execute-get', function (done) {
+	'use strict';
+
+	resourcelib.executeGet(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+
 gulp.task('check-version', function (done) {
 	'use strict';
 

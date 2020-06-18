@@ -491,9 +491,10 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 							err: 'err'
 						});
 					}
-					console.log(' - submit export job');
+					console.log(' - submit export job (' + jobId + ')');
 
 					// Wait for job to finish
+					var startTime = new Date();
 					var inter = setInterval(function () {
 						var checkExportStatusPromise = _checkJobStatus(request, server, jobId);
 						checkExportStatusPromise.then(function (result) {
@@ -508,6 +509,8 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 							// console.log(data);
 							if (status && status === 'SUCCESS') {
 								clearInterval(inter);
+								process.stdout.write(os.EOL);
+								// console.log(data);
 								var downloadLink = data.downloadLink[0].href;
 								if (downloadLink) {
 									options = {
@@ -516,10 +519,13 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 										headers: {
 											'Content-Type': 'application/zip'
 										},
+										timeout: 3600000,
 										encoding: null
 									};
 									//
 									// Download the export zip
+									console.log(' - downloading export ' + downloadLink);
+									startTime = new Date();
 									request.get(options, function (err, response, body) {
 										if (err) {
 											console.log('ERROR: Failed to download');
@@ -529,7 +535,7 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 											});
 										}
 										if (response && response.statusCode === 200) {
-											console.log(' - download export file');
+											console.log(' - download export file [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 											fs.writeFileSync(exportfilepath, body);
 											console.log(' - save export to ' + exportfilepath);
 
@@ -544,20 +550,23 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 								}
 							} else if (status && status === 'FAILED') {
 								clearInterval(inter);
+								process.stdout.write(os.EOL);
 								// console.log(data);
 								console.log('ERROR: export failed: ' + data.errorDescription);
 								return resolve({
 									err: 'err'
 								});
 							} else if (status && status === 'INPROGRESS') {
-								console.log(' - export job in progress...');
+								process.stdout.write(' - export job in progress [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
+								readline.cursorTo(process.stdout, 0);
 							}
 
 						});
 
-					}, 5000);
+					}, 6000);
 
 				} else {
+					process.stdout.write(os.EOL);
 					var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
 					console.log('ERROR: failed to export: ' + msg);
 					return resolve({
@@ -657,7 +666,7 @@ var _uploadContentFromZipFile = function (args) {
 		});
 
 		var contentZipFileId;
-
+		console.log(' - uploading file ...');
 		createFilePromise.then(function (result) {
 				if (!result || !result.id) {
 					errorMessage = 'Error: failed to upload zip file to server.';
@@ -1022,9 +1031,10 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 						err: 'err'
 					});
 				}
-				console.log(' - submit import job' + (updateContent ? ', updating content' : ''));
+				console.log(' - submit import job (' + jobId + ')' + (updateContent ? ', updating content' : ''));
 
 				// Wait for job to finish
+				var startTime = new Date();
 				var count = [];
 				var inter = setInterval(function () {
 					var checkImportStatusPromise = _checkJobStatus(request, server, jobId);
@@ -1052,12 +1062,12 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 							});
 						} else if (status && status === 'INPROGRESS') {
 							count.push('.');
-							process.stdout.write(' - import job in progress ' + count.join(''));
+							process.stdout.write(' - import job in progress [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
 							readline.cursorTo(process.stdout, 0);
 						}
 					});
 
-				}, 5000);
+				}, 6000);
 			} else {
 				process.stdout.write(os.EOL);
 				console.log(' - failed to import: ' + response.statusCode);

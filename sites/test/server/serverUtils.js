@@ -2781,6 +2781,9 @@ module.exports.importToPODServer = function (server, type, folder, imports, publ
 	return importPromise;
 };
 
+module.exports.timeUsed = function (start, end) {
+	return _timeUsed(start, end);
+};
 var _timeUsed = function (start, end) {
 	var timeDiff = end - start; //in ms
 	// strip the ms
@@ -4546,9 +4549,88 @@ module.exports.getSiteMetadata = function (request, server, siteId) {
 
 
 /**
+ * Get a site's metadata from server using IdcService
+ */
+module.exports.getSiteMetadataRaw= function (request, server, siteId) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var auth = _getRequestAuth(server);
+
+		// set dMetadataSerializer to get value raw values (not escaped ones)
+		var url = server.url + '/documents/web?IdcService=GET_METADATA&items=fFolderGUID:' + siteId;
+
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth
+		};
+		if (server.cookies) {
+			options.headers = {
+				Cookie: server.cookies
+			};
+		}
+
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get site metadata');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get site metadata ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.dCommonSCSMetaCollection && data.ResultSets.dCommonSCSMetaCollection.fields || [];
+			var rows = data.ResultSets && data.ResultSets.dCommonSCSMetaCollection && data.ResultSets.dCommonSCSMetaCollection.rows || [];
+			var metadata = [];
+
+			rows.forEach(function (row) {
+				metadata.push({});
+			});
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				for (var j = 0; j < rows.length; j++) {
+					metadata[j][attr] = rows[j][i];
+				}
+			}
+
+			resolve({
+				data: metadata,
+				xScsComponentsUsedCollection: data.ResultSets && data.ResultSets.xScsComponentsUsedCollection,
+				xScsContentItemsUsedCollection: data.ResultSets && data.ResultSets.xScsContentItemsUsedCollection,
+				xScsContentTypesUsedCollection: data.ResultSets && data.ResultSets.xScsContentTypesUsedCollection
+			});
+		});
+	});
+
+};
+
+/**
  * Set metadata for a site using IdcService
  */
-module.exports.setSiteMetadata = function (request, server, idcToken, siteId, values) {
+module.exports.setSiteMetadata = function (request, server, idcToken, siteId, values, resultSets) {
 	return new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -4579,7 +4661,10 @@ module.exports.setSiteMetadata = function (request, server, idcToken, siteId, va
 				formData.LocalData[key] = values[key];
 			});
 		}
-		// console.log(formData);
+		if (resultSets) {
+			formData.ResultSets = resultSets;
+		}
+		// console.log(JSON.stringify(formData, null, 4));
 
 		var postData = {
 			method: 'POST',
@@ -4605,7 +4690,7 @@ module.exports.setSiteMetadata = function (request, server, idcToken, siteId, va
 			try {
 				data = JSON.parse(body);
 			} catch (e) {}
-			
+
 			if (response && response.statusCode === 200) {
 				return resolve({});
 			} else {

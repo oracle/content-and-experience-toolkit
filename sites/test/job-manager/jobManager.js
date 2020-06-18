@@ -153,7 +153,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                         siteName: siteName,
                         logsDir: logsDir
                     };
-                    
+
                 // Resolve with a stream or the nullStream.
                 // In this way, caller only needs a then function.
                 return new Promise(function(resolve) {
@@ -161,6 +161,38 @@ JobManager.prototype.compileSite = function (jobConfig) {
                         resolve(stream);
                     }, function () {
                         resolve (nullStream);
+                    });
+                });
+            },
+            uploadLogStep = function () {
+                return new Promise(function (resolveStep, rejectStep) {
+                    var args = {
+                            id: jobId,
+                            siteName: siteName,
+                            logsDir: logsDir
+                        },
+                        logFile = self.ps.getJobLogFile(args);
+
+                    var uploadLogArgs = [
+                            'upload-file',
+                            logFile,
+                            '-s',
+                            serverName,
+                            '-f',
+                            'site:' + siteName
+                        ];
+
+                    var uploadLogCommand = exec(getExecCommand(cecCmd, uploadLogArgs), cecDefaults);
+                    uploadLogCommand.stdout.on('data', function(data) {
+                        console.log('stdout:', `${data}`);
+                    });
+                    uploadLogCommand.stderr.on('data', function(data) {
+                        console.log('stderr:', `${data}`);
+                    });
+                    uploadLogCommand.on('close', (code) => {
+                        console.log('uploadLog', code);
+                        // Always resolve
+                        resolveStep(code);
                     });
                 });
             },
@@ -419,8 +451,12 @@ JobManager.prototype.compileSite = function (jobConfig) {
             },
             stopNow = function(code) {
                 console.log('stop with code', code);
-                reject(self.updateStatus(jobConfig, 'FAILED'));
                 logStream.end();
+                uploadLogStep().then(function() {
+                    self.updateStatus(jobConfig, 'FAILED').then(function(updatedJobConfig) {
+                        reject(updatedJobConfig);
+                    });
+                });
             },
             steps = function() {
 
@@ -445,9 +481,11 @@ JobManager.prototype.compileSite = function (jobConfig) {
                                                                 logDuration(updatedJobConfig, 'compileSite', compileStartTime);
                                                             }
                                                             rmTemplateDirStep(updatedJobConfig.status).then(function() {
-                                                                updateStatusStep(completionCode, 'COMPILED', 100).then(function(updatedJobConfig) {
-                                                                    resolve(updatedJobConfig);
-                                                                    logStream.end();
+                                                                logStream.end();
+                                                                uploadLogStep().then(function() {
+                                                                    updateStatusStep(completionCode, 'COMPILED', 100).then(function(updatedJobConfig) {
+                                                                        resolve(updatedJobConfig);
+                                                                    });
                                                                 }, stopNow);
                                                             });
                                                         }, stopNow);

@@ -671,7 +671,9 @@ module.exports.transferSite = function (argv, done) {
 	var srcPolicy;
 	var site;
 	var siteMetadata;
+	var siteMetadataRaw;
 	var destSite;
+	var destSiteMetadataRaw;
 	var templateId;
 	var contentLayoutNames = [];
 
@@ -790,9 +792,23 @@ module.exports.transferSite = function (argv, done) {
 						return serverUtils.getSiteMetadata(request, server, site.id);
 					})
 					.then(function (result) {
+						if (!result || result.err) {
+							return Promise.reject();
+						}
 
 						siteMetadata = result && result.data;
 						// console.log(siteMetadata);
+
+						// query site metadata to get used components, content types and items
+						return serverUtils.getSiteMetadataRaw(request, server, site.id);
+					})
+					.then(function (result) {
+						if (!result || result.err) {
+							return Promise.reject();
+						}
+
+						siteMetadataRaw = result;
+						// console.log(siteMetadataRaw);
 
 						return serverRest.getLocalizationPolicy({
 							server: server,
@@ -1035,9 +1051,39 @@ module.exports.transferSite = function (argv, done) {
 					.then(function (results) {
 						if (creatNewSite) {
 							if (!results || !results[0] || results[0].err) {
-								actionSuccess = false;
+								return Promise.reject();
 							}
 						}
+
+						// query site to verify it's created
+						return sitesRest.getSite({
+							server: server,
+							name: siteName
+						});
+					})
+					.then(function (result) {
+						if (!result || result.err) {
+							return Promise.reject();
+						}
+						console.log(' - site id: ' + result.id);
+
+						// Now upload site content after the site is created in transfer site wo content mode
+						var uploadSiteContentPromises = [];
+						if (excludeSiteContent && creatNewSite) {
+							var siteContentPath = path.join(templatesSrcDir, templateName, 'content');
+							if (fs.existsSync(siteContentPath)) {
+								var uploadArgv = {
+									path: siteContentPath,
+									folder: 'site:' + siteName
+								};
+								uploadSiteContentPromises.push(documentUtils.uploadFolder(uploadArgv, destServer));
+							}
+						}
+
+						return Promise.all(uploadSiteContentPromises);
+
+					})
+					.then(function (results) {
 
 						var deleteTemplatePromises = [];
 						if (templateId) {
@@ -1059,25 +1105,6 @@ module.exports.transferSite = function (argv, done) {
 						return Promise.all(deleteTemplatePromises);
 					})
 					.then(function (results) {
-
-						// Now upload site content after the site is created in transfer site wo content mode
-						var uploadSiteContentPromises = [];
-						if (excludeSiteContent && creatNewSite) {
-							var siteContentPath = path.join(templatesSrcDir, templateName, 'content');
-							if (fs.existsSync(siteContentPath)) {
-								var uploadArgv = {
-									path: siteContentPath,
-									folder: 'site:' + siteName
-								};
-								uploadSiteContentPromises.push(documentUtils.uploadFolder(uploadArgv, destServer));
-							}
-						}
-
-						return Promise.all(uploadSiteContentPromises);
-
-					})
-					.then(function (results) {
-
 						// Unzip the site template file from server in transfer site w content mode and update mode
 						// files will be used by updateSite
 						var unzipTemplatePromises = [];
@@ -1185,16 +1212,89 @@ module.exports.transferSite = function (argv, done) {
 												return Promise.reject();
 											}
 
-											// update static site settings
-											var staticSiteSettings = {
+											return serverUtils.getSiteMetadataRaw(request, destServer, destSite.id);
+
+										})
+										.then(function (result) {
+											destSiteMetadataRaw = result;
+											// console.log(destSiteMetadataRaw);
+
+											// update site metadata
+											var siteSettings = {
 												xScsSiteStaticResponseHeaders: siteMetadata ? siteMetadata.xScsSiteStaticResponseHeaders : '',
 												xScsSiteMobileUserAgents: siteMetadata ? siteMetadata.xScsSiteMobileUserAgents : ''
 											};
-											return serverUtils.setSiteMetadata(request, destServer, idcToken, destSite.id, staticSiteSettings);
+
+											var compFields = siteMetadataRaw && siteMetadataRaw.xScsComponentsUsedCollection && siteMetadataRaw.xScsComponentsUsedCollection.fields ||
+												destSiteMetadataRaw && destSiteMetadataRaw.xScsComponentsUsedCollection && destSiteMetadataRaw.xScsComponentsUsedCollection.fields;
+											var srcCompRows = siteMetadataRaw && siteMetadataRaw.xScsComponentsUsedCollection && siteMetadataRaw.xScsComponentsUsedCollection.rows || [];
+											var destCompRows = destSiteMetadataRaw && destSiteMetadataRaw.xScsComponentsUsedCollection && destSiteMetadataRaw.xScsComponentsUsedCollection.rows || [];
+											var compsToAdd = [];
+											var compsToAddUnitId = [];
+											var compsToRemove = [];
+											var compsToRemoveUnitId = [];
+											_getNewUsedObjects(compFields, srcCompRows, destCompRows, 'xScsComponentsUsedInstanceID',
+												compsToAdd, compsToAddUnitId, compsToRemove, compsToRemoveUnitId);
+
+											var itemFields = siteMetadataRaw && siteMetadataRaw.xScsContentItemsUsedCollection && siteMetadataRaw.xScsContentItemsUsedCollection.fields ||
+												destSiteMetadataRaw && destSiteMetadataRaw.xScsContentItemsUsedCollection && destSiteMetadataRaw.xScsContentItemsUsedCollection.fields;
+											var srcItemRows = siteMetadataRaw && siteMetadataRaw.xScsContentItemsUsedCollection && siteMetadataRaw.xScsContentItemsUsedCollection.rows || [];
+											var destItemRows = destSiteMetadataRaw && destSiteMetadataRaw.xScsContentItemsUsedCollection && destSiteMetadataRaw.xScsContentItemsUsedCollection.rows || [];
+											var itemsToAdd = [];
+											var itemsToAddUnitId = [];
+											var itemsToRemove = [];
+											var itemsToRemoveUnitId = [];
+											_getNewUsedObjects(itemFields, srcItemRows, destItemRows,
+												'xScsContentItemsUsedInstanceID', itemsToAdd, itemsToAddUnitId, itemsToRemove, itemsToRemoveUnitId);
+
+											var typeFields = siteMetadataRaw && siteMetadataRaw.xScsContentTypesUsedCollection && siteMetadataRaw.xScsContentTypesUsedCollection.fields ||
+												destSiteMetadataRaw && destSiteMetadataRaw.xScsContentTypesUsedCollection && destSiteMetadataRaw.xScsContentTypesUsedCollection.fields;
+											var srcTypeRows = siteMetadataRaw && siteMetadataRaw.xScsContentTypesUsedCollection && siteMetadataRaw.xScsContentTypesUsedCollection.rows || [];
+											var destTypeRows = destSiteMetadataRaw && destSiteMetadataRaw.xScsContentTypesUsedCollection && destSiteMetadataRaw.xScsContentTypesUsedCollection.rows || [];
+											var typesToAdd = [];
+											var typesToAddUnitId = [];
+											var typesToRemove = [];
+											var typesToRemoveUnitId = [];
+											_getNewUsedObjects(typeFields, srcTypeRows, destTypeRows,
+												'xScsContentTypesUsedInstanceID', typesToAdd, typesToAddUnitId, typesToRemove, typesToRemoveUnitId);
+
+											var resultSets = {};
+											if (compsToAdd.length > 0 || compsToRemove.length > 0) {
+												if (compsToAddUnitId.length > 0) {
+													siteSettings['xScsComponentsUsedCollection+'] = compsToAddUnitId.join(',');
+												}
+												if (compsToRemoveUnitId.length > 0) {
+													siteSettings['xScsComponentsUsedCollection-'] = compsToRemoveUnitId.join(',');
+												}
+												resultSets.xScsComponentsUsedCollection = siteMetadataRaw.xScsComponentsUsedCollection || destSiteMetadataRaw.xScsComponentsUsedCollection;
+												resultSets.xScsComponentsUsedCollection.rows = compsToAdd.concat(compsToRemove);
+											}
+											if (itemsToAdd.length > 0 || itemsToRemove.length > 0) {
+												if (itemsToAddUnitId.length > 0) {
+													siteSettings['xScsContentItemsUsedCollection+'] = itemsToAddUnitId.join(',');
+												}
+												if (itemsToRemoveUnitId.length > 0) {
+													siteSettings['xScsContentItemsUsedCollection-'] = itemsToRemoveUnitId.join(',');
+												}
+												resultSets.xScsContentItemsUsedCollection = siteMetadataRaw.xScsContentItemsUsedCollection || destSiteMetadataRaw.xScsContentItemsUsedCollection;
+												resultSets.xScsContentItemsUsedCollection.rows = itemsToAdd.concat(itemsToRemove);
+											}
+											if (typesToAdd.length > 0 || typesToRemove.length > 0) {
+												if (typesToAddUnitId.length > 0) {
+													siteSettings['xScsContentTypesUsedCollection+'] = typesToAddUnitId.join(',');
+												}
+												if (typesToRemoveUnitId.length > 0) {
+													siteSettings['xScsContentTypesUsedCollection-'] = typesToRemoveUnitId.join(',');
+												}
+												resultSets.xScsContentTypesUsedCollection = siteMetadataRaw.xScsContentTypesUsedCollection || destSiteMetadataRaw.xScsContentTypesUsedCollection;
+												resultSets.xScsContentTypesUsedCollection.rows = typesToAdd.concat(typesToRemove);
+											}
+
+											return serverUtils.setSiteMetadata(request, destServer, idcToken, destSite.id, siteSettings, resultSets);
 										})
 										.then(function (result) {
 											if (result && !result.err) {
-												console.log(' - update site static deliver');
+												console.log(' - update site metadata');
 											}
 
 											return serverRest.getLocalizationPolicy({
@@ -1246,6 +1346,50 @@ module.exports.transferSite = function (argv, done) {
 		});
 };
 
+var _getNewUsedObjects = function (fields, srcRows, destRows, instanceFieldName, rowsToAdd, unitIdsToAdd, rowsRoRemove, unitIdsToRemove) {
+	if (fields && fields.length > 0) {
+		var unitIDIdx;
+		for (var i = 0; i < fields.length; i++) {
+			if (fields[i].name === instanceFieldName) {
+				instanceIDIdx = i;
+			}
+			if (fields[i].name === 'dIdentifier') {
+				unitIDIdx = i;
+			}
+		}
+
+		// find out rows to add (exist on source but not on destination)
+		srcRows.forEach(function (srcObj) {
+			var foundInDest = false;
+			for (i = 0; i < destRows.length; i++) {
+				if (srcObj[instanceIDIdx] === destRows[i][instanceIDIdx]) {
+					foundInDest = true;
+					break;
+				}
+			}
+			if (!foundInDest) {
+				rowsToAdd.push(srcObj);
+				unitIdsToAdd.push(srcObj[unitIDIdx]);
+			}
+		});
+
+		// find out rows to remove (exist on destination but not on source)
+		for (i = 0; i < destRows.length; i++) {
+			var foundInSource = false;
+			for (var j = 0; j < srcRows.length; j++) {
+				if (srcRows[j][instanceIDIdx] === destRows[i][instanceIDIdx]) {
+					foundInSource = true;
+					break;
+				}
+			}
+			if (!foundInSource) {
+				rowsRoRemove.push(destRows[i]);
+				unitIdsToRemove.push(destRows[i][unitIDIdx]);
+			}
+		}
+	}
+	// console.log(instanceFieldName + ' to add ' + unitIdsToAdd + ' to remove ' + unitIdsToRemove);
+};
 
 var _uploadTemplateWithoutContent = function (argv, templateName, destServer, destdir, excludeSiteContent) {
 	return new Promise(function (resolve, reject) {
