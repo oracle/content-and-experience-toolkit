@@ -161,8 +161,13 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                 '{{type}}' +
                 '</div>';
 
-            // Set the title for the settings panel
-            parent.document.getElementById('settingsTitle').innerText = 'Content';
+            
+			// parent.document.getElementById('settingsTitle').innerText = 'Content';
+			var settingsLink = parent.document.getElementById('settingsTitle2');
+			if (settingsLink) {
+				parent.document.getElementById('settingsTitle').classList.add('devcs_clickable');
+				settingsLink.classList.add('devcs_clickable');
+			}
 
             self.prepareItems = function (data, remote) {
                 var results = data;
@@ -178,11 +183,12 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                             if (!itemimage && typeof value === 'object' && value['type'] === 'DigitalAsset') {
                                 if (remote) {
                                     itemimage = '/content/management/api/v1.1/assets/' + value.id +
-                                        '/native';
+										'/native';
                                 } else {
                                     itemimage = '/content/published/api/v1/digital-assets/' + value.id +
                                         '/thumbnail';
-                                }
+								}
+								console.log(itemimage);
                             }
                             if (typeof value === 'string') {
                                 textfields[textfields.length] = {
@@ -229,8 +235,8 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
             };
 
             self.queryItems = function (cnttype) {
-                var itemsurl = '/content/management/api/v1/items?field:type:equals=' + cnttype +
-                    '&fields=ALL&orderBy=updateddate:des&limit=99';
+                var itemsurl = '/content/management/api/v1.1/items?q=(type eq "' + cnttype + 
+                    '")&fields=ALL&orderBy=updateddate:des&limit=99';
                 // query content items
                 $.ajax({
                     'type': 'GET',
@@ -311,7 +317,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
             self.contentTypeValues = ko.observableArray([]);
 
             // get content type from server
-            var contenttypeurl = '/content/management/api/v1/types?limit=999';
+            var contenttypeurl = '/content/management/api/v1.1/types?limit=999';
             // console.log('url=' + url);
             $.ajax({
                 'type': 'GET',

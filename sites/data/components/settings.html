@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+	<title>Sample Custom Component</title>
+
+	<!-- include sample apps styling -->
+	<link href="/_sitescloud/renderer/app/sdk/css/app-styles.css" rel="stylesheet">
+
+	<!-- include supporting files -->
+	<script type="text/javascript" src="/_sitescloud/renderer/app/apps/js/knockout.min.js"></script>
+	<script type="text/javascript" src="/_sitescloud/renderer/app/apps/js/jquery.min.js"></script>
+
+	<!-- include the Sites SDK -->
+	<script type="text/javascript" src="/_sitescloud/renderer/app/sdk/js/sites.min.js"></script>
+</head>
+
+<body data-bind="visible: true" style="display:none; margin:0px; padding:0px;background:transparent;background-image:none;">
+	<!-- ko if: initialized() -->
+	<div class="scs-component-settings">
+		<div>
+			<!-- Custom Data-->
+			<label id="customDataLabel" for="customData" class="settings-heading" data-bind="text: 'Custom Data'"></label>
+			<input id="customData" data-bind="value: customData" placeholder="example: Custom data..." class="settings-text-box" style="margin-bottom: 10px;">
+		</div>
+	</div>
+	<div data-bind="setSettingsHeight: true"></div>
+	<!-- /ko -->
+	<!-- ko ifnot: initialized() -->
+	<div data-bind="text: 'waiting for initialization to complete'" class="settings-heading"></div>
+	<!-- /ko -->
+	<script type="text/javascript">
+		// set the iFrame height when we've fully rendered
+		ko.bindingHandlers.scsCompComponentImpl = {
+			init: function (element, valueAccessor, allBindings, viewModel, bindingContext) {
+				var body = document.body,
+					html = document.documentElement;
+
+				SitesSDK.setHeight(Math.max(
+					body.scrollHeight,
+					body.offsetHeight,
+					html.clientHeight,
+					html.scrollHeight,
+					html.offsetHeight));
+			}
+		};
+
+		// define the viewModel object
+		var SettingsViewModel = function () {
+			var self = this;
+
+			// create the observables for passing data
+			self.customData = ko.observable();
+
+			// create rest of viewModel
+			self.initialized = ko.observable(false);
+			self.saveData = false;
+
+			// Get custom settings
+			SitesSDK.getProperty('customSettingsData', function (data) {
+				//update observables
+				self.customData(data.customData);
+
+				// note that viewModel is initialized and can start saving data
+				self.initialized(true);
+				self.saveData = true;
+			});
+
+
+			// save whenever any updates occur
+			self.save = ko.computed(function () {
+				var saveconfig = {
+					'customData': self.customData()
+				};
+
+				// save data in page
+				if (self.saveData) {
+					SitesSDK.setProperty('customSettingsData', saveconfig);
+				}
+			}, self);
+		};
+
+
+		// apply the bindings
+		ko.applyBindings(new SettingsViewModel());
+	</script>
+</body>
+</html>
+

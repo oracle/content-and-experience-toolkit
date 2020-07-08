@@ -1485,6 +1485,7 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror, asy
 
 				console.log(' - submit operation ' + action);
 				var count = [];
+				var startTime = new Date();
 				var needNewLine = false;
 				var inter = setInterval(function () {
 					var jobPromise = serverRest.getItemOperationStatus({
@@ -1517,7 +1518,7 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror, asy
 							return resolve({});
 						} else {
 							count.push('.');
-							process.stdout.write(' - ' + action + ' in process ' + count.join(''));
+							process.stdout.write(' - ' + action + ' in progress [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
 							readline.cursorTo(process.stdout, 0);
 							needNewLine = true;
 						}

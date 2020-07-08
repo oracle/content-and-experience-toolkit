@@ -1032,6 +1032,65 @@ module.exports.deleteChannel = function (args) {
 	return _deleteChannel(args.server, args.id);
 };
 
+// Delete repository on server
+var _deleteRepository = function (server, id) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+				var url = server.url + '/content/management/api/v1.1/repositories/' + id;
+				var auth = serverUtils.getRequestAuth(server);
+				var postData = {
+					method: 'DELETE',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					}
+				};
+
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to delete repository ' + id);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						console.log('Failed to delete repository ' + id + ' : ' + (response.statusMessage || response.statusCode));
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Delete repository on server by channel id
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.id The id of the repository to delete
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteRepository = function (args) {
+	return _deleteRepository(args.server, args.id);
+};
+
 // Add channel to repository
 var _addChannelToRepository = function (server, channelId, channelName, repository) {
 	return new Promise(function (resolve, reject) {
@@ -2796,14 +2855,15 @@ module.exports.unshareFolder = function (args) {
 	return _unshareFolder(args.server, args.id, args.userId);
 };
 
-var _getGroups = function (server) {
+var _getGroups = function (server, count, offset) {
 	return new Promise(function (resolve, reject) {
-		var url = server.url + '/osn/social/api/v1/groups?count=999';
+		var url = server.url + '/osn/social/api/v1/groups?count=' + count + '&offset=' + offset;
 		var options = {
 			method: 'GET',
 			url: url,
 			auth: serverUtils.getRequestAuth(server)
 		};
+		// console.log(options);
 		request(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get groups');
@@ -2818,8 +2878,10 @@ var _getGroups = function (server) {
 			} catch (e) {
 				data = body;
 			}
+			// console.log(' - url: ' + url + ' hasMore: ' + (data ? data.hasMore : 'unknown'));
+
 			if (response && response.statusCode === 200) {
-				resolve(data && data.items);
+				resolve(data);
 			} else {
 				var msg = response.statusMessage || response.statusCode;
 				console.log('ERROR: failed to get groups ' + msg);
@@ -2837,7 +2899,203 @@ var _getGroups = function (server) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getGroups = function (args) {
-	return _getGroups(args.server);
+	return new Promise(function (resolve, reject) {
+		var count = 1000;
+		var offset = 0;
+		var items = [];
+		//
+		// Currently support up to 12000 groups
+		//
+		console.log(' - querying groups ...');
+		_getGroups(args.server, count, offset)
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items)
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (result && result.items) {
+					items = items.concat(result.items);
+				}
+				// console.log(' - total groups: ' + items.length);
+				return resolve(items);
+			});
+	});
 };
 
 var _getGroupMembers = function (server, id, name) {
@@ -2889,11 +3147,10 @@ var _createConnection = function (request, server) {
 	return new Promise(function (resolve, reject) {
 
 		var url = server.url + '/osn/social/api/v1/connections';
-		/*
+
 		var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
 			'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
-			*/
-		var auth = 'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
+
 		var postData = {
 			method: 'POST',
 			url: url,
@@ -2901,6 +3158,8 @@ var _createConnection = function (request, server) {
 				Authorization: auth
 			},
 		};
+		// console.log(postData);
+
 		request(postData, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to create connection');
@@ -2936,6 +3195,122 @@ var _createConnection = function (request, server) {
  */
 module.exports.createConnection = function (args) {
 	return _createConnection(args.request, args.server);
+};
+
+var _getGroup2 = function (request, server, connection, name) {
+	return new Promise(function (resolve, reject) {
+
+		// console.log(' - get group: ' + name);
+
+		var apiVersion = connection.apiVersion;
+		var apiRandomID = connection.apiRandomID;
+
+		var url = server.url + '/osn/fc/RemoteJSONBatch';
+		var payload = [{
+			'ModuleName': 'XMemberModule$Server',
+			'MethodName': 'findMembers',
+			'Arguments': [{
+				'IncludeGroups': true,
+				'IncludeUsers': false,
+				'SearchString': name,
+				'NumResults': 1
+			}]
+		}];
+
+		var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
+			'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				Authorization: auth,
+				'X-Requested-With': 'XMLHttpRequest',
+				'X-Waggle-APIVersion': apiVersion,
+				'X-Waggle-RandomID': apiRandomID
+			},
+			body: payload,
+			json: true
+		};
+		// console.log(JSON.stringify(postData, null, 4));
+
+		request(postData, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get group');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			// console.log(JSON.stringify(data, null, 4));
+
+			if (response && response.statusCode === 200) {
+				var returnStatus = data && data[0] && data[0].returnStatus;
+				var items = returnStatus === 'success' ? data && data[0] && data[0].returnValue : [];
+				return resolve({
+					data: items
+				});
+			} else {
+				var msg = response.statusMessage || response.statusCode;
+				console.log('ERROR: failed to get group ' + name + ' : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+
+};
+
+var _getGroup = function (server, name) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/osn/social/api/v1/groups/' + name;
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		// console.log(options);
+		request(options, function (error, response, body) {
+			if (error) {
+				// console.log('ERROR: failed to get group ' + name);
+				// console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				var msg = response.statusMessage || response.statusCode;
+				// console.log('ERROR: failed to get group ' + name + ' ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get CEC group with name on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getGroup = function (args) {
+	return _getGroup(args.server, args.name);
 };
 
 var _createGroup = function (request, server, name, type) {

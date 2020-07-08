@@ -617,7 +617,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 							var triggerActions = [];
 							var links = [];
 
-							htmllintPromises.push(_runHTMLlint(page.id, pages[j].fileContent));
+							htmllintPromises.push(_runHTMLlint(page.id, page.name, 'page', fileName, pages[j].fileContent));
 
 							// fs.writeFileSync(path.join(projectDir, 'dist', page.id + '.json'), JSON.stringify(pages[j].fileContent));
 							var slots = pages[j].fileContent && pages[j].fileContent.slots;
@@ -741,9 +741,9 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			.then(function (results) {
 				// HTMLlint to check self close tags for page source
 				for (var i = 0; i < results.length; i++) {
-					if (results[i].pageId) {
+					if (results[i].id) {
 						for (var j = 0; j < structurePages.length; j++) {
-							if (structurePages[j].id === results[i].pageId) {
+							if (structurePages[j].id === results[i].id) {
 								structurePages[j].tagCloseIssues = results[i].tagCloseIssues || [];
 							}
 						}
@@ -832,6 +832,51 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 					}
 				}
 
+				// get the files under assets for all components
+				return _getComponentsFiles(server, pageComponents);
+
+			})
+			.then(function (result) {
+
+				pageComponents = result;
+
+				var compHtmllintPromises = [];
+				pageComponents.forEach(function (comp) {
+					var compFiles = comp.files || [];
+					for (var i = 0; i < compFiles.length; i++) {
+						compHtmllintPromises.push(_runHTMLlint(comp.id, comp.name, 'component', compFiles[i].name, compFiles[i].content));
+					}
+				});
+
+				// run HTMLlint to check close tags
+				return Promise.all(compHtmllintPromises);
+
+			})
+			.then(function (results) {
+
+				// HTMLlint to check self close tags for component files
+				for (var i = 0; i < results.length; i++) {
+					if (results[i] && results[i].id) {
+						for (var j = 0; j < pageComponents.length; j++) {
+							var comp = pageComponents[j];
+							if (comp.id === results[i].id && comp.files && comp.files.length > 0) {
+								for (var k = 0; k < comp.files.length; k++) {
+									if (comp.files[k].name === results[i].fileName) {
+										comp.files[k].tagCloseIssues = results[i].tagCloseIssues || [];
+										if (results[i].err) {
+											comp.files[k].err = results[i].err;
+										}
+									}
+									// remove file content 
+									comp.files[k].content = '';
+								}
+							}
+						}
+					}
+				}
+				// console.log(JSON.stringify(pageComponents, null, 4));
+
+				// query component permissions
 				var compPermissionPromises = [];
 				if (compIds.length > 0) {
 					for (var i = 0; i < compIds.length; i++) {
@@ -1078,6 +1123,23 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 					}
 				}
 
+				// generate issues for HTML close tags on component files
+				pageComponents.forEach(function (comp) {
+					if (comp.files && comp.files.length > 0) {
+						for (var i = 0; i < comp.files.length; i++) {
+							var compTagIssues = comp.files[i].tagCloseIssues || [];
+							for (var j = 0; j < compTagIssues.length; j++) {
+								var issue = compTagIssues[j];
+								if (issue) {
+									msg = 'Component: \'' + comp.name + '\' file: ' + comp.files[i].name;
+									msg = msg + ' line: ' + issue.line + ' column: ' + issue.column + ' HTML tag is not closed';
+									issues.push(msg);
+								}
+							}
+						}
+					}
+				});
+
 				siteContent.forEach(function (item) {
 					if (!usedContentFiles.includes(item.name) && !usedContentFiles4Sure.includes(item.name)) {
 						contentNotUsed.push(item.name);
@@ -1317,7 +1379,7 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 				}
 			} else if (comp.type === 'scs-component' || comp.type === 'scs-app') {
 				// custom component
-				var name = comp.type === 'scs-component' ? comp.data.componentId || comp.data.componentName : comp.data.appName;
+				var name = comp.type === 'scs-component' ? (comp.data.componentName || comp.data.componentId || comp.id) : comp.data.appName;
 				if (name) {
 					if (!components.includes(name)) {
 						components.push(name);
@@ -1561,6 +1623,141 @@ var _readFile = function (server, id, fileName) {
 	});
 };
 
+var _getComponentsFiles = function (server, comps) {
+	return new Promise(function (resolve, reject) {
+		var total = comps.length;
+		var groups = [];
+		var limit = 20;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+
+		var count = [];
+		var doGetCompFiles = groups.reduce(function (compFilePromise, param) {
+				return compFilePromise.then(function (result) {
+					var compFilePromises = [];
+					for (var i = param.start; i <= param.end; i++) {
+						if (comps[i].id) {
+							compFilePromises.push(_getComponentFiles(server, comps[i].id, comps[i].name));
+						}
+					}
+					count.push('.');
+					process.stdout.write(' - getting component files ' + count.join(''));
+					readline.cursorTo(process.stdout, 0);
+					return Promise.all(compFilePromises).then(function (results) {
+						if (results) {
+							for (var i = 0; i < results.length; i++) {
+								for (var j = 0; j < comps.length; j++) {
+									if (results[i] && results[i].compId === comps[j].id) {
+										comps[j].files = results[i].files;
+										break;
+									}
+								}
+							}
+						}
+					});
+				});
+
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doGetCompFiles.then(function (result) {
+			if (!_startNewLine) {
+				process.stdout.write(os.EOL);
+				_startNewLine = true;
+			}
+			resolve(comps);
+		});
+
+	});
+};
+
+/**
+ * get component's js files
+ */
+_getComponentFiles = function (server, compId, compName) {
+	return new Promise(function (resolve, reject) {
+		var files = [];
+		serverRest.findFile({
+				server: server,
+				parentID: compId,
+				filename: 'assets',
+				itemtype: 'folder'
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				var assetsFolderId = result.id;
+				// console.log(' - comp ' + compName + ' assets folder ' + assetsFolderId);
+
+				return serverRest.getChildItems({
+					server: server,
+					parentID: assetsFolderId
+				});
+			})
+			.then(function (result) {
+				var items = result && result.items || [];
+				// console.log(items);
+				var filePromises = [];
+				items.forEach(function (item) {
+					if (item.type === 'file' &&
+						(item.mimeType === 'text/html' || item.name === 'render.js')) {
+						// console.log(' - comp ' + compName + ' file ' + item.name);
+						files.push({
+							id: item.id,
+							name: item.name
+						});
+						filePromises.push(serverRest.downloadFile({
+							server: server,
+							fFileGUID: item.id
+						}));
+					}
+				});
+
+				return Promise.all(filePromises);
+			})
+			.then(function (results) {
+				var items = results || [];
+				items.forEach(function (item) {
+					for (var i = 0; i < files.length; i++) {
+						if (item.id === files[i].id) {
+							files[i].content = item.data ? item.data.toString() : '';
+						}
+					}
+				});
+
+				// console.log(' - comp ' + compName);
+				// console.log(files);
+				return resolve({
+					compId: compId,
+					files: files
+				});
+			})
+			.catch((error) => {
+				return resolve({
+					err: 'err'
+				});
+			});
+	});
+};
+
 var _queryItems = function (server, itemIds, itemLabel) {
 	return new Promise(function (resolve, reject) {
 		var items = [];
@@ -1686,10 +1883,11 @@ var _unescapeHTML = function (str) {
 	return he.decode(str);
 };
 
-var _runHTMLlint = function (pageId, source) {
+var _runHTMLlint = function (id, name, type, fileName, source) {
 	return new Promise(function (resolve, reject) {
 		var tagCloseIssues = [];
 		var src = typeof source === 'object' ? JSON.stringify(source) : source;
+
 		htmllint(src).then(function (result) {
 				var issues = result || [];
 
@@ -1698,15 +1896,29 @@ var _runHTMLlint = function (pageId, source) {
 						tagCloseIssues.push(issues[i]);
 					}
 				}
+
+				// console.log(' - ' + type + ' id: ' + id + ' name: ' + name + ' file: ' + fileName + ' ' + JSON.stringify(tagCloseIssues));
+
 				return resolve({
-					pageId: pageId,
+					id: id,
+					fileName: fileName,
 					tagCloseIssues: tagCloseIssues
 				});
 			})
 			.catch((error) => {
+				var msg = '';
 				if (error) {
-					console.log(error);
+					// console.log(error);
+					msg = error.toString();
 				}
+
+				console.log('ERROR: HTMLlint failed for ' + type + ' ' + name + ' file ' + fileName + ' : ' + msg);
+				return resolve({
+					id: id,
+					fileName: fileName,
+					tagCloseIssues: tagCloseIssues,
+					err: 'HTMLlint failed ' + (msg ? (': ' + msg) : '')
+				});
 			});
 	});
 };
@@ -2066,6 +2278,7 @@ module.exports.createTemplateReport = function (argv, done) {
 	var itemIds = [];
 	var typeNames = [];
 	var compNames = [];
+	var pageComponents = [];
 	var siteContent = [];
 	var contentNotUsed = [];
 	var contentHidden = [];
@@ -2155,6 +2368,9 @@ module.exports.createTemplateReport = function (argv, done) {
 
 	try {
 
+		// The component files to check HTML close tags
+		var COMPFILES = ['settings.html', 'render.js'];
+
 		var folderStr = fs.readFileSync(path.join(tempSrcDir, '_folder.json'));
 		var folderJson = JSON.parse(folderStr);
 		var siteinfoStr = fs.readFileSync(path.join(tempSrcDir, 'siteinfo.json'));
@@ -2241,16 +2457,16 @@ module.exports.createTemplateReport = function (argv, done) {
 		var otherLinks = [];
 
 		var htmllintPromises = [];
-
+		var compHtmllintPromises = [];
 		pages.forEach(function (page) {
 			var triggerActions = [];
 			var links = [];
 			var slots = page.fileContent && page.fileContent.slots;
 			var componentInstances = page.fileContent && page.fileContent.componentInstances;
 
-			htmllintPromises.push(_runHTMLlint(page.id, page.fileContent));
+			htmllintPromises.push(_runHTMLlint(page.id, page.name, 'page', page.id + '.json', page.fileContent));
 
-			// console.log(' - page: ' + page.id);
+			// console.log(' - page: ' + page.id + ' ' + page.name);
 			var pageResult = _examPageSource(slots, componentInstances, links, triggerActions, fileIds, itemIds, typeNames, compNames);
 			page.contentlist = pageResult.contentlist;
 			page.contentitems = pageResult.contentitems;
@@ -2355,9 +2571,37 @@ module.exports.createTemplateReport = function (argv, done) {
 			}
 
 			// console.log(page);
+
 		});
 		// console.log('usedContentFiles: ' + usedContentFiles.length);
 		// console.log('usedContentFiles4Sure: ' + usedContentFiles4Sure.length);
+
+		// get component assets files
+		compNames.forEach(function (compName) {
+			var files = [];
+			var compAssetsPath = path.join(componentsSrcDir, compName, 'assets');
+			if (fs.existsSync(compAssetsPath)) {
+				var fileNames = fs.readdirSync(compAssetsPath);
+				if (fileNames && fileNames.length > 0) {
+					for (var j = 0; j < fileNames.length; j++) {
+						var filePath = path.join(compAssetsPath, fileNames[j]);
+						if (fs.statSync(filePath).isFile() &&
+							(COMPFILES.includes(fileNames[j]) || serverUtils.endsWith(fileNames[j], '.html'))) {
+							var fileContent = fs.readFileSync(filePath);
+							compHtmllintPromises.push(_runHTMLlint(compName, compName, 'component', fileNames[j], fileContent.toString()));
+							files.push({
+								name: fileNames[j]
+							});
+						}
+					}
+				}
+			}
+			pageComponents.push({
+				name: compName,
+				files: files
+			});
+		});
+		// console.log(JSON.stringify(pageComponents, null, 4));
 
 		siteContent.forEach(function (item) {
 			if (!usedContentFiles.includes(item.name) && !usedContentFiles4Sure.includes(item.name)) {
@@ -2387,14 +2631,36 @@ module.exports.createTemplateReport = function (argv, done) {
 				// console.log(results);
 				// HTMLlint to check self close tags for page source
 				for (var i = 0; i < results.length; i++) {
-					if (results[i].pageId) {
+					if (results[i].id) {
 						for (var j = 0; j < pages.length; j++) {
-							if (pages[j].id === results[i].pageId) {
+							if (pages[j].id === results[i].id) {
 								pages[j].tagCloseIssues = results[i].tagCloseIssues || [];
 							}
 						}
 					}
 				}
+
+				return Promise.all(compHtmllintPromises);
+
+			})
+			.then(function (results) {
+				// console.log(results);
+				// HTMLlint to check self close tags for component files
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].id) {
+						for (var j = 0; j < pageComponents.length; j++) {
+							var comp = pageComponents[j];
+							if (comp.name === results[i].id && comp.files && comp.files.length > 0) {
+								for (var k = 0; k < comp.files.length; k++) {
+									if (comp.files[k].name === results[i].fileName) {
+										comp.files[k].tagCloseIssues = results[i].tagCloseIssues || [];
+									}
+								}
+							}
+						}
+					}
+				}
+				// console.log(JSON.stringify(pageComponents, null, 4));
 
 				var verifyLinksPromises = includePageLinks ? [_verifyHrefLinks(undefined, otherLinks)] : [];
 
@@ -2445,7 +2711,9 @@ module.exports.createTemplateReport = function (argv, done) {
 					}
 				});
 
-				// generate issues for HTML close tags
+
+
+				// generate issues for HTML close tags on site pages
 				var msg;
 				pages.forEach(function (page) {
 					if (page && page.tagCloseIssues && page.tagCloseIssues.length > 0) {
@@ -2454,6 +2722,23 @@ module.exports.createTemplateReport = function (argv, done) {
 							msg = msg + ' line: ' + issue.line + ' column: ' + issue.column + ' HTML tag is not closed';
 							issues.push(msg);
 						});
+					}
+				});
+
+				// generate issues for HTML close tags on component files
+				pageComponents.forEach(function (comp) {
+					if (comp.files && comp.files.length > 0) {
+						for (var i = 0; i < comp.files.length; i++) {
+							var compTagIssues = comp.files[i].tagCloseIssues || [];
+							for (var j = 0; j < compTagIssues.length; j++) {
+								var issue = compTagIssues[j];
+								if (issue) {
+									msg = 'Component: \'' + comp.name + '\' file: ' + comp.files[i].name;
+									msg = msg + ' line: ' + issue.line + ' column: ' + issue.column + ' HTML tag is not closed';
+									issues.push(msg);
+								}
+							}
+						}
 					}
 				});
 

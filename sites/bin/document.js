@@ -218,10 +218,10 @@ var _uploadFile = function (argv, server) {
 		var resourcePromises = [];
 		if (resourceFolder) {
 			if (resourceType === 'site') {
-				resourcePromises.push(server.useRest ? sitesRest.getSite({
+				resourcePromises.push(sitesRest.getSite({
 					server: server,
 					name: resourceName
-				}) : serverUtils.getSiteFolderAfterLogin(server, resourceName));
+				}));
 			} else if (resourceType === 'theme') {
 				resourcePromises.push(server.useRest ? sitesRest.getTheme({
 					server: server,
@@ -568,29 +568,36 @@ module.exports.shareFolder = function (argv, done) {
 				}
 				folderId = result.id;
 
-				return serverRest.getGroups({
-					server: server
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
 				});
+				return Promise.all(groupPromises);
 			})
 			.then(function (result) {
-				if (!result || result.err) {
-					return Promise.reject();
-				}
 
-				// verify groups
-				var allGroups = result || [];
-				for (var i = 0; i < groupNames.length; i++) {
-					var found = false;
-					for (var j = 0; j < allGroups.length; j++) {
-						if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
-							found = true;
-							groups.push(allGroups[j]);
-							break;
+				if (groupNames.length > 0) {
+					console.log(' - verify groups');
+
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
 						}
-					}
-					if (!found) {
-						console.log('ERROR: group ' + groupNames[i] + ' does not exist');
-						return Promise.reject();
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							return Promise.reject();
+						}
 					}
 				}
 
@@ -740,29 +747,36 @@ module.exports.unshareFolder = function (argv, done) {
 				}
 				folderId = result.id;
 
-				return serverRest.getGroups({
-					server: server
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
 				});
+				return Promise.all(groupPromises);
 			})
 			.then(function (result) {
-				if (!result || result.err) {
-					return Promise.reject();
-				}
 
-				// verify groups
-				var allGroups = result || [];
-				for (var i = 0; i < groupNames.length; i++) {
-					var found = false;
-					for (var j = 0; j < allGroups.length; j++) {
-						if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
-							found = true;
-							groups.push(allGroups[j]);
-							break;
+				if (groupNames.length > 0) {
+					console.log(' - verify groups');
+
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
 						}
-					}
-					if (!found) {
-						console.log('ERROR: group ' + groupNames[i] + ' does not exist');
-						return Promise.reject();
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							return Promise.reject();
+						}
 					}
 				}
 
@@ -1420,10 +1434,10 @@ var _uploadFolder = function (argv, server) {
 					var resourcePromises = [];
 					if (resourceFolder) {
 						if (resourceType === 'site') {
-							resourcePromises.push(server.useRest ? sitesRest.getSite({
+							resourcePromises.push(sitesRest.getSite({
 								server: server,
 								name: resourceName
-							}) : serverUtils.getSiteFolderAfterLogin(server, resourceName));
+							}));
 						} else if (resourceType === 'theme') {
 							resourcePromises.push(server.useRest ? sitesRest.getTheme({
 								server: server,

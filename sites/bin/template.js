@@ -73,7 +73,7 @@ var _cmdEnd = function (done, success) {
 };
 
 
-var _createLocalTemplateFromSite = function (name, siteName, server, excludeContent) {
+var _createLocalTemplateFromSite = function (name, siteName, server, excludeContent, enterprisetemplate) {
 	return new Promise(function (resolve, reject) {
 		var request = serverUtils.getRequest();
 
@@ -95,6 +95,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 			var themeSrcPath;
 
 			var isEnterprise;
+			var templateIsEnterprise = enterprisetemplate ? 'true' : (isEnterprise ? 'true' : 'false');
 			var themeName, themeId;
 			var channelId, channelName;
 			var assetSummaryJson;
@@ -125,7 +126,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					return serverUtils.getSiteMetadata(request, server, site.id);
 				})
 				.then(function (result) {
-					
+
 					siteMetadata = result && result.data;
 					// console.log(siteMetadata);
 
@@ -156,6 +157,8 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					themeName = site.themeName;
 					channelId = site.channel && site.channel.id;
 
+
+
 					console.log(' - theme ' + themeName);
 					themeSrcPath = path.join(themesSrcDir, themeName);
 					if (fs.existsSync(themeSrcPath)) {
@@ -181,7 +184,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					var folderStr = fs.readFileSync(path.join(templatesDataDir, '_folder.json'));
 					var folderJson = JSON.parse(folderStr);
 					folderJson.itemGUID = serverUtils.createGUID();
-					folderJson.isEnterprise = isEnterprise ? 'true' : 'false';
+					folderJson.isEnterprise = templateIsEnterprise;
 					folderJson.siteName = name;
 					folderJson.siteLongDescription = 'Template ' + name;
 					if (siteMetadata && siteMetadata.xScsSiteStaticResponseHeaders) {
@@ -199,6 +202,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						siteinfoJson.properties.themeName = themeName;
 						siteinfoJson.properties.siteName = name;
 						siteinfoJson.properties.siteRootPrefix = '/SCSTEMPLATE_' + name;
+						siteinfoJson.properties.isEnterprise = templateIsEnterprise;
 						fs.writeFileSync(path.join(tempSrcPath, 'siteinfo.json'), JSON.stringify(siteinfoJson));
 					}
 
@@ -408,6 +412,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						}
 					}
 
+					console.log(' - create ' + (templateIsEnterprise === 'true' ? 'enterprise template' : 'standard template'));
 					console.log('*** template is ready to test: http://localhost:8085/templates/' + name);
 					return resolve({
 						contentLayouts: contentLayoutNames
@@ -663,7 +668,8 @@ module.exports.createTemplate = function (argv, done) {
 			return;
 		}
 		var excludeContent = typeof argv.excludecontent === 'string' && argv.excludecontent.toLowerCase() === 'true';
-		_createLocalTemplateFromSite(argv.name, siteName, server, excludeContent)
+		var enterprisetemplate = typeof argv.enterprisetemplate === 'string' && argv.enterprisetemplate.toLowerCase() === 'true';
+		_createLocalTemplateFromSite(argv.name, siteName, server, excludeContent, enterprisetemplate)
 			.then(function (result) {
 				if (result.err) {
 					done();
@@ -1689,6 +1695,7 @@ module.exports.createTemplateFromSite = function (argv, done) {
 		var siteName = argv.site;
 
 		var includeUnpublishedAssets = typeof argv.includeunpublishedassets === 'string' && argv.includeunpublishedassets.toLowerCase() === 'true';
+		var enterprisetemplate = typeof argv.enterprisetemplate === 'string' && argv.enterprisetemplate.toLowerCase() === 'true';
 
 		var serverName = argv.server;
 		var server = serverUtils.verifyServer(serverName, projectDir);
@@ -1703,7 +1710,7 @@ module.exports.createTemplateFromSite = function (argv, done) {
 			_createTemplateFromSiteREST(server, name, siteName, includeUnpublishedAssets, done);
 		} else {
 
-			_createTemplateFromSiteSCS(server, name, siteName, includeUnpublishedAssets)
+			_createTemplateFromSiteSCS(server, name, siteName, includeUnpublishedAssets, enterprisetemplate)
 				.then(function (result) {
 					if (result.err) {
 						_cmdEnd(done);
@@ -1750,6 +1757,7 @@ module.exports.addThemeComponent = function (argv, done) {
 		compjson = JSON.parse(compstr),
 		appType = compjson && compjson.appType;
 
+	/* they are allowed in 20.3.1
 	if (appType === 'sectionlayout') {
 		console.error('ERROR: The section layout cannot be added to the theme');
 		done();
@@ -1765,6 +1773,7 @@ module.exports.addThemeComponent = function (argv, done) {
 		done();
 		return;
 	}
+	*/
 
 	// Verify the theme
 	var themefolderfile = path.join(themesSrcDir, theme, '_folder.json');
@@ -2837,180 +2846,6 @@ var _deleteFromTrash = function (request, localhost) {
 	return deletePromise;
 };
 
-var _IdcCopySites = function (request, server, name, fFolderGUID, doCopyToTemplate, exportPublishedAssets) {
-	var copyPromise = new Promise(function (resolve, reject) {
-
-		var loginPromise = serverUtils.loginToServer(server, request);
-		loginPromise.then(function (result) {
-			if (!result.status) {
-				console.log(' - failed to connect to the server');
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var express = require('express');
-			var app = express();
-
-			var port = '9191';
-			var localhost = 'http://localhost:' + port;
-
-			var dUser = '';
-			var idcToken;
-
-			var auth = serverUtils.getRequestAuth(server);
-
-			app.get('/*', function (req, res) {
-				// console.log('GET: ' + req.url);
-				if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-					var url = server.url + req.url;
-
-					var options = {
-						url: url,
-					};
-
-					options.auth = auth;
-
-					request(options).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
-						.on('error', function (err) {
-							console.log('ERROR: GET request failed: ' + req.url);
-							console.log(error);
-							return resolve({
-								err: 'err'
-							});
-						})
-						.pipe(res);
-
-				} else {
-					console.log('ERROR: GET request not supported: ' + req.url);
-					res.write({});
-					res.end();
-				}
-			});
-			app.post('/documents/web', function (req, res) {
-				// console.log('POST: ' + req.url);
-				if (req.url.indexOf('SCS_COPY_SITES') > 0) {
-					var url = server.url + '/documents/web?IdcService=SCS_COPY_SITES';
-					var formData = {
-						'idcToken': idcToken,
-						'names': name,
-						'items': 'fFolderGUID:' + fFolderGUID,
-						'doCopyToTemplate': doCopyToTemplate,
-						'useBackgroundThread': 1,
-						'exportPublishedAssets': exportPublishedAssets
-					};
-
-					var postData = {
-						method: 'POST',
-						url: url,
-						'auth': auth,
-						'formData': formData
-					};
-
-					request(postData).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
-						.on('error', function (err) {
-							console.log('ERROR: Failed to create template:');
-							console.log(error);
-							return resolve({
-								err: 'err'
-							});
-						})
-						.pipe(res)
-						.on('finish', function (err) {
-							res.end();
-						});
-				} else {
-					console.log('ERROR: POST request not supported: ' + req.url);
-					res.write({});
-					res.end();
-				}
-			});
-
-			localServer = app.listen(0, function () {
-				port = localServer.address().port;
-				localhost = 'http://localhost:' + port;
-				localServer.setTimeout(0);
-
-				var inter = setInterval(function () {
-					// console.log(' - getting login user: ' + total);
-					var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-					request.get(url, function (err, response, body) {
-						var data = JSON.parse(body);
-						dUser = data && data.LocalData && data.LocalData.dUser;
-						idcToken = data && data.LocalData && data.LocalData.idcToken;
-						if (dUser && dUser !== 'anonymous' && idcToken) {
-							// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-							clearInterval(inter);
-							console.log(' - establish user session');
-
-							url = localhost + '/documents/web?IdcService=SCS_COPY_SITES';
-
-							request.post(url, function (err, response, body) {
-								if (err) {
-									console.log('ERROR: Failed to create template');
-									console.log(err);
-									return resolve({
-										err: 'err'
-									});
-								}
-
-								var data;
-								try {
-									data = JSON.parse(body);
-								} catch (e) {}
-
-								if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-									console.log('ERROR: failed to creat template ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-									return resolve({
-										err: 'err'
-									});
-								}
-
-								var jobId = data.LocalData.JobID;
-
-								// wait create to finish
-								var inter = setInterval(function () {
-									var jobPromise = serverUtils.getBackgroundServiceJobStatus(server, request, idcToken, jobId);
-									jobPromise.then(function (data) {
-										if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
-											clearInterval(inter);
-											// try to get error message
-											var jobDataPromise = serverUtils.getBackgroundServiceJobData(server, request, idcToken, jobId);
-											jobDataPromise.then(function (data) {
-												console.log('ERROR: create template failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
-												return resolve({
-													err: 'err'
-												});
-											});
-										}
-										if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
-											clearInterval(inter);
-											console.log(' - create template ' + name + ' finished');
-
-											return resolve({});
-
-										} else {
-											console.log(' - creating template: percentage ' + data.JobPercentage);
-										}
-									});
-								}, 5000);
-							});
-						}
-					});
-
-				}, 5000);
-			}); // local 
-		}); // login
-	});
-	return copyPromise;
-};
 
 var __createTemplateFromSiteSCSUtil = function (argv) {
 	verifyRun(argv);
@@ -3024,7 +2859,7 @@ var __createTemplateFromSiteSCSUtil = function (argv) {
  * @param {*} siteName 
  * @param {*} done 
  */
-var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpublishedAssets) {
+var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpublishedAssets, enterprisetemplate) {
 	return new Promise(function (resolve, reject) {
 		var request = serverUtils.getRequest();
 
@@ -3100,6 +2935,10 @@ var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpubl
 						'useBackgroundThread': 1,
 						'exportPublishedAssets': exportPublishedAssets
 					};
+
+					if (enterprisetemplate) {
+						formData.isEnterprise = 1;
+					}
 
 					var postData = {
 						method: 'POST',
@@ -3200,6 +3039,13 @@ var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpubl
 
 									console.log(' - get site ');
 									fFolderGUID = site.fFolderGUID;
+
+									if (enterprisetemplate || site.xScsIsEnterprise === '1') {
+										console.log(' - will create enterprise template');
+									} else {
+										console.log(' - will create standard template');
+									}
+
 
 									return _IdcCopySites2(request, localhost, server, idcToken);
 								})
@@ -4047,30 +3893,35 @@ module.exports.shareTemplate = function (argv, done) {
 					}
 					console.log(' - verify template');
 
-					return serverRest.getGroups({
-						server: server
+					var groupPromises = [];
+					groupNames.forEach(function (gName) {
+						groupPromises.push(
+							serverRest.getGroup({
+								server: server,
+								name: gName
+							}));
 					});
+					return Promise.all(groupPromises);
 				})
 				.then(function (result) {
-					if (!result || result.err) {
-						return Promise.reject();
-					}
+
 					if (groupNames.length > 0) {
 						console.log(' - verify groups');
-					}
-					// verify groups
-					var allGroups = result || [];
-					for (var i = 0; i < groupNames.length; i++) {
-						var found = false;
-						for (var j = 0; j < allGroups.length; j++) {
-							if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
-								found = true;
-								groups.push(allGroups[j]);
-								break;
+
+						// verify groups
+						var allGroups = result || [];
+						for (var i = 0; i < groupNames.length; i++) {
+							var found = false;
+							for (var j = 0; j < allGroups.length; j++) {
+								if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+									found = true;
+									groups.push(allGroups[j]);
+									break;
+								}
 							}
-						}
-						if (!found) {
-							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							if (!found) {
+								console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							}
 						}
 					}
 
@@ -4247,30 +4098,35 @@ module.exports.unshareTemplate = function (argv, done) {
 					}
 					console.log(' - verify template');
 
-					return serverRest.getGroups({
-						server: server
+					var groupPromises = [];
+					groupNames.forEach(function (gName) {
+						groupPromises.push(
+							serverRest.getGroup({
+								server: server,
+								name: gName
+							}));
 					});
+					return Promise.all(groupPromises);
 				})
 				.then(function (result) {
-					if (!result || result.err) {
-						return Promise.reject();
-					}
+
 					if (groupNames.length > 0) {
 						console.log(' - verify groups');
-					}
-					// verify groups
-					var allGroups = result || [];
-					for (var i = 0; i < groupNames.length; i++) {
-						var found = false;
-						for (var j = 0; j < allGroups.length; j++) {
-							if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
-								found = true;
-								groups.push(allGroups[j]);
-								break;
+
+						// verify groups
+						var allGroups = result || [];
+						for (var i = 0; i < groupNames.length; i++) {
+							var found = false;
+							for (var j = 0; j < allGroups.length; j++) {
+								if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+									found = true;
+									groups.push(allGroups[j]);
+									break;
+								}
 							}
-						}
-						if (!found) {
-							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							if (!found) {
+								console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							}
 						}
 					}
 

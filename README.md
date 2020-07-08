@@ -14,6 +14,17 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.3.1
+
+**Added**
+
+- `cec create-asset-report` and `cec create-template-report` - Report unclosed HTML tags on site pages, html layout files and the render.js file of components.
+
+- `cec create-contentlayout` - Add support for adding custom settings when creating conent layout, and test on local server.
+
+- `cec create-template` and `cec create-template-from-site` - Add option `-enterprisetemplate` to create enterprise template from standard site.
+
+
 # New in Release 20.2.3b
 
 **Fixed**

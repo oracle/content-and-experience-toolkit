@@ -454,6 +454,9 @@ module.exports.listServerResources = function (argv, done) {
 						var publishPolicy = channel.publishPolicy === 'anythingPublished' ? 'Anything can be published' : 'Only approved items can be published';
 						console.log(sprintf(channelFormat, channel.name, channelToken, channel.channelType, publishPolicy));
 					}
+					if (channels.length > 0) {
+						console.log('Total: ' + channels.length);
+					}
 					console.log('');
 				}
 
@@ -487,6 +490,9 @@ module.exports.listServerResources = function (argv, done) {
 						var published = comp.xScsIsAppActive === '1' ? '    √' : '';
 						console.log(sprintf(format3, comp.fFolderName, typeLabel, published));
 					}
+					if (comps.length > 0) {
+						console.log('Total: ' + comps.length);
+					}
 					console.log('');
 				}
 
@@ -507,6 +513,9 @@ module.exports.listServerResources = function (argv, done) {
 					for (var i = 0; i < policies.length; i++) {
 						var policy = policies[i];
 						console.log(sprintf(format3, policy.name, policy.requiredValues, policy.optionalValues));
+					}
+					if (policies.length > 0) {
+						console.log('Total: ' + policies.length);
 					}
 					console.log('');
 				}
@@ -541,6 +550,9 @@ module.exports.listServerResources = function (argv, done) {
 							}
 						}
 						console.log(sprintf(repoFormat, repo.name, repo.defaultLanguage, repoChannels, contentTypes));
+					}
+					if (repositories.length > 0) {
+						console.log('Total: ' + repositories.length);
 					}
 					console.log('');
 				}
@@ -635,6 +647,9 @@ module.exports.listServerResources = function (argv, done) {
 						var online = site.xScsIsSiteActive === '1' ? '  √' : '';
 						console.log(sprintf(siteFormat, site.fFolderName, site.xScsSiteTheme, type, published, online));
 					}
+					if (sites.length > 0) {
+						console.log('Total: ' + sites.length);
+					}
 					console.log('');
 				}
 
@@ -654,6 +669,9 @@ module.exports.listServerResources = function (argv, done) {
 						var temp = templates[i];
 						var type = temp.xScsIsEnterprise === '1' ? 'Enterprise' : 'Standard';
 						console.log(sprintf(format3, temp.fFolderName, temp.xScsSiteTheme, type));
+					}
+					if (templates.length > 0) {
+						console.log('Total: ' + templates.length);
 					}
 					console.log('');
 				}
@@ -692,6 +710,9 @@ module.exports.listServerResources = function (argv, done) {
 							console.log(sprintf(taxFormat, name, id, abbr, publishable, states[i].status, version, published, channelLabel));
 						}
 					});
+					if (taxonomies.length > 0) {
+						console.log('Total: ' + taxonomies.length);
+					}
 					console.log('');
 				}
 
@@ -997,12 +1018,20 @@ module.exports.executeGet = function (argv, done) {
 
 		var url = server.url + endpoint;
 		var auth = serverUtils.getRequestAuth(server);
+
 		var options = {
 			url: url,
 			auth: auth,
 			encoding: null
 		};
-		
+
+		if (endpoint.indexOf('/sites/management/api') === 0 && server.oauthtoken) {
+			auth = (server.tokentype || 'Bearer') + ' ' + server.oauthtoken;
+			options.headers = {
+				Authorization: auth
+			};
+		}
+
 		console.log(' - executing endpoint: ' + endpoint);
 		request.get(options, function (err, response, body) {
 			if (err) {

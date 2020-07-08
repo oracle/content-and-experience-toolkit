@@ -5,7 +5,7 @@ var path = require('path'),
 
 const cecCmd = /^win/.test(process.platform) ? 'cec.cmd' : 'cec';
 
-var JobManager = function(args) {
+var JobManager = function (args) {
         this.ps = args.ps;
     },
     logsDir = '',
@@ -74,7 +74,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
         var logStream;
 
-        var logPublishSiteStdout = function(data) {
+        var logPublishSiteStdout = function (data) {
                 var out = `${data}`,
                     found = out.trim().match(/publish BACKGROUND_JOB_ID (?<id>.*)$/);
 
@@ -84,7 +84,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
                 logStdout(data);
             },
-            logPublishStaticStdout = function(data) {
+            logPublishStaticStdout = function (data) {
                 var out = `${data}`,
                     found = out.trim().match(/publish BACKGROUND_JOB_ID (?<id>.*)$/);
 
@@ -92,30 +92,30 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     jobConfig.publishStaticBackgroundJobId = found.groups.id;
                 }
 
-                logStdout(data);                
+                logStdout(data);
             },
-            logStdout = function(data) {
-                console.log('stdout:',  `${data}`);
+            logStdout = function (data) {
+                console.log('stdout:', `${data}`);
                 logStream.write(`${data}`);
             },
-            logStderr = function(data) {
+            logStderr = function (data) {
                 console.log('stderr:', `${data}`);
                 logStream.write(`${data}`);
             },
-            logCode = function(commndString, code) {
+            logCode = function (commndString, code) {
                 var message = commndString + ' child process exited with code ' + `${code}` + '\n';
                 console.log(commndString, 'child process exited with code', `${code}`);
                 logStream.write(message);
             },
             logDuration = function (jobConfig, step, startTime) {
-                var message = jobConfig.id + ' ' + step + ' duration ' + Math.floor((Date.now() - startTime)/1000) + ' seconds' + '\n';
-                console.log(jobConfig.id, step, 'duration', Math.floor((Date.now() - startTime)/1000), 'seconds');
+                var message = jobConfig.id + ' ' + step + ' duration ' + Math.floor((Date.now() - startTime) / 1000) + ' seconds' + '\n';
+                console.log(jobConfig.id, step, 'duration', Math.floor((Date.now() - startTime) / 1000), 'seconds');
                 logStream.write(message);
             };
-            logCommand = function (commandArgs) {
+        logCommand = function (commandArgs) {
                 var line = '================================================================================';
                 var message = 'Execute: ' + cecCmd;
-                commandArgs.forEach(function(a) {
+                commandArgs.forEach(function (a) {
                     message += ' ' + a;
                 });
                 console.log(line);
@@ -130,7 +130,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     changeDir = 'cd ' + projectDir + '; ',
                     command = cmd;
 
-                commandArgs.forEach(function(a) {
+                commandArgs.forEach(function (a) {
                     command += ' ' + a;
                 });
 
@@ -138,14 +138,14 @@ JobManager.prototype.compileSite = function (jobConfig) {
                 //      /compileExec.sh 'cd /home/compileagent/cec-src; cec...'
                 // Otherwise, the command is simply the cec command. E.g.
                 //      cec...
-                return inDocker ? spawnCommand + " '"  + changeDir + command + "'" : command;
+                return inDocker ? spawnCommand + " '" + changeDir + command + "'" : command;
             };
 
         var noop = -1,
             // Write nothing in case log stream cannot be created
             nullStream = {
-                write: function() { },
-                end: function() { }
+                write: function () {},
+                end: function () {}
             },
             getLogStreamStep = function () {
                 var args = {
@@ -156,11 +156,11 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
                 // Resolve with a stream or the nullStream.
                 // In this way, caller only needs a then function.
-                return new Promise(function(resolve) {
-                    self.ps.getLogStream(args).then(function(stream) {
+                return new Promise(function (resolve) {
+                    self.ps.getLogStream(args).then(function (stream) {
                         resolve(stream);
                     }, function () {
-                        resolve (nullStream);
+                        resolve(nullStream);
                     });
                 });
             },
@@ -211,20 +211,20 @@ JobManager.prototype.compileSite = function (jobConfig) {
                         serverPass = 'x';
                     }
                     var registerServerArgs = [
-                            'register-server',
-                            serverName,
-                            '-e',
-                            serverEndpoint,
-                            '-u',
-                            serverUser,
-                            '-p',
-                            serverPass,
-                            '-t',
-                            serverType
-                        ];
+                        'register-server',
+                        serverName,
+                        '-e',
+                        serverEndpoint,
+                        '-u',
+                        serverUser,
+                        '-p',
+                        serverPass,
+                        '-t',
+                        serverType
+                    ];
 
                     var registerServerCommand = exec(getExecCommand(cecCmd, registerServerArgs), cecDefaults);
-    
+
                     registerServerCommand.stdout.on('data', logStdout);
                     registerServerCommand.stderr.on('data', logStderr);
                     registerServerCommand.on('close', (code) => {
@@ -239,11 +239,11 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     var startTime = Date.now();
 
                     var setTokenArgs = [
-                            'set-oauth-token',
-                            '-s',
-                            serverName,
-                            token
-                        ];
+                        'set-oauth-token',
+                        '-s',
+                        serverName,
+                        token
+                    ];
                     var setTokenCommand = exec(getExecCommand(cecCmd, setTokenArgs), cecDefaults);
 
                     setTokenCommand.stdout.on('data', logStdout);
@@ -255,7 +255,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     });
                 });
             },
-            publishSiteStep = function(jobStatus) {
+            publishSiteStep = function (jobStatus) {
                 if (jobStatus !== 'PUBLISH_SITE') {
                     return Promise.resolve(noop);
                 } else {
@@ -263,13 +263,13 @@ JobManager.prototype.compileSite = function (jobConfig) {
                         var startTime = Date.now();
 
                         var publishSiteArgs = [
-                                'control-site',
-                                'publish',
-                                '-r',
-                                serverName,
-                                '-s',
-                                siteName
-                            ];
+                            'control-site',
+                            'publish',
+                            '-r',
+                            serverName,
+                            '-s',
+                            siteName
+                        ];
                         if (publishUsedContentOnly === 1) {
                             publishSiteArgs.push('-u');
                         }
@@ -286,7 +286,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     });
                 }
             },
-            createTemplateStep = function(jobStatus) {
+            createTemplateStep = function (jobStatus) {
                 if (jobStatus !== 'CREATE_TEMPLATE') {
                     return Promise.resolve(noop);
                 } else {
@@ -294,13 +294,13 @@ JobManager.prototype.compileSite = function (jobConfig) {
                         var startTime = Date.now();
 
                         var createTemplateArgs = [
-                                'create-template',
-                                '-r',
-                                serverName,
-                                '-s',
-                                siteName,
-                                templateName
-                            ];
+                            'create-template',
+                            '-r',
+                            serverName,
+                            '-s',
+                            siteName,
+                            templateName
+                        ];
                         logCommand(createTemplateArgs);
                         var createTemplateCommand = exec(getExecCommand(cecCmd, createTemplateArgs), cecDefaults);
 
@@ -314,28 +314,31 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     });
                 }
             },
-            getChannelTokenStep = function(jobStatus) {
+            getChannelTokenStep = function (jobStatus) {
                 if (jobStatus !== 'COMPILE_TEMPLATE') {
                     return Promise.resolve(noop);
                 } else {
                     return new Promise(function (resolveStep, rejectStep) {
-                        self.getSiteinfo(projectDir, templateName).then(function(siteinfo) {
-                            channelToken = siteinfo.properties.channelAccessTokens[0].value;
+                        self.getSiteinfo(projectDir, templateName).then(function (siteinfo) {
+                            channelToken = siteinfo.properties.channelAccessTokens && siteinfo.properties.channelAccessTokens[0] && siteinfo.properties.channelAccessTokens[0].value;
                             resolveStep(siteinfo);
-                        }, function() {
+                        }, function () {
                             rejectStep();
                         });
                     });
                 }
             },
-            compileStep = function(jobStatus) {
+            compileStep = function (jobStatus) {
                 if (jobStatus !== 'COMPILE_TEMPLATE') {
                     return Promise.resolve(noop);
                 } else {
                     return new Promise(function (resolveStep, rejectStep) {
                         var startTime = Date.now();
 
-                        var compileArguments = [
+                        var compileArguments;
+                        if (channelToken) {
+                            // enterprise site
+                            compileArguments = [
                                 'compile-template',
                                 templateName,
                                 '-s',
@@ -346,6 +349,14 @@ JobManager.prototype.compileSite = function (jobConfig) {
                                 'published',
                                 '-v'
                             ];
+                        } else {
+                            // standard site
+                            compileArguments = [
+                                'compile-template',
+                                templateName,
+                                '-v'
+                            ];
+                        }
                         logCommand(compileArguments);
 
                         var compileCommand = exec(getExecCommand(cecCmd, compileArguments), cecDefaultsForCompileStep);
@@ -360,7 +371,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     });
                 }
             },
-            uploadStep = function(jobStatus) {
+            uploadStep = function (jobStatus) {
                 if (jobStatus !== 'UPLOAD_STATIC') {
                     return Promise.resolve(noop);
                 } else {
@@ -368,13 +379,13 @@ JobManager.prototype.compileSite = function (jobConfig) {
                         var startTime = Date.now();
 
                         var uploadArguments = [
-                                'upload-static-site-files',
-                                path.join('src', 'templates', templateName, 'static'),
-                                '-s',
-                                siteName,
-                                '-r',
-                                serverName
-                            ];
+                            'upload-static-site-files',
+                            path.join('src', 'templates', templateName, 'static'),
+                            '-s',
+                            siteName,
+                            '-r',
+                            serverName
+                        ];
                         logCommand(uploadArguments);
                         var uploadCommand = exec(getExecCommand(cecCmd, uploadArguments), cecDefaults);
 
@@ -388,7 +399,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     });
                 }
             },
-            publishStaticStep = function(jobStatus) {
+            publishStaticStep = function (jobStatus) {
                 if (jobStatus !== 'PUBLISH_STATIC') {
                     return Promise.resolve(noop);
                 } else {
@@ -396,14 +407,14 @@ JobManager.prototype.compileSite = function (jobConfig) {
                         var startTime = Date.now();
 
                         var publishStaticArgs = [
-                                'control-site',
-                                'publish',
-                                '-r',
-                                serverName,
-                                '-s',
-                                siteName,
-                                '-t'
-                            ];
+                            'control-site',
+                            'publish',
+                            '-r',
+                            serverName,
+                            '-s',
+                            siteName,
+                            '-t'
+                        ];
                         logCommand(publishStaticArgs);
                         var publishStaticCommand = exec(getExecCommand(cecCmd, publishStaticArgs), cecDefaults);
 
@@ -417,7 +428,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     });
                 }
             },
-            rmTemplateDirStep = function(jobStatus) {
+            rmTemplateDirStep = function (jobStatus) {
                 if (jobStatus !== 'PUBLISH_STATIC') {
                     return Promise.resolve(noop);
                 } else {
@@ -442,14 +453,14 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     });
                 }
             },
-            updateStatusStep = function(completionCode, jobStatus, percentage) {
+            updateStatusStep = function (completionCode, jobStatus, percentage) {
                 if (completionCode === noop) {
                     return Promise.resolve(jobConfig);
                 } else {
                     return self.updateStatus(jobConfig, jobStatus, percentage);
                 }
             },
-            stopNow = function(code) {
+            stopNow = function (code) {
                 console.log('stop with code', code);
                 logStream.end();
                 uploadLogStep().then(function() {
@@ -458,25 +469,25 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     });
                 });
             },
-            steps = function() {
+            steps = function () {
 
                 if (['PUBLISH_SITE', 'CREATE_TEMPLATE', 'COMPILE_TEMPLATE', 'UPLOAD_STATIC', 'PUBLISH_STATIC'].indexOf(jobConfig.status) !== -1) {
                     if (jobConfig.hasOwnProperty('publishSiteBackgroundJobId')) {
                         delete jobConfig.publishSiteBackgroundJobId;
                     }
-                    publishSiteStep(jobConfig.status).then(function(completionCode) {
-                        updateStatusStep(completionCode, 'CREATE_TEMPLATE', 20).then(function(updatedJobConfig) {
-                            createTemplateStep(jobConfig.status).then(function(completionCode) {
-                                updateStatusStep(completionCode, 'COMPILE_TEMPLATE', 40).then(function(updatedJobConfig) {
-                                    getChannelTokenStep(updatedJobConfig.status).then(function(completionCode) {
-                                        compileStep(updatedJobConfig.status).then(function(completionCode) {
-                                            updateStatusStep(completionCode, 'UPLOAD_STATIC', 60).then(function(updatedJobConfig) {
-                                                uploadStep(updatedJobConfig.status).then(function(completionCode) {
-                                                    updateStatusStep(completionCode, 'PUBLISH_STATIC', 80).then(function(updatedJobConfig) {
+                    publishSiteStep(jobConfig.status).then(function (completionCode) {
+                        updateStatusStep(completionCode, 'CREATE_TEMPLATE', 20).then(function (updatedJobConfig) {
+                            createTemplateStep(jobConfig.status).then(function (completionCode) {
+                                updateStatusStep(completionCode, 'COMPILE_TEMPLATE', 40).then(function (updatedJobConfig) {
+                                    getChannelTokenStep(updatedJobConfig.status).then(function (completionCode) {
+                                        compileStep(updatedJobConfig.status).then(function (completionCode) {
+                                            updateStatusStep(completionCode, 'UPLOAD_STATIC', 60).then(function (updatedJobConfig) {
+                                                uploadStep(updatedJobConfig.status).then(function (completionCode) {
+                                                    updateStatusStep(completionCode, 'PUBLISH_STATIC', 80).then(function (updatedJobConfig) {
                                                         if (jobConfig.hasOwnProperty('publishStaticBackgroundJobId')) {
                                                             delete jobConfig.publishStaticBackgroundJobId;
                                                         }
-                                                        publishStaticStep(updatedJobConfig.status).then(function(completionCode) {
+                                                        publishStaticStep(updatedJobConfig.status).then(function (completionCode) {
                                                             if (completionCode !== noop) {
                                                                 logDuration(updatedJobConfig, 'compileSite', compileStartTime);
                                                             }
@@ -503,7 +514,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                 }
             };
 
-        getLogStreamStep().then(function(stream) {
+        getLogStreamStep().then(function (stream) {
             logStream = stream;
 
             registerServerStep().then(function () {
@@ -525,35 +536,35 @@ JobManager.prototype.getSiteinfo = function (projectDir, templateName) {
             siteinfoFile = path.join(templateDir, 'siteinfo.json');
 
         // read in the file
-		if (fs.existsSync(siteinfoFile)) {
-			fs.readFile(siteinfoFile, function (err, data) {
+        if (fs.existsSync(siteinfoFile)) {
+            fs.readFile(siteinfoFile, function (err, data) {
                 if (err) {
-					console.log('getSiteinfo: failed to read file:', siteinfoFile);
-					reject({
-						errorCode: 500,
-						errorMessage: JSON.stringify(err)
-					});
-				} else {
-					try {
-						resolve(JSON.parse(data));
-					} catch (parseErr) {
-						console.log('getSiteinfo: failed to parse file: ' + siteinfoFile);
-						reject({
-							errorCode: 500,
-							errorMessage: JSON.stringify(parseErr)
-						});
-					}
-				}
+                    console.log('getSiteinfo: failed to read file:', siteinfoFile);
+                    reject({
+                        errorCode: 500,
+                        errorMessage: JSON.stringify(err)
+                    });
+                } else {
+                    try {
+                        resolve(JSON.parse(data));
+                    } catch (parseErr) {
+                        console.log('getSiteinfo: failed to parse file: ' + siteinfoFile);
+                        reject({
+                            errorCode: 500,
+                            errorMessage: JSON.stringify(parseErr)
+                        });
+                    }
+                }
             });
-		} else {
-			// no job file, reject
-			var errorMessage = 'getSiteinfo: file does not exist: ' + siteinfoFile;
-			console.log(errorMessage);
-			reject({
-				errorCode: 500,
-				errorMessage: errorMessage
-			});
-		}
+        } else {
+            // no job file, reject
+            var errorMessage = 'getSiteinfo: file does not exist: ' + siteinfoFile;
+            console.log(errorMessage);
+            reject({
+                errorCode: 500,
+                errorMessage: errorMessage
+            });
+        }
     });
 };
 
@@ -563,9 +574,9 @@ JobManager.prototype.compileSiteJob = function (jobConfig) {
     return new Promise(function (resolve, reject) {
         // if (jobConfig.status === 'CREATED') {
         if (['FAILED', 'CREATED', 'COMPILED'].indexOf(jobConfig.status) === -1) {
-            self.compileSite(jobConfig).then(function(updatedJobConfig) {
+            self.compileSite(jobConfig).then(function (updatedJobConfig) {
                 resolve(updatedJobConfig);
-            }, function(updatedJobConfig) {
+            }, function (updatedJobConfig) {
                 reject(updatedJobConfig);
             });
         } else {
@@ -576,13 +587,13 @@ JobManager.prototype.compileSiteJob = function (jobConfig) {
 };
 
 /**
-* @property {('CREATED'|'PUBLISH_SITE'|'CREATE_TEMPLATE'|'COMPILE_TEMPLATE'|'UPLOAD_STATIC'|'PUBLISH_STATIC'|'COMPILED'|'FAILED')} status The new status of the job.
-*/
+ * @property {('CREATED'|'PUBLISH_SITE'|'CREATE_TEMPLATE'|'COMPILE_TEMPLATE'|'UPLOAD_STATIC'|'PUBLISH_STATIC'|'COMPILED'|'FAILED')} status The new status of the job.
+ */
 JobManager.prototype.updateStatus = function (jobConfig, status, progress) {
 
     var data = {
-            status: status
-        };
+        status: status
+    };
 
     if (typeof progress !== 'undefined') {
         data.progress = progress;
@@ -591,12 +602,12 @@ JobManager.prototype.updateStatus = function (jobConfig, status, progress) {
     return this.updateJob(jobConfig, data);
 };
 
-JobManager.prototype.updateJob = function(jobConfig, data) {
+JobManager.prototype.updateJob = function (jobConfig, data) {
 
     var updates = Object.getOwnPropertyNames(data),
         newProps = {};
 
-    updates.map(function(key) {
+    updates.map(function (key) {
         // List of properties that can be updated internally.
         if (['name', 'siteName', 'serverEndpoint', 'publishUsedContentOnly', 'serverUser', 'serverPass', 'token', 'status', 'progress'].indexOf(key) !== -1) {
             newProps[key] = data[key];
@@ -608,12 +619,12 @@ JobManager.prototype.updateJob = function(jobConfig, data) {
     return this.ps.updateJob(updatedJobConfig);
 };
 
-JobManager.prototype.updateJobPublic = function(jobConfig, data) {
+JobManager.prototype.updateJobPublic = function (jobConfig, data) {
 
     var updates = Object.getOwnPropertyNames(data),
         newProps = {};
 
-    updates.map(function(key) {
+    updates.map(function (key) {
         // List of properties that can be updated via REST API.
         if (['name', 'siteName', 'token'].indexOf(key) !== -1) {
             newProps[key] = data[key];
@@ -628,5 +639,5 @@ JobManager.prototype.updateJobPublic = function(jobConfig, data) {
 };
 
 module.exports = function (args) {
-	return new JobManager(args);
+    return new JobManager(args);
 };

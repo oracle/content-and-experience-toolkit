@@ -7,6 +7,8 @@
 
 var fs = require('fs'),
 	fse = require('fs-extra'),
+	os = require('os'),
+	readline = require('readline'),
 	path = require('path'),
 	semver = require('semver'),
 	sprintf = require('sprintf-js').sprintf,
@@ -400,7 +402,13 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 														_cmdEnd(done);
 													} else {
 														console.log(' - site created');
-														_cmdEnd(done, true);
+														sitesRest.getSite({
+															server: server,
+															name: siteName
+														}).then(function (result) {
+															console.log(' - site id: ' + (result && result.id));
+															_cmdEnd(done, true);
+														});
 													}
 												});
 
@@ -603,6 +611,16 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 							}
 
 							console.log(' - site created');
+
+							return sitesRest.getSite({
+								server: server,
+								name: name
+							});
+							
+						})
+						.then(function (result) {
+							console.log(' - site id: ' + result && result.id);
+
 							done(true);
 						})
 						.catch((error) => {
@@ -1220,77 +1238,7 @@ module.exports.transferSite = function (argv, done) {
 											// console.log(destSiteMetadataRaw);
 
 											// update site metadata
-											var siteSettings = {
-												xScsSiteStaticResponseHeaders: siteMetadata ? siteMetadata.xScsSiteStaticResponseHeaders : '',
-												xScsSiteMobileUserAgents: siteMetadata ? siteMetadata.xScsSiteMobileUserAgents : ''
-											};
-
-											var compFields = siteMetadataRaw && siteMetadataRaw.xScsComponentsUsedCollection && siteMetadataRaw.xScsComponentsUsedCollection.fields ||
-												destSiteMetadataRaw && destSiteMetadataRaw.xScsComponentsUsedCollection && destSiteMetadataRaw.xScsComponentsUsedCollection.fields;
-											var srcCompRows = siteMetadataRaw && siteMetadataRaw.xScsComponentsUsedCollection && siteMetadataRaw.xScsComponentsUsedCollection.rows || [];
-											var destCompRows = destSiteMetadataRaw && destSiteMetadataRaw.xScsComponentsUsedCollection && destSiteMetadataRaw.xScsComponentsUsedCollection.rows || [];
-											var compsToAdd = [];
-											var compsToAddUnitId = [];
-											var compsToRemove = [];
-											var compsToRemoveUnitId = [];
-											_getNewUsedObjects(compFields, srcCompRows, destCompRows, 'xScsComponentsUsedInstanceID',
-												compsToAdd, compsToAddUnitId, compsToRemove, compsToRemoveUnitId);
-
-											var itemFields = siteMetadataRaw && siteMetadataRaw.xScsContentItemsUsedCollection && siteMetadataRaw.xScsContentItemsUsedCollection.fields ||
-												destSiteMetadataRaw && destSiteMetadataRaw.xScsContentItemsUsedCollection && destSiteMetadataRaw.xScsContentItemsUsedCollection.fields;
-											var srcItemRows = siteMetadataRaw && siteMetadataRaw.xScsContentItemsUsedCollection && siteMetadataRaw.xScsContentItemsUsedCollection.rows || [];
-											var destItemRows = destSiteMetadataRaw && destSiteMetadataRaw.xScsContentItemsUsedCollection && destSiteMetadataRaw.xScsContentItemsUsedCollection.rows || [];
-											var itemsToAdd = [];
-											var itemsToAddUnitId = [];
-											var itemsToRemove = [];
-											var itemsToRemoveUnitId = [];
-											_getNewUsedObjects(itemFields, srcItemRows, destItemRows,
-												'xScsContentItemsUsedInstanceID', itemsToAdd, itemsToAddUnitId, itemsToRemove, itemsToRemoveUnitId);
-
-											var typeFields = siteMetadataRaw && siteMetadataRaw.xScsContentTypesUsedCollection && siteMetadataRaw.xScsContentTypesUsedCollection.fields ||
-												destSiteMetadataRaw && destSiteMetadataRaw.xScsContentTypesUsedCollection && destSiteMetadataRaw.xScsContentTypesUsedCollection.fields;
-											var srcTypeRows = siteMetadataRaw && siteMetadataRaw.xScsContentTypesUsedCollection && siteMetadataRaw.xScsContentTypesUsedCollection.rows || [];
-											var destTypeRows = destSiteMetadataRaw && destSiteMetadataRaw.xScsContentTypesUsedCollection && destSiteMetadataRaw.xScsContentTypesUsedCollection.rows || [];
-											var typesToAdd = [];
-											var typesToAddUnitId = [];
-											var typesToRemove = [];
-											var typesToRemoveUnitId = [];
-											_getNewUsedObjects(typeFields, srcTypeRows, destTypeRows,
-												'xScsContentTypesUsedInstanceID', typesToAdd, typesToAddUnitId, typesToRemove, typesToRemoveUnitId);
-
-											var resultSets = {};
-											if (compsToAdd.length > 0 || compsToRemove.length > 0) {
-												if (compsToAddUnitId.length > 0) {
-													siteSettings['xScsComponentsUsedCollection+'] = compsToAddUnitId.join(',');
-												}
-												if (compsToRemoveUnitId.length > 0) {
-													siteSettings['xScsComponentsUsedCollection-'] = compsToRemoveUnitId.join(',');
-												}
-												resultSets.xScsComponentsUsedCollection = siteMetadataRaw.xScsComponentsUsedCollection || destSiteMetadataRaw.xScsComponentsUsedCollection;
-												resultSets.xScsComponentsUsedCollection.rows = compsToAdd.concat(compsToRemove);
-											}
-											if (itemsToAdd.length > 0 || itemsToRemove.length > 0) {
-												if (itemsToAddUnitId.length > 0) {
-													siteSettings['xScsContentItemsUsedCollection+'] = itemsToAddUnitId.join(',');
-												}
-												if (itemsToRemoveUnitId.length > 0) {
-													siteSettings['xScsContentItemsUsedCollection-'] = itemsToRemoveUnitId.join(',');
-												}
-												resultSets.xScsContentItemsUsedCollection = siteMetadataRaw.xScsContentItemsUsedCollection || destSiteMetadataRaw.xScsContentItemsUsedCollection;
-												resultSets.xScsContentItemsUsedCollection.rows = itemsToAdd.concat(itemsToRemove);
-											}
-											if (typesToAdd.length > 0 || typesToRemove.length > 0) {
-												if (typesToAddUnitId.length > 0) {
-													siteSettings['xScsContentTypesUsedCollection+'] = typesToAddUnitId.join(',');
-												}
-												if (typesToRemoveUnitId.length > 0) {
-													siteSettings['xScsContentTypesUsedCollection-'] = typesToRemoveUnitId.join(',');
-												}
-												resultSets.xScsContentTypesUsedCollection = siteMetadataRaw.xScsContentTypesUsedCollection || destSiteMetadataRaw.xScsContentTypesUsedCollection;
-												resultSets.xScsContentTypesUsedCollection.rows = typesToAdd.concat(typesToRemove);
-											}
-
-											return serverUtils.setSiteMetadata(request, destServer, idcToken, destSite.id, siteSettings, resultSets);
+											return _updateSiteMetadata(request, destServer, idcToken, destSite, siteMetadata, siteMetadataRaw, destSiteMetadataRaw);
 										})
 										.then(function (result) {
 											if (result && !result.err) {
@@ -1309,19 +1257,19 @@ module.exports.transferSite = function (argv, done) {
 											policy = result;
 											// update the localization policy
 											return serverRest.updateLocalizationPolicy({
-													server: destServer,
-													id: policy.id,
-													name: policy.name,
-													data: srcPolicy
-												})
-												.then(function (result) {
-													if (!result || result.err) {
-														return Promise.reject();
-													}
-													var newPolicy = result;
-													console.log(' - update site localization policy ' + newPolicy.name);
-													_cmdEnd(done, success);
-												});
+												server: destServer,
+												id: policy.id,
+												name: policy.name,
+												data: srcPolicy
+											});
+										})
+										.then(function (result) {
+											if (!result || result.err) {
+												return Promise.reject();
+											}
+											var newPolicy = result;
+											console.log(' - update site localization policy ' + newPolicy.name);
+											_cmdEnd(done, success);
 										})
 										.catch((error) => {
 											if (error) {
@@ -1329,6 +1277,7 @@ module.exports.transferSite = function (argv, done) {
 											}
 											_cmdEnd(done);
 										});
+
 								} else {
 									_cmdEnd(done);
 								}
@@ -1389,6 +1338,100 @@ var _getNewUsedObjects = function (fields, srcRows, destRows, instanceFieldName,
 		}
 	}
 	// console.log(instanceFieldName + ' to add ' + unitIdsToAdd + ' to remove ' + unitIdsToRemove);
+};
+
+var _updateSiteMetadata = function (request, destServer, idcToken, destSite, siteMetadata, siteMetadataRaw, destSiteMetadataRaw) {
+	return new Promise(function (resolve, reject) {
+		// update site metadata
+		var siteSettings = {
+			xScsSiteStaticResponseHeaders: siteMetadata ? siteMetadata.xScsSiteStaticResponseHeaders : '',
+			xScsSiteMobileUserAgents: siteMetadata ? siteMetadata.xScsSiteMobileUserAgents : ''
+		};
+
+		var compFields = siteMetadataRaw && siteMetadataRaw.xScsComponentsUsedCollection && siteMetadataRaw.xScsComponentsUsedCollection.fields ||
+			destSiteMetadataRaw && destSiteMetadataRaw.xScsComponentsUsedCollection && destSiteMetadataRaw.xScsComponentsUsedCollection.fields;
+		var srcCompRows = siteMetadataRaw && siteMetadataRaw.xScsComponentsUsedCollection && siteMetadataRaw.xScsComponentsUsedCollection.rows || [];
+		var destCompRows = destSiteMetadataRaw && destSiteMetadataRaw.xScsComponentsUsedCollection && destSiteMetadataRaw.xScsComponentsUsedCollection.rows || [];
+		var compsToAdd = [];
+		var compsToAddUnitId = [];
+		var compsToRemove = [];
+		var compsToRemoveUnitId = [];
+		_getNewUsedObjects(compFields, srcCompRows, destCompRows, 'xScsComponentsUsedInstanceID',
+			compsToAdd, compsToAddUnitId, compsToRemove, compsToRemoveUnitId);
+
+		var itemFields = siteMetadataRaw && siteMetadataRaw.xScsContentItemsUsedCollection && siteMetadataRaw.xScsContentItemsUsedCollection.fields ||
+			destSiteMetadataRaw && destSiteMetadataRaw.xScsContentItemsUsedCollection && destSiteMetadataRaw.xScsContentItemsUsedCollection.fields;
+		var srcItemRows = siteMetadataRaw && siteMetadataRaw.xScsContentItemsUsedCollection && siteMetadataRaw.xScsContentItemsUsedCollection.rows || [];
+		var destItemRows = destSiteMetadataRaw && destSiteMetadataRaw.xScsContentItemsUsedCollection && destSiteMetadataRaw.xScsContentItemsUsedCollection.rows || [];
+		var itemsToAdd = [];
+		var itemsToAddUnitId = [];
+		var itemsToRemove = [];
+		var itemsToRemoveUnitId = [];
+		_getNewUsedObjects(itemFields, srcItemRows, destItemRows,
+			'xScsContentItemsUsedInstanceID', itemsToAdd, itemsToAddUnitId, itemsToRemove, itemsToRemoveUnitId);
+
+		var typeFields = siteMetadataRaw && siteMetadataRaw.xScsContentTypesUsedCollection && siteMetadataRaw.xScsContentTypesUsedCollection.fields ||
+			destSiteMetadataRaw && destSiteMetadataRaw.xScsContentTypesUsedCollection && destSiteMetadataRaw.xScsContentTypesUsedCollection.fields;
+		var srcTypeRows = siteMetadataRaw && siteMetadataRaw.xScsContentTypesUsedCollection && siteMetadataRaw.xScsContentTypesUsedCollection.rows || [];
+		var destTypeRows = destSiteMetadataRaw && destSiteMetadataRaw.xScsContentTypesUsedCollection && destSiteMetadataRaw.xScsContentTypesUsedCollection.rows || [];
+		var typesToAdd = [];
+		var typesToAddUnitId = [];
+		var typesToRemove = [];
+		var typesToRemoveUnitId = [];
+		_getNewUsedObjects(typeFields, srcTypeRows, destTypeRows,
+			'xScsContentTypesUsedInstanceID', typesToAdd, typesToAddUnitId, typesToRemove, typesToRemoveUnitId);
+
+		var resultSets = {};
+		if (compsToAdd.length > 0 || compsToRemove.length > 0) {
+			if (compsToAddUnitId.length > 0) {
+				siteSettings['xScsComponentsUsedCollection+'] = compsToAddUnitId.join(',');
+			}
+			if (compsToRemoveUnitId.length > 0) {
+				siteSettings['xScsComponentsUsedCollection-'] = compsToRemoveUnitId.join(',');
+			}
+			resultSets.xScsComponentsUsedCollection = siteMetadataRaw.xScsComponentsUsedCollection || destSiteMetadataRaw.xScsComponentsUsedCollection;
+			resultSets.xScsComponentsUsedCollection.rows = compsToAdd.concat(compsToRemove);
+		}
+		if (itemsToAdd.length > 0 || itemsToRemove.length > 0) {
+			if (itemsToAddUnitId.length > 0) {
+				siteSettings['xScsContentItemsUsedCollection+'] = itemsToAddUnitId.join(',');
+			}
+			if (itemsToRemoveUnitId.length > 0) {
+				siteSettings['xScsContentItemsUsedCollection-'] = itemsToRemoveUnitId.join(',');
+			}
+			resultSets.xScsContentItemsUsedCollection = siteMetadataRaw.xScsContentItemsUsedCollection || destSiteMetadataRaw.xScsContentItemsUsedCollection;
+			resultSets.xScsContentItemsUsedCollection.rows = itemsToAdd.concat(itemsToRemove);
+		}
+		if (typesToAdd.length > 0 || typesToRemove.length > 0) {
+			if (typesToAddUnitId.length > 0) {
+				siteSettings['xScsContentTypesUsedCollection+'] = typesToAddUnitId.join(',');
+			}
+			if (typesToRemoveUnitId.length > 0) {
+				siteSettings['xScsContentTypesUsedCollection-'] = typesToRemoveUnitId.join(',');
+			}
+			resultSets.xScsContentTypesUsedCollection = siteMetadataRaw.xScsContentTypesUsedCollection || destSiteMetadataRaw.xScsContentTypesUsedCollection;
+			resultSets.xScsContentTypesUsedCollection.rows = typesToAdd.concat(typesToRemove);
+		}
+
+		serverUtils.setSiteMetadata(request, destServer, idcToken, destSite.id, siteSettings, resultSets)
+			.then(function (result) {
+				if (!result || result.err) {
+					console.log('ERROR: failed to set site metadata');
+					return Promise.reject();
+				}
+
+				return resolve({});
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				return resolve({
+					err: 'err'
+				});
+			});
+	});
+
 };
 
 var _uploadTemplateWithoutContent = function (argv, templateName, destServer, destdir, excludeSiteContent) {
@@ -1797,6 +1840,7 @@ var _postOneIdcService = function (request, localhost, server, service, action, 
 			if (jobId) {
 				console.log(' - submit ' + action + ' BACKGROUND_JOB_ID ' + jobId);
 				// wait action to finish
+				var startTime = new Date();
 				var inter = setInterval(function () {
 					var jobPromise = serverUtils.getBackgroundServiceJobStatus(server, request, idcToken, jobId);
 					jobPromise.then(function (data) {
@@ -1804,6 +1848,7 @@ var _postOneIdcService = function (request, localhost, server, service, action, 
 							clearInterval(inter);
 							// console.log(data);
 							// try to get error message
+							process.stdout.write(os.EOL);
 							console.log('ERROR: ' + action + ' failed: ' + (data && data.JobMessage));
 							serverUtils.getBackgroundServiceJobData(server, request, idcToken, jobId)
 								.then(function (result) {
@@ -1817,11 +1862,14 @@ var _postOneIdcService = function (request, localhost, server, service, action, 
 								});
 						} else if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
 							clearInterval(inter);
+							process.stdout.write(os.EOL);
 
 							return resolve({});
 
 						} else {
-							console.log(' - ' + action + ' in process: percentage ' + data.JobPercentage);
+							process.stdout.write(' - ' + action + ' in process: percentage ' + data.JobPercentage +
+								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
 						}
 					});
 				}, 6000);
@@ -2016,30 +2064,35 @@ module.exports.shareSite = function (argv, done) {
 					siteId = result.id;
 					console.log(' - verify site');
 
-					return serverRest.getGroups({
-						server: server
+					var groupPromises = [];
+					groupNames.forEach(function (gName) {
+						groupPromises.push(
+							serverRest.getGroup({
+								server: server,
+								name: gName
+							}));
 					});
+					return Promise.all(groupPromises);
 				})
 				.then(function (result) {
-					if (!result || result.err) {
-						return Promise.reject();
-					}
+
 					if (groupNames.length > 0) {
 						console.log(' - verify groups');
-					}
-					// verify groups
-					var allGroups = result || [];
-					for (var i = 0; i < groupNames.length; i++) {
-						var found = false;
-						for (var j = 0; j < allGroups.length; j++) {
-							if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
-								found = true;
-								groups.push(allGroups[j]);
-								break;
+
+						// verify groups
+						var allGroups = result || [];
+						for (var i = 0; i < groupNames.length; i++) {
+							var found = false;
+							for (var j = 0; j < allGroups.length; j++) {
+								if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+									found = true;
+									groups.push(allGroups[j]);
+									break;
+								}
 							}
-						}
-						if (!found) {
-							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							if (!found) {
+								console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							}
 						}
 					}
 
@@ -2208,30 +2261,35 @@ module.exports.unshareSite = function (argv, done) {
 					siteId = result.id;
 					console.log(' - verify site');
 
-					return serverRest.getGroups({
-						server: server
+					var groupPromises = [];
+					groupNames.forEach(function (gName) {
+						groupPromises.push(
+							serverRest.getGroup({
+								server: server,
+								name: gName
+							}));
 					});
+					return Promise.all(groupPromises);
 				})
 				.then(function (result) {
-					if (!result || result.err) {
-						return Promise.reject();
-					}
+
 					if (groupNames.length > 0) {
 						console.log(' - verify groups');
-					}
-					// verify groups
-					var allGroups = result || [];
-					for (var i = 0; i < groupNames.length; i++) {
-						var found = false;
-						for (var j = 0; j < allGroups.length; j++) {
-							if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
-								found = true;
-								groups.push(allGroups[j]);
-								break;
+
+						// verify groups
+						var allGroups = result || [];
+						for (var i = 0; i < groupNames.length; i++) {
+							var found = false;
+							for (var j = 0; j < allGroups.length; j++) {
+								if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+									found = true;
+									groups.push(allGroups[j]);
+									break;
+								}
 							}
-						}
-						if (!found) {
-							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							if (!found) {
+								console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							}
 						}
 					}
 

@@ -5,6 +5,8 @@
 /* global module, process */
 /* jshint esversion: 6 */
 var request = require('request'),
+	os = require('os'),
+	readline = require('readline'),
 	siteUtils = require('./serverUtils');
 
 var _getAuthorization = function (server) {
@@ -412,7 +414,7 @@ var _grantSiteAccess = function (server, id, name, member) {
 			if (response && response.statusCode <= 300) {
 				resolve(data);
 			} else {
-				var msg =(data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to grant ' + member + ' to access site ' + (id || name) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -1548,17 +1550,19 @@ var _importTemplate = function (server, name, fileId) {
 			} catch (e) {
 				data = body;
 			}
-		
+			
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.headers && response.headers.location;
 				console.log(' - import job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1));
+				var startTime = new Date();
 				var inter = setInterval(function () {
 					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
 					jobPromise.then(function (data) {
 						// console.log(data);
 						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
 							clearInterval(inter);
-							console.log(data);
+							process.stdout.write(os.EOL);
+							console.log(JSON.stringify(data, null, 4));
 							var msg = data && data.error ? (data.error.detail || data.error.title) : '';
 							console.log('ERROR: import template failed: ' + msg);
 							return resolve({
@@ -1566,23 +1570,28 @@ var _importTemplate = function (server, name, fileId) {
 							});
 						} else if (data.completed && data.progress === 'succeeded') {
 							clearInterval(inter);
-
+							process.stdout.write(os.EOL);
 							return resolve(data.template);
 						} else {
-							console.log(' - importing template: percentage ' + data.completedPercentage);
+							process.stdout.write(' - importing template: percentage ' + data.completedPercentage + 
+								' [' + siteUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
 						}
 					});
 				}, 5000);
 
 			} else {
-				var msg = response && (response.statusMessage || response.statusCode);
+				var msg = response && (response.statusMessage || response.statusCode) ? (response.statusMessage || response.statusCode) : '';
 				if (data) {
-					msg = data.detail || data.title;
+					msg = data.detail || data.title || msg;
 					if (data.status || data['o:errorCode']) {
 						msg = msg + ' (' + data.status + ' ' + data['o:errorCode'] + ')';
 					}
 				}
 				console.log('ERROR: failed to import template ' + name + ' : ' + msg);
+				if (data) {
+					console.log(JSON.stringify(data, null, 4));
+				}
 				resolve({
 					err: msg || 'err'
 				});

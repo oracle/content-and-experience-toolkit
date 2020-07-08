@@ -170,6 +170,8 @@ module.exports.createContentLayout = function (argv, done) {
 		}
 	}
 
+	var addcustomsettings = typeof argv.addcustomsettings === 'string' && argv.addcustomsettings.toLowerCase() === 'true';
+
 	if (useserver) {
 
 		// verify the content type
@@ -211,7 +213,7 @@ module.exports.createContentLayout = function (argv, done) {
 				}
 
 				contenttype['fields'] = fields;
-				_createContentLayout(contenttypename, contenttype, layoutname, layoutstyle, true, done);
+				_createContentLayout(contenttypename, contenttype, layoutname, layoutstyle, true, addcustomsettings, done);
 			});
 		});
 
@@ -230,7 +232,7 @@ module.exports.createContentLayout = function (argv, done) {
 			return;
 		}
 
-		_createContentLayout(contenttypename, contenttype, layoutname, layoutstyle, false, done);
+		_createContentLayout(contenttypename, contenttype, layoutname, layoutstyle, false, addcustomsettings, done);
 	}
 };
 
@@ -541,7 +543,7 @@ module.exports.removeContentLayoutMapping = function (argv, done) {
  * Private
  * Create content layout
  */
-var _createContentLayout = function (contenttypename, contenttype, layoutname, layoutstyle, isServer, done) {
+var _createContentLayout = function (contenttypename, contenttype, layoutname, layoutstyle, isServer, addcustomsettings, done) {
 
 	// console.log('Create Content Layout: creating a new content layout ' + layoutname + ' for type ' + contenttypename);
 
@@ -795,6 +797,26 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 			newrenderstr = newrenderstr.replace('//_devcs_contentlayout_reference_code', refstr);
 			fs.writeFileSync(renderfile, newrenderstr);
 			console.log(' - update render.js');
+
+			if (addcustomsettings) {
+				// update appinfo.json
+				var appinfoFilePath = path.join(componentDir, 'appinfo.json');
+				if (fs.existsSync(appinfoFilePath)) {
+					var appinfoJson = JSON.parse(fs.readFileSync(appinfoFilePath));
+					if (appinfoJson) {
+						appinfoJson.settingsData = {
+							settingsHeight: 500,
+							settingsRenderOption: 'panel'
+						};
+
+						fs.writeFileSync(appinfoFilePath, JSON.stringify(appinfoJson, null, 4));
+					}
+				}
+				// add default settings.html
+				var settingsFile = 'settings.html';
+				fs.copyFileSync(path.join(componentsDataDir, settingsFile), path.join(componentDir, 'assets', settingsFile));
+				console.log(' - add custom settings');
+			}
 
 			console.log(`Created content layout ${layoutname} at ${componentDir}`);
 			console.log(`To rename the content layout, rename the directory ${componentDir}`);

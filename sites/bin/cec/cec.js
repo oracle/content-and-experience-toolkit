@@ -264,6 +264,7 @@ const createContentLayout = {
 	example: [
 		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -t BlogTemplate'],
 		['cec create-contentlayout Blog-Post-Detail-Layout -c Blog-Post -t BlogTemplate -s detail'],
+		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -t BlogTemplate -a', 'Add custom settings when used in Sites'],
 		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -r', 'Use content type Blog-Post from the server specified in cec.properties file'],
 		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -r UAT -s detail', 'Use content type Blog-Post from the registered server UAT']
 	]
@@ -429,7 +430,8 @@ const createTemplate = {
 		['cec create-template Temp2 -f CafeSupremoLite'],
 		['cec create-template Temp1 -s Site1', 'Create template Temp1 based on site Site1 on CEC server'],
 		['cec create-template Temp1 -s Site1 -x', 'Create template Temp1 based on site Site1 on CEC server and exclude the content in the site'],
-		['cec create-template Temp1 -s Site1 -r UAT', 'Create template Temp1 based on site Site1 on the registered server UAT']
+		['cec create-template Temp1 -s Site1 -r UAT', 'Create template Temp1 based on site Site1 on the registered server UAT'],
+		['cec create-template EnterpriseTemp1 -s StandardSite1 -e', 'Create enterprise template EnterpriseTemp1 based on standard site StandardSite1 on CEC server'],
 	]
 };
 
@@ -580,7 +582,8 @@ const createTemplateFromSite = {
 	example: [
 		['cec create-template-from-site BlogTemplate -s BlogSite'],
 		['cec create-template-from-site BlogTemplate -s BlogSite -r UAT'],
-		['cec create-template-from-site BlogTemplate -s BlogSite -i -r UAT']
+		['cec create-template-from-site BlogTemplate -s BlogSite -i -r UAT'],
+		['cec create-template-from-site EnterpriseTemplate -s StandardSite -e'],
 	]
 };
 
@@ -2442,6 +2445,10 @@ const argv = yargs.usage(_usage)
 					alias: 's',
 					description: '<style> Content layout style: detail | overview'
 				})
+				.option('addcustomsettings', {
+					alias: 'a',
+					description: 'Add support for custom settings when used in Sites'
+				})
 				.check((argv) => {
 					if (!argv.template && !argv.server) {
 						throw new Error('Please specify template or server');
@@ -2453,6 +2460,7 @@ const argv = yargs.usage(_usage)
 				.example(...createContentLayout.example[1])
 				.example(...createContentLayout.example[2])
 				.example(...createContentLayout.example[3])
+				.example(...createContentLayout.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2649,6 +2657,10 @@ const argv = yargs.usage(_usage)
 					alias: 'x',
 					description: 'Exclude content'
 				})
+				.option('enterprisetemplate', {
+					alias: 'e',
+					description: 'Enterprise template'
+				})
 				.option('server', {
 					alias: 'r',
 					description: '<server> The registered CEC server'
@@ -2667,6 +2679,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTemplate.example[2])
 				.example(...createTemplate.example[3])
 				.example(...createTemplate.example[4])
+				.example(...createTemplate.example[5])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -2683,6 +2696,10 @@ const argv = yargs.usage(_usage)
 					alias: 'i',
 					description: 'flag to indicate to include unpublished content items and digital assets in your template'
 				})
+				.option('enterprisetemplate', {
+					alias: 'e',
+					description: 'Enterprise template'
+				})
 				.option('server', {
 					alias: 'r',
 					description: '<server> The registered CEC server'
@@ -2690,6 +2707,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTemplateFromSite.example[0])
 				.example(...createTemplateFromSite.example[1])
 				.example(...createTemplateFromSite.example[2])
+				.example(...createTemplateFromSite.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -5466,6 +5484,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		createContentLayoutArgs.push(...['--server'], serverVal);
 	}
+	if (argv.addcustomsettings) {
+		createContentLayoutArgs.push(...['--addcustomsettings'], argv.addcustomsettings);
+	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, createContentLayoutArgs, {
 		cwd,
@@ -5633,6 +5654,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.excludecontent) {
 		createTemplateArgs.push(...['--excludecontent', argv.excludecontent]);
 	}
+	if (argv.enterprisetemplate) {
+		createTemplateArgs.push(...['--enterprisetemplate', argv.enterprisetemplate]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createTemplateArgs.push(...['--server', argv.server]);
 	}
@@ -5741,6 +5765,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.includeunpublishedassets) {
 		createTemplateFromSiteArgs.push(...['--includeunpublishedassets', argv.includeunpublishedassets]);
+	}
+	if (argv.enterprisetemplate) {
+		createTemplateFromSiteArgs.push(...['--enterprisetemplate', argv.enterprisetemplate]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createTemplateFromSiteArgs, {
 		cwd,

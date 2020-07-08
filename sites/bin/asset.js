@@ -386,31 +386,36 @@ module.exports.shareRepository = function (argv, done) {
 				}
 			}
 
-			return serverRest.getGroups({
-				server: server
+			var groupPromises = [];
+			groupNames.forEach(function (gName) {
+				groupPromises.push(
+					serverRest.getGroup({
+						server: server,
+						name: gName
+					}));
 			});
+			return Promise.all(groupPromises);
 		})
 		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
+
 			if (groupNames.length > 0) {
 				console.log(' - verify groups');
-			}
-			// verify groups
-			var allGroups = result || [];
-			for (var i = 0; i < groupNames.length; i++) {
-				var found = false;
-				for (var j = 0; j < allGroups.length; j++) {
-					if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
-						found = true;
-						groups.push(allGroups[j]);
-						break;
+
+				// verify groups
+				var allGroups = result || [];
+				for (var i = 0; i < groupNames.length; i++) {
+					var found = false;
+					for (var j = 0; j < allGroups.length; j++) {
+						if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+							found = true;
+							groups.push(allGroups[j]);
+							break;
+						}
 					}
-				}
-				if (!found) {
-					console.log('ERROR: group ' + groupNames[i] + ' does not exist');
-					// return Promise.reject();
+					if (!found) {
+						console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						// return Promise.reject();
+					}
 				}
 			}
 
@@ -723,32 +728,38 @@ module.exports.unShareRepository = function (argv, done) {
 				}
 			}
 
-			return serverRest.getGroups({
-				server: server
+			var groupPromises = [];
+			groupNames.forEach(function (gName) {
+				groupPromises.push(
+					serverRest.getGroup({
+						server: server,
+						name: gName
+					}));
 			});
+			return Promise.all(groupPromises);
+
 		})
 		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
+
 			if (groupNames.length > 0) {
 				console.log(' - verify groups');
-			}
-			// verify groups
-			var allGroups = result || [];
-			for (var i = 0; i < groupNames.length; i++) {
-				var found = false;
-				for (var j = 0; j < allGroups.length; j++) {
-					if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
-						found = true;
-						groups.push(allGroups[j]);
-						goodGroupNames.push(groupNames[i]);
-						break;
+
+				// verify groups
+				var allGroups = result || [];
+				for (var i = 0; i < groupNames.length; i++) {
+					var found = false;
+					for (var j = 0; j < allGroups.length; j++) {
+						if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+							found = true;
+							groups.push(allGroups[j]);
+							goodGroupNames.push(groupNames[i]);
+							break;
+						}
 					}
-				}
-				if (!found) {
-					console.log('ERROR: group ' + groupNames[i] + ' does not exist');
-					// return Promise.reject();
+					if (!found) {
+						console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						// return Promise.reject();
+					}
 				}
 			}
 
@@ -906,30 +917,36 @@ module.exports.shareType = function (argv, done) {
 
 			console.log(' - verify type');
 
-			return serverRest.getGroups({
-				server: server
+			var groupPromises = [];
+			groupNames.forEach(function (gName) {
+				groupPromises.push(
+					serverRest.getGroup({
+						server: server,
+						name: gName
+					}));
 			});
+			return Promise.all(groupPromises);
+
 		})
 		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
+
 			if (groupNames.length > 0) {
 				console.log(' - verify groups');
-			}
-			// verify groups
-			var allGroups = result || [];
-			for (var i = 0; i < groupNames.length; i++) {
-				var found = false;
-				for (var j = 0; j < allGroups.length; j++) {
-					if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
-						found = true;
-						groups.push(allGroups[j]);
-						break;
+
+				// verify groups
+				var allGroups = result || [];
+				for (var i = 0; i < groupNames.length; i++) {
+					var found = false;
+					for (var j = 0; j < allGroups.length; j++) {
+						if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+							found = true;
+							groups.push(allGroups[j]);
+							break;
+						}
 					}
-				}
-				if (!found) {
-					console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+					if (!found) {
+						console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+					}
 				}
 			}
 
@@ -1088,31 +1105,37 @@ module.exports.unshareType = function (argv, done) {
 				return Promise.reject();
 			}
 
-			return serverRest.getGroups({
-				server: server
+			var groupPromises = [];
+			groupNames.forEach(function (gName) {
+				groupPromises.push(
+					serverRest.getGroup({
+						server: server,
+						name: gName
+					}));
 			});
+			return Promise.all(groupPromises);
+
 		})
 		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
+
 			if (groupNames.length > 0) {
 				console.log(' - verify groups');
-			}
-			// verify groups
-			var allGroups = result || [];
-			for (var i = 0; i < groupNames.length; i++) {
-				var found = false;
-				for (var j = 0; j < allGroups.length; j++) {
-					if (groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
-						found = true;
-						groups.push(allGroups[j]);
-						goodGroupNames.push(groupNames[i]);
-						break;
+
+				// verify groups
+				var allGroups = result || [];
+				for (var i = 0; i < groupNames.length; i++) {
+					var found = false;
+					for (var j = 0; j < allGroups.length; j++) {
+						if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+							found = true;
+							groups.push(allGroups[j]);
+							goodGroupNames.push(groupNames[i]);
+							break;
+						}
 					}
-				}
-				if (!found) {
-					console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+					if (!found) {
+						console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+					}
 				}
 			}
 
@@ -1551,7 +1574,7 @@ var _displayAssets = function (repository, collection, channel, items) {
 
 	var format2 = '   %-38s %-38s %-11s %-s';
 	console.log(sprintf(format2, 'Type', 'Id', 'Status', 'Name'));
-	
+
 	for (var i = 0; i < list.length; i++) {
 		for (var j = 0; j < list[i].items.length; j++) {
 			var item = list[i].items[j];
@@ -1559,11 +1582,11 @@ var _displayAssets = function (repository, collection, channel, items) {
 			console.log(sprintf(format2, typeLabel, item.id, item.status, item.name));
 		}
 	}
-/*
-	items.forEach(function (item) {
-		if (item.slug && item.slug.indexOf('/') >= 0) {
-			console.log(sprintf('   %-38s %-38s  |  %-s', item.id, item.name, item.slug));
-		}
-	});
-	*/
+	/*
+		items.forEach(function (item) {
+			if (item.slug && item.slug.indexOf('/') >= 0) {
+				console.log(sprintf('   %-38s %-38s  |  %-s', item.id, item.name, item.slug));
+			}
+		});
+		*/
 };

@@ -33,7 +33,7 @@ var templatesDir,
 	contentDir,
 	customTemplate = '',
 	customChannelToken = '';
-	customThemeName = '';
+customThemeName = '';
 
 var _setupSourceDir = function (req, compName) {
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
@@ -63,7 +63,7 @@ router.get('/*', (req, res) => {
 		compName = filePathSuffix.indexOf('/') > 0 ? filePathSuffix.substring(0, filePathSuffix.indexOf('/')) : filePathSuffix;
 
 	_setupSourceDir(req, compName);
-	
+
 	app.locals.localTemplate = '';
 	app.locals.channelToken = '';
 	if (customTemplate) {
@@ -403,14 +403,21 @@ router.get('/*', (req, res) => {
 		//
 		if (filePathSuffix.indexOf('settings.html') > 0) {
 			if (apptype === 'contentlayout') {
-				filePath = path.resolve(compSiteDir + '/contentlayoutsettings.html');
-				var settingshtml = fs.readFileSync(filePath).toString(),
-					newsettingshtml = settingshtml.replace('_devcs_component_contentlayout_name', compName);
-				newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
-				console.log('path=' + req.path + ' filePath=' + filePath + ' layout=' + compName);
-				res.write(newsettingshtml);
-				res.end();
-				return;
+				var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+				var customsettingsFilePath = path.join(componentsDir, compName, 'assets', 'settings.html');
+				// console.log(JSON.stringify(params));
+				if (params && params.customsettings && fs.existsSync(customsettingsFilePath)) {
+					filePath = customsettingsFilePath;
+				} else {
+					filePath = path.resolve(compSiteDir + '/contentlayoutsettings.html');
+					var settingshtml = fs.readFileSync(filePath).toString(),
+						newsettingshtml = settingshtml.replace('_devcs_component_contentlayout_name', compName);
+					newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
+					console.log('path=' + req.path + ' filePath=' + filePath + ' layout=' + compName);
+					res.write(newsettingshtml);
+					res.end();
+					return;
+				}
 
 			} else if (apptype === 'fieldeditor') {
 				var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
@@ -529,13 +536,34 @@ router.get('/*', (req, res) => {
 			// handle theme resources
 			buf = buf.replace('_devcs_theme_resources', themedesigns.replace('selectTheme()', 'selectThemeResource()').replace('"themedesign"', '"themeresource"'));
 
+			var clickSettingsSrc = 'var clickSettings = function () {};';
+			var contentlayoutSettingsTitleSrc = '';
 			if (compType === 'contentlayout') {
 				buf = buf.replace('_devcs_local_content', '');
 				buf = buf.replace('_devcs_server_content', '');
+				buf = buf.replace('_devcs_component_settings_title', 'Content');
+
+				var customSettingsFilePath = path.join(componentsDir, compName, 'assets', 'settings.html');
+				if (fs.existsSync(customSettingsFilePath)) {
+					contentlayoutSettingsTitleSrc = '<div class="oj-dialog-title devcs_column" id="settingsTitle2" onclick="clickSettings(1)" style="color: rgb(221, 221, 221);">Settings</div>';
+					clickSettingsSrc = 'var clickSettings = function (customsettings) {console.log("content layout custom settings"); ' +
+						'var iframeSrc = "/components/' + compName + '/assets/settings.html";' +
+						'if (customsettings) {iframeSrc = iframeSrc + "?customsettings=1";}' +
+						'console.log(iframeSrc);' +
+						'var settingsIframe = document.getElementById("settings");' +
+						'if (settingsIframe) {settingsIframe.src = iframeSrc;} }';
+				}
+				buf = buf.replace('_devcs_contentlayout_settings_title_div', contentlayoutSettingsTitleSrc);
+				buf = buf.replace('_devcs_component_click_settings_func', clickSettingsSrc);
+
 				res.write(buf);
 				res.end();
 
 			} else {
+				buf = buf.replace('_devcs_component_settings_title', 'Settings');
+				buf = buf.replace('_devcs_contentlayout_settings_title_div', contentlayoutSettingsTitleSrc);
+				buf = buf.replace('_devcs_component_click_settings_func', clickSettingsSrc);
+
 				var localContentHtml = '<div class="themedesign"><span>Local Content</span>' +
 					'<select id="localcontent" class="themedesign-select" onchange="selectLocalContent()">' +
 					'<option value="none">None</option>';

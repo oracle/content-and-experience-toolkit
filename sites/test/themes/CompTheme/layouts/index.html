@@ -10,6 +10,17 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 		.rendering .scs-app-iframe-wrapper {
 			height: 600px !important;
 		}
+		.devcs_container {
+			width: 100%;
+			height: 20px;
+		}
+		.devcs_column {
+			float: left;
+			width: 20%;
+		}
+		.devcs_clickable {
+			cursor: pointer !important;
+		}
 	</style>
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
 	<meta name="viewport" content="initial-scale=1">
@@ -82,7 +93,10 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 								<span class="oj-button-icon oj-start oj-component-icon oj-fwk-icon-cross"></span>
 							</div>
 						</div>
-						<div class="oj-dialog-title" id="settingsTitle" style="color: rgb(221, 221, 221);">Settings</div>
+						<div class="devcs_container">
+							<div class="oj-dialog-title devcs_column" id="settingsTitle" onclick="clickSettings()" style="color: rgb(221, 221, 221);">_devcs_component_settings_title</div>
+							_devcs_contentlayout_settings_title_div
+						</div>
 					</div>
 					<div id="settingsPane" style="background-color: rgb(62, 64, 66); padding: 4px 4px 4px 4px;">
 						<div style="max-height: 600px;">
@@ -313,6 +327,8 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			}
 		};
 		window.addEventListener("message", receiveMessage, false);
+
+		_devcs_component_click_settings_func
 
 		var selectThemeResource = function () {
 			// redirect to the selected theme
