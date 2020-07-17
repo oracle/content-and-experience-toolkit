@@ -52,105 +52,111 @@ module.exports.createRepository = function (argv, done) {
 	var channels = [];
 	var contentTypes = [];
 
-	serverRest.getRepositories({
-			server: server
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			// get repositories
-			var repositories = result || [];
-			for (var i = 0; i < repositories.length; i++) {
-				if (name.toLowerCase() === repositories[i].name.toLowerCase()) {
-					console.log('ERROR: repository ' + name + ' already exists');
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+		serverRest.getRepositories({
+				server: server
+			})
+			.then(function (result) {
+				if (result.err) {
 					return Promise.reject();
 				}
-			}
-			console.log(' - verify repository name');
-
-			// get content types
-			var typePromises = [];
-			for (var i = 0; i < typeNames.length; i++) {
-				typePromises.push(serverRest.getContentType({
-					server: server,
-					name: typeNames[i]
-				}));
-			}
-
-			return Promise.all(typePromises);
-		})
-		.then(function (results) {
-			for (var i = 0; i < results.length; i++) {
-				if (results[i].err) {
-					return Promise.reject();
-				}
-			}
-			if (typeNames.length > 0) {
-				console.log(' - verify content types');
-			}
-
-			// get channels
-			var channelPromises = [];
-			if (channelNames.length > 0) {
-				channelPromises.push(serverRest.getChannels({
-					server: server
-				}));
-			}
-
-			return Promise.all(channelPromises);
-		})
-		.then(function (results) {
-			var allChannels = results.length > 0 ? results[0] : [];
-			for (var i = 0; i < channelNames.length; i++) {
-				var found = false;
-				for (var j = 0; j < allChannels.length; j++) {
-					if (channelNames[i].toLowerCase() === allChannels[j].name.toLowerCase()) {
-						found = true;
-						channels.push({
-							id: allChannels[j].id,
-							name: allChannels[j].name
-						});
-						break;
+				// get repositories
+				var repositories = result || [];
+				for (var i = 0; i < repositories.length; i++) {
+					if (name.toLowerCase() === repositories[i].name.toLowerCase()) {
+						console.log('ERROR: repository ' + name + ' already exists');
+						return Promise.reject();
 					}
 				}
-				if (!found) {
-					console.log('ERROR: channel ' + channelNames[i] + ' does not exist');
+				console.log(' - verify repository name');
+
+				// get content types
+				var typePromises = [];
+				for (var i = 0; i < typeNames.length; i++) {
+					typePromises.push(serverRest.getContentType({
+						server: server,
+						name: typeNames[i]
+					}));
+				}
+
+				return Promise.all(typePromises);
+			})
+			.then(function (results) {
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].err) {
+						return Promise.reject();
+					}
+				}
+				if (typeNames.length > 0) {
+					console.log(' - verify content types');
+				}
+
+				// get channels
+				var channelPromises = [];
+				if (channelNames.length > 0) {
+					channelPromises.push(serverRest.getChannels({
+						server: server
+					}));
+				}
+
+				return Promise.all(channelPromises);
+			})
+			.then(function (results) {
+				var allChannels = results.length > 0 ? results[0] : [];
+				for (var i = 0; i < channelNames.length; i++) {
+					var found = false;
+					for (var j = 0; j < allChannels.length; j++) {
+						if (channelNames[i].toLowerCase() === allChannels[j].name.toLowerCase()) {
+							found = true;
+							channels.push({
+								id: allChannels[j].id,
+								name: allChannels[j].name
+							});
+							break;
+						}
+					}
+					if (!found) {
+						console.log('ERROR: channel ' + channelNames[i] + ' does not exist');
+						return Promise.reject();
+					}
+				}
+				if (channelNames.length > 0) {
+					console.log(' - verify channels');
+				}
+
+				for (var i = 0; i < typeNames.length; i++) {
+					contentTypes.push({
+						name: typeNames[i]
+					});
+				}
+
+				return serverRest.createRepository({
+					server: server,
+					name: name,
+					description: desc,
+					defaultLanguage: defaultLanguage,
+					contentTypes: contentTypes,
+					channels: channels
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
 					return Promise.reject();
 				}
-			}
-			if (channelNames.length > 0) {
-				console.log(' - verify channels');
-			}
+				// console.log(result);
+				console.log(' - repository ' + name + ' created');
 
-			for (var i = 0; i < typeNames.length; i++) {
-				contentTypes.push({
-					name: typeNames[i]
-				});
-			}
-
-			return serverRest.createRepository({
-				server: server,
-				name: name,
-				description: desc,
-				defaultLanguage: defaultLanguage,
-				contentTypes: contentTypes,
-				channels: channels
+				done(true);
+			})
+			.catch((error) => {
+				done();
 			});
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			// console.log(result);
-			console.log(' - repository ' + name + ' created');
-
-			done(true);
-		})
-		.catch((error) => {
-			done();
-		});
-
+	});
 };
 
 module.exports.controlRepository = function (argv, done) {
@@ -179,144 +185,151 @@ module.exports.controlRepository = function (argv, done) {
 	var channels = [];
 	var types = [];
 
-	serverRest.getRepositories({
-			server: server
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			// get repositories
-			var repositories = result || [];
-			for (var i = 0; i < repositories.length; i++) {
-				if (name.toLowerCase() === repositories[i].name.toLowerCase()) {
-					repository = repositories[i];
-					break;
-				}
-			}
-			if (!repository) {
-				console.log('ERROR: repository ' + name + ' does not exist');
-				return Promise.reject();
-			}
-			console.log(' - verify repository');
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
 
-			var typePromises = [];
-			for (var i = 0; i < typeNames.length; i++) {
-				typePromises.push(serverRest.getContentType({
-					server: server,
-					name: typeNames[i]
-				}));
-				types.push({
-					name: typeNames[i]
-				});
-			}
-
-			return Promise.all(typePromises);
-		})
-		.then(function (results) {
-			for (var i = 0; i < results.length; i++) {
-				if (results[i].err) {
+		serverRest.getRepositories({
+				server: server
+			})
+			.then(function (result) {
+				if (result.err) {
 					return Promise.reject();
 				}
-			}
-			if (typeNames.length > 0) {
-				console.log(' - verify content types');
-			}
-
-			// get channels
-			var channelPromises = [];
-			if (channelNames.length > 0) {
-				channelPromises.push(serverRest.getChannels({
-					server: server
-				}));
-			}
-
-			return Promise.all(channelPromises);
-		})
-		.then(function (results) {
-			var allChannels = results.length > 0 ? results[0] : [];
-			for (var i = 0; i < channelNames.length; i++) {
-				var found = false;
-				for (var j = 0; j < allChannels.length; j++) {
-					if (channelNames[i].toLowerCase() === allChannels[j].name.toLowerCase()) {
-						found = true;
-						channels.push({
-							id: allChannels[j].id,
-							name: allChannels[j].name
-						});
+				// get repositories
+				var repositories = result || [];
+				for (var i = 0; i < repositories.length; i++) {
+					if (name.toLowerCase() === repositories[i].name.toLowerCase()) {
+						repository = repositories[i];
 						break;
 					}
 				}
-				if (!found) {
-					console.log('ERROR: channel ' + channelNames[i] + ' does not exist');
+				if (!repository) {
+					console.log('ERROR: repository ' + name + ' does not exist');
 					return Promise.reject();
 				}
-			}
-			if (channelNames.length > 0) {
-				console.log(' - verify channels');
-			}
+				console.log(' - verify repository');
 
-			var finalTypes = repository.contentTypes;
-			var finalChannels = repository.channels;
-			if (action === 'add-type') {
-				finalTypes = finalTypes.concat(types);
-			} else if (action === 'remove-type') {
+				var typePromises = [];
 				for (var i = 0; i < typeNames.length; i++) {
-					var idx = undefined;
-					for (var j = 0; j < finalTypes.length; j++) {
-						if (typeNames[i].toLowerCase() === finalTypes[j].name.toLowerCase()) {
-							idx = j;
-							break;
-						}
-					}
-					if (idx !== undefined) {
-						finalTypes.splice(idx, 1);
-					}
+					typePromises.push(serverRest.getContentType({
+						server: server,
+						name: typeNames[i]
+					}));
+					types.push({
+						name: typeNames[i]
+					});
 				}
-			} else if (action === 'add-channel') {
-				finalChannels = finalChannels.concat(channels);
-			} else if (action === 'remove-channel') {
-				for (var i = 0; i < channels.length; i++) {
-					var idx = undefined;
-					for (var j = 0; j < finalChannels.length; j++) {
-						if (channels[i].id === finalChannels[j].id) {
-							idx = j;
-							break;
-						}
-					}
-					if (idx !== undefined) {
-						finalChannels.splice(idx, 1);
-					}
-				}
-			}
 
-			return serverRest.updateRepository({
-				server: server,
-				repository: repository,
-				contentTypes: finalTypes,
-				channels: finalChannels
+				return Promise.all(typePromises);
+			})
+			.then(function (results) {
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].err) {
+						return Promise.reject();
+					}
+				}
+				if (typeNames.length > 0) {
+					console.log(' - verify content types');
+				}
+
+				// get channels
+				var channelPromises = [];
+				if (channelNames.length > 0) {
+					channelPromises.push(serverRest.getChannels({
+						server: server
+					}));
+				}
+
+				return Promise.all(channelPromises);
+			})
+			.then(function (results) {
+				var allChannels = results.length > 0 ? results[0] : [];
+				for (var i = 0; i < channelNames.length; i++) {
+					var found = false;
+					for (var j = 0; j < allChannels.length; j++) {
+						if (channelNames[i].toLowerCase() === allChannels[j].name.toLowerCase()) {
+							found = true;
+							channels.push({
+								id: allChannels[j].id,
+								name: allChannels[j].name
+							});
+							break;
+						}
+					}
+					if (!found) {
+						console.log('ERROR: channel ' + channelNames[i] + ' does not exist');
+						return Promise.reject();
+					}
+				}
+				if (channelNames.length > 0) {
+					console.log(' - verify channels');
+				}
+
+				var finalTypes = repository.contentTypes;
+				var finalChannels = repository.channels;
+				if (action === 'add-type') {
+					finalTypes = finalTypes.concat(types);
+				} else if (action === 'remove-type') {
+					for (var i = 0; i < typeNames.length; i++) {
+						var idx = undefined;
+						for (var j = 0; j < finalTypes.length; j++) {
+							if (typeNames[i].toLowerCase() === finalTypes[j].name.toLowerCase()) {
+								idx = j;
+								break;
+							}
+						}
+						if (idx !== undefined) {
+							finalTypes.splice(idx, 1);
+						}
+					}
+				} else if (action === 'add-channel') {
+					finalChannels = finalChannels.concat(channels);
+				} else if (action === 'remove-channel') {
+					for (var i = 0; i < channels.length; i++) {
+						var idx = undefined;
+						for (var j = 0; j < finalChannels.length; j++) {
+							if (channels[i].id === finalChannels[j].id) {
+								idx = j;
+								break;
+							}
+						}
+						if (idx !== undefined) {
+							finalChannels.splice(idx, 1);
+						}
+					}
+				}
+
+				return serverRest.updateRepository({
+					server: server,
+					repository: repository,
+					contentTypes: finalTypes,
+					channels: finalChannels
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+				if (action === 'add-type') {
+					console.log(' - added type ' + typeNames + ' to repository ' + name);
+				} else if (action === 'remove-type') {
+					console.log(' - removed type ' + typeNames + ' from repository ' + name);
+				} else if (action === 'add-channel') {
+					console.log(' - added channel ' + channelNames + ' to repository ' + name);
+				} else if (action === 'remove-channel') {
+					console.log(' - removed channel ' + channelNames + ' from repository ' + name);
+				}
+
+				done(true);
+			})
+			.catch((error) => {
+				done();
 			});
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			if (action === 'add-type') {
-				console.log(' - added type ' + typeNames + ' to repository ' + name);
-			} else if (action === 'remove-type') {
-				console.log(' - removed type ' + typeNames + ' from repository ' + name);
-			} else if (action === 'add-channel') {
-				console.log(' - added channel ' + channelNames + ' to repository ' + name);
-			} else if (action === 'remove-channel') {
-				console.log(' - removed channel ' + channelNames + ' from repository ' + name);
-			}
-
-			done(true);
-		})
-		.catch((error) => {
-			done();
-		});
-
+	});
 };
 
 
@@ -352,317 +365,325 @@ module.exports.shareRepository = function (argv, done) {
 	var usersToGrant = [];
 	var groupsToGrant = [];
 
-	serverRest.getRepositories({
-			server: server
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			// get repositories
-			var repositories = result || [];
-			for (var i = 0; i < repositories.length; i++) {
-				if (name.toLowerCase() === repositories[i].name.toLowerCase()) {
-					repository = repositories[i];
-					break;
-				}
-			}
-			if (!repository) {
-				console.log('ERROR: repository ' + name + ' does not exist');
-				return Promise.reject();
-			}
-			console.log(' - verify repository');
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
 
-			if (repository.contentTypes) {
-				for (var i = 0; i < repository.contentTypes.length; i++) {
-					typeNames.push(repository.contentTypes[i].name);
+		serverRest.getRepositories({
+				server: server
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
 				}
-			}
-			if (shareTypes) {
-				if (typeNames.length === 0) {
-					console.log(' - no content types in the repository');
-				} else {
-					console.log(' - repository includes content type ' + typeNames.join(', '));
+				// get repositories
+				var repositories = result || [];
+				for (var i = 0; i < repositories.length; i++) {
+					if (name.toLowerCase() === repositories[i].name.toLowerCase()) {
+						repository = repositories[i];
+						break;
+					}
 				}
-			}
+				if (!repository) {
+					console.log('ERROR: repository ' + name + ' does not exist');
+					return Promise.reject();
+				}
+				console.log(' - verify repository');
 
-			var groupPromises = [];
-			groupNames.forEach(function (gName) {
-				groupPromises.push(
-					serverRest.getGroup({
+				if (repository.contentTypes) {
+					for (var i = 0; i < repository.contentTypes.length; i++) {
+						typeNames.push(repository.contentTypes[i].name);
+					}
+				}
+				if (shareTypes) {
+					if (typeNames.length === 0) {
+						console.log(' - no content types in the repository');
+					} else {
+						console.log(' - repository includes content type ' + typeNames.join(', '));
+					}
+				}
+
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+			})
+			.then(function (result) {
+
+				if (groupNames.length > 0) {
+					console.log(' - verify groups');
+
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							// return Promise.reject();
+						}
+					}
+				}
+
+				var usersPromises = [];
+				for (var i = 0; i < userNames.length; i++) {
+					usersPromises.push(serverRest.getUser({
 						server: server,
-						name: gName
+						name: userNames[i]
 					}));
-			});
-			return Promise.all(groupPromises);
-		})
-		.then(function (result) {
+				}
 
-			if (groupNames.length > 0) {
-				console.log(' - verify groups');
-
-				// verify groups
-				var allGroups = result || [];
-				for (var i = 0; i < groupNames.length; i++) {
+				return Promise.all(usersPromises);
+			})
+			.then(function (results) {
+				var allUsers = [];
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].items) {
+						allUsers = allUsers.concat(results[i].items);
+					}
+				}
+				if (userNames.length > 0) {
+					console.log(' - verify users');
+				}
+				// verify users
+				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
-					for (var j = 0; j < allGroups.length; j++) {
-						if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+					for (var i = 0; i < allUsers.length; i++) {
+						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+							users.push(allUsers[i]);
 							found = true;
-							groups.push(allGroups[j]);
+							break;
+						}
+						if (found) {
 							break;
 						}
 					}
 					if (!found) {
-						console.log('ERROR: group ' + groupNames[i] + ' does not exist');
-						// return Promise.reject();
+						console.log('ERROR: user ' + userNames[k] + ' does not exist');
 					}
 				}
-			}
 
-			var usersPromises = [];
-			for (var i = 0; i < userNames.length; i++) {
-				usersPromises.push(serverRest.getUser({
+				if (users.length === 0 && groups.length === 0) {
+					return Promise.reject();
+				}
+
+				return serverRest.getResourcePermissions({
 					server: server,
-					name: userNames[i]
-				}));
-			}
-
-			return Promise.all(usersPromises);
-		})
-		.then(function (results) {
-			var allUsers = [];
-			for (var i = 0; i < results.length; i++) {
-				if (results[i].items) {
-					allUsers = allUsers.concat(results[i].items);
+					id: repository.id,
+					type: 'repository'
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
 				}
-			}
-			if (userNames.length > 0) {
-				console.log(' - verify users');
-			}
-			// verify users
-			for (var k = 0; k < userNames.length; k++) {
-				var found = false;
-				for (var i = 0; i < allUsers.length; i++) {
-					if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
-						users.push(allUsers[i]);
-						found = true;
-						break;
-					}
-					if (found) {
-						break;
-					}
-				}
-				if (!found) {
-					console.log('ERROR: user ' + userNames[k] + ' does not exist');
-				}
-			}
 
-			if (users.length === 0 && groups.length === 0) {
-				return Promise.reject();
-			}
+				var existingPermissions = result && result.permissions || [];
+				// console.log(existingPermissions);
 
-			return serverRest.getResourcePermissions({
-				server: server,
-				id: repository.id,
-				type: 'repository'
-			});
-		})
-		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
-
-			var existingPermissions = result && result.permissions || [];
-			// console.log(existingPermissions);
-
-			for (var i = 0; i < groups.length; i++) {
-				var groupGranted = false;
-				for (var j = 0; j < existingPermissions.length; j++) {
-					var perm = existingPermissions[j];
-					if (perm.roleName === role && perm.type === 'group' &&
-						perm.groupType === groups[i].groupOriginType && perm.fullName === groups[i].name) {
-						groupGranted = true;
-						break;
-					}
-				}
-				if (groupGranted) {
-					console.log(' - group ' + groups[i].name + ' already granted with role ' + role + ' on repository ' + name);
-				} else {
-					groupsToGrant.push(groups[i]);
-					goodGroupNames.push(groups[i].name);
-				}
-			}
-
-			for (var i = 0; i < users.length; i++) {
-				var granted = false;
-				for (var j = 0; j < existingPermissions.length; j++) {
-					var perm = existingPermissions[j];
-					if (perm.roleName === role && perm.type === 'user' && perm.id === users[i].loginName) {
-						granted = true;
-						break;
-					}
-				}
-				if (granted) {
-					console.log(' - user ' + users[i].loginName + ' already granted with role ' + role + ' on repository ' + name);
-				} else {
-					usersToGrant.push(users[i]);
-					goodUserName.push(users[i].loginName);
-				}
-			}
-
-			return serverRest.performPermissionOperation({
-				server: server,
-				operation: 'share',
-				resourceId: repository.id,
-				resourceType: 'repository',
-				role: role,
-				users: usersToGrant,
-				groups: groupsToGrant
-			});
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-
-			if (goodUserName.length > 0) {
-				console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on repository ' + name);
-			}
-
-			if (goodGroupNames.length > 0) {
-				console.log(' - group ' + (goodGroupNames.join(', ')) + ' granted with role ' + role + ' on repository ' + name);
-			}
-
-			if (shareTypes && typeNames.length > 0) {
-				var goodTypeNames = [];
-				var typePromises = [];
-				for (var i = 0; i < typeNames.length; i++) {
-					typePromises.push(serverRest.getContentType({
-						server: server,
-						name: typeNames[i]
-					}));
-				}
-				var success = true;
-
-				Promise.all(typePromises).then(function (results) {
-						for (var i = 0; i < results.length; i++) {
-							if (results[i].id) {
-								goodTypeNames.push(results[i].name);
-							}
+				for (var i = 0; i < groups.length; i++) {
+					var groupGranted = false;
+					for (var j = 0; j < existingPermissions.length; j++) {
+						var perm = existingPermissions[j];
+						if (perm.roleName === role && perm.type === 'group' &&
+							perm.groupType === groups[i].groupOriginType && perm.fullName === groups[i].name) {
+							groupGranted = true;
+							break;
 						}
+					}
+					if (groupGranted) {
+						console.log(' - group ' + groups[i].name + ' already granted with role ' + role + ' on repository ' + name);
+					} else {
+						groupsToGrant.push(groups[i]);
+						goodGroupNames.push(groups[i].name);
+					}
+				}
 
-						if (goodTypeNames.length === 0) {
-							return Promise.reject();
+				for (var i = 0; i < users.length; i++) {
+					var granted = false;
+					for (var j = 0; j < existingPermissions.length; j++) {
+						var perm = existingPermissions[j];
+						if (perm.roleName === role && perm.type === 'user' && perm.id === users[i].loginName) {
+							granted = true;
+							break;
 						}
+					}
+					if (granted) {
+						console.log(' - user ' + users[i].loginName + ' already granted with role ' + role + ' on repository ' + name);
+					} else {
+						usersToGrant.push(users[i]);
+						goodUserName.push(users[i].loginName);
+					}
+				}
 
-						var typePermissionPromises = [];
-						for (var i = 0; i < goodTypeNames.length; i++) {
-							typePermissionPromises.push(serverRest.getResourcePermissions({
-								server: server,
-								id: goodTypeNames[i],
-								type: 'type'
-							}));
-						}
+				return serverRest.performPermissionOperation({
+					server: server,
+					operation: 'share',
+					resourceId: repository.id,
+					resourceType: 'repository',
+					role: role,
+					users: usersToGrant,
+					groups: groupsToGrant
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
 
-						Promise.all(typePermissionPromises)
-							.then(function (results) {
-								var shareTypePromises = [];
+				if (goodUserName.length > 0) {
+					console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on repository ' + name);
+				}
 
-								for (var i = 0; i < results.length; i++) {
-									var resource = results[i].resource;
-									var perms = results[i] && results[i].permissions || [];
-									var typeUsersToGrant = [];
-									var typeGroupsToGrant = [];
+				if (goodGroupNames.length > 0) {
+					console.log(' - group ' + (goodGroupNames.join(', ')) + ' granted with role ' + role + ' on repository ' + name);
+				}
 
-									groups.forEach(function (group) {
-										var granted = false;
-										for (var j = 0; j < perms.length; j++) {
-											if (perms[j].roleName === typeRole && perms[j].fullName === group.name &&
-												perms[j].type === 'group' && perms[j].groupType === group.groupOriginType) {
-												granted = true;
-												break;
-											}
-										}
-										if (granted) {
-											console.log(' - group ' + group.name + ' already granted with role ' + typeRole + ' on type ' + resource);
-										} else {
-											typeGroupsToGrant.push(group);
-										}
-									});
+				if (shareTypes && typeNames.length > 0) {
+					var goodTypeNames = [];
+					var typePromises = [];
+					for (var i = 0; i < typeNames.length; i++) {
+						typePromises.push(serverRest.getContentType({
+							server: server,
+							name: typeNames[i]
+						}));
+					}
+					var success = true;
 
-									users.forEach(function (user) {
-										var granted = false;
-										for (var j = 0; j < perms.length; j++) {
-											if (perms[j].roleName === typeRole && perms[j].type === 'user' && perms[j].id === user.loginName) {
-												granted = true;
-												break;
-											}
-										}
-										if (granted) {
-											console.log(' - user ' + user.loginName + ' already granted with role ' + typeRole + ' on type ' + resource);
-										} else {
-											typeUsersToGrant.push(user);
-										}
-									});
-
-									shareTypePromises.push(serverRest.performPermissionOperation({
-										server: server,
-										operation: 'share',
-										resourceName: resource,
-										resourceType: 'type',
-										role: typeRole,
-										users: typeUsersToGrant,
-										groups: typeGroupsToGrant
-									}));
+					Promise.all(typePromises).then(function (results) {
+							for (var i = 0; i < results.length; i++) {
+								if (results[i].id) {
+									goodTypeNames.push(results[i].name);
 								}
+							}
 
-								return Promise.all(shareTypePromises);
-							})
-							.then(function (results) {
+							if (goodTypeNames.length === 0) {
+								return Promise.reject();
+							}
 
-								for (var i = 0; i < results.length; i++) {
-									if (results[i].operations) {
-										var obj = results[i].operations.share;
-										var resourceName = obj.resource && obj.resource.name;
-										var grants = obj.roles && obj.roles[0] && obj.roles[0].users || [];
-										var userNames = [];
-										var groupNames = [];
-										grants.forEach(function (grant) {
-											if (grant.type === 'group') {
-												groupNames.push(grant.name);
+							var typePermissionPromises = [];
+							for (var i = 0; i < goodTypeNames.length; i++) {
+								typePermissionPromises.push(serverRest.getResourcePermissions({
+									server: server,
+									id: goodTypeNames[i],
+									type: 'type'
+								}));
+							}
+
+							Promise.all(typePermissionPromises)
+								.then(function (results) {
+									var shareTypePromises = [];
+
+									for (var i = 0; i < results.length; i++) {
+										var resource = results[i].resource;
+										var perms = results[i] && results[i].permissions || [];
+										var typeUsersToGrant = [];
+										var typeGroupsToGrant = [];
+
+										groups.forEach(function (group) {
+											var granted = false;
+											for (var j = 0; j < perms.length; j++) {
+												if (perms[j].roleName === typeRole && perms[j].fullName === group.name &&
+													perms[j].type === 'group' && perms[j].groupType === group.groupOriginType) {
+													granted = true;
+													break;
+												}
+											}
+											if (granted) {
+												console.log(' - group ' + group.name + ' already granted with role ' + typeRole + ' on type ' + resource);
 											} else {
-												userNames.push(grant.name);
+												typeGroupsToGrant.push(group);
 											}
 										});
-										if (userNames.length > 0 || groupNames.length > 0) {
-											var msg = ' -';
-											if (userNames.length > 0) {
-												msg = msg + ' user ' + userNames.join(', ');
+
+										users.forEach(function (user) {
+											var granted = false;
+											for (var j = 0; j < perms.length; j++) {
+												if (perms[j].roleName === typeRole && perms[j].type === 'user' && perms[j].id === user.loginName) {
+													granted = true;
+													break;
+												}
 											}
-											if (groupNames.length > 0) {
-												msg = msg + ' group ' + groupNames.join(', ');
+											if (granted) {
+												console.log(' - user ' + user.loginName + ' already granted with role ' + typeRole + ' on type ' + resource);
+											} else {
+												typeUsersToGrant.push(user);
 											}
-											msg = msg + ' granted with role ' + typeRole + ' on type ' + resourceName;
-											console.log(msg);
+										});
+
+										shareTypePromises.push(serverRest.performPermissionOperation({
+											server: server,
+											operation: 'share',
+											resourceName: resource,
+											resourceType: 'type',
+											role: typeRole,
+											users: typeUsersToGrant,
+											groups: typeGroupsToGrant
+										}));
+									}
+
+									return Promise.all(shareTypePromises);
+								})
+								.then(function (results) {
+
+									for (var i = 0; i < results.length; i++) {
+										if (results[i].operations) {
+											var obj = results[i].operations.share;
+											var resourceName = obj.resource && obj.resource.name;
+											var grants = obj.roles && obj.roles[0] && obj.roles[0].users || [];
+											var userNames = [];
+											var groupNames = [];
+											grants.forEach(function (grant) {
+												if (grant.type === 'group') {
+													groupNames.push(grant.name);
+												} else {
+													userNames.push(grant.name);
+												}
+											});
+											if (userNames.length > 0 || groupNames.length > 0) {
+												var msg = ' -';
+												if (userNames.length > 0) {
+													msg = msg + ' user ' + userNames.join(', ');
+												}
+												if (groupNames.length > 0) {
+													msg = msg + ' group ' + groupNames.join(', ');
+												}
+												msg = msg + ' granted with role ' + typeRole + ' on type ' + resourceName;
+												console.log(msg);
+											}
 										}
 									}
-								}
 
-								done(true);
+									done(true);
 
-							});
-					})
-					.catch((error) => {
-						done(success);
-					});
-			} else {
-				done(true);
-			}
+								});
+						})
+						.catch((error) => {
+							done(success);
+						});
+				} else {
+					done(true);
+				}
 
-		})
-		.catch((error) => {
-			done();
-		});
+			})
+			.catch((error) => {
+				done();
+			});
+	});
 };
 
 
@@ -694,189 +715,197 @@ module.exports.unShareRepository = function (argv, done) {
 	var goodGroupNames = [];
 	var typeNames = [];
 
-	serverRest.getRepositories({
-			server: server
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			// get repositories
-			var repositories = result || [];
-			for (var i = 0; i < repositories.length; i++) {
-				if (name.toLowerCase() === repositories[i].name.toLowerCase()) {
-					repository = repositories[i];
-					break;
-				}
-			}
-			if (!repository) {
-				console.log('ERROR: repository ' + name + ' does not exist');
-				return Promise.reject();
-			}
-			console.log(' - verify repository');
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
 
-			if (repository.contentTypes) {
-				for (var i = 0; i < repository.contentTypes.length; i++) {
-					typeNames.push(repository.contentTypes[i].name);
+		serverRest.getRepositories({
+				server: server
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
 				}
-			}
-			if (unshareTypes) {
-				if (typeNames.length === 0) {
-					console.log(' - no content types in the repository');
-				} else {
-					console.log(' - repository includes content type ' + typeNames.join(', '));
+				// get repositories
+				var repositories = result || [];
+				for (var i = 0; i < repositories.length; i++) {
+					if (name.toLowerCase() === repositories[i].name.toLowerCase()) {
+						repository = repositories[i];
+						break;
+					}
 				}
-			}
+				if (!repository) {
+					console.log('ERROR: repository ' + name + ' does not exist');
+					return Promise.reject();
+				}
+				console.log(' - verify repository');
 
-			var groupPromises = [];
-			groupNames.forEach(function (gName) {
-				groupPromises.push(
-					serverRest.getGroup({
+				if (repository.contentTypes) {
+					for (var i = 0; i < repository.contentTypes.length; i++) {
+						typeNames.push(repository.contentTypes[i].name);
+					}
+				}
+				if (unshareTypes) {
+					if (typeNames.length === 0) {
+						console.log(' - no content types in the repository');
+					} else {
+						console.log(' - repository includes content type ' + typeNames.join(', '));
+					}
+				}
+
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+
+			})
+			.then(function (result) {
+
+				if (groupNames.length > 0) {
+					console.log(' - verify groups');
+
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								goodGroupNames.push(groupNames[i]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							// return Promise.reject();
+						}
+					}
+				}
+
+				var usersPromises = [];
+				for (var i = 0; i < userNames.length; i++) {
+					usersPromises.push(serverRest.getUser({
 						server: server,
-						name: gName
+						name: userNames[i]
 					}));
-			});
-			return Promise.all(groupPromises);
+				}
 
-		})
-		.then(function (result) {
+				return Promise.all(usersPromises);
+			})
+			.then(function (results) {
+				var allUsers = [];
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].items) {
+						allUsers = allUsers.concat(results[i].items);
+					}
+				}
+				if (userNames.length > 0) {
+					console.log(' - verify users');
+				}
 
-			if (groupNames.length > 0) {
-				console.log(' - verify groups');
-
-				// verify groups
-				var allGroups = result || [];
-				for (var i = 0; i < groupNames.length; i++) {
+				// verify users
+				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
-					for (var j = 0; j < allGroups.length; j++) {
-						if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+					for (var i = 0; i < allUsers.length; i++) {
+						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+							users.push(allUsers[i]);
+							goodUserName.push(userNames[k]);
 							found = true;
-							groups.push(allGroups[j]);
-							goodGroupNames.push(groupNames[i]);
+							break;
+						}
+						if (found) {
 							break;
 						}
 					}
 					if (!found) {
-						console.log('ERROR: group ' + groupNames[i] + ' does not exist');
-						// return Promise.reject();
+						console.log('ERROR: user ' + userNames[k] + ' does not exist');
 					}
 				}
-			}
 
-			var usersPromises = [];
-			for (var i = 0; i < userNames.length; i++) {
-				usersPromises.push(serverRest.getUser({
+				if (users.length === 0 && groups.length === 0) {
+					return Promise.reject();
+				}
+
+				return serverRest.performPermissionOperation({
 					server: server,
-					name: userNames[i]
-				}));
-			}
-
-			return Promise.all(usersPromises);
-		})
-		.then(function (results) {
-			var allUsers = [];
-			for (var i = 0; i < results.length; i++) {
-				if (results[i].items) {
-					allUsers = allUsers.concat(results[i].items);
+					operation: 'unshare',
+					resourceId: repository.id,
+					resourceType: 'repository',
+					users: users,
+					groups: groups
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
 				}
-			}
-			if (userNames.length > 0) {
-				console.log(' - verify users');
-			}
 
-			// verify users
-			for (var k = 0; k < userNames.length; k++) {
-				var found = false;
-				for (var i = 0; i < allUsers.length; i++) {
-					if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
-						users.push(allUsers[i]);
-						goodUserName.push(userNames[k]);
-						found = true;
-						break;
+				if (goodUserName.length > 0) {
+					console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to repository ' + name + ' removed');
+				}
+				if (goodGroupNames.length > 0) {
+					console.log(' - the access of group ' + (goodGroupNames.join(', ')) + ' to repository ' + name + ' removed');
+				}
+
+				if (unshareTypes && typeNames.length > 0) {
+					var typePromises = [];
+					for (var i = 0; i < typeNames.length; i++) {
+						typePromises.push(serverRest.getContentType({
+							server: server,
+							name: typeNames[i]
+						}));
 					}
-					if (found) {
-						break;
-					}
+					Promise.all(typePromises).then(function (results) {
+							var shareTypePromises = [];
+							for (var i = 0; i < results.length; i++) {
+								if (results[i].id) {
+									shareTypePromises.push(serverRest.performPermissionOperation({
+										server: server,
+										operation: 'unshare',
+										resourceName: results[i].name,
+										resourceType: 'type',
+										users: users,
+										groups: groups
+									}));
+								}
+							}
+							return Promise.all(shareTypePromises);
+						})
+						.then(function (results) {
+							var unsharedTypes = [];
+							for (var i = 0; i < results.length; i++) {
+								var obj = results[i].operations.unshare;
+								if (obj.resource && obj.resource.name) {
+									unsharedTypes.push(obj.resource.name);
+								}
+							}
+							if (unsharedTypes.length > 0) {
+								if (goodUserName.length > 0) {
+									console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to type ' + unsharedTypes.join(', ') + ' removed');
+								}
+								if (goodGroupNames.length > 0) {
+									console.log(' - the access of group ' + (goodGroupNames.join(', ')) + ' to type ' + unsharedTypes.join(', ') + ' removed');
+								}
+							}
+							done(true);
+						});
+				} else {
+					done(true);
 				}
-				if (!found) {
-					console.log('ERROR: user ' + userNames[k] + ' does not exist');
-				}
-			}
-
-			if (users.length === 0 && groups.length === 0) {
-				return Promise.reject();
-			}
-
-			return serverRest.performPermissionOperation({
-				server: server,
-				operation: 'unshare',
-				resourceId: repository.id,
-				resourceType: 'repository',
-				users: users,
-				groups: groups
+			})
+			.catch((error) => {
+				done();
 			});
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-
-			if (goodUserName.length > 0) {
-				console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to repository ' + name + ' removed');
-			}
-			if (goodGroupNames.length > 0) {
-				console.log(' - the access of group ' + (goodGroupNames.join(', ')) + ' to repository ' + name + ' removed');
-			}
-
-			if (unshareTypes && typeNames.length > 0) {
-				var typePromises = [];
-				for (var i = 0; i < typeNames.length; i++) {
-					typePromises.push(serverRest.getContentType({
-						server: server,
-						name: typeNames[i]
-					}));
-				}
-				Promise.all(typePromises).then(function (results) {
-						var shareTypePromises = [];
-						for (var i = 0; i < results.length; i++) {
-							if (results[i].id) {
-								shareTypePromises.push(serverRest.performPermissionOperation({
-									server: server,
-									operation: 'unshare',
-									resourceName: results[i].name,
-									resourceType: 'type',
-									users: users,
-									groups: groups
-								}));
-							}
-						}
-						return Promise.all(shareTypePromises);
-					})
-					.then(function (results) {
-						var unsharedTypes = [];
-						for (var i = 0; i < results.length; i++) {
-							var obj = results[i].operations.unshare;
-							if (obj.resource && obj.resource.name) {
-								unsharedTypes.push(obj.resource.name);
-							}
-						}
-						if (unsharedTypes.length > 0) {
-							if (goodUserName.length > 0) {
-								console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to type ' + unsharedTypes.join(', ') + ' removed');
-							}
-							if (goodGroupNames.length > 0) {
-								console.log(' - the access of group ' + (goodGroupNames.join(', ')) + ' to type ' + unsharedTypes.join(', ') + ' removed');
-							}
-						}
-						done(true);
-					});
-			} else {
-				done(true);
-			}
-		})
-		.catch((error) => {
-			done();
-		});
+	});
 };
 
 module.exports.shareType = function (argv, done) {
@@ -907,167 +936,175 @@ module.exports.shareType = function (argv, done) {
 	var goodUserName = [];
 	var goodGroupNames = [];
 
-	serverRest.getContentType({
-			server: server,
-			name: name
-		}).then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
 
-			console.log(' - verify type');
+		serverRest.getContentType({
+				server: server,
+				name: name
+			}).then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
 
-			var groupPromises = [];
-			groupNames.forEach(function (gName) {
-				groupPromises.push(
-					serverRest.getGroup({
+				console.log(' - verify type');
+
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+
+			})
+			.then(function (result) {
+
+				if (groupNames.length > 0) {
+					console.log(' - verify groups');
+
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+				}
+
+				var usersPromises = [];
+				for (var i = 0; i < userNames.length; i++) {
+					usersPromises.push(serverRest.getUser({
 						server: server,
-						name: gName
+						name: userNames[i]
 					}));
-			});
-			return Promise.all(groupPromises);
+				}
 
-		})
-		.then(function (result) {
+				return Promise.all(usersPromises);
+			})
+			.then(function (results) {
+				var allUsers = [];
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].items) {
+						allUsers = allUsers.concat(results[i].items);
+					}
+				}
+				if (userNames.length > 0) {
+					console.log(' - verify users');
+				}
 
-			if (groupNames.length > 0) {
-				console.log(' - verify groups');
-
-				// verify groups
-				var allGroups = result || [];
-				for (var i = 0; i < groupNames.length; i++) {
+				// verify users
+				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
-					for (var j = 0; j < allGroups.length; j++) {
-						if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+					for (var i = 0; i < allUsers.length; i++) {
+						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+							users.push(allUsers[i]);
 							found = true;
-							groups.push(allGroups[j]);
+							break;
+						}
+						if (found) {
 							break;
 						}
 					}
 					if (!found) {
-						console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						console.log('ERROR: user ' + userNames[k] + ' does not exist');
 					}
 				}
-			}
 
-			var usersPromises = [];
-			for (var i = 0; i < userNames.length; i++) {
-				usersPromises.push(serverRest.getUser({
+				if (users.length === 0 && groups.length === 0) {
+					return Promise.reject();
+				}
+
+				return serverRest.getResourcePermissions({
 					server: server,
-					name: userNames[i]
-				}));
-			}
-
-			return Promise.all(usersPromises);
-		})
-		.then(function (results) {
-			var allUsers = [];
-			for (var i = 0; i < results.length; i++) {
-				if (results[i].items) {
-					allUsers = allUsers.concat(results[i].items);
+					id: name,
+					type: 'type'
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
 				}
-			}
-			if (userNames.length > 0) {
-				console.log(' - verify users');
-			}
 
-			// verify users
-			for (var k = 0; k < userNames.length; k++) {
-				var found = false;
-				for (var i = 0; i < allUsers.length; i++) {
-					if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
-						users.push(allUsers[i]);
-						found = true;
-						break;
+				var existingPermissions = result && result.permissions || [];
+				var i, j;
+				var groupsToGrant = [];
+				for (i = 0; i < groups.length; i++) {
+					var groupGranted = false;
+					for (j = 0; j < existingPermissions.length; j++) {
+						var perm = existingPermissions[j];
+						if (perm.roleName === role && perm.type === 'group' &&
+							perm.groupType === groups[i].groupOriginType && perm.fullName === groups[i].name) {
+							groupGranted = true;
+							break;
+						}
 					}
-					if (found) {
-						break;
+					if (groupGranted) {
+						console.log(' - group ' + groups[i].name + ' already granted with role ' + role + ' on repository ' + name);
+					} else {
+						groupsToGrant.push(groups[i]);
+						goodGroupNames.push(groups[i].name);
 					}
 				}
-				if (!found) {
-					console.log('ERROR: user ' + userNames[k] + ' does not exist');
+
+				var usersToGrant = [];
+				for (i = 0; i < users.length; i++) {
+					var granted = false;
+					for (j = 0; j < existingPermissions.length; j++) {
+						var perm = existingPermissions[j];
+						if (perm.roleName === role && perm.type === 'user' && perm.id === users[i].loginName) {
+							granted = true;
+							break;
+						}
+					}
+					if (granted) {
+						console.log(' - user ' + users[i].loginName + ' already granted with role ' + role + ' on repository ' + name);
+					} else {
+						usersToGrant.push(users[i]);
+						goodUserName.push(users[i].loginName);
+					}
 				}
-			}
 
-			if (users.length === 0 && groups.length === 0) {
-				return Promise.reject();
-			}
-
-			return serverRest.getResourcePermissions({
-				server: server,
-				id: name,
-				type: 'type'
+				return serverRest.performPermissionOperation({
+					server: server,
+					operation: 'share',
+					resourceName: name,
+					resourceType: 'type',
+					role: role,
+					users: usersToGrant,
+					groups: groupsToGrant
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+				if (goodUserName.length > 0) {
+					console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on type ' + name);
+				}
+				if (goodGroupNames.length > 0) {
+					console.log(' - group ' + (goodGroupNames.join(', ')) + ' granted with role ' + role + ' on type ' + name);
+				}
+				done(true);
+			})
+			.catch((error) => {
+				done();
 			});
-		})
-		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
-
-			var existingPermissions = result && result.permissions || [];
-			var i, j;
-			var groupsToGrant = [];
-			for (i = 0; i < groups.length; i++) {
-				var groupGranted = false;
-				for (j = 0; j < existingPermissions.length; j++) {
-					var perm = existingPermissions[j];
-					if (perm.roleName === role && perm.type === 'group' &&
-						perm.groupType === groups[i].groupOriginType && perm.fullName === groups[i].name) {
-						groupGranted = true;
-						break;
-					}
-				}
-				if (groupGranted) {
-					console.log(' - group ' + groups[i].name + ' already granted with role ' + role + ' on repository ' + name);
-				} else {
-					groupsToGrant.push(groups[i]);
-					goodGroupNames.push(groups[i].name);
-				}
-			}
-
-			var usersToGrant = [];
-			for (i = 0; i < users.length; i++) {
-				var granted = false;
-				for (j = 0; j < existingPermissions.length; j++) {
-					var perm = existingPermissions[j];
-					if (perm.roleName === role && perm.type === 'user' && perm.id === users[i].loginName) {
-						granted = true;
-						break;
-					}
-				}
-				if (granted) {
-					console.log(' - user ' + users[i].loginName + ' already granted with role ' + role + ' on repository ' + name);
-				} else {
-					usersToGrant.push(users[i]);
-					goodUserName.push(users[i].loginName);
-				}
-			}
-
-			return serverRest.performPermissionOperation({
-				server: server,
-				operation: 'share',
-				resourceName: name,
-				resourceType: 'type',
-				role: role,
-				users: usersToGrant,
-				groups: groupsToGrant
-			});
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			if (goodUserName.length > 0) {
-				console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on type ' + name);
-			}
-			if (goodGroupNames.length > 0) {
-				console.log(' - group ' + (goodGroupNames.join(', ')) + ' granted with role ' + role + ' on type ' + name);
-			}
-			done(true);
-		})
-		.catch((error) => {
-			done();
-		});
+	});
 };
 
 module.exports.unshareType = function (argv, done) {
@@ -1097,117 +1134,125 @@ module.exports.unshareType = function (argv, done) {
 	var goodUserName = [];
 	var goodGroupNames = [];
 
-	serverRest.getContentType({
-			server: server,
-			name: name
-		}).then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
 
-			var groupPromises = [];
-			groupNames.forEach(function (gName) {
-				groupPromises.push(
-					serverRest.getGroup({
+		serverRest.getContentType({
+				server: server,
+				name: name
+			}).then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+
+			})
+			.then(function (result) {
+
+				if (groupNames.length > 0) {
+					console.log(' - verify groups');
+
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								goodGroupNames.push(groupNames[i]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+				}
+
+				var usersPromises = [];
+				for (var i = 0; i < userNames.length; i++) {
+					usersPromises.push(serverRest.getUser({
 						server: server,
-						name: gName
+						name: userNames[i]
 					}));
-			});
-			return Promise.all(groupPromises);
+				}
 
-		})
-		.then(function (result) {
+				return Promise.all(usersPromises);
+			})
+			.then(function (results) {
+				var allUsers = [];
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].items) {
+						allUsers = allUsers.concat(results[i].items);
+					}
+				}
+				if (userNames.length > 0) {
+					console.log(' - verify users');
+				}
 
-			if (groupNames.length > 0) {
-				console.log(' - verify groups');
-
-				// verify groups
-				var allGroups = result || [];
-				for (var i = 0; i < groupNames.length; i++) {
+				// verify users
+				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
-					for (var j = 0; j < allGroups.length; j++) {
-						if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+					for (var i = 0; i < allUsers.length; i++) {
+						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+							users.push(allUsers[i]);
+							goodUserName.push(userNames[k]);
 							found = true;
-							groups.push(allGroups[j]);
-							goodGroupNames.push(groupNames[i]);
+							break;
+						}
+						if (found) {
 							break;
 						}
 					}
 					if (!found) {
-						console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						console.log('ERROR: user ' + userNames[k] + ' does not exist');
 					}
 				}
-			}
 
-			var usersPromises = [];
-			for (var i = 0; i < userNames.length; i++) {
-				usersPromises.push(serverRest.getUser({
+				if (users.length === 0 && groups.length === 0) {
+					return Promise.reject();
+				}
+
+				return serverRest.performPermissionOperation({
 					server: server,
-					name: userNames[i]
-				}));
-			}
-
-			return Promise.all(usersPromises);
-		})
-		.then(function (results) {
-			var allUsers = [];
-			for (var i = 0; i < results.length; i++) {
-				if (results[i].items) {
-					allUsers = allUsers.concat(results[i].items);
+					operation: 'unshare',
+					resourceName: name,
+					resourceType: 'type',
+					users: users,
+					groups: groups
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
 				}
-			}
-			if (userNames.length > 0) {
-				console.log(' - verify users');
-			}
 
-			// verify users
-			for (var k = 0; k < userNames.length; k++) {
-				var found = false;
-				for (var i = 0; i < allUsers.length; i++) {
-					if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
-						users.push(allUsers[i]);
-						goodUserName.push(userNames[k]);
-						found = true;
-						break;
-					}
-					if (found) {
-						break;
-					}
+				if (goodUserName.length > 0) {
+					console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to type ' + name + ' removed');
 				}
-				if (!found) {
-					console.log('ERROR: user ' + userNames[k] + ' does not exist');
+				if (goodGroupNames.length > 0) {
+					console.log(' - the access of group ' + (goodGroupNames.join(', ')) + ' to type ' + name + ' removed');
 				}
-			}
-
-			if (users.length === 0 && groups.length === 0) {
-				return Promise.reject();
-			}
-
-			return serverRest.performPermissionOperation({
-				server: server,
-				operation: 'unshare',
-				resourceName: name,
-				resourceType: 'type',
-				users: users,
-				groups: groups
+				done(true);
+			})
+			.catch((error) => {
+				done();
 			});
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-
-			if (goodUserName.length > 0) {
-				console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to type ' + name + ' removed');
-			}
-			if (goodGroupNames.length > 0) {
-				console.log(' - the access of group ' + (goodGroupNames.join(', ')) + ' to type ' + name + ' removed');
-			}
-			done(true);
-		})
-		.catch((error) => {
-			done();
-		});
+	});
 };
 
 
@@ -1235,67 +1280,75 @@ module.exports.createChannel = function (argv, done) {
 
 	var localizationId;
 
-	serverRest.getChannels({
-			server: server
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
 
-			var channels = result || [];
-			for (var i = 0; i < channels.length; i++) {
-				if (name.toLowerCase() === channels[i].name.toLowerCase()) {
-					console.log('ERROR: channel ' + name + ' already exists');
+		serverRest.getChannels({
+				server: server
+			})
+			.then(function (result) {
+				if (result.err) {
 					return Promise.reject();
 				}
-			}
-			var localizationPolicyPromises = [];
-			if (localizationPolicyName) {
-				localizationPolicyPromises.push(serverRest.getLocalizationPolicies({
-					server: server
-				}));
-			}
-			return Promise.all(localizationPolicyPromises);
-		})
-		.then(function (results) {
-			var policies = results.length > 0 ? results[0] : [];
-			for (var i = 0; i < policies.length; i++) {
-				if (localizationPolicyName === policies[i].name) {
-					localizationId = policies[i].id;
-					break;
+
+				var channels = result || [];
+				for (var i = 0; i < channels.length; i++) {
+					if (name.toLowerCase() === channels[i].name.toLowerCase()) {
+						console.log('ERROR: channel ' + name + ' already exists');
+						return Promise.reject();
+					}
 				}
-			}
+				var localizationPolicyPromises = [];
+				if (localizationPolicyName) {
+					localizationPolicyPromises.push(serverRest.getLocalizationPolicies({
+						server: server
+					}));
+				}
+				return Promise.all(localizationPolicyPromises);
+			})
+			.then(function (results) {
+				var policies = results.length > 0 ? results[0] : [];
+				for (var i = 0; i < policies.length; i++) {
+					if (localizationPolicyName === policies[i].name) {
+						localizationId = policies[i].id;
+						break;
+					}
+				}
 
-			if (localizationPolicyName && !localizationId) {
-				console.log('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
-				return Promise.reject();
-			}
-			if (localizationPolicyName) {
-				console.log(' - verify localization policy ');
-			}
+				if (localizationPolicyName && !localizationId) {
+					console.log('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
+					return Promise.reject();
+				}
+				if (localizationPolicyName) {
+					console.log(' - verify localization policy ');
+				}
 
-			return serverRest.createChannel({
-				server: server,
-				name: name,
-				description: desc,
-				channelType: channelType,
-				publishPolicy: publishPolicy,
-				localizationPolicy: localizationId
+				return serverRest.createChannel({
+					server: server,
+					name: name,
+					description: desc,
+					channelType: channelType,
+					publishPolicy: publishPolicy,
+					localizationPolicy: localizationId
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+				// console.log(result);
+				console.log(' - channel ' + name + ' created');
+
+				done(true);
+			})
+			.catch((error) => {
+				done();
 			});
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			// console.log(result);
-			console.log(' - channel ' + name + ' created');
-
-			done(true);
-		})
-		.catch((error) => {
-			done();
-		});
+	});
 };
 
 
@@ -1321,46 +1374,54 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 	var defaultLanguage = argv.defaultlanguage;
 	var optionalLanguages = argv.optionallanguages ? argv.optionallanguages.split(',') : [];
 
-	serverRest.getLocalizationPolicies({
-			server: server
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
 
-			// verify if the localization policy exists
-			var policies = result || [];
-			for (var i = 0; i < policies.length; i++) {
-				if (name === policies[i].name) {
-					console.log('ERROR: localization policy ' + name + ' already exists');
+		serverRest.getLocalizationPolicies({
+				server: server
+			})
+			.then(function (result) {
+				if (result.err) {
 					return Promise.reject();
 				}
-			}
 
-			console.log(' - verify localization policy name');
+				// verify if the localization policy exists
+				var policies = result || [];
+				for (var i = 0; i < policies.length; i++) {
+					if (name === policies[i].name) {
+						console.log('ERROR: localization policy ' + name + ' already exists');
+						return Promise.reject();
+					}
+				}
 
-			return serverRest.createLocalizationPolicy({
-				server: server,
-				name: name,
-				description: desc,
-				defaultLanguage: defaultLanguage,
-				requiredLanguages: requiredLanguages,
-				optionalLanguages: optionalLanguages
+				console.log(' - verify localization policy name');
+
+				return serverRest.createLocalizationPolicy({
+					server: server,
+					name: name,
+					description: desc,
+					defaultLanguage: defaultLanguage,
+					requiredLanguages: requiredLanguages,
+					optionalLanguages: optionalLanguages
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+				// console.log(result);
+				console.log(' - localization policy ' + name + ' created');
+
+				done(done);
+			})
+			.catch((error) => {
+				done();
 			});
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			// console.log(result);
-			console.log(' - localization policy ' + name + ' created');
-
-			done(done);
-		})
-		.catch((error) => {
-			done();
-		});
+	});
 };
 
 module.exports.listAssets = function (argv, done) {
@@ -1392,126 +1453,134 @@ module.exports.listAssets = function (argv, done) {
 	var total;
 	var repository, collection, channel;
 
-	var repositoryPromises = [];
-	if (repositoryName) {
-		repositoryPromises.push(serverRest.getRepositoryWithName({
-			server: server,
-			name: repositoryName
-		}));
-	}
-	Promise.all(repositoryPromises).then(function (results) {
-			if (repositoryName) {
-				if (!results || !results[0] || results[0].err) {
-					return Promise.reject();
-				} else if (!results[0].data) {
-					console.log('ERROR: repository ' + repositoryName + ' not found');
-					return Promise.reject();
-				}
-				repository = results[0].data;
-				console.log(' - validate repository (Id: ' + repository.id + ')');
-			}
-
-			var collectionPromises = [];
-			if (collectionName) {
-				collectionPromises.push(serverRest.getCollectionWithName({
-					server: server,
-					repositoryId: repository.id,
-					name: collectionName
-				}));
-			}
-
-			return Promise.all(collectionPromises);
-		})
-		.then(function (results) {
-			if (collectionName) {
-				if (!results || !results[0] || results[0].err) {
-					return Promise.reject();
-				} else if (!results[0].data) {
-					console.log('ERROR: collection ' + collectionName + ' not found');
-					return Promise.reject();
-				}
-				collection = results[0].data;
-				console.log(' - validate collection (Id: ' + collection.id + ')');
-			}
-
-			var channelPromises = [];
-			if (channelName) {
-				channelPromises.push(serverRest.getChannelWithName({
-					server: server,
-					name: channelName
-				}));
-			}
-
-			return Promise.all(channelPromises);
-		})
-		.then(function (results) {
-			if (channelName) {
-				if (!results || !results[0] || results[0].err) {
-					return Promise.reject();
-				} else if (!results[0].data) {
-					console.log('ERROR: channel ' + channelName + ' not found');
-					return Promise.reject();
-				}
-				channel = results[0].data;
-				console.log(' - validate channel (Id: ' + channel.id + ')');
-			}
-
-			// query items
-			var q = '';
-			if (repository) {
-				q = '(repositoryId eq "' + repository.id + '")';
-			}
-			if (collection) {
-				if (q) {
-					q = q + ' AND ';
-				}
-				q = q + '(collections co "' + collection.id + '")';
-			}
-			if (channel) {
-				if (q) {
-					q = q + ' AND ';
-				}
-				q = q + '(channels co "' + channel.id + '")';
-			}
-			if (query) {
-				if (q) {
-					q = q + ' AND ';
-				}
-				q = q + '(' + query + ')';
-			}
-
-			if (q) {
-				console.log(' - query: ' + q);
-			} else {
-				console.log(' - query all assets');
-			}
-
-			return serverRest.queryItems({
-				server: server,
-				q: q,
-				fields: 'name,status,slug'
-			});
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-
-			var items = result && result.data || [];
-			total = items.length;
-
-			console.log(' - total items: ' + total);
-
-			if (total > 0) {
-				_displayAssets(repository, collection, channel, items);
-				console.log(' - total items: ' + total);
-			}
-
-			done(true);
-		})
-		.catch((error) => {
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
 			done();
-		});
+			return;
+		}
+
+		var repositoryPromises = [];
+		if (repositoryName) {
+			repositoryPromises.push(serverRest.getRepositoryWithName({
+				server: server,
+				name: repositoryName
+			}));
+		}
+		Promise.all(repositoryPromises).then(function (results) {
+				if (repositoryName) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					} else if (!results[0].data) {
+						console.log('ERROR: repository ' + repositoryName + ' not found');
+						return Promise.reject();
+					}
+					repository = results[0].data;
+					console.log(' - validate repository (Id: ' + repository.id + ')');
+				}
+
+				var collectionPromises = [];
+				if (collectionName) {
+					collectionPromises.push(serverRest.getCollectionWithName({
+						server: server,
+						repositoryId: repository.id,
+						name: collectionName
+					}));
+				}
+
+				return Promise.all(collectionPromises);
+			})
+			.then(function (results) {
+				if (collectionName) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					} else if (!results[0].data) {
+						console.log('ERROR: collection ' + collectionName + ' not found');
+						return Promise.reject();
+					}
+					collection = results[0].data;
+					console.log(' - validate collection (Id: ' + collection.id + ')');
+				}
+
+				var channelPromises = [];
+				if (channelName) {
+					channelPromises.push(serverRest.getChannelWithName({
+						server: server,
+						name: channelName
+					}));
+				}
+
+				return Promise.all(channelPromises);
+			})
+			.then(function (results) {
+				if (channelName) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					} else if (!results[0].data) {
+						console.log('ERROR: channel ' + channelName + ' not found');
+						return Promise.reject();
+					}
+					channel = results[0].data;
+					console.log(' - validate channel (Id: ' + channel.id + ')');
+				}
+
+				// query items
+				var q = '';
+				if (repository) {
+					q = '(repositoryId eq "' + repository.id + '")';
+				}
+				if (collection) {
+					if (q) {
+						q = q + ' AND ';
+					}
+					q = q + '(collections co "' + collection.id + '")';
+				}
+				if (channel) {
+					if (q) {
+						q = q + ' AND ';
+					}
+					q = q + '(channels co "' + channel.id + '")';
+				}
+				if (query) {
+					if (q) {
+						q = q + ' AND ';
+					}
+					q = q + '(' + query + ')';
+				}
+
+				if (q) {
+					console.log(' - query: ' + q);
+				} else {
+					console.log(' - query all assets');
+				}
+
+				return serverRest.queryItems({
+					server: server,
+					q: q,
+					fields: 'name,status,slug'
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				var items = result && result.data || [];
+				total = items.length;
+
+				console.log(' - total items: ' + total);
+
+				if (total > 0) {
+					_displayAssets(repository, collection, channel, items);
+					console.log(' - total items: ' + total);
+				}
+
+				done(true);
+			})
+			.catch((error) => {
+				done();
+			});
+	});
 };
 
 var _displayAssets = function (repository, collection, channel, items) {

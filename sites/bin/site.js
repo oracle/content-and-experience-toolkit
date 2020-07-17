@@ -324,7 +324,10 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 										});
 
 									} else {
-										var repositoryPromise = serverUtils.getRepositoryFromServer(request, server, repositoryName);
+										var repositoryPromise = serverRest.getRepositoryWithName({
+											server: server,
+											name: repositoryName
+										});
 										repositoryPromise.then(function (result) {
 												//
 												// validate repository
@@ -616,7 +619,7 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 								server: server,
 								name: name
 							});
-							
+
 						})
 						.then(function (result) {
 							console.log(' - site id: ' + result && result.id);
@@ -630,6 +633,280 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 			})
 			.catch((error) => {
 				done();
+			});
+	});
+};
+
+var _transferSiteTemplateId;
+
+var _transferStandardSite = function (localhost, request, server, destServer, site) {
+	return new Promise(function (resolve, reject) {
+		console.log(' - site ' + site.name + ' is a standard site');
+
+		var destServerName = destServer.name;
+
+		var siteName = site.name;
+
+		var templateName = site.name + serverUtils.createGUID();
+		templateName = templateName.substring(0, 40);
+		var templatePath;
+		var fileName, fileId;
+
+		var creatNewSite = false;
+		var siteMetadata;
+		var siteMetadataRaw;
+		var destSite;
+		var destSiteMetadataRaw;
+		var templateId;
+		var contentLayoutNames = [];
+
+		var destdir = path.join(projectDir, 'dist');
+		var startTime;
+		var idcToken;
+
+		// query site metadata to get static site settings
+		serverUtils.getSiteMetadata(request, server, site.id)
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				siteMetadata = result && result.data;
+				// console.log(siteMetadata);
+
+				// query site metadata to get used components, content types and items
+				return serverUtils.getSiteMetadataRaw(request, server, site.id);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				console.log(' - get site metadata');
+
+				siteMetadataRaw = result;
+				// console.log(siteMetadataRaw);
+
+				// check site on destination server
+				return sitesRest.resourceExist({
+					server: destServer,
+					type: 'sites',
+					name: siteName
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					creatNewSite = true;
+				} else {
+					destSite = result;
+				}
+				console.log(' - will ' + (creatNewSite ? 'create' : 'update') + ' site ' + siteName + ' on ' + destServer.url);
+
+				// create template based on the site on the source server
+				var createTemplateArgv = {
+					projectDir: projectDir,
+					server: server,
+					name: templateName,
+					siteName: siteName
+				};
+
+				// create template on the source server and download
+				return templateUtils.createTemplateFromSiteAndDownloadSCS(createTemplateArgv);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				return sitesRest.deleteTemplate({
+					server: server,
+					name: templateName,
+					hard: true
+				});
+			})
+			.then(function (result) {
+				// verify template downloaded
+				fileName = templateName + '.zip';
+				templatePath = path.join(destdir, fileName);
+				if (!fs.existsSync(templatePath)) {
+					if (excludecontent) {
+						console.log('ERROR: failed to export template ' + templateName);
+					} else {
+						console.log('ERROR: failed to download template ' + templateName);
+					}
+					return Promise.reject();
+				}
+
+				// upload template file to destination server
+				startTime = new Date();
+				return serverRest.createFile({
+					server: destServer,
+					parentID: 'self',
+					filename: fileName,
+					contents: fs.createReadStream(templatePath)
+				});
+			})
+			.then(function (result) {
+
+				if (!result || result.err || !result.id) {
+					console.log('ERROR: failed to upload template file');
+					return Promise.reject();
+				}
+				var uploadedFile = result;
+				fileId = uploadedFile.id;
+				console.log(' - file ' + fileName + ' uploaded to Home folder (Id: ' + fileId + ' version:' + uploadedFile.version + ')' +
+					' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+
+				return sitesRest.importTemplate({
+					server: destServer,
+					name: templateName,
+					fileId: fileId
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					console.log('ERROR: failed to import template');
+					return Promise.reject();
+				}
+
+				return sitesRest.getTemplate({
+					server: destServer,
+					name: templateName
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					console.log('ERROR: failed to query template');
+					return Promise.reject();
+				}
+
+				templateId = result.id;
+				_transferSiteTemplateId = templateId;
+
+				var createSitePromises = [];
+				if (creatNewSite && site) {
+					createSitePromises.push(_postOneIdcService(request, localhost, destServer, 'SCS_COPY_SITES', 'create site', idcToken));
+				}
+
+				return Promise.all(createSitePromises);
+
+			})
+			.then(function (results) {
+				if (creatNewSite) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
+				}
+
+				// query site to verify it's created
+				return sitesRest.getSite({
+					server: server,
+					name: siteName
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				console.log(' - site id: ' + result.id);
+
+				var deleteTemplatePromises = [];
+				if (templateId) {
+					// delete template
+					deleteTemplatePromises.push(sitesRest.deleteTemplate({
+						server: destServer,
+						name: templateName,
+						hard: true
+					}));
+
+					// delete the template file permanently
+					var deleteArgv = {
+						file: templateName + '.zip',
+						permanent: 'true'
+					};
+					deleteTemplatePromises.push(documentUtils.deleteFile(deleteArgv, destServer, false));
+				}
+
+				return Promise.all(deleteTemplatePromises);
+			})
+			.then(function (results) {
+				var unzipTemplatePromises = [];
+				if (!creatNewSite) {
+					unzipTemplatePromises.push(templateUtils.unzipTemplate(templateName, templatePath, false));
+				}
+
+				return Promise.all(unzipTemplatePromises);
+			})
+			.then(function (results) {
+
+				if (creatNewSite) {
+
+					console.log(' - site ' + siteName + ' created on ' + destServer.url);
+					return resolve({});
+
+				} else {
+
+					var updateSiteArgs = {
+						projectDir: projectDir,
+						name: siteName,
+						template: templateName,
+						server: destServerName,
+						excludecontenttemplate: 'true'
+					};
+					siteUpdateLib.updateSite(updateSiteArgs, function (success) {
+						console.log(' - update site finished');
+						if (success) {
+							serverUtils.getIdcToken(destServer)
+								.then(function (result) {
+									idcToken = result && result.idcToken;
+									if (!idcToken) {
+										console.log('ERROR: failed to get idcToken');
+										return Promise.reject();
+									}
+
+									return serverUtils.getSiteMetadataRaw(request, destServer, destSite.id);
+
+								})
+								.then(function (result) {
+									destSiteMetadataRaw = result;
+									// console.log(destSiteMetadataRaw);
+
+									// update site metadata
+									return _updateSiteMetadata(request, destServer, idcToken, destSite, siteMetadata, siteMetadataRaw, destSiteMetadataRaw);
+								})
+								.then(function (result) {
+									if (result && !result.err) {
+										console.log(' - update site metadata');
+									}
+
+									return resolve({});
+								})
+								.catch((error) => {
+									if (error) {
+										console.log(error);
+									}
+									return resolve({
+										err: 'err'
+									});
+								});
+
+						} else {
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				return resolve({
+					err: 'err'
+				});
 			});
 	});
 };
@@ -706,6 +983,8 @@ module.exports.transferSite = function (argv, done) {
 
 	var request = serverUtils.getRequest();
 
+	var startTime;
+
 	serverUtils.loginToServer(server, request)
 		.then(function (result) {
 			if (!result.status) {
@@ -738,16 +1017,18 @@ module.exports.transferSite = function (argv, done) {
 					'idcToken': idcToken,
 					'names': siteName,
 					'descriptions': site.description,
-					'items': 'fFolderGUID:' + templateId,
-					'isEnterprise': '1',
-					'repository': repositoryPrefix + ':' + repository.id,
-					'slugPrefix': site.sitePrefix,
-					'defaultLanguage': site.defaultLanguage,
-					'localizationPolicy': policy.id,
+					'items': 'fFolderGUID:' + (templateId || _transferSiteTemplateId),
+					'isEnterprise': site.isEnterprise ? '1' : '0',
 					'useBackgroundThread': 1,
 					'doPreserveCaaSGUID': 1
 				};
-
+				if (site.isEnterprise) {
+					formData.slugPrefix = site.sitePrefix;
+					formData.defaultLanguage = site.defaultLanguage;
+					formData.repository = repositoryPrefix + ':' + repository.id;
+					formData.localizationPolicy = policy.id;
+				}
+				// console.log(formData);
 				var postData = {
 					method: 'POST',
 					url: url,
@@ -794,249 +1075,6 @@ module.exports.transferSite = function (argv, done) {
 						}
 						site = result;
 						// console.log(site);
-						if (!site.isEnterprise) {
-							console.log('ERROR: site ' + siteName + ' is not Enterprise Site');
-							return Promise.reject();
-						}
-
-						console.log(' - verify site (defaultLanguage: ' + site.defaultLanguage + ')');
-
-						if (!site.channel || !site.channel.localizationPolicy) {
-							console.log('ERROR: failed to get site channel ' + (site.channel ? JSON.stringify(site.channel) : ''));
-							return Promise.reject();
-						}
-
-						// query site metadata to get static site settings
-						return serverUtils.getSiteMetadata(request, server, site.id);
-					})
-					.then(function (result) {
-						if (!result || result.err) {
-							return Promise.reject();
-						}
-
-						siteMetadata = result && result.data;
-						// console.log(siteMetadata);
-
-						// query site metadata to get used components, content types and items
-						return serverUtils.getSiteMetadataRaw(request, server, site.id);
-					})
-					.then(function (result) {
-						if (!result || result.err) {
-							return Promise.reject();
-						}
-
-						siteMetadataRaw = result;
-						// console.log(siteMetadataRaw);
-
-						return serverRest.getLocalizationPolicy({
-							server: server,
-							id: site.channel.localizationPolicy
-						});
-					})
-					.then(function (result) {
-						if (!result || result.err) {
-							return Promise.reject();
-						}
-						srcPolicy = result;
-						console.log(' - verify site localization policy: ' + srcPolicy.name +
-							' (defaultValue: ' + srcPolicy.defaultValue +
-							' requiredValues: ' + srcPolicy.requiredValues +
-							' optionalValues: ' + srcPolicy.optionalValues + ')');
-
-						// check site on destination server
-						return sitesRest.resourceExist({
-							server: destServer,
-							type: 'sites',
-							name: siteName,
-							expand: 'channel'
-						});
-
-					})
-					.then(function (result) {
-						if (!result || result.err) {
-							creatNewSite = true;
-						} else {
-							destSite = result;
-						}
-						console.log(' - will ' + (creatNewSite ? 'create' : 'update') + ' site ' + siteName + ' on ' + destServer.url);
-
-						if (creatNewSite) {
-							if (!repositoryName) {
-								console.log('ERROR: no repository is specified');
-								return Promise.reject();
-							}
-							if (!localizationPolicyName) {
-								console.log('ERROR: no localization policy is specified');
-								return Promise.reject();
-							}
-						}
-
-						var repositoryPromises = [];
-						if (creatNewSite) {
-							repositoryPromises.push(serverRest.getRepositoryWithName({
-								server: destServer,
-								name: repositoryName
-							}));
-						}
-
-						return Promise.all(repositoryPromises);
-					})
-					.then(function (results) {
-						if (creatNewSite) {
-							if (!results || !results[0] || results[0].err || !results[0].data) {
-								console.log('ERROR: repository ' + repositoryName + ' does not exist');
-								return Promise.reject();
-							}
-							repository = results[0].data;
-							console.log(' - verify repository');
-						}
-
-						var localizationPolicyPromises = [];
-						if (creatNewSite) {
-							localizationPolicyPromises.push(serverRest.getLocalizationPolicies({
-								server: destServer
-							}));
-						}
-
-						return Promise.all(localizationPolicyPromises);
-					})
-					.then(function (results) {
-						if (creatNewSite) {
-							if (!results || !results[0] || results[0].err) {
-								console.log('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
-								return Promise.reject();
-							}
-							var policies = results[0] || [];
-							for (var i = 0; i < policies.length; i++) {
-								if (policies[i].name === localizationPolicyName) {
-									policy = policies[i];
-									break;
-								}
-							}
-							if (!policy) {
-								console.log('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
-								return Promise.reject();
-							}
-
-							var requiredLanguages = policy.requiredValues;
-							if (!requiredLanguages.includes(site.defaultLanguage)) {
-								console.log('ERROR: site default language ' + site.defaultLanguage + ' is not in localization policy ' + policy.name);
-								return Promise.reject();
-							}
-							console.log(' - verify localization policy');
-						}
-
-						// create template based on the site on the source server
-						var createTemplateArgv = {
-							projectDir: projectDir,
-							server: server,
-							name: templateName,
-							siteName: siteName,
-							includeUnpublishedAssets: publishedassets ? false : true
-						};
-
-						// create template on the source server and download
-						return excludecontent ? templateUtils.createLocalTemplateFromSite(argv, templateName, siteName, server, true) :
-							templateUtils.createTemplateFromSiteAndDownloadSCS(createTemplateArgv);
-
-					})
-					.then(function (result) {
-						if (!result || result.err) {
-							return Promise.reject();
-						}
-
-						if (excludecontent) {
-							contentLayoutNames = result.contentLayouts;
-							// console.log(' - content layouts: ' + contentLayoutNames);
-						}
-
-						// delete template on the source server
-						var deleteTemplatePromises = excludecontent ? [] : [sitesRest.deleteTemplate({
-							server: server,
-							name: templateName,
-							hard: true
-						})];
-
-						return Promise.all(deleteTemplatePromises);
-					})
-					.then(function (results) {
-
-						var createTemplateZipPromises = excludecontent ? [templateUtils.zipTemplate(argv, templateName, false, false, contentLayoutNames, excludeSiteContent)] : [];
-
-						return Promise.all(createTemplateZipPromises);
-					})
-					.then(function (results) {
-
-						fileName = templateName + '.zip';
-						templatePath = path.join(destdir, fileName);
-						if (!fs.existsSync(templatePath)) {
-							if (excludecontent) {
-								console.log('ERROR: failed to export template ' + templateName);
-							} else {
-								console.log('ERROR: failed to download template ' + templateName);
-							}
-							return Promise.reject();
-						}
-
-						// upload template file to destination server
-						return serverRest.createFile({
-							server: destServer,
-							parentID: 'self',
-							filename: fileName,
-							contents: fs.createReadStream(templatePath)
-						});
-					})
-					.then(function (result) {
-
-						if (!result || result.err || !result.id) {
-							console.log('ERROR: failed to upload template file');
-							return Promise.reject();
-						}
-						var uploadedFile = result;
-						fileId = uploadedFile.id;
-						console.log(' - file ' + fileName + ' uploaded to Home folder (Id: ' + fileId + ' version:' + uploadedFile.version + ')');
-
-						return sitesRest.importTemplate({
-							server: destServer,
-							name: templateName,
-							fileId: fileId
-						});
-
-					})
-					.then(function (result) {
-						if (!result || result.err) {
-							console.log('ERROR: failed to import template');
-							return Promise.reject();
-						}
-
-						var importTemplateAgainPromises = [];
-						if (excludecontent && creatNewSite) {
-							importTemplateAgainPromises.push(_uploadTemplateWithoutContent(argv, templateName, destServer, destdir, excludeSiteContent));
-						}
-
-						return Promise.all(importTemplateAgainPromises);
-					})
-					.then(function (results) {
-						if (excludecontent && creatNewSite) {
-							if (!results || !results[0] || results[0].err) {
-								return Promise.reject();
-							}
-							console.log(' - import template again without content template');
-						}
-
-						return sitesRest.getTemplate({
-							server: destServer,
-							name: templateName
-						});
-
-					})
-					.then(function (result) {
-						if (!result || result.err || !result.id) {
-							console.log('ERROR: failed to query template');
-							return Promise.reject();
-						}
-
-						templateId = result.id;
 
 						return serverUtils.getIdcToken(destServer);
 					})
@@ -1045,244 +1083,514 @@ module.exports.transferSite = function (argv, done) {
 						if (result && result.idcToken) {
 							idcToken = result && result.idcToken;
 						}
-						var createSitePromises = [];
-						if (creatNewSite && site) {
-							/*
-							createSitePromises.push(sitesRest.createSite({
-								server: destServer,
-								name: siteName,
-								description: site.description,
-								sitePrefix: site.sitePrefix,
-								templateName: templateName,
-								templateId: templateId,
-								repositoryId: repository.id,
-								localizationPolicyId: policy.id,
-								defaultLanguage: site.defaultLanguage
-							}));
-							*/
-							createSitePromises.push(_postOneIdcService(request, localhost, destServer, 'SCS_COPY_SITES', 'create site', idcToken));
-						}
 
-						return Promise.all(createSitePromises);
+						if (!site.isEnterprise) {
 
-					})
-					.then(function (results) {
-						if (creatNewSite) {
-							if (!results || !results[0] || results[0].err) {
-								return Promise.reject();
-							}
-						}
-
-						// query site to verify it's created
-						return sitesRest.getSite({
-							server: server,
-							name: siteName
-						});
-					})
-					.then(function (result) {
-						if (!result || result.err) {
-							return Promise.reject();
-						}
-						console.log(' - site id: ' + result.id);
-
-						// Now upload site content after the site is created in transfer site wo content mode
-						var uploadSiteContentPromises = [];
-						if (excludeSiteContent && creatNewSite) {
-							var siteContentPath = path.join(templatesSrcDir, templateName, 'content');
-							if (fs.existsSync(siteContentPath)) {
-								var uploadArgv = {
-									path: siteContentPath,
-									folder: 'site:' + siteName
-								};
-								uploadSiteContentPromises.push(documentUtils.uploadFolder(uploadArgv, destServer));
-							}
-						}
-
-						return Promise.all(uploadSiteContentPromises);
-
-					})
-					.then(function (results) {
-
-						var deleteTemplatePromises = [];
-						if (templateId) {
-							// delete template
-							deleteTemplatePromises.push(sitesRest.deleteTemplate({
-								server: destServer,
-								name: templateName,
-								hard: true
-							}));
-
-							// delete the template file permanently
-							var deleteArgv = {
-								file: templateName + '.zip',
-								permanent: 'true'
-							};
-							deleteTemplatePromises.push(documentUtils.deleteFile(deleteArgv, destServer, false));
-						}
-
-						return Promise.all(deleteTemplatePromises);
-					})
-					.then(function (results) {
-						// Unzip the site template file from server in transfer site w content mode and update mode
-						// files will be used by updateSite
-						var unzipTemplatePromises = [];
-						if (!creatNewSite && !excludecontent) {
-							unzipTemplatePromises.push(templateUtils.unzipTemplate(templateName, templatePath, false));
-						}
-
-						return Promise.all(unzipTemplatePromises);
-
-					})
-					.then(function (results) {
-
-						// download static 
-						var downloadStaticFolderPromises = [];
-						if (includestaticfiles) {
-							var staticFileFolder;
-							if (creatNewSite && !excludeSiteContent) {
-								if (!fs.existsSync(path.join(documentsSrcDir, siteName))) {
-									fs.mkdirSync(path.join(documentsSrcDir, siteName));
-								}
-								staticFileFolder = path.join(documentsSrcDir, siteName, 'static');
-							} else {
-								staticFileFolder = path.join(templatesSrcDir, templateName, 'static');
-							}
-							if (fs.existsSync(staticFileFolder)) {
-								fse.removeSync(staticFileFolder);
-							}
-							fs.mkdirSync(staticFileFolder);
-
-							var downloadArgv = {
-								folder: staticFileFolder,
-								path: 'site:' + siteName + '/static'
-							};
-
-							downloadStaticFolderPromises.push(documentUtils.downloadFolder(downloadArgv, server, true, false));
-						}
-
-						return Promise.all(downloadStaticFolderPromises);
-
-					})
-					.then(function (results) {
-						if (includestaticfiles) {
-							console.log(' - download site static files');
-						}
-
-						// upload static files
-						var uploadStaticFolderPromises = [];
-						if (includestaticfiles && creatNewSite) {
-							var staticFolderPath = excludeSiteContent ? path.join(templatesSrcDir, templateName, 'static') :
-								path.join(documentsSrcDir, siteName, 'static');
-
-							var uploadArgv = {
-								path: staticFolderPath,
-								folder: 'site:' + siteName
-							};
-							uploadStaticFolderPromises.push(documentUtils.uploadFolder(uploadArgv, destServer));
-						}
-
-						return Promise.all(uploadStaticFolderPromises);
-
-					})
-					.then(function (results) {
-						if (includestaticfiles) {
-							console.log(' - upload site static files');
-						}
-
-						if (creatNewSite) {
-							if (actionSuccess) {
-								console.log(' - site ' + siteName + ' created on ' + destServer.url);
-							}
-							// update the localization policy
-							serverRest.updateLocalizationPolicy({
-								server: destServer,
-								id: policy.id,
-								name: policy.name,
-								data: srcPolicy
-							}).then(function (result) {
-								if (!result || result.err) {
-									actionSuccess = false;
-								} else {
-									var newPolicy = result;
-									console.log(' - update site localization policy ' + newPolicy.name);
-								}
-								_cmdEnd(done, actionSuccess);
-							});
+							_transferStandardSite(localhost, request, server, destServer, site)
+								.then(function (result) {
+									var success = result && !result.err;
+									_cmdEnd(done, success);
+									return;
+								});
 
 						} else {
 
-							var updateSiteArgs = {
-								projectDir: projectDir,
-								name: siteName,
-								template: templateName,
-								server: destServerName,
-								excludecontenttemplate: excludecontent ? 'true' : 'false'
-							};
-							siteUpdateLib.updateSite(updateSiteArgs, function (success) {
-								console.log(' - update site finished');
+							console.log(' - verify site (defaultLanguage: ' + site.defaultLanguage + ')');
 
-								if (success) {
-									serverUtils.getIdcToken(destServer)
-										.then(function (result) {
-											idcToken = result && result.idcToken;
-											if (!idcToken) {
-												console.log('ERROR: failed to get idcToken');
-												return Promise.reject();
+							if (!site.channel || !site.channel.localizationPolicy) {
+								console.log('ERROR: failed to get site channel ' + (site.channel ? JSON.stringify(site.channel) : ''));
+								_cmdEnd(done);
+								return;
+							}
+
+							// query site metadata to get static site settings
+							serverUtils.getSiteMetadata(request, server, site.id)
+								.then(function (result) {
+									if (!result || result.err) {
+										return Promise.reject();
+									}
+
+									siteMetadata = result && result.data;
+									// console.log(siteMetadata);
+
+									// query site metadata to get used components, content types and items
+									return serverUtils.getSiteMetadataRaw(request, server, site.id);
+								})
+								.then(function (result) {
+									if (!result || result.err) {
+										return Promise.reject();
+									}
+
+									siteMetadataRaw = result;
+									// console.log(siteMetadataRaw);
+
+									return serverRest.getLocalizationPolicy({
+										server: server,
+										id: site.channel.localizationPolicy
+									});
+								})
+								.then(function (result) {
+									if (!result || result.err) {
+										return Promise.reject();
+									}
+									srcPolicy = result;
+									console.log(' - verify site localization policy: ' + srcPolicy.name +
+										' (defaultValue: ' + srcPolicy.defaultValue +
+										' requiredValues: ' + srcPolicy.requiredValues +
+										' optionalValues: ' + srcPolicy.optionalValues + ')');
+
+									// check site on destination server
+									return sitesRest.resourceExist({
+										server: destServer,
+										type: 'sites',
+										name: siteName,
+										expand: 'channel'
+									});
+
+								})
+								.then(function (result) {
+									if (!result || result.err) {
+										creatNewSite = true;
+									} else {
+										destSite = result;
+									}
+									console.log(' - will ' + (creatNewSite ? 'create' : 'update') + ' site ' + siteName + ' on ' + destServer.url);
+
+									if (creatNewSite) {
+										if (!repositoryName) {
+											console.log('ERROR: no repository is specified');
+											return Promise.reject();
+										}
+										if (!localizationPolicyName) {
+											console.log('ERROR: no localization policy is specified');
+											return Promise.reject();
+										}
+									}
+
+									var repositoryPromises = [];
+									if (creatNewSite) {
+										repositoryPromises.push(serverRest.getRepositoryWithName({
+											server: destServer,
+											name: repositoryName
+										}));
+									}
+
+									return Promise.all(repositoryPromises);
+								})
+								.then(function (results) {
+									if (creatNewSite) {
+										if (!results || !results[0] || results[0].err || !results[0].data) {
+											console.log('ERROR: repository ' + repositoryName + ' does not exist');
+											return Promise.reject();
+										}
+										repository = results[0].data;
+										console.log(' - verify repository');
+									}
+
+									var localizationPolicyPromises = [];
+									if (creatNewSite) {
+										localizationPolicyPromises.push(serverRest.getLocalizationPolicies({
+											server: destServer
+										}));
+									}
+
+									return Promise.all(localizationPolicyPromises);
+								})
+								.then(function (results) {
+									if (creatNewSite) {
+										if (!results || !results[0] || results[0].err) {
+											console.log('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
+											return Promise.reject();
+										}
+										var policies = results[0] || [];
+										for (var i = 0; i < policies.length; i++) {
+											if (policies[i].name === localizationPolicyName) {
+												policy = policies[i];
+												break;
 											}
+										}
+										if (!policy) {
+											console.log('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
+											return Promise.reject();
+										}
 
-											return serverUtils.getSiteMetadataRaw(request, destServer, destSite.id);
+										var requiredLanguages = policy.requiredValues;
+										if (!requiredLanguages.includes(site.defaultLanguage)) {
+											console.log('ERROR: site default language ' + site.defaultLanguage + ' is not in localization policy ' + policy.name);
+											return Promise.reject();
+										}
+										console.log(' - verify localization policy');
+									}
 
-										})
-										.then(function (result) {
-											destSiteMetadataRaw = result;
-											// console.log(destSiteMetadataRaw);
+									// create template based on the site on the source server
+									var createTemplateArgv = {
+										projectDir: projectDir,
+										server: server,
+										name: templateName,
+										siteName: siteName,
+										includeUnpublishedAssets: publishedassets ? false : true
+									};
 
-											// update site metadata
-											return _updateSiteMetadata(request, destServer, idcToken, destSite, siteMetadata, siteMetadataRaw, destSiteMetadataRaw);
-										})
-										.then(function (result) {
-											if (result && !result.err) {
-												console.log(' - update site metadata');
+									// create template on the source server and download
+									return excludecontent ? templateUtils.createLocalTemplateFromSite(argv, templateName, siteName, server, true) :
+										templateUtils.createTemplateFromSiteAndDownloadSCS(createTemplateArgv);
+
+								})
+								.then(function (result) {
+									if (!result || result.err) {
+										return Promise.reject();
+									}
+
+									if (excludecontent) {
+										contentLayoutNames = result.contentLayouts;
+										// console.log(' - content layouts: ' + contentLayoutNames);
+									}
+
+									// delete template on the source server
+									var deleteTemplatePromises = excludecontent ? [] : [sitesRest.deleteTemplate({
+										server: server,
+										name: templateName,
+										hard: true
+									})];
+
+									return Promise.all(deleteTemplatePromises);
+								})
+								.then(function (results) {
+
+									var createTemplateZipPromises = excludecontent ? [templateUtils.zipTemplate(argv, templateName, false, false, contentLayoutNames, excludeSiteContent)] : [];
+
+									return Promise.all(createTemplateZipPromises);
+								})
+								.then(function (results) {
+
+									fileName = templateName + '.zip';
+									templatePath = path.join(destdir, fileName);
+									if (!fs.existsSync(templatePath)) {
+										if (excludecontent) {
+											console.log('ERROR: failed to export template ' + templateName);
+										} else {
+											console.log('ERROR: failed to download template ' + templateName);
+										}
+										return Promise.reject();
+									}
+
+									// upload template file to destination server
+									startTime = new Date();
+									return serverRest.createFile({
+										server: destServer,
+										parentID: 'self',
+										filename: fileName,
+										contents: fs.createReadStream(templatePath)
+									});
+								})
+								.then(function (result) {
+
+									if (!result || result.err || !result.id) {
+										console.log('ERROR: failed to upload template file');
+										return Promise.reject();
+									}
+									var uploadedFile = result;
+									fileId = uploadedFile.id;
+									console.log(' - file ' + fileName + ' uploaded to Home folder (Id: ' + fileId + ' version:' + uploadedFile.version + ')' +
+										' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+
+									return sitesRest.importTemplate({
+										server: destServer,
+										name: templateName,
+										fileId: fileId
+									});
+
+								})
+								.then(function (result) {
+									if (!result || result.err) {
+										console.log('ERROR: failed to import template');
+										return Promise.reject();
+									}
+									/*
+									 * server bug fixed, site can be created with content template without any item
+															var importTemplateAgainPromises = [];
+															if (excludecontent && creatNewSite) {
+																importTemplateAgainPromises.push(_uploadTemplateWithoutContent(argv, templateName, destServer, destdir, excludeSiteContent));
+															}
+
+															return Promise.all(importTemplateAgainPromises);
+														})
+														.then(function (results) {
+															if (excludecontent && creatNewSite) {
+																if (!results || !results[0] || results[0].err) {
+																	return Promise.reject();
+																}
+																console.log(' - import template again without content template');
+															}
+									*/
+									return sitesRest.getTemplate({
+										server: destServer,
+										name: templateName
+									});
+
+								})
+								.then(function (result) {
+									if (!result || result.err || !result.id) {
+										console.log('ERROR: failed to query template');
+										return Promise.reject();
+									}
+
+									templateId = result.id;
+
+									return serverUtils.getIdcToken(destServer);
+								})
+								.then(function (result) {
+									// fetch token
+									if (result && result.idcToken) {
+										idcToken = result && result.idcToken;
+									}
+									var createSitePromises = [];
+									if (creatNewSite && site) {
+										/*
+										createSitePromises.push(sitesRest.createSite({
+											server: destServer,
+											name: siteName,
+											description: site.description,
+											sitePrefix: site.sitePrefix,
+											templateName: templateName,
+											templateId: templateId,
+											repositoryId: repository.id,
+											localizationPolicyId: policy.id,
+											defaultLanguage: site.defaultLanguage
+										}));
+										*/
+										createSitePromises.push(_postOneIdcService(request, localhost, destServer, 'SCS_COPY_SITES', 'create site', idcToken));
+									}
+
+									return Promise.all(createSitePromises);
+
+								})
+								.then(function (results) {
+									if (creatNewSite) {
+										if (!results || !results[0] || results[0].err) {
+											return Promise.reject();
+										}
+									}
+
+									// query site to verify it's created
+									return sitesRest.getSite({
+										server: server,
+										name: siteName
+									});
+								})
+								.then(function (result) {
+									if (!result || result.err) {
+										return Promise.reject();
+									}
+									console.log(' - site id: ' + result.id);
+
+									// Now upload site content after the site is created in transfer site wo content mode
+									var uploadSiteContentPromises = [];
+									if (excludeSiteContent && creatNewSite) {
+										var siteContentPath = path.join(templatesSrcDir, templateName, 'content');
+										if (fs.existsSync(siteContentPath)) {
+											var uploadArgv = {
+												path: siteContentPath,
+												folder: 'site:' + siteName
+											};
+											uploadSiteContentPromises.push(documentUtils.uploadFolder(uploadArgv, destServer));
+										}
+									}
+
+									return Promise.all(uploadSiteContentPromises);
+
+								})
+								.then(function (results) {
+
+									var deleteTemplatePromises = [];
+									if (templateId) {
+										// delete template
+										deleteTemplatePromises.push(sitesRest.deleteTemplate({
+											server: destServer,
+											name: templateName,
+											hard: true
+										}));
+
+										// delete the template file permanently
+										var deleteArgv = {
+											file: templateName + '.zip',
+											permanent: 'true'
+										};
+										deleteTemplatePromises.push(documentUtils.deleteFile(deleteArgv, destServer, false));
+									}
+
+									return Promise.all(deleteTemplatePromises);
+								})
+								.then(function (results) {
+									// Unzip the site template file from server in transfer site w content mode and update mode
+									// files will be used by updateSite
+									var unzipTemplatePromises = [];
+									if (!creatNewSite && !excludecontent) {
+										unzipTemplatePromises.push(templateUtils.unzipTemplate(templateName, templatePath, false));
+									}
+
+									return Promise.all(unzipTemplatePromises);
+
+								})
+								.then(function (results) {
+
+									// download static 
+									var downloadStaticFolderPromises = [];
+									if (includestaticfiles) {
+										var staticFileFolder;
+										if (creatNewSite && !excludeSiteContent) {
+											if (!fs.existsSync(path.join(documentsSrcDir, siteName))) {
+												fs.mkdirSync(path.join(documentsSrcDir, siteName));
 											}
+											staticFileFolder = path.join(documentsSrcDir, siteName, 'static');
+										} else {
+											staticFileFolder = path.join(templatesSrcDir, templateName, 'static');
+										}
+										if (fs.existsSync(staticFileFolder)) {
+											fse.removeSync(staticFileFolder);
+										}
+										fs.mkdirSync(staticFileFolder);
 
-											return serverRest.getLocalizationPolicy({
-												server: destServer,
-												id: destSite.channel.localizationPolicy
-											});
-										})
-										.then(function (result) {
+										var downloadArgv = {
+											folder: staticFileFolder,
+											path: 'site:' + siteName + '/static'
+										};
+
+										downloadStaticFolderPromises.push(documentUtils.downloadFolder(downloadArgv, server, true, false));
+									}
+
+									return Promise.all(downloadStaticFolderPromises);
+
+								})
+								.then(function (results) {
+									if (includestaticfiles) {
+										console.log(' - download site static files');
+									}
+
+									// upload static files
+									var uploadStaticFolderPromises = [];
+									if (includestaticfiles && creatNewSite) {
+										var staticFolderPath = excludeSiteContent ? path.join(templatesSrcDir, templateName, 'static') :
+											path.join(documentsSrcDir, siteName, 'static');
+
+										var uploadArgv = {
+											path: staticFolderPath,
+											folder: 'site:' + siteName
+										};
+										uploadStaticFolderPromises.push(documentUtils.uploadFolder(uploadArgv, destServer));
+									}
+
+									return Promise.all(uploadStaticFolderPromises);
+
+								})
+								.then(function (results) {
+									if (includestaticfiles) {
+										console.log(' - upload site static files');
+									}
+
+									if (creatNewSite) {
+										if (actionSuccess) {
+											console.log(' - site ' + siteName + ' created on ' + destServer.url);
+										}
+										// update the localization policy
+										serverRest.updateLocalizationPolicy({
+											server: destServer,
+											id: policy.id,
+											name: policy.name,
+											data: srcPolicy
+										}).then(function (result) {
 											if (!result || result.err) {
-												return Promise.reject();
+												actionSuccess = false;
+											} else {
+												var newPolicy = result;
+												console.log(' - update site localization policy ' + newPolicy.name);
 											}
-											policy = result;
-											// update the localization policy
-											return serverRest.updateLocalizationPolicy({
-												server: destServer,
-												id: policy.id,
-												name: policy.name,
-												data: srcPolicy
-											});
-										})
-										.then(function (result) {
-											if (!result || result.err) {
-												return Promise.reject();
-											}
-											var newPolicy = result;
-											console.log(' - update site localization policy ' + newPolicy.name);
-											_cmdEnd(done, success);
-										})
-										.catch((error) => {
-											if (error) {
-												console.log(error);
-											}
-											_cmdEnd(done);
+											_cmdEnd(done, actionSuccess);
 										});
 
-								} else {
+									} else {
+
+										var updateSiteArgs = {
+											projectDir: projectDir,
+											name: siteName,
+											template: templateName,
+											server: destServerName,
+											excludecontenttemplate: excludecontent ? 'true' : 'false'
+										};
+										siteUpdateLib.updateSite(updateSiteArgs, function (success) {
+											console.log(' - update site finished');
+
+											if (success) {
+												serverUtils.getIdcToken(destServer)
+													.then(function (result) {
+														idcToken = result && result.idcToken;
+														if (!idcToken) {
+															console.log('ERROR: failed to get idcToken');
+															return Promise.reject();
+														}
+
+														return serverUtils.getSiteMetadataRaw(request, destServer, destSite.id);
+
+													})
+													.then(function (result) {
+														destSiteMetadataRaw = result;
+														// console.log(destSiteMetadataRaw);
+
+														// update site metadata
+														return _updateSiteMetadata(request, destServer, idcToken, destSite, siteMetadata, siteMetadataRaw, destSiteMetadataRaw);
+													})
+													.then(function (result) {
+														if (result && !result.err) {
+															console.log(' - update site metadata');
+														}
+
+														return serverRest.getLocalizationPolicy({
+															server: destServer,
+															id: destSite.channel.localizationPolicy
+														});
+													})
+													.then(function (result) {
+														if (!result || result.err) {
+															return Promise.reject();
+														}
+														policy = result;
+														// update the localization policy
+														return serverRest.updateLocalizationPolicy({
+															server: destServer,
+															id: policy.id,
+															name: policy.name,
+															data: srcPolicy
+														});
+													})
+													.then(function (result) {
+														if (!result || result.err) {
+															return Promise.reject();
+														}
+														var newPolicy = result;
+														console.log(' - update site localization policy ' + newPolicy.name);
+														_cmdEnd(done, success);
+													})
+													.catch((error) => {
+														if (error) {
+															console.log(error);
+														}
+														_cmdEnd(done);
+													});
+
+											} else {
+												_cmdEnd(done);
+											}
+										});
+									}
+
+								})
+								.catch((error) => {
+									if (error) {
+										console.log(error);
+									}
 									_cmdEnd(done);
-								}
-							});
-						}
+								});
+						} // enterprise site
 
 					})
 					.catch((error) => {
@@ -1290,9 +1598,10 @@ module.exports.transferSite = function (argv, done) {
 							console.log(error);
 						}
 						_cmdEnd(done);
-					});
-			});
-		});
+					}); // get site
+
+			}); // local server
+		}); // login
 };
 
 var _getNewUsedObjects = function (fields, srcRows, destRows, instanceFieldName, rowsToAdd, unitIdsToAdd, rowsRoRemove, unitIdsToRemove) {
@@ -1838,7 +2147,7 @@ var _postOneIdcService = function (request, localhost, server, service, action, 
 			var jobId = data.LocalData.JobID;
 
 			if (jobId) {
-				console.log(' - submit ' + action + ' BACKGROUND_JOB_ID ' + jobId);
+				console.log(' - submit ' + action + ' (JobID: ' + jobId + ')');
 				// wait action to finish
 				var startTime = new Date();
 				var inter = setInterval(function () {
@@ -4072,6 +4381,7 @@ var _importTemplateSCS = function (server, localhost, request, idcToken, name) {
 			}
 
 			var jobId = data.LocalData.JobID;
+			console.log(' - importing template (JobID: ' + jobId + ')');
 			var importTempStatusPromise = serverUtils.getTemplateImportStatus(request, localhost, jobId);
 			importTempStatusPromise.then(function (data) {
 				var success = false;

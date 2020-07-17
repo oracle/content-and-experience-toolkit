@@ -63,31 +63,38 @@ module.exports.listServerContentTypes = function (argv, done) {
 	}
 	console.log(' - server: ' + server.url);
 
-	var typesPromise = serverUtils.getContentTypesFromServer(server);
-	typesPromise.then(function (result) {
-		var types = result && result.items;
-		var typeFound = false;
-		if (types && types.length > 0) {
-			var byName = types.slice(0);
-			byName.sort(function (a, b) {
-				var x = a.name;
-				var y = b.name;
-				return (x < y ? -1 : x > y ? 1 : 0);
-			});
-			types = byName;
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+		var typesPromise = serverUtils.getContentTypesFromServer(server);
+		typesPromise.then(function (result) {
+			var types = result && result.items;
 			var typeFound = false;
-			for (var i = 0; i < types.length; i++) {
-				if (types[i].name !== 'DigitalAsset') {
-					console.log(' ' + types[i].name);
-					typeFound = true;
+			if (types && types.length > 0) {
+				var byName = types.slice(0);
+				byName.sort(function (a, b) {
+					var x = a.name;
+					var y = b.name;
+					return (x < y ? -1 : x > y ? 1 : 0);
+				});
+				types = byName;
+				var typeFound = false;
+				for (var i = 0; i < types.length; i++) {
+					if (types[i].name !== 'DigitalAsset') {
+						console.log(' ' + types[i].name);
+						typeFound = true;
+					}
 				}
 			}
-		}
-		if (!typeFound) {
-			console.log(' - no content type on the server');
-		}
+			if (!typeFound) {
+				console.log(' - no content type on the server');
+			}
 
-		done(true);
+			done(true);
+		});
 	});
 };
 

@@ -14,6 +14,15 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.3.1a
+
+**Added**
+
+- `cec sync-server` - Now supports Content Item Approved event and Digital Asset Approved event.
+
+- `cec transfer-site` - Can now transfer standard sites.
+
+
 # New in Release 20.3.1
 
 **Added**

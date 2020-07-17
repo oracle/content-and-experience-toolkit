@@ -18,6 +18,8 @@ var gulp = require('gulp'),
 	extract = require('extract-zip'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
+	os = require('os'),
+	readline = require('readline'),
 	path = require('path'),
 	argv = require('yargs').argv,
 	zip = require('gulp-zip');
@@ -580,7 +582,7 @@ var _queryComponents = function (request, server, compNames) {
 									id: allComps[j].fFolderGUID,
 									name: allComps[j].fFolderName,
 									type: allComps[j].xScsAppType,
-									isHidden: allComps[j].xScsAppIsHiddenInBuilder ? '1' : '0'
+									isHidden: allComps[j].xScsAppIsHiddenInBuilder
 								});
 							}
 						}
@@ -986,6 +988,7 @@ module.exports.deployTemplate = function (argv, done) {
 		return;
 	}
 
+	console.log(' - exporting template ...');
 	_exportTemplate(name, optimize, excludeContentTemplate).then(function (result) {
 		var zipfile = result && result.zipfile;
 		if (fs.existsSync(zipfile)) {
@@ -1220,6 +1223,8 @@ module.exports.downloadTemplate = function (argv, done) {
 
 		var auth = serverUtils.getRequestAuth(server);
 
+		var startTime;
+
 		app.get('/*', function (req, res) {
 			// console.log('GET: ' + req.url);
 			if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
@@ -1366,6 +1371,8 @@ module.exports.downloadTemplate = function (argv, done) {
 									homeFolderGUID = result.folderId;
 									// console.log(' - Home folder GUID: ' + homeFolderGUID);
 
+									console.log(' - exporting template ...');
+									startTime = new Date();
 									return _exportServerTemplate(request, localhost);
 
 								})
@@ -1374,7 +1381,7 @@ module.exports.downloadTemplate = function (argv, done) {
 									if (result.err) {
 										return Promise.reject();
 									}
-									console.log(' - export template');
+									console.log(' - template exported ' + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 
 									return _getHomeFolderFile(request, localhost, templateZipFile);
 								})
@@ -1383,11 +1390,14 @@ module.exports.downloadTemplate = function (argv, done) {
 									if (result.err) {
 										return Promise.reject();
 									}
+
 									templateZipFileGUID = result.fileGUID;
 
 									// console.log(' - template zip file ' + templateZipFile);
 									// console.log(' - template zip file GUID: ' + templateZipFileGUID);
 
+									console.log(' - downloading template zip file (id: ' + templateZipFileGUID + ' size: ' + result.fileSize + ') ...');
+									startTime = new Date();
 									return _downloadServerFile(request, server, templateZipFileGUID, templateZipFile);
 
 								})
@@ -1398,14 +1408,14 @@ module.exports.downloadTemplate = function (argv, done) {
 									}
 
 									fs.writeFileSync(zippath, result.data);
-									console.log(' - template download to ' + zippath);
+									console.log(' - template download to ' + zippath + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 
 									return _moveToTrash(request, localhost);
 
 								})
 								.then(function (result) {
 									// delete the template zip on the server
-									// console.log(' - delete ' + templateZipFile + ' on the server');
+									console.log(' - delete ' + templateZipFile + ' on the server');
 
 									return unzipTemplate(name, zippath, false);
 								})
@@ -2602,6 +2612,7 @@ var _exportServerTemplate = function (request, localhost) {
 		var options = {
 			url: url
 		};
+
 		request.post(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to export template:');
@@ -2666,14 +2677,17 @@ var _getHomeFolderFile = function (request, localhost, fileName) {
 				}
 			}
 			var fileGUID;
+			var fileSize;
 			for (var i = 0; i < files.length; i++) {
 				if (files[i].fFileName === fileName) {
 					fileGUID = files[i].fFileGUID;
+					fileSize = files[i].dFileSize;
 					break;
 				}
 			}
 			return resolve({
-				fileGUID: fileGUID
+				fileGUID: fileGUID,
+				fileSize: fileSize
 			});
 		});
 	});
@@ -3102,17 +3116,20 @@ var _IdcCopySites2 = function (request, localhost, server, idcToken) {
 			}
 
 			var jobId = data.LocalData.JobID;
-
+			console.log(' - creating template (JobID: ' + jobId + ')');
 			// wait create to finish
+			var startTime = new Date();
 			var inter = setInterval(function () {
 				var jobPromise = serverUtils.getBackgroundServiceJobStatus(server, request, idcToken, jobId);
 				jobPromise.then(function (data) {
 					if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
 						clearInterval(inter);
+						process.stdout.write(os.EOL);
 						// try to get error message
 						var jobDataPromise = serverUtils.getBackgroundServiceJobData(server, request, idcToken, jobId);
 						jobDataPromise.then(function (data) {
 							console.log('ERROR: create template failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
+							// console.log(data);
 							return resolve({
 								err: 'err'
 							});
@@ -3120,9 +3137,11 @@ var _IdcCopySites2 = function (request, localhost, server, idcToken) {
 					}
 					if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
 						clearInterval(inter);
+						process.stdout.write(os.EOL);
 						return resolve({});
 					} else {
-						console.log(' - creating template: percentage ' + data.JobPercentage);
+						process.stdout.write(' - creating template: percentage ' + data.JobPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						readline.cursorTo(process.stdout, 0);
 					}
 				});
 			}, 5000);
@@ -3507,6 +3526,8 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 			var fFolderGUID;
 			var exportPublishedAssets = includeUnpublishedAssets ? 0 : 1;
 
+			var startTime;
+
 			app.get('/*', function (req, res) {
 				// console.log('GET: ' + req.url);
 				if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
@@ -3763,6 +3784,8 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 									homeFolderGUID = result.folderId;
 									// console.log(' - Home folder GUID: ' + homeFolderGUID);
 
+									console.log(' - exporting template ...');
+									startTime = new Date();
 									return _exportServerTemplate(request, localhost);
 
 								})
@@ -3771,7 +3794,7 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 									if (result.err) {
 										return Promise.reject();
 									}
-									console.log(' - export template');
+									console.log(' - template exported ' + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 
 									return _getHomeFolderFile(request, localhost, templateZipFile);
 								})
@@ -3780,8 +3803,10 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 									if (result.err) {
 										return Promise.reject();
 									}
-
+									
 									templateZipFileGUID = result.fileGUID;
+									console.log(' - downloading template zip file (id: ' + templateZipFileGUID + ' size: ' + result.fileSize + ') ...');
+									startTime = new Date();
 									return _downloadServerFile(request, server, templateZipFileGUID, templateZipFile);
 
 								})
@@ -3792,7 +3817,7 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 									}
 
 									fs.writeFileSync(zippath, result.data);
-									console.log(' - template download to ' + zippath);
+									console.log(' - template download to ' + zippath + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 
 									var deleteArgv = {
 										file: templateZipFile,

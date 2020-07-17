@@ -1087,9 +1087,9 @@ const transferSite = {
 	alias: 'ts',
 	name: 'transfer-site',
 	usage: {
-		'short': 'Transfers Enterprise Site from one CEC server to another.',
+		'short': 'Transfers a site from one CEC server to another.',
 		'long': (function () {
-			let desc = 'Transfers Enterprise Site from one CEC server to another. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>.';
+			let desc = 'Transfers a site from one CEC server to another. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>.';
 			return desc;
 		})()
 	},
@@ -1098,7 +1098,8 @@ const transferSite = {
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -p', 'Creates site Site1 on server UAT based on site Site1 on server DEV with published assets'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -x', 'Creates site Site1 on server UAT based on site Site1 on server DEV without content'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -i', 'Creates site Site1 on server UAT based on site Site1 on server DEV with static files from DEV'],
-		['cec transfer-site Site1 -s DEV -d UAT', 'Updates site Site1 on server UAT based on site Site1 on server DEV']
+		['cec transfer-site Site1 -s DEV -d UAT', 'Updates site Site1 on server UAT based on site Site1 on server DEV'],
+		['cec transfer-site StandardSite1 -s DEV -d UAT', 'Creates standard site on server UAT based on site StandardSite1 on server DEV']
 	]
 };
 
@@ -3649,6 +3650,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferSite.example[2])
 				.example(...transferSite.example[3])
 				.example(...transferSite.example[4])
+				.example(...transferSite.example[5])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)

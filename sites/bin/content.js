@@ -99,12 +99,19 @@ module.exports.downloadContent = function (argv, done) {
 
 	var assetGUIDS = argv.assets ? argv.assets.split(',') : [];
 
-	_downloadContent(server, channel, name, publishedassets, repositoryName, collectionName, query, assetGUIDS).then(function (result) {
-		if (result && result.err) {
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
 			done();
-		} else {
-			done(true);
+			return;
 		}
+		_downloadContent(server, channel, name, publishedassets, repositoryName, collectionName, query, assetGUIDS).then(function (result) {
+			if (result && result.err) {
+				done();
+			} else {
+				done(true);
+			}
+		});
 	});
 };
 
@@ -667,6 +674,7 @@ var _uploadContentFromZipFile = function (args) {
 
 		var contentZipFileId;
 		console.log(' - uploading file ...');
+		var startTime = new Date();
 		createFilePromise.then(function (result) {
 				if (!result || !result.id) {
 					errorMessage = 'Error: failed to upload zip file to server.';
@@ -678,7 +686,7 @@ var _uploadContentFromZipFile = function (args) {
 
 				contentZipFileId = result.id;
 				// console.log(' - file uploaded, id: ' + contentZipFileId + ' version: ' + result.version);
-				console.log(' - upload content file ' + zippath);
+				console.log(' - upload content file ' + zippath + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 
 				return serverUtils.getCaasCSRFToken(server);
 			})
@@ -803,14 +811,22 @@ module.exports.uploadContent = function (argv, done) {
 	var updateContent = typeof argv.update === 'string' && argv.update.toLowerCase() === 'true';
 
 	var createZip = isFile ? false : true;
-	_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip)
-		.then(function (result) {
-			if (result && result.err) {
-				done();
-			} else {
-				done(true);
-			}
-		});
+
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+		_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip)
+			.then(function (result) {
+				if (result && result.err) {
+					done();
+				} else {
+					done(true);
+				}
+			});
+	});
 };
 
 var _uploadContent = function (server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip) {
@@ -825,7 +841,10 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 		var createChannelPromises = [];
 		var addChannelToRepositoryPromises = [];
 
-		var repositoryPromise = serverUtils.getRepositoryFromServer(request, server, repositoryName);
+		var repositoryPromise = serverRest.getRepositoryWithName({
+			server: server,
+			name: repositoryName
+		});
 		repositoryPromise.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -1560,7 +1579,9 @@ var _displayValidation = function (validations, action) {
 			}
 		}
 	}
-	console.log('Failed to ' + action + ' the following items: ' + policyValidation.error);
+
+	console.log(JSON.stringify(policyValidation, null, 4));
+	console.log('Failed to ' + action + ' the following items: ' + policyValidation.error ? policyValidation.error : '');
 	var format = '  %-36s  %-60s  %-s';
 	console.log(sprintf(format, 'Id', 'Name', 'Message'));
 	for (var i = 0; i < blockingItems.length; i++) {
@@ -1600,231 +1621,238 @@ module.exports.copyAssets = function (argv, done) {
 	var channel;
 	var collection;
 
-	serverRest.getRepositories({
-			server: server
-		})
-		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
-
-			var repositories = result || [];
-			for (var i = 0; i < repositories.length; i++) {
-				if (repositories[i].name.toLowerCase() === repositoryName.toLowerCase()) {
-					repository = repositories[i];
-				} else if (repositories[i].name.toLowerCase() === targetName.toLowerCase()) {
-					targetRepository = repositories[i];
-				}
-				if (repository && targetRepository) {
-					break;
-				}
-			}
-			if (!repository || !repository.id) {
-				console.log('ERROR: repository ' + repositoryName + ' does not exist');
-				return Promise.reject();
-			}
-			if (!targetRepository || !targetRepository.id) {
-				console.log('ERROR: repository ' + targetName + ' does not exist');
-				return Promise.reject();
-			}
-			console.log(' - verify source repository ' + repository.name + ' (Id: ' + repository.id + ')');
-			console.log(' - verify target repository ' + targetRepository.name + ' (Id: ' + targetRepository.id + ')');
-
-			var collectionPromises = [];
-			if (collectionName) {
-				collectionPromises.push(serverRest.getCollectionWithName({
-					server: server,
-					repositoryId: repository.id,
-					name: collectionName
-				}));
-			}
-
-			return Promise.all(collectionPromises);
-		})
-		.then(function (results) {
-			if (collectionName) {
-				if (!results || !results[0] || results[0].err || !results[0].data) {
-					console.log('ERROR: collection ' + collectionName + ' not found in repository ' + repositoryName);
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+		serverRest.getRepositories({
+				server: server
+			})
+			.then(function (result) {
+				if (!result || result.err) {
 					return Promise.reject();
 				}
-				collection = results[0].data;
-				console.log(' - validate collection (Id: ' + collection.id + ')');
-			}
 
-			var channelPromises = [];
-			if (channelName) {
-				channelPromises.push(_getChannelsFromServer(server));
-			}
-
-			return Promise.all(channelPromises);
-		})
-		.then(function (results) {
-
-			if (channelName) {
-				var channels = results && results[0] && results[0].channels || [];
-				for (var i = 0; i < channels.length; i++) {
-					if (channels[i].name.toLowerCase() === channelName.toLowerCase()) {
-						channel = channels[i];
+				var repositories = result || [];
+				for (var i = 0; i < repositories.length; i++) {
+					if (repositories[i].name.toLowerCase() === repositoryName.toLowerCase()) {
+						repository = repositories[i];
+					} else if (repositories[i].name.toLowerCase() === targetName.toLowerCase()) {
+						targetRepository = repositories[i];
+					}
+					if (repository && targetRepository) {
 						break;
 					}
 				}
-
-				if (!channel) {
-					console.log('ERROR: channel ' + channelName + ' does not exist');
+				if (!repository || !repository.id) {
+					console.log('ERROR: repository ' + repositoryName + ' does not exist');
 					return Promise.reject();
 				}
-				console.log(' - verify channel ' + channel.name + ' (Id: ' + channel.id + ')');
+				if (!targetRepository || !targetRepository.id) {
+					console.log('ERROR: repository ' + targetName + ' does not exist');
+					return Promise.reject();
+				}
+				console.log(' - verify source repository ' + repository.name + ' (Id: ' + repository.id + ')');
+				console.log(' - verify target repository ' + targetRepository.name + ' (Id: ' + targetRepository.id + ')');
 
-				// verify the channel is in the repository
-				var channelInRepository = false;
-				for (var i = 0; i < repository.channels.length; i++) {
-					if (repository.channels[i].id === channel.id) {
-						channelInRepository = true;
-						break;
+				var collectionPromises = [];
+				if (collectionName) {
+					collectionPromises.push(serverRest.getCollectionWithName({
+						server: server,
+						repositoryId: repository.id,
+						name: collectionName
+					}));
+				}
+
+				return Promise.all(collectionPromises);
+			})
+			.then(function (results) {
+				if (collectionName) {
+					if (!results || !results[0] || results[0].err || !results[0].data) {
+						console.log('ERROR: collection ' + collectionName + ' not found in repository ' + repositoryName);
+						return Promise.reject();
 					}
+					collection = results[0].data;
+					console.log(' - validate collection (Id: ' + collection.id + ')');
 				}
-				if (!channelInRepository) {
-					console.log('ERROR: channel ' + channelName + ' is not associated with repository ' + repositoryName);
-					return Promise.reject();
-				}
-			}
-			var queryItemPromises = [];
-			var q;
-			if (assetGUIDS && assetGUIDS.length > 0) {
-				q = '';
-				for (var i = 0; i < assetGUIDS.length; i++) {
-					if (q) {
-						q = q + ' or ';
-					}
-					q = q + 'id eq "' + assetGUIDS[i] + '"';
-				}
-				queryItemPromises.push(serverRest.queryItems({
-					server: server,
-					q: q
-				}));
-			}
 
-			return Promise.all(queryItemPromises);
-
-		})
-		.then(function (results) {
-			if (assetGUIDS && assetGUIDS.length > 0) {
-				if (!results || !results[0] || results[0].err) {
-					return Promise.reject();
+				var channelPromises = [];
+				if (channelName) {
+					channelPromises.push(_getChannelsFromServer(server));
 				}
-				var items = results[0].data || [];
-				for (var j = 0; j < assetGUIDS.length; j++) {
-					var found = false;
-					for (var i = 0; i < items.length; i++) {
-						if (items[i].id === assetGUIDS[j]) {
-							found = true;
-							validAssetGUIDS.push(assetGUIDS[j]);
+
+				return Promise.all(channelPromises);
+			})
+			.then(function (results) {
+
+				if (channelName) {
+					var channels = results && results[0] && results[0].channels || [];
+					for (var i = 0; i < channels.length; i++) {
+						if (channels[i].name.toLowerCase() === channelName.toLowerCase()) {
+							channel = channels[i];
 							break;
 						}
 					}
-					if (!found) {
-						console.log('ERROR: item with GUID ' + assetGUIDS[j] + ' not found');
+
+					if (!channel) {
+						console.log('ERROR: channel ' + channelName + ' does not exist');
+						return Promise.reject();
+					}
+					console.log(' - verify channel ' + channel.name + ' (Id: ' + channel.id + ')');
+
+					// verify the channel is in the repository
+					var channelInRepository = false;
+					for (var i = 0; i < repository.channels.length; i++) {
+						if (repository.channels[i].id === channel.id) {
+							channelInRepository = true;
+							break;
+						}
+					}
+					if (!channelInRepository) {
+						console.log('ERROR: channel ' + channelName + ' is not associated with repository ' + repositoryName);
+						return Promise.reject();
 					}
 				}
-			}
-
-			var queryItemPromises = [];
-			var q;
-			if (query) {
-				q = '';
-				if (repository) {
-					q = '(repositoryId eq "' + repository.id + '")';
-				}
-				if (collection) {
-					if (q) {
-						q = q + ' AND ';
+				var queryItemPromises = [];
+				var q;
+				if (assetGUIDS && assetGUIDS.length > 0) {
+					q = '';
+					for (var i = 0; i < assetGUIDS.length; i++) {
+						if (q) {
+							q = q + ' or ';
+						}
+						q = q + 'id eq "' + assetGUIDS[i] + '"';
 					}
-					q = q + '(collections co "' + collection.id + '")';
+					queryItemPromises.push(serverRest.queryItems({
+						server: server,
+						q: q
+					}));
 				}
-				if (channel) {
-					if (q) {
-						q = q + ' AND ';
+
+				return Promise.all(queryItemPromises);
+
+			})
+			.then(function (results) {
+				if (assetGUIDS && assetGUIDS.length > 0) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
 					}
-					q = q + '(channels co "' + channel.id + '")';
-				}
-
-				if (q) {
-					q = q + ' AND ';
-				}
-				q = q + '(' + query + ')';
-
-				console.log(' - query: ' + q);
-
-				queryItemPromises.push(serverRest.queryItems({
-					server: server,
-					q: q
-				}));
-			}
-
-			return Promise.all(queryItemPromises);
-		})
-		.then(function (results) {
-			var guids = [];
-			if (query) {
-				if (!results || !results[0] || results[0].err) {
-					return Promise.reject();
-				}
-				var items = results[0].data || [];
-				console.log(' - total items from query: ' + items.length);
-
-				// the copy items have to be in both query result and specified item list
-				for (var i = 0; i < items.length; i++) {
-					var add = true;
-					if (validAssetGUIDS.length > 0) {
-						add = false;
-						for (var j = 0; j < validAssetGUIDS.length; j++) {
-							if (items[i].id === validAssetGUIDS[j]) {
-								add = true;
+					var items = results[0].data || [];
+					for (var j = 0; j < assetGUIDS.length; j++) {
+						var found = false;
+						for (var i = 0; i < items.length; i++) {
+							if (items[i].id === assetGUIDS[j]) {
+								found = true;
+								validAssetGUIDS.push(assetGUIDS[j]);
 								break;
 							}
 						}
-					}
-
-					if (add) {
-						guids.push(items[i].id);
+						if (!found) {
+							console.log('ERROR: item with GUID ' + assetGUIDS[j] + ' not found');
+						}
 					}
 				}
-			} else {
-				guids = validAssetGUIDS;
-			}
 
-			if (assetGUIDS && assetGUIDS.length > 0 || query) {
-				console.log(' - total items to copy: ' + guids.length);
-				if (guids.length === 0) {
-					console.log('ERROR: no asset to copy');
+				var queryItemPromises = [];
+				var q;
+				if (query) {
+					q = '';
+					if (repository) {
+						q = '(repositoryId eq "' + repository.id + '")';
+					}
+					if (collection) {
+						if (q) {
+							q = q + ' AND ';
+						}
+						q = q + '(collections co "' + collection.id + '")';
+					}
+					if (channel) {
+						if (q) {
+							q = q + ' AND ';
+						}
+						q = q + '(channels co "' + channel.id + '")';
+					}
+
+					if (q) {
+						q = q + ' AND ';
+					}
+					q = q + '(' + query + ')';
+
+					console.log(' - query: ' + q);
+
+					queryItemPromises.push(serverRest.queryItems({
+						server: server,
+						q: q
+					}));
+				}
+
+				return Promise.all(queryItemPromises);
+			})
+			.then(function (results) {
+				var guids = [];
+				if (query) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
+					var items = results[0].data || [];
+					console.log(' - total items from query: ' + items.length);
+
+					// the copy items have to be in both query result and specified item list
+					for (var i = 0; i < items.length; i++) {
+						var add = true;
+						if (validAssetGUIDS.length > 0) {
+							add = false;
+							for (var j = 0; j < validAssetGUIDS.length; j++) {
+								if (items[i].id === validAssetGUIDS[j]) {
+									add = true;
+									break;
+								}
+							}
+						}
+
+						if (add) {
+							guids.push(items[i].id);
+						}
+					}
+				} else {
+					guids = validAssetGUIDS;
+				}
+
+				if (assetGUIDS && assetGUIDS.length > 0 || query) {
+					console.log(' - total items to copy: ' + guids.length);
+					if (guids.length === 0) {
+						console.log('ERROR: no asset to copy');
+						return Promise.reject();
+					}
+				}
+
+				return serverRest.copyAssets({
+					server: server,
+					repositoryId: repository.id,
+					targetRepositoryId: targetRepository.id,
+					collection: collection,
+					channel: channel,
+					itemIds: guids
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
 					return Promise.reject();
 				}
-			}
 
-			return serverRest.copyAssets({
-				server: server,
-				repositoryId: repository.id,
-				targetRepositoryId: targetRepository.id,
-				collection: collection,
-				channel: channel,
-				itemIds: guids
+				console.log(' - assets copied to repository ' + targetName);
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
 			});
-		})
-		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
-
-			console.log(' - assets copied to repository ' + targetName);
-
-			done(true);
-		})
-		.catch((error) => {
-			if (error) {
-				console.log(error);
-			}
-			done();
-		});
+	});
 };
 
 
@@ -2930,6 +2958,41 @@ module.exports.syncDeleteItem = function (argv, done) {
 				console.log(' - item ' + (name || id) + ' deleted on server ' + destServer.name);
 				done(true);
 			}
+		})
+		.catch((error) => {
+			done();
+		});
+};
+
+module.exports.syncApproveItem = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var srcServer = argv.server;
+	console.log(' - source server: ' + srcServer.url);
+
+	var destServer = argv.destination;
+	console.log(' - destination server: ' + destServer.url);
+
+	var id = argv.id;
+	var name = argv.name;
+
+	// delete
+	serverRest.approveItems({
+			server: destServer,
+			itemIds: [id]
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			console.log(' - item ' + (name || id) + ' approved on server ' + destServer.name);
+			done(true);
 		})
 		.catch((error) => {
 			done();

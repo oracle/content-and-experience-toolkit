@@ -1397,7 +1397,7 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 				var auth = serverUtils.getRequestAuth(server);
 
 				var operations = {};
-				if (operation === 'deleteItems') {
+				if (operation === 'deleteItems' || operation === 'approve') {
 					operations[operation] = {
 						value: 'true'
 					};
@@ -1560,6 +1560,17 @@ module.exports.addItemsToCollection = function (args) {
  */
 module.exports.deleteItems = function (args) {
 	return _bulkOpItems(args.server, 'deleteItems', [], args.itemIds);
+};
+
+/**
+ * Approve items on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {array} args.itemIds The id of items 
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.approveItems = function (args) {
+	return _bulkOpItems(args.server, 'approve', [], args.itemIds);
 };
 
 /**

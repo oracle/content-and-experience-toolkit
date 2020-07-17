@@ -1321,61 +1321,6 @@ var _getOAuthTokenFromIDCS = function (server) {
 };
 
 
-/**
- * Get repository from server
- */
-module.exports.getRepositoryFromServer = function (request, server, repositoryName) {
-	var repositoryPromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-
-		var auth = _getRequestAuth(server);
-
-		var url = server.url + '/content/management/api/v1.1/repositories?fields=all&includeAdditionalData=true';
-
-		var options = {
-			url: url,
-			auth: auth
-		};
-		request(options, function (error, response, body) {
-			var result = {};
-
-			if (error) {
-				console.log('ERROR: failed to get repository:');
-				console.log(error);
-				resolve({
-					err: error
-				});
-			}
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
-				var items = data && data.items;
-				// console.log(items);
-				var repository;
-				for (var i = 0; i < items.length; i++) {
-					if (items[i].name.toLowerCase() === repositoryName.toLowerCase()) {
-						repository = items[i];
-					}
-				}
-				resolve({
-					data: repository
-				});
-			} else {
-				console.log('ERROR: failed to get repository: ' + (response ? (response.statusMessage || response.statusCode) : ''));
-				resolve({
-					err: (response ? (response.statusMessage || response.statusCode) : 'err')
-				});
-			}
-
-		});
-	});
-	return repositoryPromise;
-};
-
 module.exports.getRepositoryCollections = function (request, server, repositoryId) {
 	var collectionPromise = new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
@@ -1387,7 +1332,7 @@ module.exports.getRepositoryCollections = function (request, server, repositoryI
 
 		var auth = _getRequestAuth(server);
 
-		var url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections';
+		var url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections?limit=9999';
 
 		var options = {
 			url: url,
@@ -1901,6 +1846,7 @@ module.exports.importTemplateToServer = function (request, server, fileId, idcTo
 			}
 
 			var jobId = data.LocalData.JobID;
+			console.log(' - importing template (JobID: ' + jobId + ')');
 			var importStatusPromise = _getTemplateImportStatus(request, server.url, jobId);
 			importStatusPromise.then(function (statusResult) {
 				resolve(statusResult);
@@ -2881,6 +2827,7 @@ var _importOneObjectToPodServer = function (localhost, request, type, name, fold
 
 							if (type === 'template') {
 								var jobId = data.LocalData.JobID;
+								console.log(' - importing template (JobID: ' + jobId + ')');
 								var importTempStatusPromise = _getTemplateImportStatus(request, localhost, jobId);
 								importTempStatusPromise.then(function (data) {
 									var success = false;
@@ -3592,6 +3539,7 @@ var _getTemplateImportStatus = function (request, host, jobId) {
 		var totalDots = 0;
 		var currPercentage;
 		var msgCount = 0;
+		var startTime = new Date();
 		var inter = setInterval(function () {
 
 			var jobStatusPromise = _getBackgroundServiceStatus(request, host, jobId);
@@ -3612,34 +3560,9 @@ var _getTemplateImportStatus = function (request, host, jobId) {
 						JobInfo: result.JobInfo
 					});
 				} else {
-					var msg = result.status === 'PROCESSING' ? (result.status + ' percentage: ' + result.percentage) : (result.status);
-					if (currPercentage === result.percentage) {
-						count.push('.');
-						totalDots += 1;
-						msg = result.status === 'PROCESSING' ? (result.status + ' percentage: ' + result.percentage + ' ' + count.join('')) : (result.status);
-						if (totalDots < 50) {
-							readline.cursorTo(process.stdout, 0);
-							process.stdout.write(' - importing: ' + msg);
-						} else {
-							if (count.length === 50) {
-								count = [];
-								count.push('.');
-								process.stdout.write(os.EOL);
-							}
-							readline.cursorTo(process.stdout, 0);
-							process.stdout.write(count.join(''));
-						}
-						msgCount += 1;
-					} else {
-						currPercentage = result.percentage;
-						count = [];
-						totalDots = 0;
-						if (msgCount > 0) {
-							process.stdout.write(os.EOL);
-						}
-						process.stdout.write(' - importing: ' + msg);
-						msgCount += 1;
-					}
+					process.stdout.write(' - import in process: percentage ' + result.percentage +
+						' [' + _timeUsed(startTime, new Date()) + ']');
+					readline.cursorTo(process.stdout, 0);
 				}
 			});
 		}, 6000);
@@ -3804,6 +3727,44 @@ module.exports.getBackgroundServiceJobData = function (server, request, idcToken
 	return statusPromise;
 };
 
+module.exports.getBackgroundServiceJobErrorData = function (server, request, idcToken, jobId) {
+	var statusPromise = new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/web?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_RESPONSE_ERROR_DATA';
+		url = url + '&JobID=' + jobId;
+		url = url + '&idcToken=' + idcToken;
+
+		var auth = _getRequestAuth(server);
+
+		var params = {
+			method: 'GET',
+			url: url,
+			auth: auth,
+		};
+		if (server.cookies) {
+			params.headers = {
+				Cookie: server.cookies
+			};
+		}
+		request(params, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: Failed to get job error data');
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			return resolve(data);
+		});
+	});
+	return statusPromise;
+};
+
 /**
  * Get sites or templates from server using IdcService
  */
@@ -3909,7 +3870,7 @@ module.exports.browseSitesOnServer = function (request, server, fApplication, na
 /**
  * Get components from server using IdcService
  */
-module.exports.browseComponentsOnServer = function (request, server) {
+module.exports.browseComponentsOnServer = function (request, server, name) {
 	var compPromise = new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -3927,6 +3888,9 @@ module.exports.browseComponentsOnServer = function (request, server) {
 		var auth = _getRequestAuth(server);
 
 		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_APPS&appCount=-1';
+		if (name) {
+			url = url + '&name=' + name;
+		}
 
 		var options = {
 			method: 'GET',
@@ -4551,7 +4515,7 @@ module.exports.getSiteMetadata = function (request, server, siteId) {
 /**
  * Get a site's metadata from server using IdcService
  */
-module.exports.getSiteMetadataRaw= function (request, server, siteId) {
+module.exports.getSiteMetadataRaw = function (request, server, siteId) {
 	return new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');

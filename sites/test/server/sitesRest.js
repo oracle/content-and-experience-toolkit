@@ -1553,7 +1553,7 @@ var _importTemplate = function (server, name, fileId) {
 			
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.headers && response.headers.location;
-				console.log(' - import job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1));
+				console.log(' - import template (job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1) + ')');
 				var startTime = new Date();
 				var inter = setInterval(function () {
 					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);

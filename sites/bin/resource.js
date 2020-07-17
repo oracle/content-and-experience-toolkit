@@ -471,7 +471,8 @@ module.exports.listServerResources = function (argv, done) {
 				var comps = results.length > 0 && results[0].data ? results[0].data : [];
 				if (listComponents) {
 					console.log('Components:');
-					console.log(sprintf(format3, 'Name', 'Type', 'Published'));
+					var compFormat = '  %-45s  %-36s  %-12s  %-s';
+					console.log(sprintf(compFormat, 'Name', 'Type', 'Published', 'Hidden in Site Editor'));
 					for (var i = 0; i < comps.length; i++) {
 						var comp = comps[i];
 						var compType = comp.xScsAppType;
@@ -488,7 +489,8 @@ module.exports.listServerResources = function (argv, done) {
 							typeLabel = 'Section layout';
 						}
 						var published = comp.xScsIsAppActive === '1' ? '    √' : '';
-						console.log(sprintf(format3, comp.fFolderName, typeLabel, published));
+						var hiddenInBuilder = comp.xScsAppIsHiddenInBuilder === '1' ? '    √' : '';
+						console.log(sprintf(compFormat, comp.fFolderName, typeLabel, published, hiddenInBuilder));
 					}
 					if (comps.length > 0) {
 						console.log('Total: ' + comps.length);

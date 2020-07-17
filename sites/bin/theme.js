@@ -245,7 +245,7 @@ var _publishThemeSCS = function (request, localhost, server, themeName, idcToken
 
 			var jobId = data.LocalData.JobID;
 			if (jobId) {
-				console.log(' - submit publish theme');
+				console.log(' - submit publish theme (JobID: ' + jobId + ')');
 				// wait action to finish
 				var inter = setInterval(function () {
 					var jobPromise = serverUtils.getBackgroundServiceJobStatus(server, request, idcToken, jobId);

@@ -144,12 +144,18 @@ module.exports.uploadFile = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
+	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
 
-	_uploadFile(argv, server).then(function () {
-		done(true);
-	}).catch(function (error) {
-		done();
+		_uploadFile(argv, server).then(function () {
+			done(true);
+		}).catch(function (error) {
+			done();
+		});
 	});
 };
 
@@ -349,81 +355,73 @@ module.exports.downloadFile = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
-
-	var filePath = argv.file;
-	var fileName = filePath;
-	if (fileName.indexOf('/') > 0) {
-		fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
-	}
-
-	var folderPathStr = filePath.indexOf('/') >= 0 ? filePath.substring(0, filePath.lastIndexOf('/')) : '';
-	var resourceFolder = false;
-	var resourceName;
-	var resourceType;
-	var resourceLabel;
-	if (folderPathStr && (folderPathStr.indexOf('site:') === 0 || folderPathStr.indexOf('theme:') === 0 || folderPathStr.indexOf('component:') === 0)) {
-		resourceFolder = true;
-		if (folderPathStr.indexOf('site:') === 0) {
-			folderPathStr = folderPathStr.substring(5);
-			resourceType = 'site';
-			resourceLabel = 'Sites';
-		} else if (folderPathStr.indexOf('theme:') === 0) {
-			folderPathStr = folderPathStr.substring(6);
-			resourceType = 'theme';
-			resourceLabel = 'Themes';
-		} else {
-			folderPathStr = folderPathStr.substring(10);
-			resourceType = 'component';
-			resourceLabel = 'Components';
-		}
-		if (folderPathStr.indexOf('/') > 0) {
-			resourceName = folderPathStr.substring(0, folderPathStr.indexOf('/'));
-			folderPathStr = folderPathStr.substring(folderPathStr.indexOf('/') + 1);
-		} else {
-			resourceName = folderPathStr;
-			folderPathStr = '';
-		}
-	}
-	// console.log('argv.file=' + argv.file + ' folderPathStr=' + folderPathStr + ' resourceName=' + resourceName);
-
-	var folderPath = folderPathStr.split('/');
-	var folderId;
-
-	if (!fs.existsSync(documentsSrcDir)) {
-		fse.mkdirSync(documentsSrcDir);
-	}
-	var targetPath;
-	if (argv.folder) {
-		targetPath = argv.folder;
-		if (!path.isAbsolute(targetPath)) {
-			targetPath = path.join(projectDir, targetPath);
-		}
-		targetPath = path.resolve(targetPath);
-		if (!fs.existsSync(targetPath)) {
-			console.log('ERROR: folder ' + targetPath + ' does not exist');
-			done();
-			return;
-		}
-		if (!fs.statSync(targetPath).isDirectory()) {
-			console.log('ERROR: ' + targetPath + ' is not a folder');
-			done();
-			return;
-		}
-	}
-
 	var request = serverUtils.getRequest();
-	var loginPromises = [];
-
-	if (resourceFolder) {
-		loginPromises.push(serverUtils.loginToServer(server, request));
-	}
-
-	Promise.all(loginPromises).then(function (results) {
-		if (resourceFolder && (!results || results.length === 0 || !results[0].status)) {
+	serverUtils.loginToServer(server, request).then(function (result) {
+		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
 			return;
+		}
+
+		var filePath = argv.file;
+		var fileName = filePath;
+		if (fileName.indexOf('/') > 0) {
+			fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
+		}
+
+		var folderPathStr = filePath.indexOf('/') >= 0 ? filePath.substring(0, filePath.lastIndexOf('/')) : '';
+		var resourceFolder = false;
+		var resourceName;
+		var resourceType;
+		var resourceLabel;
+		if (folderPathStr && (folderPathStr.indexOf('site:') === 0 || folderPathStr.indexOf('theme:') === 0 || folderPathStr.indexOf('component:') === 0)) {
+			resourceFolder = true;
+			if (folderPathStr.indexOf('site:') === 0) {
+				folderPathStr = folderPathStr.substring(5);
+				resourceType = 'site';
+				resourceLabel = 'Sites';
+			} else if (folderPathStr.indexOf('theme:') === 0) {
+				folderPathStr = folderPathStr.substring(6);
+				resourceType = 'theme';
+				resourceLabel = 'Themes';
+			} else {
+				folderPathStr = folderPathStr.substring(10);
+				resourceType = 'component';
+				resourceLabel = 'Components';
+			}
+			if (folderPathStr.indexOf('/') > 0) {
+				resourceName = folderPathStr.substring(0, folderPathStr.indexOf('/'));
+				folderPathStr = folderPathStr.substring(folderPathStr.indexOf('/') + 1);
+			} else {
+				resourceName = folderPathStr;
+				folderPathStr = '';
+			}
+		}
+		// console.log('argv.file=' + argv.file + ' folderPathStr=' + folderPathStr + ' resourceName=' + resourceName);
+
+		var folderPath = folderPathStr.split('/');
+		var folderId;
+
+		if (!fs.existsSync(documentsSrcDir)) {
+			fse.mkdirSync(documentsSrcDir);
+		}
+		var targetPath;
+		if (argv.folder) {
+			targetPath = argv.folder;
+			if (!path.isAbsolute(targetPath)) {
+				targetPath = path.join(projectDir, targetPath);
+			}
+			targetPath = path.resolve(targetPath);
+			if (!fs.existsSync(targetPath)) {
+				console.log('ERROR: folder ' + targetPath + ' does not exist');
+				done();
+				return;
+			}
+			if (!fs.statSync(targetPath).isDirectory()) {
+				console.log('ERROR: ' + targetPath + ' is not a folder');
+				done();
+				return;
+			}
 		}
 
 		var resourcePromises = [];
@@ -446,6 +444,8 @@ module.exports.downloadFile = function (argv, done) {
 			}
 		}
 
+		var startTime;
+		
 		Promise.all(resourcePromises).then(function (results) {
 				var rootParentId = 'self';
 				if (resourceFolder) {
@@ -485,6 +485,8 @@ module.exports.downloadFile = function (argv, done) {
 				}
 
 				// console.log('folderId: ' + folderId + ' fileName: ' + fileName + ' fileId: ' + result.id);
+				console.log(' - downloading file (id: ' + result.id + ' size: ' + result.size + ') ...');
+				startTime = new Date();
 				return _readFile(server, result.id, fileName, folderPath);
 			})
 			.then(function (result) {
@@ -513,7 +515,7 @@ module.exports.downloadFile = function (argv, done) {
 				var fileContent = result.data;
 				fs.writeFileSync(targetFile, fileContent);
 
-				console.log(' - save file ' + targetFile);
+				console.log(' - save file ' + targetFile + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 
 				done(true);
 			})
@@ -940,12 +942,19 @@ module.exports.downloadFolder = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
 
-	_downloadFolder(argv, server, true, true).then(function () {
-		done(true);
-	}).catch(function (error) {
-		done();
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		_downloadFolder(argv, server, true, true).then(function () {
+			done(true);
+		}).catch(function (error) {
+			done();
+		});
 	});
 };
 
@@ -1284,7 +1293,6 @@ module.exports.uploadFolder = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
 
 	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
 		if (!result.status) {

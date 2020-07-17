@@ -185,9 +185,11 @@ app.post('/*', function (req, res) {
 	if (action === 'CONTENTITEM_CREATED' ||
 		action === 'CONTENTITEM_UPDATED' ||
 		action === 'CONTENTITEM_DELETED' ||
+		action === 'CONTENTITEM_APPROVED' ||
 		action === 'DIGITALASSET_CREATED' ||
 		action === 'DIGITALASSET_UPDATED' ||
 		action === 'DIGITALASSET_DELETED' ||
+		action === 'DIGITALASSET_APPROVED' ||
 		action === 'CHANNEL_ASSETPUBLISHED' ||
 		action === 'CHANNEL_ASSETUNPUBLISHED' ||
 		action === 'SITE_STATUSUPDATED' ||
@@ -212,6 +214,7 @@ app.post('/*', function (req, res) {
 
 	} else {
 		console.log('ERROR: action ' + action + ' not supported yet');
+		// console.log(req.body);
 	}
 });
 
@@ -348,13 +351,15 @@ var _processEvent = function () {
 		var objectName = event.entity.name;
 		console.log('*** action: ' + action + ' Id: ' + objectId);
 
+		var args;
+
 		if (action === 'CONTENTITEM_CREATED' ||
 			action === 'CONTENTITEM_UPDATED' ||
 			action === 'DIGITALASSET_CREATED' ||
 			action == 'DIGITALASSET_UPDATED') {
 
 			var repositoryId = event.entity.repositoryId;
-			var args = {
+			args = {
 				projectDir: projectDir,
 				server: srcServer,
 				destination: destServer,
@@ -370,7 +375,7 @@ var _processEvent = function () {
 
 		} else if (action === 'CONTENTITEM_DELETED' || action === 'DIGITALASSET_DELETED') {
 
-			var args = {
+			args = {
 				projectDir: projectDir,
 				server: srcServer,
 				destination: destServer,
@@ -382,6 +387,22 @@ var _processEvent = function () {
 			contentLib.syncDeleteItem(args, function (success, retry) {
 				console.log('*** action finished');
 				_updateEvent(event.__id, success, retry);
+			});
+
+		} else if (action === 'CONTENTITEM_APPROVED' || action === 'DIGITALASSET_APPROVED') {
+
+			args = {
+				projectDir: projectDir,
+				server: srcServer,
+				destination: destServer,
+				action: action,
+				id: objectId,
+				name: objectName
+			};
+
+			contentLib.syncApproveItem(args, function (success) {
+				console.log('*** action finished');
+				_updateEvent(event.__id, success);
 			});
 
 		} else if (action === 'CHANNEL_ASSETPUBLISHED' || action === 'CHANNEL_ASSETUNPUBLISHED') {
