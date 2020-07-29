@@ -22,7 +22,7 @@ https://docs.oracle.com/en/cloud/paas/content-cloud/developer/develop-oracle-con
 * Install the dependencies
 
 ```
-cd  <download-path>/content-and-experience-toolkit/sites
+cd  <download-path>/content-and-experience-toolkit-master/sites
 npm install
 ```
 
@@ -31,12 +31,12 @@ npm install
 > **Mac**:
 
 ```
-sudo ln -s $PWD/content-and-experience-toolkit/sites/node_modules/.bin/cec /usr/local/bin/cec
+sudo ln -s $PWD/node_modules/.bin/cec /usr/local/bin/cec
 ```
 
 > **Windows**:
 
-Run `SystemPropertiesAdvanced.exe`, edit Environment Variables and add `<your download path>\content-and-experience-toolkit\sites\node_modules\.bin` to the `PATH` variable, replacing `<your download path>` as appropriate.
+Run `SystemPropertiesAdvanced.exe`, edit Environment Variables and add `<your download path>\content-and-experience-toolkit-master\sites\node_modules\.bin` to the `PATH` variable, replacing `<your download path>` as appropriate.
 
 * Run the command line utility `cec` to get help about the commands.
  
