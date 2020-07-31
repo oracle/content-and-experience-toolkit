@@ -13,12 +13,12 @@ var path = require('path'),
 	gulp = require('gulp'),
 	extract = require('extract-zip'),
 	fs = require('fs'),
-	fse = require('fs-extra'),
 	os = require('os'),
 	childProcess = require('child_process'),
 	sprintf = require('sprintf-js').sprintf,
 	zip = require('gulp-zip'),
 	serverRest = require('../test/server/serverRest.js'),
+	fileUtils = require('../test/server/fileUtils.js'),
 	serverUtils = require('../test/server/serverUtils.js');
 
 
@@ -1364,10 +1364,8 @@ var _validateTranslationJobZip = function (file) {
 			name = name.substring(0, name.indexOf('.'));
 		}
 		var tempDir = path.join(transBuildDir, name);
-		if (fs.existsSync(tempDir)) {
-			// remove the folder
-			fse.removeSync(tempDir);
-		}
+		// remove the folder
+		fileUtils.remove(tempDir);
 
 		extract(file, {
 			dir: tempDir

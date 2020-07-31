@@ -9,6 +9,7 @@
  * Site library
  */
 var serverUtils = require('../test/server/serverUtils.js'),
+	fileUtils = require('../test/server/fileUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	documentUtils = require('./document.js').utils,
@@ -303,9 +304,8 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 
 					// unzip to src/content
 					var contentPath = path.join(contentSrcDir, (name || channelName));
-					if (fs.existsSync(contentPath)) {
-						fse.removeSync(contentPath);
-					}
+					fileUtils.remove(contentPath);
+
 					fs.mkdirSync(contentPath);
 
 					extract(exportfilepath, {
@@ -656,6 +656,7 @@ var _uploadContentFromZipFile = function (args) {
 		collectionName = args.collectionName,
 		collectionId = args.collectionId,
 		updateContent = args.updateContent,
+		typesOnly = args.typesOnly,
 		errorMessage;
 
 	var request = serverUtils.getRequest();
@@ -697,7 +698,7 @@ var _uploadContentFromZipFile = function (args) {
 				var token = result && result.token;
 				console.log(' - get CSRF token');
 
-				var importPromise = _importContent(request, server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent);
+				var importPromise = _importContent(request, server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent, typesOnly);
 				var importSuccess = false;
 				importPromise.then(function (result) {
 					if (!result.err) {
@@ -809,6 +810,7 @@ module.exports.uploadContent = function (argv, done) {
 	var channelName = argv.channel || (isFile ? fileChannelName : name);
 	var collectionName = argv.collection;
 	var updateContent = typeof argv.update === 'string' && argv.update.toLowerCase() === 'true';
+	var typesOnly = typeof argv.types === 'string' && argv.types.toLowerCase() === 'true';
 
 	var createZip = isFile ? false : true;
 
@@ -818,7 +820,7 @@ module.exports.uploadContent = function (argv, done) {
 			done();
 			return;
 		}
-		_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip)
+		_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly)
 			.then(function (result) {
 				if (result && result.err) {
 					done();
@@ -829,7 +831,7 @@ module.exports.uploadContent = function (argv, done) {
 	});
 };
 
-var _uploadContent = function (server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip) {
+var _uploadContent = function (server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly) {
 	return new Promise(function (resolve, reject) {
 		var request = serverUtils.getRequest();
 
@@ -978,7 +980,8 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 					channelId: channelId,
 					collectionName: collectionName,
 					collectionId: collectionId,
-					updateContent: updateContent
+					updateContent: updateContent,
+					typesOnly: typesOnly
 				};
 				var uploadPromize = createZip ? _uploadContentFromZip(args) : _uploadContentFromZipFile(args);
 
@@ -1001,7 +1004,7 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 	});
 };
 
-var _importContent = function (request, server, csrfToken, contentZipFileId, repositoryId, channelId, collectionId, updateContent) {
+var _importContent = function (request, server, csrfToken, contentZipFileId, repositoryId, channelId, collectionId, updateContent, typesOnly) {
 	var importPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/content-templates/importjobs';
 
@@ -1020,6 +1023,10 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 
 		if (collectionId) {
 			postData.collections = [collectionId];
+		}
+
+		if (typesOnly) {
+			url = url + '?import=types';
 		}
 
 		var options = {
@@ -1072,7 +1079,7 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 							process.stdout.write(os.EOL);
 							return resolve({});
 						} else if (!status || status === 'FAILED') {
-							// console.log(data);
+							console.log(data);
 							clearInterval(inter);
 							process.stdout.write(os.EOL);
 							console.log('ERROR: import failed: ' + data.errorDescription);
@@ -2097,9 +2104,8 @@ module.exports.migrateContent = function (argv, done) {
 
 				exportFileName = collectionId + '_export.zip';
 				exportFilePath = path.join(buildfolder, exportFileName);
-				if (fs.existsSync(exportFilePath)) {
-					fse.removeSync(exportFilePath);
-				}
+				fileUtils.remove(exportFilePath);
+				
 				return _exportContentIC(request, server, collectionId, exportFilePath);
 			})
 			.then(function (result) {

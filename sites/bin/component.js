@@ -6,6 +6,7 @@
 /* jshint esversion: 6 */
 
 var serverUtils = require('../test/server/serverUtils.js'),
+	fileUtils = require('../test/server/fileUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	extract = require('extract-zip'),
@@ -149,7 +150,7 @@ var _createComponent = function (componentZipName, compName, done) {
 			// Fix the component id
 			var filepath = path.join(componentDir, 'appinfo.json');
 			if (fs.existsSync(filepath)) {
-				var appinfostr = fse.readFileSync(filepath),
+				var appinfostr = fs.readFileSync(filepath),
 					appinfojson = JSON.parse(appinfostr),
 					oldId = appinfojson.id,
 					newId = compName;
@@ -167,7 +168,7 @@ var _createComponent = function (componentZipName, compName, done) {
 			// Fix the component itemGUID
 			filepath = path.join(componentDir, '/_folder.json');
 			if (fs.existsSync(filepath)) {
-				var folderstr = fse.readFileSync(filepath),
+				var folderstr = fs.readFileSync(filepath),
 					folderjson = JSON.parse(folderstr),
 					oldGUID = folderjson.itemGUID,
 					newGUID = serverUtils.createGUID();
@@ -261,10 +262,8 @@ var _argv_component;
 gulp.task('dist', function (done) {
 	'use strict';
 
-	if (fs.existsSync(buildDir)) {
-		// console.log(' - clean up folder ' + buildDir);
-		fse.removeSync(buildDir);
-	}
+	// console.log(' - clean up folder ' + buildDir);
+	fileUtils.remove(buildDir);
 
 	if (_argv_component) {
 
@@ -657,9 +656,7 @@ var unzipComponent = function (compName, compPath) {
 	return new Promise(function (resolve, reject) {
 		// create dir in src
 		var compSrcDir = path.join(componentsSrcDir, compName);
-		if (fs.existsSync(compSrcDir)) {
-			fse.removeSync(compSrcDir);
-		}
+		fileUtils.remove(compSrcDir);
 
 		// unzip /src/main/components/<comp name>/
 		extract(compPath, {

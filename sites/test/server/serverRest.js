@@ -310,7 +310,7 @@ module.exports.findFile = function (args) {
 //
 
 // Create file on server
-var _createFile = function (server, parentID, filename, contents) {
+var _createFile = function (server, parentID, filename, contents, filepath) {
 	return new Promise(function (resolve, reject) {
 		var options = {
 			method: 'POST',
@@ -332,6 +332,7 @@ var _createFile = function (server, parentID, filename, contents) {
 			}
 		};
 
+		// console.log(' - uploading file ...');
 		request(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to create file ' + filename);
@@ -348,6 +349,9 @@ var _createFile = function (server, parentID, filename, contents) {
 			}
 			// console.log(data);
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				if (data && filepath) {
+					data.filepath = filepath;
+				}
 				resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response ? (response.statusMessage || response.statusCode) : '');
@@ -369,7 +373,7 @@ var _createFile = function (server, parentID, filename, contents) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createFile = function (args) {
-	return _createFile(args.server, args.parentID, args.filename, args.contents);
+	return _createFile(args.server, args.parentID, args.filename, args.contents, args.filepath);
 };
 
 

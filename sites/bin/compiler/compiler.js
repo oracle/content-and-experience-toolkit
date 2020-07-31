@@ -61,7 +61,8 @@ var siteFolder, // Z:/sitespublish/SiteC/
 	useDefaultDetailPageLink, // whether to compile a detail page using the default detail page if no detail page specified
 	detailPageContentLayoutSnippet, // whether to only output the content layout snippet for compiled detail page (used for Eloqua integration)
 	targetDevice = '', // 'mobile' or 'desktop' (no value implies compile for both if RegEx is specified)
-	mobilePages = false; // whether we are compiling mobile pages
+	mobilePages = false, // whether we are compiling mobile pages
+	folderProperties; // _folder.json values
 
 
 // Global Variables
@@ -168,6 +169,27 @@ function readRootStructure() {
 		})) || {};
 	}
 	rootStructure = structureObject.base || structureObject;
+}
+
+// Read the _folder.json
+function getFolderProperties() {
+	if (folderProperties) {
+		return folderProperties;
+	} else {
+		try {
+			var filePath = path.join(siteFolder, "_folder.json");
+			var _folderJSON = fs.readFileSync(filePath, {
+				encoding: 'utf8'
+			});
+			folderProperties = JSON.parse(_folderJSON) || {};
+		} catch (e) {
+			compilationReporter.warn({
+				message: 'Unable to read the _folder.json file',
+				error: e
+			});
+		}
+		return folderProperties || {};
+	}
 }
 
 // Read the structure.json
@@ -982,7 +1004,7 @@ var compiler = {
 					self.siteInfo && self.siteInfo.properties &&
 					(typeof self.siteInfo.properties === 'object')) {
 					var properties = self.siteInfo.properties['customProperties'];
-					if( properties && (typeof properties === 'object') &&
+					if (properties && (typeof properties === 'object') &&
 						Object.prototype.hasOwnProperty.call(properties, propertyName)) {
 						properties = JSON.parse(JSON.stringify(properties));
 						value = properties[propertyName];
@@ -1873,7 +1895,7 @@ function getStyleMarkup(id, selector, context, sitePrefix, stylesArray) {
 
 						// Encode any url() values in the CSS.  URLs produced by Site Builder are
 						// of the form url("[!--$SCS_CONTENT_URL--]/...") and need to be escaped.
-						value = value.replace(/url\(\s*"\[!--\$SCS_CONTENT_URL--\]\/([^"]+)"\s*\)/g, function(match, fileName) {
+						value = value.replace(/url\(\s*"\[!--\$SCS_CONTENT_URL--\]\/([^"]+)"\s*\)/g, function (match, fileName) {
 							var replacement = 'url("[!--$SCS_CONTENT_URL--]/' + encodeURIComponent(fileName) + '")';
 							return replacement;
 						});
@@ -2346,7 +2368,7 @@ function setupContext(language) {
 	var locale = language || defaultLocale;
 	var localeAliases = context.siteInfo && context.siteInfo.properties && context.siteInfo.properties.localeAliases;
 	if (locale && localeAliases) {
-		for(var alias in localeAliases) {
+		for (var alias in localeAliases) {
 			if (locale === localeAliases[alias]) {
 				context.localeAlias = alias;
 				break;
@@ -2378,9 +2400,11 @@ var compilePages = function (compileTargetDevice) {
 	if (!targetDevice) {
 		// no device type specified, if trying to compile mobile, check against RegEx
 		if (compileTargetDevice === 'mobile') {
-			// ToDo: Check that RegEx exists
+			// see if there is a RegEx in the site properties
 			// if no RegEx, mobile compilation is not required
-			return Promise.resolve();
+			if (!getFolderProperties().mobileUserAgents) {
+				return Promise.resolve();
+			}
 		}
 	} else if (targetDevice !== compileTargetDevice) {
 		// compiled device type not required
@@ -2444,7 +2468,7 @@ var compilePages = function (compileTargetDevice) {
 			return createDetailPages().then(function () {
 				console.log('All detail page creation calls complete.');
 			});
-		} 
+		}
 	}).catch(function (e) {
 		if (e) {
 			console.log(e);
@@ -2516,7 +2540,7 @@ var compileSite = function (args) {
 	}
 
 	// compile pages for desktop 
-	return compilePages('desktop').then(function() {
+	return compilePages('desktop').then(function () {
 		console.log('');
 
 		// note that we're now compiling for mobile

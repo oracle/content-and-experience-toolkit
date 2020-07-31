@@ -128,6 +128,7 @@ SampleFilePersistenceStore.prototype.createJob = function (args) {
 			var name = args.name,
 				siteName = args.siteName,
 				publishUsedContentOnly = args.publishUsedContentOnly,
+				doForceActivate = args.doForceActivate,
 				serverEndpoint = args.serverEndpoint,
 				serverUser = args.serverUser || '', // Optional
 				serverPass = args.serverPass || '', // Optional
@@ -150,6 +151,7 @@ SampleFilePersistenceStore.prototype.createJob = function (args) {
 					name: name,
 					siteName: siteName,
 					publishUsedContentOnly: publishUsedContentOnly,
+					doForceActivate: doForceActivate,
 					serverEndpoint: serverEndpoint,
 					serverUser: serverUser,
 					serverPass: serverPass,

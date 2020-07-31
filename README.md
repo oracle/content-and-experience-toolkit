@@ -14,6 +14,24 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+
+# New in Release 20.3.2
+
+**Added**
+
+- `cec download-folder` - Will now retry the download for any files that failed.
+
+- `cec upload-folder` - Will now retry the upload for any files that failed.
+
+- `cec upload-template` - Added option to also publish theme and components.
+
+- `cec control-site` - Added option to do a full publish.
+
+**Fixed**
+
+- `cec upload-folder` - Now supports running on different drive names on windows.
+
+
 # New in Release 20.3.1a
 
 **Added**

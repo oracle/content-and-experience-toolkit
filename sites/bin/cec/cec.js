@@ -19,7 +19,12 @@ const sprintf = require('sprintf-js').sprintf;
  * Current directory check
  **************************/
 
-const cwd = path.resolve('./');
+var cwd = path.resolve('./');
+const _isWindows = /^win/.test(process.platform) ? true : false;
+if (_isWindows && cwd.endsWith(':\\')) {
+	cwd = cwd.substring(0, cwd.length - 1);
+}
+
 // console.log("Current working directory is: " + cwd);
 
 var _getProjectRoot = function () {
@@ -506,6 +511,7 @@ const uploadTemplate = {
 		'short': 'Uploads the template <name> to the CEC server.',
 		'long': (function () {
 			let desc = 'Uploads the template <name> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
+			desc = desc + ' Optionally specify -p to publish theme and components after import.';
 			return desc;
 		})()
 	},
@@ -513,6 +519,7 @@ const uploadTemplate = {
 		['cec upload-template StarterTemplate', 'Uploads the template StarterTemplate.'],
 		['cec upload-template StarterTemplate -s UAT', 'Uploads the template StarterTemplate to the registered server UAT.'],
 		['cec upload-template StarterTemplate -f Import/Templates', 'Uploads file StarterTemplate.zip to folder Import/Templates and imports the template StarterTemplate.'],
+		['cec upload-template StarterTemplate -p', 'Publish the theme and all components in StarterTemplate.zip after import'],
 		['cec upload-template StarterTemplate -o', 'Optimizes and uploads the template StarterTemplate.'],
 		['cec upload-template StarterTemplate -x', 'Exclude the "Content Template" from the template upload. "Content Template" upload can be managed independently.']
 	]
@@ -621,7 +628,8 @@ const compileTemplate = {
 				'Optionally specify -r <recurse> recurse through all child pages of specified pages.\n' +
 				'Optionally specify -l <includeLocale> include default locale when creating pages.\n' +
 				'Optionally specify -a <targetDevice> [desktop | mobile] target device type when using adaptive layouts.\n' +
-				'Optionally specify -v <verbose> to display all warning messages during compilation.\n';
+				'Optionally specify -v <verbose> to display all warning messages during compilation.\n' +
+				'Optionally specify -i <ignoreErrors> ignore compilation errors when calculating the exit code for the process.\n';
 			return desc;
 		})()
 	},
@@ -823,6 +831,7 @@ const uploadContent = {
 		['cec upload-content Site1Channel -r Repo1', 'Upload content to repository Repo1, creating new items, and add to channel Site1Channel'],
 		['cec upload-content Site1Channel -r Repo1 -u', 'Upload content to repository Repo1, updating existing content to create new versions, and add to channel Site1Channel'],
 		['cec upload-content Site1Channel -r Repo1 -l Site1Collection', 'Upload content to repository Repo1 and add to collection Site1Collection and channel Site1Channel'],
+		['cec upload-content Site1Channel -r Repo1 -p', 'Upload content types from content SiteChannel to the server'],
 		['cec upload-content Site1Channel -r Repo1 -s UAT', 'Upload content to repository Repo1 on server UAT and add to channel Site1Channel'],
 		['cec upload-content Template1 -t -r Repo1 -c channel1', 'Upload content from template Template1 to repository Repo1 and add to channel channel1'],
 		['cec upload-content ~/Downloads/content.zip -f -r Repo1 -c channel1', 'Upload content from file ~/Downloads/content.zip to repository Repo1 and add to channel channel1']
@@ -1075,6 +1084,7 @@ const controlSite = {
 		['cec control-site publish -s Site1 -u ', "Publish the site and all assets added to the site's pages"],
 		['cec control-site publish -s Site1 -c ', 'Compile and publish site Site1'],
 		['cec control-site publish -s Site1 -t ', 'Only publish the static files of site Site1'],
+		['cec control-site publish -s Site1 -f ', 'Do a full publish of Site1'],
 		['cec control-site publish -s Site1 -r UAT', 'Publish site Site1 on the registered server UAT'],
 		['cec control-site unpublish -s Site1 -r UAT', 'Unpublish site Site1 on the registered server UAT'],
 		['cec control-site bring-online -s Site1 -r UAT', 'Bring site Site1 online on the registered server UAT'],
@@ -2800,6 +2810,10 @@ const argv = yargs.usage(_usage)
 					alias: 'v',
 					description: 'Run in verbose mode to display all warning messages during compilation.'
 				})
+				.option('ignoreErrors', {
+					alias: 'i',
+					description: 'Ignore compilation errors when calculating the exit code for the process.'
+				})
 				.check((argv) => {
 					if (argv.type && argv.type !== 'draft' && argv.type !== 'published') {
 						throw new Error(`${argv.type} is not a valid value for <type>`);
@@ -2887,11 +2901,16 @@ const argv = yargs.usage(_usage)
 					alias: 'x',
 					description: 'Exclude content template'
 				})
+				.option('publish', {
+					alias: 'p',
+					description: 'Publish theme and components'
+				})
 				.example(...uploadTemplate.example[0])
 				.example(...uploadTemplate.example[1])
 				.example(...uploadTemplate.example[2])
 				.example(...uploadTemplate.example[3])
 				.example(...uploadTemplate.example[4])
+				.example(...uploadTemplate.example[5])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3197,6 +3216,10 @@ const argv = yargs.usage(_usage)
 					alias: 'u',
 					description: 'Update any existing content instead of creating new items'
 				})
+				.option('types', {
+					alias: 'p',
+					description: 'Upload content types and taxonomies only'
+				})
 				.check((argv) => {
 					if (argv.template && !argv.channel) {
 						throw new Error('Please specify channel to add template content');
@@ -3210,6 +3233,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadContent.example[3])
 				.example(...uploadContent.example[4])
 				.example(...uploadContent.example[5])
+				.example(...uploadContent.example[6])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3727,6 +3751,10 @@ const argv = yargs.usage(_usage)
 					alias: 't',
 					description: 'Only publish site static files'
 				})
+				.option('fullpublish', {
+					alias: 'f',
+					description: 'Do a full publish'
+				})
 				.option('server', {
 					alias: 'r',
 					description: '<server> The registered CEC server'
@@ -3739,6 +3767,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlSite.example[5])
 				.example(...controlSite.example[6])
 				.example(...controlSite.example[7])
+				.example(...controlSite.example[8])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -5386,6 +5415,10 @@ const argv = yargs.usage(_usage)
 					alias: 'c',
 					description: 'The certificate file for HTTPS'
 				})
+				.option('onceonly', {
+					alias: 'o',
+					description: 'Exit after a single compilation run'
+				})
 				.example(...compilationServer.example[0])
 				.example(...compilationServer.example[1])
 				.example(...compilationServer.example[2])
@@ -5750,6 +5783,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.excludecontenttemplate) {
 		uploadTemplateArgs.push(...['--excludecontenttemplate', argv.excludecontenttemplate]);
 	}
+	if (argv.publish) {
+		uploadTemplateArgs.push(...['--publish', argv.publish]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, uploadTemplateArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -5830,6 +5866,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.targetDevice) {
 		compileTemplateArgs.push(...['--targetDevice', argv.targetDevice]);
+	}
+	if (argv.ignoreErrors) {
+		compileTemplateArgs.push(...['--ignoreErrors', argv.targetDevice]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, compileTemplateArgs, {
 		cwd,
@@ -6069,6 +6108,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.update) {
 		uploadContentArgs.push(...['--update', argv.update]);
+	}
+	if (argv.types) {
+		uploadContentArgs.push(...['--types', argv.types]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, uploadContentArgs, {
 		cwd,
@@ -6458,6 +6500,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.staticonly) {
 		controlSiteArgs.push(...['--staticonly', argv.staticonly]);
+	}
+	if (argv.fullpublish) {
+		controlSiteArgs.push(...['--fullpublish', argv.fullpublish]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlSiteArgs.push(...['--server', argv.server]);
@@ -7471,6 +7516,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.certificate && typeof argv.certificate !== 'boolean') {
 		compilationServerArgs.push(...['--certificate', argv.certificate]);
+	}
+	if (argv.onceonly) {
+		compilationServerArgs.push(...['--onceonly', argv.onceonly]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, compilationServerArgs, {
 		cwd,

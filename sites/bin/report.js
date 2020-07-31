@@ -6,10 +6,10 @@
 /* jshint esversion: 6 */
 
 var serverUtils = require('../test/server/serverUtils.js'),
+	fileUtils = require('../test/server/fileUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	fs = require('fs'),
-	fse = require('fs-extra'),
 	he = require('he'),
 	htmllint = require('htmllint'),
 	path = require('path'),
@@ -2879,7 +2879,7 @@ module.exports.cleanupTemplate = function (argv, done) {
 		if (!fs.existsSync(filePath)) {
 			console.log('ERROR: file ' + filePath + ' does not exist');
 		} else {
-			fse.removeSync(filePath);
+			fileUtils.remove(filePath);
 			deleted += 1;
 		}
 	});
@@ -2891,7 +2891,7 @@ module.exports.cleanupTemplate = function (argv, done) {
 		if (!fs.existsSync(filePath)) {
 			console.log('ERROR: file ' + filePath + ' does not exist');
 		} else {
-			fse.removeSync(filePath);
+			fileUtils.remove(filePath);
 			deleted += 1;
 		}
 	});

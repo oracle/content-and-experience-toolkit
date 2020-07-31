@@ -9,10 +9,10 @@
  * Site library
  */
 var serverUtils = require('../test/server/serverUtils.js'),
+	fileUtils = require('../test/server/fileUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	extract = require('extract-zip'),
 	fs = require('fs'),
-	fse = require('fs-extra'),
 	gulp = require('gulp'),
 	os = require('os'),
 	path = require('path'),
@@ -218,8 +218,8 @@ module.exports.downloadRecommendation = function (argv, done) {
 					return Promise.reject();
 				}
 
-				console.log(' - submit export job');
 				var jobId = result.jobId;
+				console.log(' - submit export job (' + jobId + ')');
 				// Wait for job to finish
 				var inter = setInterval(function () {
 					var checkExportStatusPromise = serverRest.getContentJobStatus({
@@ -272,9 +272,8 @@ module.exports.downloadRecommendation = function (argv, done) {
 
 											// unzip to src/recommendations
 											var recoPath = path.join(recommendationSrcDir, name);
-											if (fs.existsSync(recoPath)) {
-												fse.removeSync(recoPath);
-											}
+											fileUtils.remove(recoPath);
+
 											fs.mkdirSync(recoPath);
 
 											extract(exportfilepath, {

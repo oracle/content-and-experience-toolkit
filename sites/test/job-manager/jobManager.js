@@ -24,6 +24,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
         jobId = jobConfig.id,
         siteName = jobConfig.siteName,
         publishUsedContentOnly = jobConfig.publishUsedContentOnly,
+        doForceActivate = jobConfig.doForceActivate,
         serverName = 'serverForCompilation',
         serverEndpoint = jobConfig.serverEndpoint,
         serverUser = jobConfig.serverUser,
@@ -62,7 +63,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
     var cecDefaults = {
             cwd: projectDir,
-            env: processEnv
+            env: processEnv,
+            maxBuffer: 1024 * 1024 * 10
         },
         cecDefaultsForCompileStep = Object.assign({}, cecDefaults);
 
@@ -76,7 +78,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
         var logPublishSiteStdout = function (data) {
                 var out = `${data}`,
-                    found = out.trim().match(/publish BACKGROUND_JOB_ID (?<id>.*)$/);
+                    found = out.trim().match(/publish \(JobID\: (?<id>.*)\)$/);
 
                 if (found && found.groups && found.groups.id) {
                     jobConfig.publishSiteBackgroundJobId = found.groups.id;
@@ -86,7 +88,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
             },
             logPublishStaticStdout = function (data) {
                 var out = `${data}`,
-                    found = out.trim().match(/publish BACKGROUND_JOB_ID (?<id>.*)$/);
+                    found = out.trim().match(/publish \(JobID\: (?<id>.*)\)$/);
 
                 if (found && found.groups && found.groups.id) {
                     jobConfig.publishStaticBackgroundJobId = found.groups.id;
@@ -114,7 +116,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
             };
         logCommand = function (commandArgs) {
                 var line = '================================================================================';
-                var message = 'Execute: ' + cecCmd;
+                var message = '[' + new Date().toLocaleString() + '] Execute: ' + cecCmd;
                 commandArgs.forEach(function (a) {
                     message += ' ' + a;
                 });
@@ -270,8 +272,11 @@ JobManager.prototype.compileSite = function (jobConfig) {
                             '-s',
                             siteName
                         ];
-                        if (publishUsedContentOnly === 1) {
+                        if (publishUsedContentOnly === '1') {
                             publishSiteArgs.push('-u');
+                        }
+                        if (doForceActivate === '1') {
+                            publishSiteArgs.push('-f');
                         }
                         logCommand(publishSiteArgs);
                         var publishSiteCommand = exec(getExecCommand(cecCmd, publishSiteArgs), cecDefaults);
@@ -299,7 +304,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
                             serverName,
                             '-s',
                             siteName,
-                            templateName
+                            templateName,
+                            '-x'
                         ];
                         logCommand(createTemplateArgs);
                         var createTemplateCommand = exec(getExecCommand(cecCmd, createTemplateArgs), cecDefaults);
@@ -347,7 +353,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
                                 channelToken,
                                 '-t',
                                 'published',
-                                '-v'
+                                '-v',
+                                '-i'
                             ];
                         } else {
                             // standard site
@@ -609,7 +616,7 @@ JobManager.prototype.updateJob = function (jobConfig, data) {
 
     updates.map(function (key) {
         // List of properties that can be updated internally.
-        if (['name', 'siteName', 'serverEndpoint', 'publishUsedContentOnly', 'serverUser', 'serverPass', 'token', 'status', 'progress'].indexOf(key) !== -1) {
+        if (['name', 'siteName', 'serverEndpoint', 'publishUsedContentOnly', 'doForceActivate', 'serverUser', 'serverPass', 'token', 'status', 'progress'].indexOf(key) !== -1) {
             newProps[key] = data[key];
         }
     });

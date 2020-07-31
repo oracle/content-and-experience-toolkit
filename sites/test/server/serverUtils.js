@@ -626,6 +626,29 @@ var _getTemplates = function () {
  * Get all custom components used by a template
  * @param templateName
  */
+module.exports.getTemplateTheme = function (projectDir, templateName) {
+	_setupSourceDir(projectDir);
+
+	var themeName;
+
+	var tempSrcDir = path.join(templatesDir, templateName);
+	var siteinfofile = path.join(tempSrcDir, 'siteinfo.json');
+
+	if (fs.existsSync(siteinfofile)) {
+		var siteinfostr = fs.readFileSync(siteinfofile),
+			siteinfojson = JSON.parse(siteinfostr);
+		if (siteinfojson && siteinfojson.properties) {
+			themeName = siteinfojson.properties.themeName;
+		}
+	}
+
+	return themeName;
+};
+
+/**
+ * Get all custom components used by a template
+ * @param templateName
+ */
 module.exports.getTemplateComponents = function (projectDir, templateName) {
 	_setupSourceDir(projectDir);
 
@@ -1079,6 +1102,9 @@ module.exports.getCaasCSRFToken = function (server) {
 };
 
 module.exports.getIdcToken = function (server) {
+	return _getIdcToken(server);
+};
+var _getIdcToken = function (server) {
 	var idcTokenPromise = new Promise(function (resolve, reject) {
 		var request = _getRequest();
 		var url = server.url + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
@@ -1095,27 +1121,35 @@ module.exports.getIdcToken = function (server) {
 		var total = 0;
 		var inter = setInterval(function () {
 			request(options, function (error, response, body) {
-				var data = JSON.parse(body);
-				dUser = data && data.LocalData && data.LocalData.dUser;
-				idcToken = data && data.LocalData && data.LocalData.idcToken;
-				if (dUser && dUser !== 'anonymous' && idcToken) {
-					// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
+				if (response.statusCode !== 200) {
 					clearInterval(inter);
-					console.log(' - establish user session');
-					resolve({
-						idcToken: idcToken
-					});
-				}
-				total += 1;
-				if (total >= 10) {
-					clearInterval(inter);
-					console.log('ERROR: disconnect from the server, try again');
-					resolve({
+					console.log(' - failed to connect: ' + (response.statusMessage || response.statusCode));
+					return resolve({
 						err: 'err'
 					});
+				} else {
+					var data = JSON.parse(body);
+					dUser = data && data.LocalData && data.LocalData.dUser;
+					idcToken = data && data.LocalData && data.LocalData.idcToken;
+					if (dUser && dUser !== 'anonymous' && idcToken) {
+						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
+						clearInterval(inter);
+						// console.log(' - establish user session');
+						resolve({
+							idcToken: idcToken
+						});
+					}
+					total += 1;
+					if (total >= 10) {
+						clearInterval(inter);
+						console.log('ERROR: disconnect from the server, try again');
+						resolve({
+							err: 'err'
+						});
+					}
 				}
 			});
-		}, 2000);
+		}, 3000);
 	});
 	return idcTokenPromise;
 };
@@ -2361,54 +2395,46 @@ var _loginToICServer = function (server) {
 };
 module.exports.loginToICServer = _loginToICServer;
 
-module.exports.loginToServer = function (server, request, restCall) {
-	return _loginToServer(server, request, restCall);
+module.exports.loginToServer = function (server, request) {
+	return _loginToServer(server, request);
 };
-var _loginToServer = function (server, request, restCall) {
+var _loginToServer = function (server, request) {
 	if (server.login) {
 		return Promise.resolve({
 			status: true
 		});
 	}
 	var env = server.env || 'pod_ec';
-	if (env === 'dev_ec' && server.useRest) {
-		return Promise.resolve({
-			status: true
-		});
-	} else if (env === 'pod_ec' && server.idcs_url && server.client_id && server.client_secret && server.scope) {
+
+	if (env === 'pod_ec' && server.idcs_url && server.client_id && server.client_secret && server.scope) {
+
 		return _getOAuthTokenFromIDCS(server);
-	} else if (env === 'pod_ec') {
-		if (server.oauthtoken) {
-			return Promise.resolve({
-				status: true
+
+	} else if (server.oauthtoken) {
+		// verify the token
+		return _getIdcToken(server)
+			.then(function (result) {
+				var idcToken = result && result.idcToken;
+				return Promise.resolve({
+					status: idcToken ? true : false
+				});
 			});
-		} else {
-			return _loginToPODServer(server);
-		}
+
 	} else if (env === 'dev_osso') {
-		if (server.oauthtoken) {
-			return Promise.resolve({
-				status: true
-			});
-		} else {
-			return _loginToSSOServer(server);
-		}
+
+		return _loginToSSOServer(server);
+
+	} else if (env === 'dev_ec') {
+
+		return _loginToDevServer(server, request);
+
+	} else if (env === 'pod_ic') {
+
+		return _loginToICServer(server);
+
 	} else {
-		if (restCall) {
-			return Promise.resolve({
-				status: true
-			});
-		} else {
-			var loginPromise;
-			if (env === 'dev_ec') {
-				loginPromise = _loginToDevServer(server, request);
-			} else if (env === 'pod_ic') {
-				loginPromise = _loginToICServer(server);
-			} else {
-				loginPromise = _loginToPODServer(server);
-			}
-			return loginPromise;
-		}
+		// default
+		return _loginToPODServer(server);
 	}
 };
 
@@ -3185,16 +3211,20 @@ module.exports.getRequest = function () {
 };
 var _getRequest = function () {
 	var request = require('request');
+
 	request = request.defaults({
 		headers: {
 			connection: 'keep-alive'
 		},
+		/*
 		pool: {
 			maxSockets: 50
 		},
+		*/
 		jar: true
 
 	});
+
 	return request;
 };
 

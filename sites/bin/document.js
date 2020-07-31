@@ -11,7 +11,6 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	os = require('os'),
 	readline = require('readline'),
 	fs = require('fs'),
-	fse = require('fs-extra'),
 	path = require('path'),
 	sprintf = require('sprintf-js').sprintf;
 
@@ -241,6 +240,8 @@ var _uploadFile = function (argv, server) {
 			}
 		}
 
+		var startTime;
+
 		return Promise.all(resourcePromises).then(function (results) {
 				var rootParentId = 'self';
 				if (resourceFolder) {
@@ -268,10 +269,13 @@ var _uploadFile = function (argv, server) {
 					return Promise.reject();
 				}
 
+				startTime = new Date();
+
 				return serverRest.createFile({
 					server: server,
 					parentID: result.id,
 					filename: fileName,
+					filepath: filePath,
 					contents: fs.createReadStream(filePath)
 				});
 			})
@@ -279,7 +283,8 @@ var _uploadFile = function (argv, server) {
 				if (result && !result.err) {
 					console.log(' - file ' + fileName + ' uploaded to ' +
 						(argv.folder ? ('folder ' + argv.folder) : 'Home folder') +
-						' (Id: ' + result.id + ' version:' + result.version + ')');
+						' (Id: ' + result.id + ' version:' + result.version + ' size: ' + result.size + ')' +
+						' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 					return Promise.resolve(true);
 				} else {
 					return Promise.reject();
@@ -403,7 +408,9 @@ module.exports.downloadFile = function (argv, done) {
 		var folderId;
 
 		if (!fs.existsSync(documentsSrcDir)) {
-			fse.mkdirSync(documentsSrcDir);
+			fs.mkdirSync(documentsSrcDir, {
+				recursive: true
+			});
 		}
 		var targetPath;
 		if (argv.folder) {
@@ -445,7 +452,7 @@ module.exports.downloadFile = function (argv, done) {
 		}
 
 		var startTime;
-		
+
 		Promise.all(resourcePromises).then(function (results) {
 				var rootParentId = 'self';
 				if (resourceFolder) {
@@ -500,13 +507,17 @@ module.exports.downloadFile = function (argv, done) {
 					if (resourceFolder) {
 						targetPath = path.join(documentsSrcDir, resourceName);
 						if (!fs.existsSync(targetPath)) {
-							fse.mkdirSync(targetPath);
+							fs.mkdirSync(targetPath, {
+								recursive: true
+							});
 						}
 					}
 					for (var i = 0; i < folderPath.length; i++) {
 						targetPath = path.join(targetPath, folderPath[i]);
 						if (!fs.existsSync(targetPath)) {
-							fse.mkdirSync(targetPath);
+							fs.mkdirSync(targetPath, {
+								recursive: true
+							});
 						}
 					}
 				}
@@ -1084,18 +1095,38 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 					return _readAllFiles(server, _files);
 				})
 				.then(function (results) {
+					// check if there is any failed file
+					var failedFiles = [];
+					_files.forEach(function (file) {
+						var downloaded = false;
+						for (var i = 0; i < results.length; i++) {
+							var downloadedFile = results[i];
+							if (downloadedFile && downloadedFile.id && downloadedFile.name && downloadedFile.data && downloadedFile.id === file.id) {
+								downloaded = true;
+								break;
+							}
+						}
+						if (!downloaded) {
+							failedFiles.push(file);
+						}
+					});
+
 					if (!argv.folder) {
 						targetPath = documentsSrcDir;
 						if (resourceFolder) {
 							targetPath = path.join(documentsSrcDir, resourceName);
 							if (!fs.existsSync(targetPath)) {
-								fse.mkdirSync(targetPath);
+								fs.mkdirSync(targetPath, {
+									recursive: true
+								});
 							}
 						}
 						for (var i = 0; i < folderPath.length; i++) {
 							targetPath = path.join(targetPath, folderPath[i]);
 							if (!fs.existsSync(targetPath)) {
-								fse.mkdirSync(targetPath);
+								fs.mkdirSync(targetPath, {
+									recursive: true
+								});
 							}
 						}
 					}
@@ -1115,7 +1146,9 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 							for (var j = 0; j < fileFolderPath.length; j++) {
 								var targetFile = path.join(targetFile, fileFolderPath[j]);
 								if (!fs.existsSync(targetFile)) {
-									fse.mkdirSync(targetFile);
+									fs.mkdirSync(targetFile, {
+										recursive: true
+									});
 								}
 							}
 							targetFile = path.join(targetFile, file.name);
@@ -1124,6 +1157,46 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 							if (showDetail) {
 								console.log(' - save file ' + targetFile);
 							}
+						}
+					}
+
+					var readFilesRetryPromises = [];
+					if (failedFiles.length > 0) {
+						// console.log(failedFiles);
+						console.log(' - try to download failed files again ...');
+						readFilesRetryPromises.push(_readAllFiles(server, failedFiles));
+					}
+
+					return Promise.all(readFilesRetryPromises);
+				})
+				.then(function (result) {
+					var results = result && result[0] || [];
+					for (var i = 0; i < results.length; i++) {
+						var file = results[i];
+						if (file && file.id && file.name && file.data) {
+							var folderPathStr = serverUtils.trimString(file.folderPath, '/');
+
+							// do not create folder hierarchy on the server when save to different local folder
+							if (inputPath && folderPathStr.startsWith(inputPath)) {
+								folderPathStr = folderPathStr.substring(inputPath.length);
+							}
+
+							var fileFolderPath = folderPathStr ? folderPathStr.split('/') : [];
+							var targetFile = targetPath;
+							for (var j = 0; j < fileFolderPath.length; j++) {
+								var targetFile = path.join(targetFile, fileFolderPath[j]);
+								if (!fs.existsSync(targetFile)) {
+									fs.mkdirSync(targetFile, {
+										recursive: true
+									});
+								}
+							}
+							targetFile = path.join(targetFile, file.name);
+
+							fs.writeFileSync(targetFile, file.data);
+
+							console.log(' - save file ' + targetFile);
+
 						}
 					}
 
@@ -1327,11 +1400,6 @@ var _uploadFolder = function (argv, server) {
 			return reject();
 		}
 
-		// remove drive on windows
-		if (srcPath.indexOf(path.sep) > 0) {
-			srcPath = srcPath.substring(srcPath.indexOf(path.sep));
-		}
-
 		var folderName = contentOnly ? '' : srcPath.substring(srcPath.lastIndexOf(path.sep) + 1);
 		// console.log(' - path=' + argv.path + ' srcPath=' + srcPath + ' contentOnly=' + contentOnly + ' folderName=' + folderName);
 
@@ -1371,6 +1439,8 @@ var _uploadFolder = function (argv, server) {
 		console.log(' - target folder: ' + (resourceFolder ? (resourceLabel + ' > ' + resourceName) : 'Documents') + ' > ' + folderPath.join(' > '));
 
 		var rootParentFolderLabel = resourceFolder ? resourceName : 'Home folder';
+
+		var rootParentId = 'self';
 
 		// get all files to upload
 		var folderContent = [];
@@ -1427,61 +1497,88 @@ var _uploadFolder = function (argv, server) {
 				// console.log(folderContent);
 
 				var request = serverUtils.getRequest();
-				var loginPromises = [];
 
+				var resourcePromises = [];
 				if (resourceFolder) {
-					loginPromises.push(serverUtils.loginToServer(server, request));
+					if (resourceType === 'site') {
+						resourcePromises.push(sitesRest.getSite({
+							server: server,
+							name: resourceName
+						}));
+					} else if (resourceType === 'theme') {
+						resourcePromises.push(server.useRest ? sitesRest.getTheme({
+							server: server,
+							name: resourceName
+						}) : _getThemeGUID(request, server, resourceName));
+					} else {
+						resourcePromises.push(server.useRest ? sitesRest.getComponent({
+							server: server,
+							name: resourceName
+						}) : _getComponentGUID(request, server, resourceName));
+					}
 				}
 
-				Promise.all(loginPromises).then(function (results) {
-					if (resourceFolder && (!results || results.length === 0 || !results[0].status)) {
-						console.log(' - failed to connect to the server');
-						return reject();
-					}
+				Promise.all(resourcePromises).then(function (results) {
 
-					var resourcePromises = [];
-					if (resourceFolder) {
-						if (resourceType === 'site') {
-							resourcePromises.push(sitesRest.getSite({
-								server: server,
-								name: resourceName
-							}));
-						} else if (resourceType === 'theme') {
-							resourcePromises.push(server.useRest ? sitesRest.getTheme({
-								server: server,
-								name: resourceName
-							}) : _getThemeGUID(request, server, resourceName));
-						} else {
-							resourcePromises.push(server.useRest ? sitesRest.getComponent({
-								server: server,
-								name: resourceName
-							}) : _getComponentGUID(request, server, resourceName));
-						}
-					}
-
-					Promise.all(resourcePromises).then(function (results) {
-							var rootParentId = 'self';
-							if (resourceFolder) {
-								var resourceGUID;
-								if (results.length > 0 && results[0]) {
-									resourceGUID = results[0].id;
-								}
-
-								if (!resourceGUID) {
-									console.log('ERROR: invalid ' + resourceType + ' ' + resourceName);
-									return Promise.reject();
-								}
-								rootParentId = resourceGUID;
+						if (resourceFolder) {
+							var resourceGUID;
+							if (results.length > 0 && results[0]) {
+								resourceGUID = results[0].id;
 							}
-							return _createFolderUploadFiles(server, rootParentId, folderPath, folderContent, rootParentFolderLabel);
-						})
-						.then(function (result) {
-							return resolve(true);
-						})
-						.catch((error) => {
-							return reject();
+
+							if (!resourceGUID) {
+								console.log('ERROR: invalid ' + resourceType + ' ' + resourceName);
+								return Promise.reject();
+							}
+							rootParentId = resourceGUID;
+						}
+
+						return _createFolderUploadFiles(server, rootParentId, folderPath, folderContent, rootParentFolderLabel);
+					})
+					.then(function (results) {
+						// console.log(results);
+						// check if there are failures
+						var failedFolderContent = [];
+						folderContent.forEach(function (folder) {
+							var files = folder.files;
+							var failedFiles = [];
+							for (var i = 0; i < files.length; i++) {
+								var found = false;
+								for (var j = 0; j < results.length; j++) {
+									if (files[i] === results[j]) {
+										found = true;
+										break;
+									}
+								}
+								if (!found) {
+									failedFiles.push(files[i]);
+								}
+							}
+							if (failedFiles.length > 0) {
+								failedFolderContent.push({
+									fileFolder: folder.fileFolder,
+									files: failedFiles
+								});
+							}
 						});
-				}); // login
+						if (failedFolderContent.length > 0) {
+							console.log(' - try to upload failed files again ...');
+							// console.log(failedFolderContent);
+							_createFolderUploadFiles(server, rootParentId, folderPath, failedFolderContent, rootParentFolderLabel).then(function (result) {
+								return resolve(true);
+							});
+
+						} else {
+							// no failure
+							return resolve(true);
+						}
+					})
+					.catch((error) => {
+						if (error) {
+							console.log(error);
+						}
+						return reject();
+					});
 			}
 		});
 	});
@@ -1490,6 +1587,7 @@ var _uploadFolder = function (argv, server) {
 var _createFolderUploadFiles = function (server, rootParentId, folderPath, folderContent, rootParentFolderLabel) {
 	return new Promise(function (resolve, reject) {
 		format = '   %-8s  %-s';
+		var uploadedFiles = [];
 		var doCreateFolders = folderContent.reduce(function (createPromise, param) {
 				return createPromise.then(function (result) {
 					var folders = folderPath;
@@ -1504,30 +1602,10 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 							folders2.pop();
 							var folderStr = rootParentFolderLabel + '/' + (folders2.length > 0 ? folders2.join('/') : '');
 							console.log(sprintf(format, 'Folder', folderStr + (folderStr.endsWith('/') ? '' : '/') + parentFolder.name));
-							/*
-							var filePromises = [];
-							for (var i = 0; i < param.files.length; i++) {
-								var filePath = param.files[i];
-								var fileName = filePath.substring(filePath.lastIndexOf(path.sep) + 1);
-								filePromises.push(serverRest.createFile({
-									server: server,
-									parentID: parentFolder.id,
-									filename: fileName,
-									contents: fs.createReadStream(filePath)
-								}));
-							}
 
-							return Promise.all(filePromises).then(function (results) {
-								var folderStr = rootParentFolderLabel + '/' + (folders.length > 0 ? folders.join('/') : '');
-								for (var i = 0; i < results.length; i++) {
-									var file = results[i];
-									if (file && !file.err) {
-										console.log(sprintf(format, 'File', folderStr + '/' + file.name + ' (Version: ' + file.version + ')'));
-									}
-								}
+							return _createAllFiles(server, rootParentFolderLabel, folders, parentFolder, param.files).then(function (files) {
+								uploadedFiles = uploadedFiles.concat(files);
 							});
-							*/
-							return _createAllFiles(server, rootParentFolderLabel, folders, parentFolder, param.files);
 						}
 					});
 				});
@@ -1537,7 +1615,7 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 		console.log(' - folder uploaded:');
 		console.log(sprintf(format, 'Type', 'Path'));
 		doCreateFolders.then(function (result) {
-			resolve();
+			resolve(uploadedFiles);
 		});
 	});
 };
@@ -1547,7 +1625,7 @@ var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFo
 		var total = files.length;
 		// console.log(' - total number of files to create: ' + total);
 		var groups = [];
-		var limit = 16;
+		var limit = 10;
 		var start, end;
 		for (var i = 0; i < total / limit; i++) {
 			start = i * limit;
@@ -1568,6 +1646,7 @@ var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFo
 		}
 		// console.log(' - total number of groups: ' + groups.length);
 
+		var uploadedFiles = [];
 		var doWriteFile = groups.reduce(function (filePromise, param) {
 				return filePromise.then(function (result) {
 					var filePromises = [];
@@ -1579,6 +1658,7 @@ var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFo
 							server: server,
 							parentID: parentFolder.id,
 							filename: fileName,
+							filepath: filePath,
 							contents: fs.createReadStream(filePath)
 						}));
 					}
@@ -1590,8 +1670,10 @@ var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFo
 							var file = results[i];
 							if (file && !file.err) {
 								console.log(sprintf(format, 'File', folderStr + '/' + file.name + ' (Version: ' + file.version + ')'));
+								uploadedFiles.push(file.filepath);
 							}
 						}
+
 					});
 
 				});
@@ -1601,7 +1683,7 @@ var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFo
 
 		doWriteFile.then(function (result) {
 
-			resolve({});
+			resolve(uploadedFiles);
 		});
 
 	});

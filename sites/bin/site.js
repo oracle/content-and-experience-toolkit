@@ -17,6 +17,7 @@ var fs = require('fs'),
 	siteUpdateLib = require('./siteUpdate.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
+	fileUtils = require('../test/server/fileUtils.js'),
 	serverUtils = require('../test/server/serverUtils.js');
 
 var projectDir,
@@ -1446,9 +1447,8 @@ module.exports.transferSite = function (argv, done) {
 										} else {
 											staticFileFolder = path.join(templatesSrcDir, templateName, 'static');
 										}
-										if (fs.existsSync(staticFileFolder)) {
-											fse.removeSync(staticFileFolder);
-										}
+										fileUtils.remove(staticFileFolder);
+
 										fs.mkdirSync(staticFileFolder);
 
 										var downloadArgv = {
@@ -1818,6 +1818,7 @@ module.exports.controlSite = function (argv, done) {
 		var usedContentOnly = typeof argv.usedcontentonly === 'string' && argv.usedcontentonly.toLowerCase() === 'true';
 		var compileSite = typeof argv.compilesite === 'string' && argv.compilesite.toLowerCase() === 'true';
 		var staticOnly = typeof argv.staticonly === 'string' && argv.staticonly.toLowerCase() === 'true';
+		var fullpublish = typeof argv.fullpublish === 'string' && argv.fullpublish.toLowerCase() === 'true';
 
 		var request = serverUtils.getRequest();
 
@@ -1830,7 +1831,7 @@ module.exports.controlSite = function (argv, done) {
 			if (server.useRest) {
 				_controlSiteREST(request, server, action, siteName, done);
 			} else {
-				_controlSiteSCS(request, server, action, siteName, usedContentOnly, compileSite, staticOnly, done);
+				_controlSiteSCS(request, server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish, done);
 			}
 		});
 
@@ -1906,7 +1907,7 @@ var _setSiteRuntimeStatus = function (request, server, action, siteId) {
 /**
  * Use Idc service to control a site
  */
-var _controlSiteSCS = function (request, server, action, siteName, usedContentOnly, compileSite, staticOnly, done) {
+var _controlSiteSCS = function (request, server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish, done) {
 
 	var express = require('express');
 	var app = express();
@@ -1973,6 +1974,10 @@ var _controlSiteSCS = function (request, server, action, siteName, usedContentOn
 
 			if (usedContentOnly) {
 				formData.publishUsedContentOnly = 1;
+			}
+
+			if (fullpublish) {
+				formData.doForceActivate = 1;
 			}
 		}
 
@@ -3874,11 +3879,6 @@ module.exports.uploadStaticSite = function (argv, done) {
 		return;
 	}
 
-	// remove drive on windows
-	if (srcPath.indexOf(path.sep) > 0) {
-		srcPath = srcPath.substring(srcPath.indexOf(path.sep));
-	}
-
 	console.log(' - static site folder: ' + srcPath);
 
 	var siteName = argv.site;
@@ -3949,22 +3949,21 @@ var _prepareStaticSite = function (srcPath) {
 
 					var buildDir = serverUtils.getBuildFolder(projectDir);
 					if (!fs.existsSync(buildDir)) {
-						fse.mkdirSync(buildDir);
+						fs.mkdirSync(buildDir);
 					}
 
 					var srcFolderName = srcPath.substring(srcPath.lastIndexOf(path.sep) + 1);
 					var staticFolder = path.join(buildDir, 'static');
-					if (fs.existsSync(staticFolder)) {
-						fse.removeSync(staticFolder);
-					}
-					fse.mkdirSync(staticFolder);
+					fileUtils.remove(staticFolder);
+
+					fs.mkdirSync(staticFolder);
 
 					// get all sub folders including empty ones
 					var subdirs = paths.dirs;
 					for (var i = 0; i < subdirs.length; i++) {
 						var subdir = subdirs[i];
 						subdir = subdir.substring(srcPath.length + 1);
-						fse.mkdirSync(path.join(staticFolder, subdir), {
+						fs.mkdirSync(path.join(staticFolder, subdir), {
 							recursive: true
 						});
 					}
@@ -3986,7 +3985,7 @@ var _prepareStaticSite = function (srcPath) {
 						}
 
 						if (!fs.existsSync(filesFolder)) {
-							fse.mkdirSync(filesFolder, {
+							fs.mkdirSync(filesFolder, {
 								recursive: true
 							});
 						}
@@ -4093,10 +4092,9 @@ module.exports.downloadStaticSite = function (argv, done) {
 				}
 
 				if (saveToSrc) {
-					if (fs.existsSync(targetPath)) {
-						fse.removeSync(targetPath);
-					}
-					fse.mkdirSync(targetPath, {
+					fileUtils.remove(targetPath);
+
+					fs.mkdirSync(targetPath, {
 						recursive: true
 					});
 				}
@@ -4163,7 +4161,7 @@ var _processDownloadedStaticSite = function (srcPath) {
 					for (var i = 0; i < subdirs.length; i++) {
 						var subdir = subdirs[i];
 						if (serverUtils.endsWith(subdir, '_files')) {
-							fse.removeSync(subdir);
+							fileUtils.remove(subdir);
 							// console.log('remove ' + subdir);
 						}
 					}

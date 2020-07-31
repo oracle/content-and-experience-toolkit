@@ -136,6 +136,7 @@ CompilationService.prototype.getJob = function(req, res) {
                 name: jobMetadata.name,
                 siteName: jobMetadata.siteName,
                 publishUsedContentOnly: jobMetadata.publishUsedContentOnly,
+                doForceActivate: jobMetadata.doForceActivate,
                 serverEndpoint: jobMetadata.serverEndpoint,
                 serverUser: jobMetadata.serverUser,
                 serverPass: jobMetadata.serverPass,
@@ -193,6 +194,7 @@ CompilationService.prototype.updateJob = function(req, res) {
                         name: updatedJobMetadata.name,
                         siteName: updatedJobMetadata.siteName,
                         publishUsedContentOnly: updatedJobMetadata.publishUsedContentOnly,
+                        doForceActivate: updatedJobMetadata.doForceActivate,
                         serverEndpoint: updatedJobMetadata.serverEndpoint,
                         serverUser: updatedJobMetadata.serverUser,
                         serverPass: updatedJobMetadata.serverPass,
@@ -223,7 +225,8 @@ CompilationService.prototype.createJob = function(req, res) {
     }).then(function(args) {
         var name = args.data.name,
             siteName = args.data.siteName,
-            publishUsedContentOnly = args.data.publishUsedContentOnly,
+            publishUsedContentOnly = args.data.publishUsedContentOnly || '0',
+            doForceActivate = args.data.doForceActivate || '0',
             serverEndpoint = args.data.serverEndpoint,
             serverUser = args.data.serverUser || '', // Optional
             serverPass = args.data.serverPass || '', // Optional
@@ -233,6 +236,7 @@ CompilationService.prototype.createJob = function(req, res) {
             name: name,
             siteName: siteName,
             publishUsedContentOnly: publishUsedContentOnly,
+            doForceActivate: doForceActivate,
             serverEndpoint: serverEndpoint,
             serverUser: serverUser,
             serverPass: serverPass,
@@ -245,6 +249,7 @@ CompilationService.prototype.createJob = function(req, res) {
                     name: newJob.name,
                     siteName: newJob.siteName,
                     publishUsedContentOnly: newJob.publishUsedContentOnly,
+                    doForceActivate: newJob.doForceActivate,
                     serverEndpoint: newJob.serverEndpoint,
                     serverUser: newJob.serverUser,
                     serverPass: newJob.serverPass,
@@ -359,6 +364,13 @@ CompilationService.prototype.compileSiteDone = function() {
 
     // Clear busy after compilation is done
     self.setCompileSiteBusy(false);
+
+    // Exit process if "one and done"
+    if (process.env.CEC_TOOLKIT_COMPILATION_SINGLE_RUN === 'true') {
+        console.log('--------------------- Single run flag set, exiting ----------');
+        process.exit(); // always exit with success
+    }
+
 
     // Check qeueue
     if (!self.jobQueue.isEmpty()) {

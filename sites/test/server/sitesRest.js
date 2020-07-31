@@ -674,7 +674,7 @@ module.exports.exportTemplate = function (args) {
 	return _exportResource(server, 'templates', args.id, args.name);
 };
 
-var _publishResource = function (server, type, id, name) {
+var _publishResource = function (server, type, id, name, hideAPI) {
 	return new Promise(function (resolve, reject) {
 		var request = siteUtils.getRequest();
 
@@ -685,7 +685,9 @@ var _publishResource = function (server, type, id, name) {
 			url = url + 'name:' + name;
 		}
 		url = url + '/publish';
-		console.log(' - post ' + url);
+		if (!hideAPI) {
+			console.log(' - post ' + url);
+		}
 		var options = {
 			method: 'POST',
 			url: server.url + url
@@ -743,7 +745,8 @@ var _publishResource = function (server, type, id, name) {
  */
 module.exports.publishComponent = function (args) {
 	var server = args.server;
-	return _publishResource(server, 'components', args.id, args.name);
+
+	return _publishResource(server, 'components', args.id, args.name, args.hideAPI);
 };
 
 var _publishResourceAsync = function (server, type, id, name) {
@@ -1550,7 +1553,7 @@ var _importTemplate = function (server, name, fileId) {
 			} catch (e) {
 				data = body;
 			}
-			
+
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.headers && response.headers.location;
 				console.log(' - import template (job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1) + ')');
@@ -1573,7 +1576,7 @@ var _importTemplate = function (server, name, fileId) {
 							process.stdout.write(os.EOL);
 							return resolve(data.template);
 						} else {
-							process.stdout.write(' - importing template: percentage ' + data.completedPercentage + 
+							process.stdout.write(' - importing template: percentage ' + data.completedPercentage +
 								' [' + siteUtils.timeUsed(startTime, new Date()) + ']');
 							readline.cursorTo(process.stdout, 0);
 						}

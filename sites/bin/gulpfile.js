@@ -94,7 +94,7 @@ gulp.task('install-src', function (done) {
 	var configPath = path.join(projectDir, 'cec.properties');
 	var newConfig = false;
 	if (!fs.existsSync(configPath)) {
-		fse.copySync(path.join(configDataDir, 'cec.properties'), configPath);
+		fs.copyFileSync(path.join(configDataDir, 'cec.properties'), configPath);
 		newConfig = true;
 	}
 
@@ -106,14 +106,6 @@ gulp.task('install-src', function (done) {
 		fse.copySync(path.join(buildDataDir, 'src-gulpfile.js'), path.join(projectDir, 'gulpfile.js'));
 	}
 
-	// create symlink to libs
-	try {
-		fse.ensureSymlinkSync(path.join(cecDir, 'src', 'libs'), path.join(projectDir, 'libs'));
-	} catch (err) {
-		console.error('ERROR: ' + err);
-	}
-
-	// read the config file 
 	var srcFolder = path.join(projectDir, 'src');
 
 	// set up src folders
@@ -359,6 +351,7 @@ gulp.task('compilation-server', function (done) {
 
 	process.env['CEC_TOOLKIT_COMPILATION_PORT'] = port;
 	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
+	process.env['CEC_TOOLKIT_COMPILATION_SINGLE_RUN'] = argv.onceonly || false;
 
 	var compilationLogsDir = argv.logs;
 	if (compilationLogsDir) {
