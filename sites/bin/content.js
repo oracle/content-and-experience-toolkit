@@ -622,6 +622,86 @@ var _checkJobStatus = function (request, server, jobId) {
 	return checkExportStatusPromise;
 };
 
+var _contentHasTaxonomy = function (name, isTemplate, isFile, filePath) {
+	return new Promise(function (resolve, reject) {
+		var hasTax = false;
+		var taxpath;
+
+		var getContentDir = function (topDir) {
+			var contentDir;
+			var items = fs.readdirSync(topDir);
+			for (var i = 0; i < items.length; i++) {
+				if (fs.statSync(path.join(topDir, items[i])).isDirectory() &&
+					(items[i] === 'contentexport' || items[i].indexOf('Content Template of ')) >= 0) {
+					contentDir = path.join(topDir, items[i]);
+					break;
+				}
+			}
+			// console.log(contentDir);
+			return contentDir;
+		};
+
+		var checkTaxFiles = function (tpath) {
+			var found = false;
+			if (fs.existsSync(tpath) && fs.statSync(tpath).isDirectory()) {
+				var files = fs.readdirSync(tpath);
+				for (var i = 0; i < files.length; i++) {
+					if (files[i].indexOf('.json') > 0) {
+						found = true;
+						break;
+					}
+				}
+			}
+			return found;
+		};
+
+		try {
+			if (isFile) {
+				var folderName = filePath.substring(filePath.lastIndexOf(path.sep) + 1);
+				folderName = folderName.substring(0, folderName.lastIndexOf('.'));
+				var contentDir = path.join(buildfolder, folderName);
+				if (fs.existsSync(contentDir)) {
+					fileUtils.remove(contentDir);
+				}
+				extract(filePath, {
+					dir: contentDir
+				}, function (err) {
+					if (err) {
+						console.log(err);
+					}
+					taxpath = path.join(getContentDir(contentDir), 'Taxonomies');
+
+					hasTax = checkTaxFiles(taxpath);
+					if (hasTax) {
+						console.log(' - the content includes taxonomies');
+					}
+					return resolve({
+						hasTax: hasTax
+					});
+				});
+
+			} else {
+				if (isTemplate) {
+					taxpath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate', 'Content Template of ' + name, 'Taxonomies');
+				} else {
+					taxpath = path.join(getContentDir(path.join(contentSrcDir, name)), 'Taxonomies');
+				}
+				hasTax = checkTaxFiles(taxpath);
+				if (hasTax) {
+					console.log(' - the content includes taxonomies');
+				}
+				return resolve({
+					hasTax: hasTax
+				});
+			}
+		} catch (e) {
+			return resolve({
+				hasTax: hasTax
+			});
+		}
+	});
+};
+
 var _uploadContentFromZip = function (args) {
 	var contentpath = args.contentpath,
 		contentfilename = args.contentfilename;
@@ -702,7 +782,11 @@ var _uploadContentFromZipFile = function (args) {
 				var importSuccess = false;
 				importPromise.then(function (result) {
 					if (!result.err) {
-						console.log(' - content imported:');
+						if (typesOnly) {
+							console.log(' - content types imported:');
+						} else {
+							console.log(' - content imported:');
+						}
 						var format = '   %-15s %-s';
 						if (typeof repositoryName === 'string') {
 							console.log(sprintf(format, 'repository', repositoryName));
@@ -820,13 +904,19 @@ module.exports.uploadContent = function (argv, done) {
 			done();
 			return;
 		}
-		_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly)
+
+		_contentHasTaxonomy(name, isTemplate, isFile, filePath)
 			.then(function (result) {
-				if (result && result.err) {
-					done();
-				} else {
-					done(true);
-				}
+				var hasTax = result && result.hasTax;
+
+				_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly)
+					.then(function (result) {
+						if (result && result.err) {
+							done();
+						} else {
+							done(true);
+						}
+					});
 			});
 	});
 };
@@ -1062,6 +1152,7 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 				// Wait for job to finish
 				var startTime = new Date();
 				var count = [];
+				var needNewline = false;
 				var inter = setInterval(function () {
 					var checkImportStatusPromise = _checkJobStatus(request, server, jobId);
 					checkImportStatusPromise.then(function (result) {
@@ -1076,18 +1167,24 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 
 						if (status && status === 'SUCCESS') {
 							clearInterval(inter);
-							process.stdout.write(os.EOL);
+							if (needNewline) {
+								process.stdout.write(os.EOL);
+							}
 							return resolve({});
 						} else if (!status || status === 'FAILED') {
-							console.log(data);
 							clearInterval(inter);
-							process.stdout.write(os.EOL);
+							if (needNewline) {
+								process.stdout.write(os.EOL);
+							}
 							console.log('ERROR: import failed: ' + data.errorDescription);
+							if (!data.errorDescription) {
+								console.log(data);
+							}
 							return resolve({
 								err: 'err'
 							});
 						} else if (status && status === 'INPROGRESS') {
-							count.push('.');
+							needNewline = true;
 							process.stdout.write(' - import job in progress [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
 							readline.cursorTo(process.stdout, 0);
 						}
@@ -2105,7 +2202,7 @@ module.exports.migrateContent = function (argv, done) {
 				exportFileName = collectionId + '_export.zip';
 				exportFilePath = path.join(buildfolder, exportFileName);
 				fileUtils.remove(exportFilePath);
-				
+
 				return _exportContentIC(request, server, collectionId, exportFilePath);
 			})
 			.then(function (result) {

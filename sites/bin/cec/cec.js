@@ -793,6 +793,48 @@ const removeFieldEditor = {
 	]
 };
 
+const addContentForm = {
+	command: 'add-content-form <name>',
+	alias: 'acf',
+	name: 'add-content-form',
+	usage: {
+		'short': 'Associates a content form with a content type.',
+		'long': (function () {
+			let desc = 'Associates a content form with a content type to create or edit content items of this type.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec add-content-form form1 -t BlogTemplate -c BlogPost',
+			'Associate content form form1 with content type BlogPost from local template at src/templates/BlogTemplate'
+		],
+		['cec add-content-form form1 -t BlogTemplateContent -n -c BlogPost',
+			'Associate content form form1 with content type BlogPost from local template at src/content/BlogTemplateContent'
+		]
+	]
+};
+
+const removeContentForm = {
+	command: 'remove-content-form <name>',
+	alias: 'rcf',
+	name: 'remove-content-form',
+	usage: {
+		'short': 'Removes a content form from a content type.',
+		'long': (function () {
+			let desc = 'Removes a content form from a content type. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec remove-content-form form1 -t BlogTemplate -c BlogPost',
+			'Change not to use form1 when create or edit items of type BlogPost from local template at src/templates/BlogTemplate'
+		],
+		['cec remove-content-form form1 -t BlogTemplateContent -n -c BlogPost',
+			'Change not to use form1 when create or edit items of type BlogPost from local template at src/content/BlogTemplateContent'
+		]
+	]
+};
+
 const downloadContent = {
 	command: 'download-content <channel>',
 	alias: 'dlc',
@@ -1107,6 +1149,7 @@ const transferSite = {
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1', 'Creates site Site1 on server UAT based on site Site1 on server DEV'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -p', 'Creates site Site1 on server UAT based on site Site1 on server DEV with published assets'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -x', 'Creates site Site1 on server UAT based on site Site1 on server DEV without content'],
+		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -e', 'Creates site Site1 on server UAT based on site Site1 on server DEV without transferring components to server UAT'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -i', 'Creates site Site1 on server UAT based on site Site1 on server DEV with static files from DEV'],
 		['cec transfer-site Site1 -s DEV -d UAT', 'Updates site Site1 on server UAT based on site Site1 on server DEV'],
 		['cec transfer-site StandardSite1 -s DEV -d UAT', 'Creates standard site on server UAT based on site StandardSite1 on server DEV']
@@ -2382,6 +2425,8 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(removeContentLayoutMapping) + os.EOL +
 	_getCmdHelp(addFieldEditor) + os.EOL +
 	_getCmdHelp(removeFieldEditor) + os.EOL +
+	// _getCmdHelp(addContentForm) + os.EOL +
+	// _getCmdHelp(removeContentForm) + os.EOL +
 	_getCmdHelp(migrateContent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
@@ -3136,6 +3181,52 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${removeFieldEditor.command}\n\n${removeFieldEditor.usage.long}`);
 		})
+	.command([addContentForm.command, addContentForm.alias], false,
+		(yargs) => {
+			yargs.option('template', {
+					alias: 't',
+					description: 'The template the content type is from',
+					demandOption: true
+				})
+				.option('contenttype', {
+					alias: 'c',
+					description: 'The content type',
+					demandOption: true
+				})
+				.option('contenttemplate', {
+					alias: 'n',
+					description: 'Flag to indicate the template is a content template'
+				})
+				.example(...addContentForm.example[0])
+				.example(...addContentForm.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${addContentForm.command}\n\n${addContentForm.usage.long}`);
+		})
+	.command([removeContentForm.command, removeContentForm.alias], false,
+		(yargs) => {
+			yargs.option('template', {
+					alias: 't',
+					description: 'The template the content type is from',
+					demandOption: true
+				})
+				.option('contenttype', {
+					alias: 'c',
+					description: 'The content type',
+					demandOption: true
+				})
+				.option('contenttemplate', {
+					alias: 'n',
+					description: 'Flag to indicate the template is a content template'
+				})
+				.example(...removeContentForm.example[0])
+				.example(...removeContentForm.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${removeContentForm.command}\n\n${removeContentForm.usage.long}`);
+		})
 	.command([downloadContent.command, downloadContent.alias], false,
 		(yargs) => {
 			yargs.option('publishedassets', {
@@ -3665,6 +3756,10 @@ const argv = yargs.usage(_usage)
 					alias: 'x',
 					description: 'Exclude content'
 				})
+				.option('excludecomponents', {
+					alias: 'e',
+					description: 'Exclude components'
+				})
 				.option('includestaticfiles', {
 					alias: 'i',
 					description: 'Include site static files'
@@ -3675,6 +3770,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferSite.example[3])
 				.example(...transferSite.example[4])
 				.example(...transferSite.example[5])
+				.example(...transferSite.example[6])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -6052,6 +6148,40 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === addContentForm.name || argv._[0] === addContentForm.alias) {
+	let addContentFormArgs = ['run', '-s', addContentForm.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--template', argv.template,
+		'--contenttype', argv.contenttype
+	];
+	if (argv.contenttemplate) {
+		addContentFormArgs.push(...['--contenttemplate', argv.contenttemplate]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, addContentFormArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === removeContentForm.name || argv._[0] === removeContentForm.alias) {
+	let removeContentFormArgs = ['run', '-s', removeContentForm.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--template', argv.template,
+		'--contenttype', argv.contenttype
+	];
+	if (argv.contenttemplate) {
+		removeContentFormArgs.push(...['--contenttemplate', argv.contenttemplate]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, removeContentFormArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === downloadContent.name || argv._[0] === downloadContent.alias) {
 	let downloadContentArgs = ['run', '-s', downloadContent.name, '--prefix', appRoot,
 		'--',
@@ -6453,6 +6583,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.excludecontent) {
 		transferSiteArgs.push(...['--excludecontent', argv.excludecontent]);
+	}
+	if (argv.excludecomponents) {
+		transferSiteArgs.push(...['--excludecomponents', argv.excludecomponents]);
 	}
 	if (argv.includestaticfiles) {
 		transferSiteArgs.push(...['--includestaticfiles', argv.includestaticfiles]);

@@ -111,14 +111,26 @@ router.get('/*', (req, res) => {
 			}
 			newHtmlSrc = newHtmlSrc.replace('_devcs_component_fieldeditor_view_html_path', viewHtmlFilePath);
 			newHtmlSrc = serverUtils.replaceAll(newHtmlSrc, '_devcs_component_fieldeditor_iframe_height', iframeHeight);
-			console.log(newHtmlSrc);
+			// console.log(newHtmlSrc);
 
 			filePath = path.join(compSiteDir, 'fieldeditorrender.js');
 			var renderjs = fs.readFileSync(filePath).toString();
 			var newrenderjs = renderjs.replace('_devcs_component_fieldeditor_edit_html_src', newHtmlSrc);
-			console.log(newrenderjs);
+			// console.log(newrenderjs);
 
 			console.log('path=' + req.path + ' filePath=' + filePath + ' field editor=' + compName);
+			res.write(newrenderjs);
+			res.end();
+			return;
+
+		} else if (appInfo && appInfo.type === 'contentform') {
+			
+			var filePath = path.join(compSiteDir, 'contentformrender.js');
+			var renderjs = fs.readFileSync(filePath).toString();
+			var newrenderjs = renderjs.replace('_devcs_component_contentform_edit_html_path', '/components/' + compName + '/assets/edit.html');
+			// console.log(newrenderjs);
+
+			console.log('path=' + req.path + ' filePath=' + filePath + ' content form=' + compName);
 			res.write(newrenderjs);
 			res.end();
 			return;
@@ -435,11 +447,27 @@ router.get('/*', (req, res) => {
 				res.end();
 				return;
 
+			}  else if (apptype === 'contentform') {
+				var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
+				var types = appInfo && appInfo.supportedContentTypes || [];
+			
+				filePath = path.join(compSiteDir, 'contentformsettings.html');
+				var settingshtml = fs.readFileSync(filePath).toString();
+				var newsettingshtml = settingshtml.replace('_devcs_component_contentform_name', compName);
+				newsettingshtml = newsettingshtml.replace('_devcs_component_contentform_types', types.join(','));
+				newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
+				console.log('path=' + req.path + ' filePath=' + filePath + ' content form=' + compName);
+				res.write(newsettingshtml);
+				res.end();
+				return;
+
 			} else {
 				filePath = path.resolve(componentsDir + '/' + filePathSuffix);
 			}
 		} else if (filePathSuffix.indexOf('render.js') > 0 && apptype === 'fieldeditor') {
 			filePath = path.join(componentsDir, compName, 'assets', 'view.html');
+		} else if (filePathSuffix.indexOf('render.js') > 0 && apptype === 'contentform') {
+			filePath = path.join(componentsDir, compName, 'assets', 'edit.html');
 		} else {
 			filePath = path.resolve(componentsDir + '/' + filePathSuffix);
 		}

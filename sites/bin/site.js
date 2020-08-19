@@ -640,7 +640,7 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 
 var _transferSiteTemplateId;
 
-var _transferStandardSite = function (localhost, request, server, destServer, site) {
+var _transferStandardSite = function (argv, localhost, request, server, destServer, site, excludecomponents) {
 	return new Promise(function (resolve, reject) {
 		console.log(' - site ' + site.name + ' is a standard site');
 
@@ -703,38 +703,30 @@ var _transferStandardSite = function (localhost, request, server, destServer, si
 				}
 				console.log(' - will ' + (creatNewSite ? 'create' : 'update') + ' site ' + siteName + ' on ' + destServer.url);
 
-				// create template based on the site on the source server
-				var createTemplateArgv = {
-					projectDir: projectDir,
-					server: server,
-					name: templateName,
-					siteName: siteName
-				};
-
-				// create template on the source server and download
-				return templateUtils.createTemplateFromSiteAndDownloadSCS(createTemplateArgv);
+				// create a local template based on the site
+				var enterprisetemplate = false;
+				var excludecontent = true;
+				return templateUtils.createLocalTemplateFromSite(argv, templateName, siteName, server, excludecontent, enterprisetemplate, excludecomponents);
 			})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
 				}
 
-				return sitesRest.deleteTemplate({
-					server: server,
-					name: templateName,
-					hard: true
-				});
+				// zip up the template
+				var optimize = false;
+				var excludeContentTemplate = true;
+				var extraComponents = [];
+				var excludeSiteContent = false;
+
+				return templateUtils.zipTemplate(argv, templateName, optimize, excludeContentTemplate, extraComponents, excludeSiteContent, excludecomponents);
+
 			})
 			.then(function (result) {
-				// verify template downloaded
 				fileName = templateName + '.zip';
 				templatePath = path.join(destdir, fileName);
 				if (!fs.existsSync(templatePath)) {
-					if (excludecontent) {
-						console.log('ERROR: failed to export template ' + templateName);
-					} else {
-						console.log('ERROR: failed to download template ' + templateName);
-					}
+					console.log('ERROR: failed to download template ' + templateName);
 					return Promise.reject();
 				}
 
@@ -945,6 +937,7 @@ module.exports.transferSite = function (argv, done) {
 	}
 
 	var excludecontent = typeof argv.excludecontent === 'string' && argv.excludecontent.toLowerCase() === 'true';
+	var excludecomponents = typeof argv.excludecomponents === 'string' && argv.excludecomponents.toLowerCase() === 'true';
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
 	var includestaticfiles = typeof argv.includestaticfiles === 'string' && argv.includestaticfiles.toLowerCase() === 'true';
 
@@ -1087,7 +1080,7 @@ module.exports.transferSite = function (argv, done) {
 
 						if (!site.isEnterprise) {
 
-							_transferStandardSite(localhost, request, server, destServer, site)
+							_transferStandardSite(argv, localhost, request, server, destServer, site, excludecomponents)
 								.then(function (result) {
 									var success = result && !result.err;
 									_cmdEnd(done, success);
@@ -1223,18 +1216,10 @@ module.exports.transferSite = function (argv, done) {
 										console.log(' - verify localization policy');
 									}
 
-									// create template based on the site on the source server
-									var createTemplateArgv = {
-										projectDir: projectDir,
-										server: server,
-										name: templateName,
-										siteName: siteName,
-										includeUnpublishedAssets: publishedassets ? false : true
-									};
-
 									// create template on the source server and download
-									return excludecontent ? templateUtils.createLocalTemplateFromSite(argv, templateName, siteName, server, true) :
-										templateUtils.createTemplateFromSiteAndDownloadSCS(createTemplateArgv);
+									var enterprisetemplate = true;
+									return templateUtils.createLocalTemplateFromSite(
+										argv, templateName, siteName, server, excludecontent, enterprisetemplate, excludecomponents);
 
 								})
 								.then(function (result) {
@@ -1247,31 +1232,19 @@ module.exports.transferSite = function (argv, done) {
 										// console.log(' - content layouts: ' + contentLayoutNames);
 									}
 
-									// delete template on the source server
-									var deleteTemplatePromises = excludecontent ? [] : [sitesRest.deleteTemplate({
-										server: server,
-										name: templateName,
-										hard: true
-									})];
+									// zip up the template
+									var optimize = false;
+									var excludeContentTemplate = false;
+									return templateUtils.zipTemplate(
+										argv, templateName, optimize, excludeContentTemplate, contentLayoutNames, excludeSiteContent, excludecomponents);
 
-									return Promise.all(deleteTemplatePromises);
-								})
-								.then(function (results) {
-
-									var createTemplateZipPromises = excludecontent ? [templateUtils.zipTemplate(argv, templateName, false, false, contentLayoutNames, excludeSiteContent)] : [];
-
-									return Promise.all(createTemplateZipPromises);
 								})
 								.then(function (results) {
 
 									fileName = templateName + '.zip';
 									templatePath = path.join(destdir, fileName);
 									if (!fs.existsSync(templatePath)) {
-										if (excludecontent) {
-											console.log('ERROR: failed to export template ' + templateName);
-										} else {
-											console.log('ERROR: failed to download template ' + templateName);
-										}
+										console.log('ERROR: failed to download template ' + templateName);
 										return Promise.reject();
 									}
 
@@ -1421,17 +1394,6 @@ module.exports.transferSite = function (argv, done) {
 									}
 
 									return Promise.all(deleteTemplatePromises);
-								})
-								.then(function (results) {
-									// Unzip the site template file from server in transfer site w content mode and update mode
-									// files will be used by updateSite
-									var unzipTemplatePromises = [];
-									if (!creatNewSite && !excludecontent) {
-										unzipTemplatePromises.push(templateUtils.unzipTemplate(templateName, templatePath, false));
-									}
-
-									return Promise.all(unzipTemplatePromises);
-
 								})
 								.then(function (results) {
 

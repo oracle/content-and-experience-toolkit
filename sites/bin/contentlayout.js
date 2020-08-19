@@ -1222,3 +1222,205 @@ module.exports.removeFieldEditor = function (argv, done) {
 	}
 
 };
+
+/**
+ * Associate content form with a content type in a template
+ */
+module.exports.addContentForm = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+	var templateName = argv.template;
+	var typeName = argv.contenttype;
+	var contenttemplate = typeof argv.contenttemplate === 'string' && argv.contenttemplate.toLowerCase() === 'true';
+
+	// verify content form
+	var filePath = path.join(componentsSrcDir, name, 'appinfo.json');
+	if (!fs.existsSync(filePath)) {
+		console.log('ERROR: content form ' + name + ' does not exist');
+		done();
+		return;
+	}
+	var appInfoJson;
+	try {
+		appInfoJson = JSON.parse(fs.readFileSync(filePath));
+		if (!appInfoJson || !appInfoJson.type || appInfoJson.type !== 'contentform') {
+			console.log('ERROR: ' + name + ' is not a content form');
+			done();
+			return;
+		}
+		console.log(' - verify content form ' + name);
+	} catch (e) {
+		console.log(e);
+		done();
+		return;
+	}
+
+	var templatePath = contenttemplate ? path.join(contentSrcDir, templateName) : path.join(templatesSrcDir, templateName);
+	if (!fs.existsSync(templatePath)) {
+		console.log('ERROR: ' + (contenttemplate ? 'content ' : '') + 'template ' + templateName + ' does not exist');
+		done();
+		return;
+	}
+
+	var templateContentPath = contenttemplate ? path.join(templatePath, 'contentexport') :
+		path.join(templatePath, 'assets', 'contenttemplate', 'Content Template of ' + templateName);
+	if (!fs.existsSync(templateContentPath)) {
+		console.log('ERROR: template ' + templateName + ' does not have content');
+		done();
+		return;
+	}
+	console.log(' - get template');
+
+	var typePath = path.join(templateContentPath, 'ContentTypes', typeName + '.json');
+	if (!fs.existsSync(typePath)) {
+		console.log('ERROR: type ' + typeName + ' does not exist');
+		done();
+		return;
+	}
+	var typeJson;
+	try {
+		typeJson = JSON.parse(fs.readFileSync(typePath));
+	} catch (e) {
+		console.log(e);
+		done();
+		return;
+	}
+	if (!typeJson || !typeJson.id || !typeJson.name) {
+		console.log('ERROR: type ' + typeName + ' is not valid');
+		done();
+		return;
+	}
+	console.log(' - get content type');
+
+	// include the type for this form
+	if (!appInfoJson.supportedContentTypes || !appInfoJson.supportedContentTypes.includes(typeName)) {
+		if (!appInfoJson.supportedContentTypes) {
+			appInfoJson.supportedContentTypes = [typeName];
+		} else {
+			appInfoJson.supportedContentTypes.push(typeName);
+		}
+		fs.writeFileSync(filePath, JSON.stringify(appInfoJson));
+		console.log(' - add type ' + typeName + ' to ' + filePath);
+	}
+
+	if (typeJson.properties) {
+		typeJson.properties.customForms = [name];
+	} else {
+		typeJson.properties = {
+			customForms: [name]
+		};
+	}
+
+	fs.writeFileSync(typePath, JSON.stringify(typeJson, null, 4));
+	console.log(' - custom form ' + name + ' added to type ' + typeName);
+
+	if (contenttemplate) {
+		done(true);
+		return;
+	}
+
+	// May extra update for site template
+	done(true);
+
+};
+
+/**
+ * Remove content form from a content type in a template
+ */
+module.exports.removeContentForm = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+	var templateName = argv.template;
+	var typeName = argv.contenttype;
+	var contenttemplate = typeof argv.contenttemplate === 'string' && argv.contenttemplate.toLowerCase() === 'true';
+
+	// verify content form
+	var filePath = path.join(componentsSrcDir, name, 'appinfo.json');
+	if (!fs.existsSync(filePath)) {
+		console.log('ERROR: content form ' + name + ' does not exist');
+		done();
+		return;
+	}
+	var appInfoJson;
+	try {
+		appInfoJson = JSON.parse(fs.readFileSync(filePath));
+		if (!appInfoJson || !appInfoJson.type || appInfoJson.type !== 'contentform') {
+			console.log('ERROR: ' + name + ' is not a content form');
+			done();
+			return;
+		}
+		console.log(' - verify content form ' + name);
+	} catch (e) {
+		console.log(e);
+		done();
+		return;
+	}
+
+	var templatePath = contenttemplate ? path.join(contentSrcDir, templateName) : path.join(templatesSrcDir, templateName);
+	if (!fs.existsSync(templatePath)) {
+		console.log('ERROR: ' + (contenttemplate ? 'content ' : '') + 'template ' + templateName + ' does not exist');
+		done();
+		return;
+	}
+
+	var templateContentPath = contenttemplate ? path.join(templatePath, 'contentexport') :
+		path.join(templatePath, 'assets', 'contenttemplate', 'Content Template of ' + templateName);
+	if (!fs.existsSync(templateContentPath)) {
+		console.log('ERROR: template ' + templateName + ' does not have content');
+		done();
+		return;
+	}
+	console.log(' - get template');
+
+	var typePath = path.join(templateContentPath, 'ContentTypes', typeName + '.json');
+	if (!fs.existsSync(typePath)) {
+		console.log('ERROR: type ' + typeName + ' does not exist');
+		done();
+		return;
+	}
+	var typeJson;
+	try {
+		typeJson = JSON.parse(fs.readFileSync(typePath));
+	} catch (e) {
+		console.log(e);
+		done();
+		return;
+	}
+	if (!typeJson || !typeJson.id || !typeJson.name) {
+		console.log('ERROR: type ' + typeName + ' is not valid');
+		done();
+		return;
+	}
+	console.log(' - get content type');
+
+	if (typeJson.properties && typeJson.properties.customForms && typeJson.properties.customForms.includes(name)) {
+
+		typeJson.properties.customForms.splice(typeJson.properties.customForms.indexOf(name), 1);
+		fs.writeFileSync(typePath, JSON.stringify(typeJson, null, 4));
+		console.log(' - custom form ' + name + ' removed from type ' + typeName);
+
+	} else {
+		console.log(' - custom form ' + name + ' is not used by type ' + typeName);
+	}
+
+	if (contenttemplate) {
+		done(true);
+		return;
+	}
+
+	// May extra update for site template
+	done(true);
+
+};

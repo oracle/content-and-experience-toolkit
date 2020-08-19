@@ -283,7 +283,17 @@ ContentItem.prototype.getContentItem = function (args) {
 			getItemArgs.language = SCSCompileAPI.pageLocale;
 		}
 
-		return contentClient.getItem(getItemArgs);
+		return new Promise (function (resolve, reject) {
+			contentClient.getItem(getItemArgs).then(function (result) {
+				resolve(result);
+			}).catch(function (e) {
+				compilationReporter.warn({
+					message: 'failed to get content item with: ' + JSON.stringify(getItemArgs),
+					error: (e && e.error) || e
+				});
+				reject(e);
+			});
+		});
 	}
 };
 

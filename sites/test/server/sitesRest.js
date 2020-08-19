@@ -1336,12 +1336,40 @@ var _importComponent = function (server, name, fileId) {
 				data = body;
 			}
 
-			if (response && response.statusCode >= 200 && response.statusCode < 300) {
-				resolve({
-					name: name
-				});
+			// console.log(response.statusCode);
+			if (response && response.statusCode >= 200 && response.statusCode <= 303) {
+				var statusLocation = response.headers && response.headers.location;
+				var itemId;
+				if (statusLocation && statusLocation.indexOf('/') > 0) {
+					itemId = statusLocation.substring(statusLocation.lastIndexOf('/') + 1);
+					// console.log(' - component id: ' + itemId);
+				}
+				if (itemId) {
+					_getResource(server, 'components', itemId).then(function (result) {
+						if (!result || result.err || !result.name) {
+							console.log('ERROR: failed to import component ' + name);
+						} else {
+							resolve({
+								id: result.id,
+								name: name,
+								newName: result.name
+							});
+						}
+
+					});
+				} else {
+					console.log('ERROR: failed to import component ' + name + ' : ' + response.statusMessage);
+					resolve({
+						err: 'err'
+					});
+				}
 			} else {
+				// console.log(data);
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var owner = data && data.owner && data.owner.displayName || '';
+				if (response.statusCode === 403 && owner) {
+					msg = 'The component ' + name + ' is owned by ' + owner + ' and you do not have privileges to overwrite it.';
+				}
 				console.log('ERROR: failed to import component ' + name + ' : ' + msg);
 				resolve({
 					err: msg || 'err'

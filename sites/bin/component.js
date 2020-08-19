@@ -471,181 +471,57 @@ module.exports.deployComponent = function (argv, done) {
 			return;
 		}
 
-		if (server.useRest) {
-			var request = serverUtils.getRequest();
-			var loginPromise = serverUtils.loginToServer(server, request);
-			loginPromise.then(function (result) {
-				if (!result.status) {
-					console.log(' - failed to connect to the server');
+
+		var request = serverUtils.getRequest();
+		var loginPromise = serverUtils.loginToServer(server, request);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				done();
+				return;
+			}
+
+			var folderPromises = [];
+			if (folder) {
+				folderPromises.push(serverRest.findFolderHierarchy({
+					server: server,
+					parentID: 'self',
+					folderPath: folder
+				}));
+			}
+			Promise.all(folderPromises).then(function (results) {
+				if (folder && (!results || results.length === 0 || !results[0] || !results[0].id)) {
 					done();
 					return;
 				}
 
-				var folderPromises = [];
-				if (folder) {
-					folderPromises.push(serverRest.findFolderHierarchy({
-						server: server,
-						parentID: 'self',
-						folderPath: folder
-					}));
-				}
-				Promise.all(folderPromises).then(function (results) {
-					if (folder && (!results || results.length === 0 || !results[0] || !results[0].id)) {
-						done();
-						return;
-					}
-
-					var folderId = folder ? results[0].id : 'self';
-
-					var importsPromise = [];
-					for (var i = 0; i < allComps.length; i++) {
-						var name = allComps[i];
-						var zipfile = path.join(projectDir, "dist", name) + ".zip";
-
-						importsPromise[i] = _deployOneComponentREST(server, folder, folderId, zipfile, name, publish);
-					}
-					Promise.all(importsPromise).then(function (results) {
-						// All done
-						var success = false;
-						if (results && results.length > 0) {
-							for (var i = 0; i < results.length; i++) {
-								if (!results[i].err) {
-									success = true;
-									break;
-								}
-							}
-						}
-						done(success);
-					});
-				});
-
-			}); // login 
-
-		} else if (server.env !== 'dev_ec') {
-			var loginPromise = serverUtils.loginToServer(server);
-
-			loginPromise.then(function (result) {
-				if (!result.status) {
-					console.log(' - failed to connect to the server');
-					done();
-					return;
-				}
-
-				var imports = [];
-				for (var i = 0; i < allComps.length; i++) {
-					var name = allComps[i];
-					var zipfile = path.join(projectDir, "dist", name) + ".zip";
-					imports.push({
-						name: name,
-						zipfile: zipfile
-					});
-				}
-
-				var importPromise = serverUtils.importToPODServer(server, 'component', folder, imports, publish);
-				importPromise.then(function (importResult) {
-					// result is processed in the API
-					if (importResult && importResult.err) {
-						done();
-					} else {
-						done(true);
-					}
-				});
-			});
-		} else {
-			var request = serverUtils.getRequest();
-
-			var loginPromise = serverUtils.loginToDevServer(server, request);
-
-			loginPromise.then(function (result) {
-				if (!result.status) {
-					console.log(' - failed to connect to the server');
-					done();
-					return;
-				}
+				var folderId = folder ? results[0].id : 'self';
 
 				var importsPromise = [];
 				for (var i = 0; i < allComps.length; i++) {
 					var name = allComps[i];
 					var zipfile = path.join(projectDir, "dist", name) + ".zip";
 
-					importsPromise[i] = _deployOneComponentToDevServer(request, server, folder, zipfile, name, publish);
+					importsPromise[i] = _deployOneComponentREST(server, folder, folderId, zipfile, name, publish);
 				}
 				Promise.all(importsPromise).then(function (results) {
 					// All done
-					if (results && results.length > 0 && results[0] && results[0].err) {
-						done();
-					} else {
-						done(true);
-					}
-				});
-
-			}); // login 
-		} // dev server case
-	}); // export
-};
-
-var _deployOneComponentToDevServer = function (request, server, folder, zipfile, name, publish) {
-	var deployOneCompPromise = new Promise(function (resolve, reject) {
-		// upload the zip file
-		var uploadPromise = serverUtils.uploadFileToServer(request, server, folder, zipfile);
-
-		uploadPromise.then(function (result) {
-			if (result.err) {
-				return resolve(result);
-			}
-
-			var fileId = result && result.LocalData && result.LocalData.fFileGUID;
-			var idcToken = result && result.LocalData && result.LocalData.idcToken;
-			// console.log(' - name ' + name + ' file id ' + fileId + ' idcToken ' + idcToken);
-
-			// import
-			var importPromise = serverUtils.importComponentToServer(request, server, fileId, idcToken);
-			importPromise.then(function (importResult) {
-				// console.log(JSON.stringify(importResult));
-				if (importResult.err) {
-					console.log(' - failed to import: ' + importResult.err);
-					return resolve({
-						err: 'err'
-					});
-				} else {
-					if (!importResult.LocalData || importResult.LocalData.StatusCode !== '0') {
-						console.log(' - failed to import: ' + importResult.LocalData ? importResult.LocalData.StatusMessage : '');
-						return resolve({
-							err: 'err'
-						});
-					}
-
-					console.log(' - component ' + name + ' imported');
-					var compFolderId = serverUtils.getComponentAttribute(importResult, 'fFolderGUID');
-					if (publish && compFolderId) {
-						// publish the component
-						var publishPromise = serverUtils.publishComponentOnServer(request, server, compFolderId, idcToken);
-						publishPromise.then(function (publishResult) {
-							// console.log(publishResult);
-							if (publishResult.err) {
-								console.log(' - failed to publish: ' + publishResult.err);
-								return resolve({
-									err: 'err'
-								});
-							} else if (!publishResult.LocalData || publishResult.LocalData.StatusCode !== '0') {
-								console.log(' - failed to publish: ' + publishResult.LocalData ? publishResult.LocalData.StatusMessage : '');
-								return resolve({
-									err: 'err'
-								});
-							} else {
-								console.log(' - component ' + name + ' published/republished');
-								return resolve({});
+					var success = false;
+					if (results && results.length > 0) {
+						for (var i = 0; i < results.length; i++) {
+							if (!results[i].err) {
+								success = true;
+								break;
 							}
-						});
-					} else {
-						return resolve({});
+						}
 					}
-				}
-			}); // import
-		}); // upload
-	});
+					done(success);
+				});
+			});
 
-	return deployOneCompPromise;
+		}); // login 
+
+	}); // export
 };
 
 /** 
@@ -675,7 +551,7 @@ var unzipComponent = function (compName, compPath) {
 
 var _deployOneComponentREST = function (server, folder, folderId, zipfile, name, publish) {
 	return new Promise(function (resolve, reject) {
-		var fileName = name + '.zip;'
+		var fileName = name + '.zip';
 		// upload file
 		serverRest.createFile({
 				server: server,
@@ -698,7 +574,13 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 				if (result.err) {
 					return Promise.reject();
 				}
-				console.log(' - component ' + name + ' imported');
+				// console.log(result);
+				if (result.newName && result.newName !== name) {
+					console.log(' - component imported and renamed to ' + result.newName);
+					name = result.newName;
+				} else {
+					console.log(' - component ' + name + ' imported');
+				}
 				var publishpromises = [];
 				if (publish) {
 					publishpromises.push(sitesRest.publishComponent({
@@ -943,8 +825,8 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 										}
 
 										if (!found) {
-											console.log('ERROR: component ' + compName + ' does not exist');
-											return Promise.reject();
+											console.log('WARNING: component ' + compName + ' does not exist');
+											// return Promise.reject();
 										}
 									}
 

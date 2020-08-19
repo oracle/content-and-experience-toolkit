@@ -60,6 +60,7 @@ var siteFolder, // Z:/sitespublish/SiteC/
 	server, // server to use for any content calls
 	useDefaultDetailPageLink, // whether to compile a detail page using the default detail page if no detail page specified
 	detailPageContentLayoutSnippet, // whether to only output the content layout snippet for compiled detail page (used for Eloqua integration)
+	useInlineSiteInfo = false, // Emit the common site material to the scsRenderInfo in each page; do not used a shared file for the common site info
 	targetDevice = '', // 'mobile' or 'desktop' (no value implies compile for both if RegEx is specified)
 	mobilePages = false, // whether we are compiling mobile pages
 	folderProperties; // _folder.json values
@@ -77,6 +78,7 @@ var rootSiteInfo;
 var defaultLocale; // set if required by command line parameter
 var outputAlternateHierarchy = true; // Emit to /folder/_files/<filename> structure
 var pagesToCompile; // list of pages that will be compiled
+var siteInfoCommonHasBeenWritten = false; // Determines if the siteinfo-common.js file has already been written
 
 
 // create a reporter object to output any required information during compile and then a summary report at the end
@@ -1419,19 +1421,12 @@ function resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, conte
 	trace('resolveRenderInfo');
 
 	var SCSInfo = {
-		"siteId": (context.siteInfo && context.siteInfo.properties && context.siteInfo.properties.siteName) ? context.siteInfo.properties.siteName : null,
 		"sitePrefix": sitePrefix,
 		"pageModel": pageModel,
 		"localePageModel": localePageModel,
 		"pageLanguageCode": context.pageLocale || defaultLocale,
-		"navigationRoot": context.navRoot,
 		"navigationCurr": (pageId && typeof pageId == 'string') ? parseInt(pageId) : pageId,
-		"structureMap": context.navMap,
-		"siteInfo": context.siteInfo,
-		"pageState": 'compiled',
 		//    "placeholderContent": this.data.placeholderContent,
-		"sitesCloudCDN": ((typeof sitesCloudCDN === 'string') && sitesCloudCDN) || '',
-		"cacheKeys": cacheKeys || null,
 	};
 	if (context.deviceInfo) {
 		SCSInfo.deviceInfo = context.deviceInfo;
@@ -1440,12 +1435,37 @@ function resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, conte
 		SCSInfo.localeAlias = context.localeAlias;
 	}
 
+	// Either reference the common site-level properties from an external JS file, or add the site properties into the SCSInfo.
+	var commonSiteInfoStr = '';
+	if (!useInlineSiteInfo) {
+		commonSiteInfoStr = '<script type="text/javascript" src="[!--$SCS_SITE_PATH--]/siteinfo-common.js" charset="utf-8"></script>';
+		commonSiteInfoStr = resolveLinks(commonSiteInfoStr, context, sitePrefix);
+	} else {
+		SCSInfo.siteId = (context.siteInfo && context.siteInfo.properties && context.siteInfo.properties.siteName) ? context.siteInfo.properties.siteName : null;
+		SCSInfo.navigationRoot = context.navRoot;
+		SCSInfo.structureMap = context.navMap;
+		SCSInfo.siteInfo = context.siteInfo;
+		SCSInfo.pageState = 'compiled';
+		SCSInfo.sitesCloudCDN = ((typeof sitesCloudCDN === 'string') && sitesCloudCDN) || '';
+		SCSInfo.cacheKeys = cacheKeys || null;
+	}
+
 	var SCSInfoStr = JSON.stringify(SCSInfo);
 	var renderInfo = '';
 	renderInfo += '<script id="scsRenderInfo" type="application/json">';
 	renderInfo += encodeHTML(SCSInfoStr);
 	renderInfo += '</script>';
 	renderInfo += '\n<script id="scsRenderObject" type="text/javascript">var require = {waitSeconds: 0};</script>'; // Defining this variable allows us to control the timeout for loading renderer.js
+	if (commonSiteInfoStr) {
+		// Place the common site info <script> tag just before the renderer.js script tag.
+		// Or, if that fails, just insert it in the head after the scsRenderInfo tag.
+		var tagWasPlaced = false;
+		pageMarkup = pageMarkup.replace( /(\s*)?<script\s+[^<>]+?\/renderer\/renderer.js/ig, function(match, whitespace) {
+				tagWasPlaced = true;
+				return (whitespace || '') + commonSiteInfoStr + match;
+			});
+		renderInfo += !tagWasPlaced ? '\n' + commonSiteInfoStr : '';
+	}
 	renderInfo += getStyleFixup(pageModel, context, sitePrefix);
 	var regExp = /(<!--\$\s*SCS_RENDER_INFO\s*-->)|(\[!--\$\s*SCS_RENDER_INFO\s*--\])/g;
 	pageMarkup = pageMarkup.replace(regExp, function () {
@@ -2392,9 +2412,59 @@ function setupContext(language) {
 		};
 	}
 
+	// Write common SCSInfo if needed
+	if(!useInlineSiteInfo && !siteInfoCommonHasBeenWritten) {
+		writeCommonSiteInfo(context);
+		siteInfoCommonHasBeenWritten = true;
+	}
 
 	return context;
 }
+
+function writeCommonSiteInfo(context) {
+	// Generate the common site data
+	var SCSSiteCommon = {
+		"siteId": (context.siteInfo && context.siteInfo.properties && context.siteInfo.properties.siteName) ? context.siteInfo.properties.siteName : null,
+		"navigationRoot": context.navRoot,
+		"structureMap": context.navMap,
+		"siteInfo": context.siteInfo,
+		"pageState": 'compiled',
+		"sitesCloudCDN": ((typeof sitesCloudCDN === 'string') && sitesCloudCDN) || '',
+		"cacheKeys": cacheKeys || null,
+	};
+
+	// Produce the string in a ready-made format for inserting into the DOM
+	SCSSiteCommon = JSON.stringify(SCSSiteCommon);
+	SCSSiteCommon = SCSSiteCommon.substring(0, SCSSiteCommon.length - 1) + ',';
+	SCSSiteCommon = encodeHTML(SCSSiteCommon);
+
+	// Escape JavaScript characters also
+	SCSSiteCommon = SCSSiteCommon.replace(/[']/g, '\\\'');
+	SCSSiteCommon = SCSSiteCommon.replace(/["]/g, '\\\"');
+	SCSSiteCommon = SCSSiteCommon.replace(/[\\]/g, '\\\\');
+	SCSSiteCommon = SCSSiteCommon.replace(/[\n]/g, '\\n');
+	SCSSiteCommon = SCSSiteCommon.replace(/[\r]/g, '\\r');
+	SCSSiteCommon = SCSSiteCommon.replace(/[\v]/g, '\\v');
+	SCSSiteCommon = SCSSiteCommon.replace(/[\t]/g, '\\t');
+	SCSSiteCommon = SCSSiteCommon.replace(/[\b]/g, '\\b');
+	SCSSiteCommon = SCSSiteCommon.replace(/[\f]/g, '\\f');
+
+	// Manufacture the common-siteinfo.js script
+	var js = '(function() {\n';
+		js += 'var SCSSiteCommon = "' + SCSSiteCommon + '";\n';
+		js += 'var dataElement = document.getElementById("scsRenderInfo");\n';
+		js += 'if(dataElement) {\n';
+		js += '\tvar jsonText = dataElement.textContent || dataElement.innerText || dataElement.text;\n';
+		js += '\tif (jsonText) {\n';
+		js += '\t\tdataElement.textContent = jsonText.replace(/^\\s*\\{/, SCSSiteCommon);\n';
+		js += '\t}\n';
+		js += '}\n';
+		js += '})()';
+
+	// Write the common-siteinfo.js script to disk
+	console.log("writeCommonSiteInfo: Generating shared siteinfo-common.js")
+	writePage("siteinfo-common.js", js);
+};
 
 var compilePages = function (compileTargetDevice) {
 	if (!targetDevice) {
@@ -2488,6 +2558,7 @@ var compileSite = function (args) {
 	recurse = args.recurse;
 	includeLocale = args.includeLocale;
 	verbose = args.verbose;
+	useInlineSiteInfo = args.useInlineSiteInfo;
 	targetDevice = args.targetDevice;
 	compileDetailPages = !(args.noDetailPages);
 	useDefaultDetailPageLink = !(args.noDefaultDetailPageLink);

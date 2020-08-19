@@ -15,6 +15,13 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 20.3.2a
+
+**Added**
+
+- `cec transfer-site` - Added option `--excludecomponents` to allow transferring the site without any of its associated components.
+
+
 # New in Release 20.3.2
 
 **Added**

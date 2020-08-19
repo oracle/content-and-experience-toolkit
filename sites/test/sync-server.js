@@ -349,7 +349,9 @@ var _processEvent = function () {
 		var action = event.event.name;
 		var objectId = event.entity.id;
 		var objectName = event.entity.name;
-		console.log('*** action: ' + action + ' Id: ' + objectId);
+
+
+		console.log('*** webhook: ' + event.webhook.name + ' action: ' + action + ' registeredAt ' + event.event.registeredAt + ' Id: ' + objectId);
 
 		var args;
 
@@ -369,7 +371,8 @@ var _processEvent = function () {
 			};
 
 			contentLib.syncCreateUpdateItem(args, function (success) {
-				console.log('*** action finished');
+				console.log('*** action finished status: ' + (success ? 'successful' : 'failed'));
+				console.log(' ');
 				_updateEvent(event.__id, success);
 			});
 
@@ -385,7 +388,8 @@ var _processEvent = function () {
 			};
 
 			contentLib.syncDeleteItem(args, function (success, retry) {
-				console.log('*** action finished');
+				console.log('*** action finished status: ' + (success ? 'successful' : 'failed'));
+				console.log(' ');
 				_updateEvent(event.__id, success, retry);
 			});
 
@@ -401,7 +405,8 @@ var _processEvent = function () {
 			};
 
 			contentLib.syncApproveItem(args, function (success) {
-				console.log('*** action finished');
+				console.log('*** action finished status: ' + (success ? 'successful' : 'failed'));
+				console.log(' ');
 				_updateEvent(event.__id, success);
 			});
 
@@ -422,7 +427,8 @@ var _processEvent = function () {
 			};
 
 			contentLib.syncPublishUnpublishItems(args, function (success) {
-				console.log('*** action finished');
+				console.log('*** action finished status: ' + (success ? 'successful' : 'failed'));
+				console.log(' ');
 				_updateEvent(event.__id, success);
 			});
 
@@ -449,7 +455,8 @@ var _processEvent = function () {
 			};
 
 			siteLib.syncControlSiteSite(args, function (success) {
-				console.log('*** action finished');
+				console.log('*** action finished status: ' + (success ? 'successful' : 'failed'));
+				console.log(' ');
 				_updateEvent(event.__id, success);
 			});
 		}

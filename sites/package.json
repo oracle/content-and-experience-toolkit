@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "20.3.2",
+	"version": "20.3.2a",
 	"license": "UPL-1.0",
 	"description": "Content and Experience Cloud custom components build system",
 	"main": "index.js",
@@ -38,6 +38,8 @@
 		"remove-contentlayout-mapping": "gulp -LL --gulpfile bin/gulpfile.js remove-contentlayout-mapping",
 		"add-field-editor": "gulp -LL --gulpfile bin/gulpfile.js add-field-editor ",
 		"remove-field-editor": "gulp -LL --gulpfile bin/gulpfile.js remove-field-editor ",
+		"add-content-form": "gulp -LL --gulpfile bin/gulpfile.js add-content-form ",
+		"remove-content-form": "gulp -LL --gulpfile bin/gulpfile.js remove-content-form ",
 		"list-server-content-types": "gulp -LL --gulpfile bin/gulpfile.js list-server-content-types ",
 		"download-content": "gulp -LL --gulpfile bin/gulpfile.js download-content ",
 		"upload-content": "gulp -LL --gulpfile bin/gulpfile.js upload-content ",

@@ -1,0 +1,119 @@
+<!--
+Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- only allow embedding of this iFrame in SCS -->
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <title>Content Form</title>
+
+    <!-- include sample apps styling -->
+    <link href="/_sitescloud/renderer/app/sdk/css/app-styles.css" rel="stylesheet">
+
+    <script type="text/javascript" src="/_sitescloud/renderer/app/apps/js/jquery.min.js"></script>
+    <script type="text/javascript" src="/_sitescloud/renderer/app/apps/js/knockout.min.js"></script>
+    <script type="text/javascript" src="/_sitescloud/renderer/mustache.min.js"></script>
+
+    <!-- include the Sites SDK -->
+    <script type="text/javascript" src="/_sitescloud/renderer/app/sdk/js/sites.min.js"></script>
+</head>
+
+<body data-bind="visible: true" style="display:none; margin:0px; padding:0px;background:transparent;background-image:none;">
+    <div class="scs-component-settings">
+		
+		<div>
+			<label id="opt" class="settings-label">Select content types supported by this form</label>
+		</div>
+		<div class="scs-panelInput">
+			<ul id="contenttypelist" data-bind="foreach: types">
+			<div class="optionspanel">
+				<p class="settings-label">
+					<input type="checkbox" id="type" data-bind="checked: supported" class="optioninput" />
+					<label id="typelabel" for="type"><span data-bind="text: name"></span></label>
+				</p>
+			</div>
+			</ul>
+		</div>
+
+		<div class="fieldeditorbutton">
+			<button id="fieldeditorsavebutton" class="save-button" data-bind=" click: saveChanges">Save to appinfo.json</button>
+		</div>
+    </div>
+
+    <script type="text/javascript">
+        /* global ko, console */
+
+        // define the viewModel object
+        var SettingsViewModel = function () {
+            'use strict';
+            var self = this;
+            self.initialized = ko.observable(false);
+
+			var compName = '_devcs_component_contentform_name';
+			var supportedTypes = '_devcs_component_contentform_types'.split(',');
+			console.log(supportedTypes);
+
+			self.types = ko.observableArray([]);
+
+			parent.document.getElementById('settingsTitle').innerText = 'Form Properties';
+
+			$.ajax({
+                'type': 'GET',
+                'dataType': 'json',
+                'url': '/getcontenttypes',
+                'success': function (result) {
+					var typeNames = result || [];
+					var buf = [];
+					for(var i = 0; i < typeNames.length; i++) {
+						buf.push({
+							name: typeNames[i],
+							supported: supportedTypes.includes(typeNames[i])
+						});
+					}
+					console.log('content types: ' + typeNames);
+					
+					self.types(buf);
+					self.initialized(true);
+				}
+			});
+
+			self.saveChanges = function (event) {
+				
+				// console.log(self.types());
+				var supportedTypes = [];
+				for(var i = 0; i < self.types().length; i++) {
+					if (self.types()[i].supported) {
+						supportedTypes.push(self.types()[i].name);
+					}
+				}
+
+				var url = '/updatecontentform?name=' + compName + '&supportedTypes=' + supportedTypes;
+				console.log(url);
+				$.ajax({
+                	'type': 'POST',
+               	 	async: false,
+                	'url': url,
+                	'success': function (data) {
+						console.log('Changes saved successfully');
+                	},
+                	'error': function (xhr, status, err) {
+                    	console.log('status=' + status + ' err=' + err);
+               	 	}
+            	});
+			};
+
+            self.save = ko.computed(function () {
+
+                // console.log('Save changes....');
+
+            }, self);
+        };
+        ko.applyBindings(new SettingsViewModel());
+    </script>
+</body>
+
+</html>

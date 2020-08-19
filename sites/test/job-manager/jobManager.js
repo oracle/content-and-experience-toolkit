@@ -291,6 +291,17 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     });
                 }
             },
+            checkTemplateDirectoryStep = function (jobStatus) {
+                var templateDir = path.join(templatesDir, templateName);
+
+                // If a job is restarted in the COMPILE_TEMPLATE status, the template directory would exist.
+                // It is necessary to delete the template directory first.
+                if (!fs.existsSync(templateDir)) {
+                    return Promise.resolve(noop);
+                } else {
+                    return rmTemplateDirStep(jobStatus);
+                }
+            },
             createTemplateStep = function (jobStatus) {
                 if (jobStatus !== 'CREATE_TEMPLATE') {
                     return Promise.resolve(noop);
@@ -436,7 +447,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                 }
             },
             rmTemplateDirStep = function (jobStatus) {
-                if (jobStatus !== 'PUBLISH_STATIC') {
+                if (!(jobStatus === 'CREATE_TEMPLATE' || jobStatus === 'PUBLISH_STATIC')) {
                     return Promise.resolve(noop);
                 } else {
                     return new Promise(function (resolveStep, rejectStep) {
@@ -484,28 +495,30 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     }
                     publishSiteStep(jobConfig.status).then(function (completionCode) {
                         updateStatusStep(completionCode, 'CREATE_TEMPLATE', 20).then(function (updatedJobConfig) {
-                            createTemplateStep(jobConfig.status).then(function (completionCode) {
-                                updateStatusStep(completionCode, 'COMPILE_TEMPLATE', 40).then(function (updatedJobConfig) {
-                                    getChannelTokenStep(updatedJobConfig.status).then(function (completionCode) {
-                                        compileStep(updatedJobConfig.status).then(function (completionCode) {
-                                            updateStatusStep(completionCode, 'UPLOAD_STATIC', 60).then(function (updatedJobConfig) {
-                                                uploadStep(updatedJobConfig.status).then(function (completionCode) {
-                                                    updateStatusStep(completionCode, 'PUBLISH_STATIC', 80).then(function (updatedJobConfig) {
-                                                        if (jobConfig.hasOwnProperty('publishStaticBackgroundJobId')) {
-                                                            delete jobConfig.publishStaticBackgroundJobId;
-                                                        }
-                                                        publishStaticStep(updatedJobConfig.status).then(function (completionCode) {
-                                                            if (completionCode !== noop) {
-                                                                logDuration(updatedJobConfig, 'compileSite', compileStartTime);
+                            checkTemplateDirectoryStep(jobConfig.status).then(function() {
+                                createTemplateStep(jobConfig.status).then(function (completionCode) {
+                                    updateStatusStep(completionCode, 'COMPILE_TEMPLATE', 40).then(function (updatedJobConfig) {
+                                        getChannelTokenStep(updatedJobConfig.status).then(function (completionCode) {
+                                            compileStep(updatedJobConfig.status).then(function (completionCode) {
+                                                updateStatusStep(completionCode, 'UPLOAD_STATIC', 60).then(function (updatedJobConfig) {
+                                                    uploadStep(updatedJobConfig.status).then(function (completionCode) {
+                                                        updateStatusStep(completionCode, 'PUBLISH_STATIC', 80).then(function (updatedJobConfig) {
+                                                            if (jobConfig.hasOwnProperty('publishStaticBackgroundJobId')) {
+                                                                delete jobConfig.publishStaticBackgroundJobId;
                                                             }
-                                                            rmTemplateDirStep(updatedJobConfig.status).then(function() {
-                                                                logStream.end();
-                                                                uploadLogStep().then(function() {
-                                                                    updateStatusStep(completionCode, 'COMPILED', 100).then(function(updatedJobConfig) {
-                                                                        resolve(updatedJobConfig);
-                                                                    });
-                                                                }, stopNow);
-                                                            });
+                                                            publishStaticStep(updatedJobConfig.status).then(function (completionCode) {
+                                                                if (completionCode !== noop) {
+                                                                    logDuration(updatedJobConfig, 'compileSite', compileStartTime);
+                                                                }
+                                                                rmTemplateDirStep(updatedJobConfig.status).then(function() {
+                                                                    logStream.end();
+                                                                    uploadLogStep().then(function() {
+                                                                        updateStatusStep(completionCode, 'COMPILED', 100).then(function(updatedJobConfig) {
+                                                                            resolve(updatedJobConfig);
+                                                                        });
+                                                                    }, stopNow);
+                                                                });
+                                                            }, stopNow);
                                                         }, stopNow);
                                                     }, stopNow);
                                                 }, stopNow);

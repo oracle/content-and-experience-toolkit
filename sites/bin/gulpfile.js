@@ -688,6 +688,30 @@ gulp.task('remove-field-editor', function (done) {
 	});
 });
 
+/**
+ * Associate content form with a content type in a template
+ */
+gulp.task('add-content-form', function (done) {
+	'use strict';
+
+	contentlayoutlib.addContentForm(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Remove content form from a content type in a template
+ */
+gulp.task('remove-content-form', function (done) {
+	'use strict';
+
+	contentlayoutlib.removeContentForm(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
 
 /**
  * Create template

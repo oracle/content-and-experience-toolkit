@@ -723,7 +723,7 @@ router.get('/*', (req, res) => {
 		}
 		res.writeHead(200, {});
 		res.end();
-	} else if (cntPath === '/content/management/api/v1/aggregates/types') {
+	} else if (cntPath === '/content/management/api/v1.1/types') {
 		var params = serverUtils.getURLParameters(cntURL.query),
 			limitstr = params.limit || '',
 			alltypes = serverUtils.getContentTypes(),

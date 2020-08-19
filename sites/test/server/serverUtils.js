@@ -670,7 +670,10 @@ var _getTemplateComponents = function (templateName) {
 
 		Object.keys(componentInstances).forEach(function (key) {
 			compvalues = componentInstances[key];
-			if (compvalues && (compvalues.type === 'scs-component' || compvalues.type === 'scs-componentgroup' || compvalues.type === 'scs-app' || compvalues.type === 'scs-sectionlayout') && compvalues.id) {
+			if (compvalues &&
+				(compvalues.type === 'scs-component' || compvalues.type === 'scs-componentgroup' || compvalues.type === 'scs-app' || compvalues.type === 'scs-sectionlayout') &&
+				compvalues.id &&
+				compvalues.id !== compvalues.type) {
 				var added = false;
 				for (var j = 0; j < comps.length; j++) {
 					if (compvalues.id === comps[j]) {

@@ -573,15 +573,10 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 			}).then(function (result) {
 				numErrors += (result.error ? 1 : 0);
 
-				// delete the content file from trash 
-				// (TODO: move this to uploadConent API when change to use OAuth)
-				return serverUtils.deleteFileFromTrash(server, argv.template + '_export.zip')
-					.then(function (result) {
-						return Promise.resolve({
-							errors: numErrors,
-							name: stepName
-						});
-					});
+				return Promise.resolve({
+					errors: numErrors,
+					name: stepName
+				});
 			});
 		}
 	});

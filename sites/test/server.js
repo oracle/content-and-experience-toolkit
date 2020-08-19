@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global console, process, __dirname */
@@ -194,6 +194,7 @@ app.use('*sites.min.js', express.static(testDir + '/sitescloud/renderer/app/sdk/
 app.use('*sites.mock.min.js', express.static(testDir + '/sitescloud/renderer/app/sdk/js/sites.mock.min.js'));
 app.use('*content.min.js', express.static(testDir + '/sitescloud/renderer/app/sdk/js/content.min.js'));
 app.use('*field-editor-sdk-1.0.js', express.static(testDir + '/sitescloud/renderer/app/sdk/js/field-editor-sdk-1.0.js'));
+app.use('*content-form-sdk-1.0.js', express.static(testDir + '/sitescloud/renderer/app/sdk/js/content-form-sdk-1.0.js'));
 app.use('/src', express.static(path.join(projectDir, 'src')));
 app.use('/main/components', express.static(componentsDir));
 app.use('/themes', express.static(themesDir));
@@ -319,6 +320,37 @@ app.get('/getcontentlayoutitems*', function (req, res) {
 	res.end();
 });
 
+app.get('/getcontenttypes*', function (req, res) {
+	"use strict";
+
+	var typeNames = [];
+	// get from server if server configured
+
+	if (server && server.valid) {
+		serverUtils.getContentTypesFromServer(server).then(function (result) {
+			var types = result && result.items || [];
+			types.forEach(function (type) {
+				if (!typeNames.includes(type.name)) {
+					typeNames.push(type.name);
+				}
+			});
+			res.write(JSON.stringify(typeNames));
+			res.end();
+		});
+
+	} else {
+		var localTypes = serverUtils.getContentTypes(projectDir);
+
+		localTypes.forEach(function (data) {
+			if (!typeNames.includes(data.type.name)) {
+				typeNames.push(data.type.name);
+			}
+		});
+		res.write(JSON.stringify(typeNames));
+		res.end();
+	}
+
+});
 
 app.post('/setcontentlayoutitem*', function (req, res) {
 	"use strict";
@@ -363,7 +395,7 @@ app.post('/clearcontentlayoutitem', function (req, res) {
 		name: '',
 		isRemote: false
 	};
-	
+
 	res.end();
 	return;
 });
@@ -399,6 +431,36 @@ app.post('/updatefieldeditor', function (req, res) {
 	res.end();
 	return;
 });
+
+app.post('/updatecontentform', function (req, res) {
+	"use strict";
+
+	var updateurl = req.url.replace('/updatecontentform', ''),
+		params = serverUtils.getURLParameters(url.parse(updateurl).query);
+	var compName = params && params.name;
+	var types = params && params.supportedTypes && params.supportedTypes.split(',') || [];
+	if (compName && types && types.length > 0) {
+
+		console.log('content form: ' + compName + ' supported types: ' + types);
+		var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
+		if (appInfo) {
+			var supportedTypes = appInfo.supportedContentTypes || [];
+			types.forEach(function (type) {
+				if (!supportedTypes.includes(type)) {
+					supportedTypes.push(type);
+				}
+			});
+			appInfo.supportedContentTypes = supportedTypes;
+			var filePath = path.join(componentsDir, compName, 'appinfo.json');
+			fs.writeFileSync(filePath, JSON.stringify(appInfo));
+			console.log(' - saved file ' + filePath);
+		}
+	}
+
+	res.end();
+	return;
+});
+
 
 app.get('/isAuthenticated', function (req, res) {
 	if (!app.locals.serverURL) {
