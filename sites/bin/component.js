@@ -9,11 +9,9 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	fileUtils = require('../test/server/fileUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
-	extract = require('extract-zip'),
 	childProcess = require('child_process'),
 	gulp = require('gulp'),
 	fs = require('fs'),
-	fsp = require('fs').promises,
 	fse = require('fs-extra'),
 	path = require('path'),
 	zip = require('gulp-zip');
@@ -136,53 +134,51 @@ var _createComponent = function (componentZipName, compName, done) {
 	fs.mkdirSync(componentDir);
 
 	// Unzip the component and fix the id
-	extract(path.join(componentsDataDir, componentZipName), {
-		dir: componentDir
-	}, function (err) {
-		// if an error occured, report it
-		if (err) {
-			reject(err);
-		}
-
-		// remove the extra directory caused by unzip
-		serverUtils.stripTopDirectory(componentDir).then(() => {
-
-			// Fix the component id
-			var filepath = path.join(componentDir, 'appinfo.json');
-			if (fs.existsSync(filepath)) {
-				var appinfostr = fs.readFileSync(filepath),
-					appinfojson = JSON.parse(appinfostr),
-					oldId = appinfojson.id,
-					newId = compName;
-				appinfojson.id = newId;
-				if (appinfojson.hasOwnProperty('name')) {
-					appinfojson.name = compName;
-				}
-				if (appinfojson.initialData) {
-					appinfojson.initialData.componentId = newId;
-				}
-				console.log(' - update component Id ' + oldId + ' to ' + newId);
-				fs.writeFileSync(filepath, JSON.stringify(appinfojson));
+	fileUtils.extractZip(path.join(componentsDataDir, componentZipName), componentDir)
+		.then(function (err) {
+			if (err) {
+				reject(err);
 			}
 
-			// Fix the component itemGUID
-			filepath = path.join(componentDir, '/_folder.json');
-			if (fs.existsSync(filepath)) {
-				var folderstr = fs.readFileSync(filepath),
-					folderjson = JSON.parse(folderstr),
-					oldGUID = folderjson.itemGUID,
-					newGUID = serverUtils.createGUID();
-				folderjson.itemGUID = newGUID;
-				console.log(' - update component GUID ' + oldGUID + ' to ' + newGUID);
-				fs.writeFileSync(filepath, JSON.stringify(folderjson));
-			}
+			// remove the extra directory caused by unzip
+			serverUtils.stripTopDirectory(componentDir).then(() => {
 
-			console.log(` - component ${compName} created at ${componentDir}`);
-			console.log(`To rename the component, rename the directory ${componentDir}`);
+				// Fix the component id
+				var filepath = path.join(componentDir, 'appinfo.json');
+				if (fs.existsSync(filepath)) {
+					var appinfostr = fs.readFileSync(filepath),
+						appinfojson = JSON.parse(appinfostr),
+						oldId = appinfojson.id,
+						newId = compName;
+					appinfojson.id = newId;
+					if (appinfojson.hasOwnProperty('name')) {
+						appinfojson.name = compName;
+					}
+					if (appinfojson.initialData) {
+						appinfojson.initialData.componentId = newId;
+					}
+					console.log(' - update component Id ' + oldId + ' to ' + newId);
+					fs.writeFileSync(filepath, JSON.stringify(appinfojson));
+				}
 
-			done(true);
+				// Fix the component itemGUID
+				filepath = path.join(componentDir, '/_folder.json');
+				if (fs.existsSync(filepath)) {
+					var folderstr = fs.readFileSync(filepath),
+						folderjson = JSON.parse(folderstr),
+						oldGUID = folderjson.itemGUID,
+						newGUID = serverUtils.createGUID();
+					folderjson.itemGUID = newGUID;
+					console.log(' - update component GUID ' + oldGUID + ' to ' + newGUID);
+					fs.writeFileSync(filepath, JSON.stringify(folderjson));
+				}
+
+				console.log(` - component ${compName} created at ${componentDir}`);
+				console.log(`To rename the component, rename the directory ${componentDir}`);
+
+				done(true);
+			});
 		});
-	});
 };
 
 /**
@@ -535,17 +531,16 @@ var unzipComponent = function (compName, compPath) {
 		fileUtils.remove(compSrcDir);
 
 		// unzip /src/main/components/<comp name>/
-		extract(compPath, {
-			dir: componentsSrcDir
-		}, function (err) {
-			// if an error occured, report it
-			if (err) {
-				reject(err);
-			}
-			resolve({
-				comp: compName
+		fileUtils.extractZip(compPath, componentsSrcDir)
+			.then(function (err) {
+				// if an error occured, report it
+				if (err) {
+					reject(err);
+				}
+				resolve({
+					comp: compName
+				});
 			});
-		});
 	});
 };
 

@@ -15,6 +15,16 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 20.3.3
+
+**Added**
+
+- `cec create-component` - now supports custom Content Forms.
+
+Example:
+`cec create-component contentform1 -f ContentForm`
+
+
 # New in Release 20.3.2a
 
 **Added**

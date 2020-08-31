@@ -16,7 +16,7 @@ var gulp = require('gulp'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	childProcess = require('child_process'),
-	extract = require('extract-zip'),
+	cleanCSS = require('gulp-clean-css'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	os = require('os'),
@@ -370,8 +370,8 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 							comps.push(comp.id);
 						}
 					});
-					
-					console.log(' - ' + (excludeComponents ? 'exclude' : 'downloading')  + ' components: ' + comps);
+
+					console.log(' - ' + (excludeComponents ? 'exclude' : 'downloading') + ' components: ' + comps);
 
 					var downloadCompsPromises = excludeComponents ? [] : [_downloadSiteComponents(request, server, comps)];
 
@@ -806,6 +806,38 @@ module.exports.exportTemplate = function (argv, done) {
 	});
 
 };
+
+gulp.task('minify-template-css', function (done) {
+	'use strict';
+
+	if (templateName) {
+		var tempBuildDir = path.join(templatesBuildDir, templateName);
+		console.log(' - minify CSS files');
+		gulp.src(tempBuildDir + '/**/*.css', {
+				base: tempBuildDir
+			})
+			.pipe(cleanCSS({
+				debug: true
+			}, (details) => {
+				// console.log(details.name + ': ' + details.stats.originalSize + ' => ' + details.stats.minifiedSize);
+			}))
+			.pipe(gulp.dest(tempBuildDir))
+			.on('end', done);
+	}
+});
+
+gulp.task('create-no-content-template-zip', function (done) {
+	'use strict';
+
+	if (templateName) {
+		var tempBuildDir = path.join(templatesBuildDir, templateName);
+
+		gulp.src(tempBuildDir + '/**')
+			.pipe(zip(templateName + '.zip'))
+			.pipe(gulp.dest(path.join(projectDir, 'dist')))
+			.on('end', done);
+	}
+});
 
 gulp.task('create-template-zip', function (done) {
 	'use strict';
@@ -2058,167 +2090,164 @@ var unzipTemplate = function (tempName, tempPath, useNewGUID) {
 		fs.mkdirSync(tempSrcDir);
 
 		// unzip /src/templates/<temp name>/
-		// decompress(tempPath, tempSrcDir).then(() => {
-		// decompress does not work with empty directories on unix
-		extract(tempPath, {
-			dir: tempSrcDir
-		}, function (err) {
-			if (err) {
-				console.log(err);
-			}
+		fileUtils.extractZip(tempPath, tempSrcDir)
+			.then(function (err) {
 
-			// get the theme name from theme/_folder.json 
-			var themeName = '';
-			if (createNew) {
-				themeName = tempName + 'Theme';
-
-			} else {
-				if (fs.existsSync(path.join(tempSrcDir, 'theme', '_folder.json'))) {
-					var themestr = fs.readFileSync(path.join(tempSrcDir, 'theme', '_folder.json')),
-						themejson = JSON.parse(themestr),
-						themeName = themejson && themejson.themeName || tempName + 'Theme';
+				if (err) {
+					console.log(err);
 				}
-			}
 
-			// create the theme dir
-			var themeSrcDir = path.join(themesSrcDir, themeName);
-			console.log(' - the theme for the template will be at ' + themeSrcDir);
-			fileUtils.remove(themeSrcDir);
+				// get the theme name from theme/_folder.json 
+				var themeName = '';
+				if (createNew) {
+					themeName = tempName + 'Theme';
 
-			// move theme to the themes dir
-			fse.moveSync(path.join(tempSrcDir, 'theme'), themeSrcDir);
-
-			// create soft links
-			var currdir = process.cwd();
-			try {
-				if (fs.existsSync(path.join(themeSrcDir, 'layouts'))) {
-					process.chdir(path.join(themeSrcDir, 'layouts'));
-					fse.ensureSymlinkSync('..', '_scs_theme_root_');
-					console.log(' - create link _scs_theme_root_');
 				} else {
-					console.log(' Path does not exist: ' + path.join(themeSrcDir, 'layouts'));
-				}
-
-				if (fs.existsSync(path.join(themeSrcDir, 'designs', 'default'))) {
-					process.chdir(path.join(themeSrcDir, 'designs'));
-					fse.ensureSymlinkSync('default', '_scs_design_name_');
-					console.log(' - create link _scs_design_name_');
-				} else {
-					console.log(' Path does not exist: ' + path.join(themeSrcDir, 'designs', 'default'));
-				}
-
-				process.chdir(currdir);
-			} catch (err) {
-				console.error('ERROR: ' + err);
-			}
-
-			// move all files under /template up 
-			var files = fs.readdirSync(path.join(tempSrcDir, 'template'));
-			for (var i = 0; i < files.length; i++) {
-				fse.moveSync(path.join(tempSrcDir, 'template', files[i]), path.join(tempSrcDir, files[i]), true);
-			}
-			fileUtils.remove(path.join(tempSrcDir, 'template'));
-
-			if (fs.existsSync(path.join(tempSrcDir, 'components'))) {
-				// move components to the components dir
-				var comps = fs.readdirSync(path.join(tempSrcDir, 'components'));
-				for (var i = 0; i < comps.length; i++) {
-					if (fs.existsSync(path.join(componentsSrcDir, comps[i]))) {
-						fileUtils.remove(path.join(componentsSrcDir, comps[i]));
-						console.log(' - override component ' + componentsSrcDir + '/' + comps[i]);
+					if (fs.existsSync(path.join(tempSrcDir, 'theme', '_folder.json'))) {
+						var themestr = fs.readFileSync(path.join(tempSrcDir, 'theme', '_folder.json')),
+							themejson = JSON.parse(themestr),
+							themeName = themejson && themejson.themeName || tempName + 'Theme';
 					}
-					fse.moveSync(path.join(tempSrcDir, 'components', comps[i]), path.join(componentsSrcDir, comps[i]), true);
 				}
-				fileUtils.remove(path.join(tempSrcDir, 'components'));
-			}
 
-			// make sure the correct theme name is set in siteinfo
-			var siteinfofile = path.join(tempSrcDir, 'siteinfo.json');
-			if (fs.existsSync(siteinfofile)) {
-				var siteinfostr = fs.readFileSync(siteinfofile),
-					siteinfojson = JSON.parse(siteinfostr);
-				if (siteinfojson && siteinfojson.properties) {
-					console.log(' - set themeName to ' + themeName + ' in siteinfo.json');
-					siteinfojson.properties.themeName = themeName;
-					siteinfojson.properties.siteName = tempName;
+				// create the theme dir
+				var themeSrcDir = path.join(themesSrcDir, themeName);
+				console.log(' - the theme for the template will be at ' + themeSrcDir);
+				fileUtils.remove(themeSrcDir);
+
+				// move theme to the themes dir
+				fse.moveSync(path.join(tempSrcDir, 'theme'), themeSrcDir);
+
+				// create soft links
+				var currdir = process.cwd();
+				try {
+					if (fs.existsSync(path.join(themeSrcDir, 'layouts'))) {
+						process.chdir(path.join(themeSrcDir, 'layouts'));
+						fse.ensureSymlinkSync('..', '_scs_theme_root_');
+						console.log(' - create link _scs_theme_root_');
+					} else {
+						console.log(' Path does not exist: ' + path.join(themeSrcDir, 'layouts'));
+					}
+
+					if (fs.existsSync(path.join(themeSrcDir, 'designs', 'default'))) {
+						process.chdir(path.join(themeSrcDir, 'designs'));
+						fse.ensureSymlinkSync('default', '_scs_design_name_');
+						console.log(' - create link _scs_design_name_');
+					} else {
+						console.log(' Path does not exist: ' + path.join(themeSrcDir, 'designs', 'default'));
+					}
+
+					process.chdir(currdir);
+				} catch (err) {
+					console.error('ERROR: ' + err);
+				}
+
+				// move all files under /template up 
+				var files = fs.readdirSync(path.join(tempSrcDir, 'template'));
+				for (var i = 0; i < files.length; i++) {
+					fse.moveSync(path.join(tempSrcDir, 'template', files[i]), path.join(tempSrcDir, files[i]), true);
+				}
+				fileUtils.remove(path.join(tempSrcDir, 'template'));
+
+				if (fs.existsSync(path.join(tempSrcDir, 'components'))) {
+					// move components to the components dir
+					var comps = fs.readdirSync(path.join(tempSrcDir, 'components'));
+					for (var i = 0; i < comps.length; i++) {
+						if (fs.existsSync(path.join(componentsSrcDir, comps[i]))) {
+							fileUtils.remove(path.join(componentsSrcDir, comps[i]));
+							console.log(' - override component ' + componentsSrcDir + '/' + comps[i]);
+						}
+						fse.moveSync(path.join(tempSrcDir, 'components', comps[i]), path.join(componentsSrcDir, comps[i]), true);
+					}
+					fileUtils.remove(path.join(tempSrcDir, 'components'));
+				}
+
+				// make sure the correct theme name is set in siteinfo
+				var siteinfofile = path.join(tempSrcDir, 'siteinfo.json');
+				if (fs.existsSync(siteinfofile)) {
+					var siteinfostr = fs.readFileSync(siteinfofile),
+						siteinfojson = JSON.parse(siteinfostr);
+					if (siteinfojson && siteinfojson.properties) {
+						console.log(' - set themeName to ' + themeName + ' in siteinfo.json');
+						siteinfojson.properties.themeName = themeName;
+						siteinfojson.properties.siteName = tempName;
+						fs.writeFileSync(siteinfofile, JSON.stringify(siteinfojson));
+					}
+				} else {
+					// siteinfo.json does not exist (old templates), create one
+					var siteinfojson = {
+						properties: {
+							themeName: themeName,
+							siteName: tempName
+						}
+					};
+					console.log(' - create siteinfo.json and set themeName to ' + themeName);
 					fs.writeFileSync(siteinfofile, JSON.stringify(siteinfojson));
 				}
-			} else {
-				// siteinfo.json does not exist (old templates), create one
-				var siteinfojson = {
-					properties: {
-						themeName: themeName,
-						siteName: tempName
+
+				if (useNewGUID) {
+					// update itemGUID for template and theme
+					var templatefolderfile = path.join(tempSrcDir, '_folder.json'),
+						themefolderfile = path.join(themeSrcDir, '_folder.json');
+
+					// update template _folder.json
+					if (fs.existsSync(templatefolderfile)) {
+						var folderstr = fs.readFileSync(templatefolderfile),
+							folderjson = JSON.parse(folderstr),
+							oldGUID = folderjson.itemGUID,
+							newGUID = serverUtils.createGUID();
+						folderjson.itemGUID = newGUID;
+						folderjson.siteName = tempName;
+						console.log(' - update template GUID ' + oldGUID + ' to ' + newGUID);
+						fs.writeFileSync(templatefolderfile, JSON.stringify(folderjson));
 					}
-				};
-				console.log(' - create siteinfo.json and set themeName to ' + themeName);
-				fs.writeFileSync(siteinfofile, JSON.stringify(siteinfojson));
-			}
-
-			if (useNewGUID) {
-				// update itemGUID for template and theme
-				var templatefolderfile = path.join(tempSrcDir, '_folder.json'),
-					themefolderfile = path.join(themeSrcDir, '_folder.json');
-
-				// update template _folder.json
-				if (fs.existsSync(templatefolderfile)) {
-					var folderstr = fs.readFileSync(templatefolderfile),
-						folderjson = JSON.parse(folderstr),
-						oldGUID = folderjson.itemGUID,
-						newGUID = serverUtils.createGUID();
-					folderjson.itemGUID = newGUID;
-					folderjson.siteName = tempName;
-					console.log(' - update template GUID ' + oldGUID + ' to ' + newGUID);
-					fs.writeFileSync(templatefolderfile, JSON.stringify(folderjson));
-				}
-				// update theme _folder.json
-				if (fs.existsSync(themefolderfile)) {
-					var folderstr = fs.readFileSync(themefolderfile),
-						folderjson = JSON.parse(folderstr),
-						oldGUID = folderjson.itemGUID,
-						newGUID = serverUtils.createGUID();
-					folderjson.itemGUID = newGUID;
-					folderjson.themeName = themeName;
-					console.log(' - update theme GUID ' + oldGUID + ' to ' + newGUID);
-					fs.writeFileSync(themefolderfile, JSON.stringify(folderjson));
-				}
-			}
-
-			// unzip content zip if exists
-			var contentpath = path.join(tempSrcDir, 'assets', 'contenttemplate');
-			var contentexportfile = path.join(contentpath, 'export.zip');
-			if (fs.existsSync(contentexportfile)) {
-				console.log(' - unzip template content file');
-				extract(contentexportfile, {
-					dir: contentpath
-				}, function (err) {
-					if (err) {
-						console.log(err);
+					// update theme _folder.json
+					if (fs.existsSync(themefolderfile)) {
+						var folderstr = fs.readFileSync(themefolderfile),
+							folderjson = JSON.parse(folderstr),
+							oldGUID = folderjson.itemGUID,
+							newGUID = serverUtils.createGUID();
+						folderjson.itemGUID = newGUID;
+						folderjson.themeName = themeName;
+						console.log(' - update theme GUID ' + oldGUID + ' to ' + newGUID);
+						fs.writeFileSync(themefolderfile, JSON.stringify(folderjson));
 					}
+				}
 
-					if (createNew) {
-						// update the content dir if exists
-						var items = fs.readdirSync(path.join(templatesSrcDir, tempName, 'assets', 'contenttemplate'));
-						for (var i = 0; i < items.length; i++) {
-							if (items[i].indexOf('Content Template of ') === 0 && items[i] !== 'Content Template of ' + tempName) {
-								// rename the dir
-								var contentdir = path.join(templatesSrcDir, tempName, 'assets', 'contenttemplate', items[i]),
-									newname = 'Content Template of ' + tempName,
-									newcontentdir = path.join(templatesSrcDir, tempName, 'assets', 'contenttemplate', newname);
-								fs.renameSync(contentdir, newcontentdir);
-								// console.log(' - update content dir to ' + newname);
-								break;
+				// unzip content zip if exists
+				var contentpath = path.join(tempSrcDir, 'assets', 'contenttemplate');
+				var contentexportfile = path.join(contentpath, 'export.zip');
+				if (fs.existsSync(contentexportfile)) {
+					console.log(' - unzip template content file');
+					fileUtils.extractZip(contentexportfile, contentpath)
+						.then(function (err) {
+							if (err) {
+								console.log(err);
 							}
-						}
-					}
+
+							if (createNew) {
+								// update the content dir if exists
+								var items = fs.readdirSync(path.join(templatesSrcDir, tempName, 'assets', 'contenttemplate'));
+								for (var i = 0; i < items.length; i++) {
+									if (items[i].indexOf('Content Template of ') === 0 && items[i] !== 'Content Template of ' + tempName) {
+										// rename the dir
+										var contentdir = path.join(templatesSrcDir, tempName, 'assets', 'contenttemplate', items[i]),
+											newname = 'Content Template of ' + tempName,
+											newcontentdir = path.join(templatesSrcDir, tempName, 'assets', 'contenttemplate', newname);
+										fs.renameSync(contentdir, newcontentdir);
+										// console.log(' - update content dir to ' + newname);
+										break;
+									}
+								}
+							}
+							console.log(' *** template is ready to test: ' + serverURL + '/templates/' + tempName);
+							return resolve({});
+						});
+				} else {
 					console.log(' *** template is ready to test: ' + serverURL + '/templates/' + tempName);
 					return resolve({});
-				});
-			} else {
-				console.log(' *** template is ready to test: ' + serverURL + '/templates/' + tempName);
-				return resolve({});
-			}
-		});
+				}
+			});
 	});
 	return unzipPromise;
 };
@@ -2309,6 +2338,45 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 			}
 		}
 
+		// Optimize theme if requested
+		if (optimize) {
+			let themeBuildDir = path.join(tempBuildDir, 'theme'),
+				themeGulpFile = path.join(themeBuildDir, 'gulpfile.js');
+
+			if (fs.existsSync(themeGulpFile)) {
+				// Run 'gulp' under the theme directory
+				var themeBuild = childProcess.spawnSync(npmCmd, ['run', 'gulp', themeGulpFile], {
+					stdio: 'inherit'
+				});
+				if (themeBuild.status) {
+					// something went wrong with the build
+					console.log(' - ERROR running theme gulp file: ' + themeGulpFile + ' status: ' + themeBuild.status);
+				}
+			} else {
+
+				var files = getDirFiles(tempBuildDir);
+
+				if (files) {
+					var uglifyjs = require("uglify-js");
+					files.forEach(function (name) {
+						if (name.endsWith('.js')) {
+							var orig = fs.readFileSync(name, {
+									encoding: 'utf8'
+								}),
+								result = uglifyjs.minify(orig),
+								uglified = result.code;
+							if (result.error) {
+								console.log(' - ERROR optiomizing JS File ' + name + result.error);
+							} else {
+								fs.writeFileSync(name, uglified);
+								// console.log(' - Optimized JS File ' + name);
+							}
+						}
+					});
+				}
+			}
+		}
+
 		if (excludeComponents) {
 			console.log(' - exclude components');
 		} else {
@@ -2334,46 +2402,8 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 			// create the components dir (required even the template doesn not have any custom component)
 			fs.mkdirSync(path.join(tempBuildDir, 'components'));
 
-			// Optimize if requested
+			// Optimize components if requested
 			if (optimize) {
-				let themeBuildDir = path.join(tempBuildDir, 'theme'),
-					themeGulpFile = path.join(themeBuildDir, 'gulpfile.js');
-				if (fs.existsSync(themeGulpFile)) {
-					// Run 'gulp' under the theme directory
-					var themeBuild = childProcess.spawnSync(npmCmd, ['run', 'gulp', themeGulpFile], {
-						stdio: 'inherit'
-					});
-					if (themeBuild.status) {
-						// something went wrong with the build
-						console.log(' - ERROR running theme gulp file: ' + themeGulpFile + ' status: ' + themeBuild.status);
-					}
-				} else {
-					var files = getDirFiles(tempBuildDir);
-
-					if (files) {
-						var uglifycss = require('uglifycss'),
-							uglifyjs = require("uglify-js");
-						files.forEach(function (name) {
-							if (name.endsWith('.css')) {
-								var uglified = uglifycss.processFiles([name]);
-								fs.writeFileSync(name, uglified);
-								// console.log(' - Optimized CSS File ' + name);
-							} else if (name.endsWith('.js')) {
-								var orig = fs.readFileSync(name, {
-										encoding: 'utf8'
-									}),
-									result = uglifyjs.minify(orig),
-									uglified = result.code;
-								if (result.error) {
-									console.log(' - ERROR optiomizing JS File ' + name + result.error);
-								} else {
-									fs.writeFileSync(name, uglified);
-									// console.log(' - Optimized JS File ' + name);
-								}
-							}
-						});
-					}
-				}
 
 				if (!fs.existsSync(componentsBuildDir)) {
 					fse.mkdirpSync(componentsBuildDir);
@@ -2418,7 +2448,8 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 					console.log(' - component ' + comps[i]);
 				}
 			}
-		}
+
+		} // include components in the template
 
 		// create the zip file
 		var zipfile = path.join(projectDir, 'dist', name + '.zip');
@@ -2436,12 +2467,14 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 			fileUtils.remove(contentdir);
 		}
 
+		var generateZip;
 		if (fs.existsSync(contentdir)) {
 			templateName = name;
 			templateBuildContentDirBase = dirbase;
 			templateBuildContentDirName = dirname;
 
-			var generateZip = gulp.series('create-template-export-zip', 'create-template-zip');
+			generateZip = optimize ? gulp.series('minify-template-css', 'create-template-export-zip', 'create-template-zip') :
+				gulp.series('create-template-export-zip', 'create-template-zip');
 			generateZip(function () {
 				return resolve({
 					zipfile: zipfile
@@ -2449,14 +2482,14 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 			});
 
 		} else {
-			gulp.src(tempBuildDir + '/**')
-				.pipe(zip(name + '.zip'))
-				.pipe(gulp.dest(path.join(projectDir, 'dist')))
-				.on('end', function () {
-					return resolve({
-						zipfile: zipfile
-					});
+			templateName = name;
+			generateZip = optimize ? gulp.series('minify-template-css', 'create-no-content-template-zip') :
+				gulp.series('create-no-content-template-zip');
+			generateZip(function () {
+				return resolve({
+					zipfile: zipfile
 				});
+			});
 		}
 
 		return zipfile;

@@ -15,7 +15,8 @@ var express = require('express'),
 	os = require('os'),
 	path = require('path'),
 	extract = require('extract-zip'),
-	serverUtils = require('../test/server/serverUtils.js');
+	fileUtils = require('../test/server/fileUtils.js');
+serverUtils = require('../test/server/serverUtils.js');
 
 var cecDir = path.join(__dirname, ".."),
 	componentsDataDir = path.join(cecDir, 'data', 'components');
@@ -591,248 +592,248 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 
 	console.log(' - layoutstyle = ' + layoutstyle + ' haslargetext = ' + haslargetext + ' hasRefItems = ' + hasRefItems + ' hasMultiItems = ' + hasMultiItems + ' layoutzipfile = ' + layoutzipfile);
 	// Unzip the component and update metadata
-	extract(path.join(componentsDataDir, layoutzipfile), {
-		dir: componentDir
-	}, function (err) {
-		// if an error occured, report it
-		if (err) {
-			reject(err);
-		}
+	fileUtils.extractZip(path.join(componentsDataDir, layoutzipfile), componentDir)
+		.then(function (err) {
 
-		// remove the extra directory caused by unzip
-		serverUtils.stripTopDirectory(componentDir).then(() => {
+			// if an error occured, report it
+			if (err) {
+				reject(err);
+			}
 
-			// update itemGUID
-			serverUtils.updateItemFolderJson(projectDir, 'component', layoutname);
+			// remove the extra directory caused by unzip
+			serverUtils.stripTopDirectory(componentDir).then(() => {
 
-			// update design.css
-			var designfile = path.join(componentDir, 'assets', 'design.css'),
-				designstr = fs.readFileSync(designfile).toString(),
-				newdesignstr = serverUtils.replaceAll(designstr, '_devcs_contenttype_name', contenttypename);
-			fs.writeFileSync(designfile, newdesignstr);
-			console.log(' - update design.css');
+				// update itemGUID
+				serverUtils.updateItemFolderJson(projectDir, 'component', layoutname);
 
-			// update layout.html
-			var layoutfile = path.join(componentDir, 'assets', 'layout.html'),
-				layoutstr = fs.readFileSync(layoutfile).toString(),
-				newlayoutstr = serverUtils.replaceAll(layoutstr, '_devcs_contenttype_name', contenttypename);
+				// update design.css
+				var designfile = path.join(componentDir, 'assets', 'design.css'),
+					designstr = fs.readFileSync(designfile).toString(),
+					newdesignstr = serverUtils.replaceAll(designstr, '_devcs_contenttype_name', contenttypename);
+				fs.writeFileSync(designfile, newdesignstr);
+				console.log(' - update design.css');
 
-			var fieldstr = '';
-			for (var i = 0; i < contenttype.fields.length; i++) {
-				var field = contenttype.fields[i],
-					fieldname = field.name;
-				var valuecountRange = field.settings && field.settings.caas && field.settings.caas.valuecountRange ?
-					field.settings.caas.valuecountRange : {};
+				// update layout.html
+				var layoutfile = path.join(componentDir, 'assets', 'layout.html'),
+					layoutstr = fs.readFileSync(layoutfile).toString(),
+					newlayoutstr = serverUtils.replaceAll(layoutstr, '_devcs_contenttype_name', contenttypename);
 
-				fieldstr = fieldstr + '<li><h2>' + field.name + '</h2></li>' + os.EOL;
+				var fieldstr = '';
+				for (var i = 0; i < contenttype.fields.length; i++) {
+					var field = contenttype.fields[i],
+						fieldname = field.name;
+					var valuecountRange = field.settings && field.settings.caas && field.settings.caas.valuecountRange ?
+						field.settings.caas.valuecountRange : {};
 
-				if (valuecountRange && valuecountRange.min >= 0) {
-					fieldstr = fieldstr + '<ul>' + os.EOL;
-				}
-				if (field.datatype === 'text' || field.datatype === 'largetext') {
-					var editor = field.settings && field.settings.caas && field.settings.caas.editor ?
-						field.settings.caas.editor.name : '';
+					fieldstr = fieldstr + '<li><h2>' + field.name + '</h2></li>' + os.EOL;
 
 					if (valuecountRange && valuecountRange.min >= 0) {
+						fieldstr = fieldstr + '<ul>' + os.EOL;
+					}
+					if (field.datatype === 'text' || field.datatype === 'largetext') {
+						var editor = field.settings && field.settings.caas && field.settings.caas.editor ?
+							field.settings.caas.editor.name : '';
+
+						if (valuecountRange && valuecountRange.min >= 0) {
+							fieldstr = fieldstr + '{{#' + field.name + '}}' + os.EOL;
+							fieldname = '.';
+						}
+
+						if (editor && (editor === 'rich-text-editor' || editor === 'markdown-editor')) {
+							fieldstr = fieldstr + '<li><p>{{{' + fieldname + '}}}</p></li>' + os.EOL;
+						} else {
+							fieldstr = fieldstr + '<li><p>{{' + fieldname + '}}</p></li>' + os.EOL;
+						}
+
+						if (valuecountRange && valuecountRange.min >= 0) {
+							fieldstr = fieldstr + '{{/' + field.name + '}}' + os.EOL;
+						}
+					} else if (field.datatype === 'reference') {
 						fieldstr = fieldstr + '{{#' + field.name + '}}' + os.EOL;
-						fieldname = '.';
-					}
 
-					if (editor && (editor === 'rich-text-editor' || editor === 'markdown-editor')) {
-						fieldstr = fieldstr + '<li><p>{{{' + fieldname + '}}}</p></li>' + os.EOL;
+						if (field.referenceType && field.referenceType.type === 'DigitalAsset') {
+							fieldstr = fieldstr + '<li><img src="{{url}}"></img></li>' + os.EOL;
+						} else {
+							// reference to another content
+							fieldstr = fieldstr + '{{#contentItem}}' + os.EOL;
+							fieldstr = fieldstr + '<li>{{{name}}}</li>' + os.EOL;
+							fieldstr = fieldstr + '{{/contentItem}}' + os.EOL;
+						}
+
+						fieldstr = fieldstr + '{{/' + field.name + '}}' + os.EOL;
+
+					} else if (field.datatype === 'datetime') {
+						fieldstr = fieldstr + os.EOL + '<li><p>{{' + field.name + '.formated}}</p></li>' + os.EOL;
 					} else {
-						fieldstr = fieldstr + '<li><p>{{' + fieldname + '}}</p></li>' + os.EOL;
+						// default
+						fieldstr = fieldstr + os.EOL + '<li><p>{{' + field.name + '}}</p></li>' + os.EOL;
 					}
 
 					if (valuecountRange && valuecountRange.min >= 0) {
-						fieldstr = fieldstr + '{{/' + field.name + '}}' + os.EOL;
-					}
-				} else if (field.datatype === 'reference') {
-					fieldstr = fieldstr + '{{#' + field.name + '}}' + os.EOL;
-
-					if (field.referenceType && field.referenceType.type === 'DigitalAsset') {
-						fieldstr = fieldstr + '<li><img src="{{url}}"></img></li>' + os.EOL;
-					} else {
-						// reference to another content
-						fieldstr = fieldstr + '{{#contentItem}}' + os.EOL;
-						fieldstr = fieldstr + '<li>{{{name}}}</li>' + os.EOL;
-						fieldstr = fieldstr + '{{/contentItem}}' + os.EOL;
+						fieldstr = fieldstr + '</ul>' + os.EOL;
 					}
 
-					fieldstr = fieldstr + '{{/' + field.name + '}}' + os.EOL;
+					fieldstr = fieldstr + os.EOL;
+				}
+				fieldstr = fieldstr + '{{#scsData.detailPageLink}}' + os.EOL +
+					'<li><a href="{{scsData.detailPageLink}}" title="Go to detail page"><span class="detail- page">Details</span></a></li>' + os.EOL +
+					'{{/scsData.detailPageLink}}';
+				newlayoutstr = newlayoutstr.replace('_devcs_contenttype_fields', fieldstr);
+				fs.writeFileSync(layoutfile, newlayoutstr);
+				console.log(' - update layout.html');
 
-				} else if (field.datatype === 'datetime') {
-					fieldstr = fieldstr + os.EOL + '<li><p>{{' + field.name + '.formated}}</p></li>' + os.EOL;
-				} else {
-					// default
-					fieldstr = fieldstr + os.EOL + '<li><p>{{' + field.name + '}}</p></li>' + os.EOL;
+				// update render.js
+				var renderfile = path.join(componentDir, 'assets', 'render.js'),
+					renderstr = fs.readFileSync(renderfile).toString(),
+					newrenderstr = '';
+
+				var ident = (layoutstyle === 'detail' || !haslargetext) ? '			' : '					',
+					ident2 = ident + '	',
+					ident3 = ident2 + '	',
+					ident4 = ident3 + '	',
+					ident5 = ident4 + '	',
+					tmpstr = ident + '// Support both v1.0 and v1.1 Content REST API response formats.' + os.EOL +
+					ident + "// User-defined fields are passed through the 'data' property in v1.0 and 'fields' property in v1.1." + os.EOL +
+					ident + 'var data = !contentClient.getInfo().contentVersion || contentClient.getInfo().contentVersion === "v1" ? content.data : content.fields;' + os.EOL,
+					refstr = '';
+
+				tmpstr = tmpstr + os.EOL + ident + "// Massage the data so that the 'fields' property is always there." + os.EOL +
+					ident + "// The corresponding layout.html template only checks for the ‘fields’ property. " + os.EOL +
+					ident + 'if (!contentClient.getInfo().contentVersion || contentClient.getInfo().contentVersion === "v1") {' + os.EOL +
+					ident2 + 'content["fields"] = content.data;' + os.EOL +
+					ident + '}' + os.EOL;
+
+				tmpstr = tmpstr + os.EOL + ident + '//' + os.EOL +
+					ident + '// Handle fields specific to this content type.' + os.EOL +
+					ident + '//' + os.EOL;
+
+				if (hasMultiItems) {
+					tmpstr = tmpstr + os.EOL + ident + 'var moreItems;' + os.EOL;
 				}
 
-				if (valuecountRange && valuecountRange.min >= 0) {
-					fieldstr = fieldstr + '</ul>' + os.EOL;
+				if (layoutstyle === 'detail') {
+					tmpstr = tmpstr + os.EOL + ident + 'var referedIds = [];' + os.EOL;
 				}
 
-				fieldstr = fieldstr + os.EOL;
-			}
-			fieldstr = fieldstr + '{{#scsData.detailPageLink}}' + os.EOL +
-				'<li><a href="{{scsData.detailPageLink}}" title="Go to detail page"><span class="detail- page">Details</span></a></li>' + os.EOL +
-				'{{/scsData.detailPageLink}}';
-			newlayoutstr = newlayoutstr.replace('_devcs_contenttype_fields', fieldstr);
-			fs.writeFileSync(layoutfile, newlayoutstr);
-			console.log(' - update layout.html');
+				for (var i = 0; i < contenttype.fields.length; i++) {
+					var field = contenttype.fields[i],
+						fieldname = field.name;
+					var valuecountRange = field.settings && field.settings.caas && field.settings.caas.valuecountRange ?
+						field.settings.caas.valuecountRange : {};
 
-			// update render.js
-			var renderfile = path.join(componentDir, 'assets', 'render.js'),
-				renderstr = fs.readFileSync(renderfile).toString(),
-				newrenderstr = '';
+					if (field.datatype === 'reference') {
 
-			var ident = (layoutstyle === 'detail' || !haslargetext) ? '			' : '					',
-				ident2 = ident + '	',
-				ident3 = ident2 + '	',
-				ident4 = ident3 + '	',
-				ident5 = ident4 + '	',
-				tmpstr = ident + '// Support both v1.0 and v1.1 Content REST API response formats.' + os.EOL +
-				ident + "// User-defined fields are passed through the 'data' property in v1.0 and 'fields' property in v1.1." + os.EOL +
-				ident + 'var data = !contentClient.getInfo().contentVersion || contentClient.getInfo().contentVersion === "v1" ? content.data : content.fields;' + os.EOL,
-				refstr = '';
-
-			tmpstr = tmpstr + os.EOL + ident + "// Massage the data so that the 'fields' property is always there." + os.EOL +
-				ident + "// The corresponding layout.html template only checks for the ‘fields’ property. " + os.EOL +
-				ident + 'if (!contentClient.getInfo().contentVersion || contentClient.getInfo().contentVersion === "v1") {' + os.EOL +
-				ident2 + 'content["fields"] = content.data;' + os.EOL +
-				ident + '}' + os.EOL;
-
-			tmpstr = tmpstr + os.EOL + ident + '//' + os.EOL +
-				ident + '// Handle fields specific to this content type.' + os.EOL +
-				ident + '//' + os.EOL;
-
-			if (hasMultiItems) {
-				tmpstr = tmpstr + os.EOL + ident + 'var moreItems;' + os.EOL;
-			}
-
-			if (layoutstyle === 'detail') {
-				tmpstr = tmpstr + os.EOL + ident + 'var referedIds = [];' + os.EOL;
-			}
-
-			for (var i = 0; i < contenttype.fields.length; i++) {
-				var field = contenttype.fields[i],
-					fieldname = field.name;
-				var valuecountRange = field.settings && field.settings.caas && field.settings.caas.valuecountRange ?
-					field.settings.caas.valuecountRange : {};
-
-				if (field.datatype === 'reference') {
-
-					if (field.referenceType && field.referenceType.type === 'DigitalAsset') {
-						tmpstr = tmpstr + os.EOL + ident;
-						if (valuecountRange && valuecountRange.min >= 0) {
+						if (field.referenceType && field.referenceType.type === 'DigitalAsset') {
 							tmpstr = tmpstr + os.EOL + ident;
+							if (valuecountRange && valuecountRange.min >= 0) {
+								tmpstr = tmpstr + os.EOL + ident;
 
-							tmpstr = tmpstr + 'moreItems = data["' + field.name + '"] || [];' + os.EOL + ident;
-							tmpstr = tmpstr + 'moreItems.forEach(function (nxtItem) {';
-							tmpstr = tmpstr + os.EOL + ident2;
-							tmpstr = tmpstr +
-								'nxtItem["url"] = contentClient.getRenditionURL({"id": nxtItem.id});';
-							tmpstr = tmpstr + os.EOL + ident + '});' + os.EOL + ident;
+								tmpstr = tmpstr + 'moreItems = data["' + field.name + '"] || [];' + os.EOL + ident;
+								tmpstr = tmpstr + 'moreItems.forEach(function (nxtItem) {';
+								tmpstr = tmpstr + os.EOL + ident2;
+								tmpstr = tmpstr +
+									'nxtItem["url"] = contentClient.getRenditionURL({"id": nxtItem.id});';
+								tmpstr = tmpstr + os.EOL + ident + '});' + os.EOL + ident;
 
-						} else {
-							tmpstr = tmpstr + 'if (data["' + field.name + '"]) {' + os.EOL + ident +
-								'	data["' + field.name + '"]["url"] = contentClient.getRenditionURL({"id": data["' + field.name +
-								'"].id});';
-							tmpstr = tmpstr + os.EOL + ident + '}';
+							} else {
+								tmpstr = tmpstr + 'if (data["' + field.name + '"]) {' + os.EOL + ident +
+									'	data["' + field.name + '"]["url"] = contentClient.getRenditionURL({"id": data["' + field.name +
+									'"].id});';
+								tmpstr = tmpstr + os.EOL + ident + '}';
+							}
+							tmpstr = tmpstr + os.EOL;
+
+						} else if (layoutstyle === 'detail') {
+							tmpstr = tmpstr + os.EOL + ident;
+							// reference to another content
+							if (valuecountRange && valuecountRange.min >= 0) {
+								tmpstr = tmpstr + 'moreItems = data["' + field.name + '"] || [];' + os.EOL + ident;
+								tmpstr = tmpstr + 'moreItems.forEach(function (nxtItem) {';
+								tmpstr = tmpstr + os.EOL + ident2;
+								tmpstr = tmpstr + '// Get the IDs of any referenced assets, we will do an additional query to retrieve these so we can render them as well.';
+								tmpstr = tmpstr + os.EOL + ident2;
+								tmpstr = tmpstr + '// If you don’t want to render referenced assets, remove these block.';
+								tmpstr = tmpstr + os.EOL + ident2;
+								tmpstr = tmpstr + 'referedIds[referedIds.length] = nxtItem.id;';
+								tmpstr = tmpstr + os.EOL + ident + '});';
+
+								refstr = refstr + os.EOL + ident3 +
+									'moreItems = data["' + field.name + '"] || [];' + os.EOL + ident3 +
+									'// Retrieve the reference item from the query result.' + os.EOL + ident3 +
+									'moreItems.forEach(function (nxtItem) {' + os.EOL + ident4 +
+									'if (nxtItem.id === item.id) {' + os.EOL +
+									ident5 + 'nxtItem["contentItem"] = item;' + os.EOL +
+									ident4 + '}' + os.EOL + ident3 + '});';
+							} else {
+								tmpstr = tmpstr + '// Get the IDs of any referenced assets, we will do an additional query to retrieve these so we can render them as well.' + os.EOL + ident;
+								tmpstr = tmpstr + '// If you don’t want to render referenced assets, remove these block.' + os.EOL + ident;
+								tmpstr = tmpstr + 'if (data["' + field.name + '"]) {' + os.EOL + ident2;
+								tmpstr = tmpstr + 'referedIds[referedIds.length] = data["' + field.name + '"].id;' + os.EOL + ident;
+								tmpstr = tmpstr + '}';
+								refstr = refstr + os.EOL + ident3 +
+									'// Retrieve the reference item from the query result.' +
+									os.EOL + ident3 +
+									'if (data["' + field.name + '"] && data["' + field.name + '"].id === item.id) {' + os.EOL +
+									ident4 + 'data["' + field.name + '"]["contentItem"] = item;' + os.EOL +
+									ident3 + '}';
+							}
+							tmpstr = tmpstr + os.EOL;
+							refstr = refstr + os.EOL;
 						}
-						tmpstr = tmpstr + os.EOL;
 
-					} else if (layoutstyle === 'detail') {
+					} else if (field.datatype === 'datetime') {
 						tmpstr = tmpstr + os.EOL + ident;
-						// reference to another content
-						if (valuecountRange && valuecountRange.min >= 0) {
-							tmpstr = tmpstr + 'moreItems = data["' + field.name + '"] || [];' + os.EOL + ident;
-							tmpstr = tmpstr + 'moreItems.forEach(function (nxtItem) {';
-							tmpstr = tmpstr + os.EOL + ident2;
-							tmpstr = tmpstr + '// Get the IDs of any referenced assets, we will do an additional query to retrieve these so we can render them as well.';
-							tmpstr = tmpstr + os.EOL + ident2;
-							tmpstr = tmpstr + '// If you don’t want to render referenced assets, remove these block.';
-							tmpstr = tmpstr + os.EOL + ident2;
-							tmpstr = tmpstr + 'referedIds[referedIds.length] = nxtItem.id;';
-							tmpstr = tmpstr + os.EOL + ident + '});';
-
-							refstr = refstr + os.EOL + ident3 +
-								'moreItems = data["' + field.name + '"] || [];' + os.EOL + ident3 +
-								'// Retrieve the reference item from the query result.' + os.EOL + ident3 +
-								'moreItems.forEach(function (nxtItem) {' + os.EOL + ident4 +
-								'if (nxtItem.id === item.id) {' + os.EOL +
-								ident5 + 'nxtItem["contentItem"] = item;' + os.EOL +
-								ident4 + '}' + os.EOL + ident3 + '});';
-						} else {
-							tmpstr = tmpstr + '// Get the IDs of any referenced assets, we will do an additional query to retrieve these so we can render them as well.' + os.EOL + ident;
-							tmpstr = tmpstr + '// If you don’t want to render referenced assets, remove these block.' + os.EOL + ident;
-							tmpstr = tmpstr + 'if (data["' + field.name + '"]) {' + os.EOL + ident2;
-							tmpstr = tmpstr + 'referedIds[referedIds.length] = data["' + field.name + '"].id;' + os.EOL + ident;
-							tmpstr = tmpstr + '}';
-							refstr = refstr + os.EOL + ident3 +
-								'// Retrieve the reference item from the query result.' +
-								os.EOL + ident3 +
-								'if (data["' + field.name + '"] && data["' + field.name + '"].id === item.id) {' + os.EOL +
-								ident4 + 'data["' + field.name + '"]["contentItem"] = item;' + os.EOL +
-								ident3 + '}';
+						tmpstr = tmpstr + 'if (data["' + field.name + '"]) {' + os.EOL + ident;
+						tmpstr = tmpstr + '	data["' + field.name + '"]["formated"] = dateToMDY(data["' + field.name + '"].value);';
+						tmpstr = tmpstr + os.EOL + ident + '}';
+					}
+					if (field.datatype === 'largetext') {
+						var editor = field.settings && field.settings.caas && field.settings.caas.editor ?
+							field.settings.caas.editor.name : '';
+						if (editor && editor === 'rich-text-editor') {
+							tmpstr = tmpstr + os.EOL + ident;
+							tmpstr = tmpstr + 'data["' + field.name + '"] = contentClient.expandMacros(data["' + field.name + '"]);';
+							tmpstr = tmpstr + os.EOL;
+						} else if (editor && editor === 'markdown-editor') {
+							tmpstr = tmpstr + os.EOL + ident;
+							tmpstr = tmpstr + 'data["' + field.name + '"] = parseMarkdown(contentClient.expandMacros(data["' + field.name + '"]));';
+							tmpstr = tmpstr + os.EOL;
 						}
-						tmpstr = tmpstr + os.EOL;
-						refstr = refstr + os.EOL;
-					}
-
-				} else if (field.datatype === 'datetime') {
-					tmpstr = tmpstr + os.EOL + ident;
-					tmpstr = tmpstr + 'if (data["' + field.name + '"]) {' + os.EOL + ident;
-					tmpstr = tmpstr + '	data["' + field.name + '"]["formated"] = dateToMDY(data["' + field.name + '"].value);';
-					tmpstr = tmpstr + os.EOL + ident + '}';
-				}
-				if (field.datatype === 'largetext') {
-					var editor = field.settings && field.settings.caas && field.settings.caas.editor ?
-						field.settings.caas.editor.name : '';
-					if (editor && editor === 'rich-text-editor') {
-						tmpstr = tmpstr + os.EOL + ident;
-						tmpstr = tmpstr + 'data["' + field.name + '"] = contentClient.expandMacros(data["' + field.name + '"]);';
-						tmpstr = tmpstr + os.EOL;
-					} else if (editor && editor === 'markdown-editor') {
-						tmpstr = tmpstr + os.EOL + ident;
-						tmpstr = tmpstr + 'data["' + field.name + '"] = parseMarkdown(contentClient.expandMacros(data["' + field.name + '"]));';
-						tmpstr = tmpstr + os.EOL;
 					}
 				}
-			}
-			newrenderstr = renderstr.replace('//_devcs_contentlayout_code', tmpstr);
-			newrenderstr = newrenderstr.replace('//_devcs_contentlayout_reference_code', refstr);
-			fs.writeFileSync(renderfile, newrenderstr);
-			console.log(' - update render.js');
+				newrenderstr = renderstr.replace('//_devcs_contentlayout_code', tmpstr);
+				newrenderstr = newrenderstr.replace('//_devcs_contentlayout_reference_code', refstr);
+				fs.writeFileSync(renderfile, newrenderstr);
+				console.log(' - update render.js');
 
-			if (addcustomsettings) {
-				// update appinfo.json
-				var appinfoFilePath = path.join(componentDir, 'appinfo.json');
-				if (fs.existsSync(appinfoFilePath)) {
-					var appinfoJson = JSON.parse(fs.readFileSync(appinfoFilePath));
-					if (appinfoJson) {
-						appinfoJson.settingsData = {
-							settingsHeight: 500,
-							settingsRenderOption: 'panel'
-						};
+				if (addcustomsettings) {
+					// update appinfo.json
+					var appinfoFilePath = path.join(componentDir, 'appinfo.json');
+					if (fs.existsSync(appinfoFilePath)) {
+						var appinfoJson = JSON.parse(fs.readFileSync(appinfoFilePath));
+						if (appinfoJson) {
+							appinfoJson.settingsData = {
+								settingsHeight: 500,
+								settingsRenderOption: 'panel'
+							};
 
-						fs.writeFileSync(appinfoFilePath, JSON.stringify(appinfoJson, null, 4));
+							fs.writeFileSync(appinfoFilePath, JSON.stringify(appinfoJson, null, 4));
+						}
 					}
+					// add default settings.html
+					var settingsFile = 'settings.html';
+					fs.copyFileSync(path.join(componentsDataDir, settingsFile), path.join(componentDir, 'assets', settingsFile));
+					console.log(' - add custom settings');
 				}
-				// add default settings.html
-				var settingsFile = 'settings.html';
-				fs.copyFileSync(path.join(componentsDataDir, settingsFile), path.join(componentDir, 'assets', settingsFile));
-				console.log(' - add custom settings');
-			}
 
-			console.log(`Created content layout ${layoutname} at ${componentDir}`);
-			console.log(`To rename the content layout, rename the directory ${componentDir}`);
-			if (!isServer) {
-				console.log('To use this content layout, run add-contentlayout-mapping');
-			}
-			done(true);
+				console.log(`Created content layout ${layoutname} at ${componentDir}`);
+				console.log(`To rename the content layout, rename the directory ${componentDir}`);
+				if (!isServer) {
+					console.log('To use this content layout, run add-contentlayout-mapping');
+				}
+				done(true);
+			});
 		});
-	});
 };
 
 /**

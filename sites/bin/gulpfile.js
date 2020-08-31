@@ -142,14 +142,36 @@ gulp.task('install-src', function (done) {
 		fs.writeFileSync(configPath, configstr);
 	}
 
-	console.log('Project set up, config CEC server in ' + configPath);
+	console.log('Project set up, config OEC server in ' + configPath);
 
 	// install dependencies
 	console.log('Install dependencies from package.json:');
-	var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', projectDir], {
+	var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', projectDir, projectDir], {
 		projectDir,
 		stdio: 'inherit'
 	});
+	var dependenciesInstalled = true;;
+	if (!fs.existsSync(path.join(projectDir, 'node_modules')) || !fs.existsSync(path.join(projectDir, 'node_modules', 'mustache'))) {
+		dependenciesInstalled = false;
+		if (!fs.existsSync(path.join(projectDir, 'node_modules'))) {
+			fs.mkdirSync(path.join(projectDir, 'node_modules'));
+		}
+	}
+
+	// copy over libs 
+
+	var libsPath = path.join(cecDir, 'src', 'libs');
+	var items = fs.readdirSync(libsPath);
+	// console.log(items);
+	items.forEach(function (item) {
+		var destPath = path.join(projectDir, 'node_modules', item);
+		if (!fs.existsSync(destPath)) {
+			fs.mkdirSync(destPath);
+			fse.copySync(path.join(libsPath, item), destPath);
+			// console.log('Copy ' + item);
+		}
+	});
+
 
 	var seedArgs = ['run', 'create-component', '--prefix', cecDir,
 		'--',
@@ -161,6 +183,11 @@ gulp.task('install-src', function (done) {
 		projectDir,
 		stdio: 'inherit'
 	});
+
+	if (!dependenciesInstalled) {
+		console.log('');
+		console.log('Dependencies not installed, please run \'npm install\'');
+	}
 
 	process.exitCode = 0;
 	done();
@@ -1757,7 +1784,7 @@ gulp.task('check-version', function (done) {
 	var request = serverUtils.getRequest();
 	request(options, function (error, response, body) {
 		if (error || !response || response.statusCode !== 200) {
-			// console.log('ERROR: failed to query CEC version: ' + (response && response.statusMessage));
+			// console.log('ERROR: failed to query  version: ' + (response && response.statusMessage));
 			done();
 			return;
 		}

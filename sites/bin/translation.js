@@ -11,7 +11,6 @@
 
 var path = require('path'),
 	gulp = require('gulp'),
-	extract = require('extract-zip'),
 	fs = require('fs'),
 	os = require('os'),
 	childProcess = require('child_process'),
@@ -1367,40 +1366,38 @@ var _validateTranslationJobZip = function (file) {
 		// remove the folder
 		fileUtils.remove(tempDir);
 
-		extract(file, {
-			dir: tempDir
-		}, function (err) {
-			if (err) {
-				console.log(err);
-				return resolve({
+		fileUtils.extractZip(file, tempDir)
+			.then(function (err) {
+				if (err) {
+					return resolve({
+						filename: name,
+						site: undefined,
+						assets: undefined
+					});
+				}
+
+				var sitejob, assetsjob;
+				if (fs.existsSync(path.join(tempDir, 'site', 'job.json'))) {
+					var jobstr = fs.readFileSync(path.join(tempDir, 'site', 'job.json'));
+					sitejob = JSON.parse(jobstr);
+				}
+				if (fs.existsSync(path.join(tempDir, 'assets', 'job.json'))) {
+					var jobstr = fs.readFileSync(path.join(tempDir, 'assets', 'job.json'));
+					assetsjob = JSON.parse(jobstr);
+				}
+				if (assetsjob === undefined && fs.existsSync(path.join(tempDir, 'job.json'))) {
+					var jobstr = fs.readFileSync(path.join(tempDir, 'job.json'));
+					assetsjob = JSON.parse(jobstr);
+				}
+
+				var job = {
 					filename: name,
-					site: undefined,
-					assets: undefined
-				});
-			}
+					site: sitejob,
+					assets: assetsjob
+				};
 
-			var sitejob, assetsjob;
-			if (fs.existsSync(path.join(tempDir, 'site', 'job.json'))) {
-				var jobstr = fs.readFileSync(path.join(tempDir, 'site', 'job.json'));
-				sitejob = JSON.parse(jobstr);
-			}
-			if (fs.existsSync(path.join(tempDir, 'assets', 'job.json'))) {
-				var jobstr = fs.readFileSync(path.join(tempDir, 'assets', 'job.json'));
-				assetsjob = JSON.parse(jobstr);
-			}
-			if (assetsjob === undefined && fs.existsSync(path.join(tempDir, 'job.json'))) {
-				var jobstr = fs.readFileSync(path.join(tempDir, 'job.json'));
-				assetsjob = JSON.parse(jobstr);
-			}
-
-			var job = {
-				filename: name,
-				site: sitejob,
-				assets: assetsjob
-			};
-
-			return resolve(job);
-		});
+				return resolve(job);
+			});
 	});
 	return validatePromise;
 };
@@ -1435,28 +1432,27 @@ var _importJob = function (jobPath, actionType) {
 
 			var jobSrcPath = path.join(transSrcDir, jobName);
 
-			extract(jobPath, {
-				dir: jobSrcPath
-			}, function (err) {
-				if (err) {
-					if (actionType && actionType === 'ingest') {
-						console.log('ERROR: failed to ingest translation job ' + jobPath);
-					} else {
-						console.log('ERROR: failed to import translation job ' + jobPath);
+			fileUtils.extractZip(jobPath, jobSrcPath)
+				.then(function (err) {
+					if (err) {
+						if (actionType && actionType === 'ingest') {
+							console.log('ERROR: failed to ingest translation job ' + jobPath);
+						} else {
+							console.log('ERROR: failed to import translation job ' + jobPath);
+						}
+						console.log(err);
+						return resolve({
+							err: 'err'
+						});
 					}
-					console.log(err);
-					return resolve({
-						err: 'err'
-					});
-				}
 
-				if (actionType && actionType === 'ingest') {
-					console.log(' - translation job ingested to ' + jobSrcPath);
-				} else {
-					console.log(' - translation job imported to ' + jobSrcPath);
-				}
-				resolve({});
-			});
+					if (actionType && actionType === 'ingest') {
+						console.log(' - translation job ingested to ' + jobSrcPath);
+					} else {
+						console.log(' - translation job imported to ' + jobSrcPath);
+					}
+					resolve({});
+				});
 		});
 	});
 	return importPromise;
@@ -2850,34 +2846,32 @@ module.exports.createTranslationConnector = function (argv, done) {
 	var connectorZip = path.join(connectorsDataDir, sourceFileName + '.zip');
 	var connectorSrcPath = path.join(connectorsSrcDir, name);
 
-	extract(connectorZip, {
-		dir: connectorSrcPath
-	}, function (err) {
-		if (err) {
-			console.log('ERROR: failed to unzip ' + connectorZip);
-			console.log(err);
-			done();
-		}
+	fileUtils.extractZip(connectorZip, connectorSrcPath)
+		.then(function (err) {
+			if (err) {
+				console.log('ERROR: failed to unzip ' + connectorZip);
+				done();
+			}
 
-		console.log(` - translation connector ${name} created at ${connectorSrcPath}`);
+			console.log(` - translation connector ${name} created at ${connectorSrcPath}`);
 
-		console.log(' - install connector');
-		var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', connectorSrcPath, connectorSrcPath], {
-			projectDir,
-			stdio: 'inherit'
+			console.log(' - install connector');
+			var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', connectorSrcPath, connectorSrcPath], {
+				projectDir,
+				stdio: 'inherit'
+			});
+
+			console.log('Start the connector: cec start-translation-connector ' + name + ' [-p <port>]');
+
+			if (sourceFileName === 'lingotekTranslationConnector') {
+				console.log('\x1b[33m');
+				console.log('When registering the Lingotek connector make sure you have a valid token and workflow id.');
+				console.log('e.g.  cec register-translation-connector ... -f "X-CEC-BearerToken:69ea110c-####-####-####-############,X-CEC-WorkflowId:c675bd20-####-####-####-############"');
+				console.log('\x1b[0m');
+			}
+
+			done(true);
 		});
-
-		console.log('Start the connector: cec start-translation-connector ' + name + ' [-p <port>]');
-
-		if (sourceFileName === 'lingotekTranslationConnector') {
-			console.log('\x1b[33m');
-			console.log('When registering the Lingotek connector make sure you have a valid token and workflow id.');
-			console.log('e.g.  cec register-translation-connector ... -f "X-CEC-BearerToken:69ea110c-####-####-####-############,X-CEC-WorkflowId:c675bd20-####-####-####-############"');
-			console.log('\x1b[0m');
-		}
-
-		done(true);
-	});
 };
 
 module.exports.startTranslationConnector = function (argv, done) {

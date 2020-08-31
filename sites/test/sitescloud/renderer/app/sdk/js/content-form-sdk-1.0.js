@@ -36,10 +36,10 @@
             var i;
             for (i in e) if (hasProp(e, i) && t(e[i], i)) break;
         }
-        function mixin(e, t, i, r) {
-            return t && eachProp(t, function(t, n) {
-                !i && hasProp(e, n) || (!r || "object" != typeof t || !t || isArray(t) || isFunction(t) || t instanceof RegExp ? e[n] = t : (e[n] || (e[n] = {}), 
-                mixin(e[n], t, i, r)));
+        function mixin(e, t, i, n) {
+            return t && eachProp(t, function(t, r) {
+                !i && hasProp(e, r) || (!n || "object" != typeof t || !t || isArray(t) || isFunction(t) || t instanceof RegExp ? e[r] = t : (e[r] || (e[r] = {}), 
+                mixin(e[r], t, i, n)));
             }), e;
         }
         function bind(e, t) {
@@ -60,13 +60,13 @@
                 t = t[e];
             }), t;
         }
-        function makeError(e, t, i, r) {
-            var n = new Error(t + "\nhttps://requirejs.org/docs/errors.html#" + e);
-            return n.requireType = e, n.requireModules = r, i && (n.originalError = i), n;
+        function makeError(e, t, i, n) {
+            var r = new Error(t + "\nhttps://requirejs.org/docs/errors.html#" + e);
+            return r.requireType = e, r.requireModules = n, i && (r.originalError = i), r;
         }
         function newContext(e) {
             function t(e, t, i) {
-                var r, n, o, a, s, d, u, c, l, f, p = t && t.split("/"), h = E.map, g = h && h["*"];
+                var n, r, o, a, s, d, u, c, l, f, p = t && t.split("/"), h = E.map, g = h && h["*"];
                 if (e && (d = (e = e.split("/")).length - 1, E.nodeIdCompat && jsSuffixRegExp.test(e[d]) && (e[d] = e[d].replace(jsSuffixRegExp, "")), 
                 "." === e[0].charAt(0) && p && (e = p.slice(0, p.length - 1).concat(e)), function(e) {
                     var t, i;
@@ -75,14 +75,14 @@
                         0 < t && (e.splice(t - 1, 2), t -= 2);
                     }
                 }(e), e = e.join("/")), i && h && (p || g)) {
-                    e: for (o = (n = e.split("/")).length; 0 < o; o -= 1) {
-                        if (s = n.slice(0, o).join("/"), p) for (a = p.length; 0 < a; a -= 1) if ((r = getOwn(h, p.slice(0, a).join("/"))) && (r = getOwn(r, s))) {
-                            u = r, c = o;
+                    e: for (o = (r = e.split("/")).length; 0 < o; o -= 1) {
+                        if (s = r.slice(0, o).join("/"), p) for (a = p.length; 0 < a; a -= 1) if ((n = getOwn(h, p.slice(0, a).join("/"))) && (n = getOwn(n, s))) {
+                            u = n, c = o;
                             break e;
                         }
                         !l && g && getOwn(g, s) && (l = getOwn(g, s), f = o);
                     }
-                    !u && l && (u = l, c = f), u && (n.splice(0, c, u), e = n.join("/"));
+                    !u && l && (u = l, c = f), u && (r.splice(0, c, u), e = r.join("/"));
                 }
                 return getOwn(E.pkgs, e) || e;
             }
@@ -92,27 +92,27 @@
                     !0;
                 });
             }
-            function r(e) {
+            function n(e) {
                 var t = getOwn(E.paths, e);
                 if (t && isArray(t) && 1 < t.length) return t.shift(), b.require.undef(e), b.makeRequire(null, {
                     skipMap: !0
                 })([ e ]), !0;
             }
-            function n(e) {
+            function r(e) {
                 var t, i = e ? e.indexOf("!") : -1;
                 return -1 < i && (t = e.substring(0, i), e = e.substring(i + 1, e.length)), [ t, e ];
             }
-            function o(e, i, r, o) {
+            function o(e, i, n, o) {
                 var a, s, d, u, c = null, l = i ? i.name : null, f = e, p = !0, h = "";
-                return e || (p = !1, e = "_@r" + (R += 1)), c = (u = n(e))[0], e = u[1], c && (c = t(c, l, o), 
-                s = getOwn(S, c)), e && (c ? h = r ? e : s && s.normalize ? s.normalize(e, function(e) {
+                return e || (p = !1, e = "_@r" + (R += 1)), c = (u = r(e))[0], e = u[1], c && (c = t(c, l, o), 
+                s = getOwn(S, c)), e && (c ? h = n ? e : s && s.normalize ? s.normalize(e, function(e) {
                     return t(e, l, o);
-                }) : -1 === e.indexOf("!") ? t(e, l, o) : e : (c = (u = n(h = t(e, l, o)))[0], h = u[1], 
-                r = !0, a = b.nameToUrl(h))), {
+                }) : -1 === e.indexOf("!") ? t(e, l, o) : e : (c = (u = r(h = t(e, l, o)))[0], h = u[1], 
+                n = !0, a = b.nameToUrl(h))), {
                     prefix: c,
                     name: h,
                     parentMap: i,
-                    unnormalized: !!(d = !c || s || r ? "" : "_unnormalized" + (M += 1)),
+                    unnormalized: !!(d = !c || s || n ? "" : "_unnormalized" + (M += 1)),
                     url: a,
                     originalName: f,
                     isDefine: p,
@@ -124,41 +124,41 @@
                 return i || (i = x[t] = new b.Module(e)), i;
             }
             function s(e, t, i) {
-                var r = e.id, n = getOwn(x, r);
-                !hasProp(S, r) || n && !n.defineEmitComplete ? (n = a(e)).error && "error" === t ? i(n.error) : n.on(t, i) : "defined" === t && i(S[r]);
+                var n = e.id, r = getOwn(x, n);
+                !hasProp(S, n) || r && !r.defineEmitComplete ? (r = a(e)).error && "error" === t ? i(r.error) : r.on(t, i) : "defined" === t && i(S[n]);
             }
             function d(e, t) {
-                var i = e.requireModules, r = !1;
+                var i = e.requireModules, n = !1;
                 t ? t(e) : (each(i, function(t) {
                     var i = getOwn(x, t);
-                    i && (i.error = e, i.events.error && (r = !0, i.emit("error", e)));
-                }), r || req.onError(e));
+                    i && (i.error = e, i.events.error && (n = !0, i.emit("error", e)));
+                }), n || req.onError(e));
             }
             function u() {
                 globalDefQueue.length && (each(globalDefQueue, function(e) {
                     var t = e[0];
-                    "string" == typeof t && (b.defQueueMap[t] = !0), I.push(e);
+                    "string" == typeof t && (b.defQueueMap[t] = !0), T.push(e);
                 }), globalDefQueue = []);
             }
             function c(e) {
                 delete x[e], delete k[e];
             }
             function l() {
-                var e, t, n = 1e3 * E.waitSeconds, o = n && b.startTime + n < new Date().getTime(), a = [], s = [], u = !1, c = !0;
+                var e, t, r = 1e3 * E.waitSeconds, o = r && b.startTime + r < new Date().getTime(), a = [], s = [], u = !1, c = !0;
                 if (!m) {
                     if (m = !0, eachProp(k, function(e) {
-                        var n = e.map, d = n.id;
-                        if (e.enabled && (n.isDefine || s.push(e), !e.error)) if (!e.inited && o) r(d) ? u = t = !0 : (a.push(d), 
-                        i(d)); else if (!e.inited && e.fetched && n.isDefine && (u = !0, !n.prefix)) return c = !1;
+                        var r = e.map, d = r.id;
+                        if (e.enabled && (r.isDefine || s.push(e), !e.error)) if (!e.inited && o) n(d) ? u = t = !0 : (a.push(d), 
+                        i(d)); else if (!e.inited && e.fetched && r.isDefine && (u = !0, !r.prefix)) return c = !1;
                     }), o && a.length) return (e = makeError("timeout", "Load timeout for modules: " + a, null, a)).contextName = b.contextName, 
                     d(e);
                     c && each(s, function(e) {
-                        !function e(t, i, r) {
-                            var n = t.map.id;
-                            t.error ? t.emit("error", t.error) : (i[n] = !0, each(t.depMaps, function(n, o) {
-                                var a = n.id, s = getOwn(x, a);
-                                !s || t.depMatched[o] || r[a] || (getOwn(i, a) ? (t.defineDep(o, S[a]), t.check()) : e(s, i, r));
-                            }), r[n] = !0);
+                        !function e(t, i, n) {
+                            var r = t.map.id;
+                            t.error ? t.emit("error", t.error) : (i[r] = !0, each(t.depMaps, function(r, o) {
+                                var a = r.id, s = getOwn(x, a);
+                                !s || t.depMatched[o] || n[a] || (getOwn(i, a) ? (t.defineDep(o, S[a]), t.check()) : e(s, i, n));
+                            }), n[r] = !0);
                         }(e, {}, {});
                     }), o && !t || !u || !isBrowser && !isWebWorker || w || (w = setTimeout(function() {
                         w = 0, l();
@@ -168,8 +168,8 @@
             function f(e) {
                 hasProp(S, e[0]) || a(o(e[0], null, !0)).init(e[1], e[2]);
             }
-            function p(e, t, i, r) {
-                e.detachEvent && !isOpera ? r && e.detachEvent(r, t) : e.removeEventListener(i, t, !1);
+            function p(e, t, i, n) {
+                e.detachEvent && !isOpera ? n && e.detachEvent(n, t) : e.removeEventListener(i, t, !1);
             }
             function h(e) {
                 var t = e.currentTarget || e.srcElement;
@@ -181,8 +181,8 @@
             }
             function g() {
                 var e;
-                for (u(); I.length; ) {
-                    if (null === (e = I.shift())[0]) return d(makeError("mismatch", "Mismatched anonymous define() module: " + e[e.length - 1]));
+                for (u(); T.length; ) {
+                    if (null === (e = T.shift())[0]) return d(makeError("mismatch", "Mismatched anonymous define() module: " + e[e.length - 1]));
                     f(e);
                 }
                 b.defQueueMap = {};
@@ -195,7 +195,7 @@
                 pkgs: {},
                 shim: {},
                 config: {}
-            }, x = {}, k = {}, T = {}, I = [], S = {}, q = {}, O = {}, R = 1, M = 1;
+            }, x = {}, k = {}, I = {}, T = [], S = {}, q = {}, O = {}, R = 1, M = 1;
             return y = {
                 require: function(e) {
                     return e.require ? e.require : e.require = b.makeRequire(e.map);
@@ -214,15 +214,15 @@
                     };
                 }
             }, (v = function(e) {
-                this.events = getOwn(T, e.id) || {}, this.map = e, this.shim = getOwn(E.shim, e.id), 
+                this.events = getOwn(I, e.id) || {}, this.map = e, this.shim = getOwn(E.shim, e.id), 
                 this.depExports = [], this.depMaps = [], this.depMatched = [], this.pluginMaps = {}, 
                 this.depCount = 0;
             }).prototype = {
-                init: function(e, t, i, r) {
-                    r = r || {}, this.inited || (this.factory = t, i ? this.on("error", i) : this.events.error && (i = bind(this, function(e) {
+                init: function(e, t, i, n) {
+                    n = n || {}, this.inited || (this.factory = t, i ? this.on("error", i) : this.events.error && (i = bind(this, function(e) {
                         this.emit("error", e);
-                    })), this.depMaps = e && e.slice(0), this.errback = i, this.inited = !0, this.ignore = r.ignore, 
-                    r.enabled || this.enabled ? this.enable() : this.check());
+                    })), this.depMaps = e && e.slice(0), this.errback = i, this.inited = !0, this.ignore = n.ignore, 
+                    n.enabled || this.enabled ? this.enable() : this.check());
                 },
                 defineDep: function(e, t) {
                     this.depMatched[e] || (this.depMatched[e] = !0, this.depCount -= 1, this.depExports[e] = t);
@@ -245,21 +245,21 @@
                 },
                 check: function() {
                     if (this.enabled && !this.enabling) {
-                        var e, t, i = this.map.id, r = this.depExports, n = this.exports, o = this.factory;
+                        var e, t, i = this.map.id, n = this.depExports, r = this.exports, o = this.factory;
                         if (this.inited) {
                             if (this.error) this.emit("error", this.error); else if (!this.defining) {
                                 if (this.defining = !0, this.depCount < 1 && !this.defined) {
                                     if (isFunction(o)) {
                                         if (this.events.error && this.map.isDefine || req.onError !== defaultOnError) try {
-                                            n = b.execCb(i, o, r, n);
+                                            r = b.execCb(i, o, n, r);
                                         } catch (t) {
                                             e = t;
-                                        } else n = b.execCb(i, o, r, n);
-                                        if (this.map.isDefine && void 0 === n && ((t = this.module) ? n = t.exports : this.usingExports && (n = this.exports)), 
+                                        } else r = b.execCb(i, o, n, r);
+                                        if (this.map.isDefine && void 0 === r && ((t = this.module) ? r = t.exports : this.usingExports && (r = this.exports)), 
                                         e) return e.requireMap = this.map, e.requireModules = this.map.isDefine ? [ this.map.id ] : null, 
                                         e.requireType = this.map.isDefine ? "define" : "require", d(this.error = e);
-                                    } else n = o;
-                                    if (this.exports = n, this.map.isDefine && !this.ignore && (S[i] = n, req.onResourceLoad)) {
+                                    } else r = o;
+                                    if (this.exports = r, this.map.isDefine && !this.ignore && (S[i] = r, req.onResourceLoad)) {
                                         var a = [];
                                         each(this.depMaps, function(e) {
                                             a.push(e.normalizedMap || e);
@@ -274,12 +274,12 @@
                     }
                 },
                 callPlugin: function() {
-                    var e = this.map, i = e.id, r = o(e.prefix);
-                    this.depMaps.push(r), s(r, "defined", bind(this, function(r) {
-                        var n, u, l, f = getOwn(O, this.map.id), p = this.map.name, h = this.map.parentMap ? this.map.parentMap.name : null, g = b.makeRequire(e.parentMap, {
+                    var e = this.map, i = e.id, n = o(e.prefix);
+                    this.depMaps.push(n), s(n, "defined", bind(this, function(n) {
+                        var r, u, l, f = getOwn(O, this.map.id), p = this.map.name, h = this.map.parentMap ? this.map.parentMap.name : null, g = b.makeRequire(e.parentMap, {
                             enableBuildCallback: !0
                         });
-                        return this.map.unnormalized ? (r.normalize && (p = r.normalize(p, function(e) {
+                        return this.map.unnormalized ? (n.normalize && (p = n.normalize(p, function(e) {
                             return t(e, h, !0);
                         }) || ""), s(u = o(e.prefix + "!" + p, this.map.parentMap, !0), "defined", bind(this, function(e) {
                             this.map.normalizedMap = u, this.init([], function() {
@@ -290,7 +290,7 @@
                             });
                         })), void ((l = getOwn(x, u.id)) && (this.depMaps.push(u), this.events.error && l.on("error", bind(this, function(e) {
                             this.emit("error", e);
-                        })), l.enable()))) : f ? (this.map.url = b.nameToUrl(f), void this.load()) : ((n = bind(this, function(e) {
+                        })), l.enable()))) : f ? (this.map.url = b.nameToUrl(f), void this.load()) : ((r = bind(this, function(e) {
                             this.init([], function() {
                                 return e;
                             }, null, {
@@ -300,31 +300,31 @@
                             this.inited = !0, (this.error = e).requireModules = [ i ], eachProp(x, function(e) {
                                 0 === e.map.id.indexOf(i + "_unnormalized") && c(e.map.id);
                             }), d(e);
-                        }), n.fromText = bind(this, function(t, r) {
+                        }), r.fromText = bind(this, function(t, n) {
                             var s = e.name, u = o(s), c = useInteractive;
-                            r && (t = r), c && (useInteractive = !1), a(u), hasProp(E.config, i) && (E.config[s] = E.config[i]);
+                            n && (t = n), c && (useInteractive = !1), a(u), hasProp(E.config, i) && (E.config[s] = E.config[i]);
                             try {
                                 req.exec(t);
                             } catch (t) {
                                 return d(makeError("fromtexteval", "fromText eval for " + i + " failed: " + t, t, [ i ]));
                             }
-                            c && (useInteractive = !0), this.depMaps.push(u), b.completeLoad(s), g([ s ], n);
-                        }), void r.load(e.name, g, n, E));
-                    })), b.enable(r, this), this.pluginMaps[r.id] = r;
+                            c && (useInteractive = !0), this.depMaps.push(u), b.completeLoad(s), g([ s ], r);
+                        }), void n.load(e.name, g, r, E));
+                    })), b.enable(n, this), this.pluginMaps[n.id] = n;
                 },
                 enable: function() {
                     (k[this.map.id] = this).enabled = !0, this.enabling = !0, each(this.depMaps, bind(this, function(e, t) {
-                        var i, r, n;
+                        var i, n, r;
                         if ("string" == typeof e) {
                             if (e = o(e, this.map.isDefine ? this.map : this.map.parentMap, !1, !this.skipMap), 
-                            this.depMaps[t] = e, n = getOwn(y, e.id)) return void (this.depExports[t] = n(this));
+                            this.depMaps[t] = e, r = getOwn(y, e.id)) return void (this.depExports[t] = r(this));
                             this.depCount += 1, s(e, "defined", bind(this, function(e) {
                                 this.undefed || (this.defineDep(t, e), this.check());
                             })), this.errback ? s(e, "error", bind(this, this.errback)) : this.events.error && s(e, "error", bind(this, function(e) {
                                 this.emit("error", e);
                             }));
                         }
-                        i = e.id, r = x[i], hasProp(y, i) || !r || r.enabled || b.enable(e, this);
+                        i = e.id, n = x[i], hasProp(y, i) || !n || n.enabled || b.enable(e, this);
                     })), eachProp(this.pluginMaps, bind(this, function(e) {
                         var t = getOwn(x, e.id);
                         t && !t.enabled && b.enable(e, this);
@@ -345,7 +345,7 @@
                 registry: x,
                 defined: S,
                 urlFetched: q,
-                defQueue: I,
+                defQueue: T,
                 defQueueMap: {},
                 Module: v,
                 makeModuleMap: o,
@@ -359,14 +359,14 @@
                             return (-1 === i.indexOf("?") ? "?" : "&") + t;
                         };
                     }
-                    var i = E.shim, r = {
+                    var i = E.shim, n = {
                         paths: !0,
                         bundles: !0,
                         config: !0,
                         map: !0
                     };
                     eachProp(e, function(e, t) {
-                        r[t] ? (E[t] || (E[t] = {}), mixin(E[t], e, !0, !0)) : E[t] = e;
+                        n[t] ? (E[t] || (E[t] = {}), mixin(E[t], e, !0, !0)) : E[t] = e;
                     }), e.bundles && eachProp(e.bundles, function(e, t) {
                         each(e, function(e) {
                             e !== t && (O[e] = t);
@@ -391,74 +391,74 @@
                         return e.init && (t = e.init.apply(global, arguments)), t || e.exports && getGlobal(e.exports);
                     };
                 },
-                makeRequire: function(r, n) {
+                makeRequire: function(n, r) {
                     function s(t, i, u) {
                         var c, f;
-                        return n.enableBuildCallback && i && isFunction(i) && (i.__requireJsBuild = !0), 
-                        "string" == typeof t ? isFunction(i) ? d(makeError("requireargs", "Invalid require call"), u) : r && hasProp(y, t) ? y[t](x[r.id]) : req.get ? req.get(b, t, r, s) : (c = o(t, r, !1, !0).id, 
-                        hasProp(S, c) ? S[c] : d(makeError("notloaded", 'Module name "' + c + '" has not been loaded yet for context: ' + e + (r ? "" : ". Use require([])")))) : (g(), 
+                        return r.enableBuildCallback && i && isFunction(i) && (i.__requireJsBuild = !0), 
+                        "string" == typeof t ? isFunction(i) ? d(makeError("requireargs", "Invalid require call"), u) : n && hasProp(y, t) ? y[t](x[n.id]) : req.get ? req.get(b, t, n, s) : (c = o(t, n, !1, !0).id, 
+                        hasProp(S, c) ? S[c] : d(makeError("notloaded", 'Module name "' + c + '" has not been loaded yet for context: ' + e + (n ? "" : ". Use require([])")))) : (g(), 
                         b.nextTick(function() {
-                            g(), (f = a(o(null, r))).skipMap = n.skipMap, f.init(t, i, u, {
+                            g(), (f = a(o(null, n))).skipMap = r.skipMap, f.init(t, i, u, {
                                 enabled: !0
                             }), l();
                         }), s);
                     }
-                    return n = n || {}, mixin(s, {
+                    return r = r || {}, mixin(s, {
                         isBrowser: isBrowser,
                         toUrl: function(e) {
-                            var i, n = e.lastIndexOf("."), o = e.split("/")[0];
-                            return -1 !== n && (!("." === o || ".." === o) || 1 < n) && (i = e.substring(n, e.length), 
-                            e = e.substring(0, n)), b.nameToUrl(t(e, r && r.id, !0), i, !0);
+                            var i, r = e.lastIndexOf("."), o = e.split("/")[0];
+                            return -1 !== r && (!("." === o || ".." === o) || 1 < r) && (i = e.substring(r, e.length), 
+                            e = e.substring(0, r)), b.nameToUrl(t(e, n && n.id, !0), i, !0);
                         },
                         defined: function(e) {
-                            return hasProp(S, o(e, r, !1, !0).id);
+                            return hasProp(S, o(e, n, !1, !0).id);
                         },
                         specified: function(e) {
-                            return e = o(e, r, !1, !0).id, hasProp(S, e) || hasProp(x, e);
+                            return e = o(e, n, !1, !0).id, hasProp(S, e) || hasProp(x, e);
                         }
-                    }), r || (s.undef = function(e) {
+                    }), n || (s.undef = function(e) {
                         u();
-                        var t = o(e, r, !0), n = getOwn(x, e);
-                        n.undefed = !0, i(e), delete S[e], delete q[t.url], delete T[e], eachReverse(I, function(t, i) {
-                            t[0] === e && I.splice(i, 1);
-                        }), delete b.defQueueMap[e], n && (n.events.defined && (T[e] = n.events), c(e));
+                        var t = o(e, n, !0), r = getOwn(x, e);
+                        r.undefed = !0, i(e), delete S[e], delete q[t.url], delete I[e], eachReverse(T, function(t, i) {
+                            t[0] === e && T.splice(i, 1);
+                        }), delete b.defQueueMap[e], r && (r.events.defined && (I[e] = r.events), c(e));
                     }), s;
                 },
                 enable: function(e) {
                     getOwn(x, e.id) && a(e).enable();
                 },
                 completeLoad: function(e) {
-                    var t, i, n, o = getOwn(E.shim, e) || {}, a = o.exports;
-                    for (u(); I.length; ) {
-                        if (null === (i = I.shift())[0]) {
+                    var t, i, r, o = getOwn(E.shim, e) || {}, a = o.exports;
+                    for (u(); T.length; ) {
+                        if (null === (i = T.shift())[0]) {
                             if (i[0] = e, t) break;
                             t = !0;
                         } else i[0] === e && (t = !0);
                         f(i);
                     }
-                    if (b.defQueueMap = {}, n = getOwn(x, e), !t && !hasProp(S, e) && n && !n.inited) {
-                        if (!(!E.enforceDefine || a && getGlobal(a))) return r(e) ? void 0 : d(makeError("nodefine", "No define call for " + e, null, [ e ]));
+                    if (b.defQueueMap = {}, r = getOwn(x, e), !t && !hasProp(S, e) && r && !r.inited) {
+                        if (!(!E.enforceDefine || a && getGlobal(a))) return n(e) ? void 0 : d(makeError("nodefine", "No define call for " + e, null, [ e ]));
                         f([ e, o.deps || [], o.exportsFn ]);
                     }
                     l();
                 },
                 nameToUrl: function(e, t, i) {
-                    var r, n, o, a, s, d, u = getOwn(E.pkgs, e);
+                    var n, r, o, a, s, d, u = getOwn(E.pkgs, e);
                     if (u && (e = u), d = getOwn(O, e)) return b.nameToUrl(d, t, i);
                     if (req.jsExtRegExp.test(e)) a = e + (t || ""); else {
-                        for (r = E.paths, o = (n = e.split("/")).length; 0 < o; o -= 1) if (s = getOwn(r, n.slice(0, o).join("/"))) {
-                            isArray(s) && (s = s[0]), n.splice(0, o, s);
+                        for (n = E.paths, o = (r = e.split("/")).length; 0 < o; o -= 1) if (s = getOwn(n, r.slice(0, o).join("/"))) {
+                            isArray(s) && (s = s[0]), r.splice(0, o, s);
                             break;
                         }
-                        a = n.join("/"), a = ("/" === (a += t || (/^data\:|^blob\:|\?/.test(a) || i ? "" : ".js")).charAt(0) || a.match(/^[\w\+\.\-]+:/) ? "" : E.baseUrl) + a;
+                        a = r.join("/"), a = ("/" === (a += t || (/^data\:|^blob\:|\?/.test(a) || i ? "" : ".js")).charAt(0) || a.match(/^[\w\+\.\-]+:/) ? "" : E.baseUrl) + a;
                     }
                     return E.urlArgs && !/^blob\:/.test(a) ? a + E.urlArgs(e, a) : a;
                 },
                 load: function(e, t) {
                     req.load(b, e, t);
                 },
-                execCb: function(e, t, i, r) {
-                    return t.apply(r, i);
+                execCb: function(e, t, i, n) {
+                    return t.apply(n, i);
                 },
                 onScriptLoad: function(e) {
                     if ("load" === e.type || readyRegExp.test((e.currentTarget || e.srcElement).readyState)) {
@@ -469,11 +469,11 @@
                 },
                 onScriptError: function(e) {
                     var t = h(e);
-                    if (!r(t.id)) {
+                    if (!n(t.id)) {
                         var i = [];
-                        return eachProp(x, function(e, r) {
-                            0 !== r.indexOf("_@r") && each(e.depMaps, function(e) {
-                                if (e.id === t.id) return i.push(r), !0;
+                        return eachProp(x, function(e, n) {
+                            0 !== n.indexOf("_@r") && each(e.depMaps, function(e) {
+                                if (e.id === t.id) return i.push(n), !0;
                             });
                         }), d(makeError("scripterror", 'Script error for "' + t.id + (i.length ? '", needed by: ' + i.join(", ") : '"'), e, [ t.id ]));
                     }
@@ -492,11 +492,11 @@
                 cfg = requirejs, requirejs = void 0;
             }
             void 0 === require || isFunction(require) || (cfg = require, require = void 0), 
-            req = requirejs = function(e, t, i, r) {
-                var n, o, a = defContextName;
+            req = requirejs = function(e, t, i, n) {
+                var r, o, a = defContextName;
                 return isArray(e) || "string" == typeof e || (o = e, isArray(t) ? (e = t, t = i, 
-                i = r) : e = []), o && o.context && (a = o.context), (n = getOwn(contexts, a)) || (n = contexts[a] = req.s.newContext(a)), 
-                o && n.configure(o), n.require(e, t, i);
+                i = n) : e = []), o && o.context && (a = o.context), (r = getOwn(contexts, a)) || (r = contexts[a] = req.s.newContext(a)), 
+                o && r.configure(o), r.require(e, t, i);
             }, req.config = function(e) {
                 return req(e);
             }, req.nextTick = void 0 !== setTimeout ? function(e) {
@@ -514,21 +514,21 @@
                 };
             }), isBrowser && (head = s.head = document.getElementsByTagName("head")[0], (baseElement = document.getElementsByTagName("base")[0]) && (head = s.head = baseElement.parentNode)), 
             req.onError = defaultOnError, req.createNode = function(e, t, i) {
-                var r = e.xhtml ? document.createElementNS("http://www.w3.org/1999/xhtml", "html:script") : document.createElement("script");
-                return r.type = e.scriptType || "text/javascript", r.charset = "utf-8", r.async = !0, 
-                r;
+                var n = e.xhtml ? document.createElementNS("http://www.w3.org/1999/xhtml", "html:script") : document.createElement("script");
+                return n.type = e.scriptType || "text/javascript", n.charset = "utf-8", n.async = !0, 
+                n;
             }, req.load = function(e, t, i) {
-                var r, n = e && e.config || {};
-                if (isBrowser) return (r = req.createNode(n, t, i)).setAttribute("data-requirecontext", e.contextName), 
-                r.setAttribute("data-requiremodule", t), !r.attachEvent || r.attachEvent.toString && r.attachEvent.toString().indexOf("[native code") < 0 || isOpera ? (r.addEventListener("load", e.onScriptLoad, !1), 
-                r.addEventListener("error", e.onScriptError, !1)) : (useInteractive = !0, r.attachEvent("onreadystatechange", e.onScriptLoad)), 
-                r.src = i, n.onNodeCreated && n.onNodeCreated(r, n, t, i), currentlyAddingScript = r, 
-                baseElement ? head.insertBefore(r, baseElement) : head.appendChild(r), currentlyAddingScript = null, 
-                r;
+                var n, r = e && e.config || {};
+                if (isBrowser) return (n = req.createNode(r, t, i)).setAttribute("data-requirecontext", e.contextName), 
+                n.setAttribute("data-requiremodule", t), !n.attachEvent || n.attachEvent.toString && n.attachEvent.toString().indexOf("[native code") < 0 || isOpera ? (n.addEventListener("load", e.onScriptLoad, !1), 
+                n.addEventListener("error", e.onScriptError, !1)) : (useInteractive = !0, n.attachEvent("onreadystatechange", e.onScriptLoad)), 
+                n.src = i, r.onNodeCreated && r.onNodeCreated(n, r, t, i), currentlyAddingScript = n, 
+                baseElement ? head.insertBefore(n, baseElement) : head.appendChild(n), currentlyAddingScript = null, 
+                n;
                 if (isWebWorker) try {
                     setTimeout(function() {}, 0), importScripts(i), e.completeLoad(t);
-                } catch (r) {
-                    e.onError(makeError("importscripts", "importScripts failed for " + t + " at " + i, r, [ t ]));
+                } catch (n) {
+                    e.onError(makeError("importscripts", "importScripts failed for " + t + " at " + i, n, [ t ]));
                 }
             }, isBrowser && !cfg.skipDataMain && eachReverse(scripts(), function(e) {
                 if (head || (head = e.parentNode), dataMain = e.getAttribute("data-main")) return mainScript = dataMain, 
@@ -537,14 +537,14 @@
                 req.jsExtRegExp.test(mainScript) && (mainScript = dataMain), cfg.deps = cfg.deps ? cfg.deps.concat(mainScript) : [ mainScript ], 
                 !0;
             }), define = function(e, t, i) {
-                var r, n;
+                var n, r;
                 "string" != typeof e && (i = t, t = e, e = null), isArray(t) || (i = t, t = null), 
                 !t && isFunction(i) && (t = [], i.length && (i.toString().replace(commentRegExp, commentReplace).replace(cjsRequireRegExp, function(e, i) {
                     t.push(i);
                 }), t = (1 === i.length ? [ "require" ] : [ "require", "exports", "module" ]).concat(t))), 
-                useInteractive && (r = currentlyAddingScript || getInteractiveScript()) && (e || (e = r.getAttribute("data-requiremodule")), 
-                n = contexts[r.getAttribute("data-requirecontext")]), n ? (n.defQueue.push([ e, t, i ]), 
-                n.defQueueMap[e] = !0) : globalDefQueue.push([ e, t, i ]);
+                useInteractive && (n = currentlyAddingScript || getInteractiveScript()) && (e || (e = n.getAttribute("data-requiremodule")), 
+                r = contexts[n.getAttribute("data-requirecontext")]), r ? (r.defQueue.push([ e, t, i ]), 
+                r.defQueueMap[e] = !0) : globalDefQueue.push([ e, t, i ]);
             }, define.amd = {
                 jQuery: !0
             }, req.exec = function(text) {
@@ -568,15 +568,15 @@
             }
             function s() {
                 try {
-                    for (var e, t = "[" + i + "]", r = [], n = 0; n < arguments.length; n++) r.push(arguments[n]);
-                    return e = r[0], "string" == typeof e || e instanceof String ? r[0] = t + " - " + e : r.unshift(t), 
-                    r;
+                    for (var e, t = "[" + i + "]", n = [], r = 0; r < arguments.length; r++) n.push(arguments[r]);
+                    return e = n[0], "string" == typeof e || e instanceof String ? n[0] = t + " - " + e : n.unshift(t), 
+                    n;
                 } catch (e) {
                     console.error("logger", e);
                 }
             }
-            var d, u = n + i + ".debug";
-            r = e.getWindow(), d = a(), r.addEventListener("storage", function(e) {
+            var d, u = r + i + ".debug";
+            n = e.getWindow(), d = a(), n.addEventListener("storage", function(e) {
                 e.key !== o && e.key !== u || (d = a());
             }), this.debug = function() {
                 var e = s.apply(null, arguments);
@@ -586,13 +586,13 @@
                 console.error.apply(null, e);
             };
         }
-        var r, n = "oracle.content.ui.customform.", o = n + "debug";
+        var n, r = "oracle.content.ui.customform.", o = r + "debug";
         return i;
     }), define("sdk/dispatcher", [ "sdk/logger" ], function(e) {
-        var t = new e("dispatcher"), i = 0, r = {}, n = {}, o = {};
+        var t = new e("dispatcher"), i = 0, n = {}, r = {}, o = {};
         return {
             on: function(e, t, i) {
-                n[e] = t.bind(i);
+                r[e] = t.bind(i);
             },
             startListening: function() {
                 window.addEventListener("message", this.onMessage.bind(this));
@@ -602,14 +602,14 @@
                     var i = e.data, a = i.type;
                     t.debug("receiving data:", e.data), i.senderId && o[i.senderId] && o[i.senderId].frame ? (t.debug("subscriber found for sender:", i.senderId), 
                     e.source === o[i.senderId].frame.contentWindow ? ("ready" === a && (t.debug("processing event customEditorReady for type:", a), 
-                    n.customEditorReady.call(null, e.data.payload, i.senderId, o[i.senderId].index)), 
-                    "edit" === a && (t.debug("processing event customEditorUpdate for type:", a), n.customEditorUpdate.call(null, e.data.payload, i.senderId, o[i.senderId].index)), 
+                    r.customEditorReady.call(null, e.data.payload, i.senderId, o[i.senderId].index)), 
+                    "edit" === a && (t.debug("processing event customEditorUpdate for type:", a), r.customEditorUpdate.call(null, e.data.payload, i.senderId, o[i.senderId].index)), 
                     "resize" === a && (t.debug("processing event customEditorResize for type:", a), 
-                    n.customEditorResize.call(null, e.data.payload, i.senderId, o[i.senderId].index))) : t.debug("No content window found for:", i.senderId)) : ("replyTo" === i.type && (i.replyStatus && "error" === i.replyStatus.replyType ? (t.error("replyTo returned error :", i.replyStatus.message), 
-                    r[i.messageId] && "function" == typeof r[i.messageId].rejectCallBack ? (t.debug("processing reject callback"), 
-                    r[i.messageId].rejectCallBack.call(null, i.replyStatus.message ? i.replyStatus.message : "Error")) : t.debug("no reject callback for message id:", i.messageId)) : r[i.messageId] && "function" == typeof r[i.messageId].resolveCallBack ? (t.debug("processing resolve callback"), 
-                    r[i.messageId].resolveCallBack.call(null, i.payload)) : t.debug("no resolve callback for message id:", i.messageId)), 
-                    "function" == typeof n[a] && (t.debug("processing event", a), n[a].call(null, e.data.payload, e.data.messageId)));
+                    r.customEditorResize.call(null, e.data.payload, i.senderId, o[i.senderId].index))) : t.debug("No content window found for:", i.senderId)) : ("replyTo" === i.type && (i.replyStatus && "error" === i.replyStatus.replyType ? (t.error("replyTo returned error :", i.replyStatus.message), 
+                    n[i.messageId] && "function" == typeof n[i.messageId].rejectCallBack ? (t.debug("processing reject callback"), 
+                    n[i.messageId].rejectCallBack.call(null, i.replyStatus.message ? i.replyStatus.message : "Error")) : t.debug("no reject callback for message id:", i.messageId)) : n[i.messageId] && "function" == typeof n[i.messageId].resolveCallBack ? (t.debug("processing resolve callback"), 
+                    n[i.messageId].resolveCallBack.call(null, i.payload)) : t.debug("no resolve callback for message id:", i.messageId)), 
+                    "function" == typeof r[a] && (t.debug("processing event", a), r[a].call(null, e.data.payload, e.data.messageId)));
                 }
             },
             getSenderId: function() {
@@ -617,41 +617,41 @@
             },
             send: function(e, i) {
                 i = i || {};
-                var r = {
+                var n = {
                     type: e,
                     payload: i,
                     senderId: this.getSenderId()
                 };
-                t.debug("sending:", r), this.getTargetWindow().postMessage(r, this.getOrigin());
+                t.debug("sending:", n), this.getTargetWindow().postMessage(n, this.getOrigin());
             },
-            sendToSubscriber: function(e, i, r) {
-                var n = {
+            sendToSubscriber: function(e, i, n) {
+                var r = {
                     type: i,
-                    payload: r,
+                    payload: n,
                     senderId: e
                 }, a = o[e];
                 if (!a || !a.frame || !a.frame.contentWindow) throw new Error("There is no target window corresponding to subscriber :", e);
-                a.frame.contentWindow.postMessage(n, this.getOrigin()), t.debug("sending data " + n + " to subscriber " + e);
+                a.frame.contentWindow.postMessage(r, this.getOrigin()), t.debug("sending data " + r + " to subscriber " + e);
             },
-            replyTo: function(e, i, r) {
-                var n = {
+            replyTo: function(e, i, n) {
+                var r = {
                     type: "replyTo",
                     payload: i,
                     messageId: e,
                     senderId: this.getSenderId(),
-                    replyStatus: r
+                    replyStatus: n
                 };
-                t.debug("sending:", n), this.getTargetWindow().postMessage(n, this.getOrigin());
+                t.debug("sending:", r), this.getTargetWindow().postMessage(r, this.getOrigin());
             },
-            sendAndWait: function(e, n) {
+            sendAndWait: function(e, r) {
                 return new Promise(function(o, a) {
-                    n = n || {}, i++, r[i] = {
+                    r = r || {}, i++, n[i] = {
                         resolveCallBack: o,
                         rejectCallBack: a
                     };
                     var s = {
                         type: e,
-                        payload: n,
+                        payload: r,
                         senderId: this.getSenderId(),
                         messageId: i
                     };
@@ -674,9 +674,9 @@
     }), define("sdk/storage", [ "sdk/logger" ], function(e) {
         var t = new e("storage"), i = {};
         return {
-            put: function(e, r) {
-                if (!e || !r) throw new Error("key and value should be present");
-                i[e] = r, t.debug("Adding key: " + e + " to storage");
+            put: function(e, n) {
+                if (!e || !n) throw new Error("key and value should be present");
+                i[e] = n, t.debug("Adding key: " + e + " to storage");
             },
             get: function(e) {
                 if (!e) throw new Error("key should be present");
@@ -687,10 +687,10 @@
             }
         };
     }), define("sdk/EditorFrame", [ "sdk/dispatcher", "sdk/storage", "sdk/logger" ], function(e, t, i) {
-        var r = new i("EditorFrame");
+        var n = new i("EditorFrame");
         return function(t) {
             t = t || {};
-            var i = {}, n = t.frame, o = t.frameId, a = {
+            var i = {}, r = t.frame, o = t.frameId, a = {
                 ready: !1
             };
             this.setEditorReady = function() {
@@ -699,14 +699,14 @@
             }, this.on = function(e, t) {
                 i[e] = t;
             }, this.getFrame = function() {
-                return n;
+                return r;
             }, this.disable = function(t) {
                 if (!a.ready) throw new Error("Can not disable editor that is not ready");
                 e.sendToSubscriber(o, "disable", t);
             }, this.resizeEditorFrame = function(e) {
                 if (e && e.width && e.height) {
                     var t = e.width + "px", i = e.height + "px";
-                    n.style.width = t, n.style.height = i, r.debug("Resizing custom editor frame to width:" + t + " ,height:" + i);
+                    r.style.width = t, r.style.height = i, n.debug("Resizing custom editor frame to width:" + t + " ,height:" + i);
                 }
             };
         };
@@ -722,8 +722,8 @@
             JSON: "json"
         };
         return Object.freeze(e);
-    }), define("sdk/Field", [ "sdk/dispatcher", "sdk/storage", "sdk/EditorFrame", "sdk/dataTypes", "sdk/logger" ], function(e, t, i, r, n) {
-        var o = new n("Field");
+    }), define("sdk/Field", [ "sdk/dispatcher", "sdk/storage", "sdk/EditorFrame", "sdk/dataTypes", "sdk/logger" ], function(e, t, i, n, r) {
+        var o = new r("Field");
         return function(t) {
             function i() {
                 var t = {
@@ -734,8 +734,8 @@
                 o.debug("Notifying UI that the field value has changed:", t), e.send("edit", t);
             }
             if (o.debug("Field received params :", t), !t || !t.definition) {
-                var n = "Unable to initialize Field - invalid  parameter: no field definition provided";
-                throw o.error(n), new Error(n);
+                var r = "Unable to initialize Field - invalid  parameter: no field definition provided";
+                throw o.error(r), new Error(r);
             }
             var a = {}, s = t.value, d = t.definition, u = (d.id, d.name), c = d.datatype, l = "list" === d.valuecount;
             d.valuecount, t.avilableCustomEditors;
@@ -770,7 +770,7 @@
                 return s;
             }, this.openAssetPicker = function(t) {
                 var i = c;
-                if (i !== r.REFERENCE && i !== r.LARGETEXT) throw new Error("Opening asset picker is not supported for field with data type " + i);
+                if (i !== n.REFERENCE && i !== n.LARGETEXT) throw new Error("Opening asset picker is not supported for field with data type " + i);
                 return t = t || {}, e.sendAndWait("openAssetPicker", {
                     options: t,
                     fieldName: u
@@ -791,8 +791,8 @@
                 return Object.freeze(e.groups);
             };
         };
-    }), define("sdk/Item", [ "sdk/Field", "sdk/Type", "sdk/dispatcher", "sdk/logger" ], function(e, t, i, r) {
-        function n(e) {
+    }), define("sdk/Item", [ "sdk/Field", "sdk/Type", "sdk/dispatcher", "sdk/logger" ], function(e, t, i, n) {
+        function r(e) {
             a.debug("Notifying UI that the item property value has changed:", e), i.send("edit", e);
         }
         function o(e, t) {
@@ -800,12 +800,12 @@
                 return e.value === t;
             });
         }
-        var a = new r("Item");
+        var a = new n("Item");
         return function(t) {
-            function r(e) {
+            function n(e) {
                 c = e.id, l = e.type, f = e.name, p = e.description, h = e.slug, g = e.language, 
                 m = e.translatable, v = e.languageIsMaster, b = e.version, y = e.isPublished, w = e.status, 
-                E = e.createdDate, x = e.createdBy, k = e.updatedDate, T = e.updatedBy, I = e.repositoryId, 
+                E = e.createdDate, x = e.createdBy, k = e.updatedDate, I = e.updatedBy, T = e.repositoryId, 
                 S = e.latestVersion, q = e.currentVersion, O = e.mimeType, R = e.fileGroup, M = e.varSetId, 
                 D = e.versionInfo, A = e.publishInfo, N = e.isNew;
             }
@@ -817,10 +817,10 @@
                     description: p,
                     createdBy: x,
                     createdDate: E,
-                    updatedBy: T,
+                    updatedBy: I,
                     updatedDate: k,
                     slug: h,
-                    repositoryId: I,
+                    repositoryId: T,
                     language: g,
                     translatable: m,
                     status: w,
@@ -835,14 +835,14 @@
                 };
             }
             function d(e) {
-                a.debug("Item update recived data: ", e), r(e);
+                a.debug("Item update recived data: ", e), n(e);
                 var t = e.fieldData;
                 t && Array.isArray(t) && t.forEach(function(e) {
-                    var t = e.definition.id, i = e.value, r = V.filter(function(e) {
+                    var t = e.definition.id, i = e.value, n = V.filter(function(e) {
                         return e.getDefinition().id === t;
-                    }), n = r && r.length > 0 ? r[0] : null;
-                    n && (a.debug("Syncing field value for field : " + e.definition.name + " with value " + i), 
-                    n.setValue(i, {
+                    }), r = n && n.length > 0 ? n[0] : null;
+                    r && (a.debug("Syncing field value for field : " + e.definition.name + " with value " + i), 
+                    r.setValue(i, {
                         notifyForm: !0
                     }));
                 }), C.update && (a.debug("Notifying the form to update the item with itemData:" + s()), 
@@ -854,9 +854,9 @@
             }
             if (!t.contentType) throw a.error("Type must be  provided"), new Error("Type must be  provided");
             i.on("update", d);
-            var c, l, f, p, h, g, m, v, b, y, w, E, x, k, T, I, S, q, O, R, M, D, A, N, j = t.contentType, F = j.getSlug(), C = (F && F.enabled, 
+            var c, l, f, p, h, g, m, v, b, y, w, E, x, k, I, T, S, q, O, R, M, D, A, N, j = t.contentType, F = j.getSlug(), C = (F && F.enabled, 
             {}), P = t.itemData, z = P.fieldData, B = P.languageOptions;
-            r(P);
+            n(P);
             var V = z.map(function(t) {
                 return new e(t);
             });
@@ -870,13 +870,18 @@
                 return B;
             }, this.getFields = function() {
                 return V;
-            }, this.getField = function(e) {
+            }, this.getFieldByName = function(e) {
+                var t = V.filter(function(t) {
+                    return t.getDefinition().name === e;
+                });
+                return t && t.length > 0 ? t[0] : null;
+            }, this.getFieldById = function(e) {
                 var t = V.filter(function(t) {
                     return t.getDefinition().id === e;
                 });
                 return t && t.length > 0 ? t[0] : null;
             }, this.setName = function(e) {
-                f = e, n({
+                f = e, r({
                     nodeName: "name",
                     value: f
                 });
@@ -885,7 +890,7 @@
                     value: e
                 });
             }, this.setDescription = function(e) {
-                p = e, n({
+                p = e, r({
                     nodeName: "description",
                     value: p
                 });
@@ -894,7 +899,7 @@
                     value: e
                 });
             }, this.setSlug = function(e) {
-                h = e, n({
+                h = e, r({
                     nodeName: "slug",
                     value: h
                 });
@@ -905,30 +910,30 @@
             }, this.setLanguage = function(e) {
                 if (!this.isNew()) throw new Error("Language cannot be modified for an existing item");
                 if (!o(B, e)) throw new Error('Invalid Language "' + e + '" passed');
-                g = e, n({
+                g = e, r({
                     nodeName: "language",
                     value: g
                 });
             }, this.setTranslatable = function(e) {
                 if (!this.isNew()) throw new Error("Translatbale property cannot be modified for an existing item");
                 if ("boolean" != typeof e) throw new Error("Translatbale property must be boolean");
-                e = e, n({
+                e = e, r({
                     nodeName: "translatable",
                     value: e
                 });
             };
         };
-    }), define("sdk/api", [ "sdk/Item", "sdk/Type", "sdk/dataTypes", "sdk/dispatcher", "sdk/logger" ], function(e, t, i, r, n) {
-        var o = new n("sdk");
-        return function(n, a) {
+    }), define("sdk/api", [ "sdk/Item", "sdk/Type", "sdk/dataTypes", "sdk/dispatcher", "sdk/logger" ], function(e, t, i, n, r) {
+        var o = new r("sdk");
+        return function(r, a) {
             a = a || {};
             var s;
-            if (!n) throw s = "Unable to initialize sdk - no initialization parameters were received", 
+            if (!r) throw s = "Unable to initialize sdk - no initialization parameters were received", 
             new Error(s);
             var d = document.querySelector("body");
-            if (!n.contentItemData || !n.contentTypeData) throw s = 'Unable to initialize sdk - invalid  parameter: "contentItemData" and "contentTypeData', 
+            if (!r.contentItemData || !r.contentTypeData) throw s = 'Unable to initialize sdk - invalid  parameter: "contentItemData" and "contentTypeData', 
             o.error(s), new Error(s);
-            var u = n.contentItemData, c = n.contentTypeData, l = n.locale, f = n.repositoryDefaultLanguage, p = new t(c), h = new e({
+            var u = r.contentItemData, c = r.contentTypeData, l = r.locale, f = r.repositoryDefaultLanguage, p = new t(c), h = new e({
                 itemData: u,
                 contentType: p
             });
@@ -942,7 +947,7 @@
                 return f;
             }, this.previewAsset = function(e) {
                 if (!e || !e.id) throw new Error('Invalid params. {"id" : "<id of asset>" must be provided to open asset preview.');
-                return r.send("previewAsset", e);
+                return n.send("previewAsset", e);
             }, this.resize = function(e) {
                 if (!e) {
                     var t = d.getBoundingClientRect();
@@ -951,7 +956,7 @@
                         height: t.height + "px"
                     };
                 }
-                r.send("resize", {
+                n.send("resize", {
                     width: e.width,
                     height: e.height
                 });
@@ -993,17 +998,17 @@
                 }
             }, this.dataTypes = i;
         };
-    }), define("sdk/api/init", [ "sdk/api", "sdk/dispatcher", "sdk/storage", "sdk/logger" ], function(e, t, i, r) {
-        var n, o = new r("init");
+    }), define("sdk/api/init", [ "sdk/api", "sdk/dispatcher", "sdk/storage", "sdk/logger" ], function(e, t, i, n) {
+        var r, o = new n("init");
         return {
             onInit: function(t, i) {
-                return o.debug("Received initialization data:", i), n = new e(i), "function" == typeof t && t.apply(null, [ n ]), 
-                n;
+                return o.debug("Received initialization data:", i), r = new e(i), "function" == typeof t && t.apply(null, [ r ]), 
+                r;
             },
-            onCustomEditorReady: function(e, r, a) {
-                if (!r || !i.get(r)) throw o.error("There is no sender info to process ready message"), 
+            onCustomEditorReady: function(e, n, a) {
+                if (!n || !i.get(n)) throw o.error("There is no sender info to process ready message"), 
                 new Error("There is no sender info to process ready message");
-                var s = n.getItem(), d = s.getFields(), u = n.getLocale(), c = i.get(r), l = c.fieldId, f = s.getField(l);
+                var s = r.getItem(), d = s.getFields(), u = r.getLocale(), c = i.get(n), l = c.fieldId, f = s.getFieldById(l);
                 if (!f) throw o.error("There is no matching field for fieldId:", c.fieldId), new Error("There is no matching field for fieldId:", c.fieldId);
                 var p = [];
                 d.forEach(function(e) {
@@ -1030,33 +1035,33 @@
                         parameters: {}
                     }
                 };
-                t.sendToSubscriber(r, "init", v);
+                t.sendToSubscriber(n, "init", v);
                 var b = c.widget;
                 b && b.setEditorReady(!0);
             },
-            onCustomEditorUpdate: function(e, t, r) {
+            onCustomEditorUpdate: function(e, t, n) {
                 if (!t || !i.get(t)) throw o.error("There is no sender info to process editor update message"), 
                 new Error("There is no sender info to process editor update message");
-                var a = i.get(t), s = n.getItem(), d = s.getField(a.fieldId), u = e.value, c = d.getDefinition();
+                var a = i.get(t), s = r.getItem(), d = s.getFieldById(a.fieldId), u = e.value, c = d.getDefinition();
                 if (!d) throw o.error("There is no matching field for fieldId:", a.fieldId), new Error("There is no matching field for fieldId:", a.fieldId);
-                void 0 !== r && r >= 0 ? (o.debug("Setting field value for field " + c.name + " at index " + r + " with value " + u), 
-                d.setValueAt(r, u)) : (o.debug("Setting field value for field " + c.name + " with value " + u), 
+                void 0 !== n && n >= 0 ? (o.debug("Setting field value for field " + c.name + " at index " + n + " with value " + u), 
+                d.setValueAt(n, u)) : (o.debug("Setting field value for field " + c.name + " with value " + u), 
                 d.setValue(u));
             },
-            onCustomEditorResize: function(e, t, r) {
+            onCustomEditorResize: function(e, t, n) {
                 if (!t || !i.get(t)) throw o.error("There is no sender info to process custom editor resize"), 
                 new Error("There is no sender info to process custom editor resize");
-                var n = i.get(t), a = n.widget;
+                var r = i.get(t), a = r.widget;
                 a && (o.debug("Resizing editor frame widget:", a), a.resizeEditorFrame(e));
             },
             onValidateForm: function(e, i) {
-                if (o.debug("Received a validation request"), !n) return void o.debug('Ignoring incoming "validate" message: "init" not received yet');
-                var r = n.isFormValid();
-                return Promise.resolve(r).then(function(e) {
-                    var r = {
+                if (o.debug("Received a validation request"), !r) return void o.debug('Ignoring incoming "validate" message: "init" not received yet');
+                var n = r.isFormValid();
+                return Promise.resolve(n).then(function(e) {
+                    var n = {
                         isValid: e.isValid
                     };
-                    e.error && (r.error = e.error), t.replyTo(i, r);
+                    e.error && (n.error = e.error), t.replyTo(i, n);
                 }, function() {
                     o.error("Custom validation should not return a rejected promise");
                 }).catch(function(e) {

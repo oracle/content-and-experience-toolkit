@@ -53,13 +53,13 @@ var _verifyCECProject = function () {
 	// console.log('projectRoot: ' + projectRoot);
 	if (projectRoot) {
 		if (projectRoot !== cwd) {
-			console.log(`${cwd} is not a Content and Experience Cloud project. Run this command from ${projectRoot}`);
+			console.log(`${cwd} is not a Content and Experience project. Run this command from ${projectRoot}`);
 			return false;
 		} else {
 			return true;
 		}
 	} else {
-		console.log(`${cwd} is not a Content and Experience Cloud project. Run command cec install to set up first.`);
+		console.log(`${cwd} is not a Content and Experience project. Run command cec install to set up first.`);
 		return false;
 	}
 };
@@ -259,7 +259,7 @@ const createContentLayout = {
 	usage: {
 		'short': 'Creates a content layout based on a content type.',
 		'long': (function () {
-			let desc = 'Creates a content layout based on a content type from a local template or from CEC server. By default, an "overview" content layout is created. Optionally specify -s <style> to create in a different style. ' +
+			let desc = 'Creates a content layout based on a content type from a local template or from OCE server. By default, an "overview" content layout is created. Optionally specify -s <style> to create in a different style. ' +
 				os.EOL + os.EOL + 'Valid values for <style> are: ' + os.EOL +
 				'  detail' + os.EOL +
 				'  overview' + os.EOL;
@@ -309,9 +309,9 @@ const downloadComponent = {
 	alias: 'dlcp',
 	name: 'download-component',
 	usage: {
-		'short': 'Downloads the components <names> from the CEC server.',
+		'short': 'Downloads the components <names> from the OCE server.',
 		'long': (function () {
-			let desc = 'Downloads the components <names> from the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Downloads the components <names> from the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -327,9 +327,9 @@ const deployComponent = {
 	alias: 'dc',
 	name: 'deploy-component',
 	usage: {
-		'short': 'Deploys the components <names> to the CEC server.',
+		'short': 'Deploys the components <names> to the OCE server.',
 		'long': (function () {
-			let desc = 'Deploys the components <names> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
+			let desc = 'Deploys the components <names> to the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
 			return desc;
 		})()
 	},
@@ -346,9 +346,9 @@ const uploadComponent = {
 	alias: 'ulcp',
 	name: 'upload-component',
 	usage: {
-		'short': 'Uploads the components <names> to the CEC server.',
+		'short': 'Uploads the components <names> to the OCE server.',
 		'long': (function () {
-			let desc = 'Uploads the components <names> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
+			let desc = 'Uploads the components <names> to the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
 			return desc;
 		})()
 	},
@@ -366,9 +366,9 @@ const controlComponent = {
 	alias: 'ctcp',
 	name: 'control-component',
 	usage: {
-		'short': 'Performs action <action> on components on CEC server.',
+		'short': 'Performs action <action> on components on OCE server.',
 		'long': (function () {
-			let desc = 'Perform <action> on components on CEC server. Specify the components with -c <components>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on components on OCE server. Specify the components with -c <components>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
 			return getComponentActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -384,9 +384,9 @@ const shareComponent = {
 	alias: 'sc',
 	name: 'share-component',
 	usage: {
-		'short': 'Shares component with users and groups on CEC server.',
+		'short': 'Shares component with users and groups on OCE server.',
 		'long': (function () {
-			let desc = 'Shares component with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares component with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -403,9 +403,9 @@ const unshareComponent = {
 	alias: 'usc',
 	name: 'unshare-component',
 	usage: {
-		'short': 'Deletes user or group access to a component on CEC server.',
+		'short': 'Deletes user or group access to a component on OCE server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a component on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes user or group access to a component on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -426,17 +426,17 @@ const createTemplate = {
 		'long': (function () {
 			let desc = 'Creates the template <name>. By default, it creates a StarterTemplate. Optionally specify -f <source> to create from different source.\n\nValid values for <source> are: \n';
 			desc = getTemplateSources().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			desc = desc + os.EOL + ' To create template based on a site on CEC server, specify -s <site> and specify the server with -r <server> or use the one specified in cec.properties file.';
+			desc = desc + os.EOL + ' To create template based on a site on OCE server, specify -s <site> and specify the server with -r <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
 	example: [
 		['cec create-template Temp1'],
 		['cec create-template Temp2 -f CafeSupremoLite'],
-		['cec create-template Temp1 -s Site1', 'Create template Temp1 based on site Site1 on CEC server'],
-		['cec create-template Temp1 -s Site1 -x', 'Create template Temp1 based on site Site1 on CEC server and exclude the content in the site'],
+		['cec create-template Temp1 -s Site1', 'Create template Temp1 based on site Site1 on OCE server'],
+		['cec create-template Temp1 -s Site1 -x', 'Create template Temp1 based on site Site1 on OCE server and exclude the content in the site'],
 		['cec create-template Temp1 -s Site1 -r UAT', 'Create template Temp1 based on site Site1 on the registered server UAT'],
-		['cec create-template EnterpriseTemp1 -s StandardSite1 -e', 'Create enterprise template EnterpriseTemp1 based on standard site StandardSite1 on CEC server'],
+		['cec create-template EnterpriseTemp1 -s StandardSite1 -e', 'Create enterprise template EnterpriseTemp1 based on standard site StandardSite1 on OCE server'],
 	]
 };
 
@@ -488,9 +488,9 @@ const deployTemplate = {
 	alias: 'dt',
 	name: 'deploy-template',
 	usage: {
-		'short': 'Deploys the template <name> to the CEC server.',
+		'short': 'Deploys the template <name> to the OCE server.',
 		'long': (function () {
-			let desc = 'Deploys the template <name> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
+			let desc = 'Deploys the template <name> to the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
 			return desc;
 		})()
 	},
@@ -508,9 +508,9 @@ const uploadTemplate = {
 	alias: 'ult',
 	name: 'upload-template',
 	usage: {
-		'short': 'Uploads the template <name> to the CEC server.',
+		'short': 'Uploads the template <name> to the OCE server.',
 		'long': (function () {
-			let desc = 'Uploads the template <name> to the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
+			let desc = 'Uploads the template <name> to the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
 			desc = desc + ' Optionally specify -p to publish theme and components after import.';
 			return desc;
 		})()
@@ -580,9 +580,9 @@ const createTemplateFromSite = {
 	alias: 'ctfs',
 	name: 'create-template-from-site',
 	usage: {
-		'short': 'Creates the template <name> from site <site> on the CEC server.',
+		'short': 'Creates the template <name> from site <site> on the OCE server.',
 		'long': (function () {
-			let desc = 'Creates the template <name> from site <site> on the Content and Experience Cloud server. Specify the server with -r <server> or use the one specified in cec.properties file. Optionally specify <includeunpublishedassets> to include unpublished content items and digital assets in your template.';
+			let desc = 'Creates the template <name> from site <site> on the Content and Experience server. Specify the server with -r <server> or use the one specified in cec.properties file. Optionally specify <includeunpublishedassets> to include unpublished content items and digital assets in your template.';
 			return desc;
 		})()
 	},
@@ -599,9 +599,9 @@ const downloadTemplate = {
 	alias: 'dlt',
 	name: 'download-template',
 	usage: {
-		'short': 'Downloads the template <name> from the CEC server.',
+		'short': 'Downloads the template <name> from the OCE server.',
 		'long': (function () {
-			let desc = 'Downloads the template <name> from the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Downloads the template <name> from the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -647,9 +647,9 @@ const deleteTemplate = {
 	alias: '',
 	name: 'delete-template',
 	usage: {
-		'short': 'Deletes the template <name> on the CEC server.',
+		'short': 'Deletes the template <name> on the OCE server.',
 		'long': (function () {
-			let desc = 'Deletes the template <name> on the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to permanently delete the template.';
+			let desc = 'Deletes the template <name> on the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to permanently delete the template.';
 			return desc;
 		})()
 	},
@@ -665,9 +665,9 @@ const shareTemplate = {
 	alias: 'stm',
 	name: 'share-template',
 	usage: {
-		'short': 'Shares template with users and groups on CEC server.',
+		'short': 'Shares template with users and groups on OCE server.',
 		'long': (function () {
-			let desc = 'Shares template with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares template with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -684,9 +684,9 @@ const unshareTemplate = {
 	alias: 'ustm',
 	name: 'unshare-template',
 	usage: {
-		'short': 'Deletes user or group access to a template on CEC server.',
+		'short': 'Deletes user or group access to a template on OCE server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a template on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes user or group access to a template on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -840,9 +840,9 @@ const downloadContent = {
 	alias: 'dlc',
 	name: 'download-content',
 	usage: {
-		'short': 'Downloads content in channel <channel> from CEC server.',
+		'short': 'Downloads content in channel <channel> from OCE server.',
 		'long': (function () {
-			let desc = 'Downloads content in channel <channel> from CEC server. By default all assets are downloaded, optionally specify -p to download only published assets. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Downloads content in channel <channel> from OCE server. By default all assets are downloaded, optionally specify -p to download only published assets. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -863,9 +863,9 @@ const uploadContent = {
 	alias: 'ulc',
 	name: 'upload-content',
 	usage: {
-		'short': 'Uploads local content to a repository on CEC server.',
+		'short': 'Uploads local content to a repository on OCE server.',
 		'long': (function () {
-			let desc = 'Uploads local content from channel <name>, template <name> or local file <name> to repository <repository> on CEC server. Specify -c <channel> to add the template content to channel. Optionally specify -l <collection> to add the content to collection. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Uploads local content from channel <name>, template <name> or local file <name> to repository <repository> on OCE server. Specify -c <channel> to add the template content to channel. Optionally specify -l <collection> to add the content to collection. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -885,9 +885,9 @@ const controlContent = {
 	alias: 'ctct',
 	name: 'control-content',
 	usage: {
-		'short': 'Performs action <action> on channel items on CEC server.',
+		'short': 'Performs action <action> on channel items on OCE server.',
 		'long': (function () {
-			let desc = 'Performs action <action> on channel items on CEC server. Specify the channel with -c <channel>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Performs action <action> on channel items on OCE server. Specify the channel with -c <channel>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
 			return getContentActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -907,9 +907,9 @@ const copyAssets = {
 	alias: 'ca',
 	name: 'copy-assets',
 	usage: {
-		'short': 'Copies assets to another repository on CEC server.',
+		'short': 'Copies assets to another repository on OCE server.',
 		'long': (function () {
-			let desc = 'Copies assets to another repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Copies assets to another repository on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -929,9 +929,9 @@ const downloadTaxonomy = {
 	alias: 'dltx',
 	name: 'download-taxonomy',
 	usage: {
-		'short': 'Downloads a taxonomy from CEC server.',
+		'short': 'Downloads a taxonomy from OCE server.',
 		'long': (function () {
-			let desc = 'Downloads a taxonomy from CEC server. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Downloads a taxonomy from OCE server. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Specify the status of the taxonomy with -t and the valid values are\n\n';
 			return getTaxonomyStatus().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -948,9 +948,9 @@ const uploadTaxonomy = {
 	alias: 'ultx',
 	name: 'upload-taxonomy',
 	usage: {
-		'short': 'Uploads a taxonomy to CEC server.',
+		'short': 'Uploads a taxonomy to OCE server.',
 		'long': (function () {
-			let desc = 'Uploads a taxonomy to CEC server. Specify -c <createnew> to create new taxonomy when one already exists. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Uploads a taxonomy to OCE server. Specify -c <createnew> to create new taxonomy when one already exists. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -968,9 +968,9 @@ const controlTaxonomy = {
 	alias: 'cttx',
 	name: 'control-taxonomy',
 	usage: {
-		'short': 'Performs action on taxonomy on CEC server.',
+		'short': 'Performs action on taxonomy on OCE server.',
 		'long': (function () {
-			let desc = 'Perform <action> on taxonomy on CEC server. Specify the taxonomy with -n <name> or -i <id>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on taxonomy on OCE server. Specify the taxonomy with -n <name> or -i <id>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
 			return getTaxonomyActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1021,9 +1021,9 @@ const controlTheme = {
 	alias: 'ctt',
 	name: 'control-theme',
 	usage: {
-		'short': 'Performs action <action> on theme on CEC server.',
+		'short': 'Performs action <action> on theme on OCE server.',
 		'long': (function () {
-			let desc = 'Perform <action> on theme on CEC server. Specify the theme with -t <theme>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on theme on OCE server. Specify the theme with -t <theme>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
 			return getThemeActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1038,9 +1038,9 @@ const shareTheme = {
 	alias: 'sth',
 	name: 'share-theme',
 	usage: {
-		'short': 'Shares theme with users and groups on CEC server.',
+		'short': 'Shares theme with users and groups on OCE server.',
 		'long': (function () {
-			let desc = 'Shares theme with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares theme with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1057,9 +1057,9 @@ const unshareTheme = {
 	alias: 'usth',
 	name: 'unshare-theme',
 	usage: {
-		'short': 'Deletes user or group access to a theme on CEC server.',
+		'short': 'Deletes user or group access to a theme on OCE server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a theme on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes user or group access to a theme on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1077,7 +1077,7 @@ const listResources = {
 	usage: {
 		'short': 'Lists local or server resources.',
 		'long': (function () {
-			let desc = 'Lists local or server resources such components and templates. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -t <types> to list specific types of resources on the CEC server. ' +
+			let desc = 'Lists local or server resources such components and templates. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -t <types> to list specific types of resources on the OCE server. ' +
 				os.EOL + os.EOL + 'Valid values for <types> on the server are: ' + os.EOL + os.EOL;
 			return getResourceTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1097,7 +1097,7 @@ const createSite = {
 	usage: {
 		'short': 'Creates Enterprise Site <name>.',
 		'long': (function () {
-			let desc = 'Create Enterprise Site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Create Enterprise Site on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1115,9 +1115,9 @@ const controlSite = {
 	alias: 'cts',
 	name: 'control-site',
 	usage: {
-		'short': 'Performs action <action> on site on CEC server.',
+		'short': 'Performs action <action> on site on OCE server.',
 		'long': (function () {
-			let desc = 'Perform <action> on site on CEC server. Specify the site with -s <site>. Specify the server with -r <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on site on OCE server. Specify the site with -s <site>. Specify the server with -r <server> or use the one specified in cec.properties file. The valid actions are\n\n';
 			return getSiteActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1139,9 +1139,9 @@ const transferSite = {
 	alias: 'ts',
 	name: 'transfer-site',
 	usage: {
-		'short': 'Transfers a site from one CEC server to another.',
+		'short': 'Transfers a site from one OCE server to another.',
 		'long': (function () {
-			let desc = 'Transfers a site from one CEC server to another. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>.';
+			let desc = 'Transfers a site from one OCE server to another. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>.';
 			return desc;
 		})()
 	},
@@ -1161,9 +1161,9 @@ const transferSiteContent = {
 	alias: 'tsc',
 	name: 'transfer-site-content',
 	usage: {
-		'short': 'Creates scripts to transfer site content from one CEC server to another.',
+		'short': 'Creates scripts to transfer site content from one OCE server to another.',
 		'long': (function () {
-			let desc = 'Creates scripts to transfer Enterprise Site content from one CEC server to another. This command is used to transfer large number of content items and the items are transferred in batches. By default the scripts will not be executed by this command. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>. ';
+			let desc = 'Creates scripts to transfer Enterprise Site content from one OCE server to another. This command is used to transfer large number of content items and the items are transferred in batches. By default the scripts will not be executed by this command. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>. ';
 			desc = desc + 'Optionally specify -n for the number of items in each batch, defaults to 500.';
 			return desc;
 		})()
@@ -1181,9 +1181,9 @@ const shareSite = {
 	alias: 'ss',
 	name: 'share-site',
 	usage: {
-		'short': 'Shares site with users and groups on CEC server.',
+		'short': 'Shares site with users and groups on OCE server.',
 		'long': (function () {
-			let desc = 'Shares site with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares site with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1200,9 +1200,9 @@ const unshareSite = {
 	alias: 'uss',
 	name: 'unshare-site',
 	usage: {
-		'short': 'Deletes user or group access to a site on CEC server.',
+		'short': 'Deletes user or group access to a site on OCE server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes user or group access to a site on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1218,7 +1218,7 @@ const setSiteSecurity = {
 	alias: 'sss',
 	name: 'set-site-security',
 	usage: {
-		'short': 'Sets site security on CEC server.',
+		'short': 'Sets site security on OCE server.',
 		'long': (function () {
 			let desc = 'Makes the site publicly available to anyone, restrict the site to registered users, or restrict the site to specific users.  ' +
 				'Specify the server with -r <server> or use the one specified in cec.properties file. ' +
@@ -1244,7 +1244,7 @@ const validateSite = {
 	usage: {
 		'short': 'Validates site <name>.',
 		'long': (function () {
-			let desc = 'Validates site <name> on CEC server before publish or view publishing failure. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Validates site <name> on OCE server before publish or view publishing failure. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1261,7 +1261,7 @@ const updateSite = {
 	usage: {
 		'short': 'Update Enterprise Site <name>.',
 		'long': (function () {
-			let desc = 'Update Enterprise Site on CEC server using the content from the template. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Update Enterprise Site on OCE server using the content from the template. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1277,7 +1277,7 @@ const indexSite = {
 	alias: 'is',
 	name: 'index-site',
 	usage: {
-		'short': 'Index the page content of site <site> on CEC server.',
+		'short': 'Index the page content of site <site> on OCE server.',
 		'long': (function () {
 			let desc = 'Creates content item for each page with all text on the page. If the page index content item already exists for a page, updated it with latest text on the page. Specify -c <contenttype> to set the page index content type. Optionally specify -p to publish the page index items after creation or update. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
@@ -1295,10 +1295,10 @@ const createSiteMap = {
 	alias: 'csm',
 	name: 'create-site-map',
 	usage: {
-		'short': 'Creates a site map for site <site> on CEC server.',
+		'short': 'Creates a site map for site <site> on OCE server.',
 		'long': (function () {
-			let desc = 'Creates a site map for site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'Optionally specify -p to upload the site map to CEC server after creation. ' +
+			let desc = 'Creates a site map for site on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -p to upload the site map to OCE server after creation. ' +
 				'Optionally specify -c <changefreq> to define how frequently the page is likely to change. ' +
 				'Optionally specify -t <toppagepriority> as the priority for the top level pages. ' +
 				'Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
@@ -1321,9 +1321,9 @@ const createRSSFeed = {
 	alias: 'crf',
 	name: 'create-rss-feed',
 	usage: {
-		'short': 'Creates RSS feed for site <site> on CEC server.',
+		'short': 'Creates RSS feed for site <site> on OCE server.',
 		'long': (function () {
-			let desc = 'Creates RSS feed for site <site> on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -x <template> to specify the RSS template. Optionally specify -p to upload the RSS feed to CEC server after creation.';
+			let desc = 'Creates RSS feed for site <site> on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -x <template> to specify the RSS template. Optionally specify -p to upload the RSS feed to OCE server after creation.';
 			return desc;
 		})()
 	},
@@ -1339,9 +1339,9 @@ const createAssetReport = {
 	alias: 'car',
 	name: 'create-asset-report',
 	usage: {
-		'short': 'Generates an asset usage report for site <site> on CEC server.',
+		'short': 'Generates an asset usage report for site <site> on OCE server.',
 		'long': (function () {
-			let desc = 'Generates an asset usage report for site <site> on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Generates an asset usage report for site <site> on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -o to save the report to a json file.';
 			return desc;
 		})()
@@ -1360,9 +1360,9 @@ const uploadStaticSite = {
 	alias: 'ulss',
 	name: 'upload-static-site-files',
 	usage: {
-		'short': 'Uploads files to render statically from a site on CEC server.',
+		'short': 'Uploads files to render statically from a site on OCE server.',
 		'long': (function () {
-			let desc = 'Uploads files to render statically from a site on CEC server. Specify the site <site> on the server. Specify the server with -r <server> or use the one specified in cec.properties file. ';
+			let desc = 'Uploads files to render statically from a site on OCE server. Specify the site <site> on the server. Specify the server with -r <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1377,9 +1377,9 @@ const downloadStaticSite = {
 	alias: 'dlss',
 	name: 'download-static-site-files',
 	usage: {
-		'short': 'Downloads the static files from a site on CEC server.',
+		'short': 'Downloads the static files from a site on OCE server.',
 		'long': (function () {
-			let desc = 'Downloads the static files from a site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Downloads the static files from a site on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			desc = desc + 'Optionally specify -f <folder> to save the files on the local system.';
 			return desc;
 		})()
@@ -1396,9 +1396,9 @@ const deleteStaticSite = {
 	alias: '',
 	name: 'delete-static-site-files',
 	usage: {
-		'short': 'Deletes the static files from a site on CEC server.',
+		'short': 'Deletes the static files from a site on OCE server.',
 		'long': (function () {
-			let desc = 'Deletes the static files from a site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes the static files from a site on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1413,9 +1413,9 @@ const refreshPrerenderCache = {
 	alias: 'rpc',
 	name: 'refresh-prerender-cache',
 	usage: {
-		'short': 'Refreshes pre-render cache for a site on CEC server.',
+		'short': 'Refreshes pre-render cache for a site on OCE server.',
 		'long': (function () {
-			let desc = 'Refreshes pre-render cache for a site on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Refreshes pre-render cache for a site on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1466,9 +1466,9 @@ const createRepository = {
 	alias: 'cr',
 	name: 'create-repository',
 	usage: {
-		'short': 'Creates a repository on CEC server.',
+		'short': 'Creates a repository on OCE server.',
 		'long': (function () {
-			let desc = 'Creates a repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Creates a repository on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -d <description> to set the description. ' +
 				'Optionally specify -t <contenttypes> to set the content types. ' +
 				'Optionally specify -c <channels> to set the publishing channels. ' +
@@ -1487,9 +1487,9 @@ const controlRepository = {
 	alias: 'ctr',
 	name: 'control-repository',
 	usage: {
-		'short': 'Performs action <action> on repository on CEC server.',
+		'short': 'Performs action <action> on repository on OCE server.',
 		'long': (function () {
-			let desc = 'Performs action <action> on repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Performs action <action> on repository on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid actions are\n\n';
 			return getRepositoryActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1508,9 +1508,9 @@ const shareRepository = {
 	alias: 'sr',
 	name: 'share-repository',
 	usage: {
-		'short': 'Shares repository with users and groups on CEC server.',
+		'short': 'Shares repository with users and groups on OCE server.',
 		'long': (function () {
-			let desc = 'Shares repository with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares repository with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -t to also share the content types in the repository with the users. ' +
 				'Optionally specify -y <typerole> to share the types with different role. ' +
 				'The valid roles for a repository are' + os.EOL + os.EOL;
@@ -1534,9 +1534,9 @@ const unshareRepository = {
 	alias: 'usr',
 	name: 'unshare-repository',
 	usage: {
-		'short': 'Deletes user or group access to a repository on CEC server.',
+		'short': 'Deletes user or group access to a repository on OCE server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a repository on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Deletes user or group access to a repository on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -t to also delete the user or group access to the content types in the repository.';
 			return desc;
 		})()
@@ -1554,9 +1554,9 @@ const shareType = {
 	alias: 'st',
 	name: 'share-type',
 	usage: {
-		'short': 'Shares type with users and groups on CEC server.',
+		'short': 'Shares type with users and groups on OCE server.',
 		'long': (function () {
-			let desc = 'Shares type with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares type with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getContentTypeRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1573,9 +1573,9 @@ const unshareType = {
 	alias: 'ust',
 	name: 'unshare-type',
 	usage: {
-		'short': 'Deletes user or group access to a type on CEC server.',
+		'short': 'Deletes user or group access to a type on OCE server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a type on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes user or group access to a type on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1590,9 +1590,9 @@ const createChannel = {
 	alias: 'cch',
 	name: 'create-channel',
 	usage: {
-		'short': 'Creates a channel on CEC server.',
+		'short': 'Creates a channel on OCE server.',
 		'long': (function () {
-			let desc = 'Creates a channel on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Creates a channel on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -t <type> to set the channel type [public | secure], defaults to public. ' +
 				'Optionally specify -p <publishpolicy> to set the publish policy [anythingPublished | onlyApproved], defaults to anythingPublished. ' +
 				'Optionally specify -l <localizationpolicy> to set the localization policy.';
@@ -1612,9 +1612,9 @@ const createLocalizationPolicy = {
 	alias: 'clp',
 	name: 'create-localization-policy',
 	usage: {
-		'short': 'Creates a localization policy on CEC server.',
+		'short': 'Creates a localization policy on OCE server.',
 		'long': (function () {
-			let desc = 'Creates a localization policy on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Creates a localization policy on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Specify -r <requiredlanguages> to set the required languages. ' +
 				'Specify -l <defaultlanguage> to set the default language.' +
 				'Optionally specify -o <optionallanguages> to set the optional languages. ' +
@@ -1635,9 +1635,9 @@ const listAssets = {
 	alias: 'la',
 	name: 'list-assets',
 	usage: {
-		'short': 'Lists assets on CEC server.',
+		'short': 'Lists assets on OCE server.',
 		'long': (function () {
-			let desc = 'Lists assets on CEC server. Optionally specify -c <channel>, -r <repository>, -l <collection> or -q <query> to query assets. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Lists assets on OCE server. Optionally specify -c <channel>, -r <repository>, -l <collection> or -q <query> to query assets. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1656,9 +1656,9 @@ const createAssetUsageReport = {
 	alias: 'caur',
 	name: 'create-asset-usage-report',
 	usage: {
-		'short': 'Generates an asset usage report for assets on CEC server.',
+		'short': 'Generates an asset usage report for assets on OCE server.',
 		'long': (function () {
-			let desc = 'Generates an asset usage report for assets on CEC server. Optionally specify -o to save the report to a json file. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Generates an asset usage report for assets on OCE server. Optionally specify -o to save the report to a json file. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1678,7 +1678,7 @@ const listTranslationJobs = {
 	usage: {
 		'short': 'Lists translation jobs.',
 		'long': (function () {
-			let desc = 'Lists translation jobs from local or from CEC server.';
+			let desc = 'Lists translation jobs from local or from OCE server.';
 			return desc;
 		})()
 	},
@@ -1694,9 +1694,9 @@ const createTranslationJob = {
 	alias: 'ctj',
 	name: 'create-translation-job',
 	usage: {
-		'short': 'Creates a translation job <name> for a site on CEC server.',
+		'short': 'Creates a translation job <name> for a site on OCE server.',
 		'long': (function () {
-			let desc = 'Creates a translation job <name> for a site on CEC server. Specify the server with -r <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Creates a translation job <name> for a site on OCE server. Specify the server with -r <server> or use the one specified in cec.properties file. ' +
 				'Specify -l <languages> to set the target languages, use "all" to select all languages from the translation policy. ' +
 				'Optionally specify -c <connector> to set the translation connector. ' +
 				'Optionally specify -t <type> to set the content type. The valid values for <type> are:\n\n';
@@ -1717,9 +1717,9 @@ const downloadTranslationJob = {
 	alias: 'dtj',
 	name: 'download-translation-job',
 	usage: {
-		'short': 'Downloads translation job <name> from CEC server.',
+		'short': 'Downloads translation job <name> from OCE server.',
 		'long': (function () {
-			let desc = 'Downloads translation job <name> from CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Downloads translation job <name> from OCE server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1734,9 +1734,9 @@ const uploadTranslationJob = {
 	alias: 'utj',
 	name: 'upload-translation-job',
 	usage: {
-		'short': 'Uploads translation job <name> to CEC server.',
+		'short': 'Uploads translation job <name> to OCE server.',
 		'long': (function () {
-			let desc = 'Uploads translation <name> to CEC server, validate and then ingest the translations. Optionally specify -v to validate only. Optionally specify -f <folder> to set the folder to upload the translation zip file. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Uploads translation <name> to OCE server, validate and then ingest the translations. Optionally specify -v to validate only. Optionally specify -f <folder> to set the folder to upload the translation zip file. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1855,9 +1855,9 @@ const createFolder = {
 	alias: 'cfd',
 	name: 'create-folder',
 	usage: {
-		'short': 'Creates a folder or folder hierarchy on CEC server.',
+		'short': 'Creates a folder or folder hierarchy on OCE server.',
 		'long': (function () {
-			let desc = 'Create a folder or folder hierarchy on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Create a folder or folder hierarchy on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1873,9 +1873,9 @@ const shareFolder = {
 	alias: 'sfd',
 	name: 'share-folder',
 	usage: {
-		'short': 'Shares folder with users and groups on CEC server.',
+		'short': 'Shares folder with users and groups on OCE server.',
 		'long': (function () {
-			let desc = 'Shares folder with users and groups on CEC server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are\n\n';
+			let desc = 'Shares folder with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1892,9 +1892,9 @@ const unshareFolder = {
 	alias: 'usfd',
 	name: 'unshare-folder',
 	usage: {
-		'short': 'Deletes user or group access to a shared folder on CEC server.',
+		'short': 'Deletes user or group access to a shared folder on OCE server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a shared folder on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Deletes user or group access to a shared folder on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1911,19 +1911,19 @@ const downloadFolder = {
 	alias: 'dlfd',
 	name: 'download-folder',
 	usage: {
-		'short': 'Downloads folder from CEC server.',
+		'short': 'Downloads folder from OCE server.',
 		'long': (function () {
-			let desc = 'Downloads folder and all its content from CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Downloads folder and all its content from OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -f <folder> to save the folder on the local system.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec download-folder Releases/1', 'Downloads folder Releases/1 from CEC server and save to local folder src/documents/'],
-		['cec download-folder /', 'Downloads all documents from CEC server and save to local folder src/documents/'],
+		['cec download-folder Releases/1', 'Downloads folder Releases/1 from OCE server and save to local folder src/documents/'],
+		['cec download-folder /', 'Downloads all documents from OCE server and save to local folder src/documents/'],
 		['cec download-folder Releases/1 -s UAT', 'Downloads folder Releases/1 from the registered server UAT and save to local folder src/documents/'],
-		['cec download-folder Releases/1 -f ~/Downloads', 'Downloads folder Releases/1 from CEC server and save to local folder ~/Download/'],
-		['cec download-folder Releases/1 -f .', 'Downloads folder Releases/1 from CEC server and save to the current local folder'],
+		['cec download-folder Releases/1 -f ~/Downloads', 'Downloads folder Releases/1 from OCE server and save to local folder ~/Download/'],
+		['cec download-folder Releases/1 -f .', 'Downloads folder Releases/1 from OCE server and save to the current local folder'],
 		['cec download-folder site:blog1 -f ~/Downloads/blog1Files', 'Downloads all files of site blog1 and save to local folder ~/Download/blog1Files'],
 		['cec download-folder theme:blog1Theme', 'Downloads all files of theme blog1Theme and save to local folder src/documents/blog1Theme/'],
 		['cec download-folder component:Comp1/assets', 'Downloads all files in folder assets of component Comp1 and save to local folder src/documents/Comp1/assets/']
@@ -1935,10 +1935,10 @@ const uploadFolder = {
 	alias: 'ulfd',
 	name: 'upload-folder',
 	usage: {
-		'short': 'Uploads folder to CEC server.',
+		'short': 'Uploads folder to OCE server.',
 		'long': (function () {
-			let desc = 'Uploads folder and all its content to CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'Optionally specify -f <folder> to set the parent folder on CEC server.';
+			let desc = 'Uploads folder and all its content to OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -f <folder> to set the parent folder on OCE server.';
 			return desc;
 		})()
 	},
@@ -1959,9 +1959,9 @@ const deleteFolder = {
 	alias: '',
 	name: 'delete-folder',
 	usage: {
-		'short': 'Deletes folder on CEC server.',
+		'short': 'Deletes folder on OCE server.',
 		'long': (function () {
-			let desc = 'Deletes folder and all its content on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Deletes folder and all its content on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -p to permanently delete the folder.';
 			return desc;
 		})()
@@ -1981,9 +1981,9 @@ const deleteFile = {
 	alias: '',
 	name: 'delete-file',
 	usage: {
-		'short': 'Deletes file on CEC server.',
+		'short': 'Deletes file on OCE server.',
 		'long': (function () {
-			let desc = 'Deletes file on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Deletes file on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -p to permanently delete the file.';
 			return desc;
 		})()
@@ -2003,10 +2003,10 @@ const uploadFile = {
 	alias: 'ulf',
 	name: 'upload-file',
 	usage: {
-		'short': 'Uploads file <file> to CEC server.',
+		'short': 'Uploads file <file> to OCE server.',
 		'long': (function () {
-			let desc = 'Uploads file <file> to CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'Optionally specify -f <folder> to set the parent folder on CEC server.';
+			let desc = 'Uploads file <file> to OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -f <folder> to set the parent folder on OCE server.';
 			return desc;
 		})()
 	},
@@ -2025,18 +2025,18 @@ const downloadFile = {
 	alias: 'dlf',
 	name: 'download-file',
 	usage: {
-		'short': 'Downloads file <file> from CEC server.',
+		'short': 'Downloads file <file> from OCE server.',
 		'long': (function () {
-			let desc = 'Downloads file <file> from CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Downloads file <file> from OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -f <folder> to save the file on the local system.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec download-file Releases/Projects.pdf', 'Downloads the file from CEC server and save to local folder src/documents/'],
+		['cec download-file Releases/Projects.pdf', 'Downloads the file from OCE server and save to local folder src/documents/'],
 		['cec download-file Releases/Projects.pdf -s UAT', 'Downloads the file from the registered server UAT and save to local folder src/documents/'],
-		['cec download-file Releases/Projects.pdf -f ~/Downloads', 'Downloads the file from CEC server and save to local folder ~/Download/'],
-		['cec download-file Releases/Projects.pdf -f .', 'Downloads the file from CEC server and save to the current local folder'],
+		['cec download-file Releases/Projects.pdf -f ~/Downloads', 'Downloads the file from OCE server and save to local folder ~/Download/'],
+		['cec download-file Releases/Projects.pdf -f .', 'Downloads the file from OCE server and save to the current local folder'],
 		['cec download-file site:blog1/siteinfo.json', 'Downloads the file from folder blog1 and save to local folder src/documents/blog1'],
 		['cec download-file theme:blog1Theme/designs/default/design.css', 'Downloads the css file from folder designs/default of theme blog1Theme and save to local folder src/documents/blog1Theme/designs/default/'],
 		['cec download-file component:Comp1/assets/render.js', 'Downloads the js file from folder assets of component Comp1 and save to local folder src/documents/Comp1/assets/']
@@ -2048,9 +2048,9 @@ const downloadRecommendation = {
 	alias: 'dlr',
 	name: 'download-recommendation',
 	usage: {
-		'short': 'Downloads the recommendation <name> from the CEC server.',
+		'short': 'Downloads the recommendation <name> from the OCE server.',
 		'long': (function () {
-			let desc = 'Downloads the recommendation <name> from the Content and Experience Cloud server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify repository with -r <repository>. Optionally specify -p to download the published version.';
+			let desc = 'Downloads the recommendation <name> from the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify repository with -r <repository>. Optionally specify -p to download the published version.';
 			return desc;
 		})()
 	},
@@ -2067,9 +2067,9 @@ const uploadRecommendation = {
 	alias: 'ulr',
 	name: 'upload-recommendation',
 	usage: {
-		'short': 'Uploads the recommendation <name> to the CEC server.',
+		'short': 'Uploads the recommendation <name> to the OCE server.',
 		'long': (function () {
-			let desc = 'Uploads the recommendation <name> to repository <repository> on CEC server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Uploads the recommendation <name> to repository <repository> on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -2100,9 +2100,9 @@ const registerServer = {
 	alias: 'rs',
 	name: 'register-server',
 	usage: {
-		'short': 'Registers a CEC server.',
+		'short': 'Registers a OCE server.',
 		'long': (function () {
-			let desc = 'Registers a CEC server. Specify -e <endpoint> for the server URL. ' +
+			let desc = 'Registers a OCE server. Specify -e <endpoint> for the server URL. ' +
 				'Specify -u <user> and -p <password> for connecting to the server. ' +
 				'Optionally specify -k <key> to encrypt the password. ' +
 				'Optionally specify -t <type> to set the server type. The valid values for <type> are:\n\n';
@@ -2495,7 +2495,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.option('style', {
 					alias: 's',
@@ -2550,7 +2550,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...downloadComponent.example[0])
 				.example(...downloadComponent.example[1])
@@ -2572,7 +2572,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...deployComponent.example[0])
 				.example(...deployComponent.example[1])
@@ -2596,7 +2596,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...uploadComponent.example[0])
 				.example(...uploadComponent.example[1])
@@ -2625,7 +2625,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...controlComponent.example[0])
 				.example(...controlComponent.example[1])
@@ -2652,7 +2652,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -2683,7 +2683,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -2719,7 +2719,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (argv.from && !getTemplateSources().includes(argv.from)) {
@@ -2758,7 +2758,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...createTemplateFromSite.example[0])
 				.example(...createTemplateFromSite.example[1])
@@ -2801,7 +2801,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...downloadTemplate.example[0])
 				.example(...downloadTemplate.example[1])
@@ -2814,7 +2814,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				}).option('channelToken', {
 					alias: 'c',
 					description: 'The channel access token to use for content URLs'
@@ -2886,7 +2886,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.option('permanent', {
 					alias: 'p',
@@ -2908,7 +2908,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.option('optimize', {
 					alias: 'o',
@@ -2936,7 +2936,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.option('optimize', {
 					alias: 'o',
@@ -2978,7 +2978,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -3009,7 +3009,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -3064,7 +3064,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...listServerContentTypes.example[0])
 				.example(...listServerContentTypes.example[1])
@@ -3255,7 +3255,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.check((argv) => {
 					if (argv.collection && !argv.repository) {
@@ -3301,7 +3301,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.option('update', {
 					alias: 'u',
@@ -3347,7 +3347,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.check((argv) => {
 					if (argv.action && !getContentActions().includes(argv.action)) {
@@ -3413,7 +3413,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...copyAssets.example[0])
 				.example(...copyAssets.example[1])
@@ -3440,7 +3440,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.check((argv) => {
 					if (!getTaxonomyStatus().includes(argv.status)) {
@@ -3480,7 +3480,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.check((argv) => {
 					if (argv.abbreviation && argv.abbreviation.length > 3) {
@@ -3519,7 +3519,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.name && !argv.id) {
@@ -3560,7 +3560,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -3591,7 +3591,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -3655,7 +3655,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...controlTheme.example[0])
 				.example(...controlTheme.example[1])
@@ -3672,7 +3672,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...listResources.example[0])
 				.example(...listResources.example[1])
@@ -3716,7 +3716,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...createSite.example[0])
 				.example(...createSite.example[1])
@@ -3732,12 +3732,12 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered CEC server the site is from',
+					description: 'The registered OCE server the site is from',
 					demandOption: true,
 				})
 				.option('destination', {
 					alias: 'd',
-					description: 'The registered CEC server to create or update the site',
+					description: 'The registered OCE server to create or update the site',
 					demandOption: true
 				})
 				.option('repository', {
@@ -3780,12 +3780,12 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered CEC server the site is from',
+					description: 'The registered OCE server the site is from',
 					demandOption: true,
 				})
 				.option('destination', {
 					alias: 'd',
-					description: 'The registered CEC server to transfer the content',
+					description: 'The registered OCE server to transfer the content',
 					demandOption: true
 				})
 				.option('repository', {
@@ -3853,7 +3853,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...controlSite.example[0])
 				.example(...controlSite.example[1])
@@ -3886,7 +3886,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -3917,7 +3917,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -3954,7 +3954,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (argv.signin && !getSiteSignIn().includes(argv.signin)) {
@@ -3994,7 +3994,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...updateSite.example[0])
 				.example(...updateSite.example[1])
@@ -4007,7 +4007,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...validateSite.example[0])
 				.example(...validateSite.example[1])
@@ -4028,7 +4028,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.contenttype) {
@@ -4066,7 +4066,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('publish', {
 					alias: 'p',
-					description: 'Upload the site map to CEC server after creation'
+					description: 'Upload the site map to OCE server after creation'
 				})
 				.option('toppagepriority', {
 					alias: 't',
@@ -4074,7 +4074,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.option('newlink', {
 					alias: 'n',
@@ -4158,11 +4158,11 @@ const argv = yargs.usage(_usage)
 				})
 				.option('publish', {
 					alias: 'p',
-					description: 'Upload the RSS feed to CEC server after creation'
+					description: 'Upload the RSS feed to OCE server after creation'
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.option('newlink', {
 					alias: 'n',
@@ -4200,7 +4200,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...createAssetReport.example[0])
 				.example(...createAssetReport.example[1])
@@ -4216,12 +4216,12 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('site', {
 					alias: 's',
-					description: 'The site on CEC server',
+					description: 'The site on OCE server',
 					demandOption: true
 				})
 				.option('server', {
 					alias: 'r',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...uploadStaticSite.example[0])
 				.example(...uploadStaticSite.example[1])
@@ -4238,7 +4238,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...downloadStaticSite.example[0])
 				.example(...downloadStaticSite.example[1])
@@ -4252,7 +4252,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...deleteStaticSite.example[0])
 				.example(...deleteStaticSite.example[1])
@@ -4265,7 +4265,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...refreshPrerenderCache.example[0])
 				.example(...refreshPrerenderCache.example[1])
@@ -4373,7 +4373,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...createRepository.example[0])
 				.example(...createRepository.example[1])
@@ -4410,7 +4410,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...controlRepository.example[0])
 				.example(...controlRepository.example[1])
@@ -4447,7 +4447,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -4490,7 +4490,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -4524,7 +4524,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -4555,7 +4555,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -4591,7 +4591,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.check((argv) => {
 					if (argv.type && argv.type !== 'public' && argv.type !== 'secure') {
@@ -4633,7 +4633,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...createLocalizationPolicy.example[0])
 				.example(...createLocalizationPolicy.example[1])
@@ -4663,7 +4663,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.check((argv) => {
 					if (argv.collection && !argv.repository) {
@@ -4690,7 +4690,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...createAssetUsageReport.example[0])
 				.example(...createAssetUsageReport.example[1])
@@ -4706,7 +4706,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...listTranslationJobs.example[0])
 				.example(...listTranslationJobs.example[1])
@@ -4738,7 +4738,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.check((argv) => {
 					if (argv.type && !getTranslationJobExportTypes().includes(argv.type)) {
@@ -4761,7 +4761,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...downloadTranslationJob.example[0])
 				.example(...downloadTranslationJob.example[1])
@@ -4794,7 +4794,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...refreshTranslationJob.example[0])
 				.example(...refreshTranslationJob.example[1])
@@ -4807,7 +4807,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...ingestTranslationJob.example[0])
 				.example(...ingestTranslationJob.example[1])
@@ -4828,7 +4828,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.example(...uploadTranslationJob.example[0])
 				.example(...uploadTranslationJob.example[1])
@@ -4925,7 +4925,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...createFolder.example[0])
 				.example(...createFolder.example[1])
@@ -4952,7 +4952,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -4984,7 +4984,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -5005,11 +5005,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('folder', {
 					alias: 'f',
-					description: '<folder> Local folder to save the folder on CEC server'
+					description: '<folder> Local folder to save the folder on OCE server'
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...downloadFolder.example[0])
 				.example(...downloadFolder.example[1])
@@ -5028,11 +5028,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('folder', {
 					alias: 'f',
-					description: '<folder> The parent folder on CEC server'
+					description: '<folder> The parent folder on OCE server'
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...uploadFolder.example[0])
 				.example(...uploadFolder.example[1])
@@ -5051,7 +5051,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.option('permanent', {
 					alias: 'p',
@@ -5072,11 +5072,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('folder', {
 					alias: 'f',
-					description: '<folder> The parent folder on CEC server'
+					description: '<folder> The parent folder on OCE server'
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...uploadFile.example[0])
 				.example(...uploadFile.example[1])
@@ -5097,7 +5097,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...downloadFile.example[0])
 				.example(...downloadFile.example[1])
@@ -5115,7 +5115,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.option('permanent', {
 					alias: 'p',
@@ -5140,7 +5140,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (argv.type && !getGroupTypes().includes(argv.type)) {
@@ -5236,7 +5236,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.check((argv) => {
 					if (argv.published && !argv.channel) {
@@ -5262,7 +5262,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered CEC server'
+					description: '<server> The registered OCE server'
 				})
 				.example(...uploadRecommendation.example[0])
 				.example(...uploadRecommendation.example[1])
@@ -5362,7 +5362,7 @@ const argv = yargs.usage(_usage)
 			yargs
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server',
+					description: 'The registered OCE server',
 					demandOption: true
 				})
 				.example(...setOAuthToken.example[0])
@@ -5380,7 +5380,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.help('help')
 				.alias('help', 'h')
@@ -5403,7 +5403,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server'
+					description: 'The registered OCE server'
 				})
 				.option('debug', {
 					alias: 'd',
@@ -5422,12 +5422,12 @@ const argv = yargs.usage(_usage)
 			yargs
 				.option('server', {
 					alias: 's',
-					description: 'The registered CEC server for sync source',
+					description: 'The registered OCE server for sync source',
 					demandOption: true
 				})
 				.option('destination', {
 					alias: 'd',
-					description: 'The registered CEC server for sync destination',
+					description: 'The registered OCE server for sync destination',
 					demandOption: true
 				})
 				.option('authorization', {
@@ -5558,7 +5558,7 @@ var spawnCmd;
 if (argv._[0] === 'install' || argv._[0] === 'i') {
 	var projectRoot = _getProjectRoot();
 	if (projectRoot && projectRoot !== cwd) {
-		console.log(`A Content and Experience Cloud project already installed at ${projectRoot}`);
+		console.log(`A Content and Experience project already installed at ${projectRoot}`);
 		return;
 	}
 
@@ -5566,7 +5566,7 @@ if (argv._[0] === 'install' || argv._[0] === 'i') {
 		var packageFile = path.join(projectRoot, 'package.json');
 		var packageJSON = JSON.parse(fs.readFileSync(packageFile));
 		if (packageJSON && packageJSON.name === 'cec-sites-toolkit') {
-			console.log(`You cannot install Content and Experience Cloud project at ${projectRoot}. Please install at a different location.`);
+			console.log(`You cannot install Content and Experience project at ${projectRoot}. Please install at a different location.`);
 			return;
 		}
 	}

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global console, __dirname, process, console */
@@ -13,7 +13,6 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	documentUtils = require('./document.js').utils,
-	extract = require('extract-zip'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	gulp = require('gulp'),
@@ -308,21 +307,20 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 
 					fs.mkdirSync(contentPath);
 
-					extract(exportfilepath, {
-						dir: contentPath
-					}, function (err) {
-						if (err) {
-							return resolve({
-								err: 'err'
-							});
-						} else {
-							console.log(' - the assets from channel ' + channelName + ' are available at ' + contentPath);
-							resolve({
-								channelId: channelId,
-								channeName: channelName
-							});
-						}
-					});
+					fileUtils.extractZip(exportfilepath, contentPath)
+						.then(function (err) {
+							if (err) {
+								return resolve({
+									err: 'err'
+								});
+							} else {
+								console.log(' - the assets from channel ' + channelName + ' are available at ' + contentPath);
+								resolve({
+									channelId: channelId,
+									channeName: channelName
+								});
+							}
+						});
 
 				});
 
@@ -501,6 +499,7 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 					console.log(' - submit export job (' + jobId + ')');
 
 					// Wait for job to finish
+					var needNewline = false;
 					var startTime = new Date();
 					var inter = setInterval(function () {
 						var checkExportStatusPromise = _checkJobStatus(request, server, jobId);
@@ -516,7 +515,9 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 							// console.log(data);
 							if (status && status === 'SUCCESS') {
 								clearInterval(inter);
-								process.stdout.write(os.EOL);
+								if (needNewline) {
+									process.stdout.write(os.EOL);
+								}
 								// console.log(data);
 								var downloadLink = data.downloadLink[0].href;
 								if (downloadLink) {
@@ -557,7 +558,9 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 								}
 							} else if (status && status === 'FAILED') {
 								clearInterval(inter);
-								process.stdout.write(os.EOL);
+								if (needNewline) {
+									process.stdout.write(os.EOL);
+								}
 								// console.log(data);
 								console.log('ERROR: export failed: ' + data.errorDescription);
 								return resolve({
@@ -566,6 +569,7 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 							} else if (status && status === 'INPROGRESS') {
 								process.stdout.write(' - export job in progress [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
 								readline.cursorTo(process.stdout, 0);
+								needNewline = true;
 							}
 
 						});
@@ -628,22 +632,22 @@ var _contentHasTaxonomy = function (name, isTemplate, isFile, filePath) {
 		var taxpath;
 
 		var getContentDir = function (topDir) {
-			var contentDir;
+			var cntDir = '';
 			var items = fs.readdirSync(topDir);
 			for (var i = 0; i < items.length; i++) {
 				if (fs.statSync(path.join(topDir, items[i])).isDirectory() &&
 					(items[i] === 'contentexport' || items[i].indexOf('Content Template of ')) >= 0) {
-					contentDir = path.join(topDir, items[i]);
+					cntDir = path.join(topDir, items[i]);
 					break;
 				}
 			}
-			// console.log(contentDir);
-			return contentDir;
+			// console.log(cntDir);
+			return cntDir;
 		};
 
 		var checkTaxFiles = function (tpath) {
 			var found = false;
-			if (fs.existsSync(tpath) && fs.statSync(tpath).isDirectory()) {
+			if (tpath && fs.existsSync(tpath) && fs.statSync(tpath).isDirectory()) {
 				var files = fs.readdirSync(tpath);
 				for (var i = 0; i < files.length; i++) {
 					if (files[i].indexOf('.json') > 0) {
@@ -663,22 +667,22 @@ var _contentHasTaxonomy = function (name, isTemplate, isFile, filePath) {
 				if (fs.existsSync(contentDir)) {
 					fileUtils.remove(contentDir);
 				}
-				extract(filePath, {
-					dir: contentDir
-				}, function (err) {
-					if (err) {
-						console.log(err);
-					}
-					taxpath = path.join(getContentDir(contentDir), 'Taxonomies');
+				fileUtils.extractZip(filePath, contentDir)
+					.then(function (err) {
+						if (err) {
+							console.log(err);
+						}
 
-					hasTax = checkTaxFiles(taxpath);
-					if (hasTax) {
-						console.log(' - the content includes taxonomies');
-					}
-					return resolve({
-						hasTax: hasTax
+						taxpath = path.join(getContentDir(contentDir), 'Taxonomies');
+
+						hasTax = checkTaxFiles(taxpath);
+						if (hasTax) {
+							console.log(' - the content includes taxonomies');
+						}
+						return resolve({
+							hasTax: hasTax
+						});
 					});
-				});
 
 			} else {
 				if (isTemplate) {
@@ -737,9 +741,14 @@ var _uploadContentFromZipFile = function (args) {
 		collectionId = args.collectionId,
 		updateContent = args.updateContent,
 		typesOnly = args.typesOnly,
+		hasTax = args.hasTax,
 		errorMessage;
 
 	var request = serverUtils.getRequest();
+
+	var format = '   %-15s %-s';
+	var importSuccess = false;
+	var token;
 
 	return new Promise(function (resolve, reject) {
 
@@ -775,55 +784,82 @@ var _uploadContentFromZipFile = function (args) {
 				if (!result || result.err) {
 					return resolve(result);
 				}
-				var token = result && result.token;
+				token = result && result.token;
 				console.log(' - get CSRF token');
 
-				var importPromise = _importContent(request, server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent, typesOnly);
-				var importSuccess = false;
-				importPromise.then(function (result) {
-					if (!result.err) {
-						if (typesOnly) {
-							console.log(' - content types imported:');
-						} else {
-							console.log(' - content imported:');
-						}
-						var format = '   %-15s %-s';
-						if (typeof repositoryName === 'string') {
-							console.log(sprintf(format, 'repository', repositoryName));
-						}
-						if (typeof collectionName === 'string') {
-							console.log(sprintf(format, 'collection', collectionName));
-						}
-						if (typeof channelName === 'string') {
-							console.log(sprintf(format, 'channel', channelName));
-						}
-						importSuccess = true;
+				var importTypes = typesOnly || hasTax;
+				return _importContent(request, server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent, importTypes);
+
+			}).then(function (result) {
+
+				if (!result.err) {
+					if (typesOnly || hasTax) {
+						console.log(' - content types imported:');
+					} else {
+						console.log(' - content imported:');
 					}
-					// delete the zip file
+					if (typeof repositoryName === 'string') {
+						console.log(sprintf(format, 'repository', repositoryName));
+					}
+					if (typeof collectionName === 'string') {
+						console.log(sprintf(format, 'collection', collectionName));
+					}
+					if (typeof channelName === 'string') {
+						console.log(sprintf(format, 'channel', channelName));
+					}
+					importSuccess = true;
+				}
+				// delete the zip file
 
-					var deleteArgv = {
-						file: contentfilename,
-						permanent: 'true'
-					};
-					var deleteFilePromise = documentUtils.deleteFile(deleteArgv, server, false);
+				var importAgainPromises = [];
+				if (!typesOnly && hasTax) {
+					importTypes = false;
+					importSuccess = false;
+					importAgainPromises.push(
+						_importContent(request, server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent, importTypes));
+				}
 
-					/*
-					var deleteFilePromise = serverRest.deleteFile({
-						server: server,
-						fFileGUID: contentZipFileId
+				return Promise.all(importAgainPromises);
+
+			})
+			.then(function (results) {
+				var result = results && results[0];
+				if (!typesOnly && hasTax && result && !result.err) {
+
+					console.log(' - content imported:');
+					if (typeof repositoryName === 'string') {
+						console.log(sprintf(format, 'repository', repositoryName));
+					}
+					if (typeof collectionName === 'string') {
+						console.log(sprintf(format, 'collection', collectionName));
+					}
+					if (typeof channelName === 'string') {
+						console.log(sprintf(format, 'channel', channelName));
+					}
+					importSuccess = true;
+				}
+
+				var deleteArgv = {
+					file: contentfilename,
+					permanent: 'true'
+				};
+				var deleteFilePromise = documentUtils.deleteFile(deleteArgv, server, false);
+
+				deleteFilePromise.then(function (result) {
+					// all done
+					return importSuccess ? resolve({}) : resolve({
+						err: 'err'
 					});
-					*/
-
-					deleteFilePromise.then(function (result) {
-						// all done
-						return importSuccess ? resolve({}) : resolve({
-							err: 'err'
-						});
-					});
+				});
+			})
+			.catch((error) => {
+				resolve({
+					err: 'err'
 				});
 			});
 	});
 };
+
 module.exports.uploadContent = function (argv, done) {
 	'use strict';
 
@@ -909,7 +945,7 @@ module.exports.uploadContent = function (argv, done) {
 			.then(function (result) {
 				var hasTax = result && result.hasTax;
 
-				_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly)
+				_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax)
 					.then(function (result) {
 						if (result && result.err) {
 							done();
@@ -921,7 +957,7 @@ module.exports.uploadContent = function (argv, done) {
 	});
 };
 
-var _uploadContent = function (server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly) {
+var _uploadContent = function (server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax) {
 	return new Promise(function (resolve, reject) {
 		var request = serverUtils.getRequest();
 
@@ -1071,7 +1107,8 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 					collectionName: collectionName,
 					collectionId: collectionId,
 					updateContent: updateContent,
-					typesOnly: typesOnly
+					typesOnly: typesOnly,
+					hasTax: hasTax
 				};
 				var uploadPromize = createZip ? _uploadContentFromZip(args) : _uploadContentFromZipFile(args);
 
@@ -1245,24 +1282,31 @@ module.exports.uploadContentFromTemplate = function (args) {
 	}
 	contentfilename = templateName + '_export.zip';
 
-	return _uploadContentFromZip({
-		server: server,
-		contentpath: contentpath,
-		contentfilename: contentfilename,
-		projectDir: projectDir,
-		repositoryId: siteInfo.repositoryId,
-		channelId: siteInfo.channelId,
-		collectionId: siteInfo.arCollectionId,
-		updateContent: updateContent
-	}).then(function (result) {
-		if (result.err) {
-			console.log(' - failed to upload content');
-			console.log(result.err);
-		}
-		return Promise.resolve({
-			error: result.err
+	var isTemplate = true;
+	var isFile = false;
+	return _contentHasTaxonomy(templateName, isTemplate, isFile)
+		.then(function (result) {
+			var hasTax = result && result.hasTax;
+			return _uploadContentFromZip({
+				server: server,
+				contentpath: contentpath,
+				contentfilename: contentfilename,
+				projectDir: projectDir,
+				repositoryId: siteInfo.repositoryId,
+				channelId: siteInfo.channelId,
+				collectionId: siteInfo.arCollectionId,
+				updateContent: updateContent,
+				hasTax: hasTax
+			}).then(function (result) {
+				if (result.err) {
+					console.log(' - failed to upload content');
+					console.log(result.err);
+				}
+				return Promise.resolve({
+					error: result.err
+				});
+			});
 		});
-	});
 };
 
 module.exports.controlContent = function (argv, done, sucessCallback, errorCallback, loginServer) {

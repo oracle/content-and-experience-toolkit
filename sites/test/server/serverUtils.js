@@ -4977,9 +4977,10 @@ module.exports.stripTopDirectory = function (dir) {
 	return new Promise(function (resolve, reject) {
 		fsp.readdir(dir).then((children) => {
 			// verify that the given directory has just a single child directory
-			if (children.length != 1) {
+			if (children.length !== 1) {
 				reject("dir should contain only a single sub-directory");
 			}
+
 			var subdir = path.join(dir, children[0]);
 			fsp.stat(subdir).then((stat) => {
 				if (!stat.isDirectory()) {

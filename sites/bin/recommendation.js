@@ -276,16 +276,15 @@ module.exports.downloadRecommendation = function (argv, done) {
 
 											fs.mkdirSync(recoPath);
 
-											extract(exportfilepath, {
-												dir: recoPath
-											}, function (err) {
-												if (err) {
-													done();
-												} else {
-													console.log(' - recommendation ' + name + ' is available at ' + recoPath);
-													done(true);
-												}
-											});
+											fileUtils.extractZip(exportfilepath, recoPath)
+												.then(function (err) {
+													if (err) {
+														done();
+													} else {
+														console.log(' - recommendation ' + name + ' is available at ' + recoPath);
+														done(true);
+													}
+												});
 
 										} else {
 											console.log('ERROR: Failed to download, status=' + response.statusCode);

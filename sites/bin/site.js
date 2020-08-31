@@ -226,7 +226,12 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
 					var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
 
 					request.get(url, function (err, response, body) {
-						var data = JSON.parse(body);
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+
+						}
 						dUser = data && data.LocalData && data.LocalData.dUser;
 						idcToken = data && data.LocalData && data.LocalData.idcToken;
 						if (dUser && dUser !== 'anonymous' && idcToken) {
