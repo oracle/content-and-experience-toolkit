@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global console, __dirname, process, module, Buffer, console */
@@ -11,6 +11,7 @@ var path = require('path'),
 	readline = require('readline'),
 	url = require('url'),
 	serverRest = require('../test/server/serverRest.js'),
+	sitesRest = require('../test/server/sitesRest.js'),
 	serverUtils = require('../test/server/serverUtils.js');
 
 var projectDir,
@@ -54,15 +55,11 @@ var verifyRun = function (argv) {
 	return true;
 };
 
-var localServer;
 var _cmdEnd = function (done, success) {
 	done(success);
-	if (localServer) {
-		localServer.close();
-	}
 };
 
-var _getSiteInfoFile = function (server, request, localhost, site, locale, isMaster) {
+var _getSiteInfoFile = function (server, locale, isMaster) {
 	// console.log(' - siteId: ' + _siteId);
 	var siteInfoFilePromise = new Promise(function (resolve, reject) {
 		serverRest.getChildItems({
@@ -111,7 +108,7 @@ var _getSiteInfoFile = function (server, request, localhost, site, locale, isMas
 	return siteInfoFilePromise;
 };
 
-var _getSiteStructure = function (server, request, localhost, site, locale, isMaster) {
+var _getSiteStructure = function (server, locale, isMaster) {
 	var siteStructurePromise = new Promise(function (resolve, reject) {
 		serverRest.getChildItems({
 				server: server,
@@ -156,58 +153,6 @@ var _getSiteStructure = function (server, request, localhost, site, locale, isMa
 	return siteStructurePromise;
 };
 
-var _getChannelInfo = function (request, localhost, channelId) {
-	var channelPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/content/management/api/v1.1/channels/' + channelId;
-		url = url + '?includeAdditionalData=true&fields=all';
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get channel with id ' + channelId);
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
-				resolve(data);
-			} else {
-				console.log('ERROR: Failed to get channel with id ' + policyId);
-				console.log(response ? response.statusCode + response.statusMessage : '');
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-	return channelPromise;
-};
-
-var _getLocalizationPolicy = function (request, localhost, policyId) {
-	var policyPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/content/management/api/v1.1/policy/' + policyId;
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get policy with id ' + policyId);
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
-				resolve(data);
-			} else {
-				console.log('ERROR: Failed to get policy with id ' + policyId);
-				console.log(response ? response.statusCode + response.statusMessage : '');
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-	return policyPromise;
-};
 
 var _getDefaultDetailPageId = function () {
 	var getFirstDetailPage = function (page, childFunction) {
@@ -252,11 +197,8 @@ var _getDefaultDetailPageId = function () {
 /**
  * Get an array of promises to get the page data for all site pages
  * 
- * @param {*} request 
- * @param {*} localhost 
- * @param {*} pages the data from SCS_GET_STRUCTURE
  */
-var _getPageData = function (server, request, localhost, site, pages, locale, isMaster) {
+var _getPageData = function (server, locale, isMaster) {
 	// console.log(' isMaster: ' + isMaster + ' locale: ' + locale);
 	return new Promise(function (resolve, reject) {
 		serverRest.getChildItems({
@@ -527,31 +469,6 @@ var _getSiteChannelToken = function (siteInfo) {
 	return token;
 };
 
-var _getRepository = function (request, localhost, repositoryId) {
-	var repositoryPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/content/management/api/v1.1/repositories/' + repositoryId;
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get repository with id ' + repositoryId);
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
-				resolve(data);
-			} else {
-				console.log('ERROR: Failed to get repository with id ' + repositoryId);
-				console.log(response ? response.statusCode + response.statusMessage : '');
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-	return repositoryPromise;
-};
 
 var _getContentListQueryString = function (type, limit, offset, orderBy, locale) {
 	var str = 'fields=ALL';
@@ -612,29 +529,33 @@ var _getPageContentListQuery = function (pageData, locale) {
 	return pageContentListQueries;
 };
 
-var _getPageContent = function (request, localhost, channelToken, locale, q, pageId, detailPageId, queryType) {
+var _getPageContent = function (server, request, channelToken, locale, q, pageId, detailPageId, queryType) {
 	var pageContentPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/content/published/api/v1.1/items';
+		var url = server.url + '/content/published/api/v1.1/items';
 		if (queryType === 'item') {
 			url = url + '?q=' + q + '&channelToken=' + channelToken;
 		} else {
 			// content list query
 			url = url + '?' + q + '&channelToken=' + channelToken;
 		}
-		request.get(url, function (err, response, body) {
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get content: url: ' + url.replace(localhost, ''));
+				console.log('ERROR: Failed to get content: url: ' + url.replace(server.url, ''));
 				console.log(err);
 				return resolve({});
 			}
 			if (!response || response.statusCode !== 200) {
-				// console.log('ERROR: Failed to get content: status: ' + (response ? response.statusCode : '') + ' url: ' + url.replace(localhost, ''));
 				return resolve({});
 			}
 			try {
 				var data = JSON.parse(body);
 				if (!data) {
-					console.log('ERROR: Failed to get content: url: ' + url.replace(localhost, ''));
+					console.log('ERROR: Failed to get content: url: ' + url.replace(server.url, ''));
 					return resolve({});
 				}
 				// handle both 1 item or multiple items
@@ -654,7 +575,7 @@ var _getPageContent = function (request, localhost, channelToken, locale, q, pag
 
 };
 
-var _getPageContentPromise = function (request, localhost, server, channelToken, pageContentIds, pageContentListQueries, locale) {
+var _getPageContentPromise = function (server, request, channelToken, pageContentIds, pageContentListQueries, locale) {
 	var promises = [];
 	var limit = 30;
 	var num = 0;
@@ -678,7 +599,7 @@ var _getPageContentPromise = function (request, localhost, server, channelToken,
 					q = '(' + q + ')';
 				}
 
-				promises.push(_getPageContent(request, localhost, channelToken, locale, q, pageId, detailPageId, 'item'));
+				promises.push(_getPageContent(server, request, channelToken, locale, q, pageId, detailPageId, 'item'));
 
 				// another batch
 				q = '';
@@ -691,13 +612,13 @@ var _getPageContentPromise = function (request, localhost, server, channelToken,
 			} else {
 				q = '(' + q + ')';
 			}
-			promises.push(_getPageContent(request, localhost, channelToken, locale, q, pageId, detailPageId, 'item'));
+			promises.push(_getPageContent(server, request, channelToken, locale, q, pageId, detailPageId, 'item'));
 		}
 	}
 
 	// Content list queries
 	for (var i = 0; i < pageContentListQueries.length; i++) {
-		promises.push(_getPageContent(request, localhost, channelToken, locale,
+		promises.push(_getPageContent(server, request, channelToken, locale,
 			pageContentListQueries[i].queryString, pageContentListQueries[i].pageId, pageContentListQueries[i].detailPageId, 'list'));
 	}
 
@@ -775,11 +696,11 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ch
 		if (!pages[i].isDetailPage && !noIndex && !isExternalLink) {
 
 			var includeLocale = pages[i].locale && pages[i].locale !== _SiteInfo.defaultLanguage;
-			
+
 			// find out last modified date
 			// var fileName = (includeLocale ? (pages[i].locale + '_') : '') + pages[i].id.toString() + '.json';
 			var fileName = pages[i].id.toString() + '.json';
-			
+
 			var lastmod;
 			var pageChangefreq = changefreq === 'auto' ? 'monthly' : changefreq;
 			var found = false;
@@ -920,7 +841,7 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ch
 };
 
 
-var _getSitePageFiles = function (server, request, localhost, site, locale, isMaster) {
+var _getSitePageFiles = function (server) {
 	return new Promise(function (resolve, reject) {
 		serverRest.getChildItems({
 				server: server,
@@ -954,7 +875,7 @@ var _getSitePageFiles = function (server, request, localhost, site, locale, isMa
 };
 
 
-var _uploadSiteMapToServer = function (server, request, localhost, site, localFilePath) {
+var _uploadSiteMapToServer = function (server, localFilePath) {
 	var uploadPromise = new Promise(function (resolve, reject) {
 		var fileName = localFilePath;
 		if (fileName.indexOf('/') >= 0) {
@@ -994,7 +915,7 @@ var _uploadSiteMapToServer = function (server, request, localhost, site, localFi
 	return uploadPromise;
 };
 
-var _prepareData = function (server, request, localhost, site, languages, done) {
+var _prepareData = function (server, site, languages, done) {
 	var dataPromise = new Promise(function (resolve, reject) {
 
 		var siteInfo, defaultLanguage, siteChannelToken, siteRepositoryId;
@@ -1003,7 +924,10 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 		//
 		// Get site id
 		//
-		serverUtils.getSiteFolder(server, site)
+		sitesRest.getSite({
+				server: server,
+				name: site
+			})
 			.then(function (result) {
 				if (!result || result.err || !result.id) {
 					console.log('ERROR: site ' + site + ' does not exist');
@@ -1030,7 +954,7 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 				//
 				// Get site info
 				//
-				var siteInfoPromise = _getSiteInfoFile(server, request, localhost, site);
+				var siteInfoPromise = _getSiteInfoFile(server);
 				return siteInfoPromise;
 			})
 			.then(function (result) {
@@ -1051,7 +975,10 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 				//
 				var channelPromises = [];
 				if (siteInfo.channelId) {
-					channelPromises.push(_getChannelInfo(request, localhost, siteInfo.channelId));
+					channelPromises.push(serverRest.getChannel({
+						server: server,
+						id: siteInfo.channelId
+					}));
 				}
 				return Promise.all(channelPromises);
 			})
@@ -1066,7 +993,10 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 				//
 				var policyPromise = [];
 				if (policyId) {
-					policyPromise.push(_getLocalizationPolicy(request, localhost, policyId));
+					policyPromise.push(serverRest.getLocalizationPolicy({
+						server: server,
+						id: policyId
+					}));
 				}
 				return Promise.all(policyPromise);
 			})
@@ -1101,7 +1031,7 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 				//
 				var siteinfoPromises = [];
 				for (var i = 0; i < locales.length; i++) {
-					siteinfoPromises[i] = _getSiteInfoFile(server, request, localhost, site, locales[i], false);
+					siteinfoPromises[i] = _getSiteInfoFile(server, locales[i], false);
 				}
 
 				return Promise.all(siteinfoPromises);
@@ -1134,7 +1064,11 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 					console.log(' - site translation: ' + _languages);
 				}
 
-				return _getRepository(request, localhost, siteRepositoryId);
+				return serverRest.getRepository({
+					server: server,
+					id: siteRepositoryId
+				});
+
 			})
 			.then(function (result) {
 				//
@@ -1146,7 +1080,7 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 				repository = result;
 				console.log(' - query site repository');
 
-				return _getSiteStructure(server, request, localhost, site);
+				return _getSiteStructure(server);
 			})
 			.then(function (result) {
 				// 
@@ -1179,7 +1113,7 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 					console.log(' - default detail page: ' + _defaultDetailPage.name);
 				}
 
-				return _getPageData(server, request, localhost, site, pages, '', true);
+				return _getPageData(server, '', true);
 			})
 			.then(function (result) {
 				if (result.err) {
@@ -1241,14 +1175,14 @@ var _prepareData = function (server, request, localhost, site, languages, done) 
 	return dataPromise;
 };
 
-var _getSiteDataWithLocale = function (server, request, localhost, site, locale, isMaster) {
+var _getSiteDataWithLocale = function (server, request, site, locale, isMaster) {
 	var sitePromise = new Promise(function (resolve, reject) {
 		var pages = [];
 		var items = [];
 		var pageFiles = [];
 		var pageData = [];
 
-		var siteStructurePromise = _getSiteStructure(server, request, localhost, site, locale, isMaster);
+		var siteStructurePromise = _getSiteStructure(server, locale, isMaster);
 		siteStructurePromise.then(function (result) {
 			if (result.err) {
 				return resolve(result);
@@ -1258,7 +1192,7 @@ var _getSiteDataWithLocale = function (server, request, localhost, site, locale,
 			var siteStructure = result;
 			pages = siteStructure && siteStructure.pages;
 
-			var sitePageFilesPromise = _getSitePageFiles(server, request, localhost, site, locale, isMaster);
+			var sitePageFilesPromise = _getSitePageFiles(server);
 			sitePageFilesPromise.then(function (result) {
 				pageFiles = result.files || [];
 				if (!pageFiles || pageFiles.length === 0) {
@@ -1269,7 +1203,7 @@ var _getSiteDataWithLocale = function (server, request, localhost, site, locale,
 					//
 					// Get page data for all pages
 					//
-					var pageDataPromise = _getPageData(server, request, localhost, site, pages, locale, isMaster);
+					var pageDataPromise = _getPageData(server, locale, isMaster);
 					pageDataPromise.then(function (result) {
 						console.log(' - query page data (' + locale + ')');
 						var values = result || [];
@@ -1289,7 +1223,7 @@ var _getSiteDataWithLocale = function (server, request, localhost, site, locale,
 						//
 						// Get content items on the pages
 						//
-						var pageContentPromise = _getPageContentPromise(request, localhost, server, _siteChannelToken, _pageContentIds, pageContentListQueries, locale);
+						var pageContentPromise = _getPageContentPromise(server, request, _siteChannelToken, _pageContentIds, pageContentListQueries, locale);
 						Promise.all(pageContentPromise).then(function (values) {
 							console.log(' - query content on the pages (' + locale + ')');
 
@@ -1335,7 +1269,7 @@ var _getSiteDataWithLocale = function (server, request, localhost, site, locale,
  * Main entry
  * 
  */
-var _createSiteMap = function (server, serverName, request, localhost, site, siteUrl, changefreq,
+var _createSiteMap = function (server, serverName, request, site, siteUrl, changefreq,
 	publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink, done) {
 
 	//
@@ -1345,7 +1279,7 @@ var _createSiteMap = function (server, serverName, request, localhost, site, sit
 	var allPages = [];
 	var allPageFiles = [];
 	var allItems = [];
-	var dataPromise = _prepareData(server, request, localhost, site, languages, done);
+	var dataPromise = _prepareData(server, site, languages, done);
 	dataPromise.then(function (result) {
 			if (result.err) {
 				_cmdEnd(done);
@@ -1354,10 +1288,10 @@ var _createSiteMap = function (server, serverName, request, localhost, site, sit
 
 			var isMaster = true;
 			var siteDataPromises = [];
-			siteDataPromises.push(_getSiteDataWithLocale(server, request, localhost, site, _SiteInfo.defaultLanguage, isMaster));
+			siteDataPromises.push(_getSiteDataWithLocale(server, request, site, _SiteInfo.defaultLanguage, isMaster));
 			for (var i = 0; i < _languages.length; i++) {
 				if (_languages[i] !== _SiteInfo.defaultLanguage) {
-					siteDataPromises.push(_getSiteDataWithLocale(server, request, localhost, site, _languages[i], false));
+					siteDataPromises.push(_getSiteDataWithLocale(server, request, site, _languages[i], false));
 				}
 			}
 
@@ -1371,7 +1305,7 @@ var _createSiteMap = function (server, serverName, request, localhost, site, sit
 					break;
 				}
 			}
-			
+
 			for (var i = 0; i < values.length; i++) {
 				if (values[i].pages && values[i].pages.length > 0) {
 					for (var j = 0; j < values[i].pages.length; j++) {
@@ -1418,7 +1352,7 @@ var _createSiteMap = function (server, serverName, request, localhost, site, sit
 
 			if (publish) {
 				// Upload site map to the server
-				var uploadPromise = _uploadSiteMapToServer(server, request, localhost, site, siteMapFile);
+				var uploadPromise = _uploadSiteMapToServer(server, siteMapFile);
 				uploadPromise.then(function (result) {
 					if (!result.err) {
 						var siteMapUrl = siteUrl + '/' + siteMapFile.substring(siteMapFile.lastIndexOf('/') + 1);
@@ -1626,61 +1560,8 @@ module.exports.createSiteMap = function (argv, done) {
 			return;
 		}
 
-		var express = require('express');
-		var app = express();
-
-		var port = '9393';
-		var localhost = 'http://localhost:' + port;
-
-		var dUser = '';
-		var idcToken;
-
-		var auth = serverUtils.getRequestAuth(server);
-
-		app.get('/*', function (req, res) {
-			// console.log('GET: ' + req.url);
-			if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-				var url = server.url + req.url;
-
-				var options = {
-					url: url,
-				};
-
-				options['auth'] = auth;
-
-				request(options).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					serverUtils.fixHeaders(response, res);
-				}).pipe(res);
-
-			} else {
-				console.log('ERROR: GET request not supported: ' + req.url);
-				res.write({});
-				res.end();
-			}
-		});
-		app.post('/documents/web', function (req, res) {
-			// console.log('POST: ' + req.url);
-
-			console.log('ERROR: POST request not supported: ' + req.url);
-			res.write({});
-			res.end();
-
-		});
-
-		localServer = app.listen(0, function () {
-			port = localServer.address().port;
-			localhost = 'http://localhost:' + port;
-			localServer.setTimeout(0);
-
-			// console.log('localhost: ' + localhost);
-			_createSiteMap(server, serverName, request, localhost, site, siteUrl, changefreq,
-				publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink, done);
-		});
-		localServer.on('error', function (e) {
-			console.log('ERROR: ');
-			console.log(e);
-		});
+		_createSiteMap(server, serverName, request, site, siteUrl, changefreq,
+			publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink, done);
 
 	}); // login
 };

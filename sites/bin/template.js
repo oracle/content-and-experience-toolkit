@@ -99,10 +99,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 			var isEnterprise;
 			var templateIsEnterprise = enterprisetemplate ? 'true' : (isEnterprise ? 'true' : 'false');
 			var themeName, themeId;
-			var channelId, channelName;
-			var assetSummaryJson;
-			var assetContentTypes = [];
-			var downloadedComps = [];
+			var channelId;
 			var site;
 			var contentTypeNames = [];
 			var contentLayoutNames = [];
@@ -159,8 +156,6 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					themeName = site.themeName;
 					channelId = site.channel && site.channel.id;
 
-
-
 					console.log(' - theme ' + themeName);
 					themeSrcPath = path.join(themesSrcDir, themeName);
 					fileUtils.remove(themeSrcPath);
@@ -207,7 +202,10 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					}
 
 					// get theme id
-					return serverUtils.getTheme(request, server, themeName);
+					return sitesRest.getTheme({
+						server: server,
+						name: themeName
+					});
 				})
 				.then(function (result) {
 					if (!result || result.err) {
@@ -399,7 +397,8 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 var _downloadSiteComponents = function (request, server, compNames) {
 	return new Promise(function (resolve, reject) {
-
+		var comps = [];
+		var downloadedComps = [];
 		_downloadComponents(compNames, server)
 			.then(function (result) {
 				downloadedComps = result;
@@ -442,10 +441,12 @@ var _downloadSiteComponents = function (request, server, compNames) {
 						appIconUrl: '',
 						appIsHiddenInBuilder: comps[i].isHidden
 					};
-
+					// console.log(' - component ' + comps[i].name + ' itemGUID: ' + itemGUID);
 					if (fs.existsSync(path.join(componentsSrcDir, comps[i].name))) {
 						var folderPath = path.join(componentsSrcDir, comps[i].name, '_folder.json');
 						fs.writeFileSync(folderPath, JSON.stringify(folderJson));
+					} else {
+						console.log('ERROR: component ' + comps[i].name + ' not downloaded');
 					}
 				}
 
@@ -563,61 +564,34 @@ var _downloadContent = function (request, server, name, channelId) {
 var _queryComponents = function (request, server, compNames) {
 	return new Promise(function (resolve, reject) {
 		var comps = [];
-		if (server.useRest) {
-			sitesRest.getComponents({
-					server: server
-				})
-				.then(function (result) {
-					if (!result || result.err) {
-						return Promise.reject();
-					}
-					var allComps = result;
-					for (var i = 0; i < compNames.length; i++) {
-						for (var j = 0; j < allComps.length; j++) {
-							if (compNames[i] === allComps[j].name) {
-								comps.push({
-									id: allComps[j].id,
-									name: allComps[j].name,
-									type: allComps[j].type,
-									isHidden: allComps[j].isHidden ? '1' : '0'
-								});
-							}
+		var compsPromises = [];
+		compNames.forEach(function (compName) {
+			compsPromises.push(sitesRest.getComponent({
+				server: server,
+				name: compName
+			}));
+		});
+		Promise.all(compsPromises).then(function (results) {
+				var allComps = results || [];
+				for (var i = 0; i < compNames.length; i++) {
+					for (var j = 0; j < allComps.length; j++) {
+						if (compNames[i] === allComps[j].name) {
+							comps.push({
+								id: allComps[j].id,
+								name: allComps[j].name,
+								type: allComps[j].type,
+								isHidden: allComps[j].isHidden ? '1' : '0'
+							});
 						}
 					}
-					return resolve(comps);
-				})
-				.catch((error) => {
-					return resolve({
-						err: 'err'
-					});
+				}
+				return resolve(comps);
+			})
+			.catch((error) => {
+				return resolve({
+					err: 'err'
 				});
-		} else {
-			serverUtils.browseComponentsOnServer(request, server)
-				.then(function (result) {
-					if (!result || result.err) {
-						return Promise.reject();
-					}
-					var allComps = result.data || [];
-					for (var i = 0; i < compNames.length; i++) {
-						for (var j = 0; j < allComps.length; j++) {
-							if (compNames[i] === allComps[j].fFolderName) {
-								comps.push({
-									id: allComps[j].fFolderGUID,
-									name: allComps[j].fFolderName,
-									type: allComps[j].xScsAppType,
-									isHidden: allComps[j].xScsAppIsHiddenInBuilder
-								});
-							}
-						}
-					}
-					return resolve(comps);
-				})
-				.catch((error) => {
-					return resolve({
-						err: 'err'
-					});
-				});
-		}
+			});
 	});
 };
 
@@ -1019,6 +993,7 @@ module.exports.deployTemplate = function (argv, done) {
 	var optimize = typeof argv.minify === 'string' && argv.minify.toLowerCase() === 'true';
 	var excludeContentTemplate = argv.excludecontenttemplate;
 	var publish = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
+	var excludeComponents = typeof argv.excludecomponents === 'string' && argv.excludecomponents.toLowerCase() === 'true';
 
 	var name = argv.template,
 		tempExist = false,
@@ -1045,7 +1020,9 @@ module.exports.deployTemplate = function (argv, done) {
 	}
 
 	console.log(' - exporting template ...');
-	_exportTemplate(name, optimize, excludeContentTemplate).then(function (result) {
+	var extraComponents = [];
+	var excludeSiteContent = false;
+	_exportTemplate(name, optimize, excludeContentTemplate, extraComponents, excludeSiteContent, excludeComponents).then(function (result) {
 		var zipfile = result && result.zipfile;
 		if (fs.existsSync(zipfile)) {
 			console.log(' - template exported to ' + zipfile);
@@ -1110,8 +1087,10 @@ module.exports.deployTemplate = function (argv, done) {
 
 var _publishComponents = function (server, comps) {
 	return new Promise(function (resolve, reject) {
+		var startTime;
 		var doPublishComps = comps.reduce(function (publishPromise, compName) {
 				return publishPromise.then(function (result) {
+					startTime = new Date();
 					sitesRest.publishComponent({
 							server: server,
 							name: compName,
@@ -1119,7 +1098,7 @@ var _publishComponents = function (server, comps) {
 						})
 						.then(function (result) {
 							if (!result.err) {
-								console.log(' - component ' + compName + ' published');
+								console.log(' - component ' + compName + ' published [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 							}
 							resolve(result);
 						});
@@ -1392,7 +1371,8 @@ module.exports.downloadTemplate = function (argv, done) {
 				var formData = {
 					'idcToken': idcToken,
 					'item': 'fFolderGUID:' + templateGUID,
-					'destination': 'fFolderGUID:' + homeFolderGUID
+					'destination': 'fFolderGUID:' + homeFolderGUID,
+					'useBackgroundThread': 1
 				};
 
 				var postData = {
@@ -1503,7 +1483,7 @@ module.exports.downloadTemplate = function (argv, done) {
 
 									console.log(' - exporting template ...');
 									startTime = new Date();
-									return _exportServerTemplate(request, localhost);
+									return _exportServerTemplate(server, request, localhost);
 
 								})
 								.then(function (result) {
@@ -1599,226 +1579,7 @@ module.exports.deleteTemplate = function (argv, done) {
 			return;
 		}
 
-		if (server.useRest) {
-			_deleteTemplateREST(server, name, permanent, done);
-			return;
-		}
-
-		var express = require('express');
-		var app = express();
-
-		var port = '9191';
-		var localhost = 'http://localhost:' + port;
-
-		var dUser = '';
-		var idcToken;
-		var templateGUID;
-		var templateGUIDInTrash;
-
-		var auth = serverUtils.getRequestAuth(server);
-
-		app.get('/*', function (req, res) {
-			// console.log('GET: ' + req.url);
-			if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-				var url = server.url + req.url;
-
-				var options = {
-					url: url,
-				};
-
-				options.auth = auth;
-
-				request(options).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						console.log('ERROR: GET request failed: ' + req.url);
-						console.log(error);
-						return resolve({
-							err: 'err'
-						});
-					})
-					.pipe(res);
-
-			} else {
-				console.log('ERROR: GET request not supported: ' + req.url);
-				res.write({});
-				res.end();
-			}
-		});
-		app.post('/documents/web', function (req, res) {
-			// console.log('POST: ' + req.url);
-			if (req.url.indexOf('FLD_MOVE_TO_TRASH') > 0) {
-				var url = server.url + '/documents/web?IdcService=SCS_MOVE_TO_TRASH';
-				var formData = {
-					'idcToken': idcToken,
-					'items': 'fFolderGUID:' + templateGUID
-				};
-
-				var postData = {
-					method: 'POST',
-					url: url,
-					'auth': auth,
-					'formData': formData
-				};
-
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						console.log('ERROR: Failed to delete template:');
-						console.log(error);
-						return resolve({
-							err: 'err'
-						});
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						res.end();
-					});
-			} else if (req.url.indexOf('FLD_DELETE_FROM_TRASH') > 0) {
-				var url = server.url + '/documents/web?IdcService=FLD_DELETE_FROM_TRASH';
-				var formData = {
-					'idcToken': idcToken,
-					'items': 'fFolderGUID:' + templateGUIDInTrash
-				};
-
-				var postData = {
-					method: 'POST',
-					url: url,
-					'auth': auth,
-					'formData': formData
-				};
-
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						console.log('ERROR: Failed to delete template from trash:');
-						console.log(error);
-						return resolve({
-							err: 'err'
-						});
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						res.end();
-					});
-			} else {
-				console.log('ERROR: POST request not supported: ' + req.url);
-				res.write({});
-				res.end();
-			}
-		});
-
-		localServer = app.listen(0, function () {
-			port = localServer.address().port;
-			localhost = 'http://localhost:' + port;
-			localServer.setTimeout(0);
-
-			var total = 0;
-			var success = false;
-			var inter = setInterval(function () {
-				// console.log(' - getting login user: ' + total);
-				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-				request.get(url, function (err, response, body) {
-					var data = JSON.parse(body);
-					dUser = data && data.LocalData && data.LocalData.dUser;
-					idcToken = data && data.LocalData && data.LocalData.idcToken;
-					if (dUser && dUser !== 'anonymous' && idcToken) {
-						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-						clearInterval(inter);
-						console.log(' - establish user session');
-
-						_getServerTemplateFromTrash(request, localhost, name)
-							.then(function (result) {
-								if (result && result.templateGUID) {
-									if (!permanent) {
-										console.log(' - template is in Trash, please run \'cec delete-template ' + name + ' --permanent\' to delete it permanently');
-										_cmdEnd(done);
-										return;
-									} else {
-										templateGUIDInTrash = result.templateFolderGUID;
-										_deleteFromTrash(request, localhost).then(function (result) {
-											if (!result.err) {
-												console.log(' - template deleted permanently');
-												_cmdEnd(done, true);
-												return;
-											} else {
-												_cmdEnd(done);
-												return;
-											}
-										});
-									}
-								} else {
-
-									var templatePromise = _getServerTemplate(request, localhost, name);
-									templatePromise.then(function (result) {
-											if (result.err) {
-												return Promise.reject();
-											}
-
-											if (!result.templateGUID) {
-												console.log('ERROR: template ' + name + ' does not exist');
-												return Promise.reject();
-											}
-
-											templateGUID = result.templateGUID;
-											console.log(' - template GUID: ' + templateGUID);
-
-											return _moveToTrash(request, localhost);
-										})
-										.then(function (result) {
-											if (result.err) {
-												return Promise.reject();
-											}
-											console.log(' - template deleted');
-											if (!permanent) {
-												success = true;
-												return Promise.reject();
-											}
-
-											// remove from trash
-											var transItemPromise = _getFolderFromTrash(request, localhost, templateGUID);
-											transItemPromise.then(function (result) {
-													if (result.err) {
-														return Promise.reject();
-													}
-
-													templateGUIDInTrash = result.folderGUIDInTrash;
-													console.log(' - deleting template from trash');
-													return _deleteFromTrash(request, localhost);
-												})
-												.then(function (result) {
-													if (!result.err) {
-														console.log(' - template deleted permanently');
-													}
-													_cmdEnd(done, true);
-												})
-												.catch((error) => {
-													_cmdEnd(done);
-												});
-										})
-										.catch((error) => {
-											_cmdEnd(done, success);
-										});
-								}
-							});
-					}
-					total += 1;
-					if (total >= 10) {
-						clearInterval(inter);
-						console.log('ERROR: disconnect from the server, try again');
-						_cmdEnd(done);
-					}
-				});
-			}, 5000);
-
-		});
+		_deleteTemplateREST(server, name, permanent, done);
 
 	}); // login
 };
@@ -2662,7 +2423,7 @@ var _getServerTemplateFromTrash = function (request, localhost, name) {
 	});
 };
 
-var _exportServerTemplate = function (request, localhost) {
+var _exportServerTemplate = function (server, request, localhost) {
 	var exportPromise = new Promise(function (resolve, reject) {
 		var url = localhost + '/documents/web?IdcService=SCS_EXPORT_TEMPLATE_PACKAGE';
 
@@ -2690,7 +2451,33 @@ var _exportServerTemplate = function (request, localhost) {
 					err: 'err'
 				});
 			} else {
-				return resolve(data);
+				var jobId = data.LocalData.JobID;
+				if (jobId) {
+					console.log(' - job id: ' + jobId + ')');
+					var exportTempStatusPromise = serverUtils.getTemplateImportStatus(server, request, server.url, jobId, 'export');
+					exportTempStatusPromise.then(function (data) {
+						var success = false;
+						if (data && data.LocalData) {
+							if (data.LocalData.StatusCode !== '0') {
+								console.log(' - failed to export ' + name + ': ' + data.LocalData.StatusMessage);
+								console.log(data.LocalData);
+							} else if (data.JobInfo && data.JobInfo.JobStatus && data.JobInfo.JobStatus === 'FAILED') {
+								console.log(' - failed to export: ' + data.JobInfo.JobMessage);
+								console.log(data.JobInfo);
+							} else {
+								success = true;
+								return resolve(data);
+							}
+						} else {
+							console.log(' - failed to export template');
+						}
+						return success ? resolve({}) : resolve({
+							err: 'err'
+						});
+					});
+				} else {
+					return resolve(data);
+				}
 			}
 		});
 	});
@@ -3124,9 +2911,22 @@ var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpubl
 									if (!result.err) {
 										console.log(' - create template ' + name + ' finished');
 									}
+
+									return sitesRest.getTemplate({
+										server: server,
+										name: name
+									});
+
+								})
+								.then(function (result) {
+									if (result.err) {
+										console.log(' - newly created template not found');
+										return Promise.reject();
+									}
 									if (localServer) {
 										localServer.close();
 									}
+									console.log(' - template id: ' + result.id);
 									return resolve({});
 								})
 								.catch((error) => {
@@ -3353,7 +3153,8 @@ var _deleteTemplateREST = function (server, name, permanent, done) {
  * @param {*} done 
  */
 var _createTemplateFromSiteREST = function (server, name, siteName, includeUnpublishedAssets, done) {
-	serverUtils.loginToServer(server).then(function (result) {
+	var request = serverUtils.getRequest();
+	serverUtils.loginToServer(server, request).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			return Promise.reject();
@@ -3381,6 +3182,8 @@ var _createTemplateFromSiteREST = function (server, name, siteName, includeUnpub
 					return Promise.reject();
 				}
 
+				console.log(' - get site (Id: ' + result.id + ')');
+
 				return sitesRest.createTemplateFromSite({
 					server: server,
 					name: name,
@@ -3395,6 +3198,17 @@ var _createTemplateFromSiteREST = function (server, name, siteName, includeUnpub
 
 				console.log(' - create template ' + name + ' finished');
 
+				return sitesRest.getTemplate({
+					server: server,
+					name: name
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - site id: ' + result.id);
 				done(true);
 			})
 			.catch((error) => {
@@ -3850,7 +3664,7 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 
 									console.log(' - exporting template ...');
 									startTime = new Date();
-									return _exportServerTemplate(request, localhost);
+									return _exportServerTemplate(server, request, localhost);
 
 								})
 								.then(function (result) {
@@ -3957,25 +3771,16 @@ module.exports.shareTemplate = function (argv, done) {
 				return;
 			}
 
-			var tempPromise = server.useRest ? sitesRest.getTemplate({
+			var tempPromise = sitesRest.getTemplate({
 				server: server,
 				name: name
-			}) : serverUtils.browseSitesOnServer(request, server, 'framework.site.template', name);
+			});
 			tempPromise.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
 					}
-					if (server.useRest) {
-						tempId = result.id;
-					} else {
-						var temps = result.data || [];
-						for (var i = 0; i < temps.length; i++) {
-							if (temps[i].fFolderName.toLowerCase() === name.toLowerCase()) {
-								tempId = temps[i].fFolderGUID;
-								break;
-							}
-						}
-					}
+					tempId = result.id;
+
 					if (!tempId) {
 						console.log('ERROR: template ' + name + ' does not exist');
 						return Promise.reject();
@@ -4162,25 +3967,16 @@ module.exports.unshareTemplate = function (argv, done) {
 				return;
 			}
 
-			var tempPromise = server.useRest ? sitesRest.getTemplate({
+			var tempPromise = sitesRest.getTemplate({
 				server: server,
 				name: name
-			}) : serverUtils.browseSitesOnServer(request, server, 'framework.site.template', name);
+			});
 			tempPromise.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
 					}
-					if (server.useRest) {
-						tempId = result.id;
-					} else {
-						var temps = result.data || [];
-						for (var i = 0; i < temps.length; i++) {
-							if (temps[i].fFolderName.toLowerCase() === name.toLowerCase()) {
-								tempId = temps[i].fFolderGUID;
-								break;
-							}
-						}
-					}
+					tempId = result.id;
+
 					if (!tempId) {
 						console.log('ERROR: template ' + name + ' does not exist');
 						return Promise.reject();

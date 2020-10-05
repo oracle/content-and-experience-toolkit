@@ -146,7 +146,7 @@ gulp.task('install-src', function (done) {
 
 	// install dependencies
 	console.log('Install dependencies from package.json:');
-	var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', projectDir, projectDir], {
+	var installCmd = childProcess.spawnSync(npmCmd, ['install', '--prefix', projectDir, projectDir, '--no-bin-links'], {
 		projectDir,
 		stdio: 'inherit'
 	});
@@ -1228,6 +1228,18 @@ gulp.task('list', function (done) {
 });
 
 /**
+ * Rename content type
+ */
+gulp.task('rename-content-type', function (done) {
+	'use strict';
+
+	resourcelib.renameContentType(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
  * Create enterprise site
  */
 gulp.task('create-site', function (done) {
@@ -1526,6 +1538,30 @@ gulp.task('create-channel', function (done) {
 	'use strict';
 
 	assetlib.createChannel(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Share a channel
+ */
+gulp.task('share-channel', function (done) {
+	'use strict';
+
+	assetlib.shareChannel(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Unshare a channel
+ */
+gulp.task('unshare-channel', function (done) {
+	'use strict';
+
+	assetlib.unshareChannel(argv, function (success) {
 		process.exitCode = success ? 0 : 1;
 		done();
 	});

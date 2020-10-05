@@ -1,8 +1,8 @@
-# Content and Experience Cloud - Component, Template, Theme and Content Layout Development
+# Content and Experience - Component, Template, Theme and Content Layout Development
 
-To learn about developing components for Content and Experience Cloud, see the links below:
+To learn about developing components for Content and Experience, see the links below:
 
-[Developing for Oracle Content and Experience Cloud](
+[Developing for Oracle Content and Experience](
 https://docs.oracle.com/en/cloud/paas/content-cloud/developer/develop-oracle-content-and-experience-toolkit.html )
 
 [Test to Production](doc/T2P.md) – Use the OCE toolkit for Test to Production
@@ -63,7 +63,7 @@ cec develop
 
 * Your components, themes, templates, layouts can all be found in `src/main`
  
-## Using a Content and Experience Cloud instance for local testing
+## Using a Content and Experience instance for local testing
 
 The CEC instance can be used for the following things:
 

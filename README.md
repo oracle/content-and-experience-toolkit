@@ -15,6 +15,21 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 20.4.1
+
+**Added**
+
+- `cec share-channel` - Shares channel with users and groups on OCE server and assigns a role.
+- `cec unshare-channel` - Deletes user or group access to a channel on OCE server.
+
+- `cec control-repository add-taxonomy` - Adds a taxonomy to a repository.
+- `cec control-repository remove-taxonomy` - Removes a taxonomy from a repository.
+
+- `cec control-repository` - Now supports a list of repositories.
+- `cec upload-template` - Now allows excluding components from the template.
+- `cec download-template` - Now uses a background job.
+
+
 # New in Release 20.3.3
 
 **Added**

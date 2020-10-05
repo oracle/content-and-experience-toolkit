@@ -1,6 +1,8 @@
 /* globals app, module, __dirname */
 var path = require('path'),
     exec = require('child_process').exec,
+    serverUtils = require('../server/serverUtils'),
+    sitesRest = require('../server/sitesRest.js'),
     fs = require('fs');
 
 const cecCmd = /^win/.test(process.platform) ? 'cec.cmd' : 'cec';
@@ -10,6 +12,10 @@ var JobManager = function (args) {
     },
     logsDir = '',
     compileStepTimeoutValue = 0;
+
+// Use the project dir in the env
+var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR;
+
 
 JobManager.prototype.setLogsDir = function (inputLogsDir) {
     logsDir = inputLogsDir;
@@ -44,8 +50,10 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
     var scriptFile = path.join(__dirname, 'compileExec.sh');
 
-    // Use the project dir in the env
-    var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR;
+    // update the site metadata promise to get the metadata for this compile
+    self.serverName = serverName;
+    self.getSiteMetadataPromise = self.getSiteMetadata(jobConfig);
+
 
     // TODO: For debugging.
     // console.log('compileSite jobId', jobId, 'siteName', siteName);
@@ -151,10 +159,10 @@ JobManager.prototype.compileSite = function (jobConfig) {
             },
             getLogStreamStep = function () {
                 var args = {
-                        id: jobId,
-                        siteName: siteName,
-                        logsDir: logsDir
-                    };
+                    id: jobId,
+                    siteName: siteName,
+                    logsDir: logsDir
+                };
 
                 // Resolve with a stream or the nullStream.
                 // In this way, caller only needs a then function.
@@ -176,19 +184,19 @@ JobManager.prototype.compileSite = function (jobConfig) {
                         logFile = self.ps.getJobLogFile(args);
 
                     var uploadLogArgs = [
-                            'upload-file',
-                            logFile,
-                            '-s',
-                            serverName,
-                            '-f',
-                            'site:' + siteName
-                        ];
+                        'upload-file',
+                        logFile,
+                        '-s',
+                        serverName,
+                        '-f',
+                        'site:' + siteName
+                    ];
 
                     var uploadLogCommand = exec(getExecCommand(cecCmd, uploadLogArgs), cecDefaults);
-                    uploadLogCommand.stdout.on('data', function(data) {
+                    uploadLogCommand.stdout.on('data', function (data) {
                         console.log('stdout:', `${data}`);
                     });
-                    uploadLogCommand.stderr.on('data', function(data) {
+                    uploadLogCommand.stderr.on('data', function (data) {
                         console.log('stderr:', `${data}`);
                     });
                     uploadLogCommand.on('close', (code) => {
@@ -260,6 +268,9 @@ JobManager.prototype.compileSite = function (jobConfig) {
             publishSiteStep = function (jobStatus) {
                 if (jobStatus !== 'PUBLISH_SITE') {
                     return Promise.resolve(noop);
+                } else if (jobConfig.compileOnly === '1') {
+                    console.log('publish step skipped as "compileOnly" flag was set');
+                    return Promise.resolve(1);
                 } else {
                     return new Promise(function (resolveStep, rejectStep) {
                         var startTime = Date.now();
@@ -481,8 +492,9 @@ JobManager.prototype.compileSite = function (jobConfig) {
             stopNow = function (code) {
                 console.log('stop with code', code);
                 logStream.end();
-                uploadLogStep().then(function() {
-                    self.updateStatus(jobConfig, 'FAILED').then(function(updatedJobConfig) {
+                uploadLogStep().then(function () {
+                    // status updated to faile - progress set to 100, since we can't recover and no additional steps will occur
+                    self.updateStatus(jobConfig, 'FAILED', 100).then(function (updatedJobConfig) {
                         reject(updatedJobConfig);
                     });
                 });
@@ -495,7 +507,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
                     }
                     publishSiteStep(jobConfig.status).then(function (completionCode) {
                         updateStatusStep(completionCode, 'CREATE_TEMPLATE', 20).then(function (updatedJobConfig) {
-                            checkTemplateDirectoryStep(jobConfig.status).then(function() {
+                            checkTemplateDirectoryStep(jobConfig.status).then(function () {
                                 createTemplateStep(jobConfig.status).then(function (completionCode) {
                                     updateStatusStep(completionCode, 'COMPILE_TEMPLATE', 40).then(function (updatedJobConfig) {
                                         getChannelTokenStep(updatedJobConfig.status).then(function (completionCode) {
@@ -510,10 +522,10 @@ JobManager.prototype.compileSite = function (jobConfig) {
                                                                 if (completionCode !== noop) {
                                                                     logDuration(updatedJobConfig, 'compileSite', compileStartTime);
                                                                 }
-                                                                rmTemplateDirStep(updatedJobConfig.status).then(function() {
+                                                                rmTemplateDirStep(updatedJobConfig.status).then(function () {
                                                                     logStream.end();
-                                                                    uploadLogStep().then(function() {
-                                                                        updateStatusStep(completionCode, 'COMPILED', 100).then(function(updatedJobConfig) {
+                                                                    uploadLogStep().then(function () {
+                                                                        updateStatusStep(completionCode, 'COMPILED', 100).then(function (updatedJobConfig) {
                                                                             resolve(updatedJobConfig);
                                                                         });
                                                                     }, stopNow);
@@ -607,9 +619,92 @@ JobManager.prototype.compileSiteJob = function (jobConfig) {
 };
 
 /**
+ * Store the status update on the server so it can be checked via theUI
+ */
+JobManager.prototype.getSiteMetadata = function (jobConfig) {
+    var self = this;
+
+    // for this job compile, get the site metadata once so we don't get it again
+    return new Promise(function (resolve, reject) {
+        var server = serverUtils.verifyServer(self.serverName, projectDir);
+
+        // connect to the server
+        var request = serverUtils.getRequest();
+        serverUtils.loginToServer(server, request).then(function (result) {
+            // get the current site to get the siteId
+            sitesRest.getSite({
+                server: server,
+                name: jobConfig.siteName,
+                expand: 'channel,repository'
+            }).then(function (result) {
+                if (!result || result.err || !result.id) {
+                    console.log('ERROR: site ' + siteName + ' does not exist');
+                    reject();
+                }
+                var site = result;
+
+                // get the site medatadata
+                serverUtils.getIdcToken(server).then(function (result) {
+                    var idcToken = result.idcToken;
+
+                    serverUtils.getSiteMetadata(request, server, site.id).then(function (result) {
+                        resolve({
+                            site: site,
+                            idcToken: idcToken,
+                            metadata: result.data
+                        });
+                    });
+                });
+            });
+        });
+    });
+};
+
+JobManager.prototype.updateSiteMetadata = function (jobConfig) {
+    var self = this;
+
+    // only update if compileOnly flag has been set (backwards compatbility)
+    /* ToDo: enable this check when server supports compileOnly
+    if (jobConfig.compileOnly !== '1') {
+        return Promise.resolve();
+    }
+    */
+
+    // don't update for these statuses, we only want to start updating from compile step
+    if (['CREATED', 'PUBLISH_SITE'].indexOf(jobConfig.status) !== -1) {
+        return Promise.resolve();
+    }
+
+    // get the site metadata 
+    return self.getSiteMetadataPromise.then(function (siteData) {
+        // update compile status property within the site metadata
+        var updateStatus = JSON.stringify({
+            'jobId': jobConfig.id,
+            'status': jobConfig.status,
+            'progress': jobConfig.progress,
+            'compiledAt': new Date()
+        });
+
+        console.log('updating site metadata with: ' + updateStatus);
+
+        var request = serverUtils.getRequest(),
+            server = serverUtils.verifyServer(self.serverName, projectDir),
+            site = siteData.site,
+            idcToken = siteData.idcToken,
+            metadata = siteData.metadata,
+            siteSettings = {
+                xScsSiteCompileStatus: updateStatus
+            };
+
+        return serverUtils.setSiteMetadata(request, server, idcToken, site.id, siteSettings, {});
+    });
+};
+
+/**
  * @property {('CREATED'|'PUBLISH_SITE'|'CREATE_TEMPLATE'|'COMPILE_TEMPLATE'|'UPLOAD_STATIC'|'PUBLISH_STATIC'|'COMPILED'|'FAILED')} status The new status of the job.
  */
 JobManager.prototype.updateStatus = function (jobConfig, status, progress) {
+    var self = this;
 
     var data = {
         status: status
@@ -619,7 +714,16 @@ JobManager.prototype.updateStatus = function (jobConfig, status, progress) {
         data.progress = progress;
     }
 
-    return this.updateJob(jobConfig, data);
+    return self.updateJob(jobConfig, data).then(function (updatedJobConfig) {
+        // attempt to update the server with the updated job config so that the UI can be updated to notify the user.  
+        // don't need to wait for this to complete, we're storing the value locally so any errors do not cause an issue
+        self.updateSiteMetadata(updatedJobConfig).catch(function (e) {
+            console.log('failed to update site metadata in server', e);
+        });
+
+        // return the updated job config
+        return Promise.resolve(updatedJobConfig);
+    });
 };
 
 JobManager.prototype.updateJob = function (jobConfig, data) {

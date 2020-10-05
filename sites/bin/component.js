@@ -42,13 +42,6 @@ var verifyRun = function (argv) {
 	return true;
 };
 
-var localServer;
-var _cmdEnd = function (done, success) {
-	done(success);
-	if (localServer) {
-		localServer.close();
-	}
-};
 
 /**
  * Private
@@ -683,334 +676,9 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 			return;
 		}
 
-		if (server.useRest) {
-			_downloadComponentsREST(server, componentNames, done);
-			return;
-		}
-
-		var express = require('express');
-		var app = express();
-
-		var port = '9191';
-		var localhost = 'http://localhost:' + port;
-
-		var dUser = '';
-		var idcToken;
-
-		var auth = serverUtils.getRequestAuth(server);
-
-		var components = [];
-		var homeFolderGUID;
-		var deleteFileGUIDs = [];
-
-		var destdir = path.join(projectDir, 'dist');
-		if (!fs.existsSync(destdir)) {
-			fs.mkdirSync(destdir);
-		}
-
-		app.get('/*', function (req, res) {
-			// console.log('GET: ' + req.url);
-			if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-				var url = server.url + req.url;
-
-				var options = {
-					url: url,
-				};
-
-				options['auth'] = auth;
-
-				request(options).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						console.log('ERROR: GET request failed: ' + req.url);
-						console.log(error);
-						return resolve({
-							err: 'err'
-						});
-					})
-					.pipe(res);
-
-			} else {
-				console.log('ERROR: GET request not supported: ' + req.url);
-				res.write({});
-				res.end();
-			}
-		});
-		app.post('/documents/web', function (req, res) {
-			// console.log('POST: ' + req.url);
-			var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-			var compId = params.compId;
-			var url = server.url + '/documents/web?IdcService=SCS_EXPORT_COMPONENT';
-			var formData = {
-				'idcToken': idcToken,
-				'item': 'fFolderGUID:' + compId,
-				'destination': 'fFolderGUID:' + homeFolderGUID
-			};
-
-			var postData = {
-				method: 'POST',
-				url: url,
-				'auth': auth,
-				'formData': formData
-			};
-
-			request(postData).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					serverUtils.fixHeaders(response, res);
-				})
-				.on('error', function (err) {
-					console.log('ERROR: Failed to export component');
-					console.log(error);
-					return resolve({
-						err: 'err'
-					});
-				})
-				.pipe(res)
-				.on('finish', function (err) {
-					res.end();
-				});
-		});
-
-		localServer = app.listen(0, function () {
-			port = localServer.address().port;
-			localhost = 'http://localhost:' + port;
-			var downloadSuccess = false;
-			var inter = setInterval(function () {
-				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-				request.get(url, function (err, response, body) {
-					if (!response || response.statusCode !== 200) {
-						clearInterval(inter);
-						console.log('ERROR: failed to connect to server: ' + (response ? response.statusMessage : ''));
-						_cmdEnd(done);
-					} else {
-						var data = JSON.parse(body);
-						dUser = data && data.LocalData && data.LocalData.dUser;
-						idcToken = data && data.LocalData && data.LocalData.idcToken;
-						homeFolderGUID = 'F:USER:' + dUser;
-						if (dUser && dUser !== 'anonymous' && idcToken) {
-							clearInterval(inter);
-							// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken + ' home folder: ' + homeFolderGUID);
-							console.log(' - establish user session');
-
-							// verify components
-							var compPromise = serverUtils.browseComponentsOnServer(request, server);
-							compPromise.then(function (result) {
-									if (result.err) {
-										return Promise.reject();
-									}
-
-									var comps = result.data || [];
-
-									for (var i = 0; i < componentNames.length; i++) {
-										var compName = componentNames[i];
-										var found = false;
-										for (var j = 0; j < comps.length; j++) {
-											if (compName.toLowerCase() === comps[j].fFolderName.toLowerCase()) {
-												found = true;
-												components.push({
-													id: comps[j].fFolderGUID,
-													name: compName,
-													filename: compName + '.zip'
-												});
-												break;
-											}
-										}
-
-										if (!found) {
-											console.log('WARNING: component ' + compName + ' does not exist');
-											// return Promise.reject();
-										}
-									}
-
-									console.log(' - get ' + (components.length > 1 ? 'components' : 'component'));
-
-									var exportCompPromises = [];
-									for (var i = 0; i < components.length; i++) {
-										exportCompPromises.push(_exportComponentSCS(request, localhost, components[i].id, components[i].name));
-									}
-
-									// export components
-									return Promise.all(exportCompPromises);
-								})
-								.then(function (results) {
-									for (var i = 0; i < results.length; i++) {
-										if (results[i].err) {
-											return Promise.reject();
-										}
-									}
-
-									var getCompZipPromises = [];
-									for (var i = 0; i < components.length; i++) {
-										console.log(' - export component ' + components[i].name);
-
-										getCompZipPromises.push(serverRest.findFile({
-											server: server,
-											parentID: homeFolderGUID,
-											filename: components[i].filename
-										}));
-									}
-
-									// query the exported component zip files
-									return Promise.all(getCompZipPromises);
-								})
-								.then(function (results) {
-									var downloadFilePromises = [];
-									for (var j = 0; j < components.length; j++) {
-										var found = false;
-										for (var i = 0; i < results.length; i++) {
-											if (components[j].filename === results[i].name) {
-												// will delete the zip file after download
-												deleteFileGUIDs.push(results[i].id);
-												components[j]['fileGUID'] = results[i].id;
-												found = true;
-												downloadFilePromises.push(_downloadComponentFile(
-													request, server, components[j].name, components[j].filename, components[j].fileGUID
-												));
-											}
-										}
-
-										if (!found) {
-											console.log('ERROR: failed to find zip fileGUID for ' + components[j].name);
-										}
-									}
-
-									// download zip files
-									return Promise.all(downloadFilePromises);
-								})
-								.then(function (results) {
-									var unzipPromises = [];
-
-									for (var i = 0; i < results.length; i++) {
-										if (results[i].err) {
-											console.log('ERROR: failed to download zip for ' + results[i].comp);
-										} else {
-											var targetFile = path.join(destdir, results[i].comp + '.zip');
-											fs.writeFileSync(targetFile, results[i].data);
-											console.log(' - save file ' + targetFile);
-											downloadSuccess = true;
-											unzipPromises.push(unzipComponent(results[i].comp, targetFile));
-										}
-									}
-
-									// import components to local
-									return Promise.all(unzipPromises);
-								})
-								.then(function (results) {
-									for (var i = 0; i < results.length; i++) {
-										if (results[i].comp) {
-											console.log(' - import component to ' + path.join(componentsSrcDir, results[i].comp));
-										}
-									}
-
-									var deleteFilePromises = [];
-									for (var i = 0; i < deleteFileGUIDs.length; i++) {
-										deleteFilePromises.push(serverRest.deleteFile({
-											server: server,
-											fFileGUID: deleteFileGUIDs[i]
-										}));
-									}
-
-									// delete the zip file on the server
-									return Promise.all(deleteFilePromises);
-								})
-								.then(function (results) {
-									_cmdEnd(done, downloadSuccess);
-								})
-								.catch((error) => {
-									_cmdEnd(done);
-								});
-						}
-					}
-				});
-			}, 5000);
-
-		}); // local
+		_downloadComponentsREST(server, componentNames, done);
 
 	}); // login
-};
-
-var _exportComponentSCS = function (request, localhost, compId, compName) {
-
-	return new Promise(function (resolve, reject) {
-
-		var url = localhost + '/documents/web?IdcService=SCS_EXPORT_COMPONENT&compId=' + compId;
-
-		request.post(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to export component ' + compName);
-				console.log(err);
-				return resolve({
-					comp: compName,
-					err: 'err'
-				});
-			}
-
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to export component ' + compName + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					comp: compName,
-					err: 'err'
-				});
-			}
-
-			return resolve({});
-		});
-	});
-};
-
-var _downloadComponentFile = function (request, server, compName, fileName, fFileGUID) {
-	return new Promise(function (resolve, reject) {
-		var auth = serverUtils.getRequestAuth(server);
-		var url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data';
-		var options = {
-			url: url,
-			auth: auth,
-			encoding: null
-		};
-		request(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to download file ' + fileName);
-				console.log(error);
-				resolve({
-					err: 'err'
-				});
-			}
-			if (response && response.statusCode === 200) {
-				resolve({
-					comp: compName,
-					data: body
-				});
-			} else {
-				var result;
-				try {
-					result = JSON.parse(body);
-				} catch (e) {}
-
-				var msg = response.statusCode;
-				if (result && result.errorMessage) {
-					msg = result.errorMessage;
-				} else {
-					if (response.statusCode === 403) {
-						msg = 'No read permission';
-					} else if (response.statusCode === 404) {
-						msg = 'File id is not found';
-					}
-				}
-				console.log('ERROR: failed to download file ' + fileName + ' - ' + msg);
-				resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
 };
 
 var _downloadComponentsREST = function (server, componentNames, done) {
@@ -1023,24 +691,25 @@ var _downloadComponentsREST = function (server, componentNames, done) {
 		}));
 	}
 
-	var comps;
+	var comps = [];
 	var exportedComps = [];
 	var exportSuccess = false;
 	Promise.all(compPromises).then(function (results) {
-			comps = results || [];
+			var allComps = results || [];
 			for (var i = 0; i < componentNames.length; i++) {
 				var found = false;
 				var compName = componentNames[i];
-				for (var j = 0; j < comps.length; j++) {
-					if (comps[j].name && compName.toLowerCase() === comps[j].name.toLowerCase()) {
+				for (var j = 0; j < allComps.length; j++) {
+					if (allComps[j].name && compName.toLowerCase() === allComps[j].name.toLowerCase()) {
 						found = true;
+						comps.push(allComps[j]);
 						break;
 					}
 				}
 
 				if (!found) {
-					console.log('ERROR: component ' + compName + ' does not exist');
-					return Promise.reject();
+					// console.log('ERROR: component ' + compName + ' does not exist');
+					// return Promise.reject();
 				}
 			}
 			// console.log(' - get components');
@@ -1071,13 +740,13 @@ var _downloadComponentsREST = function (server, componentNames, done) {
 							id: comps[i].id,
 							name: comps[i].name,
 							fileId: fileId,
-						})
+						});
 
 					}
 				}
 
 				if (!exported) {
-					console.log('ERROR: failed tp export component ' + comps[i].name);
+					console.log('ERROR: failed to export component ' + comps[i].name);
 				}
 			}
 			if (exportedComps.length === 0) {
@@ -1182,199 +851,9 @@ var _controlComponents = function (serverName, server, action, componentNames, d
 			return;
 		}
 
-		if (server.useRest) {
-			_controlComponentsREST(server, componentNames, done);
-			return;
-		}
+		_controlComponentsREST(server, componentNames, done);
 
-		var express = require('express');
-		var app = express();
-
-		var port = '9191';
-		var localhost = 'http://localhost:' + port;
-
-		var dUser = '';
-		var idcToken;
-
-		var auth = serverUtils.getRequestAuth(server);
-
-		var components = [];
-
-		app.get('/*', function (req, res) {
-			// console.log('GET: ' + req.url);
-			if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-				var url = server.url + req.url;
-
-				var options = {
-					url: url,
-				};
-
-				options['auth'] = auth;
-
-				request(options).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						console.log('ERROR: GET request failed: ' + req.url);
-						console.log(error);
-						return resolve({
-							err: 'err'
-						});
-					})
-					.pipe(res);
-
-			} else {
-				console.log('ERROR: GET request not supported: ' + req.url);
-				res.write({});
-				res.end();
-			}
-		});
-		app.post('/documents/web', function (req, res) {
-			// console.log('POST: ' + req.url);
-			var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-			var compId = params.compId;
-			var url = server.url + '/documents/web?IdcService=SCS_ACTIVATE_COMPONENT';
-			var formData = {
-				'idcToken': idcToken,
-				'item': 'fFolderGUID:' + compId
-			};
-
-			var postData = {
-				method: 'POST',
-				url: url,
-				'auth': auth,
-				'formData': formData
-			};
-
-			request(postData).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					serverUtils.fixHeaders(response, res);
-				})
-				.on('error', function (err) {
-					console.log('ERROR: Failed to ' + action + ' component');
-					console.log(error);
-					return resolve({
-						err: 'err'
-					});
-				})
-				.pipe(res)
-				.on('finish', function (err) {
-					res.end();
-				});
-		});
-
-		localServer = app.listen(0, function () {
-			port = localServer.address().port;
-			localhost = 'http://localhost:' + port;
-
-			var inter = setInterval(function () {
-				// console.log(' - getting login user: ' + total);
-				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-				request.get(url, function (err, response, body) {
-					var data = JSON.parse(body);
-					dUser = data && data.LocalData && data.LocalData.dUser;
-					idcToken = data && data.LocalData && data.LocalData.idcToken;
-					if (dUser && dUser !== 'anonymous' && idcToken) {
-						clearInterval(inter);
-						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-						console.log(' - establish user session');
-
-						// verify components
-						var compPromise = serverUtils.browseComponentsOnServer(request, server);
-						compPromise.then(function (result) {
-								if (result.err) {
-									return Promise.reject();
-								}
-
-								var comps = result.data || [];
-
-								for (var i = 0; i < componentNames.length; i++) {
-									var compName = componentNames[i];
-									var found = false;
-									for (var j = 0; j < comps.length; j++) {
-										if (compName.toLowerCase() === comps[j].fFolderName.toLowerCase()) {
-											found = true;
-											components.push({
-												id: comps[j].fFolderGUID,
-												name: compName
-											});
-											break;
-										}
-									}
-
-									if (!found) {
-										console.log('ERROR: component ' + compName + ' does not exist');
-										return Promise.reject();
-									}
-								}
-
-								console.log(' - get ' + (components.length > 1 ? 'components' : 'component'));
-
-								var compActionPromises = [];
-								for (var i = 0; i < components.length; i++) {
-									if (action === 'publish') {
-										compActionPromises.push(_publishComponentSCS(request, localhost, components[i].id, components[i].name));
-									}
-								}
-
-								return Promise.all(compActionPromises);
-							})
-							.then(function (results) {
-								var success = true;
-								for (var i = 0; i < results.length; i++) {
-									if (!results[i].err) {
-										console.log(' - ' + action + ' ' + results[i].comp + ' finished');
-									} else {
-										success = false;
-									}
-								}
-								_cmdEnd(done, success);
-							})
-							.catch((error) => {
-								_cmdEnd(done);
-							});
-					}
-				});
-			}, 5000);
-		}); // local
 	}); // login
-};
-
-var _publishComponentSCS = function (request, localhost, compId, compName) {
-	return new Promise(function (resolve, reject) {
-
-		var url = localhost + '/documents/web?IdcService=SCS_ACTIVATE_COMPONENT&compId=' + compId;
-
-		request.post(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to publish component ' + compName);
-				console.log(err);
-				return resolve({
-					comp: compName,
-					err: 'err'
-				});
-			}
-
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to publish component ' + compName + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					comp: compName,
-					err: 'err'
-				});
-			}
-
-			return resolve({
-				comp: compName
-			});
-		});
-	});
 };
 
 var _controlComponentsREST = function (server, componentNames, done) {
@@ -1387,24 +866,25 @@ var _controlComponentsREST = function (server, componentNames, done) {
 		}));
 	}
 
-	var comps;
+	var comps = [];
 	var publishedComps = [];
 	var publishSuccess = false;
 	Promise.all(compPromises).then(function (results) {
-			comps = results || [];
+			var allComps = results || [];
 			for (var i = 0; i < componentNames.length; i++) {
 				var found = false;
 				var compName = componentNames[i];
-				for (var j = 0; j < comps.length; j++) {
-					if (comps[j].name && compName.toLowerCase() === comps[j].name.toLowerCase()) {
+				for (var j = 0; j < allComps.length; j++) {
+					if (allComps[j].name && compName.toLowerCase() === allComps[j].name.toLowerCase()) {
 						found = true;
+						comps.push(allComps[j]);
 						break;
 					}
 				}
 
 				if (!found) {
-					console.log('ERROR: component ' + compName + ' does not exist');
-					return Promise.reject();
+					// console.log('ERROR: component ' + compName + ' does not exist');
+					// return Promise.reject();
 				}
 			}
 
@@ -1443,7 +923,7 @@ module.exports.shareComponent = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
-		_cmdEnd(done);
+		done();
 		return;
 	}
 
@@ -1451,7 +931,7 @@ module.exports.shareComponent = function (argv, done) {
 		var serverName = argv.server;
 		var server = serverUtils.verifyServer(serverName, projectDir);
 		if (!server || !server.valid) {
-			_cmdEnd(done);
+			done();
 			return;
 		}
 
@@ -1476,25 +956,17 @@ module.exports.shareComponent = function (argv, done) {
 				return;
 			}
 
-			var compPromise = server.useRest ? sitesRest.getComponent({
+			var compPromise = sitesRest.getComponent({
 				server: server,
 				name: name
-			}) : serverUtils.browseComponentsOnServer(request, server);
+			});
 			compPromise.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
 					}
-					if (server.useRest) {
-						compId = result.id;
-					} else {
-						var comps = result.data || [];
-						for (var i = 0; i < comps.length; i++) {
-							if (comps[i].fFolderName.toLowerCase() === name.toLowerCase()) {
-								compId = comps[i].fFolderGUID;
-								break;
-							}
-						}
-					}
+
+					compId = result.id;
+
 					if (!compId) {
 						console.log('ERROR: component ' + name + ' does not exist');
 						return Promise.reject();
@@ -1633,14 +1105,14 @@ module.exports.shareComponent = function (argv, done) {
 							console.log('ERROR: ' + results[i].title);
 						}
 					}
-					_cmdEnd(done, shared);
+					done(shared);
 				})
 				.catch((error) => {
-					_cmdEnd(done);
+					done();
 				});
 		}); // login
 	} catch (e) {
-		_cmdEnd(done);
+		done();
 	}
 };
 
@@ -1651,7 +1123,7 @@ module.exports.unshareComponent = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
-		_cmdEnd(done);
+		done();
 		return;
 	}
 
@@ -1659,7 +1131,7 @@ module.exports.unshareComponent = function (argv, done) {
 		var serverName = argv.server;
 		var server = serverUtils.verifyServer(serverName, projectDir);
 		if (!server || !server.valid) {
-			_cmdEnd(done);
+			done();
 			return;
 		}
 
@@ -1682,25 +1154,17 @@ module.exports.unshareComponent = function (argv, done) {
 				return;
 			}
 
-			var compPromise = server.useRest ? sitesRest.getComponent({
+			var compPromise = sitesRest.getComponent({
 				server: server,
 				name: name
-			}) : serverUtils.browseComponentsOnServer(request, server);
+			});
 			compPromise.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
 					}
-					if (server.useRest) {
-						compId = result.id;
-					} else {
-						var comps = result.data || [];
-						for (var i = 0; i < comps.length; i++) {
-							if (comps[i].fFolderName.toLowerCase() === name.toLowerCase()) {
-								compId = comps[i].fFolderGUID;
-								break;
-							}
-						}
-					}
+
+					compId = result.id;
+
 					if (!compId) {
 						console.log('ERROR: component ' + name + ' does not exist');
 						return Promise.reject();
@@ -1842,13 +1306,13 @@ module.exports.unshareComponent = function (argv, done) {
 							console.log('ERROR: ' + results[i].title);
 						}
 					}
-					_cmdEnd(done, unshared);
+					done(unshared);
 				})
 				.catch((error) => {
-					_cmdEnd(done);
+					done();
 				});
 		}); // login
 	} catch (e) {
-		_cmdEnd(done);
+		done();
 	}
 };

@@ -988,7 +988,10 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 				console.log(' - get repository');
 
 				if (collectionName) {
-					getCollectionsPromises.push(serverUtils.getRepositoryCollections(request, server, repositoryId));
+					getCollectionsPromises.push(serverRest.getCollections({
+						server: server,
+						repositoryId: repositoryId
+					}));
 				}
 				return Promise.all(getCollectionsPromises);
 			})
@@ -1001,7 +1004,7 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 						return Promise.reject();
 					}
 
-					var collections = results[0] && results[0].data;
+					var collections = results[0];
 					for (var i = 0; i < collections.length; i++) {
 						if (collections[i].name.toLowerCase() === collectionName.toLowerCase()) {
 							collectionId = collections[i].id;
@@ -2198,7 +2201,10 @@ module.exports.migrateContent = function (argv, done) {
 					console.log(' - add channel ' + channelName + ' to repository ' + repositoryName);
 				}
 
-				return serverUtils.getRepositoryCollections(request, destServer, repositoryId);
+				return serverRest.getCollections({
+					server: destServer,
+					repositoryId: repositoryId
+				});
 
 			})
 			.then(function (result) {
@@ -2209,7 +2215,7 @@ module.exports.migrateContent = function (argv, done) {
 					return Promise.reject();
 				}
 
-				var collections = result && result.data ? result.data : [];
+				var collections = result;
 				for (var i = 0; i < collections.length; i++) {
 					if (collections[i].name.toLowerCase() === destCollectionName.toLowerCase()) {
 						destCollectionId = collections[i].id;

@@ -1358,6 +1358,7 @@ module.exports.getChannelItems = function (args) {
 
 // perform bulk operation on items in a channel from server
 var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString, async, collectionIds) {
+	// console.log('_bulkOpItems: ' + operation);
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -1401,7 +1402,7 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 				var auth = serverUtils.getRequestAuth(server);
 
 				var operations = {};
-				if (operation === 'deleteItems' || operation === 'approve') {
+				if (operation === 'deleteItems' || operation === 'approve' || operation === 'setAsTranslated') {
 					operations[operation] = {
 						value: 'true'
 					};
@@ -1500,7 +1501,8 @@ module.exports.publishChannelItems = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.unpublishChannelItems = function (args) {
-	return _bulkOpItems(args.server, 'unpublish', [args.channelId], args.itemIds);
+	var async = args.async ? args.async : 'false';
+	return _bulkOpItems(args.server, 'unpublish', [args.channelId], args.itemIds, '', async);
 };
 
 /**
@@ -1587,6 +1589,17 @@ module.exports.approveItems = function (args) {
  */
 module.exports.validateChannelItems = function (args) {
 	return _bulkOpItems(args.server, 'validatePublish', [args.channelId], args.itemIds);
+};
+
+/**
+ * Set items as translated on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {array} args.itemIds The id of items to publish
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.ItemsSetAsTranslated = function (args) {
+	return _bulkOpItems(args.server, 'setAsTranslated', [], args.itemIds);
 };
 
 var _getItemOperationStatus = function (server, statusId) {
@@ -2280,8 +2293,9 @@ module.exports.getCollectionWithName = function (args) {
 
 var _getResourcePermissions = function (server, id, type) {
 	return new Promise(function (resolve, reject) {
-		var resourceType = type === 'repository' ? 'repositories' : (type === 'type' ? 'types' : type),
+		var resourceType = type === 'repository' ? 'repositories' : (type + 's'),
 			url = server.url + '/content/management/api/v1.1/' + resourceType + '/' + id + '/permissions';
+		// console.log(url);
 		var options = {
 			method: 'GET',
 			url: url,
@@ -2411,7 +2425,7 @@ module.exports.createRepository = function (args) {
 };
 
 // Update repository
-var _updateRepository = function (server, repository, contentTypes, channels) {
+var _updateRepository = function (server, repository, contentTypes, channels, taxonomies) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -2422,6 +2436,7 @@ var _updateRepository = function (server, repository, contentTypes, channels) {
 				var data = repository;
 				data.contentTypes = contentTypes;
 				data.channels = channels;
+				data.taxonomies = taxonomies;
 
 				var url = server.url + '/content/management/api/v1.1/repositories/' + repository.id;
 				var auth = serverUtils.getRequestAuth(server);
@@ -2440,7 +2455,7 @@ var _updateRepository = function (server, repository, contentTypes, channels) {
 
 				request(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to add channel to repository ' + repository.name);
+						console.log('Failed to update repository ' + repository.name);
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -2457,7 +2472,7 @@ var _updateRepository = function (server, repository, contentTypes, channels) {
 						resolve(data);
 					} else {
 						var msg = data ? JSON.stringify(data) : (response.statusMessage || response.statusCode);
-						console.log('Failed to add channel to repository ' + repository.name + ' - ' + msg);
+						console.log('Failed to update repository ' + repository.name + ' - ' + msg);
 						resolve({
 							err: 'err'
 						});
@@ -2477,7 +2492,7 @@ var _updateRepository = function (server, repository, contentTypes, channels) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.updateRepository = function (args) {
-	return _updateRepository(args.server, args.repository, args.contentTypes, args.channels);
+	return _updateRepository(args.server, args.repository, args.contentTypes, args.channels, args.taxonomies);
 };
 
 var _performPermissionOperation = function (server, operation, resourceId, resourceName, resourceType, role, users, groups) {

@@ -725,37 +725,38 @@
     }), define("sdk/Field", [ "sdk/dispatcher", "sdk/storage", "sdk/EditorFrame", "sdk/dataTypes", "sdk/logger" ], function(e, t, i, n, r) {
         var o = new r("Field");
         return function(t) {
-            function i() {
-                var t = {
+            function i(t) {
+                var i = {
                     nodeName: u,
                     value: s,
-                    isField: !0
+                    isField: !0,
+                    options: t
                 };
-                o.debug("Notifying UI that the field value has changed:", t), e.send("edit", t);
+                o.debug("Notifying UI that the field value has changed:", i), e.send("edit", i);
             }
             if (o.debug("Field received params :", t), !t || !t.definition) {
                 var r = "Unable to initialize Field - invalid  parameter: no field definition provided";
                 throw o.error(r), new Error(r);
             }
             var a = {}, s = t.value, d = t.definition, u = (d.id, d.name), c = d.datatype, l = "list" === d.valuecount;
-            d.valuecount, t.avilableCustomEditors;
+            d.valuecount, t.availableCustomEditors;
             this.on = function(e, t) {
                 a[e] = t;
             }, this.getDefinition = function() {
                 return Object.freeze(d);
-            }, this.removeValueAt = function(e) {
-                if (!l) throw new Error("Field" + u + " is not a multi valued field");
+            }, this.removeValueAt = function(e, t) {
+                if (t = t || {}, !l) throw new Error("Field" + u + " is not a multi valued field");
                 if (void 0 === e || isNaN(e) || e < 0) throw new Error("Invalid index passed :" + e);
-                s && Array.isArray(s) && s.length > e && (s.splice(e, 1), i());
+                s && Array.isArray(s) && s.length > e && (s.splice(e, 1), i(t));
             }, this.getValueAt = function(e) {
                 if (!l) throw new Error("Field" + u + " is not a multi valued field");
                 if (void 0 === e || isNaN(e) || e < 0) throw new Error("Invalid index passed :" + e);
                 var t;
                 return s && Array.isArray(s) && s.length > e && (t = s[e]), t;
-            }, this.setValueAt = function(e, t) {
-                if (void 0 === e || isNaN(e) || e < 0) throw new Error("Invalid index passed :" + e);
+            }, this.setValueAt = function(e, t, n) {
+                if (n = n || {}, void 0 === e || isNaN(e) || e < 0) throw new Error("Invalid index passed :" + e);
                 if (!l) throw new Error("Field" + u + " is not a multi valued field");
-                !s && l && (s = []), s[e] = t, i();
+                !s && l && (s = []), s[e] = t, i(n);
             }, this.validate = function(t, i) {
                 if (i = i || {}, l && i.hasOwnProperty("index") && (void 0 === i.index || isNaN(i.index) || i.index < 0)) throw new Error("Invalid index passed :" + i.index);
                 return e.sendAndWait("validateField", {
@@ -764,8 +765,8 @@
                     options: i
                 });
             }, this.setValue = function(e, t) {
-                s = e, t && t.notifyForm ? a.update && (o.debug("Notifying the form to update the value for field:" + u + "with value: " + s), 
-                a.update.call(null, s)) : i();
+                s = e, t = t || {}, t.notifyForm ? a.update && (o.debug("Notifying the form to update the value for field:" + u + "with value: " + s), 
+                a.update.call(null, s)) : i(t);
             }, this.getValue = function() {
                 return s;
             }, this.openAssetPicker = function(t) {
@@ -807,7 +808,8 @@
                 m = e.translatable, v = e.languageIsMaster, b = e.version, y = e.isPublished, w = e.status, 
                 E = e.createdDate, x = e.createdBy, k = e.updatedDate, I = e.updatedBy, T = e.repositoryId, 
                 S = e.latestVersion, q = e.currentVersion, O = e.mimeType, R = e.fileGroup, M = e.varSetId, 
-                D = e.versionInfo, A = e.publishInfo, N = e.isNew;
+                D = e.versionInfo, A = e.publishInfo, N = e.tags, j = e.collections, F = e.channels, 
+                P = e.publishedChannels, C = e.taxonomies, z = e.isNew;
             }
             function s() {
                 return {
@@ -835,18 +837,19 @@
                 };
             }
             function d(e) {
-                a.debug("Item update recived data: ", e), n(e);
+                a.debug("Item update recived data: ", e), console.log("Setting item data .....", e), 
+                n(e);
                 var t = e.fieldData;
                 t && Array.isArray(t) && t.forEach(function(e) {
-                    var t = e.definition.id, i = e.value, n = V.filter(function(e) {
+                    var t = e.definition.id, i = e.value, n = G.filter(function(e) {
                         return e.getDefinition().id === t;
                     }), r = n && n.length > 0 ? n[0] : null;
                     r && (a.debug("Syncing field value for field : " + e.definition.name + " with value " + i), 
                     r.setValue(i, {
                         notifyForm: !0
                     }));
-                }), C.update && (a.debug("Notifying the form to update the item with itemData:" + s()), 
-                C.update.call(null, s()));
+                }), L.update && (a.debug("Notifying the form to update the item with itemData:" + s()), 
+                L.update.call(null, s()));
             }
             if (!t) {
                 var u = "Unable to initialize Type - invalid  parameter:" + t;
@@ -854,73 +857,92 @@
             }
             if (!t.contentType) throw a.error("Type must be  provided"), new Error("Type must be  provided");
             i.on("update", d);
-            var c, l, f, p, h, g, m, v, b, y, w, E, x, k, I, T, S, q, O, R, M, D, A, N, j = t.contentType, F = j.getSlug(), C = (F && F.enabled, 
-            {}), P = t.itemData, z = P.fieldData, B = P.languageOptions;
-            n(P);
-            var V = z.map(function(t) {
+            var c, l, f, p, h, g, m, v, b, y, w, E, x, k, I, T, S, q, O, R, M, D, A, N, j, F, P, C, z, B = t.contentType, V = B.getSlug(), L = (V && V.enabled, 
+            {}), U = t.itemData, W = U.fieldData, Q = U.languageOptions;
+            n(U);
+            var G = W.map(function(t) {
                 return new e(t);
             });
             this.get = function() {
                 return s();
             }, this.on = function(e, t) {
-                C[e] = t;
+                L[e] = t;
             }, this.isNew = function() {
-                return N;
+                return z;
             }, this.getLanguageOptions = function() {
-                return B;
+                return Q;
             }, this.getFields = function() {
-                return V;
+                return G;
             }, this.getFieldByName = function(e) {
-                var t = V.filter(function(t) {
+                var t = G.filter(function(t) {
                     return t.getDefinition().name === e;
                 });
                 return t && t.length > 0 ? t[0] : null;
             }, this.getFieldById = function(e) {
-                var t = V.filter(function(t) {
+                var t = G.filter(function(t) {
                     return t.getDefinition().id === e;
                 });
                 return t && t.length > 0 ? t[0] : null;
-            }, this.setName = function(e) {
-                f = e, r({
+            }, this.setName = function(e, t) {
+                t = t || {}, f = e, r({
                     nodeName: "name",
-                    value: f
+                    value: f,
+                    options: t
                 });
             }, this.validateName = function(e) {
                 return i.sendAndWait("validateItemName", {
                     value: e
                 });
-            }, this.setDescription = function(e) {
-                p = e, r({
+            }, this.setDescription = function(e, t) {
+                t = t || {}, p = e, r({
                     nodeName: "description",
-                    value: p
+                    value: p,
+                    options: t
                 });
             }, this.validateDescription = function(e) {
                 return i.sendAndWait("validateItemDescription", {
                     value: e
                 });
-            }, this.setSlug = function(e) {
-                h = e, r({
+            }, this.setSlug = function(e, t) {
+                t = t || {}, h = e, r({
                     nodeName: "slug",
-                    value: h
+                    value: h,
+                    options: t
                 });
             }, this.validateSlug = function(e) {
                 return i.sendAndWait("validateItemSlug", {
                     value: e
                 });
-            }, this.setLanguage = function(e) {
-                if (!this.isNew()) throw new Error("Language cannot be modified for an existing item");
-                if (!o(B, e)) throw new Error('Invalid Language "' + e + '" passed');
+            }, this.setLanguage = function(e, t) {
+                if (t = t || {}, !this.isNew()) throw new Error("Language cannot be modified for an existing item");
+                if (!o(Q, e)) throw new Error('Invalid Language "' + e + '" passed');
                 g = e, r({
                     nodeName: "language",
-                    value: g
+                    value: g,
+                    options: t
                 });
-            }, this.setTranslatable = function(e) {
-                if (!this.isNew()) throw new Error("Translatbale property cannot be modified for an existing item");
+            }, this.setTranslatable = function(e, t) {
+                if (t = t || {}, !this.isNew()) throw new Error("Translatbale property cannot be modified for an existing item");
                 if ("boolean" != typeof e) throw new Error("Translatbale property must be boolean");
                 e = e, r({
                     nodeName: "translatable",
-                    value: e
+                    value: e,
+                    options: t
                 });
+            }, this.getVersionInfo = function() {
+                return Promise.resolve(D);
+            }, this.getPublishInfo = function() {
+                return Promise.resolve(A);
+            }, this.getTags = function() {
+                return Promise.resolve(N);
+            }, this.getCollections = function() {
+                return Promise.resolve(j);
+            }, this.getChannels = function() {
+                return Promise.resolve(F);
+            }, this.getPublishedChannels = function() {
+                return Promise.resolve(P);
+            }, this.getTaxonomies = function() {
+                return Promise.resolve(C);
             };
         };
     }), define("sdk/api", [ "sdk/Item", "sdk/Type", "sdk/dataTypes", "sdk/dispatcher", "sdk/logger" ], function(e, t, i, n, r) {

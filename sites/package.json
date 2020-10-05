@@ -1,8 +1,8 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "20.3.3",
+	"version": "20.4.1",
 	"license": "UPL-1.0",
-	"description": "Content and Experience Cloud custom components build system",
+	"description": "Oracle Content and Experience Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content and Experience.",
 	"main": "index.js",
 	"directories": {
 		"test": "test"
@@ -45,6 +45,7 @@
 		"upload-content": "gulp -LL --gulpfile bin/gulpfile.js upload-content ",
 		"control-content": "gulp -LL --gulpfile bin/gulpfile.js control-content ",
 		"copy-assets": "gulp -LL --gulpfile bin/gulpfile.js copy-assets ",
+		"rename-content-type": "gulp -LL --gulpfile bin/gulpfile.js rename-content-type ",
 		"download-taxonomy": "gulp -LL --gulpfile bin/gulpfile.js download-taxonomy ",
 		"upload-taxonomy": "gulp -LL --gulpfile bin/gulpfile.js upload-taxonomy ",
 		"control-taxonomy": "gulp -LL --gulpfile bin/gulpfile.js control-taxonomy ",
@@ -98,6 +99,8 @@
 		"share-type": "gulp -LL --gulpfile bin/gulpfile.js share-type ",
 		"unshare-type": "gulp -LL --gulpfile bin/gulpfile.js unshare-type ",
 		"create-channel": "gulp -LL --gulpfile bin/gulpfile.js create-channel ",
+		"share-channel": "gulp -LL --gulpfile bin/gulpfile.js share-channel ",
+		"unshare-channel": "gulp -LL --gulpfile bin/gulpfile.js unshare-channel ",
 		"create-localization-policy": "gulp -LL --gulpfile bin/gulpfile.js create-localization-policy ",
 		"list-assets": "gulp -LL --gulpfile bin/gulpfile.js list-assets ",
 		"create-asset-usage-report": "gulp -LL --gulpfile bin/gulpfile.js create-asset-usage-report ",

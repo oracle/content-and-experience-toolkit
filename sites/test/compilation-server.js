@@ -51,6 +51,33 @@ router.get('/compiler/rest/api', (request,response)=>{
 	this.compilation.getApiVersions(request, response);
   });
   
+  // v1.1 calls
+  router.get('/compiler/rest/api/v1.1/server', (request,response)=>{
+	this.compilation.getServer(request, response);
+  });
+  
+  router.get('/compiler/rest/api/v1.1/job/:id', (request,response)=>{
+	this.compilation.getJob(request, response);
+  });
+  
+  router.post('/compiler/rest/api/v1.1/job', (request,response)=>{
+	this.compilation.createJob(request, response);
+  });
+  
+  router.post('/compiler/rest/api/v1.1/job/:id/compilesite', (request,response)=>{
+	this.compilation.submitCompileSite(request, response);
+  });
+
+  router.post('/compiler/rest/api/v1.1/job/:id', (request,response)=>{
+	this.compilation.updateJob(request, response);
+  });
+
+  router.delete('/compiler/rest/api/v1.1/job/:id', (request,response)=>{
+	this.compilation.deleteJob(request, response);
+  });
+
+	
+  // v1 calls for backwards compatibility
   router.get('/compiler/rest/api/v1/server', (request,response)=>{
 	this.compilation.getServer(request, response);
   });

@@ -512,6 +512,28 @@ var _getRegisteredServer = function (projectDir, name) {
 	return server;
 };
 
+var _saveOAuthToken = function (serverPath, serverName, token) {
+	if (fs.existsSync(serverPath)) {
+		var serverstr = fs.readFileSync(serverPath).toString(),
+			serverjson = JSON.parse(serverstr);
+		serverjson.oauthtoken = token;
+
+		fs.writeFileSync(serverPath, JSON.stringify(serverjson));
+		console.log(' - token saved to server ' + serverName);
+	}
+};
+
+var _clearOAuthToken = function (serverPath, serverName) {
+
+	if (fs.existsSync(serverPath)) {
+		var serverstr = fs.readFileSync(serverPath).toString(),
+			serverjson = JSON.parse(serverstr);
+		serverjson.oauthtoken = '';
+
+		fs.writeFileSync(serverPath, JSON.stringify(serverjson));
+		console.log(' - token cleared for server ' + serverName);
+	}
+};
 
 /**
  * Get components in componentsDir.
@@ -1163,7 +1185,7 @@ var _getIdcToken = function (server) {
 module.exports.getTenantConfig = function (server) {
 	return new Promise(function (resolve, reject) {
 		var request = _getRequest();
-		var url = server.url + '/documents/web?IdcService=GET_TENANT_CONFIG';
+		var url = server.url + '/documents/integration?IdcService=GET_TENANT_CONFIG&IsJson=1';
 		var options = {
 			method: 'GET',
 			url: url,
@@ -1355,54 +1377,6 @@ var _getOAuthTokenFromIDCS = function (server) {
 		});
 	});
 	return tokenPromise;
-};
-
-
-module.exports.getRepositoryCollections = function (request, server, repositoryId) {
-	var collectionPromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-
-		var auth = _getRequestAuth(server);
-
-		var url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections?limit=9999';
-
-		var options = {
-			url: url,
-			auth: auth
-		};
-		request(options, function (error, response, body) {
-			var result = {};
-
-			if (error) {
-				console.log('ERROR: failed to get repository collections:');
-				console.log(error);
-				resolve({
-					err: error
-				});
-			}
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
-				var items = data && data.items;
-				// console.log(items);
-
-				resolve({
-					data: items
-				});
-			} else {
-				console.log('ERROR: failed to get repository collections: ' + (response ? (response.statusMessage || response.statusCode) : ''));
-				resolve({
-					err: (response ? (response.statusMessage || response.statusCode) : 'err')
-				});
-			}
-
-		});
-	});
-	return collectionPromise;
 };
 
 
@@ -1608,214 +1582,6 @@ module.exports.getThemeComponents = function (projectDir, themeName) {
 
 
 /**
- * Upload a local file to the personal folder on the server
- * @param {*} filePath 
- */
-module.exports.uploadFileToServer = function (request, server, folderPath, filePath) {
-	"use strict";
-
-	var fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
-
-	var folder = folderPath;
-	if (folder && folder.charAt(0) === '/') {
-		folder = folder.substring(1);
-	}
-	if (folder && folder.charAt(folder.length - 1) === '/') {
-		folder = folder.substring(0, folder.length - 1);
-	}
-
-	var uploadPromise = new Promise(function (resolve, reject) {
-
-		var dUser = '';
-		var idcToken;
-
-		var express = require('express');
-		var app = express();
-
-		var port = '9393';
-		var localhost = 'http://localhost:' + port;
-
-		var auth = _getRequestAuth(server);
-
-		app.get('/documents/web', function (req, res) {
-			// console.log('GET: ' + req.url);
-			var url = server.url + req.url;
-			var options = {
-				url: url,
-				'auth': auth
-			};
-
-			request(options).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					_fixHeaders(response, res);
-				})
-				.on('error', function (err) {
-					console.log(err);
-					res.write({
-						err: err
-					});
-					res.end();
-				})
-				.pipe(res);
-		});
-		app.post('/documents/web', function (req, res) {
-			// console.log('POST: ' + req.url);
-			if (req.url.indexOf('CHECKIN_UNIVERSAL') > 0) {
-				var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-				var fileId = params.fileId;
-				var filePath = params.filePath;
-				var fileName = params.fileName;
-				var folderId = params.folderId;
-				var uploadUrl = server.url + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
-				var formData = {
-					'parent': 'fFolderGUID:' + folderId,
-					'idcToken': idcToken,
-					'primaryFile': fs.createReadStream(filePath),
-					'filename': fileName
-				};
-				if (fileId && fileId !== 'undefined') {
-					formData.item = 'fFileGUID:' + fileId;
-				}
-				var postData = {
-					method: 'POST',
-					url: uploadUrl,
-					'auth': auth,
-					timeout: 600000,
-					'formData': formData
-				};
-				console.log(' - uploading file ' + fileName);
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						_fixHeaders(response, res);
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						// console.log(' - upload finished: '+filePath);
-						res.end();
-					});
-
-			}
-		});
-
-		var localServer = app.listen(0, function () {
-			port = localServer.address().port;
-			localhost = 'http://localhost:' + port;
-			localServer.setTimeout();
-			// console.log(' - listening on port: '  + port);
-
-			// get the personal folder id
-			var folderUrl = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-			var options = {
-				url: folderUrl
-			};
-
-			request.get(options, function (err, response, body) {
-				if (err) {
-					console.log('ERROR: Failed to get user id ');
-					console.log(err);
-					_closeServer(localServer);
-					return resolve({
-						err: 'err'
-					});
-				}
-				if (response && response.statusCode === 200) {
-					var data = JSON.parse(body);
-					dUser = data && data.LocalData && data.LocalData.dUser;
-					idcToken = data && data.LocalData && data.LocalData.idcToken;
-					var folderId = 'F:USER:' + dUser;
-					// console.log(' - folder id: ' + folderId + ' idcToken: ' + idcToken);
-
-					var queryFolderPromise = _queryFolderId(request, server, localhost, folder);
-					queryFolderPromise.then(function (result) {
-						if (result.err) {
-							_closeServer(localServer);
-							return resolve({
-								err: 'err'
-							});
-						}
-						folderId = result.folderId || folderId;
-
-						// check if the file exists 
-						var filesUrl = localhost + '/documents/web?IdcService=FLD_BROWSE&itemType=File&IsJson=1&item=fFolderGUID:' + folderId;
-
-						options.url = filesUrl;
-						var fileId;
-						request.get(options, function (err, response, body) {
-							if (err) {
-								_closeServer(localServer);
-								console.log('ERROR: Failed to get personal files');
-								console.log(err);
-								return resolve({
-									err: 'err'
-								});
-							}
-
-							var data;
-							try {
-								data = JSON.parse(body);
-							} catch (e) {}
-
-							if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-								console.log('ERROR: Failed to get personal files ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-								_closeServer(localServer);
-								return resolve({
-									err: 'err'
-								});
-							}
-
-							var dRoleName = data.LocalData.dRoleName;
-							if (dRoleName !== 'owner' && dRoleName !== 'manager' && dRoleName !== 'contributor') {
-								console.log('ERROR: no permission to upload to ' + (folder ? 'folder ' + folder : 'home folder'));
-								_closeServer(localServer);
-								return resolve({
-									err: 'err'
-								});
-							}
-
-							fileId = _getFileIdFromResultSets(data, fileName);
-							var folderId = _getFolderIdFromFolderInfo(data) || ('F:USER:' + dUser);
-							// console.log('folder: ' + (folder ? folder : 'home') + ' id: ' + folderId);
-
-							// now upload the file
-							var uploadUrl = localhost + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
-							uploadUrl += '&folderId=' + folderId + '&fileId=' + fileId + '&filePath=' + filePath + '&fileName=' + fileName;
-
-							request.post(uploadUrl, function (err, response, body) {
-								if (err) {
-									_closeServer(localServer);
-									console.log('ERROR: Failed to upload');
-									console.log(err);
-									return resolve({
-										err: 'err'
-									});
-								}
-								if (response && response.statusCode === 200) {
-									var data = JSON.parse(body);
-									var version = data && data.LocalData && data.LocalData.dRevLabel;
-									console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + version);
-									localServer.close(function () {
-										//console.log(' - close local server: ' + port);
-										return resolve(data);
-									});
-								} else {
-									_closeServer(localServer);
-									console.log(' - failed to upload: ' + response.statusCode);
-									return resolve({
-										err: 'err'
-									});
-								}
-							}); // checkin request
-						}); // query file id
-					}); // query folder id
-				}
-			}); // get user id
-		}); // local server
-	});
-	return uploadPromise;
-};
-
-
-/**
  * Get the attribute of a component
  * @param data the result from API SCS_BROWSE_APPS or SCS_ACTIVATE_COMPONENT
  * @param fieldName
@@ -1842,124 +1608,6 @@ var _getComponentAttribute = function (data, fieldName) {
 	return compAttr;
 };
 
-/**
- * Import a template with the zip file
- * @param fileId
- * @param idcToken
- */
-module.exports.importTemplateToServer = function (request, server, fileId, idcToken) {
-	"use strict";
-
-	var importPromise = new Promise(function (resolve, reject) {
-		var importUrl = server.url + '/documents/web?IdcService=SCS_IMPORT_TEMPLATE_PACKAGE';
-		var data = {
-			'item': 'fFileGUID:' + fileId,
-			'idcToken': idcToken,
-			'useBackgroundThread': true,
-			'ThemeConflictResolution': 'overwrite',
-			'TemplateConflictResolution': 'overwrite',
-			'DefaultComponentConflictResolution': true,
-			'allowCrossTenant': true
-		};
-		var postData = {
-			'form': data
-		};
-
-		request.post(importUrl, postData, function (err, response, body) {
-			if (err) {
-				return resolve({
-					'err': err
-				});
-			}
-
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				// console.log('ERROR: Failed to import template ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-				return resolve(data);
-			}
-
-			var jobId = data.LocalData.JobID;
-			console.log(' - importing template (JobID: ' + jobId + ')');
-			var importStatusPromise = _getTemplateImportStatus(request, server.url, jobId);
-			importStatusPromise.then(function (statusResult) {
-				resolve(statusResult);
-			});
-		});
-	});
-
-	return importPromise;
-};
-
-/**
- * Import a component with the zip on the dev server
- * @param fileId
- * @param idcToken
- */
-module.exports.importComponentToServer = function (request, server, fileId, idcToken) {
-	"use strict";
-
-	var importPromise = new Promise(function (resolve, reject) {
-		var importUrl = server.url + '/documents/web?IdcService=SCS_IMPORT_COMPONENT';
-		var data = {
-			'item': 'fFileGUID:' + fileId,
-			'idcToken': idcToken,
-			'ComponentConflictResolution': 'overwrite'
-		};
-		var postData = {
-			'form': data
-		};
-
-		request.post(importUrl, postData, function (err, response, body) {
-			if (err) {
-				return resolve({
-					'err': err
-				});
-			}
-
-			var data = JSON.parse(body);
-			return resolve(data);
-		});
-	});
-
-	return importPromise;
-};
-
-/**
- * Publish a component on the dev server
- * @param fileId
- * @param idcToken
- */
-module.exports.publishComponentOnServer = function (request, server, componentFolderGUID, idcToken) {
-	"use strict";
-
-	var publishPromise = new Promise(function (resolve, reject) {
-		var publishUrl = server.url + '/documents/web?IdcService=SCS_ACTIVATE_COMPONENT';
-		var data = {
-			'item': 'fFolderGUID:' + componentFolderGUID,
-			'idcToken': idcToken
-		};
-		var postData = {
-			'form': data
-		};
-
-		request.post(publishUrl, postData, function (err, response, body) {
-			if (err) {
-				return resolve({
-					'err': err
-				});
-			}
-
-			var data = JSON.parse(body);
-			return resolve(data);
-		});
-	});
-
-	return publishPromise;
-};
 
 var _loginToDevServer = function (server, request) {
 	var loginPromise = new Promise(function (resolve, reject) {
@@ -2112,6 +1760,9 @@ var _loginToPODServer = function (server) {
 
 				console.log(' - connect to remote server: ' + server.url);
 
+				// Save the token and use till it expires
+				_saveOAuthToken(server.fileloc, server.name, token);
+
 				return resolve({
 					'status': true
 				});
@@ -2233,6 +1884,9 @@ var _loginToSSOServer = function (server) {
 				}
 
 				console.log(' - connect to remote server: ' + server.url);
+
+				// Save the token and use till it expires
+				_saveOAuthToken(server.fileloc, server.name, token);
 
 				return resolve({
 					'status': true
@@ -2414,13 +2068,24 @@ var _loginToServer = function (server, request) {
 		return _getOAuthTokenFromIDCS(server);
 
 	} else if (server.oauthtoken) {
+		// console.log(server);
 		// verify the token
 		return _getIdcToken(server)
 			.then(function (result) {
 				var idcToken = result && result.idcToken;
-				return Promise.resolve({
-					status: idcToken ? true : false
-				});
+				if (!idcToken) {
+					server.login = false;
+					server.oauthtoken = '';
+					// remove the expired/invalid token
+					_clearOAuthToken(server.fileloc, server.name);
+
+					// open browser to obtain the token again
+					return _loginToServer(server, request);
+				} else {
+					return Promise.resolve({
+						status: idcToken ? true : false
+					});
+				}
 			});
 
 	} else if (env === 'dev_osso') {
@@ -2441,321 +2106,6 @@ var _loginToServer = function (server, request) {
 	}
 };
 
-/**
- * Upload a local file to the personal folder on the server
- * @param server the server info
- * @param type template or component
- * @param filePath 
- */
-module.exports.importToPODServer = function (server, type, folder, imports, publishComponent) {
-	"use strict";
-
-	var importPromise = new Promise(function (resolve, reject) {
-		var filePath;
-		var fileName;
-		var objectName;
-		var dUser = '';
-		var idcToken;
-		var fileId = '';
-		var importedFileId;
-		var importedCompFolderId;
-
-		var express = require('express');
-		var app = express();
-		var request = _getRequest();
-		var port = '8181';
-		var localhost = 'http://localhost:' + port;
-
-		var params, url;
-
-		app.get('/documents/web', function (req, res) {
-			// console.log('GET: ' + req.url);
-			var url = server.url + req.url;
-			var options = {
-				url: url,
-				'auth': {
-					bearer: server.oauthtoken
-				}
-			};
-
-			request(options).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					_fixHeaders(response, res);
-				})
-				.on('error', function (err) {
-					console.log(err);
-					res.write({
-						err: err
-					});
-					res.end();
-				})
-				.pipe(res);
-		});
-		app.post('/documents/web', function (req, res) {
-			// console.log('POST: ' + req.url);
-			if (req.url.indexOf('CHECKIN_UNIVERSAL') > 0) {
-				(function () {
-					var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-					fileId = params.fileId;
-					filePath = params.filePath;
-					fileName = params.fileName;
-					var folderId = params.folderId;
-					var uploadUrl = server.url + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
-					var formData = {
-						'parent': 'fFolderGUID:' + folderId,
-						'idcToken': idcToken,
-						'primaryFile': fs.createReadStream(filePath),
-						'filename': fileName
-					};
-					if (fileId && fileId !== 'undefined') {
-						formData.item = 'fFileGUID:' + fileId;
-					}
-					var postData = {
-						method: 'POST',
-						url: uploadUrl,
-						'auth': {
-							bearer: server.oauthtoken
-						},
-						'formData': formData
-					};
-					console.log(' - uploading file ' + fileName);
-					request(postData).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							_fixHeaders(response, res);
-						})
-						.pipe(res)
-						.on('finish', function (err) {
-							// console.log(' - upload finished: '+filePath);
-							res.end();
-						});
-				})();
-			} else if (req.url.indexOf('SCS_IMPORT_TEMPLATE_PACKAGE') > 0) {
-				(function () {
-					var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-					importedFileId = params.importedFileId;
-					var importUrl = server.url + '/documents/web?IdcService=SCS_IMPORT_TEMPLATE_PACKAGE';
-					var data = {
-						'item': 'fFileGUID:' + importedFileId,
-						'idcToken': idcToken,
-						'useBackgroundThread': true,
-						'ThemeConflictResolution': 'overwrite',
-						'TemplateConflictResolution': 'overwrite',
-						'DefaultComponentConflictResolution': true,
-						'allowCrossTenant': true
-					};
-					var postData = {
-						method: 'POST',
-						url: importUrl,
-						'auth': {
-							bearer: server.oauthtoken
-						},
-						'form': data
-					};
-					request(postData).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							_fixHeaders(response, res);
-						})
-						.on('error', function (err) {
-							res.write({
-								err: err
-							});
-							res.end();
-						})
-						.pipe(res)
-						.on('finish', function (err) {
-							// console.log(' - template import finished');
-							res.end();
-						});
-				})();
-			} else if (req.url.indexOf('SCS_IMPORT_COMPONENT') > 0) {
-				(function () {
-					var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-					importedFileId = params.importedFileId;
-					var importCompUrl = server.url + '/documents/web?IdcService=SCS_IMPORT_COMPONENT';
-					var data = {
-						'item': 'fFileGUID:' + importedFileId,
-						'idcToken': idcToken,
-						'ComponentConflictResolution': 'overwrite'
-					};
-					var postData = {
-						method: 'POST',
-						url: importCompUrl,
-						'auth': {
-							bearer: server.oauthtoken
-						},
-						'form': data
-					};
-					request(postData).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							_fixHeaders(response, res);
-						})
-						.on('error', function (err) {
-							res.write({
-								err: err
-							});
-							res.end();
-						})
-						.pipe(res)
-						.on('finish', function (err) {
-							// console.log(' - component import finished');
-							res.end();
-						});
-				})();
-			} else if (req.url.indexOf('SCS_ACTIVATE_COMPONENT') > 0) {
-				(function () {
-					var params = _getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-					importedCompFolderId = params.importedCompFolderId;
-					var publishCompUrl = server.url + '/documents/web?IdcService=SCS_ACTIVATE_COMPONENT';
-					var data = {
-						'item': 'fFolderGUID:' + importedCompFolderId,
-						'idcToken': idcToken
-					};
-					var postData = {
-						method: 'POST',
-						url: publishCompUrl,
-						'auth': {
-							bearer: server.oauthtoken
-						},
-						'form': data
-					};
-					request(postData).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							_fixHeaders(response, res);
-						})
-						.on('error', function (err) {
-							res.write({
-								err: err
-							});
-							res.end();
-						})
-						.pipe(res)
-						.on('finish', function (err) {
-							// console.log(' - component publish finished');
-							res.end();
-						});
-				})();
-			}
-		});
-		var socketNum = 0;
-		var localServer = app.listen(0, function () {
-			port = localServer.address().port;
-			localhost = 'http://localhost:' + port;
-			localServer.setTimeout(0);
-
-			// console.log(' - start ' + localhost + ' for import...');
-			console.log(' - establishing user session');
-			var total = 0;
-			var inter = setInterval(function () {
-				// console.log(' - getting login user: ' + total);
-				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-				request.get(url, function (err, response, body) {
-					if (!response || response.statusCode !== 200) {
-						clearInterval(inter);
-						_closeServer(localServer);
-						console.log('ERROR: failed to connect to server: ' + (response ? response.statusMessage : ''));
-						return resolve({
-							err: 'err'
-						});
-					}
-					var data;
-					try {
-						data = JSON.parse(body);
-					} catch (e) {}
-
-					dUser = data && data.LocalData && data.LocalData.dUser;
-					idcToken = data && data.LocalData && data.LocalData.idcToken;
-					if (dUser && dUser !== 'anonymous' && idcToken) {
-						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-						clearInterval(inter);
-						_import();
-					}
-					total += 1;
-					if (total >= 10) {
-						clearInterval(inter);
-						_closeServer(localServer);
-						console.log('ERROR: disconnect from the server, try again');
-						return resolve({
-							err: 'err'
-						});
-					}
-				});
-			}, 6000);
-
-			var _import = function () {
-				var queryFolderPromise = _queryFolderId(request, server, localhost, folder);
-				queryFolderPromise.then(function (result) {
-					if (result.err) {
-						_closeServer(localServer);
-						return resolve({
-							err: 'err'
-						});
-					}
-					var folderId = result.folderId || ('F:USER:' + dUser);
-
-					var url = localhost + '/documents/web?IdcService=FLD_BROWSE&itemType=File&item=fFolderGUID:' + folderId;
-
-					request.get(url, function (err, response, body) {
-						if (err) {
-							_closeServer(localServer);
-							console.log('ERROR: Failed to get personal files ');
-							console.log(err);
-							return resolve({});
-						}
-						var data;
-						try {
-							data = JSON.parse(body);
-						} catch (e) {}
-
-						if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-							_closeServer(localServer);
-							console.log('ERROR: Failed to get personal files ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-							return resolve({
-								err: 'err'
-							});
-						}
-
-						var dRoleName = data.LocalData.dRoleName;
-						if (dRoleName !== 'owner' && dRoleName !== 'manager' && dRoleName !== 'contributor') {
-							_closeServer(localServer);
-							console.log('ERROR: no permission to upload to ' + (folder ? 'folder ' + folder : 'home folder'));
-							return resolve({
-								err: 'err'
-							});
-						}
-
-						// upload the file
-						var importsPromise = [];
-						var folderId = _getFolderIdFromFolderInfo(data) || ('F:USER:' + dUser);
-						// console.log('folder: ' + (folder ? folder : 'home') + ' id: ' + folderId);
-
-						for (var i = 0; i < imports.length; i++) {
-							fileId = _getFileIdFromResultSets(data, fileName);
-							filePath = imports[i].zipfile;
-							objectName = imports[i].name;
-							fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
-							fileId = _getFileIdFromResultSets(data, fileName);
-							// console.log('fileName: ' + fileName + ' fileId: ' + fileId);
-
-							importsPromise[i] = _importOneObjectToPodServer(localhost, request, type, objectName, folder, folderId, fileId, filePath, publishComponent);
-						}
-
-						// Execute parallelly
-						Promise.all(importsPromise).then(function (values) {
-							_closeServer(localServer);
-							// All done
-							resolve(values);
-						});
-					}); // query file
-				}); // query folder
-			}; // _import
-		});
-
-	});
-
-	return importPromise;
-};
-
 module.exports.timeUsed = function (start, end) {
 	return _timeUsed(start, end);
 };
@@ -2767,203 +2117,6 @@ var _timeUsed = function (start, end) {
 	// get seconds 
 	var seconds = Math.round(timeDiff);
 	return seconds.toString() + 's';
-};
-
-var _importOneObjectToPodServer = function (localhost, request, type, name, folder, folderId, fileId, filePath, publishComponent) {
-	var importOnePromise = new Promise(function (resolve, reject) {
-		var startTime;
-		// Upload the zip file first
-		var fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
-		var url = localhost + '/documents/web?IdcService=CHECKIN_UNIVERSAL';
-		url += '&folderId=' + folderId + '&fileId=' + fileId + '&filePath=' + filePath + '&fileName=' + fileName;
-		startTime = new Date();
-		request.post(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to upload ' + filePath);
-				console.log(err);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-
-			if (response && response.statusCode === 200) {
-				var version = data && data.LocalData && data.LocalData.dRevLabel;
-				var uploadedFileName = data && data.LocalData && data.LocalData.dOriginalName;
-				console.log(' - file ' + uploadedFileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + version + ' (' + _timeUsed(startTime, new Date()) + ')');
-				var importedFileId = data && data.LocalData && data.LocalData.fFileGUID;
-
-				// import
-				if (importedFileId) {
-					if (type === 'template') {
-						url = localhost + '/documents/web?IdcService=SCS_IMPORT_TEMPLATE_PACKAGE';
-					} else {
-						url = localhost + '/documents/web?IdcService=SCS_IMPORT_COMPONENT';
-					}
-					url += '&importedFileId=' + importedFileId;
-					startTime = new Date();
-					request.post(url, function (err, response, body) {
-						var data;
-						try {
-							data = JSON.parse(body);
-						} catch (e) {}
-
-						if (!data || data.err || !data.LocalData || data.LocalData.StatusCode !== '0') {
-							console.log(' - failed to import ' + (data && data.LocalData ? ('- ' + data.LocalData.StatusMessage) : err));
-							return resolve({
-								err: 'err'
-							});
-						} else {
-							if (data.LocalData.ImportConflicts) {
-								var conflict = data.ResultSets.ImportConflictsResultSet;
-								console.log(' - failed to import: ImportConflicts');
-								// console.log(conflict);
-								if (data.ResultSets.ImportConflictsResultSet) {
-									var conflictIdx, nameIdx, ownerIdx, resolutionIdx;
-									var fields = data.ResultSets.ImportConflictsResultSet.fields || [];
-									var rows = data.ResultSets.ImportConflictsResultSet.rows;
-									for (var i = 0; i < fields.length; i++) {
-										if (fields[i].name === 'conflict') {
-											conflictIdx = i;
-										} else if (fields[i].name === 'name') {
-											nameIdx = i;
-										} else if (fields[i].name === 'fCreatorLoginName') {
-											ownerIdx = i;
-										} else if (fields[i].name === 'resolution') {
-											resolutionIdx = i;
-										}
-									}
-
-									rows.forEach(function (row) {
-										var msg = row[conflictIdx] + ': ' + row[nameIdx] + ' owned by ' + row[ownerIdx] + ' ' + row[resolutionIdx];
-										console.log('   ' + msg);
-									});
-								}
-								return resolve({
-									err: 'err'
-								});
-							}
-							// update idcToken
-							if (data && data.LocalData && data.LocalData.idcToken) {
-								console.log(' - refresh token');
-								idcToken = data.LocalData.idcToken;
-							}
-
-							if (type === 'template') {
-								var jobId = data.LocalData.JobID;
-								console.log(' - importing template (JobID: ' + jobId + ')');
-								var importTempStatusPromise = _getTemplateImportStatus(request, localhost, jobId);
-								importTempStatusPromise.then(function (data) {
-									var success = false;
-									if (data && data.LocalData) {
-										if (data.LocalData.StatusCode !== '0') {
-											console.log(' - failed to import ' + name + ': ' + importResult.LocalData.StatusMessage);
-										} else if (data.LocalData.ImportConflicts) {
-											// console.log(data.LocalData);
-											console.log(' - failed to import ' + name + ': the template already exists and you do not have privilege to override it');
-										} else if (data.JobInfo && data.JobInfo.JobStatus && data.JobInfo.JobStatus === 'FAILED') {
-											console.log(' - failed to import: ' + data.JobInfo.JobMessage);
-										} else {
-											success = true;
-											console.log(' - template ' + name + ' imported (' + _timeUsed(startTime, new Date()) + ')');
-										}
-									} else {
-										console.log(' - failed to import ' + name);
-									}
-									return success ? resolve({}) : resolve({
-										err: 'err'
-									});
-								});
-							} else {
-								console.log(' - finished import component');
-								//
-								// Process import component result
-								//
-								if (data && data.LocalData) {
-									if (data.LocalData.StatusCode !== '0') {
-										console.log(' - failed to import ' + name + ': ' + data.LocalData.StatusMessage);
-										return resolve({
-											err: 'err'
-										});
-									} else if (data.LocalData.ImportConflicts) {
-										console.log(' - failed to import ' + name + ': the component already exists and you do not have privilege to override it');
-										return resolve({
-											err: 'err'
-										});
-									} else {
-										console.log(' - component ' + name + ' imported (' + _timeUsed(startTime, new Date()) + ')');
-										var importedCompFolderId = _getComponentAttribute(data, 'fFolderGUID');
-
-										if (publishComponent && importedCompFolderId) {
-											// publish the imported component
-											url = localhost + '/documents/web?IdcService=SCS_ACTIVATE_COMPONENT';
-											url += '&importedCompFolderId=' + importedCompFolderId;
-											startTime = new Date();
-											request.post(url, function (err, response, body) {
-												if (err) {
-													console.log(' - failed to publish ' + name + ': ' + err);
-													return resolve({
-														err: 'err'
-													});
-												}
-												if (response.statusCode !== 200) {
-													console.log(' - failed to publish ' + name + ': status code ' + response.statusCode + ' ' + response.statusMessage);
-													return resolve({
-														err: 'err'
-													});
-												}
-												var publishResult = JSON.parse(body);
-												if (publishResult.err) {
-													console.log(' - failed to import ' + name + ': ' + err);
-													return resolve({
-														err: 'err'
-													});
-												}
-												if (publishResult.LocalData && publishResult.LocalData.StatusCode !== '0') {
-													console.log(' - failed to publish: ' + publishResult.LocalData.StatusMessage);
-													return resolve({
-														err: 'err'
-													});
-												} else {
-													console.log(' - component ' + name + ' published (' + _timeUsed(startTime, new Date()) + ')');
-													return resolve({});
-												}
-											});
-										} else {
-											return resolve({});
-										}
-									}
-								} else {
-									console.log(' - failed to import ' + name);
-									return resolve({
-										err: 'err'
-									});
-								}
-							}
-						}
-					});
-				} else {
-					console.log('ERROR: Failed to upload ' + filePath);
-					return resolve({
-						err: 'err'
-					});
-				}
-			} else {
-				var msg = data && data.LocalData ? (data.LocalData.StatusMessage || data.LocalData.StatusCode) : (response.statusMessage || response.statusCode);
-				console.log(' - failed to upload ' + filePath + ': ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-
-	return importOnePromise;
 };
 
 /**
@@ -3122,54 +2275,6 @@ var _queryFolderId = function (request, server, host, folderPath) {
 	return folderIdPromise;
 };
 
-/** 
- * Get the file id with the file name
- * @param data the JSON result from FLD_BROWSER
- * @param fileName the file name to match
- */
-var _getFileIdFromResultSets = function (data, fileName) {
-	var fileId = '';
-	if (data && data.LocalData && data.LocalData.TotalChildFilesCount > 0) {
-		var files = data.ResultSets && data.ResultSets.ChildFiles;
-		var fFileGUIDIdx, fFileNameIdx;
-		for (var i = 0; i < files.fields.length; i++) {
-			if (files.fields[i].name === 'fFileGUID') {
-				fFileGUIDIdx = i;
-			} else if (files.fields[i].name === 'fFileName') {
-				fFileNameIdx = i;
-			}
-			if (fFileGUIDIdx && fFileNameIdx) {
-				break;
-			}
-		}
-		var entry = files.rows.find(function (obj) {
-			return obj[fFileNameIdx] === fileName;
-		});
-
-		if (entry) {
-			fileId = entry[fFileGUIDIdx];
-		}
-	}
-	return fileId;
-};
-
-/** 
- * Get the folder id from FolderInfo
- * @param data the JSON result from FLD_BROWSER
- */
-var _getFolderIdFromFolderInfo = function (data) {
-	var folderId = '';
-	if (data && data.ResultSets && data.ResultSets.FolderInfo) {
-		var folderInfo = data.ResultSets.FolderInfo;
-		for (var i = 0; i < folderInfo.fields.length; i++) {
-			if (folderInfo.fields[i].name === 'fFolderGUID') {
-				folderId = folderInfo.rows[0][i];
-				break;
-			}
-		}
-	}
-	return folderId;
-};
 
 /**
  * Get the id of a folder in the browse result with a specific name
@@ -3231,253 +2336,58 @@ var _getRequest = function () {
 	return request;
 };
 
+/**
+ * Get the site info return the data as API SCS_GET_SITE_INFO_FILE
+ * @param {*} server 
+ * @param {*} site the site name
+ */
 var _getSiteInfo = function (server, site) {
 	var sitesPromise = new Promise(function (resolve, reject) {
 		'use strict';
 
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			return resolve({
-				err: 'no server is configured'
-			});
-		}
-
-		if (server.useRest) {
-			sitesRest.getSite({
-					server: server,
-					name: site,
-					expand: 'channel,repository,defaultCollection'
-				})
-				.then(function (result) {
-					if (!result || result.err) {
-						return resolve({
-							err: 'err'
-						});
-					}
-
-					var site = result;
-					var channelAccessTokens = [];
-					var tokens = site.channel && site.channel.channelTokens || [];
-					for (var i = 0; i < tokens.length; i++) {
-						channelAccessTokens.push({
-							name: tokens[i].name,
-							value: tokens[i].token,
-							expirationDate: tokens[i].value
-						});
-					}
-					// console.log(site);
-					var siteInfo = {
-						isEnterprise: site.isEnterprise,
-						themeName: site.themeName,
-						channelId: site.channel && site.channel.id,
-						channelAccessTokens: channelAccessTokens,
-						repositoryId: site.repository && site.repository.id,
-						arCollectionId: site.defaultCollection && site.defaultCollection.id
-					};
-					return resolve({
-						siteInfo: siteInfo
-					});
-				});
-
-		} else {
-			var request = _getRequest();
-			var auth = _getRequestAuth(server);
-
-			var options = {
-				url: server.url + '/documents/web?IdcService=SCS_GET_SITE_INFO_FILE&siteId=' + site + '&IsJson=1',
-				auth: auth
-			};
-
-			request.get(options, function (err, response, body) {
-				if (err) {
-					console.log('ERROR: Failed to get site info');
-					console.log(err);
-					return resolve({
-						'err': err
-					});
-				}
-				var data = body;
-				if (typeof data === 'string') {
-					try {
-						data = JSON.parse(body);
-					} catch (e) {}
-				}
-
-				var siteInfo = data && (data.properties || (data.base && data.base.properties));
-				if (!siteInfo) {
-					var msg = data && data.LocalData ? data.LocalData.StatusMessage : '';
-					console.log('ERROR: Failed to get site info for ' + site + ' ' + msg);
+		sitesRest.getSite({
+				server: server,
+				name: site,
+				expand: 'channel,repository,defaultCollection'
+			})
+			.then(function (result) {
+				if (!result || result.err) {
 					return resolve({
 						err: 'err'
 					});
 				}
 
-				// get the site info 
+				var site = result;
+				var channelAccessTokens = [];
+				var tokens = site.channel && site.channel.channelTokens || [];
+				for (var i = 0; i < tokens.length; i++) {
+					channelAccessTokens.push({
+						name: tokens[i].name,
+						value: tokens[i].token,
+						expirationDate: tokens[i].value
+					});
+				}
+				// console.log(site);
+				var siteInfo = {
+					isEnterprise: site.isEnterprise,
+					themeName: site.themeName,
+					channelId: site.channel && site.channel.id,
+					channelAccessTokens: channelAccessTokens,
+					repositoryId: site.repository && site.repository.id,
+					arCollectionId: site.defaultCollection && site.defaultCollection.id
+				};
 				return resolve({
+					siteId: site.id,
 					siteInfo: siteInfo
 				});
 			});
-		}
 	});
 	return sitesPromise;
 };
 module.exports.getSiteInfo = function (server, site) {
 	return _getSiteInfo(server, site);
 };
-module.exports.getSiteInfoWithToken = function (server, site) {
-	return _getSiteInfo(server, site);
-};
-var _getSiteGUID = function (server, site) {
-	var sitesPromise = new Promise(function (resolve, reject) {
-		'use strict';
 
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			return resolve({
-				err: 'no server is configured'
-			});
-		}
-
-		if (server.useRest) {
-			sitesRest.getSite({
-					server: server,
-					name: site
-				})
-				.then(function (result) {
-					if (!result || result.err) {
-						return resolve({
-							err: 'err'
-						});
-					}
-					var site = result;
-					return resolve({
-						siteGUID: site.id,
-						id: site.id,
-						siteDetails: {}
-					});
-				});
-
-		} else {
-
-			var request = _getRequest();
-
-			var auth = _getRequestAuth(server);
-			var options = {
-				url: server.url + '/documents/web?IdcService=SCS_BROWSE_SITES&name=' + site,
-				auth: auth
-			};
-			request.get(options, function (err, response, body) {
-				if (err) {
-					console.log('ERROR: Failed to get site Id');
-					console.log(err);
-					return resolve({
-						'err': err
-					});
-				}
-				var data;
-				try {
-					data = JSON.parse(body);
-				} catch (e) {}
-
-				if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-					console.log('ERROR: Failed to get site Id ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-					return resolve({
-						err: 'err'
-					});
-				}
-
-				// JSONify the results
-				var sites = {};
-				var fields = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.fields || [];
-				var rows = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.rows;
-				rows.forEach(function (siteRows) {
-					var nxtSite = {};
-					siteRows.forEach(function (value, index) {
-						nxtSite[fields[index].name] = value;
-					});
-					sites[nxtSite.fFolderName] = nxtSite;
-				});
-
-				// get the requested site
-				var siteDetails = sites[site];
-				return resolve({
-					siteGUID: siteDetails && siteDetails.fFolderGUID,
-					id: siteDetails && siteDetails.fFolderGUID,
-					siteDetails: siteDetails
-				});
-			});
-		}
-	});
-	return sitesPromise;
-};
-module.exports.getSiteFolder = function (server, site) {
-	return _getSiteGUID(server, site);
-};
-module.exports.getSiteFolderAfterLogin = function (server, site) {
-	return _getSiteGUID(server, site);
-};
-
-module.exports.getTheme = function (request, server, theme) {
-	return _getTheme(request, server, theme);
-};
-var _getTheme = function (request, server, theme) {
-	var themePromise = new Promise(function (resolve, reject) {
-		'use strict';
-
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			return resolve({
-				err: 'no server is configured'
-			});
-		}
-
-		if (server.useRest) {
-			sitesRest.getTheme({
-					server: server,
-					name: theme
-				})
-				.then(function (result) {
-					if (!result || result.err) {
-						return resolve({
-							err: 'err'
-						});
-					}
-
-					var theme = result;
-					// console.log(theme);
-					return resolve({
-						id: theme.id,
-						publishStatus: theme.publishStatus
-					});
-				});
-
-		} else {
-			var params = 'doBrowseStarterThemes=1';
-			_browseThemesOnServer(request, server, params)
-				.then(function (result) {
-					if (!result || result.err) {
-						return resolve({
-							err: 'err'
-						});
-					}
-
-					var themes = result.data || [];
-					var themejson = {};
-					for (var i = 0; i < themes.length; i++) {
-						if (themes[i].fFolderName.toLowerCase() === theme.toLowerCase()) {
-							themejson.id = themes[i].fFolderGUID;
-							themejson.name = themes[i].fFolderName;
-							themejson.owner = themes[i].fCreatorFullName;
-							break;
-						}
-					}
-
-					return resolve(themejson);
-				});
-		}
-	});
-	return themePromise;
-};
 
 module.exports.getContentTypeLayoutMapping = function (request, server, typeName) {
 	return _getContentTypeLayoutMapping(request, server, typeName);
@@ -3563,29 +2473,31 @@ var _sleep = function (delay) {
  * 
  * @param {*} jobId 
  */
-module.exports.getTemplateImportStatus = function (request, host, jobId) {
-	return _getTemplateImportStatus(request, host, jobId);
+module.exports.getTemplateImportStatus = function (server, request, host, jobId, action) {
+	return _getTemplateImportStatus(server, request, host, jobId, action);
 };
-var _getTemplateImportStatus = function (request, host, jobId) {
+var _getTemplateImportStatus = function (server, request, host, jobId, action) {
 	var importStatusPromise = new Promise(function (resolve, reject) {
-		var count = [];
-		var totalDots = 0;
-		var currPercentage;
-		var msgCount = 0;
+		var actionLabel = action ? action : 'import';
 		var startTime = new Date();
+		var needNewLine = false;
 		var inter = setInterval(function () {
 
-			var jobStatusPromise = _getBackgroundServiceStatus(request, host, jobId);
+			var jobStatusPromise = _getBackgroundServiceStatus(server, request, host, jobId);
 			jobStatusPromise.then(function (result) {
 				// console.log(result);
 				if (!result || result.err) {
-					process.stdout.write(os.EOL);
+					if (needNewLine) {
+						process.stdout.write(os.EOL);
+					}
 					clearInterval(inter);
 					return resolve({
 						err: 'err'
 					});
 				} else if (result.status === 'COMPLETE' || result.status === 'FAILED') {
-					process.stdout.write(os.EOL);
+					if (needNewLine) {
+						process.stdout.write(os.EOL);
+					}
 					clearInterval(inter);
 					return resolve({
 						status: result.status,
@@ -3593,9 +2505,10 @@ var _getTemplateImportStatus = function (request, host, jobId) {
 						JobInfo: result.JobInfo
 					});
 				} else {
-					process.stdout.write(' - import in process: percentage ' + result.percentage +
+					process.stdout.write(' - ' + actionLabel + ' in process: percentage ' + result.percentage +
 						' [' + _timeUsed(startTime, new Date()) + ']');
 					readline.cursorTo(process.stdout, 0);
+					needNewLine = true;
 				}
 			});
 		}, 6000);
@@ -3603,10 +2516,15 @@ var _getTemplateImportStatus = function (request, host, jobId) {
 	return importStatusPromise;
 };
 
-var _getBackgroundServiceStatus = function (request, host, jobId) {
+var _getBackgroundServiceStatus = function (server, request, host, jobId) {
 	var statusPromise = new Promise(function (resolve, reject) {
 		var url = host + '/documents/web?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_STATUS&JobID=' + jobId;
-		request.get(url, function (err, response, body) {
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get job status ');
 				console.log(err);
@@ -3620,7 +2538,7 @@ var _getBackgroundServiceStatus = function (request, host, jobId) {
 			} catch (e) {}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get job status ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				console.log('ERROR: Failed to get job status ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : response.statusMessage));
 				return resolve({
 					err: 'err'
 				});
@@ -3901,6 +2819,7 @@ module.exports.browseSitesOnServer = function (request, server, fApplication, na
 };
 
 /**
+ * NOT Used
  * Get components from server using IdcService
  */
 module.exports.browseComponentsOnServer = function (request, server, name) {
@@ -4002,6 +2921,7 @@ module.exports.browseComponentsOnServer = function (request, server, name) {
 };
 
 /**
+ * NOT Used
  * Get themes from server using IdcService
  */
 module.exports.browseThemesOnServer = function (request, server, params) {
@@ -4268,7 +3188,7 @@ module.exports.browseTranslationConnectorsOnServer = function (request, server) 
 
 		var auth = _getRequestAuth(server);
 
-		var url = server.url + '/documents/web?IdcService=GET_ALL_CONNECTOR_INSTANCES&type=translation';
+		var url = server.url + '/documents/integration?IdcService=GET_ALL_CONNECTOR_INSTANCES&IsJson=1&type=translation';
 
 		var options = {
 			method: 'GET',
@@ -4930,24 +3850,31 @@ var _paths = function (dir) {
 			Promise.all(files.map((file) => {
 				return new Promise(function (resolve, reject) {
 					file = path.join(dir, file);
-					fsp.stat(file).then((stat) => {
-						if (stat.isDirectory()) {
-							_paths(file).then((results) => {
-								results.dirs.push(file);
-								resolve(results);
-							}).catch((error) => {
+					if (file.indexOf('_scs_theme_root_') >= 0 || file.indexOf('_scs_design_name_') >= 0) {
+						resolve({
+							files: [],
+							dirs: []
+						});
+					} else {
+						fsp.stat(file).then((stat) => {
+							if (stat.isDirectory()) {
+								_paths(file).then((results) => {
+									results.dirs.push(file);
+									resolve(results);
+								}).catch((error) => {
+									resolve({
+										files: [],
+										dirs: []
+									});
+								});
+							} else {
 								resolve({
-									files: [],
+									files: [file],
 									dirs: []
 								});
-							});
-						} else {
-							resolve({
-								files: [file],
-								dirs: []
-							});
-						}
-					});
+							}
+						});
+					}
 				});
 			})).then(function (results) {
 				resolve({

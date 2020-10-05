@@ -34,7 +34,7 @@
 
 # Pull base image
 # ---------------
-FROM container-registry.oracle.com/os/oraclelinux:latest as base
+FROM container-registry.oracle.com/os/oraclelinux:7.8 as base
 
 MAINTAINER  Oracle Corporation
 

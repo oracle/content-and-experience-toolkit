@@ -147,7 +147,7 @@ var getThemeActions = function () {
 };
 
 var getRepositoryActions = function () {
-	const actions = ['add-type', 'remove-type', 'add-channel', 'remove-channel'];
+	const actions = ['add-type', 'remove-type', 'add-channel', 'remove-channel', 'add-taxonomy', 'remove-taxonomy'];
 	return actions;
 };
 
@@ -521,7 +521,8 @@ const uploadTemplate = {
 		['cec upload-template StarterTemplate -f Import/Templates', 'Uploads file StarterTemplate.zip to folder Import/Templates and imports the template StarterTemplate.'],
 		['cec upload-template StarterTemplate -p', 'Publish the theme and all components in StarterTemplate.zip after import'],
 		['cec upload-template StarterTemplate -o', 'Optimizes and uploads the template StarterTemplate.'],
-		['cec upload-template StarterTemplate -x', 'Exclude the "Content Template" from the template upload. "Content Template" upload can be managed independently.']
+		['cec upload-template StarterTemplate -x', 'Exclude the "Content Template" from the template upload. "Content Template" upload can be managed independently.'],
+		['cec upload-template StarterTemplate -e', 'Exclude all components from the template upload. Components can be uploaded independently.']
 	]
 };
 
@@ -1461,6 +1462,23 @@ const migrateContent = {
 	]
 };
 
+const renameContentType = {
+	command: 'rename-content-type <name>',
+	alias: 'rct',
+	name: 'rename-content-type',
+	usage: {
+		'short': 'Renames content type in the local content.',
+		'long': (function () {
+			let desc = 'Renames content type with <newname> in local content. Optionally specify -t for the content in a local site template.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec rename-content-type Image -n My-Image -c blog1', 'Rename content type Image to My-Image in local content blog1'],
+		['cec rename-content-type Image -n My-Image -c blog1Temp -t', 'Rename content type Image to My-Image in local site template blog1Temp']
+	]
+};
+
 const createRepository = {
 	command: 'create-repository <name>',
 	alias: 'cr',
@@ -1487,19 +1505,22 @@ const controlRepository = {
 	alias: 'ctr',
 	name: 'control-repository',
 	usage: {
-		'short': 'Performs action <action> on repository on OCE server.',
+		'short': 'Performs action <action> on repositories on OCE server.',
 		'long': (function () {
-			let desc = 'Performs action <action> on repository on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Performs action <action> on repositories on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid actions are\n\n';
 			return getRepositoryActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
 	example: [
 		['cec control-repository add-type -r Repo1 -t Blog,Author'],
+		['cec control-repository add-type -r Repo1,Repo2 -t Blog,Author'],
 		['cec control-repository add-type -r Repo1 -t Blog,Author -s UAT'],
 		['cec control-repository remove-type -r Repo1 -t Blog,Author'],
 		['cec control-repository add-channel -r Repo1 -c channel1,channel2'],
-		['cec control-repository remove-channel -r Repo1 -c channel1,channel2']
+		['cec control-repository remove-channel -r Repo1 -c channel1,channel2'],
+		['cec control-repository add-taxonomy -r Repo1 -x Taxonomy1,Taxonomy2'],
+		['cec control-repository remove-taxonomy -r Repo1 -x Taxonomy1,Taxonomy2']
 	]
 };
 
@@ -1585,6 +1606,7 @@ const unshareType = {
 		['cec unshare-type BlogType -u user1,user2 -s UAT']
 	]
 };
+
 const createChannel = {
 	command: 'create-channel <name>',
 	alias: 'cch',
@@ -1604,6 +1626,43 @@ const createChannel = {
 		['cec create-channel channel1 -s UAT', 'On registered server UAT, reate public channel channel1 and everything can be published'],
 		['cec create-channel channel1 -l en-fr', 'Create public channel channel1 with localization policy en-fr and everything can be published'],
 		['cec create-channel channel1 -t secure -p onlyApproved', 'Create secure channel channel1 and only approved items can be published']
+	]
+};
+
+const shareChannel = {
+	command: 'share-channel <name>',
+	alias: 'sch',
+	name: 'share-channel',
+	usage: {
+		'short': 'Shares channel with users and groups on OCE server.',
+		'long': (function () {
+			let desc = 'Shares channel with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'The valid roles are\n\n';
+			return getResourceRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec share-channel Channel1 -u user1,user2 -r manager', 'Share channel Channel1 with user user1 and user2 and assign Manager role to them'],
+		['cec share-channel Channel1 -u user1,user2 -g group1,group2 -r manager', 'Share channel Channel1 with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
+		['cec share-channel Channel1 -u user1,user2 -r manager -s UAT', 'Share channel Channel1 with user user1 and user2 and assign Manager role to them on the registered server UAT']
+	]
+};
+
+const unshareChannel = {
+	command: 'unshare-channel <name>',
+	alias: 'usch',
+	name: 'unshare-channel',
+	usage: {
+		'short': 'Deletes user or group access to a channel on OCE server.',
+		'long': (function () {
+			let desc = 'Deletes user or group access to a channel on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec unshare-channel Channel1 -u user1,user2 '],
+		['cec unshare-channel Channel1 -u user1,user2 -g group1,group2'],
+		['cec unshare-channel Channel1 -u user1,user2 -s UAT']
 	]
 };
 
@@ -1846,7 +1905,7 @@ const registerTranslationConnector = {
 		})()
 	},
 	example: [
-		['cec register-translation-connector connector1-auto -c connector1 -s http://localhost:8084/connector/rest/api -u admin -p Welcome1 -f "BearerToken:Bearer token1,WorkflowId:machine-workflow-id"']
+		['cec register-translation-connector connector1-auto -c connector1 -s http://localhost:8084/connector/rest/api -u admin -p Welcome1 -f "BearerToken:Bearer token1,WorkflowId:machine-workflow-id,AdditionalData:{}"']
 	]
 };
 
@@ -2416,6 +2475,8 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(shareRepository) + os.EOL +
 	_getCmdHelp(unshareRepository) + os.EOL +
 	_getCmdHelp(createChannel) + os.EOL +
+	_getCmdHelp(shareChannel) + os.EOL +
+	_getCmdHelp(unshareChannel) + os.EOL +
 	_getCmdHelp(createLocalizationPolicy) + os.EOL +
 	_getCmdHelp(listServerContentTypes) + os.EOL +
 	_getCmdHelp(shareType) + os.EOL +
@@ -2946,6 +3007,10 @@ const argv = yargs.usage(_usage)
 					alias: 'x',
 					description: 'Exclude content template'
 				})
+				.option('excludecomponents', {
+					alias: 'e',
+					description: 'Exclude components'
+				})
 				.option('publish', {
 					alias: 'p',
 					description: 'Publish theme and components'
@@ -2956,6 +3021,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadTemplate.example[3])
 				.example(...uploadTemplate.example[4])
 				.example(...uploadTemplate.example[5])
+				.example(...uploadTemplate.example[6])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -4353,6 +4419,29 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${migrateContent.command}\n\n${migrateContent.usage.long}`);
 		})
+	.command([renameContentType.command, renameContentType.alias], false,
+		(yargs) => {
+			yargs.option('newname', {
+					alias: 'n',
+					description: 'The new name',
+					demandOption: true
+				})
+				.option('content', {
+					alias: 'c',
+					description: 'The local content or template',
+					demandOption: true
+				})
+				.option('template', {
+					alias: 't',
+					description: 'Flag to indicate the content is from template'
+				})
+				.example(...renameContentType.example[0])
+				.example(...renameContentType.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${renameContentType.command}\n\n${renameContentType.usage.long}`);
+		})
 	.command([createRepository.command, createRepository.alias], false,
 		(yargs) => {
 			yargs.option('description', {
@@ -4391,22 +4480,28 @@ const argv = yargs.usage(_usage)
 						throw new Error(`<contenttypes> is required for ${argv.action}`);
 					} else if ((argv.action === 'add-channel' || argv.action === 'remove-channel') && !argv.channels) {
 						throw new Error(`<channels> is required for ${argv.action}`);
+					} else if ((argv.action === 'add-taxonomy' || argv.action === 'remove-taxonomy') && !argv.taxonomies) {
+						throw new Error(`<taxonomies> is required for ${argv.action}`);
 					} else {
 						return true;
 					}
 				})
 				.option('repository', {
 					alias: 'r',
-					description: 'Repository',
+					description: 'The comma separated list of content repositories',
 					demandOption: true
 				})
 				.option('contenttypes', {
 					alias: 't',
-					description: 'The comma separated list of content types to add to the repository'
+					description: 'The comma separated list of content types'
 				})
 				.option('channels', {
 					alias: 'c',
-					description: 'The comma separated list of publishing channels to add to the repository'
+					description: 'The comma separated list of publishing channels'
+				})
+				.option('taxonomies', {
+					alias: 'x',
+					description: 'The comma separated list of promoted taxonomies'
 				})
 				.option('server', {
 					alias: 's',
@@ -4417,6 +4512,9 @@ const argv = yargs.usage(_usage)
 				.example(...controlRepository.example[2])
 				.example(...controlRepository.example[3])
 				.example(...controlRepository.example[4])
+				.example(...controlRepository.example[5])
+				.example(...controlRepository.example[6])
+				.example(...controlRepository.example[7])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -4611,6 +4709,70 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${createChannel.command}\n\n${createChannel.usage.long}`);
 		})
+	.command([shareChannel.command, shareChannel.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
+				})
+				.option('role', {
+					alias: 'r',
+					description: 'The role [' + getResourceRoles().join(' | ') + '] to assign to the users or groups',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered OCE server'
+				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					if (argv.role && !getResourceRoles().includes(argv.role)) {
+						throw new Error(`${argv.role} is not a valid value for <role>`);
+					}
+					return true;
+				})
+				.example(...shareChannel.example[0])
+				.example(...shareChannel.example[1])
+				.example(...shareChannel.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${shareChannel.command}\n\n${shareChannel.usage.long}`);
+		})
+	.command([unshareChannel.command, unshareChannel.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered OCE server'
+				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error('Please specify users or groups');
+					}
+					return true;
+				})
+				.example(...unshareChannel.example[0])
+				.example(...unshareChannel.example[1])
+				.example(...unshareChannel.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${unshareChannel.command}\n\n${unshareChannel.usage.long}`);
+		})
 	.command([createLocalizationPolicy.command, createLocalizationPolicy.alias], false,
 		(yargs) => {
 			yargs.option('requiredlanguages', {
@@ -4661,6 +4823,12 @@ const argv = yargs.usage(_usage)
 					alias: 'q',
 					description: 'Query to fetch the assets'
 				})
+				/*
+				.option('urls', {
+					alias: 'u',
+					description: 'Display asset URLs'
+				})
+				*/
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCE server'
@@ -5879,6 +6047,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.excludecontenttemplate) {
 		uploadTemplateArgs.push(...['--excludecontenttemplate', argv.excludecontenttemplate]);
 	}
+	if (argv.excludecomponents) {
+		uploadTemplateArgs.push(...['--excludecomponents', argv.excludecomponents]);
+	}
 	if (argv.publish) {
 		uploadTemplateArgs.push(...['--publish', argv.publish]);
 	}
@@ -6506,6 +6677,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.query) {
 		listAssetsArgs.push(...['--query', argv.query]);
 	}
+	if (argv.urls) {
+		listAssetsArgs.push(...['--urls', argv.urls]);
+	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, listAssetsArgs, {
 		cwd,
@@ -6970,6 +7144,22 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === renameContentType.name || argv._[0] === renameContentType.alias) {
+	let renameContentTypeArgs = ['run', '-s', renameContentType.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--newname', argv.newname,
+		'--content', argv.content
+	];
+	if (argv.template) {
+		renameContentTypeArgs.push(...['--template', argv.template]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, renameContentTypeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === createRepository.name || argv._[0] === createRepository.alias) {
 	let createRepositoryArgs = ['run', '-s', createRepository.name, '--prefix', appRoot,
 		'--',
@@ -7010,6 +7200,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.channels) {
 		controlRepositoryArgs.push(...['--channels', argv.channels]);
+	}
+	if (argv.taxonomies) {
+		controlRepositoryArgs.push(...['--taxonomies', argv.taxonomies]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlRepositoryArgs.push(...['--server', argv.server]);
@@ -7132,6 +7325,47 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		createChannelArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createChannelArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === shareChannel.name || argv._[0] === shareChannel.alias) {
+	let shareChannelArgs = ['run', '-s', shareChannel.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--role', argv.role
+	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		shareChannelArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		shareChannelArgs.push(...['--groups', argv.groups]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		shareChannelArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, shareChannelArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === unshareChannel.name || argv._[0] === unshareChannel.alias) {
+	let unshareChannelArgs = ['run', '-s', unshareChannel.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		unshareChannelArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		unshareChannelArgs.push(...['--groups', argv.groups]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		unshareChannelArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, unshareChannelArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

@@ -307,84 +307,35 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 		}
 		server.login = true;
 
-		var sitePromise = server.useRest ? sitesRest.getSite({
+		var sitePromise = sitesRest.getSite({
 			server: server,
 			name: siteName,
 			expand: 'ownedBy,repository,channel'
-		}) : serverUtils.browseSitesOnServer(request, server, '', siteName);
+		});
 		sitePromise.then(function (result) {
-				if (server.useRest) {
-					if (result.err) {
-						return Promise.reject();
-					}
-					site = result;
-					// console.log(site);
-					site.fFolderGUID = site.id;
-
-					sitejson.id = site.id;
-					sitejson.name = site.name;
-					sitejson.type = site.isEnterprise ? 'Enterprise' : 'Standard';
-					sitejson.slug = site.sitePrefix;
-					sitejson.defaultLanguage = site.defaultLanguage;
-					sitejson.siteTemplate = site.templateName;
-					sitejson.theme = site.themeName;
-					sitejson.owner = site.ownedBy && site.ownedBy.userName;
-
-					templateName = site.templateName;
-					themeName = site.themeName;
-					repositoryId = site.repository && site.repository.id;
-					channelId = site.channel && site.channel.id;
-
-					isEnterprise = site.isEnterprise;
-				} else {
-					var sites = result.data || [];
-					for (var i = 0; i < sites.length; i++) {
-						if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-							site = sites[i];
-							break;
-						}
-					}
-
-					if (!site || !site.fFolderGUID) {
-						console.log('ERROR: site ' + siteName + ' does not exist');
-						return Promise.reject();
-					}
-
-					// console.log(site);
-					sitejson.id = site.fFolderGUID;
-					sitejson.name = site.fFolderName;
-					sitejson.type = site.xScsIsEnterprise === '1' ? 'Enterprise' : 'Standard';
-					sitejson.slug = site.xScsSlugPrefix;
-					sitejson.defaultLanguage = site.xScsSiteDefaultLanguage;
-					sitejson.siteTemplate = site.xScsSiteTemplate;
-					sitejson.owner = site.fCreatorFullName;
-
-					templateName = site.xScsSiteTemplate;
-
-					isEnterprise = site.xScsIsEnterprise === '1';
+				if (result.err) {
+					return Promise.reject();
 				}
-				var siteInfoPromises = [];
-				if (!server.useRest) {
-					siteInfoPromises.push(serverUtils.getSiteInfoWithToken(server, siteName));
-				}
+				site = result;
+				// console.log(site);
+				site.fFolderGUID = site.id;
 
-				return Promise.all(siteInfoPromises);
-			})
-			.then(function (results) {
-				if (!server.useRest) {
-					if (!results || results.length < 1 || results[0].err) {
-						return Promise.reject();
-					}
+				sitejson.id = site.id;
+				sitejson.name = site.name;
+				sitejson.type = site.isEnterprise ? 'Enterprise' : 'Standard';
+				sitejson.slug = site.sitePrefix;
+				sitejson.defaultLanguage = site.defaultLanguage;
+				sitejson.siteTemplate = site.templateName;
+				sitejson.theme = site.themeName;
+				sitejson.owner = site.ownedBy && site.ownedBy.userName;
 
-					siteInfo = results[0] && results[0].siteInfo;
-					// console.log(siteInfo);
-					if (siteInfo) {
-						sitejson.theme = siteInfo.themeName;
-						themeName = siteInfo.themeName;
-						repositoryId = siteInfo.repositoryId;
-						channelId = siteInfo.channelId;
-					}
-				}
+				templateName = site.templateName;
+				themeName = site.themeName;
+				repositoryId = site.repository && site.repository.id;
+				channelId = site.channel && site.channel.id;
+
+				isEnterprise = site.isEnterprise;
+
 				console.log(' - query site');
 
 				return serverRest.getFolderUsers({
@@ -396,42 +347,23 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				sitejson.members = result && result.data || [];
 				console.log(' - query site members');
 
-				var templatePromise = server.useRest ? sitesRest.getTemplate({
+				var templatePromise = sitesRest.getTemplate({
 					server: server,
 					name: templateName,
 					expand: 'ownedBy'
-				}) : serverUtils.browseSitesOnServer(request, server, 'framework.site.template', templateName);
+				});
 
 				return templatePromise;
 			})
 			.then(function (result) {
-				if (server.useRest) {
-					if (result && !result.err) {
-						template = result;
-						template.fFolderGUID = template.id;
-						templatejson.id = template.id;
-						templatejson.name = template.name;
-						templatejson.owner = template.ownedBy && template.ownedBy.userName;
-					}
-				} else {
-					//
-					// list templates
-					//
-					console.log(' - query site template');
-
-					var templates = result.data || [];
-
-					for (var i = 0; i < templates.length; i++) {
-						var temp = templates[i];
-						if (temp.fFolderName.toLowerCase() === templateName.toLowerCase()) {
-							template = temp;
-							templatejson.id = temp.fFolderGUID;
-							templatejson.name = temp.fFolderName;
-							templatejson.owner = temp.fCreatorFullName;
-							break;
-						}
-					}
+				if (result && !result.err) {
+					template = result;
+					template.fFolderGUID = template.id;
+					templatejson.id = template.id;
+					templatejson.name = template.name;
+					templatejson.owner = template.ownedBy && template.ownedBy.userName;
 				}
+
 				var tempUserPromises = [];
 				if (template) {
 					tempUserPromises.push(
@@ -452,42 +384,24 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 
 				var params = 'doBrowseStarterThemes=1';
 
-				var themePromise = server.useRest ? sitesRest.getTheme({
+				var themePromise = sitesRest.getTheme({
 					server: server,
 					name: themeName,
 					expand: 'ownedBy'
-				}) : serverUtils.browseThemesOnServer(request, server, params);
+				});
 
 				return themePromise;
 
 			})
 			.then(function (result) {
-				if (server.useRest) {
-					if (result && !result.err) {
-						theme = result;
-						theme.fFolderGUID = template.id;
-						themejson.id = theme.id;
-						themejson.name = theme.name;
-						themejson.owner = theme.ownedBy && theme.ownedBy.userName;
-					}
-				} else {
-					//
-					// list themes
-					//
-					console.log(' - query theme');
-					var themes = result.data || [];
-
-					for (var i = 0; i < themes.length; i++) {
-						if (themes[i].fFolderName.toLowerCase() === themeName.toLowerCase()) {
-							theme = themes[i];
-							// console.log(theme);
-							themejson.id = theme.fFolderGUID;
-							themejson.name = theme.fFolderName;
-							themejson.owner = theme.fCreatorFullName;
-							break;
-						}
-					}
+				if (result && !result.err) {
+					theme = result;
+					theme.fFolderGUID = template.id;
+					themejson.id = theme.id;
+					themejson.name = theme.name;
+					themejson.owner = theme.ownedBy && theme.ownedBy.userName;
 				}
+
 				return serverRest.getFolderUsers({
 					server: server,
 					id: theme.fFolderGUID
@@ -761,14 +675,10 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 
 				var compPromises = [];
 				if (compNames.length > 0) {
-					if (server.useRest) {
-						compPromises.push(sitesRest.getComponents({
-							server: server,
-							expand: 'ownedBy'
-						}));
-					} else {
-						compPromises.push(serverUtils.browseComponentsOnServer(request, server));
-					}
+					compPromises.push(sitesRest.getComponents({
+						server: server,
+						expand: 'ownedBy'
+					}));
 				}
 
 				return Promise.all(compPromises);
@@ -776,58 +686,29 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			})
 			.then(function (results) {
 				console.log(' - query components');
-				if (server.useRest) {
-					allComponents = results.length > 0 && results[0] ? results[0] : [];
-					if (allComponents.length > 0 && compNames.length > 0) {
-						for (var j = 0; j < compNames.length; j++) {
-							var comp = undefined;
-							for (var k = 0; k < allComponents.length; k++) {
+				allComponents = results.length > 0 && results[0] ? results[0] : [];
+				if (allComponents.length > 0 && compNames.length > 0) {
+					for (var j = 0; j < compNames.length; j++) {
+						var comp = undefined;
+						for (var k = 0; k < allComponents.length; k++) {
 
-								if (compNames[j].toLowerCase() === allComponents[k].name.toLowerCase()) {
-									comp = allComponents[k];
-									var id = allComponents[k].id;
-									if (!compIds.includes(id)) {
-										compIds.push(id);
-									}
-									break;
+							if (compNames[j].toLowerCase() === allComponents[k].name.toLowerCase()) {
+								comp = allComponents[k];
+								var id = allComponents[k].id;
+								if (!compIds.includes(id)) {
+									compIds.push(id);
 								}
-							}
-							pageComponents.push({
-								name: compNames[j],
-								id: comp ? comp.id : '',
-								owner: comp ? comp.fCreatorFullName : '',
-								members: []
-							});
-							if (!comp) {
-								issues.push('Component \'' + compNames[j] + '\' does not exist or user ' + server.username + ' has no access');
+								break;
 							}
 						}
-					}
-				} else {
-					allComponents = results.length > 0 && results[0] ? results[0].data : [];
-					if (allComponents.length > 0 && compNames.length > 0) {
-						for (var j = 0; j < compNames.length; j++) {
-							var comp = undefined;
-							for (var k = 0; k < allComponents.length; k++) {
-
-								if (compNames[j].toLowerCase() === allComponents[k].fFolderName.toLowerCase()) {
-									comp = allComponents[k];
-									var id = allComponents[k].fFolderGUID;
-									if (!compIds.includes(id)) {
-										compIds.push(id);
-									}
-									break;
-								}
-							}
-							pageComponents.push({
-								name: compNames[j],
-								id: comp ? comp.fFolderGUID : '',
-								owner: comp ? (comp.ownedBy && comp.ownedBy.userName) : '',
-								members: []
-							});
-							if (!comp) {
-								issues.push('Component \'' + compNames[j] + '\' does not exist or user ' + server.username + ' has no access');
-							}
+						pageComponents.push({
+							name: compNames[j],
+							id: comp ? comp.id : '',
+							owner: comp ? comp.fCreatorFullName : '',
+							members: []
+						});
+						if (!comp) {
+							issues.push('Component \'' + compNames[j] + '\' does not exist or user ' + server.username + ' has no access');
 						}
 					}
 				}
@@ -3122,60 +3003,42 @@ module.exports.createAssetUsageReport = function (argv, done) {
 					items[i].channels = itemChannels;
 				}
 
-				return serverUtils.browseSitesOnServer(request, server);
+				return sitesRest.getSites({
+					server: server,
+					expand: 'template,theme,channel'
+				});
 
 			})
 			.then(function (result) {
-
-				sites = result.data || [];
-
-				var siteInfoPromises = [];
-				for (var i = 0; i < sites.length; i++) {
-					siteInfoPromises.push(serverUtils.getSiteInfoWithToken(server, sites[i].fFolderName));
+				if (result && !result.err) {
+					sites = result || [];
 				}
-
-				return Promise.all(siteInfoPromises);
-
-			})
-			.then(function (results) {
-				var info = results || [];
-				var i, j;
-				for (i = 0; i < info.length; i++) {
-					for (j = 0; j < sites.length; j++) {
-						if (sites[j].fFolderName === info[i].siteInfo.siteName) {
-							var siteInfo = info[i].siteInfo;
-							siteInfo.id = sites[i].fFolderGUID;
-							siteInfo.siteTemplate = sites[i].xScsSiteTemplate;
-							sitesInfo.push(siteInfo);
-						}
-					}
-				}
-
+		
 				var siteIds = [];
-				for (i = 0; i < items.length; i++) {
+				for (var i = 0; i < items.length; i++) {
 					items[i].sites = [];
 					var itemSiteIds = [];
-					for (j = 0; j < items[i].channels.length; j++) {
+					for (var j = 0; j < items[i].channels.length; j++) {
 						if (items[i].channels[j].isSiteChannel) {
-							for (var k = 0; k < sitesInfo.length; k++) {
-								if (items[i].channels[j].id === sitesInfo[k].channelId) {
-									if (!siteIds.includes(sitesInfo[k].id)) {
-										siteIds.push(sitesInfo[k].id);
+							for (var k = 0; k < sites.length; k++) {
+								if (sites[k].channel && items[i].channels[j].id === sites[k].channel.id) {
+									if (!siteIds.includes(sites[k].id)) {
+										siteIds.push(sites[k].id);
 									}
-									if (!itemSiteIds.includes(sitesInfo[k].id)) {
+									if (!itemSiteIds.includes(sites[k].id)) {
 										var site = {
-											id: sitesInfo[k].id,
-											name: sitesInfo[k].siteName,
-											template: sitesInfo[k].siteTemplate,
-											theme: sitesInfo[k].themeName,
-											channelId: sitesInfo[k].channelId
+											id: sites[k].id,
+											name: sites[k].name,
+											template: sites[k].templateName,
+											theme: sites[k].themeName,
+											channelId: sites[k].channel.id
 										};
 										items[i].sites.push(site);
-										itemSiteIds.push(sitesInfo[k].id);
+										itemSiteIds.push(sites[k].id);
 									}
 								}
-							}
-						}
+							} // site channels
+						} // item's channels
 					}
 					// console.log(' - item ' + items[i].name + ' sites: ' + itemSiteIds);
 				}
@@ -3275,6 +3138,9 @@ module.exports.createAssetUsageReport = function (argv, done) {
 				done(true);
 			})
 			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
 				done();
 			});
 	});

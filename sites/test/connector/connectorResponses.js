@@ -5,7 +5,7 @@ var mustache = require('mustache');
 
 var responses = {
         "GET": {
-            "/v1/server": {
+            "/v1.1/server": {
               "name": "OCE Site Compilation",
               "nameLocalizations": [
                 {
@@ -24,10 +24,11 @@ var responses = {
               ],
               "authenticationType": "{{authenticationType}}",
             },
-            "/v1/job/{{jobId}}": {
+            "/v1.1/job/{{jobId}}": {
               "id": "{{jobId}}",
               "name": "{{name}}",
               "siteName": "{{siteName}}",
+              "compileOnly": "{{compileOnly}}",
               "publishUsedContentOnly": "{{publishUsedContentOnly}}",
               "doForceActivate": "{{doForceActivate}}",
               "serverEndpoint": "{{{serverEndpoint}}}",
@@ -45,10 +46,11 @@ var responses = {
             }
         },
         "POST": {
-            "/v1/job": {
+            "/v1.1/job": {
               "id": "{{jobId}}",
               "name": "{{name}}",
               "siteName": "{{siteName}}",
+              "compileOnly": "{{compileOnly}}",
               "publishUsedContentOnly": "{{publishUsedContentOnly}}",
               "doForceActivate": "{{doForceActivate}}",
               "serverEndpoint": "{{{serverEndpoint}}}",
@@ -58,10 +60,11 @@ var responses = {
               "status": "{{status}}",
               "progress": "{{progress}}"
             },
-            "/v1/job/{{jobId}}": {
+            "/v1.1/job/{{jobId}}": {
               "id": "{{jobId}}",
               "name": "{{name}}",
               "siteName": "{{siteName}}",
+              "compileOnly": "{{compileOnly}}",
               "publishUsedContentOnly": "{{publishUsedContentOnly}}",
               "doForceActivate": "{{doForceActivate}}",
               "serverEndpoint": "{{{serverEndpoint}}}",
@@ -71,7 +74,7 @@ var responses = {
               "status": "{{status}}",
               "progress": "{{progress}}"
             },
-            "/v1/job/{{jobId}}/compile/queued": {
+            "/v1.1/job/{{jobId}}/compile/queued": {
                 "id": "{{jobId}}",
                 "messageCode": "COMPILEQUEUED",
                 "message": "Compile request queued"
@@ -82,7 +85,7 @@ var responses = {
             }
         },
         "DELETE": {
-          "/v1/job/{{jobId}}": {
+          "/v1.1/job/{{jobId}}": {
             "id": "{{jobId}}",
             "messageCode": "DELETED",
             "message": "Job {{jobId}} deleted"
@@ -103,7 +106,11 @@ ConnectorResponses.prototype.formatResponse = function (callType, url, model) {
 
     var responses = JSON.parse(filledResponses)[callType.toUpperCase()];
 
-    response = responses[url];
+    // backwards compatibility
+    // convert v1 urls to v1.1 - no current overrides
+    var versionUrl = url.replace('/v1/', '/v1.1/');
+
+    response = responses[versionUrl];
   } catch(e) {
     console.log('e');
   }

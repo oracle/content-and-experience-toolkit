@@ -52,7 +52,7 @@ module.exports.createRepository = function (argv, done) {
 	var channels = [];
 	var contentTypes = [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -177,15 +177,21 @@ module.exports.controlRepository = function (argv, done) {
 
 	var action = argv.action;
 	var name = argv.repository;
-
+	var repoNames = argv.repository ? argv.repository.split(',') : [];
 	var typeNames = argv.contenttypes ? argv.contenttypes.split(',') : [];
 	var channelNames = argv.channels ? argv.channels.split(',') : [];
+	var taxNames = argv.taxonomies ? argv.taxonomies.split(',') : [];
 
-	var repository;
+	var allRepos = [];
+	var allRepoNames = [];
 	var channels = [];
 	var types = [];
+	var taxonomies = [];
+	var finalTypeNames = [];
+	var finaleChannelNames = [];
+	var finalTaxNames = [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -201,17 +207,24 @@ module.exports.controlRepository = function (argv, done) {
 				}
 				// get repositories
 				var repositories = result || [];
-				for (var i = 0; i < repositories.length; i++) {
-					if (name.toLowerCase() === repositories[i].name.toLowerCase()) {
-						repository = repositories[i];
-						break;
+				repoNames.forEach(function (name) {
+					var found = false;
+					for (var i = 0; i < repositories.length; i++) {
+						if (name.toLowerCase() === repositories[i].name.toLowerCase()) {
+							allRepos.push(repositories[i]);
+							allRepoNames.push(name);
+							found = true;
+							break;
+						}
 					}
-				}
-				if (!repository) {
-					console.log('ERROR: repository ' + name + ' does not exist');
+					if (!found) {
+						console.log('ERROR: repository ' + name + ' does not exist');
+					}
+				});
+				if (allRepos.length === 0) {
 					return Promise.reject();
 				}
-				console.log(' - verify repository');
+				console.log(' - verify ' + (allRepos.length === 1 ? 'repository' : 'repositories'));
 
 				var typePromises = [];
 				for (var i = 0; i < typeNames.length; i++) {
@@ -219,20 +232,29 @@ module.exports.controlRepository = function (argv, done) {
 						server: server,
 						name: typeNames[i]
 					}));
-					types.push({
-						name: typeNames[i]
-					});
 				}
 
 				return Promise.all(typePromises);
 			})
 			.then(function (results) {
-				for (var i = 0; i < results.length; i++) {
-					if (results[i].err) {
-						return Promise.reject();
+				var allTypes = results || [];
+				for (var i = 0; i < typeNames.length; i++) {
+					for (var j = 0; j < allTypes.length; j++) {
+						if (allTypes[j].name && typeNames[i].toLowerCase() === allTypes[j].name.toLowerCase()) {
+							types.push({
+								name: allTypes[j].name
+							});
+							finalTypeNames.push(typeNames[i]);
+							break;
+						}
 					}
 				}
+				// console.log(types);
+
 				if (typeNames.length > 0) {
+					if (types.length === 0) {
+						return Promise.reject();
+					}
 					console.log(' - verify content types');
 				}
 
@@ -257,78 +279,181 @@ module.exports.controlRepository = function (argv, done) {
 								id: allChannels[j].id,
 								name: allChannels[j].name
 							});
+							finaleChannelNames.push(channelNames[i]);
 							break;
 						}
 					}
 					if (!found) {
 						console.log('ERROR: channel ' + channelNames[i] + ' does not exist');
-						return Promise.reject();
 					}
 				}
 				if (channelNames.length > 0) {
+					if (channels.length === 0) {
+						return Promise.reject();
+					}
 					console.log(' - verify channels');
 				}
 
-				var finalTypes = repository.contentTypes;
-				var finalChannels = repository.channels;
-				if (action === 'add-type') {
-					finalTypes = finalTypes.concat(types);
-				} else if (action === 'remove-type') {
-					for (var i = 0; i < typeNames.length; i++) {
-						var idx = undefined;
-						for (var j = 0; j < finalTypes.length; j++) {
-							if (typeNames[i].toLowerCase() === finalTypes[j].name.toLowerCase()) {
-								idx = j;
-								break;
-							}
-						}
-						if (idx !== undefined) {
-							finalTypes.splice(idx, 1);
-						}
-					}
-				} else if (action === 'add-channel') {
-					finalChannels = finalChannels.concat(channels);
-				} else if (action === 'remove-channel') {
-					for (var i = 0; i < channels.length; i++) {
-						var idx = undefined;
-						for (var j = 0; j < finalChannels.length; j++) {
-							if (channels[i].id === finalChannels[j].id) {
-								idx = j;
-								break;
-							}
-						}
-						if (idx !== undefined) {
-							finalChannels.splice(idx, 1);
-						}
-					}
+				// get taxonomies
+				var taxPromises = [];
+				if (taxNames.length > 0) {
+					taxPromises.push(serverRest.getTaxonomies({
+						server: server
+					}));
 				}
 
-				return serverRest.updateRepository({
-					server: server,
-					repository: repository,
-					contentTypes: finalTypes,
-					channels: finalChannels
-				});
+				return Promise.all(taxPromises);
 			})
-			.then(function (result) {
-				if (result.err) {
+			.then(function (results) {
+				var allTaxonomies = results.length > 0 ? results[0] : [];
+				for (var i = 0; i < taxNames.length; i++) {
+					var found = false;
+					var foundPromoted = false;
+					for (var j = 0; j < allTaxonomies.length; j++) {
+						if (taxNames[i].toLowerCase() === allTaxonomies[j].name.toLowerCase()) {
+							found = true;
+							var availableStates = allTaxonomies[j].availableStates || [];
+							availableStates.forEach(function (state) {
+								if (state.status === 'promoted') {
+									foundPromoted = true;
+								}
+							});
+
+							if (foundPromoted) {
+								taxonomies.push({
+									id: allTaxonomies[j].id,
+									name: allTaxonomies[j].name,
+									shortName: allTaxonomies[j].shortName
+								});
+								finalTaxNames.push(taxNames[i]);
+							}
+							break;
+						}
+					}
+					if (!found) {
+						console.log('ERROR: taxonomy ' + taxNames[i] + ' does not exist');
+						// return Promise.reject();
+					} else if (!foundPromoted) {
+						console.log('ERROR: taxonomy ' + taxNames[i] + ' does not have promoted version');
+						// return Promise.reject();
+					}
+				}
+				if (finalTaxNames.length > 0) {
+					console.log(' - verify ' + (finalTaxNames.length > 1 ? 'taxonomies' : 'taxonomy'));
+				} else if (taxNames.length > 0) {
 					return Promise.reject();
 				}
-				if (action === 'add-type') {
-					console.log(' - added type ' + typeNames + ' to repository ' + name);
-				} else if (action === 'remove-type') {
-					console.log(' - removed type ' + typeNames + ' from repository ' + name);
-				} else if (action === 'add-channel') {
-					console.log(' - added channel ' + channelNames + ' to repository ' + name);
-				} else if (action === 'remove-channel') {
-					console.log(' - removed channel ' + channelNames + ' from repository ' + name);
-				}
+
+				return _controlRepositories(server, allRepos, action, types, finalTypeNames,
+					channels, finaleChannelNames, taxonomies, finalTaxNames);
+
+			})
+			.then(function (result) {
 
 				done(true);
 			})
 			.catch((error) => {
 				done();
 			});
+	});
+};
+
+var _controlRepositories = function (server, repositories, action, types, typeNames,
+	channels, channelNames, taxonomies, taxonomyNames) {
+	return new Promise(function (resolve, reject) {
+		var startTime;
+		var doUpdateRepos = repositories.reduce(function (updatePromise, repository) {
+				var name = repository.name;
+
+				return updatePromise.then(function (result) {
+					var finalTypes = repository.contentTypes;
+					var finalChannels = repository.channels;
+					var finalTaxonomies = repository.taxonomies;
+					var idx;
+
+					if (action === 'add-type') {
+						finalTypes = finalTypes.concat(types);
+					} else if (action === 'remove-type') {
+						for (var i = 0; i < typeNames.length; i++) {
+							idx = undefined;
+							for (var j = 0; j < finalTypes.length; j++) {
+								if (typeNames[i].toLowerCase() === finalTypes[j].name.toLowerCase()) {
+									idx = j;
+									break;
+								}
+							}
+							if (idx !== undefined) {
+								finalTypes.splice(idx, 1);
+							}
+						}
+					} else if (action === 'add-channel') {
+						finalChannels = finalChannels.concat(channels);
+					} else if (action === 'remove-channel') {
+						for (var i = 0; i < channels.length; i++) {
+							idx = undefined;
+							for (var j = 0; j < finalChannels.length; j++) {
+								if (channels[i].id === finalChannels[j].id) {
+									idx = j;
+									break;
+								}
+							}
+							if (idx !== undefined) {
+								finalChannels.splice(idx, 1);
+							}
+						}
+					} else if (action === 'add-taxonomy') {
+
+						finalTaxonomies = finalTaxonomies.concat(taxonomies);
+
+					} else if (action === 'remove-taxonomy') {
+						for (var i = 0; i < taxonomies.length; i++) {
+							idx = undefined;
+							for (var j = 0; j < finalTaxonomies.length; j++) {
+								if (taxonomies[i].id === finalTaxonomies[j].id) {
+									idx = j;
+									break;
+								}
+							}
+							if (idx !== undefined) {
+								finalTaxonomies.splice(idx, 1);
+							}
+						}
+					}
+
+					serverRest.updateRepository({
+						server: server,
+						repository: repository,
+						contentTypes: finalTypes,
+						channels: finalChannels,
+						taxonomies: finalTaxonomies
+					}).then(function (result) {
+						if (result.err) {
+
+						} else {
+							if (action === 'add-type') {
+								console.log(' - added type ' + typeNames + ' to repository ' + name);
+							} else if (action === 'remove-type') {
+								console.log(' - removed type ' + typeNames + ' from repository ' + name);
+							} else if (action === 'add-channel') {
+								console.log(' - added channel ' + channelNames + ' to repository ' + name);
+							} else if (action === 'remove-channel') {
+								console.log(' - removed channel ' + channelNames + ' from repository ' + name);
+							} else if (action === 'add-taxonomy') {
+								console.log(' - added taxonomy ' + taxonomyNames + ' to repository ' + name);
+							} else if (action === 'remove-taxonomy') {
+								console.log(' - removed taxonomy ' + taxonomyNames + ' from repository ' + name);
+							}
+						}
+					});
+
+				});
+			},
+			Promise.resolve({})
+		);
+
+		doUpdateRepos.then(function (result) {
+			resolve(result);
+		});
 	});
 };
 
@@ -365,7 +490,7 @@ module.exports.shareRepository = function (argv, done) {
 	var usersToGrant = [];
 	var groupsToGrant = [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -715,7 +840,7 @@ module.exports.unShareRepository = function (argv, done) {
 	var goodGroupNames = [];
 	var typeNames = [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -936,7 +1061,7 @@ module.exports.shareType = function (argv, done) {
 	var goodUserName = [];
 	var goodGroupNames = [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1054,7 +1179,7 @@ module.exports.shareType = function (argv, done) {
 						}
 					}
 					if (groupGranted) {
-						console.log(' - group ' + groups[i].name + ' already granted with role ' + role + ' on repository ' + name);
+						console.log(' - group ' + groups[i].name + ' already granted with role ' + role + ' on type ' + name);
 					} else {
 						groupsToGrant.push(groups[i]);
 						goodGroupNames.push(groups[i].name);
@@ -1072,7 +1197,7 @@ module.exports.shareType = function (argv, done) {
 						}
 					}
 					if (granted) {
-						console.log(' - user ' + users[i].loginName + ' already granted with role ' + role + ' on repository ' + name);
+						console.log(' - user ' + users[i].loginName + ' already granted with role ' + role + ' on type ' + name);
 					} else {
 						usersToGrant.push(users[i]);
 						goodUserName.push(users[i].loginName);
@@ -1134,7 +1259,7 @@ module.exports.unshareType = function (argv, done) {
 	var goodUserName = [];
 	var goodGroupNames = [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1280,7 +1405,7 @@ module.exports.createChannel = function (argv, done) {
 
 	var localizationId;
 
-	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1351,6 +1476,374 @@ module.exports.createChannel = function (argv, done) {
 	});
 };
 
+module.exports.shareChannel = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	console.log(' - server: ' + server.url);
+
+	var name = argv.name;
+	var userNames = argv.users ? argv.users.split(',') : [];
+	var groupNames = argv.groups ? argv.groups.split(',') : [];
+	var role = argv.role;
+
+	var channel;
+	var users = [];
+	var groups = [];
+	var goodUserName = [];
+	var goodGroupNames = [];
+
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		serverRest.getChannelWithName({
+				server: server,
+				name: name
+			}).then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				} else if (!result.data) {
+					console.log('ERROR: channel ' + name + ' not found');
+					return Promise.reject();
+				}
+				channel = result.data;
+
+				if (channel.isSiteChannel) {
+					console.log('ERROR: channel ' + name + ' is a site channel');
+					return Promise.reject();
+				}
+
+				console.log(' - verify channel');
+
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+
+			})
+			.then(function (result) {
+
+				if (groupNames.length > 0) {
+					console.log(' - verify groups');
+
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+				}
+
+				var usersPromises = [];
+				for (var i = 0; i < userNames.length; i++) {
+					usersPromises.push(serverRest.getUser({
+						server: server,
+						name: userNames[i]
+					}));
+				}
+
+				return Promise.all(usersPromises);
+			})
+			.then(function (results) {
+				var allUsers = [];
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].items) {
+						allUsers = allUsers.concat(results[i].items);
+					}
+				}
+				if (userNames.length > 0) {
+					console.log(' - verify users');
+				}
+
+				// verify users
+				for (var k = 0; k < userNames.length; k++) {
+					var found = false;
+					for (var i = 0; i < allUsers.length; i++) {
+						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+							users.push(allUsers[i]);
+							found = true;
+							break;
+						}
+						if (found) {
+							break;
+						}
+					}
+					if (!found) {
+						console.log('ERROR: user ' + userNames[k] + ' does not exist');
+					}
+				}
+
+				if (users.length === 0 && groups.length === 0) {
+					return Promise.reject();
+				}
+
+				return serverRest.getResourcePermissions({
+					server: server,
+					id: channel.id,
+					type: 'channel'
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var existingPermissions = result && result.permissions || [];
+				var i, j;
+				var groupsToGrant = [];
+				for (i = 0; i < groups.length; i++) {
+					var groupGranted = false;
+					for (j = 0; j < existingPermissions.length; j++) {
+						var perm = existingPermissions[j];
+						if (perm.roleName === role && perm.type === 'group' &&
+							perm.groupType === groups[i].groupOriginType && perm.fullName === groups[i].name) {
+							groupGranted = true;
+							break;
+						}
+					}
+					if (groupGranted) {
+						console.log(' - group ' + groups[i].name + ' already granted with role ' + role + ' on channel' + name);
+					} else {
+						groupsToGrant.push(groups[i]);
+						goodGroupNames.push(groups[i].name);
+					}
+				}
+
+				var usersToGrant = [];
+				for (i = 0; i < users.length; i++) {
+					var granted = false;
+					for (j = 0; j < existingPermissions.length; j++) {
+						var perm = existingPermissions[j];
+						if (perm.roleName === role && perm.type === 'user' && perm.id === users[i].loginName) {
+							granted = true;
+							break;
+						}
+					}
+					if (granted) {
+						console.log(' - user ' + users[i].loginName + ' already granted with role ' + role + ' on channel ' + name);
+					} else {
+						usersToGrant.push(users[i]);
+						goodUserName.push(users[i].loginName);
+					}
+				}
+
+				return serverRest.performPermissionOperation({
+					server: server,
+					operation: 'share',
+					resourceId: channel.id,
+					resourceType: 'channel',
+					role: role,
+					users: usersToGrant,
+					groups: groupsToGrant
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+				if (goodUserName.length > 0) {
+					console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on channel ' + name);
+				}
+				if (goodGroupNames.length > 0) {
+					console.log(' - group ' + (goodGroupNames.join(', ')) + ' granted with role ' + role + ' on channel ' + name);
+				}
+				done(true);
+			})
+			.catch((error) => {
+				done();
+			});
+	});
+};
+
+module.exports.unshareChannel = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	console.log(' - server: ' + server.url);
+
+	var name = argv.name;
+	var userNames = argv.users ? argv.users.split(',') : [];
+	var groupNames = argv.groups ? argv.groups.split(',') : [];
+	var channel;
+	var users = [];
+	var groups = [];
+	var goodUserName = [];
+	var goodGroupNames = [];
+
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		serverRest.getChannelWithName({
+				server: server,
+				name: name
+			}).then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				} else if (!result.data) {
+					console.log('ERROR: channel ' + name + ' not found');
+					return Promise.reject();
+				}
+				channel = result.data;
+
+				if (channel.isSiteChannel) {
+					console.log('ERROR: channel ' + name + ' is a site channel');
+					return Promise.reject();
+				}
+
+				console.log(' - verify channel');
+
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+
+			})
+			.then(function (result) {
+
+				if (groupNames.length > 0) {
+					console.log(' - verify groups');
+
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								groups.push(allGroups[j]);
+								goodGroupNames.push(groupNames[i]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+				}
+
+				var usersPromises = [];
+				for (var i = 0; i < userNames.length; i++) {
+					usersPromises.push(serverRest.getUser({
+						server: server,
+						name: userNames[i]
+					}));
+				}
+
+				return Promise.all(usersPromises);
+			})
+			.then(function (results) {
+				var allUsers = [];
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].items) {
+						allUsers = allUsers.concat(results[i].items);
+					}
+				}
+				if (userNames.length > 0) {
+					console.log(' - verify users');
+				}
+
+				// verify users
+				for (var k = 0; k < userNames.length; k++) {
+					var found = false;
+					for (var i = 0; i < allUsers.length; i++) {
+						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+							users.push(allUsers[i]);
+							goodUserName.push(userNames[k]);
+							found = true;
+							break;
+						}
+						if (found) {
+							break;
+						}
+					}
+					if (!found) {
+						console.log('ERROR: user ' + userNames[k] + ' does not exist');
+					}
+				}
+
+				if (users.length === 0 && groups.length === 0) {
+					return Promise.reject();
+				}
+
+				return serverRest.performPermissionOperation({
+					server: server,
+					operation: 'unshare',
+					resourceId: channel.id,
+					resourceType: 'channel',
+					users: users,
+					groups: groups
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				if (goodUserName.length > 0) {
+					console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to type ' + name + ' removed');
+				}
+				if (goodGroupNames.length > 0) {
+					console.log(' - the access of group ' + (goodGroupNames.join(', ')) + ' to type ' + name + ' removed');
+				}
+				done(true);
+			})
+			.catch((error) => {
+				done();
+			});
+	});
+};
+
 
 module.exports.createLocalizationPolicy = function (argv, done) {
 	'use strict';
@@ -1374,7 +1867,7 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 	var defaultLanguage = argv.defaultlanguage;
 	var optionalLanguages = argv.optionallanguages ? argv.optionallanguages.split(',') : [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1451,9 +1944,11 @@ module.exports.listAssets = function (argv, done) {
 	}
 
 	var total;
-	var repository, collection, channel;
+	var repository, collection, channel, channelToken;
 
-	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+	var showURLS = typeof argv.urls === 'boolean' ? argv.urls : argv.urls === 'true';
+
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1521,7 +2016,24 @@ module.exports.listAssets = function (argv, done) {
 						return Promise.reject();
 					}
 					channel = results[0].data;
-					console.log(' - validate channel (Id: ' + channel.id + ')');
+
+					var token;
+					var tokens = channel.channelTokens;
+					if (tokens && tokens.length === 1) {
+						token = tokens[0].token;
+					} else if (tokens && tokens.length > 0) {
+						for (var j = 0; j < tokens.length; j++) {
+							if (tokens[j].name === 'defaultToken') {
+								token = tokens[j].token;
+								break;
+							}
+						}
+						if (!token) {
+							token = tokens[0].channelToken;
+						}
+					}
+					channelToken = token;
+					console.log(' - validate channel (Id: ' + channel.id + ' token: ' + channelToken + ')');
 				}
 
 				// query items
@@ -1571,7 +2083,7 @@ module.exports.listAssets = function (argv, done) {
 				console.log(' - total items: ' + total);
 
 				if (total > 0) {
-					_displayAssets(repository, collection, channel, items);
+					_displayAssets(server, repository, collection, channel, channelToken, items, showURLS);
 					console.log(' - total items: ' + total);
 				}
 
@@ -1583,7 +2095,7 @@ module.exports.listAssets = function (argv, done) {
 	});
 };
 
-var _displayAssets = function (repository, collection, channel, items) {
+var _displayAssets = function (server, repository, collection, channel, channelToken, items, showURLS) {
 	var types = [];
 	var allIds = [];
 	for (var i = 0; i < items.length; i++) {
@@ -1640,22 +2152,33 @@ var _displayAssets = function (repository, collection, channel, items) {
 		console.log(sprintf(format, 'Channel:', channel.name));
 	}
 	console.log(sprintf(format, 'Items:', ''));
+	var format2;
 
-	var format2 = '   %-38s %-38s %-11s %-s';
-	console.log(sprintf(format2, 'Type', 'Id', 'Status', 'Name'));
+	if (showURLS) {
+		format2 = '   %-s';
+		// console.log(sprintf(format2, 'Name', 'URLs'));
+		items.forEach(function (item) {
+			var managementUrl = server.url + '/content/management/api/v1.1/items/' + item.id;
+			console.log(sprintf(format2, item.name));
+			console.log(sprintf(format2, managementUrl));
+			if (channelToken && item.status === 'published') {
+				var deliveryUrl = server.url + '/content/published/api/v1.1/items/' + item.id + '?channelToken=' + channelToken;
+				console.log(sprintf(format2, deliveryUrl));
+			}
+			console.log('');
+		});
 
-	for (var i = 0; i < list.length; i++) {
-		for (var j = 0; j < list[i].items.length; j++) {
-			var item = list[i].items[j];
-			var typeLabel = j === 0 ? item.type : '';
-			console.log(sprintf(format2, typeLabel, item.id, item.status, item.name));
+	} else {
+		format2 = '   %-38s %-38s %-11s %-s';
+		console.log(sprintf(format2, 'Type', 'Id', 'Status', 'Name'));
+
+		for (var i = 0; i < list.length; i++) {
+			for (var j = 0; j < list[i].items.length; j++) {
+				var item = list[i].items[j];
+				var typeLabel = j === 0 ? item.type : '';
+				console.log(sprintf(format2, typeLabel, item.id, item.status, item.name));
+			}
 		}
 	}
-	/*
-		items.forEach(function (item) {
-			if (item.slug && item.slug.indexOf('/') >= 0) {
-				console.log(sprintf('   %-38s %-38s  |  %-s', item.id, item.name, item.slug));
-			}
-		});
-		*/
+
 };

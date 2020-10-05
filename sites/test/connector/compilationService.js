@@ -5,12 +5,12 @@ var responses = require('./connectorResponses'),
     compileSiteJobQueue = require('../job-manager/jobQueue');
 
 
-var CompilationService = function(args) {
+var CompilationService = function (args) {
         this.ps = args.ps;
         this.jobQueue = new compileSiteJobQueue(args);
         this.jobManager = new jobManager(args);
     },
-    apiVersion = 'v1',
+    apiVersion = 'v1.1',
     logsDir = '';
 
 CompilationService.prototype.setLogsDir = function (inputLogsDir) {
@@ -44,14 +44,14 @@ CompilationService.prototype.restartJobs = function () {
     });
 };
 
-CompilationService.prototype.validateRequest = function(req, checks) {
+CompilationService.prototype.validateRequest = function (req, checks) {
     var args = {
-            params: req.params,
-            headers: req.headers,
-            data: req.body
-        };
+        params: req.params,
+        headers: req.headers,
+        data: req.body
+    };
 
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
 
         if (checks) {
             // handle required URL parameter checks
@@ -63,7 +63,7 @@ CompilationService.prototype.validateRequest = function(req, checks) {
                     });
                 }
             });
-        
+
             // handle required body (data) parameter checks
             (checks.requiredData || []).forEach(function (dataParameter) {
                 if (!args.data || !args.data[dataParameter]) {
@@ -79,37 +79,37 @@ CompilationService.prototype.validateRequest = function(req, checks) {
     });
 };
 
-CompilationService.prototype.prependApiVersion = function(path) {
+CompilationService.prototype.prependApiVersion = function (path) {
     return '/' + apiVersion + path;
 };
 
-CompilationService.prototype.getApiVersions = function(req, res) {
+CompilationService.prototype.getApiVersions = function (req, res) {
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify([apiVersion]));
 };
 
-CompilationService.prototype.getServer = function(req, res) {
+CompilationService.prototype.getServer = function (req, res) {
     var response = responses.formatResponse("GET", "/" + apiVersion + "/server", {
-            // TODO: If there is a way to differentiate between dev instance and pod instance,
-            // then the value should indicate USER_PASS for dev instance and OAUTH_TOKEN for pod instance.
-            authenticationType: "OAUTH_TOKEN"
-        });
+        // TODO: If there is a way to differentiate between dev instance and pod instance,
+        // then the value should indicate USER_PASS for dev instance and OAUTH_TOKEN for pod instance.
+        authenticationType: "OAUTH_TOKEN"
+    });
 
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify(response));
 };
 
-CompilationService.prototype.respondWithError = function(res, error) {
+CompilationService.prototype.respondWithError = function (res, error) {
     res.setHeader('Content-Type', 'application/json');
     res.status(error.errorCode || 400);
     res.end(error.errorMessage || 'Request failed');
 };
 
-CompilationService.prototype.handleGetJobError = function(res, jobId, error) {
+CompilationService.prototype.handleGetJobError = function (res, jobId, error) {
     if (error && error.errorCode === 404) {
         var response = responses.formatResponse("GET", "/jobNotFound", {
-                jobId: jobId
-            });
+            jobId: jobId
+        });
 
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify(response));
@@ -118,23 +118,24 @@ CompilationService.prototype.handleGetJobError = function(res, jobId, error) {
     }
 };
 
-CompilationService.prototype.getJob = function(req, res) {
+CompilationService.prototype.getJob = function (req, res) {
     var self = this;
 
     this.validateRequest(req, {
         requiredParameters: ['id']
-    }).then(function(args) {
+    }).then(function (args) {
         var jobId = args.params.id;
 
         console.log('GET getJob for', jobId);
 
         self.ps.getJob({
             jobId: jobId
-        }).then(function(jobMetadata) {
+        }).then(function (jobMetadata) {
             var response = responses.formatResponse("GET", self.prependApiVersion("/job/") + jobId, {
                 jobId: jobMetadata.id,
                 name: jobMetadata.name,
                 siteName: jobMetadata.siteName,
+                compileOnly: jobMetadata.compileOnly,
                 publishUsedContentOnly: jobMetadata.publishUsedContentOnly,
                 doForceActivate: jobMetadata.doForceActivate,
                 serverEndpoint: jobMetadata.serverEndpoint,
@@ -149,15 +150,15 @@ CompilationService.prototype.getJob = function(req, res) {
 
             if (jobMetadata.status === 'COMPILED' || jobMetadata.status === 'FAILED') {
                 var args = {
-                        id: jobId,
-                        siteName: jobMetadata.siteName,
-                        logsDir: logsDir
-                    };
-                self.ps.readLog(args).then(function(data) {
+                    id: jobId,
+                    siteName: jobMetadata.siteName,
+                    logsDir: logsDir
+                };
+                self.ps.readLog(args).then(function (data) {
                     response.log = data;
                     res.setHeader('Content-Type', 'application/json');
                     res.end(JSON.stringify(response));
-                }, function(logError) {
+                }, function (logError) {
                     // Ignore error. Return job data only.
                     res.setHeader('Content-Type', 'application/json');
                     res.end(JSON.stringify(response));
@@ -166,20 +167,20 @@ CompilationService.prototype.getJob = function(req, res) {
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify(response));
             }
-        }, function(error) {
+        }, function (error) {
             self.handleGetJobError(res, jobId, error);
         });
-    }, function(error) {
+    }, function (error) {
         self.respondWithError(res, error);
     });
 };
 
-CompilationService.prototype.updateJob = function(req, res) {
+CompilationService.prototype.updateJob = function (req, res) {
     var self = this;
 
     this.validateRequest(req, {
         requiredParameters: ['id']
-    }).then(function(args) {
+    }).then(function (args) {
         var jobId = args.params.id,
             data = args.data;
 
@@ -187,44 +188,46 @@ CompilationService.prototype.updateJob = function(req, res) {
 
         self.ps.getJob({
             jobId: jobId
-        }).then(function(jobMetadata) {
-            self.jobManager.updateJobPublic(jobMetadata, data).then(function(updatedJobMetadata) {
+        }).then(function (jobMetadata) {
+            self.jobManager.updateJobPublic(jobMetadata, data).then(function (updatedJobMetadata) {
                 var response = responses.formatResponse("POST", self.prependApiVersion("/job/") + jobId, {
-                        jobId: updatedJobMetadata.id,
-                        name: updatedJobMetadata.name,
-                        siteName: updatedJobMetadata.siteName,
-                        publishUsedContentOnly: updatedJobMetadata.publishUsedContentOnly,
-                        doForceActivate: updatedJobMetadata.doForceActivate,
-                        serverEndpoint: updatedJobMetadata.serverEndpoint,
-                        serverUser: updatedJobMetadata.serverUser,
-                        serverPass: updatedJobMetadata.serverPass,
-                        token: updatedJobMetadata.token,
-                        status: updatedJobMetadata.status,
-                        progress: updatedJobMetadata.progress
-                    });
+                    jobId: updatedJobMetadata.id,
+                    name: updatedJobMetadata.name,
+                    siteName: updatedJobMetadata.siteName,
+                    compileOnly: updatedJobMetadata.compileOnly,
+                    publishUsedContentOnly: updatedJobMetadata.publishUsedContentOnly,
+                    doForceActivate: updatedJobMetadata.doForceActivate,
+                    serverEndpoint: updatedJobMetadata.serverEndpoint,
+                    serverUser: updatedJobMetadata.serverUser,
+                    serverPass: updatedJobMetadata.serverPass,
+                    token: updatedJobMetadata.token,
+                    status: updatedJobMetadata.status,
+                    progress: updatedJobMetadata.progress
+                });
 
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify(response));
-            }, function(error) {
+            }, function (error) {
                 self.respondWithError(res, error);
             });
-        }, function(error) {
+        }, function (error) {
             self.handleGetJobError(res, jobId, error);
         });
-    }, function(error) {
+    }, function (error) {
         self.respondWithError(res, error);
     });
 };
 
 
-CompilationService.prototype.createJob = function(req, res) {
+CompilationService.prototype.createJob = function (req, res) {
     var self = this;
 
     this.validateRequest(req, {
-        requiredData: ['name','siteName']
-    }).then(function(args) {
+        requiredData: ['name', 'siteName']
+    }).then(function (args) {
         var name = args.data.name,
             siteName = args.data.siteName,
+            compileOnly = args.data.compileOnly || '0',
             publishUsedContentOnly = args.data.publishUsedContentOnly || '0',
             doForceActivate = args.data.doForceActivate || '0',
             serverEndpoint = args.data.serverEndpoint,
@@ -235,129 +238,147 @@ CompilationService.prototype.createJob = function(req, res) {
         self.ps.createJob({
             name: name,
             siteName: siteName,
+            compileOnly: compileOnly,
             publishUsedContentOnly: publishUsedContentOnly,
             doForceActivate: doForceActivate,
             serverEndpoint: serverEndpoint,
             serverUser: serverUser,
             serverPass: serverPass,
             token: token
-        }).then(function(newJob) {
+        }).then(function (newJob) {
             console.log('newJob', newJob);
 
             var response = responses.formatResponse("POST", self.prependApiVersion("/job"), {
-                    jobId: newJob.id,
-                    name: newJob.name,
-                    siteName: newJob.siteName,
-                    publishUsedContentOnly: newJob.publishUsedContentOnly,
-                    doForceActivate: newJob.doForceActivate,
-                    serverEndpoint: newJob.serverEndpoint,
-                    serverUser: newJob.serverUser,
-                    serverPass: newJob.serverPass,
-                    token: newJob.token,
-                    status: newJob.status,
-                    progress: newJob.progress
-                });
+                jobId: newJob.id,
+                name: newJob.name,
+                siteName: newJob.siteName,
+                compileOnly: newJob.compileOnly,
+                publishUsedContentOnly: newJob.publishUsedContentOnly,
+                doForceActivate: newJob.doForceActivate,
+                serverEndpoint: newJob.serverEndpoint,
+                serverUser: newJob.serverUser,
+                serverPass: newJob.serverPass,
+                token: newJob.token,
+                status: newJob.status,
+                progress: newJob.progress
+            });
 
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify(response));
+            if (newJob.compileOnly === '1') {
+                self.jobManager.updateStatus(newJob, "PUBLISH_SITE").then(function (updatedJobConfig) {
+
+                    self.jobQueue.enqueue(updatedJobConfig);
+
+                    res.setHeader('Content-Type', 'application/json');
+                    res.end(JSON.stringify(response));
+
+                    self.compileSite();
+
+                }, function (error) {
+                    console.log('submitCompileSite failed to update job status');
+                    self.respondWithError(res, error);
+                });
+            } else {
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify(response));
+            }
         });
-    }, function(error) {
+    }, function (error) {
         self.respondWithError(res, error);
     });
 };
 
-CompilationService.prototype.deleteJob = function(req, res) {
+CompilationService.prototype.deleteJob = function (req, res) {
     var self = this;
 
     this.validateRequest(req, {
         requiredParameters: ['id']
-    }).then(function(args) {
+    }).then(function (args) {
         var jobId = args.params.id;
 
         self.ps.getJob({
             jobId: jobId
-        }).then(function(jobMetadata) {
+        }).then(function (jobMetadata) {
             this.ps.deleteJob({
                 jobId: jobId
-            }).then(function() {
+            }).then(function () {
                 var response = responses.formatResponse("DELETE", self.prependApiVersion("/job/") + jobId, {
                     jobId: jobId
                 });
-        
+
                 res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify(response));
-            }, function(error) {
+            }, function (error) {
                 self.respondWithError(res, error);
             });
-        }, function(error) {
+        }, function (error) {
             self.handleGetJobError(res, jobId, error);
         });
-    }, function(error) {
+    }, function (error) {
         self.respondWithError(res, error);
     });
 };
 
-CompilationService.prototype.submitCompileSite = function(req, res) {
+CompilationService.prototype.submitCompileSite = function (req, res) {
     var self = this;
 
     self.validateRequest(req, {
         requiredParameters: ['id']
-    }).then(function(args) {
+    }).then(function (args) {
         var jobId = args.params.id;
 
         self.ps.getJob({
             jobId: jobId
-        }).then(function(originalMetadata) {
+        }).then(function (originalMetadata) {
 
             if (originalMetadata.status !== 'CREATED') {
                 var error = {
-                        errorCode: 400, // Bad Request
-                        errorMessage: 'CompilationService: resubmiting a compilation job is not supported'
-                    };
+                    errorCode: 400, // Bad Request
+                    errorMessage: 'CompilationService: resubmiting a compilation job is not supported'
+                };
 
                 self.respondWithError(res, error);
             } else {
-                self.jobManager.updateStatus(originalMetadata, "PUBLISH_SITE").then(function(updatedJobConfig) {
+                self.jobManager.updateStatus(originalMetadata, "PUBLISH_SITE").then(function (updatedJobConfig) {
 
                     self.jobQueue.enqueue(updatedJobConfig);
 
                     var response = responses.formatResponse("POST", self.prependApiVersion("/job/") + jobId + "/compile/queued", {
                         jobId: jobId
                     });
-            
+
                     res.setHeader('Content-Type', 'application/json');
                     res.end(JSON.stringify(response));
-            
+
                     self.compileSite();
 
-                }, function(error) {
+                }, function (error) {
                     console.log('submitCompileSite failed to update job status');
                     self.respondWithError(res, error);
                 });
             }
-        }, function(error) {
+        }, function (error) {
             self.handleGetJobError(res, jobId, error);
         });
-    }, function(error) {
+    }, function (error) {
         self.respondWithError(res, error);
     });
 };
 
 // Set busy state, either true or false.
-CompilationService.prototype.setCompileSiteBusy = function(state) {
+CompilationService.prototype.setCompileSiteBusy = function (state) {
     var self = this;
 
     self.compileSiteInProgress = state;
     console.log('setCompileSiteBusy self.compileSiteInProgress', self.compileSiteInProgress);
 };
 
-CompilationService.prototype.isCompileSiteBusy = function() {
+CompilationService.prototype.isCompileSiteBusy = function () {
     var self = this;
 
     return self.compileSiteInProgress;
 };
 
-CompilationService.prototype.compileSiteDone = function() {
+CompilationService.prototype.compileSiteDone = function () {
     var self = this;
 
     console.log('--------------------- Compile site done ---------------------');
@@ -379,7 +400,7 @@ CompilationService.prototype.compileSiteDone = function() {
     }
 };
 
-CompilationService.prototype.compileSite = function() {
+CompilationService.prototype.compileSite = function () {
     var self = this;
 
     if (self.jobQueue.isEmpty()) {
@@ -397,13 +418,13 @@ CompilationService.prototype.compileSite = function() {
 
     console.log('--------------------- Compile site begin ---------------------');
 
-    self.jobManager.compileSiteJob(originalMetadata).then(function() {
+    self.jobManager.compileSiteJob(originalMetadata).then(function () {
         self.compileSiteDone();
-    }, function() {
+    }, function () {
         self.compileSiteDone();
     });
 };
 
 module.exports = function (args) {
-	return new CompilationService(args);
+    return new CompilationService(args);
 };

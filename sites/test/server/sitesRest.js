@@ -17,7 +17,7 @@ var _getResources = function (server, type, expand) {
 	return new Promise(function (resolve, reject) {
 		var request = siteUtils.getRequest();
 
-		var url = server.url + '/sites/management/api/v1/' + type + '?links=none&orderBy=name';
+		var url = server.url + '/sites/management/api/v1/' + type + '?links=none&orderBy=name&limit=250';
 		if (expand) {
 			url = url + '&expand=' + expand + '&expansionErrors=ignore';
 		}
@@ -207,7 +207,8 @@ module.exports.getTheme = function (args) {
  */
 module.exports.getComponent = function (args) {
 	var server = args.server;
-	return _getResource(server, 'components', args.id, args.name, args.expand, true);
+	var showError = args.showError !== undefined ? args.showError : true;
+	return _getResource(server, 'components', args.id, args.name, args.expand, showError);
 };
 
 /**
@@ -559,11 +560,26 @@ var _refreshSiteContent = function (server, id, name) {
 
 			if (response && response.statusCode < 300) {
 				var status = response.headers && response.headers.location;
-				resolve({
-					id: id,
-					name: name,
-					status: status
-				});
+				var inter = setInterval(function () {
+					var jobPromise = _getBackgroundServiceJobStatus(server, status);
+					jobPromise.then(function (data) {
+						// console.log(data);
+						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+							clearInterval(inter);
+							var msg = data && data.error ? (data.error.detail || data.error.title) : '';
+							console.log('ERROR: refresh pre-render cache failed: ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						} else if (data.completed && data.progress === 'succeeded') {
+							clearInterval(inter);
+
+							return resolve({});
+						} else {
+							console.log(' - refreshing pre-render cache: percentage ' + data.completedPercentage);
+						}
+					});
+				}, 5000);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to refresh pre-render cache for site ' + (name || id) + ' : ' + msg);
@@ -797,12 +813,19 @@ var _publishResourceAsync = function (server, type, id, name) {
 
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.headers && response.headers.location;
+				var jobId = statusLocation ? statusLocation.substring(statusLocation.lastIndexOf('/') + 1) : '';
+				console.log(' - job id: ' + jobId);
+				var needNewLine = false;
+				var startTime = new Date();
 				var inter = setInterval(function () {
 					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
 					jobPromise.then(function (data) {
 						// console.log(data);
 						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
 							clearInterval(inter);
+							if (needNewLine) {
+								process.stdout.write(os.EOL);
+							}
 							var msg = data && data.error ? (data.error.detail || data.error.title) : '';
 							console.log('ERROR: failed to publish ' + resTitle + ' ' + (name || id) + ' : ' + msg);
 							return resolve({
@@ -810,10 +833,15 @@ var _publishResourceAsync = function (server, type, id, name) {
 							});
 						} else if (data.completed && data.progress === 'succeeded') {
 							clearInterval(inter);
-
+							if (needNewLine) {
+								process.stdout.write(os.EOL);
+							}
 							return resolve({});
 						} else {
-							console.log(' - publish in process: percentage ' + data.completedPercentage);
+							process.stdout.write(' - publish in process: percentage ' + data.completedPercentage +
+								' [' + siteUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+							needNewLine = true;
 						}
 					});
 				}, 5000);
@@ -1409,6 +1437,9 @@ var _getBackgroundServiceJobStatus = function (server, url) {
 		}
 
 		var endpoint = siteUtils.replaceAll(url, server.url);
+		if (endpoint.indexOf('/') > 0) {
+			endpoint = endpoint.substring(endpoint.indexOf('/'));
+		}
 		request(options, function (error, response, body) {
 
 			if (error) {
@@ -1747,4 +1778,80 @@ module.exports.createSite = function (args) {
 	var server = args.server;
 	return _createSite(server, args.name, args.description, args.sitePrefix,
 		args.templateName, args.templateId, args.repositoryId, args.localizationPolicyId, args.defaultLanguage);
+};
+
+var _siteUpdated = function (server, name) {
+	return new Promise(function (resolve, reject) {
+		var request = siteUtils.getRequest();
+
+		_getResource(server, 'sites', '', name, '', true)
+			.then(function (result) {
+				if (result.err) {
+					resolve({
+						err: 'err'
+					});
+				} else {
+					var site = result;
+					
+					var url = '/sites/management/api/v1/sites/' + site.id;
+					console.log(' - patch ' + url);
+
+					var options = {
+						method: 'PATCH',
+						url: server.url + url,
+						body: {
+							description: site.description ? site.description : ''
+						},
+						json: true
+					};
+					if (server.env !== 'dev_ec') {
+						options.headers = {
+							Authorization: _getAuthorization(server)
+						};
+					} else {
+						options.auth = {
+							user: server.username,
+							password: server.password
+						};
+					}
+					// console.log(options);
+					request(options, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: failed to update site ' + site.name);
+							console.log(error);
+							resolve({
+								err: error
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+						if (response && response.statusCode < 300) {
+							resolve(data);
+						} else {
+							var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+							console.log('ERROR: failed to update site ' + site.name + ' : ' + msg);
+							resolve({
+								err: msg || 'err'
+							});
+						}
+
+					});
+				}
+			});
+	});
+};
+
+/**
+ * Mark a site as updated
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} name the name of the site
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.siteUpdated = function (args) {
+	return _siteUpdated(args.server, args.name);
 };

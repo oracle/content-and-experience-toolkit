@@ -228,15 +228,15 @@ var _uploadFile = function (argv, server) {
 					name: resourceName
 				}));
 			} else if (resourceType === 'theme') {
-				resourcePromises.push(server.useRest ? sitesRest.getTheme({
+				resourcePromises.push(sitesRest.getTheme({
 					server: server,
 					name: resourceName
-				}) : _getThemeGUID(request, server, resourceName));
+				}));
 			} else {
-				resourcePromises.push(server.useRest ? sitesRest.getComponent({
+				resourcePromises.push(sitesRest.getComponent({
 					server: server,
 					name: resourceName
-				}) : _getComponentGUID(request, server, resourceName));
+				}));
 			}
 		}
 
@@ -434,20 +434,20 @@ module.exports.downloadFile = function (argv, done) {
 		var resourcePromises = [];
 		if (resourceFolder) {
 			if (resourceType === 'site') {
-				resourcePromises.push(server.useRest ? sitesRest.getSite({
+				resourcePromises.push(sitesRest.getSite({
 					server: server,
 					name: resourceName
-				}) : serverUtils.getSiteFolderAfterLogin(server, resourceName));
+				}));
 			} else if (resourceType === 'theme') {
-				resourcePromises.push(server.useRest ? sitesRest.getTheme({
+				resourcePromises.push(sitesRest.getTheme({
 					server: server,
 					name: resourceName
-				}) : _getThemeGUID(request, server, resourceName));
+				}));
 			} else {
-				resourcePromises.push(server.useRest ? sitesRest.getComponent({
+				resourcePromises.push(sitesRest.getComponent({
 					server: server,
 					name: resourceName
-				}) : _getComponentGUID(request, server, resourceName));
+				}));
 			}
 		}
 
@@ -1040,20 +1040,21 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 			var resourcePromises = [];
 			if (resourceFolder) {
 				if (resourceType === 'site') {
-					resourcePromises.push(server.useRest ? sitesRest.getSite({
+					resourcePromises.push(sitesRest.getSite({
 						server: server,
 						name: resourceName
-					}) : serverUtils.getSiteFolderAfterLogin(server, resourceName));
+					}));
 				} else if (resourceType === 'theme') {
-					resourcePromises.push(server.useRest ? sitesRest.getTheme({
+					resourcePromises.push(sitesRest.getTheme({
 						server: server,
 						name: resourceName
-					}) : _getThemeGUID(request, server, resourceName));
+					}));
 				} else {
-					resourcePromises.push(server.useRest ? sitesRest.getComponent({
+					resourcePromises.push(sitesRest.getComponent({
 						server: server,
-						name: resourceName
-					}) : _getComponentGUID(request, server, resourceName));
+						name: resourceName,
+						showError: showError
+					}));
 				}
 			}
 
@@ -1506,15 +1507,15 @@ var _uploadFolder = function (argv, server) {
 							name: resourceName
 						}));
 					} else if (resourceType === 'theme') {
-						resourcePromises.push(server.useRest ? sitesRest.getTheme({
+						resourcePromises.push(sitesRest.getTheme({
 							server: server,
 							name: resourceName
-						}) : _getThemeGUID(request, server, resourceName));
+						}));
 					} else {
-						resourcePromises.push(server.useRest ? sitesRest.getComponent({
+						resourcePromises.push(sitesRest.getComponent({
 							server: server,
 							name: resourceName
-						}) : _getComponentGUID(request, server, resourceName));
+						}));
 					}
 				}
 
@@ -1601,7 +1602,12 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 							var folders2 = folders.slice(0);
 							folders2.pop();
 							var folderStr = rootParentFolderLabel + '/' + (folders2.length > 0 ? folders2.join('/') : '');
-							console.log(sprintf(format, 'Folder', folderStr + (folderStr.endsWith('/') ? '' : '/') + parentFolder.name));
+
+							if (parentFolder.name) {
+								console.log(sprintf(format, 'Folder', folderStr + (folderStr.endsWith('/') ? '' : '/') + parentFolder.name));
+							} else {
+								console.log(sprintf(format, 'Folder', folderStr));
+							}
 
 							return _createAllFiles(server, rootParentFolderLabel, folders, parentFolder, param.files).then(function (files) {
 								uploadedFiles = uploadedFiles.concat(files);
@@ -1669,7 +1675,7 @@ var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFo
 						for (var i = 0; i < results.length; i++) {
 							var file = results[i];
 							if (file && !file.err) {
-								console.log(sprintf(format, 'File', folderStr + '/' + file.name + ' (Version: ' + file.version + ')'));
+								console.log(sprintf(format, 'File', folderStr + (folderStr.endsWith('/') ? '' : '/') + file.name + ' (Version: ' + file.version + ')'));
 								uploadedFiles.push(file.filepath);
 							}
 						}
@@ -1689,56 +1695,7 @@ var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFo
 	});
 };
 
-var _getThemeGUID = function (request, server, themeName) {
-	return new Promise(function (resolve, reject) {
-		var params = 'doBrowseStarterThemes=1';
-		serverUtils.browseThemesOnServer(request, server, params).then(function (result) {
-			var themes = result.data || [];
-			var themeGuid;
-			for (var i = 0; i < themes.length; i++) {
-				if (themes[i].fFolderName.toLowerCase() === themeName.toLowerCase()) {
-					themeGuid = themes[i].fFolderGUID;
-					break;
-				}
-			}
 
-			if (themeGuid) {
-				resolve({
-					id: themeGuid
-				});
-			} else {
-				resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
-
-var _getComponentGUID = function (request, server, compName) {
-	return new Promise(function (resolve, reject) {
-		serverUtils.browseComponentsOnServer(request, server).then(function (result) {
-			var comps = result.data || [];
-			var compGuid;
-			for (var i = 0; i < comps.length; i++) {
-				if (comps[i].fFolderName.toLowerCase() === compName.toLowerCase()) {
-					compGuid = comps[i].fFolderGUID;
-					break;
-				}
-			}
-
-			if (compGuid) {
-				resolve({
-					id: compGuid
-				});
-			} else {
-				resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
 
 module.exports.deleteFolder = function (argv, done) {
 	'use strict';
@@ -1831,20 +1788,20 @@ var _deleteFolder = function (argv, server) {
 		var resourcePromises = [];
 		if (resourceFolder) {
 			if (resourceType === 'site') {
-				resourcePromises.push(server.useRest ? sitesRest.getSite({
+				resourcePromises.push(sitesRest.getSite({
 					server: server,
 					name: resourceName
-				}) : serverUtils.getSiteFolderAfterLogin(server, resourceName));
+				}));
 			} else if (resourceType === 'theme') {
-				resourcePromises.push(server.useRest ? sitesRest.getTheme({
+				resourcePromises.push(sitesRest.getTheme({
 					server: server,
 					name: resourceName
-				}) : _getThemeGUID(request, server, resourceName));
+				}));
 			} else {
-				resourcePromises.push(server.useRest ? sitesRest.getComponent({
+				resourcePromises.push(sitesRest.getComponent({
 					server: server,
 					name: resourceName
-				}) : _getComponentGUID(request, server, resourceName));
+				}));
 			}
 		}
 
@@ -2217,20 +2174,20 @@ var _deleteFile = function (argv, server, toReject) {
 		var resourcePromises = [];
 		if (resourceFolder) {
 			if (resourceType === 'site') {
-				resourcePromises.push(server.useRest ? sitesRest.getSite({
+				resourcePromises.push(sitesRest.getSite({
 					server: server,
 					name: resourceName
-				}) : serverUtils.getSiteFolderAfterLogin(server, resourceName));
+				}));
 			} else if (resourceType === 'theme') {
-				resourcePromises.push(server.useRest ? sitesRest.getTheme({
+				resourcePromises.push(sitesRest.getTheme({
 					server: server,
 					name: resourceName
-				}) : _getThemeGUID(request, server, resourceName));
+				}));
 			} else {
-				resourcePromises.push(server.useRest ? sitesRest.getComponent({
+				resourcePromises.push(sitesRest.getComponent({
 					server: server,
 					name: resourceName
-				}) : _getComponentGUID(request, server, resourceName));
+				}));
 			}
 		}
 

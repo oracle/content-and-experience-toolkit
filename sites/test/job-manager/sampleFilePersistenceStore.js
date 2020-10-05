@@ -127,6 +127,7 @@ SampleFilePersistenceStore.prototype.createJob = function (args) {
 			// create a job based on the name & random ID
 			var name = args.name,
 				siteName = args.siteName,
+				compileOnly = args.compileOnly,
 				publishUsedContentOnly = args.publishUsedContentOnly,
 				doForceActivate = args.doForceActivate,
 				serverEndpoint = args.serverEndpoint,
@@ -150,6 +151,7 @@ SampleFilePersistenceStore.prototype.createJob = function (args) {
 					id: jobId,
 					name: name,
 					siteName: siteName,
+					compileOnly: compileOnly,
 					publishUsedContentOnly: publishUsedContentOnly,
 					doForceActivate: doForceActivate,
 					serverEndpoint: serverEndpoint,

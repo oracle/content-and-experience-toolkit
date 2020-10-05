@@ -450,7 +450,7 @@ var _deployTranslationJobSCS = function (request, server, idcToken, jobName, fil
 	var importPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/documents/web?IdcService=SCS_IMPORT_SITE_TRANS';
 		url = url + '&jobName=' + jobName;
-		url = url + '&fFileGUID=' + (file.LocalData && file.LocalData.fFileGUID);
+		url = url + '&fFileGUID=' + (file.id);
 		url = url + '&validationMode=validateAndImport&useBackgroundThread=1';
 		url = url + '&idcToken=' + idcToken;
 
@@ -633,19 +633,47 @@ var _displayValidationResult = function (result, jobType, tempDir) {
 };
 
 var _execdeployTranslationJob = function (server, request, validateonly, folder, filePath, jobName, jobType, tempDir, done) {
-
+	var fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+	// console.log(' - folder: ' + folder + ' filePath: ' + filePath + ' fileName: ' + fileName);
 	var idcToken;
 	var tokenPromise = _getIdcToken(request, server);
 	tokenPromise
 		.then(function (result) {
 			idcToken = result.idcToken;
-			return serverUtils.uploadFileToServer(request, server, folder, filePath);
+
+			var folderPromises = [];
+			if (folder) {
+				folderPromises.push(serverRest.findFolderHierarchy({
+					server: server,
+					parentID: 'self',
+					folderPath: folder
+				}));
+			}
+			return Promise.all(folderPromises);
 		})
-		.then(function (result) {
-			if (result.err) {
+		.then(function (results) {
+			if (folder && (!results || results.length === 0 || !results[0] || !results[0].id)) {
 				return Promise.reject();
 			}
+
+			var folderId = folder ? results[0].id : 'self';
+
+			// upload file
+			return serverRest.createFile({
+				server: server,
+				parentID: folderId,
+				filename: fileName,
+				contents: fs.createReadStream(filePath)
+			});
+
+		}).then(function (result) {
+			if (!result || !result.id) {
+				return Promise.reject();
+			}
+			console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + result.version);
+
 			var file = result;
+
 			if (validateonly) {
 				//
 				// validate

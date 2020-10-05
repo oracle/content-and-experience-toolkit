@@ -11,6 +11,7 @@
 var gulp = require('gulp'),
 	serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
+	sitesRest = require('../test/server/sitesRest.js'),
 	contentLib = require('./content.js'),
 	fs = require('fs'),
 	readline = require('readline'),
@@ -613,12 +614,14 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 
 			// logon and get the site folder GUID and Site info for the Channel/Repository/Collection details
 			console.log('Updating site: ' + siteName);
-			var serverDetailsPromise = serverUtils.getSiteFolderAfterLogin(server, siteName),
-				serverInfoPromise = serverUtils.getSiteInfoWithToken(server, siteName);
+			var serverInfoPromise = serverUtils.getSiteInfo(server, siteName);
 
-			Promise.all([serverDetailsPromise, serverInfoPromise]).then(function (siteResults) {
-				var siteEntry = siteResults[0],
-					siteInfo = siteResults[1].siteInfo;
+			serverInfoPromise.then(function (siteResult) {
+				// console.log(siteResult);
+				var siteEntry = {
+						siteGUID: siteResult.siteId
+					},
+					siteInfo = siteResult.siteInfo;
 				// console.log(siteInfo);
 
 				// if can't locate the site, return
@@ -685,7 +688,23 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 							console.log(' - ' + result.name.padEnd(20) + ': completed with ' + result.errors + ' errors.');
 						}
 					});
-					done(totalErr === 0);
+					if (totalErr === 0) {
+						// mark the site as updated
+						sitesRest.siteUpdated({
+								server: server,
+								name: siteName
+							})
+							.then(function (result) {
+								if (result.err) {
+									done();
+								} else {
+									console.log(' - update site timestamp');
+									done(true);
+								}
+							});
+					} else {
+						done();
+					}
 				}).catch(function (err) {
 					console.log('Error: failed to update site: ');
 					console.log(err);
