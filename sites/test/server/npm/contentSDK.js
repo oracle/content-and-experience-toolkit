@@ -1,17 +1,6 @@
 /**
- * Confidential and Proprietary for Oracle Corporation
- *
- * This computer program contains valuable, confidential, and
- * proprietary information. Disclosure, use, or reproduction
- * without the written authorization of Oracle is prohibited.
- * This unpublished work by Oracle is protected by the laws
- * of the United States and other countries. If publication
- * of this computer program should occur, the following notice
- * shall apply:
- *
- * Copyright (c) 2017 Oracle Corp.
- * All rights reserved.
- *
+* Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
+* Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
  * $Id: content.js 167153 2019-01-25 21:29:15Z muralik $
  */
 /* global JSON, console, define, module, exports, require, requirejs, Promise */
@@ -31,9 +20,10 @@
 }(this, function contentSDKFactory(contentSDK) {
 	'use strict';
 
-	// Default environment to browser. 
-	// This gets changed in gulp for node version of the file.  
-	var _scsIsNode = true;
+	// Detect whether we're running in a browser or in NodeJS.
+	// Note that some other environments (e.g. React-Native) are not detected and may not
+	// work properly.
+	var _scsIsNode = ((typeof window === 'undefined') && (typeof process === 'object'));
 
 	//
 	// ------------------------------- Cross-browser Utility functions ---------------------
@@ -183,12 +173,29 @@
 				},
 				url = require('url'),
 				querystring = require('querystring');
-
+        	
 			var nodePromise = new Promise(function (resolve, reject) {
 				// parse the URL
 				var options = url.parse(targetURL),
 					protocolCall = protocolCalls[options.protocol || 'https:'],
 					restRequest;
+					/* jshint node: true */
+					var proxyType=options.protocol || 'https:';
+					var proxy = proxyType==='https:'?process.env.oce_https_proxy:process.env.oce_http_proxy;
+					
+					/* jshint node: false */
+					if(proxy) {
+						try {
+	   					_logger.debug("Using proxy: " + proxy);
+						var HttpsProxyAgent=require('https-proxy-agent');
+	   					_logger.debug("Loaded proxy agent");
+	   					var  agent = new HttpsProxyAgent(proxy);
+		   				_logger.debug("Using proxy: " + proxy + " connecting to "+targetURL);
+						options.agent = agent;
+						} catch (e) {
+							console.log("Could not initialize https-proxy-agent. Is the package installed in your application?. Making direct call to "+targetURL);
+						}
+					}
 
 				var beforeSendOK = function (currentOptions) {
 					try {
@@ -347,7 +354,7 @@
 				// add authorization header, if provided
 				if (restArgs.authorization) {
 					// for /published API calls, only add header if not 'session' or 'anonymous' (e.g. Basic Auth in non-POD environments)
-					if ((restArgs.contentType !== 'published') || (['session', 'anonymous'].indexOf(restArgs.authorization) === -1)) {
+					if ((restArgs.contentType !== 'published') || (['session', 'anonymous'].indexOf(restArgs.authorization) === -1)) {					
 						xhrParams.headers = {
 							'Authorization': restArgs.authorization
 						};
@@ -355,7 +362,7 @@
 				}
 
 				// add the individual request parameters
-				if (xhrParams.method === 'GET' && xhrParams.url) {
+				if (xhrParams.method === 'GET' && xhrParams.url) {					
 					// 'GET' request
 				} else if (xhrParams.method === 'POST' && xhrParams.url && restArgs.noCSRFToken && restArgs.postData) {
 					// 'POST' request
@@ -366,11 +373,11 @@
 					// 'POST'/'PUT' request with X-CSRF-Token
 					xhrParams.headers['Content-Type'] = 'application/json; charset=UTF-8';
 					xhrParams.headers['X-Requested-With'] = 'XMLHttpRequest';
-					xhrParams.headers['X-CSRF-Token'] = this.getCSRFToken(xhrParams.url);
+					xhrParams.headers['X-CSRF-Token'] = self.getCSRFToken(xhrParams.url);
 					xhrParams.data = restArgs.postData;
 				} else if (xhrParams.method === 'DELETE' && xhrParams.url) {
 					// 'DELETE' request with X-CSRF-Token
-					xhrParams.headers['X-CSRF-Token'] = this.getCSRFToken(xhrParams.url);
+					xhrParams.headers['X-CSRF-Token'] = self.getCSRFToken(xhrParams.url);
 				} else {
 					_logger.error('_rest.callRestServer: invalid arguments:');
 					_logger.error(restArgs);
@@ -419,7 +426,12 @@
 						}
 					}
 
-					xhr.timeout = xhrParams.timeout; // for IE, need to set timeout after open()
+					// VBCS adapts XMLHttpRequest to use fetch but doesn't support timeout.
+					// This check silently ignores timeouts if they are not supported.
+					var timeoutOverridden = Object.getOwnPropertyDescriptor(xhr, 'timeout');
+					if (timeoutOverridden === undefined || timeoutOverridden.writable) {
+						xhr.timeout = xhrParams.timeout; // for IE, need to set timeout after open()
+					}
 
 					// handle the beforeSend() callback and then make the request
 					if (beforeSendOK(xhr)) {
@@ -813,9 +825,32 @@
 	_ContentAPI_v1_1Impl.prototype.resolveGetItemPath = function (args) {
 		var language = args.language ? '/variations/language/' + args.language + '?fields=all' : '',
 			nextParam = language ? '&' : '?',
-			aggregate = args.useAggregate ? nextParam + 'expand=' + args.useAggregate : '';
+            aggregate = args.useAggregate ? nextParam + 'expand=' + args.useAggregate : '',        
+            slug = args.slug ? '.by.slug/' + args.slug : '';
 
+        if (args.itemGUID){
+            // .../items/{id}                                                : Get Published Item by ID
+            // .../items/{id}/variations/language/{languageValue}            : Get Published Item by ID for specified language
 		return '/items/' + args.itemGUID + language + aggregate;
+        } else {
+            // .../items/.by.slug/{slug}                                     : Get Published Item by slug
+            // .../items/.by.slug/{slug}/variations/language/{languageValue} : Get published item by slug for specified language
+            return '/items/' + slug + language + aggregate;
+        }
+	};
+	_ContentAPI_v1_1Impl.prototype.resolveQueryTaxonomyCategoriesPath = function (args) {
+		return '/taxonomies/' + args.taxonomyGUID + '/categories';
+	};
+
+	_ContentAPI_v1_1Impl.prototype.resolveGetTaxonomiesPath = function (args) {
+		return '/taxonomies';
+	};
+	_ContentAPI_v1_1Impl.prototype.resolveGetRecommendationPath = function (args) {
+		if (args.id) {
+			return '/personalization/recommendationResults/.by.id/' + args.id;
+		} else  {
+			return '/personalization/recommendationResults/' + args.apiName;
+		}
 	};
 	_ContentAPI_v1_1Impl.prototype.resolveSearchPath = function (args) {
 		return '/items';
@@ -865,14 +900,9 @@
 			if (validContentVersion === 'v1') {
 				// only support v1.1 now, so create a v1.1 API and set the requestd content version to v1
 				// we will coerce the data on fetch to be in the v1 format
-				//if (window.localStorage && window.localStorage['scs.component.content.v1removal.enable'] === 'true') {
-				if (true) {
 					// ToDo: wait for deprecation and fix up tests that are expecting 'v1' in the URL before making this change
 					return new _ContentAPI_v1_1Impl('v1');
 				} else {
-					return new _ContentAPI_v1Impl();
-				}
-			} else {
 				return new _ContentAPI_v1_1Impl();
 			}
 		}
@@ -883,7 +913,7 @@
 	//
 
 	/**
-	 * Client content SDK object to interact with content published in Oracle Content and Experience Cloud: 
+	 * Client content SDK object to interact with content published in Oracle Content and Experience:
 	 * <ul>
 	 * <li>Read the published content items</li>
 	 * <li>Render published content using named content layouts</li>
@@ -891,9 +921,9 @@
 	 * @constructor
 	 * @alias ContentDeliveryClient
 	 * @param {object} args - A JavaScript object containing the parameters to create the content delivery client instance.
-	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content and Experience Cloud instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
+	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content and Experience instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
 	 * @param {('v1' | 'v1.1')} [args.contentVersion='v1.1'] - The version of the content delivery REST API to use.
-	 * @param {string} args.channelToken - The Oracle Content and Experience Cloud instance token for accessing published content.
+	 * @param {string} args.channelToken - The Oracle Content and Experience instance token for accessing published content.
 	 * @param {string} [args.cacheBuster=''] - The URL parameter used to control whether or not content is fetched from the browser cache.
 	 * @param {boolean} [args.secureContent=false] - Content is secured and requires sign-in to view.
 	 * @param {string} [args.authorization] - Authorization header to include in the request.
@@ -924,7 +954,7 @@
 		};
 
 		// store if running in compiler
-		this.isCompiler = args.isCompiler; 
+		this.isCompiler = args.isCompiler;
 
 		// set the authorization value
 		this.info.authorization = args.authorization;
@@ -942,9 +972,12 @@
 			queryItems: _utils.bind(this.queryItems, this),
 			getRenditionURL: _utils.bind(this.getRenditionURL, this),
 			getLayoutInfo: _utils.bind(this.getLayoutInfo, this),
+			getRecommendationResults: _utils.bind(this.getRecommendationResults, this),
 			loadContentLayout: _utils.bind(this.loadContentLayout, this),
 			renderItem: _utils.bind(this.renderItem, this),
-			expandMacros: _utils.bind(this.expandMacros, this)
+			expandMacros: _utils.bind(this.expandMacros, this),
+			getTaxonomies: _utils.bind(this.getTaxonomies, this),
+			queryTaxonomyCategories: _utils.bind(this.queryTaxonomyCategories, this)
 		};
 
 		_logger.debug('ContentClient.create: Content Info:');
@@ -1056,7 +1089,7 @@
 	/**
 	 * Retrieves the values stored as part of the client object and used on each call.<br/>
 	 * Once created, these values are immutable for the client instance.
-	 * @returns {ContentSDK.ContentInfo} The information the SDK is using to retrieve content from Oracle Content and Experience Cloud. 
+	 * @returns {ContentSDK.ContentInfo} The information the SDK is using to retrieve content from Oracle Content and Experience.
 	 * @example
 	 * // get the information on the server and the state used by calls to this client
 	 * console.log(contentClient.getInfo());
@@ -1067,16 +1100,24 @@
 	};
 
 	/**
-	 * Get a single item given its ID. <br/>
+	 * Get a single item given its ID or SLUG. <br/>
 	 * The ID can be found in the search results.
 	 * @param {object} args - A JavaScript object containing the "getItem" parameters.
-	 * @param {string} args.id - The ID of the content item to return.
-	 * @param {string} args.language - The language locale variant of the content item to return.
+	 * @param {string} [args.id] - The ID of the content item to return. <br/>The ID or SLUG must be specified.
+     * @param {string} [args.slug] - The SLUG of the content item to return, used instead of id. <br/>The ID or SLUG must be specified.
+	 * @param {string} [args.language] - The language locale variant of the content item to return.
 	 * @param {function} [args.beforeSend=undefined] - A callback passing in the xhr (browser) or options (node) object before making the REST call.
 	 * @returns {Promise} A JavaScript Promise object that can be used to retrieve the data after the call has completed.
 	 * @example
+     * // Getting item by ID
 	 * contentPromise = contentClient.getItem({
 	 *     'id': contentId
+	 * });
+	 *
+	 *
+     * // Getting item by SLUG
+     * contentPromise = contentClient.getItem({
+	 *     'slug': contentSlug
 	 * });
 	 *
 	 * // handle the result
@@ -1098,7 +1139,94 @@
 		var url = this.restAPI.formatURL(this.restAPI.resolveGetItemPath({
 			'itemGUID': guid,
 			'useAggregate': restCallArgs.useAggregate,
-			'language': params.language
+            'language': params.language,
+            'slug' : params.slug
+		}), restCallArgs);
+
+		// make the rest call
+		return this.restAPI.callRestServer(url, restCallArgs);
+	};
+
+	/**
+	 * Get a list of items that is returned by the recommendation ID. <br/>
+	 * @ignore
+	 * @param {object} args - A JavaScript object containing the "getRecommendationResults" parameters.
+	 * @param {string} args.id - The ID of the Recommendation to run.
+	 * @param {string} args.audienceAttributes -  Audience attributes that can be filtered by the attribute's categoryId
+	 * @param {function} [args.beforeSend=undefined] - A callback passing in the xhr (browser) or options (node) object before making the REST call.
+	 * @returns {Promise} A JavaScript Promise object that can be used to retrieve the data after the call has completed.
+	 * @example
+	 * contentPromise = contentClient.getRecommendationResults({
+	 *     'id': recommendationId
+	 * });
+	 *
+	 * // handle the result
+	 * contentPromise.then(
+	 *     function (result) {
+	 *         console.log(result);
+	 *     },
+	 *     function (error) {
+	 *         console.log(error);
+	 *     }
+	 * );
+	 */
+	ContentDeliveryClientImpl.prototype.getRecommendationResults = function (params) {
+		var args = params || {},
+			id = args.id || args.ID || args.itemGUID,
+			apiName = args.apiName,
+			contentType = params.contentType || this.info.contentType,
+			restCallArgs;
+
+		// The Delivery API requires a GET, while the Management API requires a POST
+		if (contentType === 'published') {
+			restCallArgs = this.resolveRESTArgs('GET', args);
+
+			// append audience attributes to the query string
+			if (params.audienceAttributes) {
+				Object.keys(params.audienceAttributes).forEach(function (audienceAttributeName) {
+					// the recommendationResults GET API requires prepending 'attribute.' to each AA
+					// bug 31212841 - multi-valued audience attribute added by repeating the name value pairs.
+					// by the time multi-valued AA gets here, it is an array of strings
+					var attrVals = params.audienceAttributes[audienceAttributeName];
+					if (!Array.isArray(attrVals)) {
+						attrVals = [attrVals];
+					}
+
+					var queryParam = attrVals.map(function (value) {
+						return encodeURIComponent('attribute.' + audienceAttributeName) + '=' +
+					  encodeURIComponent(value);
+					  }).join('&');
+
+					// append the audience attribute to the query string
+					if (restCallArgs.search) {
+						restCallArgs.search = restCallArgs.search + '&' + queryParam;
+					} else {
+						restCallArgs.search = queryParam;
+					}
+				});
+			}
+		} else {
+			restCallArgs = this.resolveRESTArgs('POST', args);
+
+			// setup the recommendation specific arguments
+			//  - recommendations do not require management calls so the CSRF token should not be required for POST requests
+			restCallArgs.noCSRFToken = true;
+
+			// add in the POST values
+			var assetState = this.info.contentType === 'published' ? 'PUBLISHED' : 'ALL';
+
+			if (params.audienceAttributes) {
+				restCallArgs.postData = {
+					'audienceAttributes': params.audienceAttributes,
+					assetState: assetState
+				};
+			}
+		}
+
+		// create the URL
+		var url = this.restAPI.formatURL(this.restAPI.resolveGetRecommendationPath({
+			'id': id,
+			'apiName': apiName
 		}), restCallArgs);
 
 		// make the rest call
@@ -1251,6 +1379,61 @@
 		return self.restAPI.callRestServer(url, restCallArgs);
 	};
 
+	/**
+	 * Get categories for the specified taxonomy.<br/>
+	 * All arguments are passed through to the Content Delivery REST API call.
+	 *
+     * @param {object} args - A JavaScript object containing the "queryTaxonomyCategories" parameters.
+	 * @param {string} args.id - The ID of the taxonomy.
+	 * @returns {Promise} A JavaScript Promise object that can be used to retrieve the data after the call has completed.
+	 * @example
+	 * // get all categories for a taxonomy
+	 * client.queryTaxonomyCategories({
+	 *      'id': taxonomyId,
+	 *      'q': '(name eq "' + categoryName + '")',
+	 * }).then(function (topLevelItem) {
+	 *      console.log(topLevelItem);
+	 *      return topLevelItem;
+	 * });
+	 */
+	ContentDeliveryClientImpl.prototype.queryTaxonomyCategories = function (params) {
+		var args = params || {},
+			guid = args.id || args.ID || args.itemGUID,
+			restCallArgs = this.resolveRESTArgs('GET', args);
+
+		// create the URL
+		var url = this.restAPI.formatURL(this.restAPI.resolveQueryTaxonomyCategoriesPath({
+			'taxonomyGUID': guid,
+		}), restCallArgs);
+
+		return this.restAPI.callRestServer(url, restCallArgs);
+	};
+
+	/**
+	 * Get taxonomies for the channel.<br/>
+	 * All arguments are passed through to the Content Delivery REST API call.
+	 *
+	 * @param {object} params - A JavaScript object containing the "getTaxonomies" parameters.
+	 * @returns {Promise} A JavaScript Promise object that can be used to retrieve the data after the call has completed.
+	 * @example
+	 * // get all taxonomies
+	 * client.getTaxonomies().then(function (topLevelItem) {
+	 *      console.log(topLevelItem);
+	 *      return topLevelItem;
+	 * }, function (xhr, status, error) {
+	 *      console.log(xhr.responseText);
+	 * });
+	 */
+	ContentDeliveryClientImpl.prototype.getTaxonomies = function (params) {
+		var args = params || {},
+			restCallArgs = this.resolveRESTArgs('GET', args);
+
+		// create the URL
+		var url = this.restAPI.formatURL(this.restAPI.resolveGetTaxonomiesPath(args), restCallArgs);
+
+		// make the rest call
+		return this.restAPI.callRestServer(url, restCallArgs);
+	};
 
 	/**
 	 * Create the native URL to render an image asset into the page.<br/>
@@ -1282,7 +1465,7 @@
 	 * Retrieve metadata information about the content layout. <br/>
 	 * <b>Note:</b> This method is isn't supported if the Content Delivery SDK is used in NodeJS.
 	 * @param {object} args - A JavaScript object containing the "getLayoutInfo" parameters.
-	 * @param {string} args.layout - Name of the layout in the component catalog for Oracle Content and Experience Cloud.
+	 * @param {string} args.layout - Name of the layout in the component catalog for Oracle Content and Experience.
 	 * @returns {Promise} JavaScript Promise object that is resolved when the metadata for the layout is retrieved.
 	 * @example
 	 * // get the Content REST API versions supported by the content layout
@@ -1402,7 +1585,7 @@
 	 * @param {DOMElement} args.container - Container DOMElement to append to.
 	 * @returns {Promise} JavaScript Promise object that is resolved when the layout is loaded and rendered into the container.
 	 * @example
-	 * // render the item into the DOM element with a custom content layout expecting data compatible with Oracle Content and Experience Cloud Sites
+	 * // render the item into the DOM element with a custom content layout expecting data compatible with Oracle Content and Experience Sites
 	 * contentClient.getItem({
 	 *     'id': contentId
 	 * }).then(
@@ -1551,10 +1734,39 @@
 			macros = [];
 		}
 
-		// expand each of the supported macros
-		macros.forEach(function (macroEntry) {
-			afterValue = afterValue.replace(macroEntry.macro, macroEntry.value);
-		});
+		var expandString = function (stringValue) {
+			var expandedString = stringValue;
+			// expand each of the supported macros
+			macros.forEach(function (macroEntry) {
+				expandedString = expandedString.replace(macroEntry.macro, macroEntry.value);
+			});
+			return expandedString;
+		};
+
+		var expandField = function (obj) {
+			var expandedValue = obj;
+			if (typeof obj === 'string') {
+				expandedValue = expandString(obj);
+			} else if (obj && typeof obj === 'object') {
+				// traverse the object
+				if (Array.isArray(obj)) {
+					// expand all entries in the array
+					expandedValue = obj.map(function (entry) {
+						return expandField(entry);
+					});
+				} else {
+					// expand all properties of the object
+					expandedValue = {}; 
+					Object.keys(obj).forEach(function (key) {
+						expandedValue[key] = expandField(obj[key]);
+					});
+				}
+			} 
+
+			return expandedValue;
+		}; 
+		afterValue = expandField(afterValue);
+
 
 		_logger.log('expandMacros: afterValue: ' + afterValue);
 
@@ -1568,7 +1780,7 @@
 	//
 
 	/**
-	 * Client content preview SDK object to interact with draft content in Oracle Content and Experience Cloud: 
+	 * Client content preview SDK object to interact with draft content in Oracle Content and Experience:
 	 * <ul>
 	 * <li>Authenticated connection to the Content Server.</li>
 	 * <li>Read content types.</li>
@@ -1580,9 +1792,9 @@
 	 * @alias ContentPreviewClient
 	 * @augments ContentDeliveryClient
 	 * @param {object} args - A JavaScript object containing the parameters to create the content preview client instance.
-	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content and Experience Cloud instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
+	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content and Experience instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
 	 * @param {('v1' | 'v1.1')} [args.contentVersion='v1.1'] - The version of the content preview REST API to use.
-	 * @param {string} args.channelToken - The Oracle Content and Experience Cloud instance token for accessing published content.
+	 * @param {string} args.channelToken - The Oracle Content and Experience instance token for accessing published content.
 	 * @param {string} [args.cacheBuster=''] - The URL parameter used to control whether or not content is fetched from the browser cache.
 	 * @param {boolean} [args.secureContent=false] - Content is secured and requires sign-in to view.
 	 * @param {string} [args.authorization] - Authorization header to include in the request.
@@ -1612,7 +1824,7 @@
 		};
 
 		// store if running in compiler
-		this.isCompiler = args.isCompiler; 
+		this.isCompiler = args.isCompiler;
 
 		// set the authorization value 
 		this.info.authorization = args.authorization;
@@ -1630,12 +1842,16 @@
 			queryItems: _utils.bind(this.queryItems, this),
 			getRenditionURL: _utils.bind(this.getRenditionURL, this),
 			getLayoutInfo: _utils.bind(this.getLayoutInfo, this),
+			getRecommendationResults: _utils.bind(this.getRecommendationResults, this),
 			loadContentLayout: _utils.bind(this.loadContentLayout, this),
 			renderItem: _utils.bind(this.renderItem, this),
 			expandMacros: _utils.bind(this.expandMacros, this),
 			getTypes: _utils.bind(this.getTypes, this),
 			getType: _utils.bind(this.getType, this),
-			getCategoryToLayoutMapping: _utils.bind(this.getCategoryToLayoutMapping, this)
+			getCategoryToLayoutMapping: _utils.bind(this.getCategoryToLayoutMapping, this),
+			getTaxonomies: _utils.bind(this.queryTaxonomies, this),
+			queryTaxonomies: _utils.bind(this.queryTaxonomies, this),
+			queryTaxonomyCategories: _utils.bind(this.queryTaxonomyCategories, this)
 		};
 
 		_logger.debug('ContentClient.create: Content Info:');
@@ -1760,6 +1976,26 @@
 		return layoutsPromise;
 	};
 
+	/**
+	 * Get taxonomies for the channel.<br/>
+	 * All arguments are passed through to the Content Delivery REST API call.
+	 *
+	 * @param {object} params - A JavaScript object containing the "queryTaxonomies" parameters.
+	 * @returns {Promise} A JavaScript Promise object that can be used to retrieve the data after the call has completed.
+	 * @example
+	 * // get all taxonomies in draft status
+	 * client.queryTaxonomies({
+	 *      'q': '(status eq "' + draft + '")',
+	 * }).then(function (topLevelItem) {
+	 *      return topLevelItem;
+	 * }, function (xhr, status, error) {
+	 *      console.log(xhr.responseText);
+	 * });
+	 */
+	ContentPreviewClientImpl.prototype.queryTaxonomies = function (params) {
+		return this.getTaxonomies(params);
+	};
+
 	//
 	// ------------------------------- Content SDK -------------------------------------
 	//
@@ -1780,17 +2016,18 @@
 		_logger.updateLogger(logger);
 	};
 
+
 	/**
-	 * Create a client content SDK object to interact with content published in Oracle Content and Experience Cloud: 
+	 * Create a client content SDK object to interact with content published in Oracle Content and Experience:
 	 * <ul>
 	 * <li>Read the published content items</li>
 	 * <li>Render published content using named content layouts</li>
 	 * </ul
 	 * @memberof ContentSDK
 	 * @param {object} args - A JavaScript object containing the parameters to create the content delivery client instance.
-	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content and Experience Cloud instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
+	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content and Experience instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
 	 * @param {('v1' | 'v1.1')} [args.contentVersion='v1.1'] - The version of the content delivery REST API to use.
-	 * @param {string} args.channelToken - The Oracle Content and Experience Cloud instance token for accessing published content.
+	 * @param {string} args.channelToken - The Oracle Content and Experience instance token for accessing published content.
 	 * @param {string} [args.cacheBuster=''] - The URL parameter used to control whether or not content is fetched from the browser cache.
 	 * @param {boolean} [args.secureContent=false] - Content is secured and requires sign-in to view.
 	 * @param {string} [args.authorization] - Authorization header to include in the request.
@@ -1823,7 +2060,7 @@
 	};
 
 	/**
-	 * Create a client content preview SDK object to interact with draft content in Oracle Content and Experience Cloud: 
+	 * Create a client content preview SDK object to interact with draft content in Oracle Content and Experience:
 	 * <ul>
 	 * <li>Authenticated connection to the Content Server.</li>
 	 * <li>Read content types.</li>
@@ -1833,9 +2070,9 @@
 	 * The content preview client SDK object uses the "/management/" Content REST API calls.  This requires the user to be logged in to the system. 
 	 * @memberof ContentSDK
 	 * @param {object} args - A JavaScript object containing the parameters to create the content delivery client instance.
-	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content and Experience Cloud instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
+	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content and Experience instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
 	 * @param {('v1' | 'v1.1')} [args.contentVersion='v1.1'] - The version of the content delivery REST API to use.
-	 * @param {string} args.channelToken - The Oracle Content and Experience Cloud instance token for accessing published content.
+	 * @param {string} args.channelToken - The Oracle Content and Experience instance token for accessing published content.
 	 * @param {string} [args.cacheBuster=''] - The URL parameter used to control whether or not content is fetched from the browser cache.
 	 * @param {boolean} [args.secureContent=false] - Content is secured and requires sign-in to view.
 	 * @param {string} [args.authorization] - Authorization header to include in the request.
@@ -1866,6 +2103,7 @@
 		return newSDK ? newSDK.publicSDK : undefined;
 	};
 
+
 	/**
 	 * Content Client Information
 	 * @typedef {Object} ContentInfo
@@ -1874,7 +2112,7 @@
 	 * @property {string} clientType - The type of content client ['delivery' | 'preview'].
 	 * @property {string} contentType - Whether to access 'published' or 'draft' content.
 	 * @property {string} contentVersion - The version of the Content Delivery REST API to use.
-	 * @property {string} channelToken - The Oracle Content and Experience Cloud instance token for accessing published content.
+	 * @property {string} channelToken - The Oracle Content and Experience instance token for accessing published content.
 	 * @property {boolean} secureContent - Content is secured and requires sign-in to view.
 	 * @property {string} authorization - Authorization header to include in the request.
 	 * @property {string} beforeSend - Callback passing in the xhr (browser) or options (node) object before making the REST call.

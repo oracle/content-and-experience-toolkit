@@ -1,4 +1,4 @@
-# Content and Experience Cloud - Compilation Server Docker Image
+# Content and Experience - Compilation Server Docker Image
 
 The Compilation Server Docker Image provides a packaged build of the OCE Toolkit compilation server command: 
 ```

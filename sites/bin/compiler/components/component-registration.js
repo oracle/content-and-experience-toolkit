@@ -69,6 +69,7 @@
 						'borderStyle': 'none',
 						'borderWidth': 1,
 						'imageTarget': '_self',
+						'initialized': false,
 						'linkType': 'scs-link-no-link',
 						'marginBottom': 0,
 						'marginLeft': 0,
@@ -95,6 +96,7 @@
 						'imageName',
 						'imageTarget',
 						'imageUrl',
+						'initialized',
 						'linkContentId',
 						'linkContentType',
 						'linkContentViewing',
@@ -116,7 +118,8 @@
 					],
 					'asynchronousUpdateProperties': [
 						'imageName',
-						'title'
+						'title',
+						'initialized'
 					],
 					'transientProperties': [
 						'hasPublishedVersion',
@@ -1490,6 +1493,7 @@
 						'borderStyle': 'none',
 						'borderWidth': 1,
 						'controls': 'true',
+						'initialized': false,
 						'loop': 'false',
 						'marginBottom': 0,
 						'marginLeft': 0,
@@ -1510,14 +1514,15 @@
 						'contentId',
 						'contentViewing',
 						'controls',
-						'posterName',
-						'posterUrl',
+						'initialized',
 						'loop',
 						'marginBottom',
 						'marginLeft',
 						'marginRight',
 						'marginTop',
 						'muted',
+						'posterName',
+						'posterUrl',
 						'renderOnAccess',
 						'styleClass',
 						'useStyleClass',
@@ -1528,6 +1533,7 @@
 						'width'
 					],
 					'asynchronousUpdateProperties': [
+						'initialized',
 						'videoName'
 					],
 					'transientProperties': [

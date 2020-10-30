@@ -51,7 +51,7 @@ var _getResources = function (server, type, expand) {
 				var items = data && data.items || [];
 				resolve(items);
 			} else {
-				console.log('ERROR: failed to get ' + type + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.log('ERROR: failed to get ' + type + ' : ' + (response ? (response.statusMessage + ' ' +  response.statusCode) : ''));
 				resolve({
 					err: (response ? (response.statusMessage || response.statusCode) : 'err')
 				});
@@ -706,7 +706,8 @@ var _publishResource = function (server, type, id, name, hideAPI) {
 		}
 		var options = {
 			method: 'POST',
-			url: server.url + url
+			url: server.url + url,
+			timeout: 3600000
 		};
 		if (server.env !== 'dev_ec') {
 			options.headers = {
@@ -1335,6 +1336,7 @@ var _importComponent = function (server, name, fileId) {
 					'resolution': "overwrite"
 				}
 			},
+			timeout: 3600000,
 			json: true
 		};
 		if (server.env !== 'dev_ec') {

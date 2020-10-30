@@ -358,7 +358,7 @@ module.exports.exportComponent = function (argv, done) {
 
 var _exportComponent = function (argv) {
 	'use strict';
-
+	verifyRun(argv);
 	return new Promise(function (resolve, reject) {
 
 		if (!fs.existsSync(componentsSrcDir)) {
@@ -386,7 +386,12 @@ var _exportComponent = function (argv) {
 
 			if (validCompNum > 0) {
 				_argv_component = argv.component;
-				var exportSeries = gulp.series('dist', 'optimize', 'create-component-zip');
+				var exportSeries;
+				if (argv.noOptimize) {
+					exportSeries = gulp.series('dist', 'create-component-zip');
+				} else {
+					exportSeries = gulp.series('dist', 'optimize', 'create-component-zip');
+				}
 				exportSeries(function () {
 					return resolve({});
 				});
@@ -459,7 +464,6 @@ module.exports.deployComponent = function (argv, done) {
 			done();
 			return;
 		}
-
 
 		var request = serverUtils.getRequest();
 		var loginPromise = serverUtils.loginToServer(server, request);
@@ -541,6 +545,8 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 	return new Promise(function (resolve, reject) {
 		var fileName = name + '.zip';
 		// upload file
+		var fileId;
+		var startTime;
 		serverRest.createFile({
 				server: server,
 				parentID: folderId,
@@ -551,7 +557,8 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 					return Promise.reject();
 				}
 				console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + result.version);
-				var fileId = result.id;
+				fileId = result.id;
+				startTime = new Date();
 				return sitesRest.importComponent({
 					server: server,
 					name: name,
@@ -564,10 +571,10 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 				}
 				// console.log(result);
 				if (result.newName && result.newName !== name) {
-					console.log(' - component imported and renamed to ' + result.newName);
+					console.log(' - component imported and renamed to ' + result.newName + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 					name = result.newName;
 				} else {
-					console.log(' - component ' + name + ' imported');
+					console.log(' - component ' + name + ' imported [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 				}
 				var publishpromises = [];
 				if (publish) {
@@ -577,6 +584,7 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 					}));
 				}
 
+				startTime = new Date();
 				return Promise.all(publishpromises);
 			})
 			.then(function (results) {
@@ -584,11 +592,15 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 					if (results && results[0] && results[0].err) {
 						return Promise.reject();
 					} else {
-						console.log(' - component ' + name + ' published/republished');
-						resolve({});
+						console.log(' - component ' + name + ' published/republished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						resolve({
+							fileId: fileId
+						});
 					}
 				} else {
-					resolve({});
+					resolve({
+						fileId: fileId
+					});
 				}
 			})
 			.catch((error) => {
@@ -676,137 +688,156 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 			return;
 		}
 
-		_downloadComponentsREST(server, componentNames, done);
+		_downloadComponentsREST(server, componentNames)
+			.then(function (result) {
+				if (result.err) {
+					done();
+				} else {
+					done(true);
+				}
+			});
 
 	}); // login
 };
 
-var _downloadComponentsREST = function (server, componentNames, done) {
-
-	var compPromises = [];
-	for (var i = 0; i < componentNames.length; i++) {
-		compPromises.push(sitesRest.getComponent({
-			server: server,
-			name: componentNames[i]
-		}));
+var _downloadComponentsREST = function (server, componentNames, argv) {
+	if (argv) {
+		verifyRun(argv);
 	}
+	return new Promise(function (resolve, reject) {
+		var compPromises = [];
+		for (var i = 0; i < componentNames.length; i++) {
+			compPromises.push(sitesRest.getComponent({
+				server: server,
+				name: componentNames[i]
+			}));
+		}
 
-	var comps = [];
-	var exportedComps = [];
-	var exportSuccess = false;
-	Promise.all(compPromises).then(function (results) {
-			var allComps = results || [];
-			for (var i = 0; i < componentNames.length; i++) {
-				var found = false;
-				var compName = componentNames[i];
-				for (var j = 0; j < allComps.length; j++) {
-					if (allComps[j].name && compName.toLowerCase() === allComps[j].name.toLowerCase()) {
-						found = true;
-						comps.push(allComps[j]);
-						break;
+		var comps = [];
+		var exportedComps = [];
+		var exportSuccess = false;
+		Promise.all(compPromises).then(function (results) {
+				var allComps = results || [];
+				for (var i = 0; i < componentNames.length; i++) {
+					var found = false;
+					var compName = componentNames[i];
+					for (var j = 0; j < allComps.length; j++) {
+						if (allComps[j].name && compName.toLowerCase() === allComps[j].name.toLowerCase()) {
+							found = true;
+							comps.push(allComps[j]);
+							break;
+						}
+					}
+
+					if (!found) {
+						// console.log('ERROR: component ' + compName + ' does not exist');
+						// return Promise.reject();
+					}
+				}
+				// console.log(' - get components');
+				var exportPromises = [];
+				for (var i = 0; i < comps.length; i++) {
+					exportPromises.push(sitesRest.exportComponent({
+						server: server,
+						id: comps[i].id
+					}));
+				}
+
+				return Promise.all(exportPromises);
+
+			})
+			.then(function (results) {
+				var exportFiles = results || [];
+				var prefix = '/documents/api/1.2/files/';
+				for (var i = 0; i < comps.length; i++) {
+					var exported = false;
+					for (var j = 0; j < exportFiles.length; j++) {
+						if (comps[i].id === exportFiles[j].id && exportFiles[j].file) {
+							exported = true;
+							var fileId = exportFiles[j].file;
+							fileId = fileId.substring(fileId.indexOf(prefix) + prefix.length);
+							fileId = fileId.substring(0, fileId.lastIndexOf('/'));
+							// console.log(' - comp ' + comps[i].name + ' export file id ' + fileId);
+							exportedComps.push({
+								id: comps[i].id,
+								name: comps[i].name,
+								fileId: fileId,
+							});
+
+						}
+					}
+
+					if (!exported) {
+						console.log('ERROR: failed to export component ' + comps[i].name);
+					}
+				}
+				if (exportedComps.length === 0) {
+					return Promise.reject();
+				}
+
+				var downloadPromises = [];
+				for (var i = 0; i < exportedComps.length; i++) {
+					downloadPromises.push(serverRest.downloadFile({
+						server: server,
+						fFileGUID: exportedComps[i].fileId
+					}));
+				}
+
+				return Promise.all(downloadPromises);
+			})
+			.then(function (results) {
+
+				var destdir = path.join(projectDir, 'dist');
+				if (!fs.existsSync(destdir)) {
+					fs.mkdirSync(destdir);
+				}
+
+				var unzipPromises = [];
+				for (var i = 0; i < exportedComps.length; i++) {
+					for (var j = 0; j < results.length; j++) {
+						if (exportedComps[i].fileId === results[j].id) {
+							var targetFile = path.join(destdir, exportedComps[i].name + '.zip');
+							fs.writeFileSync(targetFile, results[i].data);
+							console.log(' - save file ' + targetFile);
+							exportSuccess = true;
+							unzipPromises.push(unzipComponent(exportedComps[i].name, targetFile));
+						}
+					}
+				}
+				return Promise.all(unzipPromises);
+			})
+			.then(function (results) {
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].comp) {
+						console.log(' - import component to ' + path.join(componentsSrcDir, results[i].comp));
 					}
 				}
 
-				if (!found) {
-					// console.log('ERROR: component ' + compName + ' does not exist');
-					// return Promise.reject();
+				var deleteFilePromises = [];
+				for (var i = 0; i < exportedComps.length; i++) {
+					deleteFilePromises.push(serverRest.deleteFile({
+						server: server,
+						fFileGUID: exportedComps[i].fileId
+					}));
 				}
-			}
-			// console.log(' - get components');
-			var exportPromises = [];
-			for (var i = 0; i < comps.length; i++) {
-				exportPromises.push(sitesRest.exportComponent({
-					server: server,
-					id: comps[i].id
-				}));
-			}
-
-			return Promise.all(exportPromises);
-
-		})
-		.then(function (results) {
-			var exportFiles = results || [];
-			var prefix = '/documents/api/1.2/files/';
-			for (var i = 0; i < comps.length; i++) {
-				var exported = false;
-				for (var j = 0; j < exportFiles.length; j++) {
-					if (comps[i].id === exportFiles[j].id && exportFiles[j].file) {
-						exported = true;
-						var fileId = exportFiles[j].file;
-						fileId = fileId.substring(fileId.indexOf(prefix) + prefix.length);
-						fileId = fileId.substring(0, fileId.lastIndexOf('/'));
-						// console.log(' - comp ' + comps[i].name + ' export file id ' + fileId);
-						exportedComps.push({
-							id: comps[i].id,
-							name: comps[i].name,
-							fileId: fileId,
-						});
-
-					}
+				// delete the zip file on the server
+				return Promise.all(deleteFilePromises);
+			})
+			.then(function (results) {
+				if (exportSuccess) {
+					resolve({});
+				} else {
+					resolve({
+						err: 'err'
+					});
 				}
-
-				if (!exported) {
-					console.log('ERROR: failed to export component ' + comps[i].name);
-				}
-			}
-			if (exportedComps.length === 0) {
-				return Promise.reject();
-			}
-
-			var downloadPromises = [];
-			for (var i = 0; i < exportedComps.length; i++) {
-				downloadPromises.push(serverRest.downloadFile({
-					server: server,
-					fFileGUID: exportedComps[i].fileId
-				}));
-			}
-
-			return Promise.all(downloadPromises);
-		})
-		.then(function (results) {
-
-			var destdir = path.join(projectDir, 'dist');
-			if (!fs.existsSync(destdir)) {
-				fs.mkdirSync(destdir);
-			}
-
-			var unzipPromises = [];
-			for (var i = 0; i < exportedComps.length; i++) {
-				for (var j = 0; j < results.length; j++) {
-					if (exportedComps[i].fileId === results[j].id) {
-						var targetFile = path.join(destdir, exportedComps[i].name + '.zip');
-						fs.writeFileSync(targetFile, results[i].data);
-						console.log(' - save file ' + targetFile);
-						exportSuccess = true;
-						unzipPromises.push(unzipComponent(exportedComps[i].name, targetFile));
-					}
-				}
-			}
-			return Promise.all(unzipPromises);
-		})
-		.then(function (results) {
-			for (var i = 0; i < results.length; i++) {
-				if (results[i].comp) {
-					console.log(' - import component to ' + path.join(componentsSrcDir, results[i].comp));
-				}
-			}
-
-			var deleteFilePromises = [];
-			for (var i = 0; i < exportedComps.length; i++) {
-				deleteFilePromises.push(serverRest.deleteFile({
-					server: server,
-					fFileGUID: exportedComps[i].fileId
-				}));
-			}
-			// delete the zip file on the server
-			return Promise.all(deleteFilePromises);
-		})
-		.then(function (results) {
-			done(exportSuccess);
-		})
-		.catch((error) => {
-			done();
-		});
+			})
+			.catch((error) => {
+				resolve({
+					err: 'err'
+				});
+			});
+	});
 };
 
 /**
@@ -1315,4 +1346,11 @@ module.exports.unshareComponent = function (argv, done) {
 	} catch (e) {
 		done();
 	}
+};
+
+// export non "command line" utility functions
+module.exports.utils = {
+	downloadComponents: _downloadComponentsREST,
+	uploadComponent: _deployOneComponentREST,
+	exportComponents: _exportComponent
 };

@@ -45,55 +45,58 @@ describe('Components Tests', function () {
 
 				// run generic validation against all the components
 				components.forEach(function (componentName) {
-					it('basic component render test for: ' + componentName, async function () {
-						this.timeout(180000);
+					// if it's the NavMenu component, it requires bootstrap, which isn't included by default so ignore it
+					if (componentName !== 'NavMenu') {
+						it('basic component render test for: ' + componentName, async function () {
+							this.timeout(180000);
 
-						// get the type of component
-						var appInfoJSON = fs.readFileSync(serverConfig.componentsFolder + '/' + componentName + '/appinfo.json', 'utf8'),
-							appInfo;
-						try {
-							appInfo = JSON.parse(appInfoJSON);
-						} catch (e) {
-							console.log(e);
-							throw new Error('Failed to determine component type for: ' + componentName);
-						}
+							// get the type of component
+							var appInfoJSON = fs.readFileSync(serverConfig.componentsFolder + '/' + componentName + '/appinfo.json', 'utf8'),
+								appInfo;
+							try {
+								appInfo = JSON.parse(appInfoJSON);
+							} catch (e) {
+								console.log(e);
+								throw new Error('Failed to determine component type for: ' + componentName);
+							}
 
-						// run generic tests by type
-						switch (appInfo.type) {
-							case 'contentlayout':
-								console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
-								break;
-							case 'sandboxed':
-								console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
-								break;
-							case 'sectionlayout':
-								console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
-								break;
-							case 'componentgroup':
-								console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
-								break;
-							default:
-								// render local component onto the page
-								var pageURL = serverConfig.url + '/components/' + componentName;
-								await page.goto(pageURL);
+							// run generic tests by type
+							switch (appInfo.type) {
+								case 'contentlayout':
+									console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
+									break;
+								case 'sandboxed':
+									console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
+									break;
+								case 'sectionlayout':
+									console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
+									break;
+								case 'componentgroup':
+									console.log('\x1b[33m      - No tests implemented for: ' + componentName + '\x1b[0m');
+									break;
+								default:
+									// render local component onto the page
+									var pageURL = serverConfig.url + '/components/' + componentName;
+									await page.goto(pageURL);
 
-								try {
-									// get the custom component container ID
-									await page.waitForSelector('.scs-component-container');
-									const componentId = await page.evaluate(() => document.querySelector('.scs-component-container').id);
+									try {
+										// get the custom component container ID
+										await page.waitForSelector('.scs-component-container');
+										const componentId = await page.evaluate(() => document.querySelector('.scs-component-container').id);
 
-									// wait until something has rendered into the customComponentDiv 
-									var custCompSelector = '#' + componentId + 'customComponentDiv';
-									await page.waitForSelector(custCompSelector);
-									await page.waitForFunction('document.querySelector("' + custCompSelector + '").innerText.length > 0');
-								} catch (e) {
-									console.log(e);
-									throw new Error('Failed to validate custom component code has rendered into the page: ' + componentName);
-								}
-						}
+										// wait until something has rendered into the customComponentDiv 
+										var custCompSelector = '#' + componentId + 'customComponentDiv';
+										await page.waitForSelector(custCompSelector);
+										await page.waitForFunction('document.querySelector("' + custCompSelector + '").innerText.length > 0');
+									} catch (e) {
+										console.log(e);
+										throw new Error('Failed to validate custom component code has rendered into the page: ' + componentName);
+									}
+							}
 
-						// do any other tests
-					});
+							// do any other tests
+						});
+					}
 				});
 			}
 		});

@@ -15,6 +15,27 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 20.4.2
+
+**Added**
+
+- `cec download-type` - Downloads content types from the OCE server.
+- `cec upload-type` - Uploads content types to the OCE server.
+
+- `cec download-recommendation` - Downloads a recommendation from the OCE server.
+- `cec upload-recommendation` - Uploads a recommendation to the OCE server.
+
+- `cec get-site-security` - Gets the security settings for a site on the OCE server.
+
+- `cec control-content` - Now supports list of assets for publish and add to channel or collection.
+
+- `cec download-content` - `channel` is no longer a required parameter so can download all assets from a repository.
+
+**Fixed**
+
+- Local server now supports rendering content layout custom data.
+
+
 # New in Release 20.4.1
 
 **Added**

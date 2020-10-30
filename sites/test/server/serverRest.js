@@ -755,7 +755,7 @@ module.exports.getItemVariations = function (args) {
 	return _getItemVariations(args.server, args.id);
 };
 
-var _queryItems = function (server, q, fields, orderBy, limit, offset, channelToken) {
+var _queryItems = function (server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/items';
 		var sep = '?';
@@ -775,6 +775,9 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 		}
 		if (fields) {
 			url = url + '&fields=' + fields;
+		}
+		if (includeAdditionalData) {
+			url = url + '&includeAdditionalData=true';
 		}
 		var options = {
 			method: 'GET',
@@ -822,7 +825,7 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.queryItems = function (args) {
-	return _queryItems(args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken);
+	return _queryItems(args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken, args.includeAdditionalData);
 };
 
 // Create collection on server
@@ -1277,30 +1280,61 @@ module.exports.getChannel = function (args) {
 module.exports.getChannelWithName = function (args) {
 	return new Promise(function (resolve, reject) {
 		if (!args.name) {
-			resolve({
-				err: 'err'
-			});
+			resolve({});
 		}
-		_getChannels(args.server).then(function (result) {
-			if (result.err) {
-				resolve({
+		var channelName = args.name;
+		var server = args.server;
+
+		var url = server.url + '/content/management/api/v1.1/channels';
+		url = url + '?q=(name mt "' + channelName + '")';
+		url = url + '&fields=all';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		// console.log(options);
+
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get channel ' + channelName);
+				console.log(error);
+				return resolve({
 					err: 'err'
 				});
 			}
-
-			var channels = result || [];
-			var channel;
-			var name = args.name.toLowerCase();
-			for (var i = 0; i < channels.length; i++) {
-				if (name === channels[i].name.toLowerCase()) {
-					channel = channels[i];
-					break;
-				}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
 			}
 
-			resolve({
-				data: channel
-			});
+			if (response && response.statusCode === 200) {
+				var channels = data && data.items || [];
+				var channel;
+				for (var i = 0; i < channels.length; i++) {
+					if (channels[i].name && channels[i].name.toLowerCase() === channelName.toLocaleLowerCase()) {
+						channel = channels[i];
+						break;
+					}
+				}
+				if (channel) {
+					resolve({
+						data: channel
+					});
+				} else {
+					// console.log('ERROR:  channel ' + channelName + ' not found');
+					return resolve({});
+				}
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get channel ' + channelName + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
 		});
 	});
 };
@@ -2132,30 +2166,60 @@ module.exports.getRepository = function (args) {
 module.exports.getRepositoryWithName = function (args) {
 	return new Promise(function (resolve, reject) {
 		if (!args.name) {
-			resolve({
-				err: 'err'
-			});
+			resolve({});
 		}
-		_getRepositories(args.server).then(function (result) {
-			if (result.err) {
-				resolve({
+		var repoName = args.name;
+		var server = args.server;
+
+		var url = server.url + '/content/management/api/v1.1/repositories';
+		url = url + '?q=(name mt "' + repoName + '")';
+		url = url + '&fields=all';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		// console.log(options);
+
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get repository ' + repoName);
+				console.log(error);
+				return resolve({
 					err: 'err'
 				});
 			}
-
-			var repositories = result || [];
-			var repository;
-			var name = args.name.toLowerCase();
-			for (var i = 0; i < repositories.length; i++) {
-				if (name === repositories[i].name.toLowerCase()) {
-					repository = repositories[i];
-					break;
-				}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
 			}
 
-			resolve({
-				data: repository
-			});
+			if (response && response.statusCode === 200) {
+				var repos = data && data.items || [];
+				var repository;
+				for (var i = 0; i < repos.length; i++) {
+					if (repos[i].name && repos[i].name.toLowerCase() === repoName.toLocaleLowerCase()) {
+						repository = repos[i];
+						break;
+					}
+				}
+				if (repository) {
+					resolve({
+						data: repository
+					});
+				} else {
+					return resolve({});
+				}
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get repository ' + repoName + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
 		});
 	});
 };
@@ -2631,9 +2695,13 @@ module.exports.performPermissionOperation = function (args) {
 };
 
 // Get typefrom server
-var _getContentType = function (server, typeName) {
+var _getContentType = function (server, typeName, expand, showError) {
 	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/types/' + typeName;
+		var url = server.url + '/content/management/api/v1.1/types/' + typeName + '?links=none';
+		if (expand) {
+			url = url + '&expand=' + expand;
+		}
+
 		var options = {
 			method: 'GET',
 			url: url,
@@ -2641,8 +2709,10 @@ var _getContentType = function (server, typeName) {
 		};
 		request(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get type ' + typeName);
-				console.log(error);
+				if (showError) {
+					console.log('ERROR: failed to get type ' + typeName);
+					console.log(error);
+				}
 				return resolve({
 					err: 'err'
 				});
@@ -2657,7 +2727,9 @@ var _getContentType = function (server, typeName) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get type ' + typeName + ' : ' + msg);
+				if (showError) {
+					console.log('ERROR: failed to get type ' + typeName + ' : ' + msg);
+				}
 				return resolve({
 					err: 'err'
 				});
@@ -2673,7 +2745,139 @@ var _getContentType = function (server, typeName) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getContentType = function (args) {
-	return _getContentType(args.server, args.name);
+	var showError = args.showError === undefined ? true : args.showError;
+	return _getContentType(args.server, args.name, args.expand, showError);
+};
+
+var _createContentType = function (server, typeObj) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var name = typeObj.name;
+				var payload = typeObj;
+				payload.id = '';
+
+				var url = server.url + '/content/management/api/v1.1/types';
+				var auth = serverUtils.getRequestAuth(server);
+				var postData = {
+					method: 'POST',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					body: payload,
+					json: true
+				};
+
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to create type ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
+						console.log('Failed to create type ' + name + ' - ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Create a content type on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.type the type to create
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createContentType = function (args) {
+	return _createContentType(args.server, args.type);
+};
+
+var _updateContentType = function (server, typeObj) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var name = typeObj.name;
+				var payload = typeObj;
+
+				var url = server.url + '/content/management/api/v1.1/types/' + name;
+				var auth = serverUtils.getRequestAuth(server);
+				var postData = {
+					method: 'PUT',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					body: payload,
+					json: true
+				};
+
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to update type ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
+						console.log('Failed to update type ' + name + ' - ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Create a content type on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.type the type to update
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.updateContentType = function (args) {
+	return _updateContentType(args.server, args.type);
 };
 
 var _getUser = function (server, userName) {

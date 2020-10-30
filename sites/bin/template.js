@@ -435,9 +435,20 @@ var _downloadSiteComponents = function (request, server, compNames) {
 							break;
 						}
 					}
+					// get the component's appType from appinfo.json
+					// currently API /sites/management/api/v1/components does not return appType
+					var appType = comps[i].type;
+					if (fs.existsSync(path.join(componentsSrcDir, comps[i].name, 'appinfo.json'))) {
+						var appinfo = JSON.parse(fs.readFileSync(path.join(componentsSrcDir, comps[i].name, 'appinfo.json')));
+						if (appinfo && appinfo.type) {
+							appType = appinfo.type;
+						}
+					}
+
+					// console.log(' - name: ' + comps[i].name + ' type: ' + comps[i].type + ' appType: ' + appType);
 					var folderJson = {
 						itemGUID: itemGUID,
-						appType: comps[i].type,
+						appType: appType,
 						appIconUrl: '',
 						appIsHiddenInBuilder: comps[i].isHidden
 					};
@@ -3018,6 +3029,8 @@ module.exports.compileTemplate = function (argv, done) {
 		recurse = typeof argv.recurse === 'boolean' ? argv.recurse : argv.recurse === 'true',
 		verbose = typeof argv.verbose === 'boolean' ? argv.verbose : argv.verbose === 'true',
 		targetDevice = argv.targetDevice || '',
+		siteName = argv.siteName || '',
+		secureSite = typeof argv.secureSite === 'boolean' ? argv.secureSite : argv.secureSite === 'true',
 		includeLocale = typeof argv.includeLocale === 'boolean' ? argv.includeLocale : argv.includeLocale === 'true',
 		noDetailPages = typeof argv.noDetailPages === 'boolean' ? argv.noDetailPages : argv.noDetailPages === 'true',
 		noDefaultDetailPageLink = typeof argv.noDefaultDetailPageLink === 'boolean' ? argv.noDefaultDetailPageLink : argv.noDefaultDetailPageLink === 'true',
@@ -3078,6 +3091,8 @@ module.exports.compileTemplate = function (argv, done) {
 		recurse: recurse,
 		verbose: verbose,
 		targetDevice: targetDevice,
+		siteName: siteName,
+		secureSite: secureSite,
 		noDetailPages: noDetailPages,
 		noDefaultDetailPageLink: noDefaultDetailPageLink,
 		contentLayoutSnippet: contentLayoutSnippet,

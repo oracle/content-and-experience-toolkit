@@ -2,7 +2,7 @@
 	"name": "cec-sites-toolkit-source",
 	"version": "19.2.1",
 	"license": "UPL-1.0",
-	"description": "Content and Experience Cloud Toolkit Development",
+	"description": "Content and Experience Toolkit Development",
 	"main": "index.js",
 	"directories": {},
 	"scripts": {

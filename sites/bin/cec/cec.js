@@ -172,7 +172,7 @@ var getContentTypeRoles = function () {
 };
 
 var getServerTypes = function () {
-	const roles = ['pod_ec', 'pod_ic', 'dev_ec', 'dev_osso'];
+	const roles = ['pod_ec', 'pod_ic', 'dev_ec', 'dev_pod', 'dev_osso'];
 	return roles;
 };
 
@@ -837,13 +837,13 @@ const removeContentForm = {
 };
 
 const downloadContent = {
-	command: 'download-content <channel>',
+	command: 'download-content',
 	alias: 'dlc',
 	name: 'download-content',
 	usage: {
-		'short': 'Downloads content in channel <channel> from OCE server.',
+		'short': 'Downloads content from OCE server.',
 		'long': (function () {
-			let desc = 'Downloads content in channel <channel> from OCE server. By default all assets are downloaded, optionally specify -p to download only published assets. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Downloads content from OCE server. By default all assets are downloaded, optionally specify -p to download only published assets. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -852,10 +852,11 @@ const downloadContent = {
 		['cec download-content Site1Channel -n Site1Assets', 'Download all assets in channel Site1Channel and save to local folder src/content/Site1Assets'],
 		['cec download-content Site1Channel -p', 'Download published assets in channel Site1Channel'],
 		['cec download-content Site1Channel -s UAT', 'Download all assets in channel Site1Channel on server UAT'],
-		['cec download-content Site1Channel -a GUID1,GUID2', 'Download asset GUID1 and GUID2 and all their dependencies in chanel Site1Channel'],
 		['cec download-content Site1Channel -q \'fields.category eq "RECIPE"\'', 'Download assets from the channel Site1Channel, matching the query, plus any dependencies'],
 		['cec download-content Site1Channel -r Repo1 -c Collection1', 'Download assets from the repository Repo1, collection Collection1 and channel Site1Channel'],
-		['cec download-content Site1Channel -r Repo1 -c Collection1 -q \'fields.category eq "RECIPE"\'', 'Download assets from repository Repo1, collection Collection1 and channel Site1Channel, matching the query, plus any dependencies']
+		['cec download-content Site1Channel -r Repo1 -c Collection1 -q \'fields.category eq "RECIPE"\'', 'Download assets from repository Repo1, collection Collection1 and channel Site1Channel, matching the query, plus any dependencies'],
+		['cec download-content -a GUID1,GUID2', 'Download asset GUID1 and GUID2 and all their dependencies'],
+		['cec download-content -r Repo1', 'Download assets from the repository Repo1']
 	]
 };
 
@@ -894,9 +895,11 @@ const controlContent = {
 	},
 	example: [
 		['cec control-content publish -c Channel1', 'Publish all items in channel Channel1 on the server specified in cec.properties file'],
+		['cec control-content publish -c Channel1 -a GUID1,GUID2', 'Publish asset GUID1 and GUID2 in channel Channel1'],
 		['cec control-content publish -c Channel1 -s UAT', 'Publish all items in channel Channel1 on the registered server UAT'],
 		['cec control-content unpublish -c Channel1 -s UAT', 'Unpublish all items in channel Channel1 on the registered server UAT'],
 		['cec control-content add -c Channel1 -r Repo1 -s UAT', 'Add all items in repository Repo1 to channel Channel1 on the registered server UAT'],
+		['cec control-content add -c Channel1 -r Repo1 -a GUID1,GUID2 -s UAT', 'Add asset GUID1 and GUID2 in repository Repo1 to channel Channel1'],
 		['cec control-content remove -c Channel1 -s UAT', 'Remove all items in channel Channel1 on the registered server UAT'],
 		['cec control-content add -l Collection1 -r Repo1 -s UAT', 'Add all items in repository Repo1 to collection Collection1 on the registered server UAT'],
 		['cec control-content remove -l Collection -s UAT', 'Remove all items in collection Collection1 on the registered server UAT']
@@ -1166,6 +1169,7 @@ const transferSiteContent = {
 		'long': (function () {
 			let desc = 'Creates scripts to transfer Enterprise Site content from one OCE server to another. This command is used to transfer large number of content items and the items are transferred in batches. By default the scripts will not be executed by this command. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>. ';
 			desc = desc + 'Optionally specify -n for the number of items in each batch, defaults to 500.';
+			desc = desc + ' If the site contains assets from other repositories, optionally provide the repository mapping otherwise all assets will be uploaded into the same repository.';
 			return desc;
 		})()
 	},
@@ -1173,7 +1177,8 @@ const transferSiteContent = {
 		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1', 'Generate script Site1_downloadcontent and Site1_uploadcontent'],
 		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -e', 'Generate script Site1_downloadcontent and Site1_uploadcontent and execute them'],
 		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -n 200'],
-		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -p']
+		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -p'],
+		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -m "Shared Images:Shared Images,Shared Video:Shared Video"']
 	]
 };
 
@@ -1211,6 +1216,23 @@ const unshareSite = {
 		['cec unshare-site Site1 -u user1,user2'],
 		['cec unshare-site Site1 -u user1,user2 -g group1,group2'],
 		['cec unshare-site Site1 -u user1,user2 -s UAT']
+	]
+};
+
+const getSiteSecurity = {
+	command: 'get-site-security <name>',
+	alias: 'gss',
+	name: 'get-site-security',
+	usage: {
+		'short': 'Gets site security on OCE server.',
+		'long': (function () {
+			let desc = 'Gets site security on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec get-site-security Site1'],
+		['cec get-site-security Site1 -s UAT']
 	]
 };
 
@@ -1604,6 +1626,60 @@ const unshareType = {
 		['cec unshare-type BlogType -u user1,user2 '],
 		['cec unshare-type BlogType -u user1,user2 -g group1,group2'],
 		['cec unshare-type BlogType -u user1,user2 -s UAT']
+	]
+};
+
+const downloadType = {
+	command: 'download-type <name>',
+	alias: 'dltp',
+	name: 'download-type',
+	usage: {
+		'short': 'Downloads types from OCE server.',
+		'long': (function () {
+			let desc = 'Downloads types from OCE server. The content field editors and forms for the types will also be downloaded. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec download-type BlogType', 'Download content type BlogType and save to local folder src/types/BlogType'],
+		['cec download-type BlogType,BlogAuthor', 'Download content type BlogType and BlogAuthor and save to local folder'],
+		['cec download-type BlogType -s UAT']
+	]
+};
+
+const uploadType = {
+	command: 'upload-type <name>',
+	alias: 'ultp',
+	name: 'upload-type',
+	usage: {
+		'short': 'Uploads types to OCE server.',
+		'long': (function () {
+			let desc = 'Uploads types to OCE server. The content field editors and forms for the types will also be uploaded. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec upload-type BlogType'],
+		['cec download-type BlogType -s UAT'],
+		['cec download-type BlogAuthor,BlogType', 'Place the referenced types first']
+	]
+};
+
+const createMSTemplate = {
+	command: 'create-ms-template <type>',
+	alias: 'cmst',
+	name: 'create-ms-template',
+	usage: {
+		'short': 'Creates Microsoft Word template for a type on OCE server.',
+		'long': (function () {
+			let desc = 'Creates Microsoft Word template for a type on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-ms-template BlogType'],
+		['cec create-ms-template BlogType -n BlogTypeMS'],
+		['cec create-ms-template BlogType -s UAT']
 	]
 };
 
@@ -2107,9 +2183,9 @@ const downloadRecommendation = {
 	alias: 'dlr',
 	name: 'download-recommendation',
 	usage: {
-		'short': 'Downloads the recommendation <name> from the OCE server.',
+		'short': 'Downloads a recommendation from the OCE server.',
 		'long': (function () {
-			let desc = 'Downloads the recommendation <name> from the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify repository with -r <repository>. Optionally specify -p to download the published version.';
+			let desc = 'Downloads a recommendation from the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify repository with -r <repository>. Optionally specify -p to download the published version.';
 			return desc;
 		})()
 	},
@@ -2126,9 +2202,9 @@ const uploadRecommendation = {
 	alias: 'ulr',
 	name: 'upload-recommendation',
 	usage: {
-		'short': 'Uploads the recommendation <name> to the OCE server.',
+		'short': 'Uploads a recommendation to the OCE server.',
 		'long': (function () {
-			let desc = 'Uploads the recommendation <name> to repository <repository> on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Uploads a recommendation to repository <repository> on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -2450,6 +2526,7 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(controlSite) + os.EOL +
 	_getCmdHelp(shareSite) + os.EOL +
 	_getCmdHelp(unshareSite) + os.EOL +
+	_getCmdHelp(getSiteSecurity) + os.EOL +
 	_getCmdHelp(setSiteSecurity) + os.EOL +
 	_getCmdHelp(indexSite) + os.EOL +
 	_getCmdHelp(createSiteMap) + os.EOL +
@@ -2481,6 +2558,11 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(listServerContentTypes) + os.EOL +
 	_getCmdHelp(shareType) + os.EOL +
 	_getCmdHelp(unshareType) + os.EOL +
+	_getCmdHelp(downloadType) + os.EOL +
+	// _getCmdHelp(createMSTemplate) + os.EOL +
+	_getCmdHelp(uploadType) + os.EOL +
+	_getCmdHelp(downloadRecommendation) + os.EOL +
+	_getCmdHelp(uploadRecommendation) + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
 	_getCmdHelp(addContentLayoutMapping) + os.EOL +
 	_getCmdHelp(removeContentLayoutMapping) + os.EOL +
@@ -2908,6 +2990,14 @@ const argv = yargs.usage(_usage)
 					alias: 'a',
 					description: 'The target device type when using adaptive layouts [desktop | mobile]'
 				})
+				.option('siteName', {
+					alias: 'n',
+					description: 'The target site name to use when compiling the template'
+				})
+				.option('secureSite', {
+					alias: 'u',
+					description: 'The target site is a secure site'
+				})
 				.option('includeLocale', {
 					alias: 'l',
 					description: 'Include default locale when creating pages'
@@ -3317,15 +3407,25 @@ const argv = yargs.usage(_usage)
 				})
 				.option('name', {
 					alias: 'n',
-					description: 'The name for this download, default to the channel name'
+					description: 'The name for this download, default to the channel or repository name'
 				})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCE server'
 				})
 				.check((argv) => {
+					if (!argv.channel && argv._[1]) {
+						argv.channel = argv._[1];
+					}
+					// console.log(argv);
+					if (!argv.channel && !argv.repository && !argv.query && !argv.assets) {
+						throw new Error(os.EOL + 'Please specify the channel, repository, query or assets');
+					}
 					if (argv.collection && !argv.repository) {
 						throw new Error(`<repository> is required when <collection> is specified`);
+					}
+					if (!argv.channel && !argv.repository && !argv.name) {
+						throw new Error(os.EOL + 'Please specify the name for the download');
 					}
 					return true;
 				})
@@ -3337,6 +3437,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadContent.example[5])
 				.example(...downloadContent.example[6])
 				.example(...downloadContent.example[7])
+				.example(...downloadContent.example[8])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3411,6 +3512,10 @@ const argv = yargs.usage(_usage)
 					alias: 'l',
 					description: 'Collection'
 				})
+				.option('assets', {
+					alias: 'a',
+					description: 'The comma separated list of asset GUIDS'
+				})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCE server'
@@ -3449,6 +3554,8 @@ const argv = yargs.usage(_usage)
 				.example(...controlContent.example[4])
 				.example(...controlContent.example[5])
 				.example(...controlContent.example[6])
+				.example(...controlContent.example[7])
+				.example(...controlContent.example[8])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3856,12 +3963,16 @@ const argv = yargs.usage(_usage)
 				})
 				.option('repository', {
 					alias: 'r',
-					description: 'Repository',
+					description: 'The site repository',
 					demandOption: true
 				})
 				.option('publishedassets', {
 					alias: 'p',
 					description: 'The flag to indicate published assets only'
+				})
+				.option('repositorymappings', {
+					alias: 'm',
+					description: 'The repositories for assets from other repositories '
 				})
 				.option('number', {
 					alias: 'n',
@@ -3881,6 +3992,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferSiteContent.example[1])
 				.example(...transferSiteContent.example[2])
 				.example(...transferSiteContent.example[3])
+				.example(...transferSiteContent.example[4])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3998,6 +4110,19 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${unshareSite.command}\n\n${unshareSite.usage.long}`);
+		})
+	.command([getSiteSecurity.command, getSiteSecurity.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered OCE server'
+				})
+				.example(...getSiteSecurity.example[0])
+				.example(...getSiteSecurity.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${getSiteSecurity.command}\n\n${getSiteSecurity.usage.long}`);
 		})
 	.command([setSiteSecurity.command, setSiteSecurity.alias], false,
 		(yargs) => {
@@ -4668,6 +4793,52 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${unshareType.command}\n\n${unshareType.usage.long}`);
+		})
+	.command([downloadType.command, downloadType.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered OCE server'
+				})
+				.example(...downloadType.example[0])
+				.example(...downloadType.example[1])
+				.example(...downloadType.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${downloadType.command}\n\n${downloadType.usage.long}`);
+		})
+	.command([uploadType.command, uploadType.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered OCE server'
+				})
+				.example(...uploadType.example[0])
+				.example(...uploadType.example[1])
+				.example(...uploadType.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${uploadType.command}\n\n${uploadType.usage.long}`);
+		})
+	.command([createMSTemplate.command, createMSTemplate.alias], false,
+		(yargs) => {
+			yargs.option('name', {
+					alias: 'n',
+					description: 'The name for the template, default to the type name'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered OCE server'
+				})
+				.example(...createMSTemplate.example[0])
+				.example(...createMSTemplate.example[1])
+				.example(...createMSTemplate.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createMSTemplate.command}\n\n${createMSTemplate.usage.long}`);
 		})
 	.command([createChannel.command, createChannel.alias], false,
 		(yargs) => {
@@ -5714,12 +5885,18 @@ if (!argv._[0]) {
 	return;
 }
 
-// _checkVersion();
+// Display toolkit version
+if (fs.existsSync(path.join(appRoot, 'package.json'))) {
+	var packageJSON = JSON.parse(fs.readFileSync(path.join(appRoot, 'package.json')));
+	var cecVersion = packageJSON.version;
+	console.log('OCE Toolkit ' + cecVersion);
+}
 
 /*********************
  * Command execution
  **********************/
 //console.log(argv);
+
 
 var spawnCmd;
 
@@ -6134,6 +6311,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.targetDevice) {
 		compileTemplateArgs.push(...['--targetDevice', argv.targetDevice]);
 	}
+	if (argv.siteName) {
+		compileTemplateArgs.push(...['--siteName', argv.siteName]);
+	}
+	if (argv.secureSite) {
+		compileTemplateArgs.push(...['--secureSite', argv.secureSite]);
+	}
 	if (argv.ignoreErrors) {
 		compileTemplateArgs.push(...['--ignoreErrors', argv.targetDevice]);
 	}
@@ -6356,11 +6539,13 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 } else if (argv._[0] === downloadContent.name || argv._[0] === downloadContent.alias) {
 	let downloadContentArgs = ['run', '-s', downloadContent.name, '--prefix', appRoot,
 		'--',
-		'--projectDir', cwd,
-		'--channel', argv.channel
+		'--projectDir', cwd
 	];
 	if (argv.server && typeof argv.server !== 'boolean') {
 		downloadContentArgs.push(...['--server', argv.server]);
+	}
+	if (argv.channel) {
+		downloadContentArgs.push(...['--channel', argv.channel]);
 	}
 	if (argv.publishedassets) {
 		downloadContentArgs.push(...['--publishedassets', argv.publishedassets]);
@@ -6432,6 +6617,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.repository) {
 		controlContentArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.assets) {
+		controlContentArgs.push(...['--assets', argv.assets]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlContentArgs.push(...['--server', argv.server]);
@@ -6781,6 +6969,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.publishedassets) {
 		transferSiteContentArgs.push(...['--publishedassets', argv.publishedassets]);
 	}
+	if (argv.repositorymappings) {
+		transferSiteContentArgs.push(...['--repositorymappings', argv.repositorymappings]);
+	}
 	if (argv.number) {
 		transferSiteContentArgs.push(...['--number', argv.number]);
 	}
@@ -6856,6 +7047,20 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		unshareSiteArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, unshareSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === getSiteSecurity.name || argv._[0] === getSiteSecurity.alias) {
+	let getSiteSecurityArgs = ['run', '-s', getSiteSecurity.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		getSiteSecurityArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, getSiteSecurityArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -7299,6 +7504,54 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		unshareTypeArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, unshareTypeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === downloadType.name || argv._[0] === downloadType.alias) {
+	let downloadTypeArgs = ['run', '-s', downloadType.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		downloadTypeArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, downloadTypeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createMSTemplate.name || argv._[0] === createMSTemplate.alias) {
+	let createMSTemplateArgs = ['run', '-s', createMSTemplate.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--type', argv.type
+	];
+
+	if (argv.name) {
+		createMSTemplateArgs.push(...['--name', argv.name]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createMSTemplateArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createMSTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
+	let uploadTypeArgs = ['run', '-s', uploadType.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		uploadTypeArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, uploadTypeArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -7973,6 +8226,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 }
+
 
 // see if need to show deprecation warning
 _checkVersion();

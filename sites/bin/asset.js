@@ -7,10 +7,13 @@
 
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
+	componentUtils = require('./component.js').utils,
+	fs = require('fs'),
 	sprintf = require('sprintf-js').sprintf,
 	path = require('path');
 
 var projectDir,
+	typesSrcDir,
 	serversSrcDir;
 
 /**
@@ -21,6 +24,8 @@ var verifyRun = function (argv) {
 	projectDir = argv.projectDir;
 
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
+
+	typesSrcDir = path.join(srcfolder, 'types');
 
 	serversSrcDir = path.join(srcfolder, 'servers');
 
@@ -1380,6 +1385,372 @@ module.exports.unshareType = function (argv, done) {
 	});
 };
 
+module.exports.downloadType = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	console.log(' - server: ' + server.url);
+
+	var names = argv.name.split(',');
+	var goodNames = [];
+	var types = [];
+
+	var customEditors = [];
+	var customForms = [];
+
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		var typepromises = [];
+		names.forEach(function (name) {
+			typepromises.push(serverRest.getContentType({
+				server: server,
+				name: name,
+				expand: 'all'
+			}));
+		});
+
+		Promise.all(typepromises)
+			.then(function (results) {
+				var allTypes = results || [];
+
+				for (var i = 0; i < names.length; i++) {
+					var found = false;
+					for (var j = 0; j < allTypes.length; j++) {
+						if (names[i] === allTypes[j].name && !goodNames.includes(names[i])) {
+							found = true;
+							goodNames.push(names[i]);
+							types.push(allTypes[j]);
+							break;
+						}
+					}
+				}
+
+				if (types.length === 0) {
+					return Promise.reject();
+				}
+
+				// save types to local
+				if (!fs.existsSync(typesSrcDir)) {
+					fs.mkdirSync(typesSrcDir);
+				}
+
+				types.forEach(function (typeObj) {
+					var folderPath = path.join(typesSrcDir, typeObj.name);
+					if (!fs.existsSync(folderPath)) {
+						fs.mkdirSync(folderPath);
+					}
+
+					var filePath = path.join(folderPath, typeObj.name + '.json');
+					fs.writeFileSync(filePath, JSON.stringify(typeObj, null, 4));
+
+					console.log(' - save type ' + filePath);
+
+					var typeCustomEditors = typeObj.properties && typeObj.properties.customEditors || [];
+					for (var i = 0; i < typeCustomEditors.length; i++) {
+						if (!customEditors.includes(typeCustomEditors[i])) {
+							customEditors.push(typeCustomEditors[i]);
+						}
+					}
+					var typeCustomForms = typeObj.properties && typeObj.properties.customForms || [];
+					for (var i = 0; i < typeCustomForms.length; i++) {
+						if (!customForms.includes(typeCustomForms[i])) {
+							customForms.push(typeCustomForms[i]);
+						}
+					}
+
+				});
+
+				if (customEditors.length > 0) {
+					console.log(' - will download content field editor ' + customEditors.join(', '));
+				}
+				if (customForms.length > 0) {
+					console.log(' - will download content form ' + customForms.join(', '));
+				}
+
+				if (customEditors.length === 0 && customForms.length === 0) {
+					done(true);
+				} else {
+					componentUtils.downloadComponents(server, customEditors.concat(customForms), argv)
+						.then(function (result) {
+							done(result.err ? false : true);
+						});
+				}
+			})
+			.catch((error) => {
+				done();
+			});
+	});
+
+};
+
+
+module.exports.uploadType = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	console.log(' - server: ' + server.url);
+
+	var allNames = argv.name.split(',');
+	var names = [];
+	var comps = [];
+	var customEditors = [];
+	var customForms = [];
+
+	// varify the types on local
+	allNames.forEach(function (name) {
+		var filePath = path.join(typesSrcDir, name, name + '.json');
+		if (!fs.existsSync(filePath)) {
+			console.log('ERROR: type ' + name + ' does not exist');
+		} else if (!names.includes(name)) {
+			names.push(name);
+			var typeObj = JSON.parse(fs.readFileSync(filePath));
+			var typeCustomEditors = typeObj.properties && typeObj.properties.customEditors || [];
+			for (var i = 0; i < typeCustomEditors.length; i++) {
+				if (!customEditors.includes(typeCustomEditors[i])) {
+					customEditors.push(typeCustomEditors[i]);
+					comps.push(typeCustomEditors[i]);
+				}
+			}
+			var typeCustomForms = typeObj.properties && typeObj.properties.customForms || [];
+			for (var i = 0; i < typeCustomForms.length; i++) {
+				if (!customForms.includes(typeCustomForms[i])) {
+					customForms.push(typeCustomForms[i]);
+					comps.push(typeCustomForms[i]);
+				}
+			}
+		}
+	});
+
+	if (names.length === 0) {
+		// no type to upload
+		done();
+		return;
+	}
+
+	var typesToCreate = [];
+	var typesToUpdate = [];
+
+	var hasError = false;
+
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		if (customEditors.length > 0) {
+			console.log(' - will upload content field editor ' + customEditors.join(', '));
+		}
+		if (customForms.length > 0) {
+			console.log(' - will upload content form ' + customForms.join(', '));
+		}
+
+		_uploadTypeComponents(server, comps)
+			.then(function (result) {
+
+				var typepromises = [];
+				names.forEach(function (name) {
+					typepromises.push(serverRest.getContentType({
+						server: server,
+						name: name,
+						showError: false
+					}));
+				});
+
+				return Promise.all(typepromises);
+			})
+			.then(function (results) {
+				var allTypes = results || [];
+
+				for (var i = 0; i < names.length; i++) {
+					var found = false;
+					for (var j = 0; j < allTypes.length; j++) {
+						if (names[i] === allTypes[j].name) {
+							found = true;
+							break;
+						}
+					}
+					if (found) {
+						typesToUpdate.push(names[i]);
+					} else {
+						typesToCreate.push(names[i]);
+					}
+				}
+
+				if (typesToCreate.length > 0) {
+					console.log(' - will create type ' + typesToCreate.join(', '));
+				}
+				if (typesToUpdate.length > 0) {
+					console.log(' - will update type ' + typesToUpdate.join(', '));
+				}
+
+				return _createContentTypes(server, typesToCreate);
+			})
+			.then(function (results) {
+				// console.log(results);
+				var createdTypes = results || [];
+				createdTypes.forEach(function (createdType) {
+					if (createdType.id) {
+						console.log(' - type ' + createdType.name + ' created');
+					}
+					if (createdType.err) {
+						hasError = true;
+					}
+				});
+
+				var updateTypePromises = [];
+				typesToUpdate.forEach(function (name) {
+					var filePath = path.join(typesSrcDir, name, name + '.json');
+					var typeObj;
+					try {
+						typeObj = JSON.parse(fs.readFileSync(filePath));
+					} catch (e) {
+						console.log(e);
+					}
+					if (typeObj && typeObj.name) {
+						updateTypePromises.push(serverRest.updateContentType({
+							server: server,
+							type: typeObj
+						}));
+					}
+				});
+
+				return Promise.all(updateTypePromises);
+			})
+			.then(function (results) {
+				var updatedTypes = results || [];
+				updatedTypes.forEach(function (updatedType) {
+					if (updatedType.id) {
+						console.log(' - type ' + updatedType.name + ' updated');
+					}
+					if (updatedType.err) {
+						hasError = true;
+					}
+				});
+
+				done(!hasError);
+			})
+			.catch((error) => {
+				done();
+			});
+	});
+
+};
+
+var _uploadTypeComponents = function (server, comps) {
+
+	return new Promise(function (resolve, reject) {
+		if (comps.length === 0) {
+			return resolve({});
+		} else {
+			var argv = {
+				projectDir: projectDir,
+				component: comps.join(','),
+				noOptimize: true
+			};
+			componentUtils.exportComponents(argv)
+				.then(function (result) {
+					var folder = 'Home';
+					var folderId = 'self';
+					var publish = true;
+
+					var importsPromise = [];
+					for (var i = 0; i < comps.length; i++) {
+						var name = comps[i];
+						var zipfile = path.join(projectDir, "dist", name) + ".zip";
+
+						importsPromise.push(componentUtils.uploadComponent(server, folder, folderId, zipfile, name, publish));
+					}
+					return Promise.all(importsPromise);
+				})
+				.then(function (results) {
+					// console.log(results);
+					var files = results || [];
+					var deleteFilePromises = [];
+					for (var i = 0; i < files.length; i++) {
+						if (files[i].fileId) {
+							deleteFilePromises.push(serverRest.deleteFile({
+								server: server,
+								fFileGUID: files[i].fileId
+							}));
+						}
+					}
+
+					return Promise.all(deleteFilePromises);
+				})
+				.then(function (results) {
+					resolve({});
+				})
+				.catch((error) => {
+					resolve({
+						err: 'err'
+					});
+				});
+		}
+	});
+};
+
+var _createContentTypes = function (server, names) {
+	return new Promise(function (resolve, reject) {
+		var results = [];
+		var doCreateType = names.reduce(function (typePromise, name) {
+				return typePromise.then(function (result) {
+					var filePath = path.join(typesSrcDir, name, name + '.json');
+					var typeObj;
+					try {
+						typeObj = JSON.parse(fs.readFileSync(filePath));
+					} catch (e) {
+						console.log(e);
+					}
+
+					return serverRest.createContentType({
+						server: server,
+						type: typeObj
+					}).then(function (result) {
+						results.push(result);
+					});
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doCreateType.then(function (result) {
+			resolve(results);
+		});
+
+	});
+};
+
 
 module.exports.createChannel = function (argv, done) {
 	'use strict';
@@ -2069,7 +2440,8 @@ module.exports.listAssets = function (argv, done) {
 				return serverRest.queryItems({
 					server: server,
 					q: q,
-					fields: 'name,status,slug'
+					fields: 'name,status,slug',
+					includeAdditionalData: true
 				});
 			})
 			.then(function (result) {
@@ -2169,15 +2541,26 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 		});
 
 	} else {
-		format2 = '   %-38s %-38s %-11s %-s';
-		console.log(sprintf(format2, 'Type', 'Id', 'Status', 'Name'));
+		format2 = '   %-38s %-38s %-11s %-10s %-s';
+		console.log(sprintf(format2, 'Type', 'Id', 'Status', 'Size', 'Name'));
 
+		var totalSize = 0;
 		for (var i = 0; i < list.length; i++) {
 			for (var j = 0; j < list[i].items.length; j++) {
 				var item = list[i].items[j];
+				if (item.fields && item.fields.size) {
+					totalSize = totalSize + item.fields.size;
+				}
+				// console.log(item);
 				var typeLabel = j === 0 ? item.type : '';
-				console.log(sprintf(format2, typeLabel, item.id, item.status, item.name));
+				var sizeLabel = item.fields && item.fields.size ? item.fields.size : '';
+				console.log(sprintf(format2, typeLabel, item.id, item.status, sizeLabel, item.name));
 			}
+		}
+
+		console.log('');
+		if (totalSize > 0) {
+			console.log(' - total file size: ' + (Math.floor(totalSize / 1024)) + 'k');
 		}
 	}
 

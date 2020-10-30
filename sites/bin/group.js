@@ -255,7 +255,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
 					for (var i = 0; i < allUsers.length; i++) {
-						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+						if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 							users.push(allUsers[i]);
 							found = true;
 							break;
@@ -313,6 +313,9 @@ module.exports.addMemberToGroup = function (argv, done) {
 				done(success);
 			})
 			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
 				done();
 			});
 	});

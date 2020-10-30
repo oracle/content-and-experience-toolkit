@@ -46,6 +46,7 @@ var _setupSourceDir = function (projectDir) {
 	}
 };
 
+
 /**
  * Get the source folder.
  */
@@ -211,6 +212,7 @@ var _getConfiguredServer = function (currPath) {
 				server.client_id = client_id;
 				server.client_secret = client_secret;
 				server.scope = scope;
+
 			}
 
 			// console.log('configured server=' + JSON.stringify(server));
@@ -513,7 +515,8 @@ var _getRegisteredServer = function (projectDir, name) {
 };
 
 var _saveOAuthToken = function (serverPath, serverName, token) {
-	if (fs.existsSync(serverPath)) {
+	// console.log('serverPath: ' + serverPath + ' serverName: ' + serverName);
+	if (serverName && fs.existsSync(serverPath)) {
 		var serverstr = fs.readFileSync(serverPath).toString(),
 			serverjson = JSON.parse(serverstr);
 		serverjson.oauthtoken = token;
@@ -753,6 +756,27 @@ var _getTemplateComponents = function (templateName) {
 					comps.push(editor);
 				}
 			});
+		});
+	}
+
+	// check if there are custom forms
+	// currently custom forms not saved in summary.json, we check the type json file
+	var typespath = path.join(tempSrcDir, 'assets', 'contenttemplate',
+		'Content Template of ' + templateName, 'ContentTypes');
+	if (fs.existsSync(typespath)) {
+		var typeNames = fs.readdirSync(typespath);
+		typeNames.forEach(function (typeName) {
+			var typeFilePath = path.join(typespath, typeName);
+			if (fs.statSync(typeFilePath).isFile() && serverUtils.endsWith(typeName, '.json')) {
+				var typeObj = JSON.parse(fs.readFileSync(typeFilePath));
+				var typeCustomForms = typeObj.properties && typeObj.properties.customForms || [];
+				for (var i = 0; i < typeCustomForms.length; i++) {
+					if (!comps.includes(typeCustomForms[i])) {
+						// console.log(' - adding custom form ' + typeCustomForms[i]);
+						comps.push(typeCustomForms[i]);
+					}
+				}
+			}
 		});
 	}
 
@@ -1146,7 +1170,13 @@ var _getIdcToken = function (server) {
 		var total = 0;
 		var inter = setInterval(function () {
 			request(options, function (error, response, body) {
-				if (response.statusCode !== 200) {
+				if (error) {
+					clearInterval(inter);
+					console.log(' - failed to connect ' + error);
+					return resolve({
+						err: 'err'
+					});
+				} else if (response.statusCode !== 200) {
 					clearInterval(inter);
 					console.log(' - failed to connect: ' + (response.statusMessage || response.statusCode));
 					return resolve({
@@ -1661,6 +1691,7 @@ var _loginToPODServer = function (server) {
 	if (server.sso) {
 		return _loginToSSOServer(server);
 	}
+
 	var loginPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/documents',
 			usernameid = '#idcs-signin-basic-signin-form-username',
@@ -2063,6 +2094,10 @@ var _loginToServer = function (server, request) {
 	}
 	var env = server.env || 'pod_ec';
 
+	if (env === 'dev_pod') {
+		process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+	}
+
 	if (env === 'pod_ec' && server.idcs_url && server.client_id && server.client_secret && server.scope) {
 
 		return _getOAuthTokenFromIDCS(server);
@@ -2095,6 +2130,10 @@ var _loginToServer = function (server, request) {
 	} else if (env === 'dev_ec') {
 
 		return _loginToDevServer(server, request);
+
+	} else if (env === 'dev_pod') {
+
+		return _loginToPODServer(server);
 
 	} else if (env === 'pod_ic') {
 
@@ -3606,15 +3645,19 @@ module.exports.setSiteMetadata = function (request, server, idcToken, siteId, va
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (response && response.statusCode === 200) {
-				return resolve({});
-			} else {
-				console.log(' - failed to set site metadata : ' + (response.statusMessage || response.statusCode));
+			} catch (e) {
+				if (typeof body === 'object') {
+					data = body;
+				}
+			}
+			// console.log(data);
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: failed to set site metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 				return resolve({
 					err: 'err'
 				});
+			} else {
+				return resolve({});
 			}
 		});
 	});
@@ -3667,7 +3710,7 @@ module.exports.deleteFileFromTrash = function (server, fileName) {
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.log('ERROR: failed to browse trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 				return resolve({
-					'err': err
+					err: 'err'
 				});
 			} else {
 				var idcToken = data.LocalData.idcToken;
@@ -3722,7 +3765,7 @@ module.exports.deleteFileFromTrash = function (server, fileName) {
 						if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 							console.log('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 							return resolve({
-								'err': err
+								err: 'err'
 							});
 						} else {
 							console.log(' - file ' + fileName + ' deleted permanently');

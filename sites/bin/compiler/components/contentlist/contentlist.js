@@ -147,6 +147,7 @@ ContentList.prototype.createContentItemInstance = function (contentId, contentTy
 			'contentItemCache': {
 				data: contentData
 			},
+			'customSettingsData': self.customSettingsData && self.customSettingsData.contentLayout || {},
 			'marginBottom': 0,
 			'marginLeft': 0,
 			'marginRight': 0,
@@ -170,6 +171,11 @@ ContentList.prototype.createSectionLayoutInstance = function (args, contentItems
 			'componentFactory': 'scs-vertical'
 		}
 	};
+
+	// add in any custom settings data
+	if (self.customSettingsData && self.customSettingsData.sectionLayout && sectionLayoutInstance.data) {
+		sectionLayoutInstance.data.customSettingsData = self.customSettingsData.sectionLayout;
+	}
 
 	// add in the components to render in the section layout
 	sectionLayoutInstance.data.components = (contentItems || []).map(function (contentItem) {
@@ -313,6 +319,7 @@ ContentList.prototype.fetchData = function (args) {
 			'search': getQueryString({
 				searchOptions: {
 					'fields': 'ALL',
+					'offset': viewModel.firstItem,
 					'limit': viewModel.maxResults,
 					'orderBy': viewModel.computeSortOrder(viewModel),
 					'default': viewModel.computeDefaultString(viewModel)
@@ -354,6 +361,22 @@ ContentList.prototype.scimQueryString = function (viewModel) {
 			// Also include non-translatable items (29167789)
 			queryString = (queryString ? queryString + ' and ' : '') + '(language eq "' + language + '" or translatable eq "false")';
 		}
+		// Add categories
+		var categoryQuery = '',
+			categoryFilters = viewModel.categoryFilters;
+		if (categoryFilters && Array.isArray(categoryFilters) && categoryFilters.length > 0) {
+			var catQueryId = viewModel.includeChildCategories ? "taxonomies.categories.nodes.id" : "taxonomies.categories.id";
+
+			// the categories are "or"ed within a taxonomy, then
+			// each of these "or" groups is "and"ed across taxonomies
+			categoryQuery = '(' +
+				categoryFilters.map(function (taxonomy) {
+					return '(' + taxonomy.categories.map(function (category) {
+						return catQueryId + ' eq "' + category + '"';
+					}).join(" or ") + ')';
+				}).join(" and ") + ')';
+		}
+		queryString = (queryString ? queryString + ' and ' : '') + categoryQuery;
 
 		// Add in user-supplied additional query string.
 		// Also detect if the additional query string

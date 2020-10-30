@@ -28,7 +28,7 @@ Video.prototype = Object.create(Base.prototype);
 
 Video.prototype.compile = function () {
 	// make sure we can compile
-	if (!this.canCompile) {
+	if (!this.canCompileVideo()) {
 		return Promise.resolve({
 			hydrate: true,
 			content: ''
@@ -52,12 +52,12 @@ Video.prototype.compile = function () {
 		content: content
 	});
 };
-Video.prototype.canCompile = function () {
+Video.prototype.canCompileVideo = function () {
 	// can't compile digital asset videos as they may be advanced videos
 	// ToDo: Look at making the additional query to determine if advanced video and compile standard video digital assets
 	var isDigitialAssetVideo = this.contentId;
 
-	return this.computeVisibilty() && !isDigitialAssetVideo;
+	return this.canCompile && !isDigitialAssetVideo;
 };
 
 Video.prototype.hasVisualData = function () {

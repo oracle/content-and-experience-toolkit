@@ -18,6 +18,7 @@ var projectDir,
 	connectionsSrcDir,
 	connectorsSrcDir,
 	contentSrcDir,
+	typesSrcDir,
 	recommendationSrcDir,
 	serversSrcDir,
 	transSrcDir,
@@ -35,6 +36,7 @@ var verifyRun = function (argv) {
 	connectorsSrcDir = path.join(srcfolder, 'connectors');
 	connectionsSrcDir = path.join(srcfolder, 'connections');
 	contentSrcDir = path.join(srcfolder, 'content');
+	typesSrcDir = path.join(srcfolder, 'types');
 	recommendationSrcDir = path.join(srcfolder, 'recommendations');
 	taxonomiesSrcDir = path.join(srcfolder, 'taxonomies');
 	transSrcDir = path.join(srcfolder, 'translationJobs');
@@ -267,6 +269,7 @@ module.exports.listLocalResources = function (argv, done) {
 			}
 		});
 	}
+	console.log('');
 
 	console.log('Components: ');
 	var compNames = fs.readdirSync(componentsSrcDir);
@@ -278,6 +281,7 @@ module.exports.listLocalResources = function (argv, done) {
 			}
 		});
 	}
+	console.log('');
 
 	console.log('Templates: ');
 	var tempNames = fs.readdirSync(templatesSrcDir);
@@ -288,6 +292,21 @@ module.exports.listLocalResources = function (argv, done) {
 			}
 		});
 	}
+	console.log('');
+
+	// 
+	// Content Types
+	//
+	console.log('Content Types:');
+	var typeNames = fs.existsSync(typesSrcDir) ? fs.readdirSync(typesSrcDir) : [];
+	if (typeNames) {
+		typeNames.forEach(function (name) {
+			if (fs.existsSync(path.join(typesSrcDir, name, name + '.json'))) {
+				console.log('    ' + name);
+			}
+		});
+	}
+	console.log('');
 
 	//
 	// Content
@@ -301,6 +320,7 @@ module.exports.listLocalResources = function (argv, done) {
 			}
 		});
 	}
+	console.log('');
 
 	//
 	// Recommendations
@@ -314,6 +334,7 @@ module.exports.listLocalResources = function (argv, done) {
 			}
 		});
 	}
+	console.log('');
 
 	//
 	// Taxonomies
@@ -340,6 +361,7 @@ module.exports.listLocalResources = function (argv, done) {
 			}
 		});
 	}
+	console.log('');
 
 	console.log('Translation connectors:');
 	var connectorNames = fs.existsSync(connectorsSrcDir) ? fs.readdirSync(connectorsSrcDir) : [];
@@ -350,6 +372,7 @@ module.exports.listLocalResources = function (argv, done) {
 			}
 		});
 	}
+	console.log('');
 
 	console.log('Translation connections:');
 	var connectionNames = fs.existsSync(connectionsSrcDir) ? fs.readdirSync(connectionsSrcDir) : [];
@@ -360,6 +383,7 @@ module.exports.listLocalResources = function (argv, done) {
 			}
 		});
 	}
+	console.log('');
 
 	console.log('Translation jobs:');
 	var jobNames = fs.existsSync(transSrcDir) ? fs.readdirSync(transSrcDir) : [];
@@ -370,6 +394,7 @@ module.exports.listLocalResources = function (argv, done) {
 			}
 		});
 	}
+	console.log('');
 
 	done(true);
 };
@@ -525,7 +550,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					console.log('');
 				}
 
-				promises = listRepositories ? [serverRest.getRepositories({
+				promises = (listRepositories || listRecommendations) ? [serverRest.getRepositories({
 					server: server
 				})] : [];
 
@@ -644,15 +669,16 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 				//
 				var sites = results.length > 0 ? results[0] : [];
 				if (listSites) {
-					var siteFormat = '  %-36s  %-36s  %-10s  %-10s  %-s';
+					var siteFormat = '  %-36s  %-36s  %-10s  %-10s  %-6s  %-s';
 					console.log('Sites:');
-					console.log(sprintf(siteFormat, 'Name', 'Theme', 'Type', 'Published', 'Online'));
+					console.log(sprintf(siteFormat, 'Name', 'Theme', 'Type', 'Published', 'Online', 'Secure'));
 					for (var i = 0; i < sites.length; i++) {
 						var site = sites[i];
 						var type = site.isEnterprise ? 'Enterprise' : 'Standard';
 						var published = site.publishStatus === 'published' ? '    √' : '';
 						var online = site.runtimeStatus === 'online' ? '  √' : '';
-						console.log(sprintf(siteFormat, site.name, site.themeName, type, published, online));
+						var secure = site.security && site.security.access && !site.security.access.includes('everyone') ? '  √' : '';
+						console.log(sprintf(siteFormat, site.name, site.themeName, type, published, online, secure));
 					}
 					if (sites.length > 0) {
 						console.log('Total: ' + sites.length);

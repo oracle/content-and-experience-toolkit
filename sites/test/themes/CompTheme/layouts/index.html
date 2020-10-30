@@ -49,7 +49,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 				<a href="/public">
 					<img id="logo" data-bind="click: mainPage" class="brand-logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIgAAAARCAMAAAAxDRTrAAAApVBMVEUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABU/knhAAAANnRSTlMAzCJq/RDdtKWH+ebvBp9xUdGYd2YbA/JZPjct4djISyUT9urCvZKDMY1DCwKqfl5GGLhjHa4JOWDOAAACmElEQVRIx4WV2XqCMBBGg+JSkEWoiCLiDnW3y//+j9YBIkmT+nFuJBMNZ5LJyEqc2F0aDfvAj6qwb8gsf+Izk7huF748PmfB3hD4LDeMLtNY5QPpXQGb5Ncj42QLKKQzRnShsHyIBX0Am5UYF2PIjB02BN5UjZ5rQcIqWDc8PHU9ExpW/J8IjKhZ0QaxZ00yFmTMOftPZJLiDx/0Ei/0eGrkMXqbrTqc1fGwIZN5JbLvNMw/TOCLcQ7AlMY3PkzKnwT3ZpFv9p+IYwDYxUmzpkNuoTerJk82MJ4o59in2LkUGcjhg9iCOUl0XWC7rsc7wE6U9HWREDA99oIuMJqowcQCMk1kBvTrp8gAluf1CAj4THkYbSKRXR7GKz6BXI+6gKuJZEDKywowiyoJc8b36oe1ipDupvdShCznetQHDFXE2QPD6ul7Chz4xqQOPdDMrV3kHbD6f/iMxKwJfOsic2BRixTvnOsYQF1XP4Dde5ZKSJ80dWwXCaFgyj/aAokukgHjWsS5QOA2LSRmFQGw6VS1GreK6O3AlWdpDU8X+QAu/GjOB3Cs/FzdswXwyb+33tJz5eO2i9yB6aMn4Sj7ZWsVNJkCt6ZGQhMw3fx90khuVoNRjVXtjk+Wq1aR01QkrbOm2cFJiS2BhSOK9WbR+HmABWldqwvOoUSiVGlGughPwcrkgHZyabwWgcfXAjB9JkTYnWxHVFnSTXmDIGB3k3y6kxaRXrlwUEQvTALoUM6yCCtswPp6eh+VRKiZeXohDqHQPyVbyKhV4U2hsOXvFH2kk4ISrKtnyGSicfVf69uQod7vQuFOHWgHCe2uPfKlWMa0dyF5ChFRN7iUl3n0YH+Y1c3k5O1sE5yyvyV9yHD/7NLfgCP3y1/ilaUbUwNDfAAAAABJRU5ErkJggg=="
 					    alt="undefined logo">
-					<span id="brandText">Content and Experience Cloud</span>
+					<span id="brandText">Content and Experience</span>
 				</a>
 			</div>
 			<div class="clear"></div>
@@ -211,17 +211,22 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 				if (data && data.eventName === getPropertyEvent) {
 					console.log('Sites received GET event: ' + event.data);
 
-					var getPropertyData = JSON.stringify({
+					var getPropertyData = {
 						eventName: 'scsMockGetPropertyResponse',
 						eventPayload: {
 							propertyName: data.eventPayload.propertyName,
 							propertyValue: properties[data.eventPayload.propertyName] || ''
 						}
-					});
+					};
+					// console.log(window.sessionStorage['currentItemCustomSettingsData']);
+					// if content layout settings has custom data, send to the content layout comp
+					if (window.sessionStorage['currentItemCustomSettingsData']) {
+						getPropertyData.eventPayload.propertyValue = JSON.parse(window.sessionStorage['currentItemCustomSettingsData']);
+					}
 
 					// send back the property
-					console.log('Sites responded with GET event: ' + getPropertyData);
-					event.source.postMessage(getPropertyData, '*');
+					console.log('Sites responded with GET event: ' + JSON.stringify(getPropertyData));
+					event.source.postMessage(JSON.stringify(getPropertyData), '*');
 				}
 
 				// Mock the setProperty Event
@@ -286,11 +291,33 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 									data.contentTypes = [selectItem.type];
 									data.description = selectItem.name + ' : Default';
 									data.contentIds = [selectItem.id]
+
+									if (window.sessionStorage['currentItemCustomSettingsData']) {
+										data.customSettingsData = JSON.parse(window.sessionStorage['currentItemCustomSettingsData']);
+									}
+
 									comp.render(container);
 									console.log('content layout settings change: {' + JSON.stringify(selectItem) +
 										'}');
 								} else {
-									console.log('content layout settings change but select item is null');
+									while (container.hasChildNodes()) {
+										container.removeChild(container.lastChild);
+									}
+									
+									var eventdata = JSON.parse(event.data);
+									// console.log(eventdata.eventPayload);
+									// save the custom settings
+									if (eventdata.eventPayload.propertyName === 'customSettingsData' &&
+										eventdata.eventPayload.propertyValue.hasOwnProperty('customData')) {
+											var settingsData = eventdata.eventPayload.propertyValue;
+											window.sessionStorage.setItem('currentItemCustomSettingsData', JSON.stringify(settingsData));
+											data.customSettingsData = settingsData;
+									} else if (window.sessionStorage['currentItemCustomSettingsData']) {
+										data.customSettingsData = JSON.parse(window.sessionStorage['currentItemCustomSettingsData']);
+									}
+								
+									comp.render(container);
+									console.log('content layout settings change, rerender current selection');
 								}
 
 							} else if (sectionLayoutImpl) {
@@ -336,7 +363,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			console.log('select theme: ' + theme);
 
 			var newURL = window.location.href.replace(/\?.*/, '');
-			window.location.href = newURL + (theme === 'none' ? '' : '?theme=Temp2Theme');
+			window.location.href = newURL + (theme === 'none' ? '' : '?theme=' + theme);
 		};
 		var selectTheme = function () {
 			var theme = document.getElementById("themedesign").value;

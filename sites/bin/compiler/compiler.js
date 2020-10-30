@@ -61,6 +61,8 @@ var siteFolder, // Z:/sitespublish/SiteC/
 	useDefaultDetailPageLink, // whether to compile a detail page using the default detail page if no detail page specified
 	detailPageContentLayoutSnippet, // whether to only output the content layout snippet for compiled detail page (used for Eloqua integration)
 	useInlineSiteInfo = false, // Emit the common site material to the scsRenderInfo in each page; do not used a shared file for the common site info
+	targetSiteName, // The name of the site -- used to populate the siteRootPath in the siteinfo properties
+	isSecureSite, // Is this a secure site -- used to populate the siteRootPath in the siteinfo properties
 	targetDevice = '', // 'mobile' or 'desktop' (no value implies compile for both if RegEx is specified)
 	mobilePages = false, // whether we are compiling mobile pages
 	folderProperties; // _folder.json values
@@ -236,6 +238,18 @@ function readStructure(locale) {
 			value: channelAccessToken,
 			expirationDate: "01\/01\/2099"
 		});
+	}
+
+	// Set the siteName and the siteRootPrefix properly for this site
+	if (siteInfo && siteInfo.properties) {
+		// If the target site name is not specified on the command line arguments,
+		// then default to using the value in the siteInfo.properties.
+		targetSiteName = targetSiteName || siteInfo.properties.siteName;
+
+		if (targetSiteName && (typeof targetSiteName === 'string')) {
+			siteInfo.properties.siteName = targetSiteName;
+			siteInfo.properties.siteRootPrefix = (isSecureSite ? '/authsite/' : '/') + targetSiteName + '/';
+		}
 	}
 
 	return {
@@ -1675,7 +1689,7 @@ function parseTagAttributes(attString) {
 			}
 		}
 
-		name = attString.substr(start, pos - start);
+		name = attString.substr(start, pos - start).replace(/^\s+/,'');
 
 		// look for the "="
 		for (; pos < limit; pos++) {
@@ -2560,6 +2574,8 @@ var compileSite = function (args) {
 	verbose = args.verbose;
 	useInlineSiteInfo = args.useInlineSiteInfo;
 	targetDevice = args.targetDevice;
+	targetSiteName = args.siteName;
+	isSecureSite = args.secureSite;
 	compileDetailPages = !(args.noDetailPages);
 	useDefaultDetailPageLink = !(args.noDefaultDetailPageLink);
 	detailPageContentLayoutSnippet = !!(args.contentLayoutSnippet);

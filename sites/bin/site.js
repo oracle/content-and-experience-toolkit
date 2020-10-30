@@ -2909,6 +2909,97 @@ var _validateSiteREST = function (request, server, siteName, done) {
 };
 
 /**
+ * get site security
+ */
+module.exports.getSiteSecurity = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	// console.log('server: ' + server.url);
+	var name = argv.name;
+
+	var request = serverUtils.getRequest();
+
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		sitesRest.getSite({
+				server: server,
+				name: name,
+				expand: 'access'
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				// console.log(result);
+				var site = result;
+
+				var accValues = site.security && site.security.access || [];
+				var signin = accValues.length === 0 || accValues.includes('everyone') ? 'no' : 'yes';
+				console.log(' - secure site:' + (signin === 'yes' ? 'true' : 'false'));
+
+				var format = '   %-50s %-s';
+				console.log(sprintf(format, 'Site', name));
+				console.log(sprintf(format, 'Require everyone to sign in to access', signin));
+				if (signin === 'yes') {
+					console.log(sprintf(format, 'Who can access this site when it goes online', ''));
+					// console.log(accValues);
+
+					var format2 = '           %-2s  %-s';
+					var access = 'Cloud users';
+					var checked = accValues.includes('cloud') ? '√' : '';
+					console.log(sprintf(format2, checked, access));
+
+					access = 'Visitors';
+					checked = accValues.includes('visitors') ? '√' : '';
+					console.log(sprintf(format2, checked, access));
+
+					var access = 'Service users';
+					var checked = accValues.includes('service') ? '√' : '';
+					console.log(sprintf(format2, checked, access));
+
+					var access = 'Specific users';
+					var checked = accValues.includes('named') ? '√' : '';
+					console.log(sprintf(format2, checked, access));
+
+					if (accValues.indexOf('named') >= 0) {
+						var siteUserNames = [];
+						if (site.access && site.access.items && site.access.items.length > 0) {
+							for (var i = 0; i < site.access.items.length; i++) {
+								siteUserNames.push(site.access.items[i].displayName || site.access.items[i].name);
+							}
+						}
+						console.log(sprintf(format, 'Published site viewers', ''));
+						console.log(sprintf('           %-s', siteUserNames.length === 0 ? '' : siteUserNames.join(', ')));
+					}
+				}
+
+				done(true);
+			})
+			.catch((error) => {
+				done();
+			});
+	});
+};
+
+/**
  * set site security
  */
 module.exports.setSiteSecurity = function (argv, done) {

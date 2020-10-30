@@ -212,7 +212,8 @@ ContentItem.prototype.compile = function (args) {
 										contentTriggerFunction: 'SCSRenderAPI.getComponentById(\'' + args.compVM.id + '\').raiseContentTrigger',
 										detailPageLink: detailPageURL,
 										showPublishedContent: args.compVM.contentViewing === 'published' ? true : contentClient.getInfo().contentType === 'published',
-										contentClient: contentClient
+										contentClient: contentClient,
+										customSettingsData: args.compVM.customSettingsData || {}
 									}
 								},
 								custComp = new CustomLayoutCompiler(compileArgs);

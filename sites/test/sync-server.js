@@ -272,7 +272,7 @@ if (keyPath && fs.existsSync(keyPath) && certPath && fs.existsSync(certPath)) {
 	});
 }
 
-var _updateEvent = function (eventId, success, retry) {
+var _updateEvent = function (eventId, success, timeused, retry) {
 	var events = [];
 	if (fs.existsSync(eventsFilePath)) {
 		var str = fs.readFileSync(eventsFilePath).toString();
@@ -288,6 +288,7 @@ var _updateEvent = function (eventId, success, retry) {
 				found = true;
 				events[i]['__processed_date'] = new Date();
 				events[i]['__success'] = success === undefined ? false : success;
+				events[i]['__timeUsed'] = timeused;
 
 				if (retry === undefined || !retry) {
 					// done for this event
@@ -355,6 +356,9 @@ var _processEvent = function () {
 
 		var args;
 
+		var startTime = new Date();
+		var timeUsed;
+
 		if (action === 'CONTENTITEM_CREATED' ||
 			action === 'CONTENTITEM_UPDATED' ||
 			action === 'DIGITALASSET_CREATED' ||
@@ -371,9 +375,10 @@ var _processEvent = function () {
 			};
 
 			contentLib.syncCreateUpdateItem(args, function (success) {
-				console.log('*** action finished status: ' + (success ? 'successful' : 'failed'));
+				timeUsed = serverUtils.timeUsed(startTime, new Date());
+				console.log('*** action finished status: ' + (success ? 'successful' : 'failed') + ' [' + timeUsed + ']');
 				console.log(' ');
-				_updateEvent(event.__id, success);
+				_updateEvent(event.__id, success, timeUsed);
 			});
 
 		} else if (action === 'CONTENTITEM_DELETED' || action === 'DIGITALASSET_DELETED') {
@@ -388,9 +393,10 @@ var _processEvent = function () {
 			};
 
 			contentLib.syncDeleteItem(args, function (success, retry) {
-				console.log('*** action finished status: ' + (success ? 'successful' : 'failed'));
+				timeUsed = serverUtils.timeUsed(startTime, new Date());
+				console.log('*** action finished status: ' + (success ? 'successful' : 'failed') + ' [' + timeUsed + ']');
 				console.log(' ');
-				_updateEvent(event.__id, success, retry);
+				_updateEvent(event.__id, success, timeUsed, retry);
 			});
 
 		} else if (action === 'CONTENTITEM_APPROVED' || action === 'DIGITALASSET_APPROVED') {
@@ -405,9 +411,10 @@ var _processEvent = function () {
 			};
 
 			contentLib.syncApproveItem(args, function (success) {
-				console.log('*** action finished status: ' + (success ? 'successful' : 'failed'));
+				timeUsed = serverUtils.timeUsed(startTime, new Date());
+				console.log('*** action finished status: ' + (success ? 'successful' : 'failed') + ' [' + timeUsed + ']');
 				console.log(' ');
-				_updateEvent(event.__id, success);
+				_updateEvent(event.__id, success, timeUsed);
 			});
 
 		} else if (action === 'CHANNEL_ASSETPUBLISHED' || action === 'CHANNEL_ASSETUNPUBLISHED') {
@@ -427,9 +434,10 @@ var _processEvent = function () {
 			};
 
 			contentLib.syncPublishUnpublishItems(args, function (success) {
-				console.log('*** action finished status: ' + (success ? 'successful' : 'failed'));
+				timeUsed = serverUtils.timeUsed(startTime, new Date());
+				console.log('*** action finished status: ' + (success ? 'successful' : 'failed') + ' [' + timeUsed + ']');
 				console.log(' ');
-				_updateEvent(event.__id, success);
+				_updateEvent(event.__id, success, timeUsed);
 			});
 
 		} else if (action === 'SITE_STATUSUPDATED' || action === 'SITE_PUBLISHED' || action === 'SITE_UNPUBLISHED') {
@@ -455,9 +463,10 @@ var _processEvent = function () {
 			};
 
 			siteLib.syncControlSiteSite(args, function (success) {
-				console.log('*** action finished status: ' + (success ? 'successful' : 'failed'));
+				timeUsed = serverUtils.timeUsed(startTime, new Date());
+				console.log('*** action finished status: ' + (success ? 'successful' : 'failed') + ' [' + timeUsed + ']');
 				console.log(' ');
-				_updateEvent(event.__id, success);
+				_updateEvent(event.__id, success, timeUsed);
 			});
 		}
 

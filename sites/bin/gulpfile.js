@@ -1324,6 +1324,18 @@ gulp.task('unshare-site', function (done) {
 });
 
 /**
+ * Get site security
+ */
+gulp.task('get-site-security', function (done) {
+	'use strict';
+
+	sitelib.getSiteSecurity(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
  * Set site security
  */
 gulp.task('set-site-security', function (done) {
@@ -1530,6 +1542,43 @@ gulp.task('unshare-type', function (done) {
 		done();
 	});
 });
+
+/**
+ * Download types
+ */
+gulp.task('download-type', function (done) {
+	'use strict';
+
+	assetlib.downloadType(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Upload types
+ */
+gulp.task('upload-type', function (done) {
+	'use strict';
+
+	assetlib.uploadType(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
+ * Create MS template
+ */
+gulp.task('create-ms-template', function (done) {
+	'use strict';
+
+	console.log('Under development...');
+	
+	process.exitCode = 0;
+	done();
+});
+
 
 /**
  * Create a channel

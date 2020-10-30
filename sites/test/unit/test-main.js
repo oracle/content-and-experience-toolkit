@@ -18,8 +18,8 @@ $.getJSON('/getsrcfolder', function (data) {
 			'sitesMockData': '../public/js/sites.data',
 			'jquery': '../sitescloud/renderer/app/apps/js/jquery.min',
 			'knockout': '../sitescloud/renderer/app/apps/js/knockout.min',
-			'text': '../../' + libfolder + '/requirejs-text/text',
-			'css': '../../' + libfolder + '/require-css/css.min',
+			'text': '../../node_modules/requirejs-text/text',
+			'css': '../../node_modules/require-css/css.min',
 			'components': '../../' + srcfolder + '/components'
 		},
 		config: {}
