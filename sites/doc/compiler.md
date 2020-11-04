@@ -317,7 +317,7 @@ $ cec compile-template BlogTemplate --noDefaultDetailPageLink --verbose --server
 Copy the compiled static files into the static folder for the site:
 
 ```
-$ cec upload-static-site src/templates/BlogTemplate/static --site BlogSite --server UAT
+$ cec upload-static-site-files src/templates/BlogTemplate/static --site BlogSite --server UAT
 ```
 
 #### Revert to Non-compiled Behavior
