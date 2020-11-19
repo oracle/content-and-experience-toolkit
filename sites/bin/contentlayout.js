@@ -14,9 +14,12 @@ var express = require('express'),
 	fs = require('fs'),
 	os = require('os'),
 	path = require('path'),
+	sprintf = require('sprintf-js').sprintf,
 	extract = require('extract-zip'),
-	fileUtils = require('../test/server/fileUtils.js');
-serverUtils = require('../test/server/serverUtils.js');
+	fileUtils = require('../test/server/fileUtils.js'),
+	serverRest = require('../test/server/serverRest.js'),
+	sitesRest = require('../test/server/sitesRest.js'),
+	serverUtils = require('../test/server/serverUtils.js');
 
 var cecDir = path.join(__dirname, ".."),
 	componentsDataDir = path.join(cecDir, 'data', 'components');
@@ -1423,5 +1426,221 @@ module.exports.removeContentForm = function (argv, done) {
 
 	// May extra update for site template
 	done(true);
+
+};
+
+/**
+ * Add content layout mapping to a type on OCE server
+ */
+module.exports.addContentLayoutMappingServer = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var contentType = argv.contenttype,
+		contentLayoutName = argv.contentlayout,
+		layoutStyle = argv.layoutstyle || 'Default',
+		mobile = argv.mobile || false;
+
+	if (typeof argv.mobile === 'string') {
+		mobile = argv.mobile.toLowerCase() === 'true';
+	}
+
+	if (mobile) {
+		layoutStyle = layoutStyle + '|mobile';
+	}
+
+	var serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	var request = serverUtils.getRequest();
+	serverUtils.loginToServer(server, request).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		serverRest.getContentType({
+				server: server,
+				name: contentType
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - verify type');
+
+				return sitesRest.getComponent({
+					server: server,
+					name: contentLayoutName
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - verify component');
+
+				return serverUtils.addContentTypeLayoutMapping(request, server, contentType, contentLayoutName, layoutStyle);
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				return serverUtils.getContentTypeLayoutMapping(request, server, contentType);
+			})
+			.then(function (result) {
+
+				console.log(' - content layout mapping ' + layoutStyle + ':' + contentLayoutName + ' added for type ' + contentType);
+				if (result.data) {
+					_displayContentLayoutMapping(result.data);
+				}
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+
+};
+
+/**
+ * Remove content layout mapping from a type on OCE server
+ */
+module.exports.removeContentLayoutMappingServer = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var contentType = argv.contenttype,
+		contentLayoutName = argv.contentlayout,
+		layoutStyle = argv.layoutstyle || 'Default',
+		mobile = argv.mobile || false;
+
+	if (typeof argv.mobile === 'string') {
+		mobile = argv.mobile.toLowerCase() === 'true';
+	}
+
+	if (mobile) {
+		layoutStyle = layoutStyle + '|mobile';
+	}
+
+	var serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	var request = serverUtils.getRequest();
+	serverUtils.loginToServer(server, request).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		serverRest.getContentType({
+				server: server,
+				name: contentType
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - verify type');
+
+				return sitesRest.getComponent({
+					server: server,
+					name: contentLayoutName
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - verify component');
+
+				return serverUtils.removeContentTypeLayoutMapping(request, server, contentType, contentLayoutName, layoutStyle);
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				return serverUtils.getContentTypeLayoutMapping(request, server, contentType);
+			})
+			.then(function (result) {
+
+				console.log(' - content layout mapping ' + layoutStyle + ':' + contentLayoutName + ' removed for type ' + contentType);
+				if (result.data) {
+					_displayContentLayoutMapping(result.data);
+				}
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+
+};
+
+var _displayContentLayoutMapping = function (mappings) {
+	console.log('');
+	var format = '   %-30s  %-30s  %-s';
+	console.log(sprintf(format, 'Layout Styles', 'Desktop Content Layout', 'Mobile Content Layout'));
+
+	var _displayOne = function (style) {
+		var desktopLayout = 'Default';
+		var mobileLayout = 'Same as Desktop';
+
+		for (var i = 0; i < mappings.length; i++) {
+			var mapping = mappings[i];
+			if (mapping.xCaasCategoryName === style) {
+				desktopLayout = mapping.xCaasLayoutName || desktopLayout;
+			}
+			if (mapping.xCaasCategoryName === style + '|mobile') {
+				mobileLayout = mapping.xCaasLayoutName || mobileLayout;
+			}
+		}
+		console.log(sprintf(format, style, desktopLayout, mobileLayout));
+	};
+
+	_displayOne('Default');
+	_displayOne('Content List Default');
+	_displayOne('Empty Content List Default');
+	_displayOne('Content Placeholder Default');
+
+	var ootbStyles = ['Default', 'Default|mobile',
+		'Content List Default', 'Content List Default|mobile',
+		'Empty Content List Default', 'Empty Content List Default|mobile',
+		'Content Placeholder Default', 'Content Placeholder Default|mobile'
+	];
+	for (var i = 0; i < mappings.length; i++) {
+		var style = mappings[i].xCaasCategoryName;
+		if (!ootbStyles.includes(style) && !serverUtils.endsWith(style, '|mobile')) {
+			_displayOne(style);
+		}
+	}
 
 };

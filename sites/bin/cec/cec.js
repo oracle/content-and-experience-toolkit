@@ -216,6 +216,21 @@ var getTaxonomyActions = function () {
 	return actions;
 };
 
+var getWordTemplateTypes = function () {
+	const types = ['form', 'table'];
+	return types;
+};
+
+var getContentItemSources = function () {
+	const sources = ['word'];
+	return sources;
+};
+
+var updateTemplateActions = function () {
+	const actions = ['rename-asset-id'];
+	return actions;
+};
+
 /*********************
  * Command definitions
  **********************/
@@ -698,6 +713,25 @@ const unshareTemplate = {
 	]
 };
 
+const updateTemplate = {
+	command: 'update-template <action>',
+	alias: 'ut',
+	name: 'update-template',
+	usage: {
+		'short': 'Performs action on a local template.',
+		'long': (function () {
+			let desc = 'Performs action <action> on a local template. ';
+			desc = desc + 'Optionally specify -c for other local content.  The valid actions are\n\n';
+			return updateTemplateActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec update-template rename-asset-id -t Template1'],
+		['cec update-template rename-asset-id -t Template1 -c Content1,Content2']
+	]
+};
+
+
 const listServerContentTypes = {
 	command: 'list-server-content-types',
 	alias: 'lsct',
@@ -720,9 +754,9 @@ const addContentLayoutMapping = {
 	alias: 'aclm',
 	name: 'add-contentlayout-mapping',
 	usage: {
-		'short': 'Creates content type and content layout mapping for local template.',
+		'short': 'Creates content type and content layout mapping.',
 		'long': (function () {
-			let desc = 'Creates content type and content layout mapping for a local template. By default, the mapping is set for "Default". Optionally specify -s <layoutstyle> to name the mapping. By default, the mapping is set for desktop. Optionally specify -m to set the mapping for mobile.';
+			let desc = 'Creates content type and content layout mapping. By default, the mapping is set for "Default". Optionally specify -s <layoutstyle> to name the mapping. By default, the mapping is set for desktop. Optionally specify -m to set the mapping for mobile.';
 			return desc;
 		})()
 	},
@@ -731,7 +765,8 @@ const addContentLayoutMapping = {
 		['cec add-contentlayout-mapping Blog-Post-Detail-Layout -c Blog-Post -t BlogTemplate -m'],
 		['cec add-contentlayout-mapping Blog-Post-Detail-Layout -c Blog-Post -t BlogTemplate -s Details'],
 		['cec add-contentlayout-mapping Blog-Post-Overview-Layout -c Blog-Post -t BlogTemplate -s "Content List Default"'],
-		['cec add-contentlayout-mapping Blog-Post-Overview-Layout -c Blog-Post -t BlogTemplate -s Overview']
+		['cec add-contentlayout-mapping Blog-Post-Overview-Layout -c Blog-Post -t BlogTemplate -s Overview'],
+		['cec add-contentlayout-mapping Blog-Post-Overview-Layout -c Blog-Post -r UAT', 'Set "Content Item Default" to Blog-Post-Overview-Layout for content type Blog-Post on server UAT']
 	]
 };
 
@@ -740,15 +775,17 @@ const removeContentLayoutMapping = {
 	alias: 'rclm',
 	name: 'remove-contentlayout-mapping',
 	usage: {
-		'short': 'Removes a content layout mapping from a local template.',
+		'short': 'Removes a content layout mapping.',
 		'long': (function () {
-			let desc = 'Removes a content layout mapping from a local template. By default, all mappings for the content layout are removed. Optionally specify -s <layoutstyle> to name the mapping and -m to indicate the mobile mapping.';
+			let desc = 'Removes a content layout mapping. By default, all mappings for the content layout are removed. Optionally specify -s <layoutstyle> to name the mapping and -m to indicate the mobile mapping.';
 			return desc;
 		})()
 	},
 	example: [
 		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -t BlogTemplate'],
-		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -t BlogTemplate -m']
+		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -t BlogTemplate -m'],
+		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -c Blog-Post -r UAT'],
+		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -c Blog-Post -s Details -r UAT']
 	]
 };
 
@@ -1665,21 +1702,45 @@ const uploadType = {
 	]
 };
 
-const createMSTemplate = {
-	command: 'create-ms-template <type>',
-	alias: 'cmst',
-	name: 'create-ms-template',
+const createWordTemplate = {
+	command: 'create-word-template <type>',
+	alias: 'cwt',
+	name: 'create-word-template',
 	usage: {
 		'short': 'Creates Microsoft Word template for a type on OCE server.',
 		'long': (function () {
 			let desc = 'Creates Microsoft Word template for a type on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
-			return desc;
+			desc = desc + 'Optionally specify format with -f <format>, defaults to form.' +
+				os.EOL + os.EOL + 'Valid values for <format> are: ' + os.EOL + os.EOL;
+			return getWordTemplateTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+
 		})()
 	},
 	example: [
-		['cec create-ms-template BlogType'],
-		['cec create-ms-template BlogType -n BlogTypeMS'],
-		['cec create-ms-template BlogType -s UAT']
+		['cec create-word-template BlogType'],
+		['cec create-word-template BlogType -f table'],
+		['cec create-word-template BlogType -n BlogTypeMS'],
+		['cec create-word-template BlogType -s UAT']
+	]
+};
+
+const createContentItem = {
+	command: 'create-content-item <file>',
+	alias: 'cci',
+	name: 'create-content-item',
+	usage: {
+		'short': 'Creates content item in a repository on OCE server.',
+		'long': (function () {
+			let desc = 'Creates content item from a source file in a repository <repository> on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			desc = desc + 'Specify the source type with -t <type>. ' +
+				os.EOL + os.EOL + 'Valid values for <type> are: ' + os.EOL + os.EOL;
+			return getContentItemSources().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+
+		})()
+	},
+	example: [
+		['create-content-item /Documents/item1.docx -t word -r Repo1'],
+		['create-content-item /Documents/item1.docx -t word -r Repo1 -s UAT'],
 	]
 };
 
@@ -2507,6 +2568,7 @@ _usage = _usage + os.EOL + 'Templates' + os.EOL +
 	_getCmdHelp(deleteTemplate) + os.EOL +
 	_getCmdHelp(shareTemplate) + os.EOL +
 	_getCmdHelp(unshareTemplate) + os.EOL +
+	_getCmdHelp(updateTemplate) + os.EOL +
 	_getCmdHelp(describeTemplate) + os.EOL +
 	_getCmdHelp(createTemplateReport) + os.EOL;
 
@@ -2559,7 +2621,7 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(shareType) + os.EOL +
 	_getCmdHelp(unshareType) + os.EOL +
 	_getCmdHelp(downloadType) + os.EOL +
-	// _getCmdHelp(createMSTemplate) + os.EOL +
+	// _getCmdHelp(createWordTemplate) + os.EOL +
 	_getCmdHelp(uploadType) + os.EOL +
 	_getCmdHelp(downloadRecommendation) + os.EOL +
 	_getCmdHelp(uploadRecommendation) + os.EOL +
@@ -3216,6 +3278,30 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${cleanupTemplate.command}\n\n${cleanupTemplate.usage.long}`);
 		})
+	.command([updateTemplate.command, updateTemplate.alias], false,
+		(yargs) => {
+			yargs.option('template', {
+					alias: 't',
+					description: 'The template',
+					demandOption: true
+				})
+				.option('content', {
+					alias: 'c',
+					description: 'The comma separated list of local content'
+				})
+				.check((argv) => {
+					if (argv.action && !updateTemplateActions().includes(argv.action)) {
+						throw new Error(`${os.EOL} ${argv.action} is not a valid value for <action>`);
+					}
+					return true;
+				})
+				.example(...updateTemplate.example[0])
+				.example(...updateTemplate.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${updateTemplate.command}\n\n${updateTemplate.usage.long}`);
+		})
 	.command([listServerContentTypes.command, listServerContentTypes.alias], false,
 		(yargs) => {
 			yargs.option('server', {
@@ -3238,8 +3324,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('template', {
 					alias: 't',
-					description: '<template> The mapping is for',
-					demandOption: true
+					description: '<template> The mapping is for'
 				})
 				.option('layoutstyle', {
 					alias: 's',
@@ -3249,11 +3334,22 @@ const argv = yargs.usage(_usage)
 					alias: 'm',
 					description: 'mobile mapping'
 				})
+				.option('server', {
+					alias: 'r',
+					description: '<server> The registered OCE server'
+				})
+				.check((argv) => {
+					if (!argv.template && !argv.server) {
+						throw new Error('Please specify either local template or OCE server');
+					}
+					return true;
+				})
 				.example(...addContentLayoutMapping.example[0])
 				.example(...addContentLayoutMapping.example[1])
 				.example(...addContentLayoutMapping.example[2])
 				.example(...addContentLayoutMapping.example[3])
 				.example(...addContentLayoutMapping.example[4])
+				.example(...addContentLayoutMapping.example[5])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3261,10 +3357,13 @@ const argv = yargs.usage(_usage)
 		})
 	.command([removeContentLayoutMapping.command, removeContentLayoutMapping.alias], false,
 		(yargs) => {
-			yargs.option('template', {
+			yargs.option('contenttype', {
+					alias: 'c',
+					description: 'Content type, required when <server> is specified'
+				})
+				.option('template', {
 					alias: 't',
-					description: '<template> The mapping is from',
-					demandOption: true
+					description: '<template> The mapping is from'
 				})
 				.option('layoutstyle', {
 					alias: 's',
@@ -3274,8 +3373,23 @@ const argv = yargs.usage(_usage)
 					alias: 'm',
 					description: 'mobile mapping'
 				})
+				.option('server', {
+					alias: 'r',
+					description: '<server> The registered OCE server'
+				})
+				.check((argv) => {
+					if (!argv.template && !argv.server) {
+						throw new Error('Please specify either local template or OCE server');
+					}
+					if (argv.server && !argv.contenttype) {
+						throw new Error(os.EOL + 'Please specify the content type');
+					}
+					return true;
+				})
 				.example(...removeContentLayoutMapping.example[0])
 				.example(...removeContentLayoutMapping.example[1])
+				.example(...removeContentLayoutMapping.example[2])
+				.example(...removeContentLayoutMapping.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -4822,23 +4936,63 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${uploadType.command}\n\n${uploadType.usage.long}`);
 		})
-	.command([createMSTemplate.command, createMSTemplate.alias], false,
+	.command([createWordTemplate.command, createWordTemplate.alias], false,
 		(yargs) => {
 			yargs.option('name', {
 					alias: 'n',
 					description: 'The name for the template, default to the type name'
 				})
+				.option('format', {
+					alias: 'f',
+					description: 'The template format [' + getWordTemplateTypes().join(' | ') + ']. Defaults to form.'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCE server'
 				})
-				.example(...createMSTemplate.example[0])
-				.example(...createMSTemplate.example[1])
-				.example(...createMSTemplate.example[2])
+				.check((argv) => {
+					if (argv.style && !getWordTemplateTypes().includes(argv.style)) {
+						throw new Error(`${os.EOL} ${argv.style} is not a valid value for <style>`);
+					}
+					return true;
+				})
+				.example(...createWordTemplate.example[0])
+				.example(...createWordTemplate.example[1])
+				.example(...createWordTemplate.example[2])
+				.example(...createWordTemplate.example[3])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
-				.usage(`Usage: cec ${createMSTemplate.command}\n\n${createMSTemplate.usage.long}`);
+				.usage(`Usage: cec ${createWordTemplate.command}\n\n${createWordTemplate.usage.long}`);
+		})
+	.command([createContentItem.command, createContentItem.alias], false,
+		(yargs) => {
+			yargs.option('type', {
+					alias: 't',
+					description: 'The source type [' + getContentItemSources().join(' | ') + ']',
+					demandOption: true
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'The repository for the item',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered OCE server'
+				})
+				.check((argv) => {
+					if (argv.type && !getContentItemSources().includes(argv.type)) {
+						throw new Error(`${os.EOL} ${argv.type} is not a valid value for <type>`);
+					}
+					return true;
+				})
+				.example(...createContentItem.example[0])
+				.example(...createContentItem.example[1])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${createContentItem.command}\n\n${createContentItem.usage.long}`);
 		})
 	.command([createChannel.command, createChannel.alias], false,
 		(yargs) => {
@@ -6427,19 +6581,40 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === updateTemplate.name || argv._[0] === updateTemplate.alias) {
+	let updateTemplateArgs = ['run', '-s', updateTemplate.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--action', argv.action,
+		'--template', argv.template
+	];
+	if (argv.content) {
+		updateTemplateArgs.push(...['--content', argv.content]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, updateTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === addContentLayoutMapping.name || argv._[0] === addContentLayoutMapping.alias) {
 	let addContentLayoutMappingArgs = ['run', '-s', addContentLayoutMapping.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
 		'--contentlayout', argv.contentlayout,
-		'--contenttype', argv.contenttype,
-		'--template', argv.template
+		'--contenttype', argv.contenttype
 	];
+	if (argv.template) {
+		addContentLayoutMappingArgs.push(...['--template', argv.template]);
+	}
 	if (argv.layoutstyle) {
 		addContentLayoutMappingArgs.push(...['--layoutstyle', argv.layoutstyle]);
 	}
 	if (argv.mobile) {
 		addContentLayoutMappingArgs.push(...['--mobile', argv.mobile]);
+	}
+	if (argv.server) {
+		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		addContentLayoutMappingArgs.push(...['--server'], serverVal);
 	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, addContentLayoutMappingArgs, {
@@ -6451,14 +6626,23 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	let removeContentLayoutMappingArgs = ['run', '-s', removeContentLayoutMapping.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
-		'--contentlayout', argv.contentlayout,
-		'--template', argv.template
+		'--contentlayout', argv.contentlayout
 	];
+	if (argv.contenttype) {
+		removeContentLayoutMappingArgs.push(...['--contenttype', argv.contenttype]);
+	}
+	if (argv.template) {
+		removeContentLayoutMappingArgs.push(...['--template', argv.template]);
+	}
 	if (argv.layoutstyle) {
 		removeContentLayoutMappingArgs.push(...['--layoutstyle', argv.layoutstyle]);
 	}
 	if (argv.mobile) {
 		removeContentLayoutMappingArgs.push(...['--mobile', argv.mobile]);
+	}
+	if (argv.server) {
+		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		removeContentLayoutMappingArgs.push(...['--server'], serverVal);
 	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, removeContentLayoutMappingArgs, {
@@ -7523,20 +7707,40 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
-} else if (argv._[0] === createMSTemplate.name || argv._[0] === createMSTemplate.alias) {
-	let createMSTemplateArgs = ['run', '-s', createMSTemplate.name, '--prefix', appRoot,
+} else if (argv._[0] === createWordTemplate.name || argv._[0] === createWordTemplate.alias) {
+	let createWordTemplateArgs = ['run', '-s', createWordTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
 		'--type', argv.type
 	];
 
 	if (argv.name) {
-		createMSTemplateArgs.push(...['--name', argv.name]);
+		createWordTemplateArgs.push(...['--name', argv.name]);
+	}
+	if (argv.format) {
+		createWordTemplateArgs.push(...['--format', argv.format]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
-		createMSTemplateArgs.push(...['--server', argv.server]);
+		createWordTemplateArgs.push(...['--server', argv.server]);
 	}
-	spawnCmd = childProcess.spawnSync(npmCmd, createMSTemplateArgs, {
+	spawnCmd = childProcess.spawnSync(npmCmd, createWordTemplateArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createContentItem.name || argv._[0] === createContentItem.alias) {
+	let createContentItemArgs = ['run', '-s', createContentItem.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--file', argv.file,
+		'--type', argv.type,
+		'--repository', argv.repository
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createContentItemArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createContentItemArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

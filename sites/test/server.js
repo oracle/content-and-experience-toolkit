@@ -438,19 +438,12 @@ app.post('/updatecontentform', function (req, res) {
 	var updateurl = req.url.replace('/updatecontentform', ''),
 		params = serverUtils.getURLParameters(url.parse(updateurl).query);
 	var compName = params && params.name;
-	var types = params && params.supportedTypes && params.supportedTypes.split(',') || [];
-	if (compName && types && types.length > 0) {
-
-		console.log('content form: ' + compName + ' supported types: ' + types);
+	var drawerSize = params && params.drawerSize;
+	if (compName && drawerSize) {
+		console.log('content form: ' + compName + ' drawer size: ' + drawerSize);
 		var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
 		if (appInfo) {
-			var supportedTypes = appInfo.supportedContentTypes || [];
-			types.forEach(function (type) {
-				if (!supportedTypes.includes(type)) {
-					supportedTypes.push(type);
-				}
-			});
-			appInfo.supportedContentTypes = supportedTypes;
+			appInfo.drawerSize = drawerSize.toLowerCase();
 			var filePath = path.join(componentsDir, compName, 'appinfo.json');
 			fs.writeFileSync(filePath, JSON.stringify(appInfo));
 			console.log(' - saved file ' + filePath);

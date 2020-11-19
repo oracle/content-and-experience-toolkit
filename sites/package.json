@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "20.4.2",
+	"version": "20.4.2a",
 	"license": "UPL-1.0",
 	"description": "Oracle Content and Experience Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content and Experience.",
 	"main": "index.js",
@@ -65,6 +65,7 @@
 		"describe-template": "gulp -LL --gulpfile bin/gulpfile.js describe-template ",
 		"create-template-report": "gulp -LL --gulpfile bin/gulpfile.js create-template-report ",
 		"cleanup-template": "gulp -LL --gulpfile bin/gulpfile.js cleanup-template ",
+		"update-template": "gulp -LL --gulpfile bin/gulpfile.js update-template ",
 		"add-component-to-theme": "gulp -LL --gulpfile bin/gulpfile.js add-theme-component ",
 		"remove-component-from-theme": "gulp -LL --gulpfile bin/gulpfile.js remove-theme-component ",
 		"control-theme": "gulp -LL --gulpfile bin/gulpfile.js control-theme ",
@@ -101,7 +102,8 @@
 		"unshare-type": "gulp -LL --gulpfile bin/gulpfile.js unshare-type ",
 		"download-type": "gulp -LL --gulpfile bin/gulpfile.js download-type ",
 		"upload-type": "gulp -LL --gulpfile bin/gulpfile.js upload-type ",
-		"create-ms-template": "gulp -LL --gulpfile bin/gulpfile.js create-ms-template ",
+		"create-word-template": "gulp -LL --gulpfile bin/gulpfile.js create-word-template ",
+		"create-content-item": "gulp -LL --gulpfile bin/gulpfile.js create-content-item ",
 		"create-channel": "gulp -LL --gulpfile bin/gulpfile.js create-channel ",
 		"share-channel": "gulp -LL --gulpfile bin/gulpfile.js share-channel ",
 		"unshare-channel": "gulp -LL --gulpfile bin/gulpfile.js unshare-channel ",
@@ -178,6 +180,7 @@
 		"uglifyify": "5.0.2",
 		"underscore": "1.9.2",
 		"uuid": "3.3.3",
+		"xmldom": "0.4.0",
 		"yargs": "13.2.4"
 	}
 }

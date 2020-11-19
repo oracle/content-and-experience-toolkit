@@ -293,6 +293,11 @@ margin-right: 0px;*/
 	border-radius: 3px;
 }
 
+.containerview-card-capsule-text {
+	text-transform: none;
+    font-size: 11px;
+}
+
 .thumbSpacer {
 	width: 100%;
 	padding-bottom: 75%;

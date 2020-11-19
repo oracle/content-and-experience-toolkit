@@ -14,6 +14,18 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.4.2a
+
+**Added**
+
+- `cec update-template rename-asset-id` - Replaces the IDs for all assets in the template.
+- `cec add-contentlayout-mapping` - Adds a content layout mapping for a content type on the OCE server.
+- `cec remove-contentlayout-mapping` - Removes a content layout mapping from a content type on the OCE server.
+
+**Fixed**
+
+- `cec transfer-site` - Correctly sets the app type for local components.
+
 
 # New in Release 20.4.2
 

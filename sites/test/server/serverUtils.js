@@ -307,6 +307,20 @@ var _createGUID = function () {
 };
 
 /**
+ * Create a 32 char GUID
+ */
+module.exports.createAssetGUID = function (isDigitalAsset) {
+	return _createAssetGUID(isDigitalAsset);
+};
+var _createAssetGUID = function (isDigitalAsset) {
+	'use strict';
+	var guid1 = uuid4();
+	guid1 = guid1.replace(/-/g, '').toUpperCase();
+	return ((isDigitalAsset ? 'CONT' : 'CORE') + guid1);
+};
+
+
+/**
  * Utility check if a string ends with 
  */
 module.exports.endsWith = (str, end) => {
@@ -633,9 +647,12 @@ var _getTemplates = function () {
 	var items = fs.existsSync(templatesDir) ? fs.readdirSync(templatesDir) : [];
 	if (items) {
 		items.forEach(function (name) {
-			if (fs.existsSync(templatesDir + "/" + name + "/_folder.json")) {
+			var folderPath = path.join(templatesDir, name, '_folder.json');
+			if (fs.existsSync(folderPath)) {
+				var folderJson = JSON.parse(fs.readFileSync(folderPath));
 				templates.push({
-					name: name
+					name: name,
+					type: folderJson.isEnterprise === 'true' ? 'Enterprise' : 'Standard'
 				});
 			}
 		});
@@ -757,6 +774,14 @@ var _getTemplateComponents = function (templateName) {
 				}
 			});
 		});
+
+		// custom field editors
+		var editorComponents = summaryjson.editorComponents || [];
+		editorComponents.forEach(function (editor) {
+			if (editor && !comps.includes(editor)) {
+				comps.push(editor);
+			}
+		});
 	}
 
 	// check if there are custom forms
@@ -767,7 +792,7 @@ var _getTemplateComponents = function (templateName) {
 		var typeNames = fs.readdirSync(typespath);
 		typeNames.forEach(function (typeName) {
 			var typeFilePath = path.join(typespath, typeName);
-			if (fs.statSync(typeFilePath).isFile() && serverUtils.endsWith(typeName, '.json')) {
+			if (fs.statSync(typeFilePath).isFile() && _endsWith(typeName, '.json')) {
 				var typeObj = JSON.parse(fs.readFileSync(typeFilePath));
 				var typeCustomForms = typeObj.properties && typeObj.properties.customForms || [];
 				for (var i = 0; i < typeCustomForms.length; i++) {
@@ -2491,9 +2516,203 @@ var _getContentTypeLayoutMapping = function (request, server, typeName) {
 
 			resolve({
 				type: typeName,
-				data: mappings
+				data: mappings,
+				ResultSets: data.ResultSets
 			});
 		});
+	});
+};
+
+/**
+ * 
+ */
+module.exports.addContentTypeLayoutMapping = function (request, server, typeName, contentLayout, style) {
+	return new Promise(function (resolve, reject) {
+		_getIdcToken(server)
+			.then(function (result) {
+				var idcToken = result && result.idcToken;
+				if (!idcToken) {
+					console.log('ERROR: failed to get idcToken');
+					return Promise.reject();
+				}
+
+				return _getContentTypeLayoutMapping(request, server, typeName);
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				var ResultSets = result.ResultSets;
+				var rows = ResultSets && ResultSets.ContentTypeCategoryLayoutMapping && ResultSets.ContentTypeCategoryLayoutMapping.rows || [];
+				var exist = false;
+				for (var i = 0; i < rows.length; i++) {
+					if (rows[i][0] && rows[i][0].toLowerCase() === style.toLowerCase()) {
+						// category exists
+						rows[i][1] = contentLayout;
+						exist = true;
+						break;
+					}
+				}
+				if (!exist) {
+					rows.push([style, contentLayout]);
+				}
+				// console.log(JSON.stringify(ResultSets, null, 4));
+				var auth = _getRequestAuth(server);
+				var url = server.url + '/documents/web?IdcService=AR_SET_CONTENT_TYPE_CONFIG&contentTypeName=' + typeName;
+
+				var formData = {
+					'idcToken': idcToken,
+					'ResultSets': ResultSets
+				};
+
+				var postData = {
+					method: 'POST',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					body: formData,
+					json: true
+				};
+
+				request(postData, function (err, response, body) {
+					if (err) {
+						console.log('ERROR: Failed to add content layout mapping');
+						console.log(err);
+						return resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						if (typeof body === 'object') {
+							data = body;
+						}
+					}
+					// console.log(data);
+					if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+						console.log('ERROR: failed to add content layout mapping ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+						return resolve({
+							err: 'err'
+						});
+					} else {
+						return resolve({});
+					}
+				});
+
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				return resolve({
+					err: 'err'
+				});
+			});
+	});
+};
+
+module.exports.removeContentTypeLayoutMapping = function (request, server, typeName, contentLayout, style) {
+	return new Promise(function (resolve, reject) {
+		_getIdcToken(server)
+			.then(function (result) {
+				var idcToken = result && result.idcToken;
+				if (!idcToken) {
+					console.log('ERROR: failed to get idcToken');
+					return Promise.reject();
+				}
+
+				return _getContentTypeLayoutMapping(request, server, typeName);
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				var ResultSets = result.ResultSets;
+				var rows = ResultSets && ResultSets.ContentTypeCategoryLayoutMapping && ResultSets.ContentTypeCategoryLayoutMapping.rows || [];
+				var exist = false;
+				var idx;
+				for (var i = 0; i < rows.length; i++) {
+					if (rows[i][0] && rows[i][0].toLowerCase() === style.toLowerCase() &&
+						rows[i][1] && rows[i][1].toLowerCase() === contentLayout.toLowerCase()) {
+						idx = i;
+						exist = true;
+						break;
+					}
+				}
+				if (!exist) {
+
+					// Not exist, do nothing
+					// console.log(' - the mapping ' + style + ':' + contentLayout + ' does not exist');
+					return resolve({});
+
+				} else {
+					// remove 
+					rows.splice(idx, 1);
+					// console.log(JSON.stringify(ResultSets, null, 4));
+
+					var auth = _getRequestAuth(server);
+					var url = server.url + '/documents/web?IdcService=AR_SET_CONTENT_TYPE_CONFIG&contentTypeName=' + typeName;
+
+					var formData = {
+						'idcToken': idcToken,
+						'ResultSets': ResultSets
+					};
+
+					var postData = {
+						method: 'POST',
+						url: url,
+						auth: auth,
+						headers: {
+							'Content-Type': 'application/json',
+							'X-REQUESTED-WITH': 'XMLHttpRequest'
+						},
+						body: formData,
+						json: true
+					};
+
+					request(postData, function (err, response, body) {
+						if (err) {
+							console.log('ERROR: Failed to remove content layout mapping');
+							console.log(err);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							if (typeof body === 'object') {
+								data = body;
+							}
+						}
+						// console.log(data);
+						if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+							console.log('ERROR: failed to remove content layout mapping ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+							return resolve({
+								err: 'err'
+							});
+						} else {
+							return resolve({});
+						}
+					});
+				}
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				return resolve({
+					err: 'err'
+				});
+			});
 	});
 };
 
@@ -2561,7 +2780,7 @@ var _getBackgroundServiceStatus = function (server, request, host, jobId) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			auth: _getRequestAuth(server)
 		};
 		request(options, function (err, response, body) {
 			if (err) {
@@ -3973,4 +4192,95 @@ module.exports.stripTopDirectory = function (dir) {
 			});
 		});
 	});
+};
+
+/**
+ * Create a digital asset
+ */
+module.exports.createDigitalAsset = function (request, server, repositoryId, filePath) {
+	return new Promise(function (resolve, reject) {
+
+		_getIdcToken(server)
+			.then(function (result) {
+				var idcToken = result && result.idcToken;
+				if (!idcToken) {
+					console.log('ERROR: failed to get idcToken');
+					return Promise.reject();
+				}
+
+				var auth = _getRequestAuth(server);
+				var url = server.url + '/documents/web';
+				var formData = {
+					idcToken: idcToken,
+					IdcService: 'AR_UPLOAD_DIGITAL_ASSET',
+					ConflictResolutionMethod: 'ResolveDuplicates',
+					repository: 'arCaaSGUID:' + repositoryId,
+					primaryFile: fs.createReadStream(filePath)
+				};
+
+				var postData = {
+					method: 'POST',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					formData: formData,
+					json: true
+				};
+				// console.log(' - creating digital asset: ' + filePath);
+				request(postData, function (err, response, body) {
+					if (err) {
+						console.log('ERROR: Failed to create digital asset ' + filePath);
+						console.log(err);
+						return resolve({
+							filePath: filePath,
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						if (typeof body === 'object') {
+							data = body;
+						}
+					}
+					// console.log(data);
+					if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+						console.log('ERROR: failed to create digital asset ' + filePath);
+						console.log(data);
+						return resolve({
+							filePath: filePath,
+							err: 'err'
+						});
+					} else {
+						var fields = data.ResultSets && data.ResultSets.AssetInfo && data.ResultSets.AssetInfo.fields || [];
+						var rows = data.ResultSets && data.ResultSets.AssetInfo && data.ResultSets.AssetInfo.rows;
+						var asset = {};
+						for (var i = 0; i < fields.length; i++) {
+							var attr = fields[i].name;
+							asset[attr] = rows[0][i];
+						}
+						// console.log(asset);
+						return resolve({
+							filePath: filePath,
+							fileName: asset.fItemName,
+							assetId: asset.xARCaaSGUID
+						});
+					}
+				});
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				return resolve({
+					filePath: filePath,
+					err: 'err'
+				});
+			});
+	});
+
 };

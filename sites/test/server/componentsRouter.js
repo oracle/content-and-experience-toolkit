@@ -449,12 +449,12 @@ router.get('/*', (req, res) => {
 
 			}  else if (apptype === 'contentform') {
 				var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
-				var types = appInfo && appInfo.supportedContentTypes || [];
+				var drawerSize = appInfo && appInfo.drawerSize || 'default';
 			
 				filePath = path.join(compSiteDir, 'contentformsettings.html');
 				var settingshtml = fs.readFileSync(filePath).toString();
 				var newsettingshtml = settingshtml.replace('_devcs_component_contentform_name', compName);
-				newsettingshtml = newsettingshtml.replace('_devcs_component_contentform_types', types.join(','));
+				newsettingshtml = newsettingshtml.replace('_devcs_component_contentform_drawersize', drawerSize);
 				newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
 				console.log('path=' + req.path + ' filePath=' + filePath + ' content form=' + compName);
 				res.write(newsettingshtml);

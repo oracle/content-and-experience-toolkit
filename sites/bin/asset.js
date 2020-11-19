@@ -5,15 +5,24 @@
 /* global console, __dirname, process, console */
 /* jshint esversion: 6 */
 
+
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
+	fileUtils = require('../test/server/fileUtils.js'),
 	componentUtils = require('./component.js').utils,
 	fs = require('fs'),
+	fse = require('fs-extra'),
+	gulp = require('gulp'),
 	sprintf = require('sprintf-js').sprintf,
-	path = require('path');
+	path = require('path'),
+	zip = require('gulp-zip');
 
 var projectDir,
+	buildDir,
+	contentSrcDir,
+	templatesSrcDir,
 	typesSrcDir,
+	wordTemplatesSrcDir,
 	serversSrcDir;
 
 /**
@@ -23,9 +32,15 @@ var projectDir,
 var verifyRun = function (argv) {
 	projectDir = argv.projectDir;
 
+	buildDir = serverUtils.getBuildFolder(projectDir);
+
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
+	contentSrcDir = path.join(srcfolder, 'content');
+	templatesSrcDir = path.join(srcfolder, 'templates');
 	typesSrcDir = path.join(srcfolder, 'types');
+
+	wordTemplatesSrcDir = path.join(srcfolder, 'msword');
 
 	serversSrcDir = path.join(srcfolder, 'servers');
 
@@ -2564,4 +2579,636 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 		}
 	}
 
+};
+
+/**
+ * Rename asset ids
+ */
+module.exports.renameAssetIds = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var templateName = argv.template;
+
+	if (!fs.existsSync(path.join(templatesSrcDir, templateName))) {
+		console.error('ERROR: template ' + templateName + ' does not exist');
+		done();
+		return;
+	}
+	console.log(' - template ' + templateName);
+
+	var contentNames = argv.content ? argv.content.split(',') : [];
+	var goodContent = [];
+	if (contentNames.length > 0 && fs.existsSync(contentSrcDir)) {
+		contentNames.forEach(function (name) {
+			if (fs.existsSync(path.join(contentSrcDir, name))) {
+				goodContent.push(name);
+			} else {
+				console.error('ERROR: content ' + name + ' does not exist');
+			}
+		});
+	}
+	if (goodContent.length > 0) {
+		console.log(' - other content ' + goodContent);
+	}
+
+	var idMap = new Map();
+
+	var _processItems = function (itemsPath) {
+		console.log(' - process content items in ' + itemsPath.substring(projectDir.length) + 1);
+		var types = fs.readdirSync(itemsPath);
+		types.forEach(function (type) {
+			if (type !== 'VariationSets') {
+				var typePath = path.join(itemsPath, type);
+
+				var items = fs.readdirSync(typePath);
+				for (var i = 0; i < items.length; i++) {
+					var fileName = items[i];
+					if (serverUtils.endsWith(fileName, '.json')) {
+						var itemId = fileName.substring(0, fileName.length - 5);
+
+						var newId;
+						if (idMap.get(itemId)) {
+							newId = idMap.get(itemId);
+							// console.log('*** id already created');
+						} else {
+							newId = serverUtils.createAssetGUID(type === 'DigitalAsset');
+							// console.log('*** new id ' + newId);
+							idMap.set(itemId, newId);
+						}
+
+						// rename the json file
+						var newFile = newId + '.json';
+						fs.renameSync(path.join(typePath, fileName), path.join(typePath, newFile));
+						// console.log(' - rename file ' + fileName + ' => ' + newFile);
+
+					}
+				}
+
+				if (type === 'DigitalAsset') {
+					// rename the folder name under files
+					var files = fs.readdirSync(path.join(typePath, 'files'));
+					files.forEach(function (folder) {
+						var folderPath = path.join(typePath, 'files', folder);
+						var stat = fs.statSync(folderPath);
+						if (stat.isDirectory()) {
+							var newFolder = idMap.get(folder);
+							if (newFolder) {
+								fse.moveSync(folderPath, path.join(typePath, 'files', newFolder));
+								// console.log(' - rename folder ' + folder + ' => ' + newFolder);
+							}
+						}
+					});
+				}
+			}
+		});
+	};
+
+	// collect all asset ids from template
+	var itemsFolder = path.join(templatesSrcDir, templateName, 'assets', 'contenttemplate',
+		'Content Template of ' + templateName, 'ContentItems');
+	if (fs.existsSync(itemsFolder)) {
+		_processItems(itemsFolder);
+	}
+
+	// collect all asset ids from other content
+	goodContent.forEach(function (content) {
+		var itemsFolder = path.join(contentSrcDir, content, 'contentexport', 'ContentItems');
+		if (fs.existsSync(itemsFolder)) {
+			_processItems(itemsFolder);
+		}
+	});
+
+	console.log(' - total Ids: ' + idMap.size);
+	// console.log(idMap);
+
+	// update all json files under content assets
+	var contentFolders = [];
+	contentFolders.push(path.join(templatesSrcDir, templateName, 'assets', 'contenttemplate'));
+	goodContent.forEach(function (content) {
+		contentFolders.push(path.join(contentSrcDir, content, 'contentexport'));
+	});
+	// console.log(contentFolders);
+
+	// update ids in site pages
+	contentFolders.push(path.join(templatesSrcDir, templateName, 'pages'));
+
+	var doIdUpdate = contentFolders.reduce(function (idPromise, contentPath) {
+			return idPromise.then(function (result) {
+				return _updateIdInFiles(contentPath, idMap).then(function (result) {
+						// done
+					})
+					.catch((error) => {
+						// 
+					});
+			});
+		},
+		// Start with a previousPromise value that is a resolved promise 
+		Promise.resolve({}));
+
+	doIdUpdate.then(function (result) {
+		var doZip = goodContent.reduce(function (zipPromise, content) {
+				return zipPromise.then(function (result) {
+					var contentpath = path.join(contentSrcDir, content);
+					// same file name as in the upload script from transfer-site-content
+					var contentfilename = content + '_export.zip';
+					return _zipContent(contentpath, contentfilename).then(function (result) {
+							// done
+						})
+						.catch((error) => {
+							// 
+						});
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doZip.then(function (result) {
+			console.log(' - finished');
+			done(true);
+		});
+	});
+};
+
+var _updateIdInFiles = function (folderPath, idMap) {
+	console.log(' - replace Id in files under ' + folderPath.substring(projectDir.length + 1));
+	return new Promise(function (resolve, reject) {
+		serverUtils.paths(folderPath, function (err, paths) {
+			if (err) {
+				console.log(err);
+			} else {
+				var files = paths.files;
+				for (var i = 0; i < files.length; i++) {
+					var filePath = files[i];
+					if (filePath.endsWith('.json')) {
+						var fileSrc = fs.readFileSync(filePath).toString();
+						// update slug 
+						try {
+							var fileJson = JSON.parse(fileSrc);
+							if (fileJson && fileJson.id && fileJson.slug) {
+								fileJson.slug = fileJson.slug + '_' + fileJson.id;
+								fileSrc = JSON.stringify(fileJson);
+							}
+						} catch (e) {}
+
+						var newFileSrc = fileSrc;
+						for (const [id, newId] of idMap.entries()) {
+							newFileSrc = serverUtils.replaceAll(newFileSrc, id, newId);
+						}
+
+						if (fileSrc !== newFileSrc) {
+							fs.writeFileSync(filePath, newFileSrc);
+							// console.log('    ' + filePath.replace((projectDir + path.sep), ''));
+						}
+					}
+				}
+			}
+			return resolve({});
+		});
+	});
+};
+
+var _zipContent = function (contentpath, contentfilename) {
+	return new Promise(function (resolve, reject) {
+		//
+		// create the content zip file
+		// 
+		gulp.src(contentpath + '/**', {
+				base: contentpath
+			})
+			.pipe(zip(contentfilename))
+			.pipe(gulp.dest(path.join(projectDir, 'dist')))
+			.on('end', function () {
+				var zippath = path.join(projectDir, 'dist', contentfilename);
+				console.log(' - created content file ' + zippath);
+				return resolve({});
+			});
+		
+	});
+};
+
+
+//////////////////////////////////////////////////////////////////////////
+//    MS word support
+//////////////////////////////////////////////////////////////////////////
+
+var MSWord = require('./msword/js/msWord.js');
+var Files = require('./msword/js/files.js');
+
+module.exports.createMSWordTemplate = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	console.log(' - server: ' + server.url);
+
+	var type = argv.type;
+	var name = argv.name;
+	var templateName = name || type;
+	var format = argv.format || 'form';
+
+	if (!fs.existsSync(wordTemplatesSrcDir)) {
+		fs.mkdirSync(wordTemplatesSrcDir);
+	}
+	var destFld = path.join(wordTemplatesSrcDir, templateName);
+
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		serverRest.getContentType({
+				server: server,
+				name: type
+			}).then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - verify type ' + type);
+				console.log(' - template format ' + format);
+
+				_generateWordTemplate(result, destFld, templateName, format)
+					.then(function (result) {
+						done(true);
+					});
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+
+};
+
+var _generateWordTemplate = function (type, destFld, templateName, format) {
+	var cecDir = path.join(__dirname, "..");
+	return new Promise(function (resolve, reject) {
+		var msWord = new MSWord();
+		var main = {
+			extensionPath: path.join(cecDir, 'bin', 'msword'),
+			destFld: destFld,
+			templateName: templateName,
+			rootTmpDir: wordTemplatesSrcDir
+		};
+		msWord.init(main);
+
+		var contentTypeFields = [];
+		type.fields.forEach(function (field) {
+			const item = {
+				description: field.description,
+				datatype: field.datatype,
+				name: field.name,
+				defaultValue: field.defaultValue,
+				referenceType: null,
+				referenceFields: [],
+				settings: {
+					type: '',
+					options: {
+						min: null,
+						max: null,
+						labelOn: null,
+						labelOff: null,
+						label: null,
+						mediaTypes: []
+					}
+				}
+			};
+
+			if (Object.prototype.hasOwnProperty.call(field, "referenceType")) {
+				item.referenceType = field.referenceType.type;
+				if (item.referenceType.toLowerCase() === 'digitalasset') {
+					if (Object.prototype.hasOwnProperty.call(field.settings.caas.editor.options, "mediaTypes") &&
+						field.settings.caas.editor.options.mediaTypes.length) {
+						item.settings.options.mediaTypes = field.settings.caas.editor.options.mediaTypes.slice();
+					}
+				} else { // Other content types
+					// params.contentTypeReferences.push(item.referenceType);
+					// console.log('*** other content type ignored');
+				}
+			}
+
+			if (field.settings.caas.customValidators.length) {
+				item.settings.options.min = field.settings.caas.customValidators[0].options.min;
+				item.settings.options.max = field.settings.caas.customValidators[0].options.max;
+			}
+			if (item.datatype === "boolean") {
+				item.settings.type = field.settings.caas.editor.name; // boolean-switch; boolean-checkbox
+
+				if (Object.prototype.hasOwnProperty.call(field.settings.caas.editor.options, "labels")) {
+					item.settings.options.labelOn = field.settings.caas.editor.options.labels.on;
+					item.settings.options.labelOff = field.settings.caas.editor.options.labels.off;
+				}
+				if (Object.prototype.hasOwnProperty.call(field.settings.caas.editor.options, "label")) {
+					item.settings.options.label = field.settings.caas.editor.options.label;
+				}
+			}
+			// console.log('******');
+			// console.log(JSON.stringify(item, null, 4));
+			contentTypeFields.push(item);
+		});
+		// console.log(contentTypeFields);
+
+		var info = {
+			projectDir: projectDir,
+			exportType: true,
+			frmBase: format === 'form',
+			contentTypeName: type.name,
+			fields: contentTypeFields
+		};
+
+		msWord.exportData(info);
+		resolve({});
+
+		/*
+			.then(function (result) {
+
+				return resolve({});
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				resolve({err; 'err'});
+			});
+			*/
+	});
+};
+
+module.exports.createContentItem = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var filePath = argv.file;
+	if (!path.isAbsolute(filePath)) {
+		filePath = path.join(projectDir, filePath);
+	}
+	filePath = path.resolve(filePath);
+
+	if (!fs.existsSync(filePath)) {
+		console.log('ERROR: file ' + filePath + ' does not exist');
+		done();
+		return;
+	}
+	if (!fs.statSync(filePath).isFile()) {
+		console.log('ERROR: file ' + filePath + ' is not a file');
+		done();
+		return;
+	}
+
+	var type = argv.type;
+
+	var repositoryName = argv.repository;
+	var repository;
+	var wordItem;
+	var hasError;
+
+	// local timezone
+	process.env.TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+	var request = serverUtils.getRequest();
+	serverUtils.loginToServer(server, request).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		var repositoryPromise = serverRest.getRepositoryWithName({
+			server: server,
+			name: repositoryName
+		});
+		repositoryPromise.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				repository = result.data;
+				if (!repository || !repository.id) {
+					console.log('ERROR: repository ' + repositoryName + ' does not exist');
+					return Promise.reject();
+				}
+
+				console.log(' - get repository (Id: ' + repository.id + ' language: ' + repository.defaultLanguage + ')');
+
+				if (type === 'word') {
+					_createItemFromWord(server, filePath, repository)
+						.then(function (result) {
+							if (result.err) {
+								return Promise.reject();
+							}
+
+							wordItem = result;
+							// console.log(wordItem.fields);
+
+							hasError = false;
+							var createDigitalAssetPromises = [];
+							for (var i = 0; i < wordItem.fields.length; i++) {
+								var field = wordItem.fields[i];
+								if (field.datatype === 'reference_image' || field.datatype === 'reference_path') {
+									if (!fs.existsSync(field.val)) {
+										console.log('ERROR: file ' + field.val + ' does not exist');
+										hasError = true;
+										break;
+									} else {
+
+										createDigitalAssetPromises.push(serverUtils.createDigitalAsset(request, server, repository.id, field.val));
+									}
+								}
+							}
+							if (hasError) {
+								return Promise.reject();
+							}
+
+							if (createDigitalAssetPromises.length > 0) {
+								console.log(' - creating digital assets...');
+							}
+
+							return Promise.all(createDigitalAssetPromises);
+
+						})
+						.then(function (results) {
+							var digitalAssets = results || [];
+							hasError = false;
+							for (var i = 0; i < digitalAssets.length; i++) {
+								if (digitalAssets[i].filePath && (digitalAssets[i].err || !digitalAssets[i].assetId)) {
+									hasError = true;
+								} else {
+									console.log(' - create digital asset ' + digitalAssets[i].fileName + ' (Id: ' + digitalAssets[i].assetId + ')');
+								}
+							}
+							if (hasError) {
+								return Promise.reject();
+							}
+
+							var fields = {};
+							for (var i = 0; i < wordItem.fields.length; i++) {
+								var field = wordItem.fields[i];
+								if (field.datatype === 'reference_image' || field.datatype === 'reference_path') {
+									for (var j = 0; j < digitalAssets.length; j++) {
+										if (digitalAssets[j].filePath === field.val) {
+											fields[field.name] = {
+												type: 'DigitalAsset',
+												id: digitalAssets[j].assetId,
+												name: digitalAssets[j].fileName
+											};
+										}
+									}
+								} else if (field.datatype === 'datetime') {
+									var dateVal = field.val;
+									var timeZoneOffset = ('00' + ((new Date(dateVal)).getTimezoneOffset() / 60)).slice(-2);
+									var time = serverUtils.replaceAll(dateVal, 'Z', '.000-' + timeZoneOffset + ':00');
+									// console.log(field.val + ' => ' + time);
+									fields[field.name] = {
+										value: time,
+										timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+									};
+								} else {
+									fields[field.name] = field.val;
+								}
+							}
+							var item = {
+								type: wordItem.contentTypeName,
+								name: wordItem.contentItemName,
+								description: wordItem.contentItemDesc ? wordItem.contentItemDesc : '',
+								fields: fields
+							};
+							// console.log(item);
+							return serverRest.createItem({
+								server: server,
+								repositoryId: repository.id,
+								type: item.type,
+								name: item.name,
+								desc: item.desc,
+								fields: item.fields,
+								language: repository.defaultLanguage
+							});
+						})
+						.then(function (result) {
+							if (result.err || !result.id) {
+								return Promise.reject();
+							}
+							// console.log(result);
+							console.log(' - create content item ' + result.name + ' (Id: ' + result.id + ')');
+
+							done(true);
+						})
+						.catch((error) => {
+							if (error) {
+								console.log(error);
+							}
+							done();
+						});
+
+				} else {
+
+					console.log(' - item source type ' + type + ' not supported yet');
+					done();
+				}
+
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
+var _createItemFromWord = function (server, filePath, repository) {
+	if (!fs.existsSync(buildDir)) {
+		fs.mkdirSync(buildDir);
+	}
+	var itemsBuildPath = path.join(buildDir, 'items');
+	if (!fs.existsSync(itemsBuildPath)) {
+		fs.mkdirSync(itemsBuildPath);
+	}
+	return new Promise(function (resolve, reject) {
+		var fileName = filePath.substring(filePath.lastIndexOf(path.sep) + 1);
+		if (fileName.indexOf('.') > 0) {
+			fileName = fileName.substring(0, fileName.lastIndexOf('.'));
+		}
+
+		var itemDir = path.join(itemsBuildPath, fileName);
+		if (fs.existsSync(itemDir)) {
+			fileUtils.remove(itemDir);
+		}
+		fs.mkdirSync(itemDir);
+
+		// unzip the docx file
+		fileUtils.extractZip(filePath, itemDir)
+			.then(function (result) {
+				if (result === 'err') {
+					return Promise.reject();
+				}
+
+				// verify the docx
+				if (!fs.existsSync(path.join(itemDir, '[Content_Types].xml'))) {
+					console.log('ERROR: file ' + filePath + ' is not a valid docx file');
+					return Promise.reject();
+				}
+
+				console.log(' - unzip file');
+
+				var msWord = new MSWord();
+				var main = {
+					xmlRootFld: itemDir
+				};
+				msWord.init(main);
+
+				msWord.importData().then(function (data) {
+					// console.log(data);
+					if (data && data.contentTypeName && data.contentItemName && data.fields && data.fields.length > 0) {
+						console.log(' - get content item info');
+
+						return resolve(data);
+
+					} else {
+						console.log('ERROR: failed to get item info');
+						return resolve({
+							err: 'err'
+						});
+					}
+				});
+
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				return resolve({
+					err: 'err'
+				});
+			});
+
+	});
 };

@@ -97,7 +97,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 			var themeSrcPath;
 
 			var isEnterprise;
-			var templateIsEnterprise = enterprisetemplate ? 'true' : (isEnterprise ? 'true' : 'false');
+			var templateIsEnterprise = 'true';
 			var themeName, themeId;
 			var channelId;
 			var site;
@@ -155,6 +155,8 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					isEnterprise = site.isEnterprise;
 					themeName = site.themeName;
 					channelId = site.channel && site.channel.id;
+
+					templateIsEnterprise = enterprisetemplate ? 'true' : (isEnterprise ? 'true' : 'false');
 
 					console.log(' - theme ' + themeName);
 					themeSrcPath = path.join(themesSrcDir, themeName);
@@ -294,6 +296,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 							fs.mkdirSync(path.join(templatesSrcDir, name, 'assets', 'contenttemplate'));
 						}
 						var summaryPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate', 'summary.json');
+						console.log(' - creating ' + summaryPath);
 						fs.writeFileSync(summaryPath, JSON.stringify(summaryJson, null, 4));
 					}
 
@@ -344,11 +347,27 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						if (!fs.existsSync(folderPath)) {
 							fs.mkdirSync(folderPath);
 						}
+						var customEditors = [];
 						types.forEach(function (type) {
 							var filePath = path.join(folderPath, type.name + '.json');
 							// console.log(filePath);
 							fs.writeFileSync(filePath, JSON.stringify(type, null, 4));
+
+							var typeCustomEditors = type.properties && type.properties.customEditors || [];
+							if (typeCustomEditors.length > 0) {
+								customEditors = customEditors.concat(typeCustomEditors);
+							}
 						});
+
+						if (customEditors.length > 0) {
+							// save to summary.json
+							var summaryPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate', 'summary.json');
+							if (fs.existsSync(summaryPath)) {
+								summaryJson = JSON.parse(fs.readFileSync(summaryPath));
+								summaryJson.editorComponents = customEditors;
+								fs.writeFileSync(summaryPath, JSON.stringify(summaryJson, null, 4));
+							}
+						}
 					}
 
 					// get components on template
@@ -386,6 +405,9 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 				})
 				.catch((error) => {
+					if (error) {
+						console.log(error);
+					}
 					return resolve({
 						err: 'err'
 					});
@@ -437,8 +459,8 @@ var _downloadSiteComponents = function (request, server, compNames) {
 					}
 					// get the component's appType from appinfo.json
 					// currently API /sites/management/api/v1/components does not return appType
-					var appType = comps[i].type;
-					if (fs.existsSync(path.join(componentsSrcDir, comps[i].name, 'appinfo.json'))) {
+					var appType = comps[i].appType;
+					if (!appType && fs.existsSync(path.join(componentsSrcDir, comps[i].name, 'appinfo.json'))) {
 						var appinfo = JSON.parse(fs.readFileSync(path.join(componentsSrcDir, comps[i].name, 'appinfo.json')));
 						if (appinfo && appinfo.type) {
 							appType = appinfo.type;
@@ -476,6 +498,7 @@ var _downloadContent = function (request, server, name, channelId) {
 		var channelName;
 		var assetSummaryJson;
 		var assetContentTypes = [];
+		var tempContentPath;
 		serverRest.getChannel({
 				server: server,
 				id: channelId
@@ -506,7 +529,7 @@ var _downloadContent = function (request, server, name, channelId) {
 				var contentPath = path.join(contentSrcDir, name + '_content');
 				fse.moveSync(contentPath, tempAssetPath);
 				var contentexportPath = path.join(tempAssetPath, 'contentexport');
-				var tempContentPath = path.join(tempAssetPath, 'Content Template of ' + name);
+				tempContentPath = path.join(tempAssetPath, 'Content Template of ' + name);
 				fse.moveSync(contentexportPath, tempContentPath);
 
 				var summaryStr = fs.readFileSync(path.join(tempContentPath, 'Summary.json'));
@@ -550,6 +573,9 @@ var _downloadContent = function (request, server, name, channelId) {
 						});
 					}
 				}
+
+				var customEditors = _getCustomEditors(tempContentPath);
+
 				// create summary.json
 				var summaryJson = {
 					summary: {
@@ -557,7 +583,8 @@ var _downloadContent = function (request, server, name, channelId) {
 						contentItems: items
 					},
 					categoryLayoutMappings: categoryLayoutMappings,
-					layoutComponents: layoutComponents
+					layoutComponents: layoutComponents,
+					editorComponents: customEditors
 				};
 				var summaryPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate', 'summary.json');
 				fs.writeFileSync(summaryPath, JSON.stringify(summaryJson, null, 4));
@@ -572,26 +599,65 @@ var _downloadContent = function (request, server, name, channelId) {
 	});
 };
 
+var _getCustomEditors = function (tempContentPath) {
+	var editors = [];
+	var typesPath = path.join(tempContentPath, 'ContentTypes');
+	if (fs.existsSync(typesPath)) {
+		var types = fs.readdirSync(typesPath);
+		types.forEach(function (fileName) {
+			if (serverUtils.endsWith(fileName, '.json')) {
+				var typeObj = JSON.parse(fs.readFileSync(path.join(typesPath, fileName)));
+				var typeCustomEditors = typeObj.properties && typeObj.properties.customEditors || [];
+				if (typeCustomEditors.length > 0) {
+					editors = editors.concat(typeCustomEditors);
+				}
+			}
+		});
+	}
+	// console.log(' - template: ' + tempContentPath + ' editors: ' + editors);
+	return editors;
+};
+
 var _queryComponents = function (request, server, compNames) {
 	return new Promise(function (resolve, reject) {
 		var comps = [];
 		var compsPromises = [];
 		compNames.forEach(function (compName) {
+			/*
 			compsPromises.push(sitesRest.getComponent({
 				server: server,
 				name: compName
 			}));
+			*/
+			compsPromises.push(serverUtils.browseComponentsOnServer(request, server, compName));
 		});
 		Promise.all(compsPromises).then(function (results) {
-				var allComps = results || [];
+				// var allComps = results || [];
+				var allComps = [];
+				for (var i = 0; i < results.length; i++) {
+					if (results[i] && results[i].data) {
+						allComps = allComps.concat(results[i].data);
+					}
+				}
+				// console.log(allComps);
 				for (var i = 0; i < compNames.length; i++) {
 					for (var j = 0; j < allComps.length; j++) {
+						/*
 						if (compNames[i] === allComps[j].name) {
 							comps.push({
 								id: allComps[j].id,
 								name: allComps[j].name,
 								type: allComps[j].type,
 								isHidden: allComps[j].isHidden ? '1' : '0'
+							});
+						}
+						*/
+						if (compNames[i] === allComps[j].fFolderName) {
+							comps.push({
+								id: allComps[j].fFolderGUID,
+								name: allComps[j].fFolderName,
+								appType: allComps[j].xScsAppType,
+								isHidden: allComps[j].xScsAppIsHiddenInBuilder
 							});
 						}
 					}

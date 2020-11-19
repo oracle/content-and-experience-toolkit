@@ -668,27 +668,41 @@ gulp.task('create-contentlayout', function (done) {
 });
 
 /**
- * Add content layout mapping to a template
+ * Add content layout mapping to a local template or a type on OCE server
  */
 gulp.task('add-contentlayout-mapping', function (done) {
 	'use strict';
 
-	contentlayoutlib.addContentLayoutMapping(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
-		done();
-	});
+	if (argv.server) {
+		contentlayoutlib.addContentLayoutMappingServer(argv, function (success) {
+			process.exitCode = success ? 0 : 1;
+			done();
+		});
+	} else {
+		contentlayoutlib.addContentLayoutMapping(argv, function (success) {
+			process.exitCode = success ? 0 : 1;
+			done();
+		});
+	}
 });
 
 /**
- * remove content layout mapping from a template
+ * remove content layout mapping from a local template or a type on OCE server
  */
 gulp.task('remove-contentlayout-mapping', function (done) {
 	'use strict';
 
-	contentlayoutlib.removeContentLayoutMapping(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
-		done();
-	});
+	if (argv.server) {
+		contentlayoutlib.removeContentLayoutMappingServer(argv, function (success) {
+			process.exitCode = success ? 0 : 1;
+			done();
+		});
+	} else {
+		contentlayoutlib.removeContentLayoutMapping(argv, function (success) {
+			process.exitCode = success ? 0 : 1;
+			done();
+		});
+	}
 });
 
 /**
@@ -926,6 +940,23 @@ gulp.task('unshare-template', function (done) {
 	});
 });
 
+/**
+ * rename asset ids
+ */
+gulp.task('update-template', function (done) {
+	'use strict';
+
+	if (argv.action === 'rename-asset-id') {
+		assetlib.renameAssetIds(argv, function (success) {
+			process.exitCode = success ? 0 : 1;
+			done();
+		});
+	} else {
+		console.log('ERRRO: ' + argv.action + ' is not supported');
+		process.exitCode = 1;
+		done();
+	}
+});
 
 /**
  * download content from server
@@ -1568,17 +1599,28 @@ gulp.task('upload-type', function (done) {
 });
 
 /**
- * Create MS template
+ * Create MS word template
  */
-gulp.task('create-ms-template', function (done) {
+gulp.task('create-word-template', function (done) {
 	'use strict';
 
-	console.log('Under development...');
-	
-	process.exitCode = 0;
-	done();
+	assetlib.createMSWordTemplate(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
 });
 
+/**
+ * Create content item
+ */
+gulp.task('create-content-item', function (done) {
+	'use strict';
+
+	assetlib.createContentItem(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
 
 /**
  * Create a channel

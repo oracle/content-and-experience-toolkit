@@ -510,6 +510,10 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 						var checkExportStatusPromise = _checkJobStatus(request, server, jobId);
 						checkExportStatusPromise.then(function (result) {
 							if (result.status !== 'success') {
+								clearInterval(inter);
+								if (needNewline) {
+									process.stdout.write(os.EOL);
+								}
 								return resolve({
 									err: 'err'
 								});
@@ -1203,6 +1207,10 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 					var checkImportStatusPromise = _checkJobStatus(request, server, jobId);
 					checkImportStatusPromise.then(function (result) {
 						if (result.status !== 'success') {
+							clearInterval(inter);
+							if (needNewline) {
+								process.stdout.write(os.EOL);
+							}
 							return resolve({
 								err: 'err'
 							});
@@ -2413,6 +2421,7 @@ var _exportContentIC = function (request, server, collectionId, exportfilepath) 
 					var checkExportStatusPromise = _checkJobStatusIC(request, server, jobId);
 					checkExportStatusPromise.then(function (result) {
 						if (result.status !== 'success') {
+							clearInterval(inter);
 							return resolve({
 								err: 'err'
 							});

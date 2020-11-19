@@ -26,14 +26,14 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
     <div class="scs-component-settings">
 		
 		<div>
-			<label id="opt" class="settings-label">Select content types supported by this form</label>
+			<label id="opt" class="settings-label">Drawer size</label>
 		</div>
 		<div class="scs-panelInput">
-			<ul id="contenttypelist" data-bind="foreach: types">
+			<ul id="contenttypelist" data-bind="foreach: drawerSizes">
 			<div class="optionspanel">
 				<p class="settings-label">
-					<input type="checkbox" id="type" data-bind="checked: supported" class="optioninput" />
-					<label id="typelabel" for="type"><span data-bind="text: name"></span></label>
+					<input type="checkbox" id="size" data-bind="checked: selected, click: $parent.changeSize" class="optioninput" />
+					<label id="sizelabel" for="size"><span data-bind="text: name"></span></label>
 				</p>
 			</div>
 			</ul>
@@ -53,45 +53,48 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
             var self = this;
             self.initialized = ko.observable(false);
 
-			var compName = '_devcs_component_contentform_name';
-			var supportedTypes = '_devcs_component_contentform_types'.split(',');
-			console.log(supportedTypes);
-
-			self.types = ko.observableArray([]);
-
 			parent.document.getElementById('settingsTitle').innerText = 'Form Properties';
 
-			$.ajax({
-                'type': 'GET',
-                'dataType': 'json',
-                'url': '/getcontenttypes',
-                'success': function (result) {
-					var typeNames = result || [];
-					var buf = [];
-					for(var i = 0; i < typeNames.length; i++) {
-						buf.push({
-							name: typeNames[i],
-							supported: supportedTypes.includes(typeNames[i])
-						});
-					}
-					console.log('content types: ' + typeNames);
-					
-					self.types(buf);
-					self.initialized(true);
-				}
+			var compName = '_devcs_component_contentform_name';
+			var compDrawerSize = '_devcs_component_contentform_drawersize';
+
+			self.drawerSizes = ko.observableArray([]);
+			var sizes = ['Default', 'Full', 'Half'];
+			var buf = [];
+			sizes.forEach(function (size) {
+				buf.push({
+					name: size,
+					selected: size.toLowerCase() === compDrawerSize
+				});
 			});
+			self.drawerSizes(buf);
 
+			self.initialized(true);
+
+			self.changeSize = function(event) {
+				var selectedSize = event && event.name;
+				if (selectedSize) {
+					buf = [];
+					sizes.forEach(function (size) {
+						buf.push({
+							name: size,
+							selected: size.toLowerCase() === selectedSize.toLowerCase()
+						});
+					});
+				self.drawerSizes(buf);
+				}
+       			return true;
+			};
+			 
 			self.saveChanges = function (event) {
-				
-				// console.log(self.types());
-				var supportedTypes = [];
-				for(var i = 0; i < self.types().length; i++) {
-					if (self.types()[i].supported) {
-						supportedTypes.push(self.types()[i].name);
+				var drawersize;
+				for(var i = 0; i < self.drawerSizes().length; i++) {
+					if (self.drawerSizes()[i].selected) {
+						drawersize = self.drawerSizes()[i].name.toLowerCase();
 					}
 				}
 
-				var url = '/updatecontentform?name=' + compName + '&supportedTypes=' + supportedTypes;
+				var url = '/updatecontentform?name=' + compName + '&drawerSize=' + drawersize;
 				console.log(url);
 				$.ajax({
                 	'type': 'POST',

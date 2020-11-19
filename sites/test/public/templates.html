@@ -55,7 +55,9 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 
                         <div class="containerview-name" data-bind="text: name">aaa<a href="#" class="block" title="AnchorButtons" aria-label="AnchorButtons" data-bind="text : name, attr: {title: name}" class="text_button containerview-openClick"></a>xxx </div>
 
-                        <div class="containerview-status">&nbsp;</div>
+						<div class="containerview-status">&nbsp;</div>
+						
+						<div class="containerview-card-capsule-text" data-bind="text: type"></div>
                     </div>
                 </div>
             </div>
@@ -66,7 +68,8 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
     var getTemplates = function(self) {
         var temps = self.templates;
         $.getJSON("/gettemplates", function(data) {
-            temps(data);
+			temps(data);
+			console.log(data);
         });
     };
     var IndexViewModel = function() {

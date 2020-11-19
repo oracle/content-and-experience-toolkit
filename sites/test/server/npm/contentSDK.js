@@ -1,6 +1,6 @@
 /**
-* Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
-* Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
+ * Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
+ * Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
  * $Id: content.js 167153 2019-01-25 21:29:15Z muralik $
  */
 /* global JSON, console, define, module, exports, require, requirejs, Promise */
@@ -173,29 +173,29 @@
 				},
 				url = require('url'),
 				querystring = require('querystring');
-        	
+
 			var nodePromise = new Promise(function (resolve, reject) {
 				// parse the URL
 				var options = url.parse(targetURL),
 					protocolCall = protocolCalls[options.protocol || 'https:'],
 					restRequest;
-					/* jshint node: true */
-					var proxyType=options.protocol || 'https:';
-					var proxy = proxyType==='https:'?process.env.oce_https_proxy:process.env.oce_http_proxy;
-					
-					/* jshint node: false */
-					if(proxy) {
-						try {
-	   					_logger.debug("Using proxy: " + proxy);
-						var HttpsProxyAgent=require('https-proxy-agent');
-	   					_logger.debug("Loaded proxy agent");
-	   					var  agent = new HttpsProxyAgent(proxy);
-		   				_logger.debug("Using proxy: " + proxy + " connecting to "+targetURL);
+				/* jshint node: true */
+				var proxyType = options.protocol || 'https:';
+				var proxy = proxyType === 'https:' ? process.env.oce_https_proxy : process.env.oce_http_proxy;
+
+				/* jshint node: false */
+				if (proxy) {
+					try {
+						_logger.debug("Using proxy: " + proxy);
+						var HttpsProxyAgent = require('https-proxy-agent');
+						_logger.debug("Loaded proxy agent");
+						var agent = new HttpsProxyAgent(proxy);
+						_logger.debug("Using proxy: " + proxy + " connecting to " + targetURL);
 						options.agent = agent;
-						} catch (e) {
-							console.log("Could not initialize https-proxy-agent. Is the package installed in your application?. Making direct call to "+targetURL);
-						}
+					} catch (e) {
+						console.log("Could not initialize https-proxy-agent. Is the package installed in your application?. Making direct call to " + targetURL);
 					}
+				}
 
 				var beforeSendOK = function (currentOptions) {
 					try {
@@ -347,14 +347,15 @@
 					xhrParams = {
 						'method': restArgs.method && restArgs.method.toUpperCase() || '',
 						'url': targetURL,
-						'timeout': restArgs.timeout
+						'timeout': restArgs.timeout,
+						'headers': {}
 					},
 					doRequest = true;
 
 				// add authorization header, if provided
 				if (restArgs.authorization) {
 					// for /published API calls, only add header if not 'session' or 'anonymous' (e.g. Basic Auth in non-POD environments)
-					if ((restArgs.contentType !== 'published') || (['session', 'anonymous'].indexOf(restArgs.authorization) === -1)) {					
+					if ((restArgs.contentType !== 'published') || (['session', 'anonymous'].indexOf(restArgs.authorization) === -1)) {
 						xhrParams.headers = {
 							'Authorization': restArgs.authorization
 						};
@@ -362,7 +363,7 @@
 				}
 
 				// add the individual request parameters
-				if (xhrParams.method === 'GET' && xhrParams.url) {					
+				if (xhrParams.method === 'GET' && xhrParams.url) {
 					// 'GET' request
 				} else if (xhrParams.method === 'POST' && xhrParams.url && restArgs.noCSRFToken && restArgs.postData) {
 					// 'POST' request
@@ -713,51 +714,44 @@
 		delete queryParams.contentType;
 		delete queryParams.language;
 
-		// use POST if size of URL will be > 1800 - ensure size available for rest of URL (server, cachebuster, channelToken, ...)
-		if (JSON.stringify(queryParams).length > 1800) {
-			// note that POST call should be used and pass all the parameters as the body
-			searchParams.method = 'POST';
-			searchParams.postData = queryParams;
-		} else {
-			// define the string to separate each parameter on the URL
-			var separator = '';
+		// define the string to separate each parameter on the URL
+		var separator = '';
 
-			// construct the URL query string from the properties passed in
-			for (var property in queryParams) {
-				if (queryParams.hasOwnProperty(property)) {
-					// if it's a valid URL property, include it
-					if (property === encodeURI(property)) {
-						var propVal = queryParams[property];
+		// construct the URL query string from the properties passed in
+		for (var property in queryParams) {
+			if (queryParams.hasOwnProperty(property)) {
+				// if it's a valid URL property, include it
+				if (property === encodeURI(property)) {
+					var propVal = queryParams[property];
 
-						// convert the "orderBy" array property if required
-						// CaaS only supports a single orderBy value, so just use the first item in the array
-						if (property === 'orderBy' && Array.isArray(propVal) && propVal.length === 1) {
-							var order = propVal[0].order && propVal[0].order.toLowerCase() || '',
-								orderEntry = order ? ':' + (order === 'des' ? 'desc' : order) : '';
+					// convert the "orderBy" array property if required
+					// CaaS only supports a single orderBy value, so just use the first item in the array
+					if (property === 'orderBy' && Array.isArray(propVal) && propVal.length === 1) {
+						var order = propVal[0].order && propVal[0].order.toLowerCase() || '',
+							orderEntry = order ? ':' + (order === 'des' ? 'desc' : order) : '';
 
-							propVal = propVal[0].name + orderEntry;
-						}
+						propVal = propVal[0].name + orderEntry;
+					}
 
-						// we're only handling scalar parameters in GET requests
-						if (typeof propVal !== 'object') {
-							parameters += separator + property + '=' + encodeURI(propVal);
-							separator = '&';
-						}
+					// we're only handling scalar parameters in GET requests
+					if (typeof propVal !== 'object') {
+						parameters += separator + property + '=' + encodeURI(propVal);
+						separator = '&';
 					}
 				}
 			}
-
-			// add in any old style 'search' properties
-			parameters += search ? separator + search : '';
-
-			// note that 'GET' call should be used and pass back the parameters
-			searchParams.method = 'GET';
-			searchParams.getData = parameters;
-
-			// note if should use aggregate call
-			// aggregate calls should be used for "itemDepth" != 0 and "expand" parameters
-			searchParams.useAggregate = queryParams.itemDepth || queryParams.expand;
 		}
+
+		// add in any old style 'search' properties
+		parameters += search ? separator + search : '';
+
+		// note that 'GET' call should be used and pass back the parameters
+		searchParams.method = 'GET';
+		searchParams.getData = parameters;
+
+		// note if should use aggregate call
+		// aggregate calls should be used for "itemDepth" != 0 and "expand" parameters
+		searchParams.useAggregate = queryParams.itemDepth || queryParams.expand;
 
 		return searchParams;
 	};
@@ -825,18 +819,18 @@
 	_ContentAPI_v1_1Impl.prototype.resolveGetItemPath = function (args) {
 		var language = args.language ? '/variations/language/' + args.language + '?fields=all' : '',
 			nextParam = language ? '&' : '?',
-            aggregate = args.useAggregate ? nextParam + 'expand=' + args.useAggregate : '',        
-            slug = args.slug ? '.by.slug/' + args.slug : '';
+			aggregate = args.useAggregate ? nextParam + 'expand=' + args.useAggregate : '',
+			slug = args.slug ? '.by.slug/' + args.slug : '';
 
-        if (args.itemGUID){
-            // .../items/{id}                                                : Get Published Item by ID
-            // .../items/{id}/variations/language/{languageValue}            : Get Published Item by ID for specified language
-		return '/items/' + args.itemGUID + language + aggregate;
-        } else {
-            // .../items/.by.slug/{slug}                                     : Get Published Item by slug
-            // .../items/.by.slug/{slug}/variations/language/{languageValue} : Get published item by slug for specified language
-            return '/items/' + slug + language + aggregate;
-        }
+		if (args.itemGUID) {
+			// .../items/{id}                                                : Get Published Item by ID
+			// .../items/{id}/variations/language/{languageValue}            : Get Published Item by ID for specified language
+			return '/items/' + args.itemGUID + language + aggregate;
+		} else {
+			// .../items/.by.slug/{slug}                                     : Get Published Item by slug
+			// .../items/.by.slug/{slug}/variations/language/{languageValue} : Get published item by slug for specified language
+			return '/items/' + slug + language + aggregate;
+		}
 	};
 	_ContentAPI_v1_1Impl.prototype.resolveQueryTaxonomyCategoriesPath = function (args) {
 		return '/taxonomies/' + args.taxonomyGUID + '/categories';
@@ -848,7 +842,7 @@
 	_ContentAPI_v1_1Impl.prototype.resolveGetRecommendationPath = function (args) {
 		if (args.id) {
 			return '/personalization/recommendationResults/.by.id/' + args.id;
-		} else  {
+		} else {
 			return '/personalization/recommendationResults/' + args.apiName;
 		}
 	};
@@ -900,9 +894,9 @@
 			if (validContentVersion === 'v1') {
 				// only support v1.1 now, so create a v1.1 API and set the requestd content version to v1
 				// we will coerce the data on fetch to be in the v1 format
-					// ToDo: wait for deprecation and fix up tests that are expecting 'v1' in the URL before making this change
-					return new _ContentAPI_v1_1Impl('v1');
-				} else {
+				// ToDo: wait for deprecation and fix up tests that are expecting 'v1' in the URL before making this change
+				return new _ContentAPI_v1_1Impl('v1');
+			} else {
 				return new _ContentAPI_v1_1Impl();
 			}
 		}
@@ -1104,19 +1098,19 @@
 	 * The ID can be found in the search results.
 	 * @param {object} args - A JavaScript object containing the "getItem" parameters.
 	 * @param {string} [args.id] - The ID of the content item to return. <br/>The ID or SLUG must be specified.
-     * @param {string} [args.slug] - The SLUG of the content item to return, used instead of id. <br/>The ID or SLUG must be specified.
+	 * @param {string} [args.slug] - The SLUG of the content item to return, used instead of id. <br/>The ID or SLUG must be specified.
 	 * @param {string} [args.language] - The language locale variant of the content item to return.
 	 * @param {function} [args.beforeSend=undefined] - A callback passing in the xhr (browser) or options (node) object before making the REST call.
 	 * @returns {Promise} A JavaScript Promise object that can be used to retrieve the data after the call has completed.
 	 * @example
-     * // Getting item by ID
+	 * // Getting item by ID
 	 * contentPromise = contentClient.getItem({
 	 *     'id': contentId
 	 * });
 	 *
 	 *
-     * // Getting item by SLUG
-     * contentPromise = contentClient.getItem({
+	 * // Getting item by SLUG
+	 * contentPromise = contentClient.getItem({
 	 *     'slug': contentSlug
 	 * });
 	 *
@@ -1139,8 +1133,8 @@
 		var url = this.restAPI.formatURL(this.restAPI.resolveGetItemPath({
 			'itemGUID': guid,
 			'useAggregate': restCallArgs.useAggregate,
-            'language': params.language,
-            'slug' : params.slug
+			'language': params.language,
+			'slug': params.slug
 		}), restCallArgs);
 
 		// make the rest call
@@ -1194,8 +1188,8 @@
 
 					var queryParam = attrVals.map(function (value) {
 						return encodeURIComponent('attribute.' + audienceAttributeName) + '=' +
-					  encodeURIComponent(value);
-					  }).join('&');
+							encodeURIComponent(value);
+					}).join('&');
 
 					// append the audience attribute to the query string
 					if (restCallArgs.search) {
@@ -1383,7 +1377,7 @@
 	 * Get categories for the specified taxonomy.<br/>
 	 * All arguments are passed through to the Content Delivery REST API call.
 	 *
-     * @param {object} args - A JavaScript object containing the "queryTaxonomyCategories" parameters.
+	 * @param {object} args - A JavaScript object containing the "queryTaxonomyCategories" parameters.
 	 * @param {string} args.id - The ID of the taxonomy.
 	 * @returns {Promise} A JavaScript Promise object that can be used to retrieve the data after the call has completed.
 	 * @example
@@ -1756,15 +1750,15 @@
 					});
 				} else {
 					// expand all properties of the object
-					expandedValue = {}; 
+					expandedValue = {};
 					Object.keys(obj).forEach(function (key) {
 						expandedValue[key] = expandField(obj[key]);
 					});
 				}
-			} 
+			}
 
 			return expandedValue;
-		}; 
+		};
 		afterValue = expandField(afterValue);
 
 

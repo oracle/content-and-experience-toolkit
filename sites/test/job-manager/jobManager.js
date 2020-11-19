@@ -53,7 +53,6 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
 	// update the site metadata promise to get the metadata for this compile
 	self.serverName = serverName;
-	self.getSiteMetadataPromise = self.getSiteMetadata(jobConfig);
 
 
 	// TODO: For debugging.
@@ -544,6 +543,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
 				});
 			},
 			steps = function () {
+				// setup the promise to get the site metadata
+				self.getSiteMetadataPromise = self.getSiteMetadata(jobConfig);
 
 				if (['PUBLISH_SITE', 'CREATE_TEMPLATE', 'COMPILE_TEMPLATE', 'UPLOAD_STATIC', 'PUBLISH_STATIC'].indexOf(jobConfig.status) !== -1) {
 					if (jobConfig.hasOwnProperty('publishSiteBackgroundJobId')) {
@@ -722,28 +723,32 @@ JobManager.prototype.updateSiteMetadata = function (jobConfig) {
 	}
 
 	// get the site metadata 
-	return self.getSiteMetadataPromise.then(function (siteData) {
-		// update compile status property within the site metadata
-		var updateStatus = JSON.stringify({
-			'jobId': jobConfig.id,
-			'status': jobConfig.status,
-			'progress': jobConfig.progress,
-			'compiledAt': new Date()
+	if (self.getSiteMetadataPromise) {
+		return self.getSiteMetadataPromise.then(function (siteData) {
+			// update compile status property within the site metadata
+			var updateStatus = JSON.stringify({
+				'jobId': jobConfig.id,
+				'status': jobConfig.status,
+				'progress': jobConfig.progress,
+				'compiledAt': new Date()
+			});
+
+			console.log('updating site metadata with: ' + updateStatus);
+
+			var request = serverUtils.getRequest(),
+				server = serverUtils.verifyServer(self.serverName, projectDir),
+				site = siteData.site,
+				idcToken = siteData.idcToken,
+				metadata = siteData.metadata,
+				siteSettings = {
+					xScsSiteCompileStatus: updateStatus
+				};
+
+			return serverUtils.setSiteMetadata(request, server, idcToken, site.id, siteSettings, {});
 		});
-
-		console.log('updating site metadata with: ' + updateStatus);
-
-		var request = serverUtils.getRequest(),
-			server = serverUtils.verifyServer(self.serverName, projectDir),
-			site = siteData.site,
-			idcToken = siteData.idcToken,
-			metadata = siteData.metadata,
-			siteSettings = {
-				xScsSiteCompileStatus: updateStatus
-			};
-
-		return serverUtils.setSiteMetadata(request, server, idcToken, site.id, siteSettings, {});
-	});
+	} else {
+		return Promise.resolve();
+	}
 };
 
 /**

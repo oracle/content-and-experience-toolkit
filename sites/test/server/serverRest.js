@@ -828,6 +828,82 @@ module.exports.queryItems = function (args) {
 	return _queryItems(args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken, args.includeAdditionalData);
 };
 
+// Create item on server
+var _createItem = function (server, repositoryId, type, name, desc, fields, language) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var payload = {
+					repositoryId: repositoryId,
+					type: type,
+					name: name,
+					description: desc ? desc : '',
+					language: language,
+					fields: fields
+				};
+
+				var url = server.url + '/content/management/api/v1.1/items';
+				var auth = serverUtils.getRequestAuth(server);
+				var postData = {
+					method: 'POST',
+					url: url,
+					auth: auth,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					body: payload,
+					json: true
+				};
+				// console.log(postData);
+				request(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to create create ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						console.log('Failed to create item ' + name + ' : ' + (response.statusMessage || response.statusCode));
+						console.log(data);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+
+/**
+ * create an item on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} args.server the server object
+ * @param {string} args.item the item object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createItem = function (args) {
+	return _createItem(args.server, args.repositoryId, args.type, 
+		args.name, args.desc, args.fields, args.language);
+};
+
+
 // Create collection on server
 var _createCollection = function (server, repositoryId, name, channels) {
 	return new Promise(function (resolve, reject) {
