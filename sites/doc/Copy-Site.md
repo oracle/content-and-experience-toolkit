@@ -82,7 +82,7 @@ Upload content assets
 ./site1_uploadcontent
 ```
 
-
+The new site site1Copy has a copy of all the assets of site1 and does not have any references to the the original assets 
 
 
 
