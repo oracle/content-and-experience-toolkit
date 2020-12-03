@@ -136,6 +136,8 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 		var channelName = '';
 		var repository, collection;
 		var q = '';
+		var exportfilepath;
+		var contentPath;
 
 		var channelPromises = [];
 		if (channel) {
@@ -290,45 +292,45 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 					}
 				}
 
-				var exportfilepath = path.join(destdir, (name || channelName || repositoryName) + '_export.zip');
+				exportfilepath = path.join(destdir, (name || channelName || repositoryName) + '_export.zip');
 
 				var exportPromise = _exportChannelContent(request, server, channelId, publishedassets, guids, exportfilepath);
-				exportPromise.then(function (result) {
-					if (result.err) {
-						return resolve({
-							err: result.err
-						});
-					}
 
-					if (!fs.existsSync(contentSrcDir)) {
-						fs.mkdirSync(contentSrcDir);
-					}
+				return exportPromise;
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
 
-					// unzip to src/content
-					var contentPath = path.join(contentSrcDir, (name || channelName || repositoryName));
-					fileUtils.remove(contentPath);
+				if (!fs.existsSync(contentSrcDir)) {
+					fs.mkdirSync(contentSrcDir);
+				}
 
-					fs.mkdirSync(contentPath);
+				// unzip to src/content
+				contentPath = path.join(contentSrcDir, (name || channelName || repositoryName));
+				fileUtils.remove(contentPath);
 
-					fileUtils.extractZip(exportfilepath, contentPath)
-						.then(function (err) {
-							if (err) {
-								return resolve({
-									err: 'err'
-								});
-							} else {
-								console.log(' - the assets are available at ' + contentPath);
-								resolve({
-									channelId: channelId,
-									channeName: channelName
-								});
-							}
-						});
+				fs.mkdirSync(contentPath);
 
-				});
+				return fileUtils.extractZip(exportfilepath, contentPath);
 
 			})
+			.then(function (err) {
+				if (err) {
+					return Promise.reject();
+				}
+
+				console.log(' - the assets are available at ' + contentPath);
+				resolve({
+					channelId: channelId,
+					channeName: channelName
+				});
+			})
 			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
 				resolve({
 					err: 'err'
 				});

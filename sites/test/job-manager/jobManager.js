@@ -769,7 +769,7 @@ JobManager.prototype.updateStatus = function (jobConfig, status, progress) {
 		// attempt to update the server with the updated job config so that the UI can be updated to notify the user.  
 		// don't need to wait for this to complete, we're storing the value locally so any errors do not cause an issue
 		self.updateSiteMetadata(updatedJobConfig).catch(function (e) {
-			console.log('failed to update site metadata in server', e);
+			console.log('compilation server message: failed to update site metadata in server', e);
 		});
 
 		// return the updated job config

@@ -132,14 +132,17 @@ margin-right: 0px;*/
 	font-size: 14px;
 	margin: 0px 50px 0px 50px;
 	line-height: 44px;
-	display: flex;
 	justify-content: space-between;
+	display: flex;
+	
 }
+
 
 .breadcrumb a {
 	color: rgb(20, 95, 171);
 	text-decoration: none;
 }
+
 
 .filter {
 	padding-top: 10px;
@@ -147,6 +150,7 @@ margin-right: 0px;*/
 	padding-left: 50px;
 	font-size: 14px;
 	background: rgb(249, 249, 249);
+	clear: both;
 }
 
 .filter select {
@@ -161,6 +165,11 @@ margin-right: 0px;*/
 	border-radius: 0;
 	/*height: 34px;*/
 	margin-right: 10px;
+}
+
+.component-option {
+	display: flex;
+	padding-bottom: 10px;
 }
 
 .container {

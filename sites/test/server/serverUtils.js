@@ -670,7 +670,10 @@ var _getTemplates = function () {
  */
 module.exports.getTemplateTheme = function (projectDir, templateName) {
 	_setupSourceDir(projectDir);
+	return _getTemplateTheme(templateName);
+};
 
+var _getTemplateTheme = function (templateName) {
 	var themeName;
 
 	var tempSrcDir = path.join(templatesDir, templateName);
@@ -691,12 +694,12 @@ module.exports.getTemplateTheme = function (projectDir, templateName) {
  * Get all custom components used by a template
  * @param templateName
  */
-module.exports.getTemplateComponents = function (projectDir, templateName) {
+module.exports.getTemplateComponents = function (projectDir, templateName, includeThemeComps) {
 	_setupSourceDir(projectDir);
 
-	return _getTemplateComponents(templateName);
+	return _getTemplateComponents(templateName, includeThemeComps);
 };
-var _getTemplateComponents = function (templateName) {
+var _getTemplateComponents = function (templateName, includeThemeComps) {
 	var comps = [],
 		tempSrcDir = path.join(templatesDir, templateName);
 
@@ -801,6 +804,16 @@ var _getTemplateComponents = function (templateName) {
 						comps.push(typeCustomForms[i]);
 					}
 				}
+			}
+		});
+	}
+
+	if (includeThemeComps) {
+		var themeName = _getTemplateTheme(templateName);
+		var themeComps = themeName ? _getThemeComponents(themeName) : [];
+		themeComps.forEach(function (themeComp) {
+			if (themeComp && themeComp.id && !comps.includes(themeComp.id)) {
+				comps.push(themeComp.id);
 			}
 		});
 	}
@@ -1603,7 +1616,9 @@ module.exports.getDocumentRendition = function (app, doc, callback) {
  */
 module.exports.getThemeComponents = function (projectDir, themeName) {
 	_setupSourceDir(projectDir);
-
+	return _getThemeComponents(themeName);
+};
+var _getThemeComponents = function (themeName) {
 	var componentsjsonfile = path.join(themesDir, themeName, 'components.json'),
 		themeComps = [],
 		comps = [];
@@ -3854,9 +3869,13 @@ module.exports.setSiteMetadata = function (request, server, idcToken, siteId, va
 		};
 
 		request(postData, function (err, response, body) {
+			if(response && response.statusCode !== 200){
+				console.log('ERROR: Failed to set site metadata');
+				console.log('compilation server message: response status -', response.statusCode);
+			}
 			if (err) {
 				console.log('ERROR: Failed to set site metadata');
-				console.log(err);
+				console.log('compilation server message: error -', err);
 				return resolve({
 					err: 'err'
 				});

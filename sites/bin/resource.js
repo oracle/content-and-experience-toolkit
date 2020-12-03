@@ -970,13 +970,18 @@ module.exports.renameContentType = function (argv, done) {
 				summaryJson.summary.contentTypes = contenttypes;
 			}
 
-			var mappings = summaryJson.contentTypeMappings || [];
+			var mappings = summaryJson.contentTypeMappings || summaryJson.categoryLayoutMappings || [];
 			for (var i = 0; i < mappings.length; i++) {
 				if (mappings[i].type === typeName) {
 					mappings[i].type = newName;
 				}
 			}
-			summaryJson.contentTypeMappings = mappings;
+			
+			if (summaryJson.hasOwnProperty('contentTypeMappings')) {
+				summaryJson.contentTypeMappings = mappings;
+			} else {
+				summaryJson.categoryLayoutMappings = mappings;
+			}
 
 			console.log(' - update summary.json');
 			fs.writeFileSync(summaryPath, JSON.stringify(summaryJson, null, 4));

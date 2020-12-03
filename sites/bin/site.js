@@ -20,6 +20,9 @@ var fs = require('fs'),
 	fileUtils = require('../test/server/fileUtils.js'),
 	serverUtils = require('../test/server/serverUtils.js');
 
+var cecDir = path.join(__dirname, ".."),
+	themesDataDir = path.join(cecDir, 'data', 'themes');
+
 var projectDir,
 	documentsSrcDir,
 	templatesSrcDir,
@@ -943,6 +946,7 @@ module.exports.transferSite = function (argv, done) {
 
 	var excludecontent = typeof argv.excludecontent === 'string' && argv.excludecontent.toLowerCase() === 'true';
 	var excludecomponents = typeof argv.excludecomponents === 'string' && argv.excludecomponents.toLowerCase() === 'true';
+	var excludetheme = typeof argv.excludetheme === 'string' && argv.excludetheme.toLowerCase() === 'true';
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
 	var includestaticfiles = typeof argv.includestaticfiles === 'string' && argv.includestaticfiles.toLowerCase() === 'true';
 
@@ -970,6 +974,8 @@ module.exports.transferSite = function (argv, done) {
 	var destSiteMetadataRaw;
 	var templateId;
 	var contentLayoutNames = [];
+	var newThemeName = '__toolkit_theme';
+	var newThemePath;
 
 	var cecVersion, idcToken;
 
@@ -1094,7 +1100,7 @@ module.exports.transferSite = function (argv, done) {
 
 						} else {
 
-							console.log(' - verify site (defaultLanguage: ' + site.defaultLanguage + ')');
+							console.log(' - verify site (defaultLanguage: ' + site.defaultLanguage + ' theme: ' + site.themeName + ')');
 
 							if (!site.channel || !site.channel.localizationPolicy) {
 								console.log('ERROR: failed to get site channel ' + (site.channel ? JSON.stringify(site.channel) : ''));
@@ -1102,8 +1108,24 @@ module.exports.transferSite = function (argv, done) {
 								return;
 							}
 
-							// query site metadata to get static site settings
-							serverUtils.getSiteMetadata(request, server, site.id)
+							sitesRest.resourceExist({
+									server: destServer,
+									type: 'themes',
+									name: site.themeName
+								})
+								.then(function (result) {
+									if (result && result.id) {
+										console.log(' - theme ' + site.themeName + ' exists on server ' + destServerName);
+									} else {
+										if (excludetheme) {
+											console.log(' - theme does not exist on server ' + destServerName + ' and will not exclude the theme');
+											excludetheme = false;
+										}
+									}
+
+									// query site metadata to get static site settings
+									return serverUtils.getSiteMetadata(request, server, site.id);
+								})
 								.then(function (result) {
 									if (!result || result.err) {
 										return Promise.reject();
@@ -1237,11 +1259,47 @@ module.exports.transferSite = function (argv, done) {
 										// console.log(' - content layouts: ' + contentLayoutNames);
 									}
 
+									// 
+									// Exclude the theme
+									// replace with a "default" one
+									//
+									var extractThemePromises = [];
+									if (excludetheme) {
+										var buildfolder = serverUtils.getBuildFolder(projectDir);
+										if (!fs.existsSync(buildfolder)) {
+											fs.mkdirSync(buildfolder);
+										}
+										var themesBuildDir = path.join(buildfolder, 'themes');
+										if (!fs.existsSync(themesBuildDir)) {
+											fs.mkdirSync(themesBuildDir);
+										}
+										newThemePath = path.join(themesBuildDir, newThemeName);
+										if (fs.existsSync(newThemePath)) {
+											fileUtils.remove(newThemePath);
+										}
+										fs.mkdirSync(newThemePath);
+										var themePath = path.join(themesDataDir, newThemeName + '.zip');
+										extractThemePromises.push(fileUtils.extractZip(themePath, newThemePath));
+									}
+
+									return Promise.all(extractThemePromises);
+
+								})
+								.then(function (results) {
+
+									var newTheme;
+									if (excludetheme && !results[0]) {
+										newTheme = {
+											name: newThemeName,
+											srcPath: newThemePath
+										};
+									}
+
 									// zip up the template
 									var optimize = false;
 									var excludeContentTemplate = false;
 									return templateUtils.zipTemplate(
-										argv, templateName, optimize, excludeContentTemplate, contentLayoutNames, excludeSiteContent, excludecomponents);
+										argv, templateName, optimize, excludeContentTemplate, contentLayoutNames, excludeSiteContent, excludecomponents, newTheme);
 
 								})
 								.then(function (results) {
@@ -1253,6 +1311,7 @@ module.exports.transferSite = function (argv, done) {
 										return Promise.reject();
 									}
 
+
 									// upload template file to destination server
 									startTime = new Date();
 									return serverRest.createFile({
@@ -1261,6 +1320,7 @@ module.exports.transferSite = function (argv, done) {
 										filename: fileName,
 										contents: fs.createReadStream(templatePath)
 									});
+
 								})
 								.then(function (result) {
 
@@ -1285,23 +1345,7 @@ module.exports.transferSite = function (argv, done) {
 										console.log('ERROR: failed to import template');
 										return Promise.reject();
 									}
-									/*
-									 * server bug fixed, site can be created with content template without any item
-															var importTemplateAgainPromises = [];
-															if (excludecontent && creatNewSite) {
-																importTemplateAgainPromises.push(_uploadTemplateWithoutContent(argv, templateName, destServer, destdir, excludeSiteContent));
-															}
 
-															return Promise.all(importTemplateAgainPromises);
-														})
-														.then(function (results) {
-															if (excludecontent && creatNewSite) {
-																if (!results || !results[0] || results[0].err) {
-																	return Promise.reject();
-																}
-																console.log(' - import template again without content template');
-															}
-									*/
 									return sitesRest.getTemplate({
 										server: destServer,
 										name: templateName
@@ -1323,6 +1367,28 @@ module.exports.transferSite = function (argv, done) {
 									if (result && result.idcToken) {
 										idcToken = result && result.idcToken;
 									}
+
+									// update template to the original template
+									var updateTemplatePromises = [];
+
+									if (excludetheme) {
+										var values = {
+											'xScsSiteTheme': site.themeName
+										};
+										updateTemplatePromises.push(serverUtils.setSiteMetadata(request, destServer, idcToken, templateId, values, []));
+
+									}
+
+									return Promise.all(updateTemplatePromises);
+
+								})
+								.then(function (results) {
+									if (excludetheme) {
+										if (results && results[0] && !results[0].err) {
+											console.log(' - set template theme back to ' + site.themeName);
+										}
+									}
+
 									var createSitePromises = [];
 									if (creatNewSite && site) {
 										/*

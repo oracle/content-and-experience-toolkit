@@ -34,8 +34,18 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
     </div>
     <!-- breadcrumb -->
     <div class="breadcrumb">
+        
         <div>
-            <a href="/public">Developer</a>&nbsp;&gt;&nbsp;Components</div>
+			<a href="/public">Developer</a>&nbsp;&gt;&nbsp;Components
+		</div>
+		
+		<!--
+		<div class="breadcrumb-right">
+			<select id="layouts" name="layouts" data-bind="options: layouts, optionsText: 'label', value: selectedLayout">
+			</select>
+		</div>
+	-->
+	
     </div>
     <!-- filters -->
     <div class="filter">
@@ -150,6 +160,17 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
             "use strict";
 
             var self = this;
+
+			self.layouts = ko.observableArray([{
+                    value: 'grid',
+                    label: 'Grid view'
+				},
+				{
+                    value: 'list',
+                    label: 'List view'
+				}
+			]);
+			self.selectedLayout = ko.observable('grid');
 
             // templates
             self.templates = ko.observableArray([]);

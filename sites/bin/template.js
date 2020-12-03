@@ -777,6 +777,15 @@ module.exports.createTemplate = function (argv, done) {
 		console.log('Create Template: creating new template ' + tempName + ' from ' + srcTempName);
 		var unzipPromise = unzipTemplate(tempName, path.resolve(templatesDataDir + '/' + template), true);
 		unzipPromise.then(function (result) {
+			// update _folder.json 
+			var filePath = path.join(templatesSrcDir, tempName, '_folder.json');
+			if (fs.existsSync(filePath)) {
+				var infoJson = JSON.parse(fs.readFileSync(filePath));
+				if (infoJson && infoJson.hasOwnProperty('isStarterTemplate')) {
+					infoJson.isStarterTemplate = 'false';
+					fs.writeFileSync(filePath, JSON.stringify(infoJson));
+				}
+			}
 			done(true);
 		});
 	}
@@ -2099,7 +2108,9 @@ var unzipTemplateUtil = function (argv, tempName, tempPath, useNewGUID) {
  * Private
  * Export a template
  */
-var _exportTemplate = function (name, optimize, excludeContentTemplate, extraComponents, excludeSiteContent, excludeComponents) {
+var _exportTemplate = function (name, optimize, excludeContentTemplate, extraComponents,
+	excludeSiteContent, excludeComponents, newTheme) {
+
 	return new Promise(function (resolve, reject) {
 		var tempSrcDir = path.join(templatesSrcDir, name),
 			tempBuildDir = path.join(templatesBuildDir, name);
@@ -2132,10 +2143,14 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 
 		// get the used theme
 		var siteinfofile = path.join(tempSrcDir, 'siteinfo.json'),
-			themeName = '';
+			siteinfojson;
+
+		var themeName = '';
+		var themeSrcDir;
+
 		if (fs.existsSync(siteinfofile)) {
-			var siteinfostr = fs.readFileSync(siteinfofile),
-				siteinfojson = JSON.parse(siteinfostr);
+			var siteinfostr = fs.readFileSync(siteinfofile);
+			siteinfojson = JSON.parse(siteinfostr);
 			if (siteinfojson && siteinfojson.properties) {
 				themeName = siteinfojson.properties.themeName;
 			}
@@ -2148,8 +2163,14 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 			});
 		}
 
-		var themeSrcDir = path.join(themesSrcDir, themeName);
-		if (!fs.existsSync(siteinfofile)) {
+		themeSrcDir = path.join(themesSrcDir, themeName);
+
+		if (newTheme && newTheme.name && newTheme.srcPath) {
+			themeName = newTheme.name;
+			themeSrcDir = newTheme.srcPath;
+		}
+
+		if (!fs.existsSync(themeSrcDir)) {
 			console.error('ERROR: theme path does not exist ' + themeSrcDir);
 			return resolve({
 				err: 'err'
@@ -2334,9 +2355,10 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 	});
 };
 
-var _exportTemplateUtil = function (argv, name, optimize, excludeContentTemplate, extraComponents, excludeSiteContent, excludeComponents) {
+var _exportTemplateUtil = function (argv, name, optimize, excludeContentTemplate, extraComponents,
+	excludeSiteContent, excludeComponents, newTheme) {
 	verifyRun(argv);
-	return _exportTemplate(name, optimize, excludeContentTemplate, extraComponents, excludeSiteContent, excludeComponents);
+	return _exportTemplate(name, optimize, excludeContentTemplate, extraComponents, excludeSiteContent, excludeComponents, newTheme);
 };
 
 /**

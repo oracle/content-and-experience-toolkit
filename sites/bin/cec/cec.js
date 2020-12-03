@@ -1144,7 +1144,7 @@ const createSite = {
 	},
 	example: [
 		['cec create-site Site1 -t StandardTemplate', 'Creates a standard site'],
-		['cec create-site Site1 -t Template1 -r Repository1 -l LocalizationPolicy1 -d en-US', 'Creates an enterprise site with localization policy LocalizationPolicy1'],
+		['cec create-site Site1 -t Template1 -r Repository1 -l L10NPolicy1 -d en-US', 'Creates an enterprise site with localization policy L10NPolicy1'],
 		['cec create-site Site1 -t Template1 -r Repository1 -d en-US', 'Creates an enterprise site and uses the localization policy in Template1'],
 		['cec create-site Site1 -t Template1 -r Repository1 -d en-US -s UAT', 'Creates an enterprise site on server UAT'],
 		['cec create-site Site1 -t Template1 -u -r Repository1 -d en-US -s UAT', 'Creates an enterprise site on server UAT and keep the existing id for assets']
@@ -1187,11 +1187,12 @@ const transferSite = {
 		})()
 	},
 	example: [
-		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1', 'Creates site Site1 on server UAT based on site Site1 on server DEV'],
-		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -p', 'Creates site Site1 on server UAT based on site Site1 on server DEV with published assets'],
-		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -x', 'Creates site Site1 on server UAT based on site Site1 on server DEV without content'],
-		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -e', 'Creates site Site1 on server UAT based on site Site1 on server DEV without transferring components to server UAT'],
-		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l LocalizationPolicy1 -i', 'Creates site Site1 on server UAT based on site Site1 on server DEV with static files from DEV'],
+		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1', 'Creates site Site1 on server UAT based on site Site1 on server DEV'],
+		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -p', 'Creates site Site1 on server UAT based on site Site1 on server DEV with published assets'],
+		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -x', 'Creates site Site1 on server UAT based on site Site1 on server DEV without content'],
+		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -e', 'Creates site Site1 on server UAT based on site Site1 on server DEV without transferring components to server UAT'],
+		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -e -c', 'Creates site Site1 on server UAT based on site Site1 on server DEV without transferring components and theme to server UAT'],
+		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -i', 'Creates site Site1 on server UAT based on site Site1 on server DEV with static files from DEV'],
 		['cec transfer-site Site1 -s DEV -d UAT', 'Updates site Site1 on server UAT based on site Site1 on server DEV'],
 		['cec transfer-site StandardSite1 -s DEV -d UAT', 'Creates standard site on server UAT based on site StandardSite1 on server DEV']
 	]
@@ -4047,6 +4048,10 @@ const argv = yargs.usage(_usage)
 					alias: 'e',
 					description: 'Exclude components'
 				})
+				.option('excludetheme', {
+					alias: 'c',
+					description: 'Exclude theme'
+				})
 				.option('includestaticfiles', {
 					alias: 'i',
 					description: 'Include site static files'
@@ -4058,6 +4063,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferSite.example[4])
 				.example(...transferSite.example[5])
 				.example(...transferSite.example[6])
+				.example(...transferSite.example[7])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -7132,6 +7138,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.excludecomponents) {
 		transferSiteArgs.push(...['--excludecomponents', argv.excludecomponents]);
+	}
+	if (argv.excludetheme) {
+		transferSiteArgs.push(...['--excludetheme', argv.excludetheme]);
 	}
 	if (argv.includestaticfiles) {
 		transferSiteArgs.push(...['--includestaticfiles', argv.includestaticfiles]);
