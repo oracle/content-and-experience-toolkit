@@ -13,7 +13,7 @@ body {
 	font-family: "Helvetica Neue", "Segoe UI", sans-serif-regular, Helvetica, Arial, sans-serif;
 	/*!important;*/
 	margin: 0px;
-	background: #ededed;
+
 }
 
 .banner {
@@ -410,7 +410,7 @@ margin-right: 0px;*/
 	border-bottom-color: #ffffff;
 	border-left-color: #ffffff;
 	padding: 5px 12px 0 12px;
-	background-color: #ffffff;
+	background-color: transparent;
 	border: 1px solid #d6dfe6;
 	-webkit-box-sizing: border-box;
 	font-size: 20px;
@@ -519,3 +519,136 @@ div pre {
 	display: flex;
 	margin-left: auto;
 }
+
+.rowView li {
+	display: block;
+	background-color: #fff !important;
+	border: 0px !important;
+}
+
+
+.rowView .containerview-row-content {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+	padding: 10px 16px;
+	background-color: #fff !important;
+	cursor: default;
+	border: 0;
+	border-radius: 0;
+}
+
+*:focus {
+    outline: none;
+}
+
+.rowView .containerview-row-content:hover {
+	background-color:#ededed !important;
+}
+
+.rowView .containerview-thumbnail {
+    width: 44px;
+	height: 44px;
+    flex: 0 0 auto;
+    padding-left: 24px;
+}
+.rowView .containerview-temp-thumbnail {
+    width: 128px;
+	height: 80px;
+    flex: 0 0 auto;
+    padding-left: 24px;
+}
+.rowView .thumbWrapper {
+    display: inline-block;
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+.rowView .containerview-icon {
+    display: flex;
+    align-items: center;
+	justify-content: center;
+	display: inline-block;
+    width: 128px;
+    height: 80px;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.rowView .containerview-iconx img {
+    width: 24px;
+    height: 24px;
+    max-width: 24px;
+	max-height: 24px;
+}
+	
+.containerview-temp-iconx img {
+    width: 128px;
+    height: 96px;
+    max-width: 128px;
+	max-height: 96px;
+}
+
+.rowView .containerview-content-area {
+    padding-right: 0;
+    padding-left: 24px;
+    width: auto;
+    height: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+	align-content: center;
+	border: 0;
+	font-weight: 200;
+}
+
+.rowView .containerview-content-area .containerview-textarea1, .rowView .containerview-content-area .containerview-textarea2 {
+    white-space: nowrap;
+    overflow: hidden;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: baseline;
+    align-content: center;
+    position: relative;
+}
+
+.rowView .containerview-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 0 1 auto;
+    font-size: 18px;
+    line-height: 20px;
+}
+.rowView .containerview-name:hover {
+    cursor: pointer;
+}
+
+.rowView .containerview-textarea2 {
+    margin-top: 4px;
+}
+.rowView .containerview-capsule-text {
+    display: inline-block;
+    color: rgba(22,21,19,0.6);
+    border: 0;
+    padding: 0;
+    font-size: 14px;
+    font-stretch: condensed;
+    border-radius: 1px;
+    text-transform: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    height: auto;
+    line-height: normal;
+    font-stretch: normal;
+}
+

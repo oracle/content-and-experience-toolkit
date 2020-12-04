@@ -1321,6 +1321,21 @@ module.exports.deleteTemplate = function (args) {
 	return args.hard ? _hardDeleteResource(server, 'templates', args.id, args.name, showError) : _softDeleteResource(server, 'templates', args.id, args.name);
 };
 
+/**
+ * Delete a theme on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} id the id of the theme or
+ * @param {string} name the name of the theme
+ * @param {boolean} hard a flag to indicate delete the theme permanently
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteTheme = function (args) {
+	var server = args.server;
+	var showError = args.showError !== undefined ? args.showError : true;
+	return args.hard ? _hardDeleteResource(server, 'themes', args.id, args.name, showError) : _softDeleteResource(server, 'themes', args.id, args.name);
+};
+
 var _importComponent = function (server, name, fileId) {
 	return new Promise(function (resolve, reject) {
 		var request = siteUtils.getRequest();

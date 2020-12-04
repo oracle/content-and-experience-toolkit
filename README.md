@@ -14,6 +14,15 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 20.4.3a
+
+**Added**
+
+- `cec transfer-site` - can be used with option `--excludetheme` to support transferring sites in parallel.
+
+- The local server now has a List view option for components and templates.
+
+
 # New in Release 20.4.3
 
 **Added**

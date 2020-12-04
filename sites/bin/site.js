@@ -974,7 +974,9 @@ module.exports.transferSite = function (argv, done) {
 	var destSiteMetadataRaw;
 	var templateId;
 	var contentLayoutNames = [];
-	var newThemeName = '__toolkit_theme';
+	var defaultThemeName = '__toolkit_theme';
+	var newThemeName;
+	var newThemeGUID;
 	var newThemePath;
 
 	var cecVersion, idcToken;
@@ -1273,12 +1275,14 @@ module.exports.transferSite = function (argv, done) {
 										if (!fs.existsSync(themesBuildDir)) {
 											fs.mkdirSync(themesBuildDir);
 										}
+										newThemeGUID = serverUtils.createGUID();
+										newThemeName = defaultThemeName + newThemeGUID;
 										newThemePath = path.join(themesBuildDir, newThemeName);
 										if (fs.existsSync(newThemePath)) {
 											fileUtils.remove(newThemePath);
 										}
 										fs.mkdirSync(newThemePath);
-										var themePath = path.join(themesDataDir, newThemeName + '.zip');
+										var themePath = path.join(themesDataDir, defaultThemeName + '.zip');
 										extractThemePromises.push(fileUtils.extractZip(themePath, newThemePath));
 									}
 
@@ -1289,6 +1293,15 @@ module.exports.transferSite = function (argv, done) {
 
 									var newTheme;
 									if (excludetheme && !results[0]) {
+										// update the name and itemGUID
+										var filePath = path.join(newThemePath, '_folder.json');
+										if (fs.existsSync(filePath)) {
+											var folderStr = fs.readFileSync(path.join(filePath));
+											var folderJson = JSON.parse(folderStr);
+											folderJson.itemGUID = newThemeGUID;
+											folderJson.themeName = newThemeName;
+											fs.writeFileSync(filePath, JSON.stringify(folderJson));
+										}
 										newTheme = {
 											name: newThemeName,
 											srcPath: newThemePath
@@ -1468,6 +1481,21 @@ module.exports.transferSite = function (argv, done) {
 								})
 								.then(function (results) {
 
+									// delete the dymmy theme in excludetheme mode
+									var deleteThemePromises = [];
+									if (newThemeName) {
+										deleteThemePromises.push(sitesRest.deleteTheme({
+											server: destServer,
+											name: newThemeName,
+											hard: true,
+											showError: false
+										}));
+									}
+
+									return Promise.all(deleteThemePromises);
+
+								})
+								.then(function (results) {
 									// download static 
 									var downloadStaticFolderPromises = [];
 									if (includestaticfiles) {

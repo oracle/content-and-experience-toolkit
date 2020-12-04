@@ -1,5 +1,5 @@
 <!--
-Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
 Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
 -->
 <!DOCTYPE html>
@@ -28,8 +28,14 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
     </div>
     <!-- breadcrumb -->
     <div class="breadcrumb">
-        <div><a href="/public">Developer</a>&nbsp;&gt;&nbsp;Templates</div>
-    </div>
+		<div><a href="/public">Developer</a>&nbsp;&gt;&nbsp;Templates</div>
+		
+		<div class="breadcrumb-right">
+			<select id="layouts" name="layouts" data-bind="options: layouts, optionsText: 'label', value: selectedLayout">
+			</select>
+		</div>
+	</div>
+	<!-- ko if: isGrid() === true -->
     <div class="container cellView" data-bind="foreach: templates">
         <!-- <div class="block" data-bind="text : name, click: $parent.render"></div> -->
         <li id="F09196FC5061551AD0577852C2DB3E7D25FC0D5B9AF4" tabindex="-1" class="containerview-item siterow skipTarget">
@@ -37,22 +43,14 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                 <div class="thumbSpacer">
                     <div class="thumbContainer">
                         <div class="thumbWrapper containerview-openClick ">
-                            <!-- <div class="containerview-iconx containerview-icon-file-bkg"> <img src="/documents/web?IdcService=GET_RENDITION&amp;suppressHttpErrorCodes=1&amp;item=fFolderGUID:F09196FC5061551AD0577852C2DB3E7D25FC0D5B9AF4&amp;AuxRenditionType=FolderIcon&amp;noSaveAs=1&amp;ts=1516815490817" alt="" style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; width: 100%;"> </div> -->
-                            <div class="containerview-iconx containerview-icon-file-bkg"> <img data-bind="attr: {src: '/gettemplateicon/'+name}" alt="" style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; width: 100%;"> </div>
+                            <div class="containerview-iconx containerview-icon-file-bkg"> 
+								<img data-bind="attr: {src: '/gettemplateicon/'+name}" alt="" style="position: absolute; top: 0px; left: 0px; right: 0px; bottom: 0px; width: 100%;"> 
+							</div>
                         </div>
-                        <!-- <div class="containerview-block containerview-iconarea">
-                            <div class="containerview-check">
-                                <div>
-                                    <input type="checkbox" title="Select BasicTemplate">
-                                </div>
-                            </div>
-                        </div> -->
                     </div>
                 </div>
                 <div class="containerview-block containerview-content-area">
                     <div class="containerview-block containerview-info-area">
-                        <!-- <div class="containerview-name"> <span>BasicTemplate</span> <a href="#" title="BasicTemplate" aria-label="BasicTemplate" class="folderLink text_button containerview-openClick">BasicTemplate</a> </div> -->
-
                         <div class="containerview-name" data-bind="text: name">aaa<a href="#" class="block" title="AnchorButtons" aria-label="AnchorButtons" data-bind="text : name, attr: {title: name}" class="text_button containerview-openClick"></a>xxx </div>
 
 						<div class="containerview-status">&nbsp;</div>
@@ -62,7 +60,35 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                 </div>
             </div>
         </li>
-    </div>
+	</div>
+	<!-- /ko -->
+	<!-- ko if: isGrid() === false -->
+	<div class="rowView" id="listContainer" data-bind="foreach: templates">
+		<li id="FC6C25C17FAB33A07FE86ABC5CBD7843730FAB23A1D5" aria-describedby="contextMenuHelp" tabindex="0">
+			<div class="containerview-row-content"> 
+			<span class="containerview-temp-thumbnail">
+				<span class="thumbWrapper">  
+					<div class="containerview-temp-iconx containerview-icon-file-bkg"> 
+						<img data-bind="attr: {src: '/gettemplateicon/'+name}" alt="" >
+					</div>
+				</span>
+			</span> 
+			<span class="containerview-content-area">     
+				<span class="containerview-textarea1">    
+					<div class="containerview-name" data-bind="text: name, click: $parent.render">
+						<a href="#" class="block" title="AnchorButtons" aria-label="AnchorButtons" data-bind="text : name, click: $parent.render"
+					   		class="text_button">AnchorButtons</a>
+					</div>
+				</span> 
+				<span class="containerview-textarea2">        
+					<span class="containerview-capsule-text" data-bind="text: type"></span> 
+				</span> 
+			</span> 
+			
+	        </div>
+		</li>
+	</div>
+	<!-- /ko -->
     <script type="text/javascript">
     /* global ko, console */
     var getTemplates = function(self) {
@@ -75,7 +101,21 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
     var IndexViewModel = function() {
         "use strict";
 
-        var self = this;
+		var self = this;
+		
+		self.layouts = ko.observableArray([{
+            	value: 'grid',
+        		label: 'Grid view'
+			},
+			{
+                value: 'list',
+                label: 'List view'
+			}
+		]);
+		var layoutValue = window.sessionStorage['templatesLayout'] || 'grid';
+		var selectedValue = layoutValue === 'grid' ? self.layouts()[0] : self.layouts()[1];
+		self.selectedLayout = ko.observable(selectedValue);
+		self.isGrid = ko.observable(layoutValue === 'grid');
 
         self.templates = ko.observableArray([]);
 
@@ -90,7 +130,12 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
         };
         self.mainPage = function() {
             window.location = '/';
-        }
+		}
+		
+		self.selectedLayout.subscribe(function (newValue) {
+			self.isGrid(newValue.value === 'grid');
+			window.sessionStorage.setItem('templatesLayout', self.selectedLayout().value);
+		});
     };
     ko.applyBindings(new IndexViewModel());
     </script>

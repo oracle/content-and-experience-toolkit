@@ -80,11 +80,11 @@ RUN yum install -y unzip \
 
 # install node
 # ------------
-RUN curl -L -o node-v12.18.3-linux-x64.tar.gz  https://nodejs.org/dist/latest-v12.x/node-v12.18.3-linux-x64.tar.gz \
-  && tar xvf node-v12.18.3-linux-x64.tar.gz \
-  && cp -rp node-v12.18.3-linux-x64 /opt/node \
-  && ln -s /opt/node/bin/node /usr/local/bin/node \
-  && ln -s /opt/node/bin/npm /usr/local/bin/npm
+RUN curl -L -o node-v12.20.0-linux-x64.tar.gz  https://nodejs.org/dist/latest-v12.x/node-v12.20.0-linux-x64.tar.gz 
+RUN tar xvf node-v12.20.0-linux-x64.tar.gz 
+RUN cp -rp node-v12.20.0-linux-x64 /opt/node 
+RUN ln -s /opt/node/bin/node /usr/local/bin/node 
+RUN ln -s /opt/node/bin/npm /usr/local/bin/npm
 
 RUN node --version \
   && npm --version

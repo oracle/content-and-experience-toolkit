@@ -376,7 +376,9 @@ ContentList.prototype.scimQueryString = function (viewModel) {
 					}).join(" or ") + ')';
 				}).join(" and ") + ')';
 		}
-		queryString = (queryString ? queryString + ' and ' : '') + categoryQuery;
+		if (categoryQuery) {
+			queryString = (queryString ? queryString + ' and ' : '') + categoryQuery;
+		}
 
 		// Add in user-supplied additional query string.
 		// Also detect if the additional query string

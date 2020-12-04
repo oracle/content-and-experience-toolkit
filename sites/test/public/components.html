@@ -1,5 +1,5 @@
 <!--
-Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
 Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
 -->
 <!DOCTYPE html>
@@ -39,12 +39,10 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			<a href="/public">Developer</a>&nbsp;&gt;&nbsp;Components
 		</div>
 		
-		<!--
 		<div class="breadcrumb-right">
 			<select id="layouts" name="layouts" data-bind="options: layouts, optionsText: 'label', value: selectedLayout">
 			</select>
 		</div>
-	-->
 	
     </div>
     <!-- filters -->
@@ -55,24 +53,20 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
         <span>Templates</span>
         <select id="temp" name="temp" data-bind="options: templates, optionsText: 'label', value: selectedTemplate">
         </select>
-    </div>
+	</div>
+	<!-- ko if: isGrid() === true -->
     <div class="container cellView" data-bind="foreach: components">
         <li id="F669A675C5218774F03E4A8C6B64FA588D4AB28069B4" tabindex="-1" class="containerview-item approw skipTarget component">
-            <div class="containerview-row-content" aria-label="Component AnchorButtons Created Wednesday at 4:39 PM by you" role="group"
+            <div class="containerview-row-content" role="group"
                 data-bind="attr: {title: name}, click: $parent.navigate">
                 <div class="thumbSpacer">
                     <div class="thumbContainer">
-                        <div class="thumbWrapper containerview-openClick ">
+                        <div class="thumbWrapper">
                             <div data-bind="attr: { class: type+'bg containerview-iconx containerview-icon-file-bkg' }">
                                 <img data-bind="attr: { src: 'images/'+type+'.png'}" alt="">
                             </div>
                         </div>
                         <div class="containerview-block containerview-iconarea">
-                            <!-- <div class="containerview-check">
-                                <div>
-                                    <input type="checkbox" title="Select AnchorButtons">
-                                </div>
-                            </div> -->
                         </div>
                     </div>
                 </div>
@@ -80,20 +74,43 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                     <div class="containerview-block containerview-info-area">
                         <div class="containerview-name" data-bind="text: name, click: $parent.navigate">AnchorButtons
                             <a href="#" class="block" title="AnchorButtons" aria-label="AnchorButtons" data-bind="text : name, click: $parent.navigate"
-                                class="text_button containerview-openClick">AnchorButtons</a>
+                                class="text_button">AnchorButtons</a>
                         </div>
                         <div class="containerview-status">&nbsp;</div>
                     </div>
                     <div data-bind="text: type" class="capsule"></div>
-                    <!--  <div class="containerview-block siterow-status-area">
-                        <div class="containerview-indicator active-status active-status-click" data-active="false" role="button" tabindex="0" title="Not Published" aria-label="Not Published"> <img src="/documents/static/gemini/images/offine_status_32.svg" alt="Not Published" role="presentation">
-                            <div class="status-area-label visuallyhidden">Not Published</div>
-                        </div>
-                    </div> -->
                 </div>
             </div>
         </li>
-    </div>
+	</div>
+	<!-- /ko -->
+	<!-- ko if: isGrid() === false -->
+	<div class="rowView" id="listContainer" data-bind="foreach: components">
+		<li id="FC6C25C17FAB33A07FE86ABC5CBD7843730FAB23A1D5" aria-describedby="contextMenuHelp" tabindex="0">
+			<div class="containerview-row-content"> 
+			<span class="containerview-thumbnail">
+				<span class="thumbWrapper">  
+					<div data-bind="attr: { class: type+'bg containerview-iconx containerview-icon-file-bkg' }">
+					<img data-bind="attr: { src: 'images/'+type+'.png'}" alt="">
+					</div>
+				</span>
+			</span> 
+			<span class="containerview-content-area">     
+				<span class="containerview-textarea1">    
+					<div class="containerview-name" data-bind="text: name, click: $parent.navigate">
+						<a href="#" class="block" title="AnchorButtons" aria-label="AnchorButtons" data-bind="text : name, click: $parent.navigate"
+					   		class="text_button">AnchorButtons</a>
+					</div>
+				</span> 
+				<span class="containerview-textarea2">        
+					<span class="containerview-capsule-text" data-bind="text: type"></span> 
+				</span> 
+			</span> 
+			
+	        </div>
+		</li>
+	</div>
+	<!-- /ko -->
     <script type="text/javascript">
         /* global ko, console */
         var selectedTemp = 'all',
@@ -170,7 +187,10 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                     label: 'List view'
 				}
 			]);
-			self.selectedLayout = ko.observable('grid');
+			var layoutValue = window.sessionStorage['componentsLayout'] || 'grid';
+			var selectedValue = layoutValue === 'grid' ? self.layouts()[0] : self.layouts()[1];
+			self.selectedLayout = ko.observable(selectedValue);
+			self.isGrid = ko.observable(layoutValue === 'grid');
 
             // templates
             self.templates = ko.observableArray([]);
@@ -257,7 +277,13 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
             self.selectedCompType.subscribe(function (newValue) {
                 selectedType = newValue ? newValue.value : 'all';
                 getComponents(self, selectedTemp, selectedType);
-            });
+			});
+			
+			self.selectedLayout.subscribe(function (newValue) {
+				self.isGrid(newValue.value === 'grid');
+				window.sessionStorage.setItem('componentsLayout', self.selectedLayout().value);
+			});
+			
         };
         ko.applyBindings(new IndexViewModel());
     </script>
