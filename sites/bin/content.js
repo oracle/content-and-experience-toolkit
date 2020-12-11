@@ -120,10 +120,12 @@ module.exports.downloadContent = function (argv, done) {
 var _downloadContentUtil = function (argv) {
 	verifyRun(argv);
 	return _downloadContent(argv.server, argv.channel, argv.name, argv.publishedassets,
-		argv.repositoryName, argv.collectionName, argv.query, argv.assetGUIDS);
+		argv.repositoryName, argv.collectionName, argv.query, argv.assetGUIDS,
+		argv.requiredContentPath, argv.requiredContentTemplateName);
 };
 
-var _downloadContent = function (server, channel, name, publishedassets, repositoryName, collectionName, query, assetGUIDS) {
+var _downloadContent = function (server, channel, name, publishedassets, repositoryName, collectionName, query, assetGUIDS,
+	requiredContentPath, requiredContentTemplateName) {
 	return new Promise(function (resolve, reject) {
 		var destdir = path.join(projectDir, 'dist');
 		if (!fs.existsSync(destdir)) {
@@ -294,7 +296,7 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 
 				exportfilepath = path.join(destdir, (name || channelName || repositoryName) + '_export.zip');
 
-				var exportPromise = _exportChannelContent(request, server, channelId, publishedassets, guids, exportfilepath);
+				var exportPromise = _exportChannelContent(request, server, channelId, publishedassets, guids, exportfilepath, requiredContentTemplateName);
 
 				return exportPromise;
 			})
@@ -308,10 +310,15 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 				}
 
 				// unzip to src/content
-				contentPath = path.join(contentSrcDir, (name || channelName || repositoryName));
-				fileUtils.remove(contentPath);
+				if (requiredContentPath) {
+					contentPath = requiredContentPath;
+				} else {
+					contentPath = path.join(contentSrcDir, (name || channelName || repositoryName));
+					fileUtils.remove(contentPath);
 
-				fs.mkdirSync(contentPath);
+					fs.mkdirSync(contentPath);
+				}
+				// console.log(' - unzip to: ' + contentPath);
 
 				return fileUtils.extractZip(exportfilepath, contentPath);
 
@@ -404,7 +411,7 @@ var _getChannelsFromServer = function (server) {
  * Call CAAS to create and export content template
  * @param {*} channelId 
  */
-var _exportChannelContent = function (request, server, channelId, publishedassets, assetGUIDS, exportfilepath) {
+var _exportChannelContent = function (request, server, channelId, publishedassets, assetGUIDS, exportfilepath, requiredContentTemplateName) {
 	var exportPromise = new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -453,7 +460,7 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 			console.log(' - get CSRF token');
 
 			var url = server.url + '/content/management/api/v1.1/content-templates/exportjobs';
-			var contentTemplateName = 'contentexport';
+			var contentTemplateName = requiredContentTemplateName || 'contentexport';
 			var postData = {
 				'name': contentTemplateName,
 				'exportPublishedItems': publishedassets ? 'true' : 'false'

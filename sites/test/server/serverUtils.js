@@ -3876,8 +3876,8 @@ module.exports.setSiteMetadata = function (request, server, idcToken, siteId, va
 			if (err) {
 				console.log('ERROR: Failed to set site metadata');
 				console.log('compilation server message: error -', err);
-				return resolve({
-					err: 'err'
+				return reject({
+					err: err
 				});
 			}
 			var data;
@@ -3890,9 +3890,10 @@ module.exports.setSiteMetadata = function (request, server, idcToken, siteId, va
 			}
 			// console.log(data);
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to set site metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
+				// console.log('ERROR: failed to set site metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				var errorMsg = data && data.LocalData ? '- ' + data.LocalData.StatusMessage : "failed to set site metadata";
+				return reject({
+					err: errorMsg
 				});
 			} else {
 				return resolve({});

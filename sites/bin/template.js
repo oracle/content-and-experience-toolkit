@@ -510,27 +510,25 @@ var _downloadContent = function (request, server, name, channelId) {
 
 				channelName = result.name;
 
+				var tempAssetPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate');
+				tempContentPath = path.join(tempAssetPath, 'Content Template of ' + name);
+
 				// download all content from the site channel
 				return contentUtils.downloadContent({
 					projectDir: projectDir,
 					server: server,
 					channel: channelName,
 					name: name + '_content',
-					publishedassets: false
+					publishedassets: false,
+					requiredContentPath: tempAssetPath,
+					requiredContentTemplateName: 'Content Template of ' + name
+
 				});
 			})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
 				}
-
-				// move content to template folder
-				var tempAssetPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate');
-				var contentPath = path.join(contentSrcDir, name + '_content');
-				fse.moveSync(contentPath, tempAssetPath);
-				var contentexportPath = path.join(tempAssetPath, 'contentexport');
-				tempContentPath = path.join(tempAssetPath, 'Content Template of ' + name);
-				fse.moveSync(contentexportPath, tempContentPath);
 
 				var summaryStr = fs.readFileSync(path.join(tempContentPath, 'Summary.json'));
 				assetSummaryJson = JSON.parse(summaryStr);
@@ -592,6 +590,9 @@ var _downloadContent = function (request, server, name, channelId) {
 				return resolve({});
 			})
 			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
 				return resolve({
 					err: 'err'
 				});

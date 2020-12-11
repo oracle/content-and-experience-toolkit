@@ -231,6 +231,11 @@ var updateTemplateActions = function () {
 	return actions;
 };
 
+var updateTypeActions = function () {
+	const actions = ['add-content-form', 'remove-content-form'];
+	return actions;
+};
+
 /*********************
  * Command definitions
  **********************/
@@ -827,48 +832,6 @@ const removeFieldEditor = {
 		],
 		['cec remove-field-editor editor1 -t BlogTemplateContent -n -c BlogPost -f summary',
 			'Remove editor1 as the appearance for field summary in content type BlogPost from local template at src/content/BlogTemplateContent'
-		]
-	]
-};
-
-const addContentForm = {
-	command: 'add-content-form <name>',
-	alias: 'acf',
-	name: 'add-content-form',
-	usage: {
-		'short': 'Associates a content form with a content type.',
-		'long': (function () {
-			let desc = 'Associates a content form with a content type to create or edit content items of this type.';
-			return desc;
-		})()
-	},
-	example: [
-		['cec add-content-form form1 -t BlogTemplate -c BlogPost',
-			'Associate content form form1 with content type BlogPost from local template at src/templates/BlogTemplate'
-		],
-		['cec add-content-form form1 -t BlogTemplateContent -n -c BlogPost',
-			'Associate content form form1 with content type BlogPost from local template at src/content/BlogTemplateContent'
-		]
-	]
-};
-
-const removeContentForm = {
-	command: 'remove-content-form <name>',
-	alias: 'rcf',
-	name: 'remove-content-form',
-	usage: {
-		'short': 'Removes a content form from a content type.',
-		'long': (function () {
-			let desc = 'Removes a content form from a content type. ';
-			return desc;
-		})()
-	},
-	example: [
-		['cec remove-content-form form1 -t BlogTemplate -c BlogPost',
-			'Change not to use form1 when create or edit items of type BlogPost from local template at src/templates/BlogTemplate'
-		],
-		['cec remove-content-form form1 -t BlogTemplateContent -n -c BlogPost',
-			'Change not to use form1 when create or edit items of type BlogPost from local template at src/content/BlogTemplateContent'
 		]
 	]
 };
@@ -1698,8 +1661,45 @@ const uploadType = {
 	},
 	example: [
 		['cec upload-type BlogType'],
-		['cec download-type BlogType -s UAT'],
-		['cec download-type BlogAuthor,BlogType', 'Place the referenced types first']
+		['cec upload-type BlogType -s UAT'],
+		['cec upload-type BlogAuthor,BlogType', 'Place the referenced types first']
+	]
+};
+
+const updateType = {
+	command: 'update-type <action>',
+	alias: 'utp',
+	name: 'update-type',
+	usage: {
+		'short': 'Performs action <action> on a type',
+		'long': (function () {
+			let desc = 'Performs action <action> on a type in a local template or on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			desc = desc + 'The valid actions are\n\n';
+			return updateTypeActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec update-type add-content-form -o form1 -c BlogPost -t BlogTemplate',
+			'Associate content form form1 with content type BlogPost from local template at src/templates/BlogTemplate'
+		],
+		['cec update-type add-content-form -o form1 -c BlogPost -t BlogTemplateContent -n ',
+			'Associate content form form1 with content type BlogPost from local template at src/content/BlogTemplateContent'
+		],
+		['cec update-type add-content-form -o form1 -c BlogPost -s UAT',
+			'Associate content form form1 with content type BlogPost on the registered server UAT'
+		],
+		['cec update-type add-content-form -o form1 -c BlogPost -s',
+			'Associate content form form1 with content type BlogPost on the server specified in cec.properties file'
+		],
+		['cec update-type remove-content-form -o form1 -c BlogPost -t BlogTemplate',
+			'Change not to use form1 when create or edit items of type BlogPost from local template at src/templates/BlogTemplate'
+		],
+		['cec update-type remove-content-form -o form1 -c BlogPost -t BlogTemplateContent -n',
+			'Change not to use form1 when create or edit items of type BlogPost from local template at src/content/BlogTemplateContent'
+		],
+		['cec update-type remove-content-form -o form1 -c BlogPost -s UAT',
+			'Change not to use form1 when create or edit items of type BlogPost on the registered server UAT'
+		]
 	]
 };
 
@@ -2622,8 +2622,8 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(shareType) + os.EOL +
 	_getCmdHelp(unshareType) + os.EOL +
 	_getCmdHelp(downloadType) + os.EOL +
-	// _getCmdHelp(createWordTemplate) + os.EOL +
 	_getCmdHelp(uploadType) + os.EOL +
+	_getCmdHelp(updateType) + os.EOL +
 	_getCmdHelp(downloadRecommendation) + os.EOL +
 	_getCmdHelp(uploadRecommendation) + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
@@ -2631,8 +2631,6 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(removeContentLayoutMapping) + os.EOL +
 	_getCmdHelp(addFieldEditor) + os.EOL +
 	_getCmdHelp(removeFieldEditor) + os.EOL +
-	// _getCmdHelp(addContentForm) + os.EOL +
-	// _getCmdHelp(removeContentForm) + os.EOL +
 	_getCmdHelp(migrateContent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
@@ -3451,52 +3449,6 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${removeFieldEditor.command}\n\n${removeFieldEditor.usage.long}`);
-		})
-	.command([addContentForm.command, addContentForm.alias], false,
-		(yargs) => {
-			yargs.option('template', {
-					alias: 't',
-					description: 'The template the content type is from',
-					demandOption: true
-				})
-				.option('contenttype', {
-					alias: 'c',
-					description: 'The content type',
-					demandOption: true
-				})
-				.option('contenttemplate', {
-					alias: 'n',
-					description: 'Flag to indicate the template is a content template'
-				})
-				.example(...addContentForm.example[0])
-				.example(...addContentForm.example[1])
-				.help('help')
-				.alias('help', 'h')
-				.version(false)
-				.usage(`Usage: cec ${addContentForm.command}\n\n${addContentForm.usage.long}`);
-		})
-	.command([removeContentForm.command, removeContentForm.alias], false,
-		(yargs) => {
-			yargs.option('template', {
-					alias: 't',
-					description: 'The template the content type is from',
-					demandOption: true
-				})
-				.option('contenttype', {
-					alias: 'c',
-					description: 'The content type',
-					demandOption: true
-				})
-				.option('contenttemplate', {
-					alias: 'n',
-					description: 'Flag to indicate the template is a content template'
-				})
-				.example(...removeContentForm.example[0])
-				.example(...removeContentForm.example[1])
-				.help('help')
-				.alias('help', 'h')
-				.version(false)
-				.usage(`Usage: cec ${removeContentForm.command}\n\n${removeContentForm.usage.long}`);
 		})
 	.command([downloadContent.command, downloadContent.alias], false,
 		(yargs) => {
@@ -4927,6 +4879,51 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${downloadType.command}\n\n${downloadType.usage.long}`);
+		})
+	.command([updateType.command, updateType.alias], false,
+		(yargs) => {
+			yargs.option('objectname', {
+					alias: 'o',
+					description: 'the content form',
+					demandOption: true
+				})
+				.option('contenttype', {
+					alias: 'c',
+					description: 'the content type',
+					demandOption: true
+				})
+				.option('template', {
+					alias: 't',
+					description: 'The template the content type is from'
+				})
+				.option('contenttemplate', {
+					alias: 't',
+					description: 'Flag to indicate the template is a content template'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCE server'
+				})
+				.check((argv) => {
+					if (!argv.template && !argv.server) {
+						throw new Error(os.EOL + 'Please specify either local template or OCE server');
+					}
+					if (argv.action && !updateTypeActions().includes(argv.action)) {
+						throw new Error(`${os.EOL}${argv.action} is not a valid value for <action>`);
+					}
+					return true;
+				})
+				.example(...updateType.example[0])
+				.example(...updateType.example[1])
+				.example(...updateType.example[2])
+				.example(...updateType.example[3])
+				.example(...updateType.example[4])
+				.example(...updateType.example[5])
+				.example(...updateType.example[6])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${updateType.command}\n\n${updateType.usage.long}`);
 		})
 	.command([uploadType.command, uploadType.alias], false,
 		(yargs) => {
@@ -6692,40 +6689,6 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
-} else if (argv._[0] === addContentForm.name || argv._[0] === addContentForm.alias) {
-	let addContentFormArgs = ['run', '-s', addContentForm.name, '--prefix', appRoot,
-		'--',
-		'--projectDir', cwd,
-		'--name', argv.name,
-		'--template', argv.template,
-		'--contenttype', argv.contenttype
-	];
-	if (argv.contenttemplate) {
-		addContentFormArgs.push(...['--contenttemplate', argv.contenttemplate]);
-	}
-
-	spawnCmd = childProcess.spawnSync(npmCmd, addContentFormArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
-
-} else if (argv._[0] === removeContentForm.name || argv._[0] === removeContentForm.alias) {
-	let removeContentFormArgs = ['run', '-s', removeContentForm.name, '--prefix', appRoot,
-		'--',
-		'--projectDir', cwd,
-		'--name', argv.name,
-		'--template', argv.template,
-		'--contenttype', argv.contenttype
-	];
-	if (argv.contenttemplate) {
-		removeContentFormArgs.push(...['--contenttemplate', argv.contenttemplate]);
-	}
-
-	spawnCmd = childProcess.spawnSync(npmCmd, removeContentFormArgs, {
-		cwd,
-		stdio: 'inherit'
-	});
-
 } else if (argv._[0] === downloadContent.name || argv._[0] === downloadContent.alias) {
 	let downloadContentArgs = ['run', '-s', downloadContent.name, '--prefix', appRoot,
 		'--',
@@ -7712,6 +7675,30 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		downloadTypeArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, downloadTypeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === updateType.name || argv._[0] === updateType.alias) {
+	let updateTypeArgs = ['run', '-s', updateType.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--action', argv.action,
+		'--objectname', argv.objectname,
+		'--contenttype', argv.contenttype
+	];
+
+	if (argv.template) {
+		updateTypeArgs.push(...['--template', argv.template]);
+	}
+	if (argv.contenttemplate) {
+		updateTypeArgs.push(...['--contenttemplate', argv.contenttemplate]);
+	}
+	if (argv.server) {
+		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		updateTypeArgs.push(...['--server'], serverVal);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, updateTypeArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

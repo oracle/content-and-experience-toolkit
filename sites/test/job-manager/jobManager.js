@@ -6,6 +6,8 @@ var path = require('path'),
 	fs = require('fs');
 
 const cecCmd = /^win/.test(process.platform) ? 'cec.cmd' : 'cec';
+const UPDATESTATUSRETRY = 5;
+const UPDATESTATUSERRORCODE = "IRRECOVERABLE_ERROR";
 
 var JobManager = function (args) {
 		this.ps = args.ps;
@@ -536,10 +538,16 @@ JobManager.prototype.compileSite = function (jobConfig) {
 				console.log('stop with code', code);
 				logStream.end();
 				uploadLogStep().then(function () {
-					// status updated to faile - progress set to 100, since we can't recover and no additional steps will occur
-					self.updateStatus(jobConfig, 'FAILED', 100).then(function (updatedJobConfig) {
-						reject(updatedJobConfig);
-					});
+					// don't update status if irrecoverable error coourred
+					if(code === UPDATESTATUSERRORCODE){
+						reject();
+					}
+					else{
+						// status updated to faile - progress set to 100, since we can't recover and no additional steps will occur
+						self.updateStatus(jobConfig, 'FAILED', 100).then(function (updatedJobConfig) {
+							reject(updatedJobConfig);
+						});
+					}
 				});
 			},
 			steps = function () {
@@ -768,12 +776,32 @@ JobManager.prototype.updateStatus = function (jobConfig, status, progress) {
 	return self.updateJob(jobConfig, data).then(function (updatedJobConfig) {
 		// attempt to update the server with the updated job config so that the UI can be updated to notify the user.  
 		// don't need to wait for this to complete, we're storing the value locally so any errors do not cause an issue
-		self.updateSiteMetadata(updatedJobConfig).catch(function (e) {
-			console.log('compilation server message: failed to update site metadata in server', e);
-		});
 
-		// return the updated job config
-		return Promise.resolve(updatedJobConfig);
+
+  		// Retry, assuming the error is recoverable.
+		// We have yet to find a way to handle irrecoverable error. 
+		// We will add the new Promise back when we have a solution on how to handle reject promise.
+ 
+		return new Promise(function (resolve, reject) {
+			var retry = UPDATESTATUSRETRY;
+			var update = function() {
+				retry--;
+				self.updateSiteMetadata(updatedJobConfig).then(function(s) {
+					console.log('compilation server successfully updated site metadata in server ', s);
+					resolve(updatedJobConfig);
+				}).catch(function (e) {
+					console.log('compilation server error: failed to update site metadata in server -', e.err);
+					if (retry > 0) {
+						update();
+					}
+					else{
+						console.log('Error irrecoverable:', e.err);
+						reject(UPDATESTATUSERRORCODE);
+					}
+				});
+			};
+			update();
+		});
 	});
 };
 

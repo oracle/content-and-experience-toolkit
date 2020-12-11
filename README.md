@@ -14,6 +14,19 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+
+# New in Release 20.4.3b
+
+**Added**
+
+- `cec update-type add-content-form` - Associate a content form with a content type.
+- `cec update-type remove-content-form` - Remove association of content form with content type.
+
+**Fixed**
+
+- `cec transfer-site` - Fixed file permission errors on Windows.
+
+
 # New in Release 20.4.3a
 
 **Added**

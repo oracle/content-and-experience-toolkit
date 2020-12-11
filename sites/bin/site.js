@@ -631,7 +631,7 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 
 						})
 						.then(function (result) {
-							console.log(' - site id: ' + result && result.id);
+							console.log(' - site id: ' + (result && result.id));
 
 							done(true);
 						})

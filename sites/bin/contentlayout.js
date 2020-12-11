@@ -1238,7 +1238,7 @@ module.exports.addContentForm = function (argv, done) {
 		return;
 	}
 
-	var name = argv.name;
+	var name = argv.objectname;
 	var templateName = argv.template;
 	var typeName = argv.contenttype;
 	var contenttemplate = typeof argv.contenttemplate === 'string' && argv.contenttemplate.toLowerCase() === 'true';
@@ -1302,17 +1302,6 @@ module.exports.addContentForm = function (argv, done) {
 	}
 	console.log(' - get content type');
 
-	// include the type for this form
-	if (!appInfoJson.supportedContentTypes || !appInfoJson.supportedContentTypes.includes(typeName)) {
-		if (!appInfoJson.supportedContentTypes) {
-			appInfoJson.supportedContentTypes = [typeName];
-		} else {
-			appInfoJson.supportedContentTypes.push(typeName);
-		}
-		fs.writeFileSync(filePath, JSON.stringify(appInfoJson));
-		console.log(' - add type ' + typeName + ' to ' + filePath);
-	}
-
 	if (typeJson.properties) {
 		typeJson.properties.customForms = [name];
 	} else {
@@ -1335,6 +1324,92 @@ module.exports.addContentForm = function (argv, done) {
 };
 
 /**
+ * Associate content form with a content type on OCE server
+ */
+module.exports.addContentFormServer = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var contentFormName = argv.objectname;
+	var contentTypeName = argv.contenttype;
+
+	var serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	var request = serverUtils.getRequest();
+	serverUtils.loginToServer(server, request).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		var typeObj;
+
+		serverRest.getContentType({
+				server: server,
+				name: contentTypeName
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - verify type');
+				typeObj = result;
+
+				return sitesRest.getComponent({
+					server: server,
+					name: contentFormName
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - verify component');
+
+				if (typeObj.properties) {
+					typeObj.properties.customForms = [contentFormName];
+				} else {
+					typeObj.properties = {
+						customForms: [customForms]
+					};
+				}
+
+				return serverRest.updateContentType({
+					server: server,
+					type: typeObj
+				});
+
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - custom form ' + contentFormName + ' added to type ' + contentTypeName);
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
+/**
  * Remove content form from a content type in a template
  */
 module.exports.removeContentForm = function (argv, done) {
@@ -1345,7 +1420,7 @@ module.exports.removeContentForm = function (argv, done) {
 		return;
 	}
 
-	var name = argv.name;
+	var name = argv.objectname;
 	var templateName = argv.template;
 	var typeName = argv.contenttype;
 	var contenttemplate = typeof argv.contenttemplate === 'string' && argv.contenttemplate.toLowerCase() === 'true';
@@ -1428,6 +1503,98 @@ module.exports.removeContentForm = function (argv, done) {
 	done(true);
 
 };
+
+/**
+ * Remove content form from a content type on OCE server
+ */
+module.exports.removeContentFormServer = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var contentFormName = argv.objectname;
+	var contentTypeName = argv.contenttype;
+
+	var serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	var request = serverUtils.getRequest();
+	serverUtils.loginToServer(server, request).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		var typeObj;
+
+		serverRest.getContentType({
+				server: server,
+				name: contentTypeName
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - verify type');
+				typeObj = result;
+
+				return sitesRest.getComponent({
+					server: server,
+					name: contentFormName
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - verify component');
+
+				var customForms = typeObj.properties && typeObj.properties.customForms || [];
+				var updateTypePromises = [];
+				if (customForms.includes(contentFormName)) {
+					typeObj.properties.customForms = [];
+					updateTypePromises.push(serverRest.updateContentType({
+						server: server,
+						type: typeObj
+					}));
+				} else {
+					console.log(' - content form ' + contentFormName + ' is not used by ' + contentTypeName);
+				}
+
+				return Promise.all(updateTypePromises);
+
+			})
+			.then(function (results) {
+				if (results.length > 0) {
+					if (results[0].err) {
+						return Promise.reject();
+					}
+
+					console.log(' - custom form ' + contentFormName + ' removed type ' + contentTypeName);
+					done(true);
+
+				} else {
+					done(true);
+				}
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
 
 /**
  * Add content layout mapping to a type on OCE server

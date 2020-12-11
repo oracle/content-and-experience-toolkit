@@ -729,30 +729,6 @@ gulp.task('remove-field-editor', function (done) {
 	});
 });
 
-/**
- * Associate content form with a content type in a template
- */
-gulp.task('add-content-form', function (done) {
-	'use strict';
-
-	contentlayoutlib.addContentForm(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
-		done();
-	});
-});
-
-/**
- * Remove content form from a content type in a template
- */
-gulp.task('remove-content-form', function (done) {
-	'use strict';
-
-	contentlayoutlib.removeContentForm(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
-		done();
-	});
-});
-
 
 /**
  * Create template
@@ -1596,6 +1572,45 @@ gulp.task('upload-type', function (done) {
 		process.exitCode = success ? 0 : 1;
 		done();
 	});
+});
+
+/**
+ * Update type
+ */
+gulp.task('update-type', function (done) {
+	'use strict';
+
+	if (argv.action === 'add-content-form') {
+		if (argv.server) {
+			contentlayoutlib.addContentFormServer(argv, function (success) {
+				process.exitCode = success ? 0 : 1;
+				done();
+			});
+		} else {
+			contentlayoutlib.addContentForm(argv, function (success) {
+				process.exitCode = success ? 0 : 1;
+				done();
+			});
+		}
+
+	} else if (argv.action === 'remove-content-form') {
+		if (argv.server) {
+			contentlayoutlib.removeContentFormServer(argv, function (success) {
+				process.exitCode = success ? 0 : 1;
+				done();
+			});
+		} else {
+			contentlayoutlib.removeContentForm(argv, function (success) {
+				process.exitCode = success ? 0 : 1;
+				done();
+			});
+		}
+
+	} else {
+		console.log('ERRRO: ' + argv.action + ' is not supported');
+		process.exitCode = 1;
+		done();
+	}
 });
 
 /**
