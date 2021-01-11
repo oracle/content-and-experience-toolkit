@@ -119,6 +119,17 @@ JobManager.prototype.compileSite = function (jobConfig) {
 				console.log(commndString, 'child process exited with code', `${code}`);
 				logStream.write(message);
 			},
+			logCodeSignal = function (commndString, code, signal) {
+				var message = commndString + ' child process exited with code ' + `${code}` + '\n';
+				console.log(commndString, 'child process exited with code', `${code}`);
+				logStream.write(message);
+				// If code is null, then the process is terminated by a signal.
+				if (code === null) {
+					message = commndString + ' child process terminated due to receipt of signal ' + `${signal}` + '\n';
+					console.log(commndString, 'child process terminated due to receipt of signal', `${signal}`);
+					logStream.write(message);
+				}
+			},
 			logDuration = function (jobConfig, step, startTime) {
 				var message = jobConfig.id + ' ' + step + ' duration ' + Math.floor((Date.now() - startTime) / 1000) + ' seconds' + '\n';
 				console.log(jobConfig.id, step, 'duration', Math.floor((Date.now() - startTime) / 1000), 'seconds');
@@ -376,16 +387,16 @@ JobManager.prototype.compileSite = function (jobConfig) {
 						var getSiteSecurityCommand = exec(getExecCommand(cecCmd, compileArguments), cecDefaultsForCompileStep);
 
 						var parseStdout = function (data) {
+							logStdout(data);
 							// note if this is a secure site
 							if (/\s*- secure site:true\s*/.test(data)) {
 								secureSite = true;
 							}
-							logStdout(data);
 						};
 						getSiteSecurityCommand.stdout.on('data', parseStdout);
 						getSiteSecurityCommand.stderr.on('data', logStderr);
-						getSiteSecurityCommand.on('close', (code) => {
-							logCode('getSiteSecurityCommand', code);
+						getSiteSecurityCommand.on('close', (code, signal) => {
+							logCodeSignal('getSiteSecurityCommand', code, signal);
 							logDuration(jobConfig, 'getSiteSecurityCommand', startTime);
 							code === 0 ? resolveStep(code) : rejectStep(code);
 						});
@@ -777,8 +788,7 @@ JobManager.prototype.updateStatus = function (jobConfig, status, progress) {
 		// attempt to update the server with the updated job config so that the UI can be updated to notify the user.  
 		// don't need to wait for this to complete, we're storing the value locally so any errors do not cause an issue
 
-
-  		// Retry, assuming the error is recoverable.
+		// Retry, assuming the error is recoverable.
 		// We have yet to find a way to handle irrecoverable error. 
 		// We will add the new Promise back when we have a solution on how to handle reject promise.
  

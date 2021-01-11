@@ -2636,7 +2636,8 @@ module.exports.renameAssetIds = function (argv, done) {
 							newId = idMap.get(itemId);
 							// console.log('*** id already created');
 						} else {
-							newId = serverUtils.createAssetGUID(type === 'DigitalAsset');
+							var isMedia = itemId.startsWith('CONT');
+							newId = serverUtils.createAssetGUID(isMedia);
 							// console.log('*** new id ' + newId);
 							idMap.set(itemId, newId);
 						}
@@ -2649,7 +2650,7 @@ module.exports.renameAssetIds = function (argv, done) {
 					}
 				}
 
-				if (type === 'DigitalAsset') {
+				if (fs.existsSync(path.join(typePath, 'files'))) {
 					// rename the folder name under files
 					var files = fs.readdirSync(path.join(typePath, 'files'));
 					files.forEach(function (folder) {
@@ -2787,7 +2788,7 @@ var _zipContent = function (contentpath, contentfilename) {
 				console.log(' - created content file ' + zippath);
 				return resolve({});
 			});
-		
+
 	});
 };
 

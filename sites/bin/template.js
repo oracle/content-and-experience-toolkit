@@ -76,7 +76,7 @@ var _cmdEnd = function (done, success) {
 };
 
 
-var _createLocalTemplateFromSite = function (name, siteName, server, excludeContent, enterprisetemplate, excludeComponents) {
+var _createLocalTemplateFromSite = function (name, siteName, server, excludeContent, enterprisetemplate, excludeComponents, excludeTheme) {
 	return new Promise(function (resolve, reject) {
 		var request = serverUtils.getRequest();
 
@@ -173,7 +173,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					return documentUtils.downloadFolder(downloadArgv, server, true, false, excludeFolder);
 				})
 				.then(function (result) {
-					if (!result) {
+					if (!result || result.err) {
 						return Promise.reject();
 					}
 					console.log(' - download site files');
@@ -215,29 +215,12 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					}
 					themeId = result.id;
 
-					// download theme
-					var downloadArgv = {
-						path: 'theme:' + themeName,
-						folder: themeSrcPath
-					};
-					console.log(' - downloading theme files');
-					return documentUtils.downloadFolder(downloadArgv, server, true, false);
+					var downloadThemePromises = excludeTheme ? [] : [_downloadTheme(request, server, themeName, themeId, themeSrcPath)];
+
+					return Promise.all(downloadThemePromises);
+
 				})
-				.then(function (result) {
-					console.log(' - download theme files');
-
-					return serverUtils.getFolderInfoOnServer(request, server, themeId);
-
-				}).then(function (result) {
-					// get the theme identity in folder info
-					var itemGUID = result && result.folderInfo && result.folderInfo.xScsItemGUID || themeId;
-
-					// create _folder.json for theme
-					var folderJson = {
-						themeName: themeName,
-						itemGUID: itemGUID
-					};
-					fs.writeFileSync(path.join(themeSrcPath, '_folder.json'), JSON.stringify(folderJson));
+				.then(function (results) {
 
 					var downloadContentPromises = (excludeContent || !isEnterprise) ? [] : [_downloadContent(request, server, name, channelId)];
 
@@ -417,6 +400,36 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 	});
 };
 
+var _downloadTheme = function (request, server, themeName, themeId, themeSrcPath) {
+	return new Promise(function (resolve, reject) {
+		// download theme
+		var downloadArgv = {
+			path: 'theme:' + themeName,
+			folder: themeSrcPath
+		};
+		console.log(' - downloading theme files');
+		documentUtils.downloadFolder(downloadArgv, server, true, false)
+			.then(function (result) {
+				console.log(' - download theme files');
+
+				return serverUtils.getFolderInfoOnServer(request, server, themeId);
+
+			}).then(function (result) {
+				// get the theme identity in folder info
+				var itemGUID = result && result.folderInfo && result.folderInfo.xScsItemGUID || themeId;
+
+				// create _folder.json for theme
+				var folderJson = {
+					themeName: themeName,
+					itemGUID: itemGUID
+				};
+				fs.writeFileSync(path.join(themeSrcPath, '_folder.json'), JSON.stringify(folderJson));
+
+				return resolve({});
+			});
+	});
+};
+
 var _downloadSiteComponents = function (request, server, compNames) {
 	return new Promise(function (resolve, reject) {
 		var comps = [];
@@ -488,9 +501,9 @@ var _downloadSiteComponents = function (request, server, compNames) {
 	});
 };
 
-var _createLocalTemplateFromSiteUtil = function (argv, name, siteName, server, excludeContent, enterprisetemplate, excludeComponents) {
+var _createLocalTemplateFromSiteUtil = function (argv, name, siteName, server, excludeContent, enterprisetemplate, excludeComponents, excludeTheme) {
 	verifyRun(argv);
-	return _createLocalTemplateFromSite(name, siteName, server, excludeContent, enterprisetemplate, excludeComponents);
+	return _createLocalTemplateFromSite(name, siteName, server, excludeContent, enterprisetemplate, excludeComponents, excludeTheme);
 };
 
 var _downloadContent = function (request, server, name, channelId) {
@@ -619,6 +632,28 @@ var _getCustomEditors = function (tempContentPath) {
 	return editors;
 };
 
+var _getCustomForms = function (tempContentPath) {
+	var forms = [];
+	var typesPath = path.join(tempContentPath, 'ContentTypes');
+	if (fs.existsSync(typesPath)) {
+		var types = fs.readdirSync(typesPath);
+		types.forEach(function (fileName) {
+			if (serverUtils.endsWith(fileName, '.json')) {
+				var typeObj = JSON.parse(fs.readFileSync(path.join(typesPath, fileName)));
+				var typeCustomForms = typeObj.properties && typeObj.properties.customForms || [];
+				if (typeCustomForms.length > 0) {
+					forms.push({
+						type: typeObj.name,
+						customForms: typeCustomForms
+					});
+				}
+			}
+		});
+	}
+	return forms;
+};
+
+
 var _queryComponents = function (request, server, compNames) {
 	return new Promise(function (resolve, reject) {
 		var comps = [];
@@ -692,8 +727,12 @@ var _downloadComponents = function (comps, server) {
 						folder: compSrcPath
 					};
 					return documentUtils.downloadFolder(downloadArgv, server, false, false).then(function (result) {
-							console.log(' - download component ' + param);
-							compData.push(param);
+							if (result && result.err) {
+								fileUtils.remove(compSrcPath);
+							} else {
+								console.log(' - download component ' + param);
+								compData.push(param);
+							}
 						})
 						.catch((error) => {
 							// the component does not exist or is seeded
@@ -1357,6 +1396,19 @@ module.exports.describeTemplate = function (argv, done) {
 			}
 		}
 	}
+
+	// Content forms
+	var typesRootPath = path.join(tempSrcDir, 'assets', 'contenttemplate', 'Content Template of ' + name);
+	if (fs.existsSync(typesRootPath)) {
+		var contentForms = _getCustomForms(typesRootPath);
+		if (contentForms.length > 0) {
+			console.log('Content Forms:');
+			for (var j = 0; j < contentForms.length; j++) {
+				console.log('    ' + contentForms[j].type + ': ' + contentForms[j].customForms);
+			}
+		}
+	}
+
 	done(true);
 };
 
@@ -2272,7 +2324,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 				// now run gulp on any component's gulp files
 				for (var i = 0; i < comps.length; i++) {
 					var compSrcDir = path.join(componentsSrcDir, comps[i]),
-						compExist = fs.existsSync(compSrcDir);
+						compExist = fs.existsSync(compSrcDir) && fs.existsSync(path.join(compSrcDir, '_folder.json'));
 					var componentsGulpFile = path.join(compSrcDir, 'gulpfile.js');
 					if (compExist && fs.existsSync(componentsGulpFile)) {
 						var compBuildSrc = path.join(componentsBuildDir, comps[i]);
@@ -2299,7 +2351,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 			// copy customer components to buid dir: <template name>/components/
 			for (var i = 0; i < comps.length; i++) {
 				var compSrcDir = path.join(componentsSrcDir, comps[i]),
-					compExist = fs.existsSync(compSrcDir);
+					compExist = fs.existsSync(compSrcDir) && fs.existsSync(path.join(compSrcDir, '_folder.json'));
 				if (compExist) {
 					var optimizePath = path.join(componentsBuildDir, comps[i]);
 					var srcPath = optimize && fs.existsSync(optimizePath) ? optimizePath : compSrcDir;

@@ -656,6 +656,19 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 
 						if (field.referenceType && field.referenceType.type === 'DigitalAsset') {
 							fieldstr = fieldstr + '<li><img src="{{url}}"></img></li>' + os.EOL;
+						}
+						if (field.referenceType && field.referenceType.typeCategory === 'DigitalAssetType') {
+							fieldstr = fieldstr + '{{#contentItem}}' + os.EOL;
+							fieldstr = fieldstr + '{{#renderAsImage}}' + os.EOL;
+							fieldstr = fieldstr + '<li><img src="{{url}}"></img></li>' + os.EOL;
+							fieldstr = fieldstr + '{{/renderAsImage}}' + os.EOL;
+							fieldstr = fieldstr + '{{#renderAsVideo}}' + os.EOL;
+							fieldstr = fieldstr + '<li><video src="{{url}}" playsinline width="100%" controls controlslist="nodownload"></video></li>' + os.EOL;
+							fieldstr = fieldstr + '{{/renderAsVideo}}' + os.EOL;
+							fieldstr = fieldstr + '{{#renderAsDownload}}' + os.EOL;
+							fieldstr = fieldstr + '<li><a _target_="_blank" download href="{{url}}">{{{name}}}</a></li>' + os.EOL;
+							fieldstr = fieldstr + '{{/renderAsDownload}}' + os.EOL;
+							fieldstr = fieldstr + '{{/contentItem}}' + os.EOL;
 						} else {
 							// reference to another content
 							fieldstr = fieldstr + '{{#contentItem}}' + os.EOL;
@@ -764,9 +777,21 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 									'moreItems = data["' + field.name + '"] || [];' + os.EOL + ident3 +
 									'// Retrieve the reference item from the query result.' + os.EOL + ident3 +
 									'moreItems.forEach(function (nxtItem) {' + os.EOL + ident4 +
-									'if (nxtItem.id === item.id) {' + os.EOL +
+									'if (nxtItem.id === item.id) {' + os.EOL;
+
+								if (field.referenceType && field.referenceType.typeCategory === 'DigitalAssetType') {
+									refstr = refstr +
+										ident5 + 'item["url"] = contentClient.getRenditionURL({"id": item.id});' + os.EOL +
+										ident5 + 'var mimeType = item.fields && item.fields.mimeType;' + os.EOL +
+										ident5 + 'item["renderAsImage"] = mimeType && mimeType.indexOf("image/") === 0;' + os.EOL +
+										ident5 + 'item["renderAsVideo"] = mimeType && mimeType.indexOf("video/") === 0;' + os.EOL +
+										ident5 + 'item["renderAsDownload"] = !mimeType || (mimeType.indexOf("image/") !== 0 && mimeType.indexOf("video/") !== 0);' + os.EOL;
+								}
+
+								refstr = refstr +
 									ident5 + 'nxtItem["contentItem"] = item;' + os.EOL +
 									ident4 + '}' + os.EOL + ident3 + '});';
+
 							} else {
 								tmpstr = tmpstr + '// Get the IDs of any referenced assets, we will do an additional query to retrieve these so we can render them as well.' + os.EOL + ident;
 								tmpstr = tmpstr + '// If you don’t want to render referenced assets, remove these block.' + os.EOL + ident;
@@ -776,7 +801,18 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 								refstr = refstr + os.EOL + ident3 +
 									'// Retrieve the reference item from the query result.' +
 									os.EOL + ident3 +
-									'if (data["' + field.name + '"] && data["' + field.name + '"].id === item.id) {' + os.EOL +
+									'if (data["' + field.name + '"] && data["' + field.name + '"].id === item.id) {' + os.EOL;
+								
+								if (field.referenceType && field.referenceType.typeCategory === 'DigitalAssetType') {
+									refstr = refstr +
+										ident4 + 'item["url"] = contentClient.getRenditionURL({"id": item.id});' + os.EOL +
+										ident4 + 'var mimeType = item.fields && item.fields.mimeType;' + os.EOL +
+										ident4 + 'item["renderAsImage"] = mimeType && mimeType.indexOf("image/") === 0;' + os.EOL +
+										ident4 + 'item["renderAsVideo"] = mimeType && mimeType.indexOf("video/") === 0;' + os.EOL +
+										ident4 + 'item["renderAsDownload"] = !mimeType || (mimeType.indexOf("image/") !== 0 && mimeType.indexOf("video/") !== 0);' + os.EOL;
+								}
+								
+								refstr = refstr +
 									ident4 + 'data["' + field.name + '"]["contentItem"] = item;' + os.EOL +
 									ident3 + '}';
 							}

@@ -881,8 +881,10 @@ module.exports.getContentLayoutItems = function (projectDir, layoutName) {
 		contenttypes = [];
 	for (var i = 0; i < temps.length; i++) {
 		var contentmapfile = path.join(templatesDir, temps[i], 'caas_contenttypemap.json');
-		if (fs.existsSync(contentmapfile)) {
-			var ctypes = JSON.parse(fs.readFileSync(contentmapfile));
+		var summaryPath = path.join(templatesDir, temps[i], 'assets', 'contenttemplate', 'summary.json');
+		if (fs.existsSync(summaryPath)) {
+			var summaryJson = JSON.parse(fs.readFileSync(summaryPath));
+			var ctypes = summaryJson.categoryLayoutMappings || summaryJson.contentTypeMappings || [];
 			for (var j = 0; j < ctypes.length; j++) {
 				var ctype = ctypes[j];
 				for (var k = 0; k < ctype.categoryList.length; k++) {

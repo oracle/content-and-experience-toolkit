@@ -470,12 +470,13 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 				postData['items'] = {
 					'contentItems': assetGUIDS
 				};
-			} else if (channelId) {
+			}
+			if (channelId) {
 				postData.channelIds = [{
 					'id': channelId
 				}];
 			}
-
+			// console.log(postData);
 			var options = {
 				method: 'POST',
 				url: url,

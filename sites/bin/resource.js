@@ -918,7 +918,7 @@ module.exports.renameContentType = function (argv, done) {
 	if (isTemplate) {
 		templatePath = path.join(templatesSrcDir, name);
 		if (!fs.existsSync(templatePath)) {
-			console.log('ERROR: template folder ' + templatepath + ' does not exist');
+			console.log('ERROR: template folder ' + templatePath + ' does not exist');
 			done();
 			return;
 		}
@@ -1076,6 +1076,9 @@ module.exports.renameContentType = function (argv, done) {
 	}
 
 	var _updateItem = function (itemPath) {
+		if (!fs.statSync(itemPath).isFile()) {
+			return;
+		}
 		var itemJson = JSON.parse(fs.readFileSync(itemPath));
 		var needUpdate = false;
 
@@ -1122,7 +1125,7 @@ module.exports.renameContentType = function (argv, done) {
 	// update type for all assets
 	types = fs.readdirSync(itemsDir);
 	types.forEach(function (type) {
-		if (type !== 'DigitalAsset') {
+		if (type !== 'DigitalAsset' && type !== 'Image' && type !== 'Video' && type !== 'File') {
 			var items = fs.readdirSync(path.join(itemsDir, type));
 			for (var i = 0; i < items.length; i++) {
 				// console.log(path.join(itemsDir, type, items[i]));

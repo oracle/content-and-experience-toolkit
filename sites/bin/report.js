@@ -377,8 +377,8 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				return Promise.all(tempUserPromises);
 			})
 			.then(function (results) {
-				console.log(' - query site template members');
 				if (templatejson.id) {
+					console.log(' - query site template members');
 					templatejson.members = results.length > 0 ? results[0].data : [];
 				}
 
@@ -396,20 +396,24 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			.then(function (result) {
 				if (result && !result.err) {
 					theme = result;
-					theme.fFolderGUID = template.id;
+					theme.fFolderGUID = theme.id;
 					themejson.id = theme.id;
 					themejson.name = theme.name;
 					themejson.owner = theme.ownedBy && theme.ownedBy.userName;
 				}
 
-				return serverRest.getFolderUsers({
+				var themeUserPromises = theme && theme.fFolderGUID ? [serverRest.getFolderUsers({
 					server: server,
 					id: theme.fFolderGUID
-				});
+				})] : [];
+
+				return Promise.all(themeUserPromises);
 			})
-			.then(function (result) {
-				console.log(' - query theme member');
-				themejson.members = result && result.data || [];
+			.then(function (results) {
+				if (theme.fFolderGUID) {
+					console.log(' - query theme member');
+					themejson.members = results.length > 0 ? results[0].data : [];
+				}
 
 				var repoPromises = [];
 				if (repositoryId) {
@@ -827,10 +831,12 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 						for (var j = 0; j < page.contentitems.length; j++) {
 							var exist = false;
 							var name;
+							var contentType;
 							var itemChannels = [];
 							for (var k = 0; k < pageItems.length; k++) {
 								if (page.contentitems[j].id === pageItems[k].id) {
 									name = pageItems[k].name;
+									contentType = pageItems[k].type;
 									itemChannels = pageItems[k].channels && pageItems[k].channels.data;
 									exist = true;
 									break;
@@ -844,6 +850,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 								}
 							}
 							page.contentitems[j].name = name;
+							page.contentitems[j].contentType = contentType;
 							page.contentitems[j].exist = exist;
 							page.contentitems[j].existInChannel = existInChannel;
 
@@ -1239,7 +1246,7 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 						typeNames.push(comp.data.contentTypes[0]);
 					}
 				}
-			} else if (comp.id === 'scs-image' || comp.id === 'scs-gallery') {
+			} else if (comp.id === 'scs-image' || comp.id === 'scs-gallery' || comp.id === 'scs-video') {
 				if (comp.data.contentIds) {
 					for (var k = 0; k < comp.data.contentIds.length; k++) {
 						itemIds.push(comp.data.contentIds[k]);
@@ -2177,6 +2184,7 @@ module.exports.createTemplateReport = function (argv, done) {
 		console.log('');
 		var i, j;
 		var msg;
+		var format2;
 		// site pages
 		for (i = 0; i < pagesOutput.length; i++) {
 			var page = pagesOutput[i];
@@ -2190,13 +2198,12 @@ module.exports.createTemplateReport = function (argv, done) {
 				console.log(sprintf(format, 'contentlist', types.join(', ')));
 			}
 			if (page.contentitems && page.contentitems.length > 0) {
+				format2 = 'id:%-32s  type:%-12s  name:%-s';
 				for (j = 0; j < page.contentitems.length; j++) {
 					var item = page.contentitems[j];
-					msg = 'id:' + item.id + ' name:' + item.name + ' type:' + item.contentType;
+					msg = sprintf(format2, item.id, item.contentType, item.name);
 					if (!item.exist) {
 						msg = msg + ' ERROR: not exist';
-					} else if (!item.existInChannel) {
-						msg = msg + ' ERROR: not in channel';
 					}
 					console.log(sprintf(format, (j === 0 ? 'items' : ' '), msg));
 				}
@@ -2623,6 +2630,31 @@ module.exports.createTemplateReport = function (argv, done) {
 					}
 				});
 
+				// validate items
+				var contentFolder = path.join(templatesSrcDir, name, 'assets', 'contenttemplate',
+					'Content Template of ' + name, 'ContentItems');
+				pages.forEach(function (page) {
+					var items = page.contentitems || [];
+					for (var i = 0; i < items.length; i++) {
+						var types = fs.readdirSync(contentFolder);
+						var itemPath;
+						for (var j = 0; j < types.length; j++) {
+							itemPath = path.join(contentFolder, types[j], items[i].id + '.json');
+							if (types[j] !== 'VariationSets' && fs.existsSync(itemPath)) {
+								items[i].exist = true;
+								items[i].contentType = types[j];
+								break;
+							}
+						}
+
+						if (items[i].exist) {
+							var itemjson = JSON.parse(fs.readFileSync(itemPath));
+							items[i].name = itemjson && itemjson.name;
+							items[i].contentType = itemjson && itemjson.type;
+						}
+					}
+				});
+
 				pages.forEach(function (page) {
 					pagesOutput.push({
 						id: page.id,
@@ -3013,7 +3045,7 @@ module.exports.createAssetUsageReport = function (argv, done) {
 				if (result && !result.err) {
 					sites = result || [];
 				}
-		
+
 				var siteIds = [];
 				for (var i = 0; i < items.length; i++) {
 					items[i].sites = [];

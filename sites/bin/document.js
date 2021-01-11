@@ -961,8 +961,12 @@ module.exports.downloadFolder = function (argv, done) {
 			return;
 		}
 
-		_downloadFolder(argv, server, true, true).then(function () {
-			done(true);
+		_downloadFolder(argv, server, true, true).then(function (result) {
+			if (!result || result.err) {
+				done();
+			} else {
+				done(true);
+			}
 		}).catch(function (error) {
 			done();
 		});
@@ -1201,10 +1205,12 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 						}
 					}
 
-					return resolve(true);
+					return resolve({});
 				})
 				.catch((error) => {
-					return reject();
+					return resolve({
+						err: 'err'
+					});
 				});
 		}); // login
 	});

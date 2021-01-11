@@ -15,6 +15,16 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.1.1
+
+**Added**
+
+- `cec create-content-layout` - Added support for content types with references to CDT types
+- `cec transfer-site` - Updated `--excludetheme` option to not download theme files
+- Updated local server to support CDT types
+- Updated template BlogTemplate with content form Starter-Blog-Post-Form
+
+
 # New in Release 20.4.3b
 
 **Added**

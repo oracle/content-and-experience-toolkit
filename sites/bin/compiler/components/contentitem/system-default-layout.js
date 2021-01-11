@@ -17,6 +17,7 @@
 var fs = require('fs'),
 	path = require('path'),
 	mustache = require('mustache'),
+	cheerio = require('cheerio'),
 	marked = require('marked');
 
 
@@ -46,6 +47,48 @@ var getRichText = function (content) {
 	replace(/<\/applet>/gi, '&#60;&#47;applet&#62;').
 	replace(/javascript:/gi, 'java-script:').
 	replace(/vbscript:/gi, 'vb-script:');
+
+	var $ = cheerio.load('<div>');
+	try {
+		var $htmlDoc = $('<div>' + newVal + '</div>');
+
+		var getAllAttributes = function (node) {
+			return Object.keys(node.attribs).map(
+				function (name) {
+					return {
+						name: name,
+						value: node.attribs[name]
+					};
+				}
+			);
+		};
+
+
+		$('*', $htmlDoc).each(function (elemIndex, elem) {
+			var evtAttrs = [];
+
+			$(this).each(function (i, e) {
+				var attributes = getAllAttributes(this);
+				attributes.forEach(function (attr) {
+					if (attr.name && attr.name.toLowerCase().startsWith('on')) {
+						evtAttrs.push(attr.name);
+					}
+				});
+			});
+
+			$(this).each(function (i, e) {
+				evtAttrs.forEach(function (attrName) {
+					$(elem, $htmlDoc).removeAttr(attrName);
+				});
+			});
+		});
+
+		// return the HTML
+		return $htmlDoc.html();
+	} catch (e) {
+		return newVal;
+	}
+
 
 	return newVal;
 };

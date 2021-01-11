@@ -32,6 +32,7 @@
 					'ojL10n': CDNPrefix + '/default/js/ojL10n',
 					'ojtranslations': CDNPrefix + '/default/js/resources',
 					'signals': CDNPrefix + '/3rdparty/js-signals/signals.min',
+					'promise': CDNPrefix + '/3rdparty/es6-promise/es6-promise.min',
 					'ojdnd': CDNPrefix + '/3rdparty/dnd-polyfill/dnd-polyfill-1.0.0.min',
 					'customElements': CDNPrefix + '/3rdparty/webcomponents/custom-elements.min',
 					'hammerjs': CDNPrefix + '/3rdparty/hammer/hammer-2.0.8.min',

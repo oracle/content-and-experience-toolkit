@@ -94,27 +94,29 @@ router.get('/*', (req, res) => {
 	} else if (filePathSuffix.indexOf('renderer.js') > 0) {
 		filePath = path.resolve(defaultTestDir + '/sitescloud/renderer/renderer.js');
 	} else if (filePathSuffix.indexOf('caas_contenttypemap.json') >= 0) {
-		filePath = path.resolve(templatesDir + '/' + filePathSuffix);
-		if (existsAndIsFile(filePath)) {
-			console.log('handle templates: url=' + req.path + ' filePath=' + filePath);
-			res.sendFile(filePath);
+		// Get first from <temp>/assets/contenttemplate/summary.json 
+		var summaryPath = path.join(templatesDir, tempName, 'assets', 'contenttemplate', 'summary.json');
+		var mappings = [];
+		if (fs.existsSync(summaryPath)) {
+			var summaryJson = JSON.parse(fs.readFileSync(summaryPath));
+			mappings = summaryJson.categoryLayoutMappings || summaryJson.contentTypeMappings || [];
+		}
+		if (mappings.length > 0) {
+			console.log(' - content layout mapping from file ' + summaryPath);
+			res.write(JSON.stringify(mappings));
+			res.end();
+			return;
 		} else {
-			console.log('File ' + filePath + ' does not exist, get from server');
-			// get from server
-			request('http://localhost:' + app.locals.port + '/getcontentlayoutmappings', {
-				isJson: true
-			}, function (err, response, body) {
-				var mappings = [];
-				if (response && response.statusCode === 200) {
-					var data = JSON.parse(body);
-					mappings = data;
-				} else {
-					console.log('status=' + response.statusCode + ' err=' + err);
-				}
+			filePath = path.resolve(templatesDir + '/' + filePathSuffix);
+			if (existsAndIsFile(filePath)) {
+				console.log(' - content layout mapping from file ' + filePath);
+				res.sendFile(filePath);
+			} else {
+				console.log(' - no content layout mapping found');
 				res.write(JSON.stringify(mappings));
 				res.end();
 				return;
-			});
+			}
 		}
 		return;
 	} else if (filePathSuffix.indexOf('/content/') >= 0 && filePathSuffix.indexOf('preview/') > 0) {

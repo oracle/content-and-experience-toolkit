@@ -195,17 +195,30 @@ router.get('/*', (req, res) => {
 			}
 			var temps = fs.readdirSync(defaultTemplatesDir);
 			for (var i = 0; i < temps.length; i++) {
-				var digitfile = path.join(defaultTemplatesDir, temps[i],
+				var digitPath = path.join(defaultTemplatesDir, temps[i],
 					'assets', 'contenttemplate', 'Content Template of ' + temps[i],
-					'ContentItems', 'DigitalAsset', 'files', id);
-				if (fs.existsSync(digitfile)) {
+					'ContentItems');
+				if (fs.existsSync(digitPath)) {
+					var types = fs.readdirSync(digitPath);
+					var isDigital = false;
+					for (var j = 0; j < types.length; j++) {
+						if (types[j] !== 'VariationSets' &&
+							fs.existsSync(path.join(digitPath, types[j], id + '.json')) &&
+							fs.existsSync(path.join(digitPath, types[j], 'files', id))) {
+							isDigital = true;
+							break;
+						}
+					}
+				}
+
+				if (isDigital) {
 					temp = temps[i];
-					console.log(' - the digit asset is from template ' + temp);
+					console.log(' - the digital asset is from template ' + temp);
 					break;
 				}
 			}
 			if (!temp) {
-				console.log(' - the digit asset does not belong to any template');
+				console.log(' - the digital asset does not belong to any template');
 			}
 		} else if (comp) {
 			var comptemps = serverUtils.getComponentTemplates(projectDir, comp);
@@ -222,7 +235,7 @@ router.get('/*', (req, res) => {
 		}
 	}
 
-	var tempdir, 
+	var tempdir,
 		contentdir,
 		filePath = '';
 	if (fs.existsSync(path.join(defaultTemplatesDir, temp))) {
@@ -706,12 +719,23 @@ router.get('/*', (req, res) => {
 		if (id.indexOf('/') > 0) {
 			id = id.substring(0, id.indexOf('/'));
 		}
-		var assetsdir = path.join(contentdir, 'ContentItems', 'DigitalAsset'),
-			assetjsonfile = path.join(assetsdir, id + '.json');
-		if (fs.existsSync(assetjsonfile)) {
+
+		var assetsdir;
+		var assetjsonfile;
+		var types = fs.readdirSync(path.join(contentdir, 'ContentItems'));
+		for (var i = 0; i < types.length; i++) {
+			if (types[i] !== 'VariationSets' && fs.existsSync(path.join(contentdir, 'ContentItems', types[i], id + '.json'))) {
+				assetsdir = path.join(contentdir, 'ContentItems', types[i]);
+				assetjsonfile = path.join(assetsdir, id + '.json');
+				break;
+			}
+		}
+
+		if (assetjsonfile && fs.existsSync(assetjsonfile)) {
 			var assetjson = JSON.parse(fs.readFileSync(assetjsonfile)),
 				assetfile = assetjson && assetjson.name ? path.join(assetsdir, 'files', id, assetjson.name) : '';
 			if (fs.existsSync(assetfile)) {
+				console.log(' - asset file: ' + assetfile);
 				res.write(fs.readFileSync(assetfile));
 				res.end();
 				return;

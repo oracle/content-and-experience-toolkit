@@ -84,11 +84,10 @@ module.exports.createSite = function (argv, done) {
 	sitePrefix = sitePrefix.substring(0, 15);
 	var updateContent = typeof argv.update === 'string' && argv.update.toLowerCase() === 'true';
 
-	if (server.useRest) {
-		_createSiteREST(request, server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, done);
-	} else {
-		_createSiteSCS(request, server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, updateContent, done);
-	}
+	_createSiteREST(request, server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, updateContent, done);
+	
+	// _createSiteSCS(request, server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, updateContent, done);
+	
 };
 
 
@@ -459,7 +458,7 @@ var _createSiteSCS = function (request, server, siteName, templateName, reposito
  * @param {*} done 
  */
 var _createSiteREST = function (request, server, name, templateName, repositoryName, localizationPolicyName,
-	defaultLanguage, description, sitePrefix, done) {
+	defaultLanguage, description, sitePrefix, updateContent, done) {
 	var template, templateGUID;
 	var repositoryId, localizationPolicyId;
 	var createEnterprise;
@@ -614,7 +613,8 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 								templateId: template.id,
 								repositoryId: repositoryId,
 								localizationPolicyId: localizationPolicyId,
-								defaultLanguage: defaultLanguage
+								defaultLanguage: defaultLanguage,
+								updateContent: updateContent
 							});
 						})
 						.then(function (result) {
@@ -1248,7 +1248,7 @@ module.exports.transferSite = function (argv, done) {
 									// create template on the source server and download
 									var enterprisetemplate = true;
 									return templateUtils.createLocalTemplateFromSite(
-										argv, templateName, siteName, server, excludecontent, enterprisetemplate, excludecomponents);
+										argv, templateName, siteName, server, excludecontent, enterprisetemplate, excludecomponents, excludetheme);
 
 								})
 								.then(function (result) {
@@ -1404,7 +1404,7 @@ module.exports.transferSite = function (argv, done) {
 
 									var createSitePromises = [];
 									if (creatNewSite && site) {
-										/*
+										
 										createSitePromises.push(sitesRest.createSite({
 											server: destServer,
 											name: siteName,
@@ -1414,10 +1414,12 @@ module.exports.transferSite = function (argv, done) {
 											templateId: templateId,
 											repositoryId: repository.id,
 											localizationPolicyId: policy.id,
-											defaultLanguage: site.defaultLanguage
+											defaultLanguage: site.defaultLanguage,
+											updateContent: true
 										}));
-										*/
+										/*
 										createSitePromises.push(_postOneIdcService(request, localhost, destServer, 'SCS_COPY_SITES', 'create site', idcToken));
+										*/
 									}
 
 									return Promise.all(createSitePromises);
@@ -3033,12 +3035,14 @@ module.exports.getSiteSecurity = function (argv, done) {
 			return;
 		}
 
+		var apiResult;
 		sitesRest.getSite({
 				server: server,
 				name: name,
 				expand: 'access'
 			})
 			.then(function (result) {
+				apiResult = result;
 				if (!result || result.err) {
 					return Promise.reject();
 				}
@@ -3088,6 +3092,11 @@ module.exports.getSiteSecurity = function (argv, done) {
 				done(true);
 			})
 			.catch((error) => {
+				console.log('ERROR: failed to get site security');
+				if (error) {
+					console.log(error);
+				}
+				console.log(apiResult);
 				done();
 			});
 	});
