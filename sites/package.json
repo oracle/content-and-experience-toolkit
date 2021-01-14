@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "21.1.1",
+	"version": "21.1.1a",
 	"license": "UPL-1.0",
 	"description": "Oracle Content and Experience Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content and Experience.",
 	"main": "index.js",

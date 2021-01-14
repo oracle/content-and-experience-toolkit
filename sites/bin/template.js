@@ -76,7 +76,8 @@ var _cmdEnd = function (done, success) {
 };
 
 
-var _createLocalTemplateFromSite = function (name, siteName, server, excludeContent, enterprisetemplate, excludeComponents, excludeTheme) {
+var _createLocalTemplateFromSite = function (name, siteName, server, excludeContent, enterprisetemplate,
+	excludeComponents, excludeTheme, excludeType) {
 	return new Promise(function (resolve, reject) {
 		var request = serverUtils.getRequest();
 
@@ -222,7 +223,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 				})
 				.then(function (results) {
 
-					var downloadContentPromises = (excludeContent || !isEnterprise) ? [] : [_downloadContent(request, server, name, channelId)];
+					var downloadContentPromises = (excludeContent || !isEnterprise) ? [] : [_downloadContent(request, server, name, channelId, excludeType)];
 
 					return Promise.all(downloadContentPromises);
 				})
@@ -238,7 +239,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 				})
 				.then(function (results) {
-					if (excludeContent) {
+					if (excludeContent && !excludeType) {
 						var mappings = results || [];
 						var categoryLayoutMappings = [];
 						mappings.forEach(function (mapping) {
@@ -284,7 +285,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					}
 
 					var contentTypePromises = [];
-					if (excludeContent && contentTypeNames.length > 0) {
+					if (excludeContent && !excludeType && contentTypeNames.length > 0) {
 						contentTypeNames.forEach(function (typeName) {
 							contentTypePromises.push(serverRest.getContentType({
 								server: server,
@@ -297,7 +298,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 				})
 				.then(function (results) {
-					if (excludeContent) {
+					if (excludeContent && !excludeType) {
 						var types = results || [];
 
 						var folderPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate',
@@ -501,12 +502,13 @@ var _downloadSiteComponents = function (request, server, compNames) {
 	});
 };
 
-var _createLocalTemplateFromSiteUtil = function (argv, name, siteName, server, excludeContent, enterprisetemplate, excludeComponents, excludeTheme) {
+var _createLocalTemplateFromSiteUtil = function (argv, name, siteName, server, excludeContent, enterprisetemplate,
+	excludeComponents, excludeTheme, excludeType) {
 	verifyRun(argv);
-	return _createLocalTemplateFromSite(name, siteName, server, excludeContent, enterprisetemplate, excludeComponents, excludeTheme);
+	return _createLocalTemplateFromSite(name, siteName, server, excludeContent, enterprisetemplate, excludeComponents, excludeTheme, excludeType);
 };
 
-var _downloadContent = function (request, server, name, channelId) {
+var _downloadContent = function (request, server, name, channelId, excludeType) {
 	return new Promise(function (resolve, reject) {
 		var channelName;
 		var assetSummaryJson;
@@ -543,49 +545,56 @@ var _downloadContent = function (request, server, name, channelId) {
 					return Promise.reject();
 				}
 
+				// query content layout mapping for each type
 				var summaryStr = fs.readFileSync(path.join(tempContentPath, 'Summary.json'));
 				assetSummaryJson = JSON.parse(summaryStr);
 				var contentTypes = assetSummaryJson && assetSummaryJson.types ? assetSummaryJson.types.split(',') : [];
-				var typePromises = [];
 
-				for (var i = 0; i < contentTypes.length; i++) {
-					if (contentTypes[i] !== 'DigitalAsset' && contentTypes[i] !== 'Recommendation') {
-						typePromises.push(serverUtils.getContentTypeLayoutMapping(request, server, contentTypes[i]));
-						assetContentTypes.push(contentTypes[i]);
+				var typePromises = [];
+				if (!excludeType) {
+					for (var i = 0; i < contentTypes.length; i++) {
+						if (contentTypes[i] !== 'DigitalAsset' && contentTypes[i] !== 'Recommendation') {
+							typePromises.push(serverUtils.getContentTypeLayoutMapping(request, server, contentTypes[i]));
+							assetContentTypes.push(contentTypes[i]);
+						}
 					}
 				}
 
 				return Promise.all(typePromises);
 			})
 			.then(function (results) {
-				var mappings = results || [];
 
 				var items = assetSummaryJson && assetSummaryJson.items ? assetSummaryJson.items.split(',') : [];
-
 				var layoutComponents = [];
 				var categoryLayoutMappings = [];
-				var typeName = assetContentTypes[i];
-				for (var i = 0; i < mappings.length; i++) {
-					if (mappings[i].data && mappings[i].data.length > 0) {
-						var typeMappings = mappings[i].data;
-						var categoryList = [];
-						for (var j = 0; j < typeMappings.length; j++) {
-							if (!layoutComponents.includes(typeMappings[j].xCaasLayoutName)) {
-								layoutComponents.push(typeMappings[j].xCaasLayoutName);
+				var customEditors = [];
+
+				if (!excludeType) {
+					var mappings = results || [];
+
+					var typeName = assetContentTypes[i];
+					for (var i = 0; i < mappings.length; i++) {
+						if (mappings[i].data && mappings[i].data.length > 0) {
+							var typeMappings = mappings[i].data;
+							var categoryList = [];
+							for (var j = 0; j < typeMappings.length; j++) {
+								if (!layoutComponents.includes(typeMappings[j].xCaasLayoutName)) {
+									layoutComponents.push(typeMappings[j].xCaasLayoutName);
+								}
+								categoryList.push({
+									categoryName: typeMappings[j].xCaasCategoryName,
+									layoutName: typeMappings[j].xCaasLayoutName
+								});
 							}
-							categoryList.push({
-								categoryName: typeMappings[j].xCaasCategoryName,
-								layoutName: typeMappings[j].xCaasLayoutName
+							categoryLayoutMappings.push({
+								type: mappings[i].type,
+								categoryList: categoryList
 							});
 						}
-						categoryLayoutMappings.push({
-							type: mappings[i].type,
-							categoryList: categoryList
-						});
 					}
-				}
 
-				var customEditors = _getCustomEditors(tempContentPath);
+					customEditors = _getCustomEditors(tempContentPath);
+				}
 
 				// create summary.json
 				var summaryJson = {

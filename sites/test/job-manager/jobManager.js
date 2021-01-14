@@ -114,11 +114,6 @@ JobManager.prototype.compileSite = function (jobConfig) {
 				console.log('stderr:', `${data}`);
 				logStream.write(`${data}`);
 			},
-			logCode = function (commndString, code) {
-				var message = commndString + ' child process exited with code ' + `${code}` + '\n';
-				console.log(commndString, 'child process exited with code', `${code}`);
-				logStream.write(message);
-			},
 			logCodeSignal = function (commndString, code, signal) {
 				var message = commndString + ' child process exited with code ' + `${code}` + '\n';
 				console.log(commndString, 'child process exited with code', `${code}`);
@@ -250,8 +245,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
 					registerServerCommand.stdout.on('data', logStdout);
 					registerServerCommand.stderr.on('data', logStderr);
-					registerServerCommand.on('close', (code) => {
-						logCode('registerServerCommand', code);
+					registerServerCommand.on('close', (code, signal) => {
+						logCodeSignal('registerServerCommand', code, signal);
 						logDuration(jobConfig, 'registerServerCommand', startTime);
 						code === 0 ? resolveStep(code) : rejectStep(code);
 					});
@@ -271,8 +266,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
 					setTokenCommand.stdout.on('data', logStdout);
 					setTokenCommand.stderr.on('data', logStderr);
-					setTokenCommand.on('close', (code) => {
-						logCode('setTokenCommand', code);
+					setTokenCommand.on('close', (code, signal) => {
+						logCodeSignal('setTokenCommand', code, signal);
 						logDuration(jobConfig, 'setTokenCommand', startTime);
 						code === 0 ? resolveStep(code) : rejectStep(code);
 					});
@@ -307,8 +302,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
 						publishSiteCommand.stdout.on('data', logPublishSiteStdout);
 						publishSiteCommand.stderr.on('data', logStderr);
-						publishSiteCommand.on('close', (code) => {
-							logCode('publishSiteCommand', code);
+						publishSiteCommand.on('close', (code, signal) => {
+							logCodeSignal('publishSiteCommand', code, signal);
 							logDuration(jobConfig, 'publishSiteCommand', startTime);
 							code === 0 ? resolveStep(code) : rejectStep(code);
 						});
@@ -347,8 +342,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
 						createTemplateCommand.stdout.on('data', logStdout);
 						createTemplateCommand.stderr.on('data', logStderr);
-						createTemplateCommand.on('close', (code) => {
-							logCode('createTemplateCommand', code);
+						createTemplateCommand.on('close', (code, signal) => {
+							logCodeSignal('createTemplateCommand', code, signal);
 							logDuration(jobConfig, 'createTemplateCommand', startTime);
 							code === 0 ? resolveStep(code) : rejectStep(code);
 						});
@@ -448,8 +443,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
 						compileCommand.stdout.on('data', logStdout);
 						compileCommand.stderr.on('data', logStderr);
-						compileCommand.on('close', (code) => {
-							logCode('compileCommand', code);
+						compileCommand.on('close', (code, signal) => {
+							logCodeSignal('compileCommand', code, signal);
 							logDuration(jobConfig, 'compileCommand', startTime);
 							code === 0 ? resolveStep(code) : rejectStep(code);
 						});
@@ -476,8 +471,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
 						uploadCommand.stdout.on('data', logStdout);
 						uploadCommand.stderr.on('data', logStderr);
-						uploadCommand.on('close', (code) => {
-							logCode('uploadCommand', code);
+						uploadCommand.on('close', (code, signal) => {
+							logCodeSignal('uploadCommand', code, signal);
 							logDuration(jobConfig, 'uploadCommand', startTime);
 							code === 0 ? resolveStep(code) : rejectStep(code);
 						});
@@ -505,8 +500,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
 						publishStaticCommand.stdout.on('data', logPublishStaticStdout);
 						publishStaticCommand.stderr.on('data', logStderr);
-						publishStaticCommand.on('close', (code) => {
-							logCode('publishStaticCommand', code);
+						publishStaticCommand.on('close', (code, signal) => {
+							logCodeSignal('publishStaticCommand', code, signal);
 							logDuration(jobConfig, 'publishStaticCommand', startTime);
 							code === 0 ? resolveStep(code) : rejectStep(code);
 						});
@@ -531,8 +526,8 @@ JobManager.prototype.compileSite = function (jobConfig) {
 
 						rmTemplateDirCommand.stdout.on('data', logStdout);
 						rmTemplateDirCommand.stderr.on('data', logStderr);
-						rmTemplateDirCommand.on('close', (code) => {
-							logCode('rmTemplateDirCommand', code);
+						rmTemplateDirCommand.on('close', (code, signal) => {
+							logCodeSignal('rmTemplateDirCommand', code, signal);
 							code === 0 ? resolveStep(code) : rejectStep(code);
 						});
 					});

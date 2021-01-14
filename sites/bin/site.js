@@ -947,8 +947,11 @@ module.exports.transferSite = function (argv, done) {
 	var excludecontent = typeof argv.excludecontent === 'string' && argv.excludecontent.toLowerCase() === 'true';
 	var excludecomponents = typeof argv.excludecomponents === 'string' && argv.excludecomponents.toLowerCase() === 'true';
 	var excludetheme = typeof argv.excludetheme === 'string' && argv.excludetheme.toLowerCase() === 'true';
+	var excludetype = typeof argv.excludetype === 'string' && argv.excludetype.toLowerCase() === 'true';
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
 	var includestaticfiles = typeof argv.includestaticfiles === 'string' && argv.includestaticfiles.toLowerCase() === 'true';
+
+	// console.log(' - excludecontent:' + excludecontent + ' excludecomponents:' + excludecomponents + ' excludetheme:' + excludetheme + ' excludetype:' + excludetype);
 
 	// when transfer site without content, the site content won't be included in the
 	// site template zip, they will be uploaded to site content folder after site is created
@@ -1248,7 +1251,7 @@ module.exports.transferSite = function (argv, done) {
 									// create template on the source server and download
 									var enterprisetemplate = true;
 									return templateUtils.createLocalTemplateFromSite(
-										argv, templateName, siteName, server, excludecontent, enterprisetemplate, excludecomponents, excludetheme);
+										argv, templateName, siteName, server, excludecontent, enterprisetemplate, excludecomponents, excludetheme, excludetype);
 
 								})
 								.then(function (result) {

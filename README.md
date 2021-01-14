@@ -15,6 +15,13 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.1.1a
+
+**Fixed**
+
+- Fixed local server error with missing Promise polyfill
+
+
 # New in Release 21.1.1
 
 **Added**

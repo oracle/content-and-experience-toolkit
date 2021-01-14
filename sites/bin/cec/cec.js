@@ -4004,6 +4004,10 @@ const argv = yargs.usage(_usage)
 					alias: 'c',
 					description: 'Exclude theme'
 				})
+				.option('excludetype', {
+					alias: 't',
+					description: 'Exclude content types'
+				})
 				.option('includestaticfiles', {
 					alias: 'i',
 					description: 'Include site static files'
@@ -7104,6 +7108,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.excludetheme) {
 		transferSiteArgs.push(...['--excludetheme', argv.excludetheme]);
+	}
+	if (argv.excludetype) {
+		transferSiteArgs.push(...['--excludetype', argv.excludetype]);
 	}
 	if (argv.includestaticfiles) {
 		transferSiteArgs.push(...['--includestaticfiles', argv.includestaticfiles]);
