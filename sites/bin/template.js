@@ -1452,249 +1452,15 @@ module.exports.downloadTemplate = function (argv, done) {
 			return;
 		}
 
-		if (server.useRest) {
-			_downloadTemplateREST(server, name)
-				.then(function (result) {
-					if (result.err) {
-						done();
-					} else {
-						done(true);
-					}
-					return;
-				});
-		}
-
-		var express = require('express');
-		var app = express();
-
-		var port = '9191';
-		var localhost = 'http://localhost:' + port;
-
-		var dUser = '';
-		var idcToken;
-		var templateGUID;
-		var homeFolderGUID;
-		var templateZipFile = name + '.zip';
-		var templateZipFileGUID;
-		var zippath = path.join(destdir, templateZipFile);
-
-		var auth = serverUtils.getRequestAuth(server);
-
-		var startTime;
-
-		app.get('/*', function (req, res) {
-			// console.log('GET: ' + req.url);
-			if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-				var url = server.url + req.url;
-
-				var options = {
-					url: url,
-				};
-
-				options.auth = auth;
-
-				request(options).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						console.log('ERROR: GET request failed: ' + req.url);
-						console.log(error);
-						return resolve({
-							err: 'err'
-						});
-					})
-					.pipe(res);
-
-			} else {
-				console.log('ERROR: GET request not supported: ' + req.url);
-				res.write({});
-				res.end();
-			}
-		});
-		app.post('/documents/web', function (req, res) {
-			// console.log('POST: ' + req.url);
-			if (req.url.indexOf('SCS_EXPORT_TEMPLATE_PACKAGE') > 0) {
-				var url = server.url + '/documents/web?IdcService=SCS_EXPORT_TEMPLATE_PACKAGE';
-				var formData = {
-					'idcToken': idcToken,
-					'item': 'fFolderGUID:' + templateGUID,
-					'destination': 'fFolderGUID:' + homeFolderGUID,
-					'useBackgroundThread': 1
-				};
-
-				var postData = {
-					method: 'POST',
-					url: url,
-					'auth': auth,
-					'formData': formData
-				};
-
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						console.log('ERROR: Failed to export template:');
-						console.log(error);
-						return resolve({
-							err: 'err'
-						});
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						res.end();
-					});
-			} else if (req.url.indexOf('FLD_MOVE_TO_TRASH') > 0) {
-				var url = server.url + '/documents/web?IdcService=FLD_MOVE_TO_TRASH';
-				var formData = {
-					'idcToken': idcToken,
-					'items': 'fFileGUID:' + templateZipFileGUID
-				};
-
-				var postData = {
-					method: 'POST',
-					url: url,
-					'auth': auth,
-					'formData': formData
-				};
-
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						console.log('ERROR: Failed to delete template zip:');
-						console.log(error);
-						return resolve({
-							err: 'err'
-						});
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						res.end();
-					});
-			} else {
-				console.log('ERROR: POST request not supported: ' + req.url);
-				res.write({});
-				res.end();
-			}
-		});
-		localServer = app.listen(0, function () {
-			port = localServer.address().port;
-			localhost = 'http://localhost:' + port;
-			localServer.setTimeout(0);
-
-			var total = 0;
-			var inter = setInterval(function () {
-				// console.log(' - getting login user: ' + total);
-				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-				request.get(url, function (err, response, body) {
-					if (!response || response.statusCode !== 200) {
-						clearInterval(inter);
-						console.log('ERROR: failed to connect to server: ' + (response ? response.statusMessage : ''));
-						_cmdEnd(done);
-					} else {
-						var data = JSON.parse(body);
-						dUser = data && data.LocalData && data.LocalData.dUser;
-						idcToken = data && data.LocalData && data.LocalData.idcToken;
-						if (dUser && dUser !== 'anonymous' && idcToken) {
-							// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-							clearInterval(inter);
-							console.log(' - establish user session');
-
-							var templatePromise = _getServerTemplate(request, localhost, name);
-							templatePromise.then(function (result) {
-									if (result.err) {
-										return Promise.reject();
-									}
-
-									if (!result.templateGUID) {
-										console.log('ERROR: template ' + name + ' does not exist');
-										return Promise.reject();
-									}
-
-									templateGUID = result.templateGUID;
-									// console.log(' - template GUID: ' + templateGUID);
-									console.log(' - get template');
-
-									return serverUtils.queryFolderId(request, server, localhost);
-								})
-								.then(function (result) {
-									// get personal home folder
-									if (result.err) {
-										return Promise.reject();
-									}
-									homeFolderGUID = result.folderId;
-									// console.log(' - Home folder GUID: ' + homeFolderGUID);
-
-									console.log(' - exporting template ...');
-									startTime = new Date();
-									return _exportServerTemplate(server, request, localhost);
-
-								})
-								.then(function (result) {
-									// template exported
-									if (result.err) {
-										return Promise.reject();
-									}
-									console.log(' - template exported ' + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-
-									return _getHomeFolderFile(request, localhost, templateZipFile);
-								})
-								.then(function (result) {
-									// get template zip file GUID from the Home folder
-									if (result.err) {
-										return Promise.reject();
-									}
-
-									templateZipFileGUID = result.fileGUID;
-
-									// console.log(' - template zip file ' + templateZipFile);
-									// console.log(' - template zip file GUID: ' + templateZipFileGUID);
-
-									console.log(' - downloading template zip file (id: ' + templateZipFileGUID + ' size: ' + result.fileSize + ') ...');
-									startTime = new Date();
-									return _downloadServerFile(request, server, templateZipFileGUID, templateZipFile);
-
-								})
-								.then(function (result) {
-									// zip file downloaded
-									if (result.err) {
-										return Promise.reject();
-									}
-
-									fs.writeFileSync(zippath, result.data);
-									console.log(' - template download to ' + zippath + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-
-									return _moveToTrash(request, localhost);
-
-								})
-								.then(function (result) {
-									// delete the template zip on the server
-									console.log(' - delete ' + templateZipFile + ' on the server');
-
-									return unzipTemplate(name, zippath, false);
-								})
-								.then(function (results) {
-									_cmdEnd(done, true);
-								})
-								.catch((error) => {
-									_cmdEnd(done);
-								});
-						}
-						total += 1;
-						if (total >= 10) {
-							clearInterval(inter);
-							console.log('ERROR: disconnect from the server, try again');
-							_cmdEnd(done);
-						}
-					}
-				});
-			}, 5000);
-
-		});
+		_downloadTemplateREST(server, name)
+			.then(function (result) {
+				if (result.err) {
+					done();
+				} else {
+					done(true);
+				}
+				return;
+			});
 
 	}); // login
 };
@@ -1755,19 +1521,11 @@ module.exports.createTemplateFromSite = function (argv, done) {
 
 		console.log(' - server: ' + server.url);
 
-		if (server.useRest) {
-			_createTemplateFromSiteREST(server, name, siteName, includeUnpublishedAssets, done);
-		} else {
 
-			_createTemplateFromSiteSCS(server, name, siteName, includeUnpublishedAssets, enterprisetemplate)
-				.then(function (result) {
-					if (result.err) {
-						_cmdEnd(done);
-					} else {
-						_cmdEnd(done, true);
-					}
-				});
-		}
+		_createTemplateFromSiteREST(server, name, siteName, includeUnpublishedAssets, enterprisetemplate)
+			.then(function (result) {
+				done(!result.err);
+			});
 
 	} catch (err) {
 		console.log(err);
@@ -2866,248 +2624,6 @@ var _deleteFromTrash = function (request, localhost) {
 };
 
 
-var __createTemplateFromSiteSCSUtil = function (argv) {
-	verifyRun(argv);
-	return _createTemplateFromSiteSCS(argv.server, argv.name, argv.siteName, argv.includeUnpublishedAssets);
-};
-
-/**
- * Create template with Idc Service APIs
- * @param {*} server 
- * @param {*} name 
- * @param {*} siteName 
- * @param {*} done 
- */
-var _createTemplateFromSiteSCS = function (server, name, siteName, includeUnpublishedAssets, enterprisetemplate) {
-	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
-
-		var loginPromise = serverUtils.loginToServer(server, request);
-		loginPromise.then(function (result) {
-			if (!result.status) {
-				console.log(' - failed to connect to the server');
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var express = require('express');
-			var app = express();
-
-			var port = '9191';
-			var localhost = 'http://localhost:' + port;
-
-			var dUser = '';
-			var idcToken;
-
-			var auth = serverUtils.getRequestAuth(server);
-
-			// the site id
-			var fFolderGUID;
-			var exportPublishedAssets = includeUnpublishedAssets ? 0 : 1;
-
-			app.get('/*', function (req, res) {
-				// console.log('GET: ' + req.url);
-				if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-					var url = server.url + req.url;
-
-					var options = {
-						url: url,
-					};
-
-					options.auth = auth;
-					if (server.cookies) {
-						options.headers = {
-							Cookie: server.cookies
-						};
-					}
-
-					request(options).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
-						.on('error', function (err) {
-							console.log('ERROR: GET request failed: ' + req.url);
-							console.log(error);
-							return resolve({
-								err: 'err'
-							});
-						})
-						.pipe(res);
-
-				} else {
-					console.log('ERROR: GET request not supported: ' + req.url);
-					res.write({});
-					res.end();
-				}
-			});
-			app.post('/documents/web', function (req, res) {
-				// console.log('POST: ' + req.url);
-				if (req.url.indexOf('SCS_COPY_SITES') > 0) {
-					var url = server.url + '/documents/web?IdcService=SCS_COPY_SITES';
-
-					var formData = {
-						'idcToken': idcToken,
-						'names': name,
-						'items': 'fFolderGUID:' + fFolderGUID,
-						'doCopyToTemplate': 1,
-						'useBackgroundThread': 1,
-						'exportPublishedAssets': exportPublishedAssets
-					};
-
-					if (enterprisetemplate) {
-						formData.isEnterprise = 1;
-					}
-
-					var postData = {
-						method: 'POST',
-						url: url,
-						'auth': auth,
-						'formData': formData
-					};
-
-					if (server.cookies) {
-						postData.headers = {
-							Cookie: server.cookies
-						};
-					}
-
-					request(postData).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
-						.on('error', function (err) {
-							console.log('ERROR: Failed to create template:');
-							console.log(error);
-							return resolve({
-								err: 'err'
-							});
-						})
-						.pipe(res)
-						.on('finish', function (err) {
-							res.end();
-						});
-
-				} else {
-					console.log('ERROR: POST request not supported: ' + req.url);
-					res.write({});
-					res.end();
-				}
-			});
-
-			localServer = app.listen(0, function () {
-				port = localServer.address().port;
-				localhost = 'http://localhost:' + port;
-				localServer.setTimeout(0);
-
-				var inter = setInterval(function () {
-					// console.log(' - getting login user: ' + total);
-					var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-					request.get(url, function (err, response, body) {
-						var data = JSON.parse(body);
-						dUser = data && data.LocalData && data.LocalData.dUser;
-						idcToken = data && data.LocalData && data.LocalData.idcToken;
-						if (dUser && dUser !== 'anonymous' && idcToken) {
-							// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-							clearInterval(inter);
-							console.log(' - establish user session');
-
-							// verify template
-							var templatesPromise = serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
-							templatesPromise.then(function (result) {
-									if (result.err) {
-										return Promise.reject();
-									}
-
-									var templates = result.data || [];
-									var foundTemplate = false;
-									for (var i = 0; i < templates.length; i++) {
-										if (name.toLowerCase() === templates[i].fFolderName.toLowerCase()) {
-											foundTemplate = true;
-											break;
-										}
-									}
-									if (foundTemplate) {
-										console.log('ERROR: template ' + name + ' already exists');
-										return Promise.reject();
-									}
-
-									//
-									// verify site
-									//
-									return serverUtils.browseSitesOnServer(request, server, '', siteName);
-								})
-								.then(function (result) {
-									if (result.err) {
-										return Promise.reject();
-									}
-
-									var sites = result.data || [];
-									var site;
-									for (var i = 0; i < sites.length; i++) {
-										if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-											site = sites[i];
-											break;
-										}
-									}
-									if (!site || !site.fFolderGUID) {
-										console.log('ERROR: site ' + siteName + ' does not exist');
-										return Promise.reject();
-									}
-
-									console.log(' - get site ');
-									fFolderGUID = site.fFolderGUID;
-
-									if (enterprisetemplate || site.xScsIsEnterprise === '1') {
-										console.log(' - will create enterprise template');
-									} else {
-										console.log(' - will create standard template');
-									}
-
-
-									return _IdcCopySites2(request, localhost, server, idcToken);
-								})
-								.then(function (result) {
-									if (!result.err) {
-										console.log(' - create template ' + name + ' finished');
-									}
-
-									return sitesRest.getTemplate({
-										server: server,
-										name: name
-									});
-
-								})
-								.then(function (result) {
-									if (result.err) {
-										console.log(' - newly created template not found');
-										return Promise.reject();
-									}
-									if (localServer) {
-										localServer.close();
-									}
-									console.log(' - template id: ' + result.id);
-									return resolve({});
-								})
-								.catch((error) => {
-									if (localServer) {
-										localServer.close();
-									}
-									return resolve({
-										err: 'err'
-									});
-								});
-						}
-
-					}); // get idcToken
-
-				}, 5000);
-			}); // local 
-		}); // login
-	});
-};
-
 var _IdcCopySites2 = function (request, localhost, server, idcToken) {
 	return new Promise(function (resolve, reject) {
 		url = localhost + '/documents/web?IdcService=SCS_COPY_SITES';
@@ -3264,6 +2780,70 @@ module.exports.compileTemplate = function (argv, done) {
 	});
 };
 
+module.exports.compileContent = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var verbose = typeof argv.verbose === 'boolean' ? argv.verbose : argv.verbose === 'true',
+		targetDevice = argv.targetDevice || '',
+		contentIds = argv.assets && argv.assets.split(','),
+		contentType = argv.contenttype || '',
+		publishingJobId = argv.source === 'undefined' ? undefined : argv.source,
+		ignoreErrors = argv.ignoreErrors,
+		server;
+	if (argv.server) {
+		server = serverUtils.verifyServer(argv.server, projectDir);
+		if (!server || !server.valid) {
+			done();
+			return;
+		}
+	}
+
+
+	if (!contentIds && !publishingJobId && !contentType) {
+		console.error('ERROR: no publishing job ID, content IDs or content type defined');
+		done();
+		return;
+	}
+
+	console.log('Compile Content: compiling content: ' + (contentIds || publishingJobId || contentType));
+
+	var compiler = require('./compiler/compiler'),
+		outputFolder = path.join(templatesSrcDir, contentSrcDir, 'static', publishingJobId || 'ids');
+
+	compiler.compileContent({
+		outputFolder: outputFolder,
+		componentsFolder: componentsSrcDir,
+		channelToken: argv.channelToken,
+		server: server,
+		registeredServerName: argv.server,
+		currPath: projectDir,
+		contentIds: contentIds,
+		contentType: contentType,
+		verbose: verbose,
+		targetDevice: targetDevice,
+		publishingJobId: publishingJobId,
+		logLevel: 'log',
+		serverURL: serverURL
+	}).then(function (result) {
+		console.log(' *** compiled content is ready to test');
+		done(true);
+	}).catch(function (error) {
+		if (ignoreErrors) {
+			console.log(' *** compile content completed with errors');
+			done(true);
+		} else {
+			console.log(' *** failed to compile content');
+			done(false);
+		}
+	});
+};
+
+
 /**
  * Delete a template on server with REST APIs
  * 
@@ -3317,68 +2897,82 @@ var _deleteTemplateREST = function (server, name, permanent, done) {
  * @param {*} includeUnpublishedAssets 
  * @param {*} done 
  */
-var _createTemplateFromSiteREST = function (server, name, siteName, includeUnpublishedAssets, done) {
-	var request = serverUtils.getRequest();
-	serverUtils.loginToServer(server, request).then(function (result) {
-		if (!result.status) {
-			console.log(' - failed to connect to the server');
-			return Promise.reject();
-		}
+var _createTemplateFromSiteREST = function (server, name, siteName, includeUnpublishedAssets, enterprisetemplate) {
+	return new Promise(function (resolve, reject) {
+		var request = serverUtils.getRequest();
+		serverUtils.loginToServer(server, request).then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server');
+				return Promise.reject();
+			}
 
-		// verify template 
-		sitesRest.resourceExist({
-				server: server,
-				type: 'templates',
-				name: name
-			}).then(function (result) {
-				if (!result.err) {
-					console.log('ERROR: template ' + name + ' already exists');
-					return Promise.reject();
-				}
-
-				// verify site
-				return sitesRest.getSite({
+			// verify template 
+			sitesRest.resourceExist({
 					server: server,
-					name: siteName
-				});
-			})
-			.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
-
-				console.log(' - get site (Id: ' + result.id + ')');
-
-				return sitesRest.createTemplateFromSite({
-					server: server,
-					name: name,
-					siteName: siteName,
-					includeUnpublishedAssets: includeUnpublishedAssets
-				});
-			})
-			.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
-
-				console.log(' - create template ' + name + ' finished');
-
-				return sitesRest.getTemplate({
-					server: server,
+					type: 'templates',
 					name: name
-				});
-			})
-			.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
+				}).then(function (result) {
+					if (!result.err) {
+						console.log('ERROR: template ' + name + ' already exists');
+						return Promise.reject();
+					}
 
-				console.log(' - site id: ' + result.id);
-				done(true);
-			})
-			.catch((error) => {
-				done();
-			});
+					// verify site
+					return sitesRest.getSite({
+						server: server,
+						name: siteName
+					});
+				})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
+					}
+
+					console.log(' - get site (Id: ' + result.id + ')');
+
+					if (enterprisetemplate || result.isEnterprise) {
+						console.log(' - will create enterprise template');
+					} else {
+						console.log(' - will create standard template');
+					}
+
+					return sitesRest.createTemplateFromSite({
+						server: server,
+						name: name,
+						siteName: siteName,
+						includeUnpublishedAssets: includeUnpublishedAssets,
+						enterprisetemplate: enterprisetemplate
+					});
+				})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
+					}
+
+					console.log(' - create template ' + name + ' finished');
+
+					return sitesRest.getTemplate({
+						server: server,
+						name: name
+					});
+				})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
+					}
+
+					console.log(' - template id: ' + result.id);
+					return resolve({});
+				})
+				.catch((error) => {
+					if (error) {
+						console.log(error);
+					}
+					return resolve({
+						err: 'err'
+					});
+				});
+		});
 	});
 };
 
@@ -3392,6 +2986,7 @@ var _downloadTemplateREST = function (server, name) {
 	return new Promise(function (resolve, reject) {
 		var fileId;
 		var zippath;
+		var startTime;
 		// verify template
 		sitesRest.getTemplate({
 				server: server,
@@ -3412,14 +3007,23 @@ var _downloadTemplateREST = function (server, name) {
 					return Promise.reject();
 				}
 
-				console.log(' - export template');
+				return serverRest.findFile({
+					server: server,
+					parentID: 'self',
+					filename: name + '.zip',
+					itemtype: 'file'
+				});
 
-				var prefix = '/documents/api/1.2/files/';
-				fileId = result.file;
-				fileId = fileId.substring(fileId.indexOf(prefix) + prefix.length);
-				fileId = fileId.substring(0, fileId.lastIndexOf('/'));
-				// console.log(' - template ' + name + ' export file id ' + fileId);
+			})
+			.then(function (result) {
+				if (result.err || !result.id) {
+					return Promise.reject();
+				}
+				// console.log(result);
 
+				fileId = result.id;
+				console.log(' - downloading template zip file (id: ' + fileId + ' size: ' + result.size + ') ...');
+				startTime = new Date();
 				return serverRest.downloadFile({
 					server: server,
 					fFileGUID: fileId
@@ -3437,7 +3041,7 @@ var _downloadTemplateREST = function (server, name) {
 
 				zippath = path.join(destdir, name + '.zip');
 				fs.writeFileSync(zippath, result.data);
-				console.log(' - template download to ' + zippath);
+				console.log(' - template downloaded to ' + zippath + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 
 				// delete the zip file on server
 

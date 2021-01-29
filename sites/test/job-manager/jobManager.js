@@ -24,12 +24,13 @@ JobManager.prototype.setLogsDir = function (inputLogsDir) {
 };
 
 JobManager.prototype.setCompileStepTimeoutValue = function (timeoutValue) {
-	compileStepTimeoutValue = timeoutValue;
+	compileStepTimeoutValue = timeoutValue * 1000; // child_processs.exec expects milliseconds.
 };
 
-JobManager.prototype.compileSite = function (jobConfig) {
+JobManager.prototype.compileJob = function (jobConfig) {
 	var self = this,
 		jobId = jobConfig.id,
+		compileContent = jobConfig.compileContentJob,
 		siteName = jobConfig.siteName,
 		secureSite = false,
 		publishUsedContentOnly = jobConfig.publishUsedContentOnly,
@@ -379,7 +380,7 @@ JobManager.prototype.compileSite = function (jobConfig) {
 						];
 						logCommand(compileArguments);
 
-						var getSiteSecurityCommand = exec(getExecCommand(cecCmd, compileArguments), cecDefaultsForCompileStep);
+						var getSiteSecurityCommand = exec(getExecCommand(cecCmd, compileArguments), cecDefaults);
 
 						var parseStdout = function (data) {
 							logStdout(data);
@@ -508,6 +509,53 @@ JobManager.prototype.compileSite = function (jobConfig) {
 					});
 				}
 			},
+			compileContentStep = function (jobConfig) {
+				if (jobConfig.status !== 'CREATED') {
+					return Promise.resolve(noop);
+				} else {
+					return new Promise(function (resolveStep, rejectStep) {
+						// update the status to COMPILE_CONTENT
+						self.updateJob(jobConfig, {
+							status: 'COMPILE_CONTENT'
+						});
+
+						// compile the content
+						var startTime = Date.now(),
+							compileArguments;
+
+						if (jobConfig.publishingJobId) {
+							compileArguments = [
+								'compile-content',
+								jobConfig.publishingJobId,
+								'-s',
+								serverName,
+								'-v'
+							];
+						} else {
+							compileArguments = [
+								'compile-content',
+								'-t',
+								jobConfig.contentType,
+								'-s',
+								serverName,
+								'-v'
+							];
+						}
+
+						logCommand(compileArguments);
+
+						var compileCommand = exec(getExecCommand(cecCmd, compileArguments), cecDefaultsForCompileStep);
+
+						compileCommand.stdout.on('data', logStdout);
+						compileCommand.stderr.on('data', logStderr);
+						compileCommand.on('close', (code, signal) => {
+							logCodeSignal('compileCommand', code, signal);
+							logDuration(jobConfig, 'compileCommand', startTime);
+							code === 0 ? resolveStep(code) : rejectStep(code);
+						});
+					});
+				}
+			},
 			rmTemplateDirStep = function (jobStatus) {
 				if (!(jobStatus === 'CREATE_TEMPLATE' || jobStatus === 'PUBLISH_STATIC')) {
 					return Promise.resolve(noop);
@@ -540,15 +588,16 @@ JobManager.prototype.compileSite = function (jobConfig) {
 					return self.updateStatus(jobConfig, jobStatus, percentage);
 				}
 			},
-			stopNow = function (code) {
+			stopNow = function (code, isContentJob) {
 				console.log('stop with code', code);
 				logStream.end();
-				uploadLogStep().then(function () {
+				var uploadLogPromise = isContentJob ? Promise.resolve() : uploadLogStep();
+
+				uploadLogPromise.then(function () {
 					// don't update status if irrecoverable error coourred
-					if(code === UPDATESTATUSERRORCODE){
+					if (code === UPDATESTATUSERRORCODE) {
 						reject();
-					}
-					else{
+					} else {
 						// status updated to faile - progress set to 100, since we can't recover and no additional steps will occur
 						self.updateStatus(jobConfig, 'FAILED', 100).then(function (updatedJobConfig) {
 							reject(updatedJobConfig);
@@ -556,7 +605,25 @@ JobManager.prototype.compileSite = function (jobConfig) {
 					}
 				});
 			},
-			steps = function () {
+			compileContentSteps = function () {
+				// exit is status is not one of these...
+				if (['CREATED'].indexOf(jobConfig.status) === -1) {
+					console.log('Should not be in compileContent when status is', jobConfig.status);
+				} else {
+					compileContentStep(jobConfig).then(function (completionCode) {
+						if (completionCode !== noop) {
+							logDuration(jobConfig, 'compileContent', compileStartTime);
+						}
+						logStream.end();
+						updateStatusStep(completionCode, 'COMPILED', 100).then(function (updatedJobConfig) {
+							resolve(updatedJobConfig);
+						});
+					}, function (code) {
+						stopNow(code, true);
+					});
+				}
+			},
+			compileSiteSteps = function () {
 				// setup the promise to get the site metadata
 				self.getSiteMetadataPromise = self.getSiteMetadata(jobConfig);
 
@@ -605,16 +672,17 @@ JobManager.prototype.compileSite = function (jobConfig) {
 				} else {
 					console.log('Should not be in compileSite when status is', jobConfig.status);
 				}
-			};
+			},
+			compileSteps = compileContent ? compileContentSteps : compileSiteSteps;
 
 		getLogStreamStep().then(function (stream) {
 			logStream = stream;
 
 			registerServerStep().then(function () {
 				if (token) {
-					setTokenStep().then(steps, stopNow);
+					setTokenStep().then(compileSteps, stopNow);
 				} else {
-					steps();
+					compileSteps();
 				}
 			});
 		});
@@ -667,13 +735,31 @@ JobManager.prototype.compileSiteJob = function (jobConfig) {
 	return new Promise(function (resolve, reject) {
 		// if (jobConfig.status === 'CREATED') {
 		if (['FAILED', 'CREATED', 'COMPILED'].indexOf(jobConfig.status) === -1) {
-			self.compileSite(jobConfig).then(function (updatedJobConfig) {
+			self.compileJob(jobConfig, false).then(function (updatedJobConfig) {
 				resolve(updatedJobConfig);
 			}, function (updatedJobConfig) {
 				reject(updatedJobConfig);
 			});
 		} else {
 			console.log('compileSiteJob called when status is', jobConfig.status);
+			reject(jobConfig);
+		}
+	});
+};
+
+JobManager.prototype.compileContentJob = function (jobConfig) {
+	var self = this;
+
+	return new Promise(function (resolve, reject) {
+		if (['FAILED', 'COMPILED'].indexOf(jobConfig.status) === -1) {
+			// if status is 
+			self.compileJob(jobConfig, true).then(function (updatedJobConfig) {
+				resolve(updatedJobConfig);
+			}, function (updatedJobConfig) {
+				reject(updatedJobConfig);
+			});
+		} else {
+			console.log('compileContentJob called when status is', jobConfig.status);
 			reject(jobConfig);
 		}
 	});
@@ -786,20 +872,19 @@ JobManager.prototype.updateStatus = function (jobConfig, status, progress) {
 		// Retry, assuming the error is recoverable.
 		// We have yet to find a way to handle irrecoverable error. 
 		// We will add the new Promise back when we have a solution on how to handle reject promise.
- 
+
 		return new Promise(function (resolve, reject) {
 			var retry = UPDATESTATUSRETRY;
-			var update = function() {
+			var update = function () {
 				retry--;
-				self.updateSiteMetadata(updatedJobConfig).then(function(s) {
+				self.updateSiteMetadata(updatedJobConfig).then(function (s) {
 					console.log('compilation server successfully updated site metadata in server ', s);
 					resolve(updatedJobConfig);
 				}).catch(function (e) {
 					console.log('compilation server error: failed to update site metadata in server -', e.err);
 					if (retry > 0) {
 						update();
-					}
-					else{
+					} else {
 						console.log('Error irrecoverable:', e.err);
 						reject(UPDATESTATUSERRORCODE);
 					}

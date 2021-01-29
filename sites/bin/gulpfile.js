@@ -879,6 +879,20 @@ gulp.task('compile-template', function (done) {
 	});
 });
 
+/**
+ * Compile content
+ * compile content items and place compiles pages under the content assets
+ */
+gulp.task('compile-content', function (done) {
+	'use strict';
+
+	templatelib.compileContent(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+
 
 /**
  * delete template on server

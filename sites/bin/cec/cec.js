@@ -663,6 +663,31 @@ const compileTemplate = {
 	]
 };
 
+const compileContent = {
+	command: 'compile-content',
+	alias: 'cmpc',
+	name: 'compile-content',
+	debugName: 'compile-content-debug',
+	usage: {
+		'short': 'Compiles the content items generating HTML renditions.',
+		'long': (function () {
+			let desc = 'Compiles all the content items within the publishing job or list of assets and places the compiled renditions under the "dist" folder.\n' +
+				'Specify -s <server> to make content queries against this server.\n' +
+				'Optionally specify -a <assets> comma separated lists of assets.\n' +
+				'Optionally specify -t <contentType> compile all published assets of this content type.\n' +
+				'Optionally specify -d <debug> to start the compilation with --inspect-brk flag.\n' +
+				'Optionally specify -v <verbose> to display all warning messages during compilation.\n';
+			return desc;
+		})()
+	},
+	example: [
+		['cec compile-content publishingJobId -s UAT', 'Compiles the content items in the specified publishing job retrieving content from the server.'],
+		['cec compile-content publishingJobId -s UAT -d', 'Waits for the debugger to be attached.  Once attached, compiles the content in the specified publishing job.'],
+		['cec compile-content -a GUID1,GUID2 -s UAT', 'Compiles the assets by retrieving content from the specified server.'],
+		['cec compile-content -t Blog -s UAT', 'Compiles the published assets of this content type from the specified server.']
+	]
+};
+
 const deleteTemplate = {
 	command: 'delete-template <name>',
 	alias: '',
@@ -2417,7 +2442,7 @@ const compilationServer = {
 		['cec compilation-server -p 3001'],
 		['cec compilation-server -l /usr/data/compilationlogs', 'Compilation log files will be stored in the directory specified.'],
 		['cec compilation-server -j /usr/data/compilationjobs', 'Compilation jobs data will be stored in the directory specified.'],
-		['cec compilation-server -t 120000', 'The compile-template step will use the specified timeout value in milliseconds.'],
+		['cec compilation-server -t 600', 'The compile-template step will use the specified timeout value in seconds.'],
 		['cec compilation-server -k ~/keys/key.pem -c ~/keys/cert.pem', 'The sync server will start over HTTPS']
 	]
 };
@@ -2631,7 +2656,8 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(removeContentLayoutMapping) + os.EOL +
 	_getCmdHelp(addFieldEditor) + os.EOL +
 	_getCmdHelp(removeFieldEditor) + os.EOL +
-	_getCmdHelp(migrateContent) + os.EOL;
+	_getCmdHelp(migrateContent) + os.EOL +
+	_getCmdHelp(compileContent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
 	_getCmdHelp(downloadTaxonomy) + os.EOL +
@@ -3988,6 +4014,10 @@ const argv = yargs.usage(_usage)
 					alias: 'l',
 					description: 'Localization policy, required for creating enterprise site'
 				})
+				.option('sitePrefix', {
+					alias: 'f',
+					description: 'Site prefix'
+				})
 				.option('publishedassets', {
 					alias: 'p',
 					description: 'The flag to indicate published assets only'
@@ -4011,6 +4041,10 @@ const argv = yargs.usage(_usage)
 				.option('includestaticfiles', {
 					alias: 'i',
 					description: 'Include site static files'
+				})
+				.option('suppressgovernance', {
+					alias: 'p',
+					description: 'Suppress site governance controls'
 				})
 				.example(...transferSite.example[0])
 				.example(...transferSite.example[1])
@@ -4619,6 +4653,50 @@ const argv = yargs.usage(_usage)
 				.alias('help', 'h')
 				.version(false)
 				.usage(`Usage: cec ${migrateContent.command}\n\n${migrateContent.usage.long}`);
+		})
+	.command([compileContent.command, compileContent.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered OCE server'
+				})
+				.option('assets', {
+					alias: 'a',
+					description: 'The comma separated list of asset GUIDS'
+				})
+				.option('contenttype', {
+					alias: 't',
+					description: 'compile all the published assets of this content type.'
+				})
+				.option('debug', {
+					alias: 'd',
+					description: 'Start the compiler with "--inspect-brk" option to debug compilation'
+				})
+				.option('verbose', {
+					alias: 'v',
+					description: 'Run in verbose mode to display all warning messages during compilation.'
+				})
+				.check((argv) => {
+					if (!argv.source && argv._[1]) {
+						argv.source = argv._[1];
+					}
+
+					if (!argv.source && !argv.assets && !argv.contenttype) {
+						throw new Error(`Missing required parameters: <publishingJobId> or <assets> and <server>`);
+					} else if (!argv.server) {
+						throw new Error(`compile-content: not supported without <server> parameter`);
+					} else {
+						return true;
+					}
+				})
+				.example(...compileContent.example[0])
+				.example(...compileContent.example[1])
+				.example(...compileContent.example[2])
+				.example(...compileContent.example[3])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${compileContent.command}\n\n${compileContent.usage.long}`);
 		})
 	.command([renameContentType.command, renameContentType.alias], false,
 		(yargs) => {
@@ -7097,6 +7175,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.localizationPolicy && typeof argv.localizationPolicy !== 'boolean') {
 		transferSiteArgs.push(...['--localizationPolicy', argv.localizationPolicy]);
 	}
+	if (argv.sitePrefix && typeof argv.sitePrefix !== 'boolean') {
+		transferSiteArgs.push(...['--sitePrefix', argv.sitePrefix]);
+	}
 	if (argv.publishedassets) {
 		transferSiteArgs.push(...['--publishedassets', argv.publishedassets]);
 	}
@@ -7114,6 +7195,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.includestaticfiles) {
 		transferSiteArgs.push(...['--includestaticfiles', argv.includestaticfiles]);
+	}
+	if (argv.suppressgovernance) {
+		transferSiteArgs.push(...['--suppressgovernance', argv.suppressgovernance]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, transferSiteArgs, {
 		cwd,
@@ -7508,6 +7592,30 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		migrateContentArgs.push(...['--collection', argv.collection]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, migrateContentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === compileContent.name || argv._[0] === compileContent.alias) {
+	let runCommand = argv.debug ? compileContent.debugName : compileContent.name;
+	let compileContentArgs = ['run', '-s', runCommand, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--source', argv.source
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		compileContentArgs.push(...['--server', argv.server]);
+	}
+	if (argv.assets) {
+		compileContentArgs.push(...['--assets', argv.assets]);
+	}
+	if (argv.contenttype) {
+		compileContentArgs.push(...['--contenttype', argv.contenttype]);
+	}
+	if (argv.verbose) {
+		compileContentArgs.push(...['--verbose', argv.verbose]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, compileContentArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

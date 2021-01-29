@@ -51,7 +51,7 @@ var _getResources = function (server, type, expand) {
 				var items = data && data.items || [];
 				resolve(items);
 			} else {
-				console.log('ERROR: failed to get ' + type + ' : ' + (response ? (response.statusMessage + ' ' +  response.statusCode) : ''));
+				console.log('ERROR: failed to get ' + type + ' : ' + (response ? (response.statusMessage + ' ' + response.statusCode) : ''));
 				resolve({
 					err: (response ? (response.statusMessage || response.statusCode) : 'err')
 				});
@@ -677,6 +677,104 @@ module.exports.exportComponent = function (args) {
 	var server = args.server;
 	return _exportResource(server, 'components', args.id, args.name);
 };
+
+var _exportResourceAsync = function (server, type, id, name) {
+	return new Promise(function (resolve, reject) {
+		var request = serverUtils.getRequest();
+
+		var url = '/sites/management/api/v1/' + type + '/';
+		if (id) {
+			url = url + id;
+		} else if (name) {
+			url = url + 'name:' + name;
+		}
+		url = url + '/export';
+		console.log(' - post ' + url);
+		var options = {
+			method: 'POST',
+			headers: {
+				Prefer: 'respond-async'
+			},
+			url: server.url + url
+		};
+		if (server.env !== 'dev_ec') {
+			options.headers.Authorization = _getAuthorization(server);
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+		// console.log(options);
+
+		var resource = type.substring(0, type.length - 1);
+
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to export ' + resource + ' ' + (id || name) + ' : ');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 202) {
+				var statusLocation = response.headers && response.headers.location;
+				var jobId = statusLocation ? statusLocation.substring(statusLocation.lastIndexOf('/') + 1) : '';
+				console.log(' - job id: ' + jobId);
+				var startTime = new Date();
+				var needNewLine = false;
+				var inter = setInterval(function () {
+					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
+					jobPromise.then(function (data) {
+						// console.log(data);
+						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+							clearInterval(inter);
+							if (needNewLine) {
+								process.stdout.write(os.EOL);
+							}
+							var msg = data && data.error ? (data.error.detail || data.error.title) : '';
+							console.log('ERROR: export ' + resource + ' failed: ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						} else if (data.completed && data.progress === 'succeeded') {
+							clearInterval(inter);
+							process.stdout.write(' - export in process: percentage ' + data.completedPercentage +
+								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+							needNewLine = true;
+							clearInterval(inter);
+							process.stdout.write(os.EOL);
+
+							return resolve({});
+						} else {
+							process.stdout.write(' - export in process: percentage ' + data.completedPercentage +
+								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+							needNewLine = true;
+						}
+					});
+				}, 5000);
+			} else {
+				console.log(data);
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to export ' + resource + ' ' + name + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
 /**
  * Export a template on server 
  * @param {object} args JavaScript object containing parameters. 
@@ -687,7 +785,7 @@ module.exports.exportComponent = function (args) {
  */
 module.exports.exportTemplate = function (args) {
 	var server = args.server;
-	return _exportResource(server, 'templates', args.id, args.name);
+	return _exportResourceAsync(server, 'templates', args.id, args.name);
 };
 
 var _publishResource = function (server, type, id, name, hideAPI) {
@@ -766,7 +864,7 @@ module.exports.publishComponent = function (args) {
 	return _publishResource(server, 'components', args.id, args.name, args.hideAPI);
 };
 
-var _publishResourceAsync = function (server, type, id, name) {
+var _publishResourceAsync = function (server, type, id, name, usedContentOnly, compileSite, staticOnly, fullpublish) {
 	return new Promise(function (resolve, reject) {
 		var request = serverUtils.getRequest();
 
@@ -794,7 +892,26 @@ var _publishResourceAsync = function (server, type, id, name) {
 				password: server.password
 			};
 		}
+		if (type === 'sites' && (usedContentOnly || compileSite || staticOnly || fullpublish)) {
+			var body = {};
+			if (usedContentOnly) {
+				body.onlyUsedContent = true;
+			}
+			if (compileSite) {
+				body.skipCompile = false;
+			}
+			if (staticOnly) {
+				body.onlyStaticFiles = true;
+			}
+			if (fullpublish) {
+				body.type = 'full';
+			}
+			options.body = body;
+			options.json = true;
+		}
+
 		// console.log(options);
+
 		var resTitle = type.substring(0, type.length - 1);
 		request(options, function (error, response, body) {
 			if (error) {
@@ -834,9 +951,9 @@ var _publishResourceAsync = function (server, type, id, name) {
 							});
 						} else if (data.completed && data.progress === 'succeeded') {
 							clearInterval(inter);
-							if (needNewLine) {
-								process.stdout.write(os.EOL);
-							}
+							process.stdout.write(' - publish in process: percentage ' + data.completedPercentage +
+								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							process.stdout.write(os.EOL);
 							return resolve({});
 						} else {
 							process.stdout.write(' - publish in process: percentage ' + data.completedPercentage +
@@ -880,7 +997,9 @@ module.exports.publishTheme = function (args) {
  */
 module.exports.publishSite = function (args) {
 	var server = args.server;
-	return _publishResourceAsync(server, 'sites', args.id, args.name);
+	return _publishResourceAsync(server, 'sites', args.id, args.name,
+		args.usedContentOnly, args.compileSite, args.staticOnly, args.fullpublish
+	);
 };
 
 var _unpublishResource = function (server, type, id, name) {
@@ -1079,7 +1198,7 @@ var _setSiteOnlineStatus = function (server, id, name, status) {
 				});
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to ' + action + ' site ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
+				console.log('ERROR: failed to ' + action + ' site ' + (name || id) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
 				});
@@ -1488,22 +1607,26 @@ var _getBackgroundServiceJobStatus = function (server, url) {
 	});
 };
 
-var _createTemplateFromSite = function (server, name, siteName, includeUnpublishedAssets) {
+var _createTemplateFromSite = function (server, name, siteName, includeUnpublishedAssets, enterprisetemplate) {
 	return new Promise(function (resolve, reject) {
 		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/sites/' + 'name:' + siteName + '/templates';
 		console.log(' - post ' + url);
+		var body = {
+			name: name,
+			includeUnpublished: includeUnpublishedAssets
+		};
+		if (enterprisetemplate) {
+			body.type = 'enterprise';
+		}
 		var options = {
 			method: 'POST',
 			url: server.url + url,
 			headers: {
 				Prefer: 'respond-async'
 			},
-			body: {
-				name: name,
-				includeUnpublished: includeUnpublishedAssets
-			},
+			body: body,
 			json: true
 		};
 		if (server.env !== 'dev_ec') {
@@ -1547,7 +1670,7 @@ var _createTemplateFromSite = function (server, name, siteName, includeUnpublish
 						} else if (data.completed && data.progress === 'succeeded') {
 							clearInterval(inter);
 
-							return resolve(data.template);
+							return resolve({});
 						} else {
 							console.log(' - creating template: percentage ' + data.completedPercentage);
 						}
@@ -1575,7 +1698,7 @@ var _createTemplateFromSite = function (server, name, siteName, includeUnpublish
  */
 module.exports.createTemplateFromSite = function (args) {
 	var server = args.server;
-	return _createTemplateFromSite(server, args.name, args.siteName, args.includeUnpublishedAssets);
+	return _createTemplateFromSite(server, args.name, args.siteName, args.includeUnpublishedAssets, args.enterprisetemplate);
 };
 
 var _importTemplate = function (server, name, fileId) {
@@ -1692,7 +1815,7 @@ module.exports.importTemplate = function (args) {
 	return _importTemplate(server, args.name, args.fileId);
 };
 
-var _createSite = function (server, name, description, sitePrefix, templateName, templateId, repositoryId, localizationPolicyId, defaultLanguage, updateContent) {
+var _createSite = function (server, name, description, sitePrefix, templateName, templateId, repositoryId, localizationPolicyId, defaultLanguage, updateContent, suppressgovernance) {
 	return new Promise(function (resolve, reject) {
 		var request = serverUtils.getRequest();
 
@@ -1721,6 +1844,9 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 		};
 		if (updateContent) {
 			headers['X-Preserve-Guids'] = true;
+		}
+		if (suppressgovernance) {
+			headers['X-Suppress-Site-Governance'] = true;
 		}
 		var options = {
 			method: 'POST',
@@ -1810,9 +1936,9 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 module.exports.createSite = function (args) {
 	var server = args.server;
 	return _createSite(server, args.name, args.description, args.sitePrefix,
-		args.templateName, args.templateId, args.repositoryId, 
+		args.templateName, args.templateId, args.repositoryId,
 		args.localizationPolicyId, args.defaultLanguage,
-		args.updateContent);
+		args.updateContent, args.suppressgovernance);
 };
 
 var _siteUpdated = function (server, name) {
@@ -1827,7 +1953,7 @@ var _siteUpdated = function (server, name) {
 					});
 				} else {
 					var site = result;
-					
+
 					var url = '/sites/management/api/v1/sites/' + site.id;
 					console.log(' - patch ' + url);
 

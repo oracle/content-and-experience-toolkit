@@ -15,6 +15,16 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.1.2
+
+**Added**
+
+- The local server now supports Expand/Collapse of Settings pane for components
+
+- `cec transfer-site` - Added option `--sitePrefix`
+- `cec transfer-site` - Added option `--suppressgovernance`
+
+
 # New in Release 21.1.1a
 
 **Fixed**

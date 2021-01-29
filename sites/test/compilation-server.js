@@ -67,6 +67,9 @@ router.get('/compiler/rest/api', (request,response)=>{
   router.post('/compiler/rest/api/v1.1/job/:id/compilesite', (request,response)=>{
 	this.compilation.submitCompileSite(request, response);
   });
+  router.post('/compiler/rest/api/v1.1/job/:id/compilecontent', (request,response)=>{
+	this.compilation.submitCompileContent(request, response);
+  });
 
   router.post('/compiler/rest/api/v1.1/job/:id', (request,response)=>{
 	this.compilation.updateJob(request, response);

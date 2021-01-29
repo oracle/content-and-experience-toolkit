@@ -2,12 +2,12 @@
 
 var responses = require('./connectorResponses'),
     jobManager = require('../job-manager/jobManager'),
-    compileSiteJobQueue = require('../job-manager/jobQueue');
+    compileJobQueue = require('../job-manager/jobQueue');
 
 
 var CompilationService = function (args) {
         this.ps = args.ps;
-        this.jobQueue = new compileSiteJobQueue(args);
+        this.jobQueue = new compileJobQueue(args);
         this.jobManager = new jobManager(args);
     },
     apiVersion = 'v1.1',
@@ -39,7 +39,7 @@ CompilationService.prototype.restartJobs = function () {
             return jobConfig.id;
         }).reduce(function (acc, id) {
             console.log('RESTART compile jobId', id);
-            self.compileSite();
+            self.compileJob();
         }, 0);
     });
 };
@@ -202,6 +202,9 @@ CompilationService.prototype.updateJob = function (req, res) {
                     serverPass: updatedJobMetadata.serverPass,
                     token: updatedJobMetadata.token,
                     status: updatedJobMetadata.status,
+                    publishingJobId: updatedJobMetadata.publishingJobId,
+                    contentTYpe: updatedJobMetadata.contentType,
+                    compileContentJob: updatedJobMetadata.compileContentJob,
                     progress: updatedJobMetadata.progress
                 });
 
@@ -227,6 +230,9 @@ CompilationService.prototype.createJob = function (req, res) {
     }).then(function (args) {
         var name = args.data.name,
             siteName = args.data.siteName,
+            publishingJobId = args.data.publishingJobId,
+            contentType = args.data.contentType,
+            compileContentJob = !!publishingJobId || !!contentType,
             compileOnly = args.data.compileOnly || '0',
             publishUsedContentOnly = args.data.publishUsedContentOnly || '0',
             doForceActivate = args.data.doForceActivate || '0',
@@ -244,6 +250,9 @@ CompilationService.prototype.createJob = function (req, res) {
             serverEndpoint: serverEndpoint,
             serverUser: serverUser,
             serverPass: serverPass,
+            publishingJobId: publishingJobId,
+            contentType: contentType,
+            compileContentJob: compileContentJob,
             token: token
         }).then(function (newJob) {
             console.log('newJob', newJob);
@@ -260,7 +269,10 @@ CompilationService.prototype.createJob = function (req, res) {
                 serverPass: newJob.serverPass,
                 token: newJob.token,
                 status: newJob.status,
-                progress: newJob.progress
+                progress: newJob.progress,
+                publishingJobId: publishingJobId,
+                contentType: contentType,
+                compileContentJob: compileContentJob
             });
 
             if (newJob.compileOnly === '1') {
@@ -271,10 +283,10 @@ CompilationService.prototype.createJob = function (req, res) {
                     res.setHeader('Content-Type', 'application/json');
                     res.end(JSON.stringify(response));
 
-                    self.compileSite();
+                    self.compileJob();
 
                 }, function (error) {
-                    console.log('submitCompileSite failed to update job status');
+                    console.log('submitCompileJob failed to update job status');
                     self.respondWithError(res, error);
                 });
             } else {
@@ -349,10 +361,10 @@ CompilationService.prototype.submitCompileSite = function (req, res) {
                     res.setHeader('Content-Type', 'application/json');
                     res.end(JSON.stringify(response));
 
-                    self.compileSite();
+                    self.compileJob();
 
                 }, function (error) {
-                    console.log('submitCompileSite failed to update job status');
+                    console.log('submitCompileJob failed to update job status');
                     self.respondWithError(res, error);
                 });
             }
@@ -364,27 +376,67 @@ CompilationService.prototype.submitCompileSite = function (req, res) {
     });
 };
 
+CompilationService.prototype.submitCompileContent = function (req, res) {
+    var self = this;
+
+    self.validateRequest(req, {
+        requiredParameters: ['id']
+    }).then(function (args) {
+        var jobId = args.params.id;
+
+        self.ps.getJob({
+            jobId: jobId
+        }).then(function (originalMetadata) {
+
+            if (originalMetadata.status !== 'CREATED') {
+                var error = {
+                    errorCode: 400, // Bad Request
+                    errorMessage: 'CompilationService: resubmiting a compilation job is not supported'
+                };
+
+                self.respondWithError(res, error);
+            } else {
+                self.jobQueue.enqueue(originalMetadata);
+
+                var response = responses.formatResponse("POST", self.prependApiVersion("/job/") + jobId + "/compile/queued", {
+                    jobId: jobId
+                });
+
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify(response));
+
+                self.compileJob();
+            }
+        }, function (error) {
+            self.handleGetJobError(res, jobId, error);
+        });
+    }, function (error) {
+        self.respondWithError(res, error);
+    });
+};
+
+
 // Set busy state, either true or false.
-CompilationService.prototype.setCompileSiteBusy = function (state) {
+CompilationService.prototype.setCompileJobBusy = function (state) {
     var self = this;
 
-    self.compileSiteInProgress = state;
-    console.log('setCompileSiteBusy self.compileSiteInProgress', self.compileSiteInProgress);
+    self.compileJobInProgress = state;
+    console.log('setCompileJobBusy self.compileJobInProgress', self.compileJobInProgress);
 };
 
-CompilationService.prototype.isCompileSiteBusy = function () {
+CompilationService.prototype.isCompileJobBusy = function () {
     var self = this;
 
-    return self.compileSiteInProgress;
+    return self.compileJobInProgress;
 };
 
-CompilationService.prototype.compileSiteDone = function () {
+CompilationService.prototype.compileJobDone = function () {
     var self = this;
 
-    console.log('--------------------- Compile site done ---------------------');
+    console.log('--------------------- Compile job done ---------------------');
 
     // Clear busy after compilation is done
-    self.setCompileSiteBusy(false);
+    self.setCompileJobBusy(false);
 
     // Exit process if "one and done"
     if (process.env.CEC_TOOLKIT_COMPILATION_SINGLE_RUN === 'true') {
@@ -396,33 +448,42 @@ CompilationService.prototype.compileSiteDone = function () {
     // Check qeueue
     if (!self.jobQueue.isEmpty()) {
         console.log('Dequeue next compile site request');
-        setTimeout(this.compileSite.bind(self), 0);
+        setTimeout(this.compileJob.bind(self), 0);
     }
 };
 
-CompilationService.prototype.compileSite = function () {
+CompilationService.prototype.compileJob = function () {
     var self = this;
 
     if (self.jobQueue.isEmpty()) {
-        console.log('compileSite called when job queue is empty');
+        console.log('compileJob called when job queue is empty');
         return;
-    } else if (self.isCompileSiteBusy()) {
-        console.log('****** Compile site in progress. compileSite request will not processed immediately');
+    } else if (self.isCompileJobBusy()) {
+        console.log('****** Compile job in progress. compileJob request will not processed immediately');
         return;
     }
 
     var originalMetadata = self.jobQueue.dequeue();
 
     // Set busy after dequeue
-    self.setCompileSiteBusy(true);
+    self.setCompileJobBusy(true);
 
-    console.log('--------------------- Compile site begin ---------------------');
 
-    self.jobManager.compileSiteJob(originalMetadata).then(function () {
-        self.compileSiteDone();
-    }, function () {
-        self.compileSiteDone();
-    });
+    if (originalMetadata.compileContentJob) { 
+        console.log('--------------------- Compile content begin ---------------------');
+        self.jobManager.compileContentJob(originalMetadata).then(function () { 
+            self.compileJobDone(); 
+        }, function () { 
+            self.compileJobDone(); 
+        });
+    } else { 
+        console.log('--------------------- Compile site begin ---------------------');
+        self.jobManager.compileSiteJob(originalMetadata).then(function () { 
+            self.compileJobDone(); 
+        }, function () { 
+            self.compileJobDone(); 
+        });
+    }
 };
 
 module.exports = function (args) {

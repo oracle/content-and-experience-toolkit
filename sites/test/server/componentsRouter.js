@@ -471,7 +471,15 @@ router.get('/*', (req, res) => {
 		} else {
 			filePath = path.resolve(componentsDir + '/' + filePathSuffix);
 		}
+
+	} else if (filePathSuffix.indexOf(compName + '/content/') === 0) {
+
+		// component group content files
+		var contentFile = filePathSuffix.substring(filePathSuffix.lastIndexOf('/') + 1);
+		filePath = path.join(componentsDir, compName, 'assets', contentFile);
+
 	} else {
+		
 		filePath = path.resolve(compSiteDir + '/' + filePathSuffix);
 	}
 

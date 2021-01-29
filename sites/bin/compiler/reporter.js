@@ -76,7 +76,13 @@ CompilationLogger.prototype = {
 		// default implementation
 		if (this.showMessage(level)) {
 			var logEntry = LOG_ENTRIES[level];
-			logEntry.writer(this.formatMessage(level, args));
+			var formattedMessage = this.formatMessage(level, args);
+			logEntry.writer(formattedMessage);
+
+			// also write the stream if requested
+			if (this.outputStream) {
+				this.outputStream.write(formattedMessage);
+			}
 
 			// output any error (typically stack trace) as well
 			if (args && args.error) {
@@ -155,6 +161,10 @@ CompilationReporter.prototype.renderMessage = function (level, args) {
 		page[level][message] = args;
 	}
 };
+CompilationReporter.prototype.setOutputStream = function (outputStream) {
+	// also write to this output stream
+	this.outputStream = outputStream;
+},
 CompilationReporter.prototype.renderReport = function () {
 	var self = this;
 

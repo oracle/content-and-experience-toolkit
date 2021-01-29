@@ -410,7 +410,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				return Promise.all(themeUserPromises);
 			})
 			.then(function (results) {
-				if (theme.fFolderGUID) {
+				if (theme && theme.fFolderGUID) {
 					console.log(' - query theme member');
 					themejson.members = results.length > 0 ? results[0].data : [];
 				}
@@ -677,20 +677,15 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 					siteContent = result.siteContent;
 				}
 
-				var compPromises = [];
 				if (compNames.length > 0) {
-					compPromises.push(sitesRest.getComponents({
-						server: server,
-						expand: 'ownedBy'
-					}));
+					console.log(' - query components ...');
 				}
-
-				return Promise.all(compPromises);
+				return _getComponents(server, compNames);
 
 			})
 			.then(function (results) {
-				console.log(' - query components');
-				allComponents = results.length > 0 && results[0] ? results[0] : [];
+
+				allComponents = results;
 				if (allComponents.length > 0 && compNames.length > 0) {
 					for (var j = 0; j < compNames.length; j++) {
 						var comp = undefined;
@@ -855,10 +850,10 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 							page.contentitems[j].existInChannel = existInChannel;
 
 							if (!exist) {
-								var msg = 'Page \'' + page.name + '\' : item ' + page.contentitems[j].id + ' does not exist';
+								var msg = 'Page \'' + page.name + '\'(' + page.id + ') : item ' + page.contentitems[j].id + ' does not exist';
 								issues.push(msg);
 							} else if (!existInChannel) {
-								var msg = 'Page \'' + page.name + '\' : item ' + page.contentitems[j].id + '(' + name + ') is not in site channel';
+								var msg = 'Page \'' + page.name + '\'(' + page.id + ') : item ' + page.contentitems[j].id + '(' + name + ') is not in site channel';
 								issues.push(msg);
 							}
 						}
@@ -934,8 +929,8 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 									}
 
 									if (page.links[j].status && (typeof page.links[j].status !== 'string' || page.links[j].status.toLowerCase() !== 'ok')) {
-										var msg = 'Page: \'' + page.name + '\' component: \'' + page.links[j].components +
-											'\' link: ' + page.links[j].url + ' status: ' + page.links[j].status;
+										var msg = 'Page: \'' + page.name + '\'(' + page.id + ') component: \'' + page.links[j].component.id +
+											'\'(' + page.links[j].component.key + ') link: ' + page.links[j].url + ' status: ' + page.links[j].status;
 										issues.push(msg);
 									}
 								}
@@ -980,7 +975,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 								}
 
 								if (!action.status || action.status.toLowerCase() !== 'ok') {
-									msg = 'Page: \'' + page.name + '\' component: \'' + action.component +
+									msg = 'Page: \'' + page.name + '\'(' + page.id + ') component: \'' + action.component +
 										'\' triggerAction: ' + action.action + ' ' + action.type + ': ' + action.value +
 										' status: ' + action.status;
 									issues.push(msg);
@@ -1005,7 +1000,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 					var page = structurePages[i];
 					if (page && page.orphanComponents && page.orphanComponents.length > 0) {
 						page.orphanComponents.forEach(function (orphan) {
-							msg = 'Page: \'' + page.name + '\' component: \'' + orphan + '\' is not in any slot';
+							msg = 'Page: \'' + page.name + '\'(' + page.id + ') component: \'' + orphan.name + '\'(' + orphan.key + ') is not in any slot';
 							issues.push(msg);
 						});
 					}
@@ -1120,6 +1115,8 @@ var _getChildComponents = function (componentInstances, comp, children) {
 	}
 };
 
+var _ootbComps = ['scs-sl-horizontal', 'scs-sl-slider', 'scs-sl-tabs', 'scs-sl-three-columns', 'scs-sl-two-columns', 'scs-sl-vertical'];
+
 var _examPageSource = function (slots, componentInstances, links, triggerActions, fileIds, itemIds, typeNames, compNames) {
 	var contentlist = [];
 	var contentitems = [];
@@ -1152,6 +1149,13 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 					compLinks.push(aTags[k]);
 				}
 			}
+			var urlLinks = _getUrlLinks(JSON.stringify(comp));
+			for (var k = 0; k < urlLinks.length; k++) {
+				if (!compLinks.includes(urlLinks[k])) {
+					compLinks.push(urlLinks[k]);
+				}
+			}
+
 			if (comp.data.href && !compLinks.includes(comp.data.href)) {
 				compLinks.push(comp.data.href);
 			}
@@ -1214,22 +1218,13 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 			}
 
 			for (var k = 0; k < compLinks.length; k++) {
-				var found = false;
-				for (var m = 0; m < links.length; m++) {
-					if (compLinks[k] === links[m].url) {
-						found = true;
-						if (!links[m].components.includes(comp.id)) {
-							links[m].components.push(comp.id);
-						}
-						break;
+				links.push({
+					url: compLinks[k],
+					component: {
+						id: comp.id,
+						key: key
 					}
-				}
-				if (!found) {
-					links.push({
-						url: compLinks[k],
-						components: [comp.id]
-					});
-				}
+				});
 			}
 
 			// collect content items, content lists and components
@@ -1265,10 +1260,10 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 						contentType: comp.data.contentTypes[0]
 					});
 				}
-			} else if (comp.type === 'scs-component' || comp.type === 'scs-app') {
+			} else if (!_ootbComps.includes(comp.id) && (comp.type === 'scs-component' || comp.type === 'scs-app')) {
 				// custom component
 				var name = comp.type === 'scs-component' ? (comp.data.componentName || comp.data.componentId || comp.id) : comp.data.appName;
-				if (name) {
+				if (name && name !== comp.type) {
 					if (!components.includes(name)) {
 						components.push(name);
 					}
@@ -1312,7 +1307,10 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 						if (!foundInGrid) {
 							// console.log('Component ' + key + ' ' + comp.type + ' ' + comp.id + ' is NOT in a slot');
 							var name = comp.type === 'scs-component' ? comp.data.componentId || comp.data.componentName : comp.data.appName;
-							orphanComponents.push(name || comp.id);
+							orphanComponents.push({
+								name: name || comp.id,
+								key: key
+							});
 							orphanComponentDetails.push({
 								key: key,
 								type: comp.type,
@@ -1433,15 +1431,14 @@ var _getPageFiles = function (server, pages) {
 			});
 		}
 
-		var count = [];
 		var doGetFile = groups.reduce(function (filePromise, param) {
 				return filePromise.then(function (result) {
 					var filePromises = [];
 					for (var i = param.start; i <= param.end; i++) {
 						filePromises.push(_readFile(server, pages[i].id, pages[i].name));
 					}
-					count.push('.');
-					process.stdout.write(' - getting page files ' + count.join(''));
+
+					process.stdout.write(' - getting page files [' + param.start + ', ' + param.end + '] ...');
 					readline.cursorTo(process.stdout, 0);
 					return Promise.all(filePromises).then(function (results) {
 						if (results) {
@@ -1508,6 +1505,66 @@ var _readFile = function (server, id, fileName) {
 			}
 
 		});
+	});
+};
+
+var _getComponents = function (server, compNames) {
+	var comps = [];
+	return new Promise(function (resolve, reject) {
+		var total = compNames.length;
+		var groups = [];
+		var limit = 20;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+
+		var doGetComps = groups.reduce(function (compPromise, param) {
+				return compPromise.then(function (result) {
+					var compPromises = [];
+					for (var i = param.start; i <= param.end; i++) {
+						compPromises.push(sitesRest.getComponent({
+							server: server,
+							name: compNames[i],
+							expand: 'ownedBy'
+						}));
+					}
+
+					// process.stdout.write(' - getting component [' + param.start + ', ' + param.end + '] ...');
+					// readline.cursorTo(process.stdout, 0);
+					return Promise.all(compPromises).then(function (results) {
+						if (results) {
+							for (var i = 0; i < results.length; i++) {
+								if (results[i].id) {
+									comps.push(results[i]);
+								}
+							}
+						}
+					});
+				});
+
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doGetComps.then(function (result) {
+			resolve(comps);
+		});
+
 	});
 };
 
@@ -1674,7 +1731,7 @@ var _queryItems = function (server, itemIds, itemLabel) {
 				});
 			}
 			console.log(' - total ' + (itemLabel ? itemLabel : '') + ' items: ' + total);
-			var count = [];
+
 			var doGetItem = groups.reduce(function (itemPromise, param) {
 					return itemPromise.then(function (result) {
 						var itemPromises = [];
@@ -1685,8 +1742,8 @@ var _queryItems = function (server, itemIds, itemLabel) {
 								expand: 'all'
 							}));
 						}
-						count.push('.');
-						process.stdout.write(' - querying items ' + count.join(''));
+
+						process.stdout.write(' - querying items [' + param.start + ', ' + param.end + '] ...');
 						readline.cursorTo(process.stdout, 0);
 						return Promise.all(itemPromises).then(function (results) {
 							for (var i = 0; i < results.length; i++) {
@@ -1837,6 +1894,44 @@ var _getHrefLinks = function (fileSource) {
 	return urls;
 };
 
+var _getUrlLinks = function (fileSource) {
+	const regex = /url\((.*)\)/g;
+	var urls = [];
+	var src = fileSource.replace(/\\/g, '');
+	var m;
+
+	while ((m = regex.exec(src)) !== null) {
+		// This is necessary to avoid infinite loops with zero-width matches
+		if (m.index === regex.lastIndex) {
+			regex.lastIndex++;
+		}
+
+		// The result can be accessed through the `m`-variable.
+		m.forEach((match, groupIndex) => {
+			// console.log(match);
+			var link = _unescapeHTML(match);
+			if (link.indexOf("'") > 0) {
+				link = link.substring(0, link.indexOf("'"));
+			}
+			link = serverUtils.trimString(link, ' ');
+
+			if (link && link.indexOf('url(') === 0) {
+				link = link.substring(4);
+				if (serverUtils.endsWith(link, ')')) {
+					link = link.substring(0, link.length - 2);
+				}
+			}
+			link = serverUtils.trimString(link, '"');
+
+			if (link && !urls.includes(link)) {
+				urls.push(link);
+			}
+		});
+	}
+
+	return urls;
+};
+
 var _getATagHrefs = function (fileSource) {
 	const regex = /<a[\s]+([^>]+)>((?:.(?!\<\/a\>))*.)<\/a>/g;
 	var urls = [];
@@ -1984,7 +2079,6 @@ var _verifyHrefLinks = function (server, pageLinks) {
 				});
 			}
 
-			var count = [];
 			var doVerifyLinks = groups.reduce(function (linkPromise, param) {
 					return linkPromise.then(function (result) {
 						var linkPromises = [];
@@ -1992,9 +2086,8 @@ var _verifyHrefLinks = function (server, pageLinks) {
 							linkPromises.push(_verifyHrefLink(server, request, httpsProxy, httpProxy,
 								pageLinks[i]));
 						}
-						count.push('.');
-						process.stdout.write(' - verify page links [' + param.start + ', ' + param.end + ']' + count.join(''));
-						// process.stdout.write(' - verify page links ' + count.join(''));
+
+						process.stdout.write(' - verifying page links [' + param.start + ', ' + param.end + '] ...');
 						readline.cursorTo(process.stdout, 0);
 						return Promise.all(linkPromises).then(function (results) {
 							if (results) {
@@ -2044,7 +2137,7 @@ var _processLinks = function (server, links) {
 		}
 		processedLinks.push({
 			url: fullUrl,
-			components: links[i].components,
+			component: links[i].component,
 			status: ''
 		});
 	}
@@ -2574,8 +2667,8 @@ module.exports.createTemplateReport = function (argv, done) {
 										}
 
 										if (page.links[j].status && (typeof page.links[j].status !== 'string' || page.links[j].status.toLowerCase() !== 'ok')) {
-											var msg = 'Page: \'' + page.name + '\' component: \'' + page.links[j].components +
-												'\' link: ' + page.links[j].url + ' status: ' + page.links[j].status;
+											var msg = 'Page: \'' + page.name + '\'(' + page.id + ') component: \'' + page.links[j].component.id +
+												'\'(' + page.links[j].component.key + ') link: ' + page.links[j].url + ' status: ' + page.links[j].status;
 											issues.push(msg);
 										}
 									}
@@ -2633,27 +2726,29 @@ module.exports.createTemplateReport = function (argv, done) {
 				// validate items
 				var contentFolder = path.join(templatesSrcDir, name, 'assets', 'contenttemplate',
 					'Content Template of ' + name, 'ContentItems');
-				pages.forEach(function (page) {
-					var items = page.contentitems || [];
-					for (var i = 0; i < items.length; i++) {
-						var types = fs.readdirSync(contentFolder);
-						var itemPath;
-						for (var j = 0; j < types.length; j++) {
-							itemPath = path.join(contentFolder, types[j], items[i].id + '.json');
-							if (types[j] !== 'VariationSets' && fs.existsSync(itemPath)) {
-								items[i].exist = true;
-								items[i].contentType = types[j];
-								break;
+				if (fs.existsSync(contentFolder)) {
+					pages.forEach(function (page) {
+						var items = page.contentitems || [];
+						for (var i = 0; i < items.length; i++) {
+							var types = fs.readdirSync(contentFolder);
+							var itemPath;
+							for (var j = 0; j < types.length; j++) {
+								itemPath = path.join(contentFolder, types[j], items[i].id + '.json');
+								if (types[j] !== 'VariationSets' && fs.existsSync(itemPath)) {
+									items[i].exist = true;
+									items[i].contentType = types[j];
+									break;
+								}
+							}
+
+							if (items[i].exist) {
+								var itemjson = JSON.parse(fs.readFileSync(itemPath));
+								items[i].name = itemjson && itemjson.name;
+								items[i].contentType = itemjson && itemjson.type;
 							}
 						}
-
-						if (items[i].exist) {
-							var itemjson = JSON.parse(fs.readFileSync(itemPath));
-							items[i].name = itemjson && itemjson.name;
-							items[i].contentType = itemjson && itemjson.type;
-						}
-					}
-				});
+					});
+				}
 
 				pages.forEach(function (page) {
 					pagesOutput.push({

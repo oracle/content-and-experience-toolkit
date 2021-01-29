@@ -38,7 +38,9 @@ var responses = {
               "status": "{{status}}",
               "progress": "{{progress}}",
               "publishSiteBackgroundJobId": "{{publishSiteBackgroundJobId}}",
-              "publishStaticBackgroundJobId": "{{publishStaticBackgroundJobId}}"
+              "publishStaticBackgroundJobId": "{{publishStaticBackgroundJobId}}",
+              "publishingJobId": "{{publishingJobId}}",
+              "contentType": "{{contentType}}"
             },
             "/jobNotFound": {
               "errorCode": "404",
@@ -58,7 +60,9 @@ var responses = {
               "serverPass": "{{serverPass}}",
               "token": "{{token}}",
               "status": "{{status}}",
-              "progress": "{{progress}}"
+              "progress": "{{progress}}",
+              "publishingJobId": "{{publishingJobId}}",
+              "contentType": "{{contentType}}",
             },
             "/v1.1/job/{{jobId}}": {
               "id": "{{jobId}}",
@@ -72,7 +76,9 @@ var responses = {
               "serverPass": "{{serverPass}}",
               "token": "{{token}}",
               "status": "{{status}}",
-              "progress": "{{progress}}"
+              "progress": "{{progress}}",
+              "publishingJobId": "{{publishingJobId}}",
+              "contentType": "{{contentType}}"
             },
             "/v1.1/job/{{jobId}}/compile/queued": {
                 "id": "{{jobId}}",

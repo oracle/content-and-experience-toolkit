@@ -1712,6 +1712,52 @@ module.exports.ItemsSetAsTranslated = function (args) {
 	return _bulkOpItems(args.server, 'setAsTranslated', [], args.itemIds);
 };
 
+var _getPublishingJobItems = function (server, jobId) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/bulkItemsOperations/publish/' + jobId + '/ids';
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: serverUtils.getRequestAuth(server)
+		};
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: get publishing job items');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
+				resolve(data);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get publishing job items' + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get the items that will be published in the referenced publishing job
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {array} args.jobId The id of items to publish
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getPublishingJobItems = function (args) {
+	return _getPublishingJobItems(args.server, args.jobId);
+};
+
+
 var _getItemOperationStatus = function (server, statusId) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/bulkItemsOperations/' + statusId;

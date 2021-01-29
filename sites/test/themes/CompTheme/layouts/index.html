@@ -87,13 +87,11 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 	<table border="1" width="100%">
 		<tr>
 			<td valign="top" style="padding:10px; background-color:white;">
-				<div style="box-shadow: rgba(0, 0, 0, 0.75) 0px 0px 10px 0px;">
+				<button id="toggleSettings" title="Collapse Settings pane" alt="Collapse Settings pane" onclick="showHideSettings(this)">&lt;
+				</button>
+				<div id="settingsMain" style="box-shadow: rgba(0, 0, 0, 0.75) 0px 0px 10px 0px;">
 					<div class="oj-dialog-header" style="background-color: rgb(51, 51, 51); border:0;">
-						<div class="oj-dialog-header-close-wrapper oj-button-jqui oj-button oj-component oj-enabled oj-button-half-chrome oj-button-icon-only oj-component-initnode oj-default">
-							<div class="oj-button-label">
-								<span class="oj-button-icon oj-start oj-component-icon oj-fwk-icon-cross"></span>
-							</div>
-						</div>
+						
 						<div class="devcs_container">
 							<div class="oj-dialog-title devcs_column" id="settingsTitle" onclick="clickSettings()" style="color: rgb(221, 221, 221);">_devcs_component_settings_title</div>
 							_devcs_contentlayout_settings_title_div
@@ -424,6 +422,26 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			window.location.href = newURL + (channelToken === 'none' ? '' : '?token=' + channelToken);
 			
 		};
+
+		var showHideSettings = function (event) {
+			// console.log('click show/hide settings...');
+			var x = document.getElementById("settingsMain");
+			var button = document.getElementById("toggleSettings");
+  			if (x.style.display === "none") {
+				x.style.display = "block";
+				button.value = "<";
+				button.innerHTML = "<";
+				button.alt = "Collapse Settings pane";
+				button.title = "Collapse Settings pane";
+  			} else {
+				x.style.display = "none";
+				button.value = ">";
+				button.innerHTML = ">";
+				button.alt = "Expand Settings pane";
+				button.title = "Expand Settings pane";
+  			}
+		};
+
 	</script>
 	<script data-main="/_sitescloud/renderer/renderer.js" src="/libs/requirejs/require.js"></script>
 	<!--$SCS_PAGE_FOOTER-->

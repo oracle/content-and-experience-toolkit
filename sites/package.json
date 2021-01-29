@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "21.1.1a",
+	"version": "21.1.2",
 	"license": "UPL-1.0",
 	"description": "Oracle Content and Experience Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content and Experience.",
 	"main": "index.js",
@@ -55,6 +55,8 @@
 		"download-template": "gulp -LL --gulpfile bin/gulpfile.js download-template ",
 		"compile-template": "gulp -LL --gulpfile bin/gulpfile.js compile-template ",
 		"compile-template-debug": "node --inspect-brk node_modules/gulp/bin/gulp.js -LL --gulpfile bin/gulpfile.js compile-template ",
+		"compile-content": "gulp -LL --gulpfile bin/gulpfile.js compile-content ",
+		"compile-content-debug": "node --inspect-brk node_modules/gulp/bin/gulp.js -LL --gulpfile bin/gulpfile.js compile-content ",
 		"delete-template": "gulp -LL --gulpfile bin/gulpfile.js delete-template ",
 		"deploy-template": "gulp -LL --gulpfile bin/gulpfile.js deploy-template ",
 		"upload-template": "gulp -LL --gulpfile bin/gulpfile.js upload-template ",

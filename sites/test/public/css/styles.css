@@ -353,6 +353,10 @@ margin-right: 0px;*/
 	background-color: #D15A51;
 }
 
+.localbg {
+	background-color: #D15A51;
+}
+
 .sandboxedbg {
 	background-color: #D15A51;
 }
@@ -650,5 +654,14 @@ div pre {
     height: auto;
     line-height: normal;
     font-stretch: normal;
+}
+
+#toggleSettings {
+    font-size: 20px;
+    height: 36px;
+    width: 36px;
+    border: 1px solid  gray;
+    box-sizing: border-box;
+    border-radius: 4px;
 }
 
