@@ -107,6 +107,18 @@ cec control-content publish -c blog-site --server UAT
 cec control-site publish -s blog-site --server UAT
 ```
 
+# Transfer sites with assets from multiple repositories
+
+If the site contains assets from other repositories, by default those assets won't be transferred. You can provide the repository mappings to transfer them.
+
+For example, site blog-site contains assets from repository ImageRepo and VideoRepo. 
+
+Create ImageRepo and VideoRepo on server UAT if they don't exist.
+
+```
+cec transfer-site blog-site --server DEV --destination UAT --repository Repo1 --localizationPolicy Policy1 --repositorymappings ImageRepo:ImageRepo,VideoRepo:VideoRepo
+```
+
 
 
 
