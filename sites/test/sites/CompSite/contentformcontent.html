@@ -171,14 +171,15 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 
             self.prepareItems = function (data, remote) {
 				var results = data;
+				var items = [];
                 for (var i = 0; i < results.length; i++) {
                     var item = results[i],
                         field = remote ? item.fields : (item.data.fields ? item.data.fields : item.data.data),
                         itemimage = '',
                         textfields = [];
-
+					
                     for (var key in field) {
-						var value = field[key];
+                        var value = field[key];
                         if (value) {
                             if (!itemimage && typeof value === 'object' && (value['type'] === 'DigitalAsset' || value['type'] === 'Image')) {
                                 if (remote) {
@@ -207,20 +208,38 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                     });
                     textfields = bySize;
 
-                    item['itemimage'] = itemimage;
-                    item['textfields'] = textfields;
-                    item['data'] = {};
-                    item['htmldetails'] = Mustache.to_html(
-                        self.tileTemplate, {
-                            name: item.name,
-                            type: item.type,
-                            itemimage: itemimage,
-                            textfields: textfields
-                        });
+					var htmldetails = Mustache.to_html(
+                        	self.tileTemplate, {
+                            	name: item.name,
+                            	type: item.type,
+                            	itemimage: itemimage,
+                            	textfields: textfields
+							});
+					
+					var typejson = item.typejson;
+					if (remote) {
+						remoteTypes.forEach(function (remotetype) {
+							if (remotetype.name === item.type) {
+								typejson = remotetype;
+							}
+						});
+					}
+					items.push({
+						'id': item.id,
+						'name': item.name,
+						'type': item.type,
+						'template': item.template,
+						'itemimage': itemimage,
+						'textfields': textfields,
+						'data': {},
+						'htmldetails': htmldetails,
+						'item': remote ? item : item.data,
+						'typejson': typejson
+					});
                 }
 
                 // sort items by type then by name
-                var byTypeThenName = results.slice(0);
+                var byTypeThenName = items.slice(0);
                 byTypeThenName.sort(function (a, b) {
                     if (a.type === b.type) {
                         var x = a.name;
@@ -229,9 +248,9 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                     }
                     return a.type < b.type ? -1 : 1;
                 });
-                results = byTypeThenName;
-
-                return results;
+                items = byTypeThenName;
+				
+                return items;
             };
 
             self.queryItems = function (cnttype) {
@@ -244,7 +263,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                     'url': itemsurl,
                     'success': function (data) {
                         var items = data && data.items;
-                        console.log('content type = ' + cnttype + ' items = ' + items.length);
+                        // console.log('content type = ' + cnttype + ' items = ' + items.length);
 
                         // prepare for the mustache template
                         var results = self.prepareItems(items, true);
@@ -275,7 +294,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                 });
             };
             // get content items that use the content layout
-            var url = '/getcontentlayoutitems/_devcs_component_contentlayout_name';
+            var url = '/getcontentformitems/_devcs_component_contentform_name';
             // console.log('url=' + url);
             $.ajax({
                 'type': 'GET',
@@ -284,7 +303,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                 'url': url,
                 'success': function (data) {
                     // prepare for the mustache template
-                    var results = self.prepareItems(data, false);
+					var results = self.prepareItems(data, false);
 
                     self.items(results);
                     self.noLocalContent(results.length === 0);
@@ -318,7 +337,8 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 
             // get content type from server
             var contenttypeurl = '/content/management/api/v1.1/types?limit=999';
-            // console.log('url=' + url);
+			// console.log('url=' + url);
+			var remoteTypes = [];
             $.ajax({
                 'type': 'GET',
                 'dataType': 'json',
@@ -329,6 +349,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                     if (data && data.items) {
                         for (var i = 0; i < data.items.length; i++) {
                             if (data.items[i].name != 'DigitalAsset') {
+								remoteTypes.push(data.items[i]);
                                 types.push(
                                     data.items[i].name
                                 );
@@ -358,12 +379,13 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                 console.log('set current content type: ' + currentContentType);
                 self.queryItems(currentContentType)
             }
-            console.log('self.contentTypeValues:' + JSON.stringify(self.contentTypeValues()));
+            // console.log('self.contentTypeValues:' + JSON.stringify(self.contentTypeValues()));
             // console.log(self.items().length);
             self.initialized(true);
 
             self.selectItem = function (item) {
-                // console.log('selectItem: ' + JSON.stringify(item));
+				// console.log('selectItem: ' + (item && item.name));
+				
                 if (item) {
                     var url = '/setcontentlayoutitem?template=' + item.template + '&id=' + item.id + '&type=' +
                         item.type;
@@ -383,7 +405,9 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                         'id': item.id,
                         'name': item.name,
                         'type': item.type,
-                        'isRemote': false
+						'isRemote': false,
+						'itemjson': item.item,
+						'typejson': item.typejson
                     }));
                     window.sessionStorage.setItem('currentContentTypes', types);
 
@@ -393,7 +417,13 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                         type: item.type,
                         template: item.template,
                         isRemote: false
-                    });
+					});
+					
+					// reload the iframe to render the content form
+					var editFrame = parent.document.getElementById('editFrame');
+					if (editFrame) {
+						editFrame.src += '';
+					}
                 }
             };
 
@@ -402,13 +432,15 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                 if (item) {
                     var url = '/setcontentlayoutitem?id=' + item.id + '&type=' + item.type +
                         '&isRemote=true&types=' + self.contentTypeValues();
-
+					
                     window.sessionStorage.setItem('currentContentItem', JSON.stringify({
                         'template': '',
                         'id': item.id,
                         'name': item.name,
                         'type': item.type,
-                        'isRemote': true
+						'isRemote': true,
+						'itemjson': item.item,
+						'typejson': item.typejson
                     }));
                     window.sessionStorage.setItem('currentContentTypes', self.contentTypeValues());
 
@@ -418,7 +450,13 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                         type: item.type,
                         template: '',
                         isRemote: true
-                    });
+					});
+					
+					// reload the iframe to render the content form
+					var editFrame = parent.document.getElementById('editFrame');
+					if (editFrame) {
+						editFrame.src += '';
+					}
                 }
             };
 

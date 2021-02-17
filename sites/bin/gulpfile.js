@@ -1273,6 +1273,18 @@ gulp.task('create-site', function (done) {
 });
 
 /**
+ * Copy enterprise site
+ */
+gulp.task('copy-site', function (done) {
+	'use strict';
+
+	sitelib.copySite(argv, function (success) {
+		process.exitCode = success ? 0 : 1;
+		done();
+	});
+});
+
+/**
  * Transfer enterprise site
  */
 gulp.task('transfer-site', function (done) {

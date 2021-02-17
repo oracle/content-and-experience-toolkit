@@ -1988,7 +1988,7 @@ var _deletePermanentSCS = function (request, server, id, isFile) {
 					if (dUser && dUser !== 'anonymous' && idcToken) {
 						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
 						clearInterval(inter);
-						console.log(' - establish user session');
+						// console.log(' - establish user session');
 
 						url = localhost + '/documents/web?IdcService=FLD_MOVE_TO_TRASH';
 
@@ -2044,7 +2044,7 @@ var _deletePermanentSCS = function (request, server, id, isFile) {
 												break;
 											}
 										}
-										console.log(' - find ' + (isFile ? 'file' : 'folder ') + ' in trash ' + idInTrash);
+										// console.log(' - find ' + (isFile ? 'file' : 'folder ') + ' in trash ' + idInTrash);
 
 										url = localhost + '/documents/web?IdcService=FLD_DELETE_FROM_TRASH';
 

@@ -964,6 +964,103 @@ module.exports.getContentLayoutItems = function (projectDir, layoutName) {
 };
 
 /**
+ * Get all content items (across templates) that use this content form 
+ * @param formName
+ */
+module.exports.getContentFormItems = function (projectDir, formName) {
+	_setupSourceDir(projectDir);
+
+	var items = [],
+		formSrcDir = path.join(componentsDir, formName);
+
+	if (!formName || !fs.existsSync(formSrcDir)) {
+		console.log('getContentFormItems: content form ' + formName + ' does not exist');
+		return items;
+	}
+
+	// go through all templates
+	var temps = fs.readdirSync(templatesDir),
+		contenttypes = [];
+	for (var i = 0; i < temps.length; i++) {
+		var typesPath = path.join(templatesDir, temps[i], 'assets', 'contenttemplate',
+			'Content Template of ' + temps[i], 'ContentTypes');
+		if (fs.existsSync(typesPath)) {
+			var types = fs.readdirSync(typesPath);
+			types.forEach(function (typeFile) {
+				var typeObj = JSON.parse(fs.readFileSync(path.join(typesPath, typeFile)));
+				if (typeObj.properties && typeObj.properties.customForms && typeObj.properties.customForms.includes(formName)) {
+					contenttypes.push({
+						template: temps[i],
+						type: typeFile.substring(typeFile, typeFile.indexOf('.json')),
+						typejson: typeObj
+					});
+				}
+			});
+		}
+	}
+
+	// console.log(contenttypes);
+	if (contenttypes.length === 0) {
+		console.log('getContentFormItems: content form ' + formName + ' is not used by any content items');
+		return items;
+	}
+	// console.log(' - types: ' + JSON.stringify(contenttypes));
+
+	contenttypes.forEach(function (entry) {
+		var tempname = entry.template,
+			temppath = path.join(templatesDir, tempname),
+			ctype = entry.type,
+			itemspath = path.join(temppath, 'assets', 'contenttemplate',
+				'Content Template of ' + tempname, 'ContentItems', ctype);
+
+		if (fs.existsSync(itemspath)) {
+			var itemfiles = fs.readdirSync(itemspath);
+			for (var k = 0; k < itemfiles.length; k++) {
+				var itemjson = JSON.parse(fs.readFileSync(path.join(itemspath, itemfiles[k]))),
+					found = false;
+
+				for (var idx = 0; idx < items.length; idx++) {
+					if (itemjson.id === items[idx].id) {
+						found = true;
+					}
+				}
+
+				if (!found) {
+					items.push({
+						id: itemjson.id,
+						name: itemjson.name,
+						type: itemjson.type,
+						typejson: entry.typejson,
+						template: tempname,
+						data: itemjson
+					});
+				}
+			}
+		}
+	});
+
+	// sort by item name
+	if (items.length > 0) {
+		var byName = items.slice(0);
+		byName.sort(function (a, b) {
+			var x = a.name;
+			var y = b.name;
+			return (x < y ? -1 : x > y ? 1 : 0);
+		});
+		items = byName;
+
+		var msgs = '';
+		items.forEach(function (item) {
+			msgs = msgs + item.type + ':' + item.name + ' ';
+		});
+		// console.log(' - items ' + msgs);
+	}
+
+	return items;
+};
+
+
+/**
  * Get all content types (across templates)
  */
 module.exports.getContentTypes = function (projectDir) {
@@ -2453,8 +2550,10 @@ var _getSiteInfo = function (server, site) {
 					isEnterprise: site.isEnterprise,
 					themeName: site.themeName,
 					channelId: site.channel && site.channel.id,
+					channelName: site.channel && site.channel.name,
 					channelAccessTokens: channelAccessTokens,
 					repositoryId: site.repository && site.repository.id,
+					repositoryName: site.repository && site.repository.name,
 					arCollectionId: site.defaultCollection && site.defaultCollection.id
 				};
 				return resolve({
@@ -3871,7 +3970,7 @@ module.exports.setSiteMetadata = function (request, server, idcToken, siteId, va
 		};
 
 		request(postData, function (err, response, body) {
-			if(response && response.statusCode !== 200){
+			if (response && response.statusCode !== 200) {
 				console.log('ERROR: Failed to set site metadata');
 				console.log('compilation server message: response status -', response.statusCode);
 			}

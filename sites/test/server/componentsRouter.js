@@ -124,7 +124,7 @@ router.get('/*', (req, res) => {
 			return;
 
 		} else if (appInfo && appInfo.type === 'contentform') {
-			
+
 			var filePath = path.join(compSiteDir, 'contentformrender.js');
 			var renderjs = fs.readFileSync(filePath).toString();
 			var newrenderjs = renderjs.replace('_devcs_component_contentform_edit_html_path', '/components/' + compName + '/assets/edit.html');
@@ -447,19 +447,33 @@ router.get('/*', (req, res) => {
 				res.end();
 				return;
 
-			}  else if (apptype === 'contentform') {
-				var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
-				var drawerSize = appInfo && appInfo.drawerSize || 'default';
-			
-				filePath = path.join(compSiteDir, 'contentformsettings.html');
-				var settingshtml = fs.readFileSync(filePath).toString();
-				var newsettingshtml = settingshtml.replace('_devcs_component_contentform_name', compName);
-				newsettingshtml = newsettingshtml.replace('_devcs_component_contentform_drawersize', drawerSize);
-				newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
-				console.log('path=' + req.path + ' filePath=' + filePath + ' content form=' + compName);
-				res.write(newsettingshtml);
-				res.end();
-				return;
+			} else if (apptype === 'contentform') {
+				var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+
+				if (params && params.customsettings) {
+					var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
+					var drawerSize = appInfo && appInfo.drawerSize || 'default';
+
+					filePath = path.join(compSiteDir, 'contentformsettings.html');
+					var settingshtml = fs.readFileSync(filePath).toString();
+					var newsettingshtml = settingshtml.replace('_devcs_component_contentform_name', compName);
+					newsettingshtml = newsettingshtml.replace('_devcs_component_contentform_drawersize', drawerSize);
+					newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
+					console.log('path=' + req.path + ' filePath=' + filePath + ' content form=' + compName);
+					res.write(newsettingshtml);
+					res.end();
+					return;
+				} else {
+					// the content for testing
+					filePath = path.resolve(compSiteDir + '/contentformcontent.html');
+					var settingshtml = fs.readFileSync(filePath).toString(),
+						newsettingshtml = settingshtml.replace('_devcs_component_contentform_name', compName);
+					newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
+					console.log('path=' + req.path + ' filePath=' + filePath + ' layout=' + compName);
+					res.write(newsettingshtml);
+					res.end();
+					return;
+				}
 
 			} else {
 				filePath = path.resolve(componentsDir + '/' + filePathSuffix);
@@ -467,7 +481,22 @@ router.get('/*', (req, res) => {
 		} else if (filePathSuffix.indexOf('render.js') > 0 && apptype === 'fieldeditor') {
 			filePath = path.join(componentsDir, compName, 'assets', 'view.html');
 		} else if (filePathSuffix.indexOf('render.js') > 0 && apptype === 'contentform') {
+			
 			filePath = path.join(componentsDir, compName, 'assets', 'edit.html');
+
+		} else if (filePathSuffix.indexOf('edit.html') > 0 && apptype === 'contentform') {
+			console.log(' - modify content form edit.html to use content published API');
+			// 
+			// content form: use content published API for local testing
+			//
+			filePath = path.join(componentsDir, compName, 'assets', 'edit.html');
+			if (fs.existsSync(filePath)) {
+				var contentformEditSrc = fs.readFileSync(filePath).toString();
+				contentformEditSrc = serverUtils.replaceAll(contentformEditSrc, '/content/management/api/', '/content/published/api/');
+				res.write(contentformEditSrc);
+				res.end();
+				return;
+			}
 		} else {
 			filePath = path.resolve(componentsDir + '/' + filePathSuffix);
 		}
@@ -479,7 +508,7 @@ router.get('/*', (req, res) => {
 		filePath = path.join(componentsDir, compName, 'assets', contentFile);
 
 	} else {
-		
+
 		filePath = path.resolve(compSiteDir + '/' + filePathSuffix);
 	}
 
@@ -531,7 +560,7 @@ router.get('/*', (req, res) => {
 				settingsPath = compjson.endpoints.settings.url;
 			}
 			console.log('*** component settingsPath=' + settingsPath);
-
+			buf = buf.replace('_devcs_component_type', compType);
 			buf = buf.replace('_devcs_component_setting_url', settingsPath);
 			buf = serverUtils.replaceAll(buf, '_devcs_component_name', compName);
 			buf = buf.replace('_devcs_component_custom_settings', customsettingsdatastr);
@@ -539,13 +568,15 @@ router.get('/*', (req, res) => {
 
 			// field editor
 			var fieldEditorType = '';
-			var editHtmlFilePath = path.join(componentsDir, compName, 'assets', 'edit.html');
-			if (fs.existsSync(editHtmlFilePath)) {
-				var editHtml = fs.readFileSync(editHtmlFilePath).toString();
-				if (editHtml.indexOf('oraclemapsv2') > 0) {
-					fieldEditorType = 'map';
-				} else {
-					fieldEditorType = 'fieldeditor';
+			if (compType === 'fieldeditor') {
+				var editHtmlFilePath = path.join(componentsDir, compName, 'assets', 'edit.html');
+				if (fs.existsSync(editHtmlFilePath)) {
+					var editHtml = fs.readFileSync(editHtmlFilePath).toString();
+					if (editHtml.indexOf('oraclemapsv2') > 0) {
+						fieldEditorType = 'map';
+					} else {
+						fieldEditorType = 'fieldeditor';
+					}
 				}
 			}
 			buf = buf.replace('_devcs_component_fieldeditor_type', fieldEditorType);
@@ -589,6 +620,25 @@ router.get('/*', (req, res) => {
 						'var settingsIframe = document.getElementById("settings");' +
 						'if (settingsIframe) {settingsIframe.src = iframeSrc;} }';
 				}
+				buf = buf.replace('_devcs_contentlayout_settings_title_div', contentlayoutSettingsTitleSrc);
+				buf = buf.replace('_devcs_component_click_settings_func', clickSettingsSrc);
+
+				res.write(buf);
+				res.end();
+
+			} else if (compType === 'contentform') {
+				buf = buf.replace('_devcs_local_content', '');
+				buf = buf.replace('_devcs_server_content', '');
+				buf = buf.replace('_devcs_component_settings_title', 'Content');
+
+				contentlayoutSettingsTitleSrc = '<div class="oj-dialog-title devcs_column" id="settingsTitle2" onclick="clickSettings(1)" style="color: rgb(221, 221, 221);">Form Properties</div>';
+				clickSettingsSrc = 'var clickSettings = function (customsettings) {console.log("content form settings"); ' +
+					'var iframeSrc = "/components/' + compName + '/assets/settings.html";' +
+					'if (customsettings) {iframeSrc = iframeSrc + "?customsettings=1";}' +
+					'console.log(iframeSrc);' +
+					'var settingsIframe = document.getElementById("settings");' +
+					'if (settingsIframe) {settingsIframe.src = iframeSrc;} }';
+
 				buf = buf.replace('_devcs_contentlayout_settings_title_div', contentlayoutSettingsTitleSrc);
 				buf = buf.replace('_devcs_component_click_settings_func', clickSettingsSrc);
 

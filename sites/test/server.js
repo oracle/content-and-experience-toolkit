@@ -320,6 +320,22 @@ app.get('/getcontentlayoutitems*', function (req, res) {
 	res.end();
 });
 
+app.get('/getcontentformitems*', function (req, res) {
+	"use strict";
+	var formname = req.path.replace('/getcontentformitems', '');
+
+	if (!formname || formname.indexOf('/') < 0) {
+		// no content form name specified
+		console.log('getcontentformitems: invalid name: ' + formname);
+		res.writeHead(404, {});
+		res.end();
+		return;
+	}
+	formname = formname.substring(1);
+	res.write(JSON.stringify(serverUtils.getContentFormItems(projectDir, formname)));
+	res.end();
+});
+
 app.get('/getcontenttypes*', function (req, res) {
 	"use strict";
 

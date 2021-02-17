@@ -133,8 +133,9 @@ router.get('/*', (req, res) => {
 	//
 	var contentitem = app.locals.currentContentItem;
 
-	console.log('   server channel token: ' + app.locals.channelToken);
-
+	console.log('   server channel token: ' + app.locals.channelToken +
+		' app.locals.localTemplate: ' + app.locals.localTemplate + 
+		' current item: ' + (contentitem && contentitem.id ? ( contentitem.id + ' ' + (contentitem.isRemote ? 'remote' : 'local')) : ''));
 	if ((app.locals.useCAASServer && app.locals.currentTemplate) ||
 		(contentitem && contentitem.id && contentitem.isRemote) ||
 		app.locals.channelToken ||

@@ -6,6 +6,7 @@
 /* jshint esversion: 6 */
 var request = require('request'),
 	os = require('os'),
+	fs = require('fs'),
 	readline = require('readline'),
 	serverUtils = require('./serverUtils');
 
@@ -899,7 +900,7 @@ var _createItem = function (server, repositoryId, type, name, desc, fields, lang
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createItem = function (args) {
-	return _createItem(args.server, args.repositoryId, args.type, 
+	return _createItem(args.server, args.repositoryId, args.type,
 		args.name, args.desc, args.fields, args.language);
 };
 
@@ -1722,10 +1723,8 @@ var _getPublishingJobItems = function (server, jobId) {
 		};
 		request(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: get publishing job items');
-				console.log(error);
 				return resolve({
-					err: 'err'
+					error: error
 				});
 			}
 			var data;
@@ -1738,9 +1737,9 @@ var _getPublishingJobItems = function (server, jobId) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get publishing job items' + '  : ' + msg);
+				console.log('getPublishingJobItems: ' + msg);
 				return resolve({
-					err: 'err'
+					error: data
 				});
 			}
 		});
@@ -2620,9 +2619,15 @@ var _updateRepository = function (server, repository, contentTypes, channels, ta
 				var csrfToken = result && result.token;
 
 				var data = repository;
-				data.contentTypes = contentTypes;
-				data.channels = channels;
-				data.taxonomies = taxonomies;
+				if (contentTypes) {
+					data.contentTypes = contentTypes;
+				}
+				if (channels) {
+					data.channels = channels;
+				}
+				if (taxonomies) {
+					data.taxonomies = taxonomies;
+				}
 
 				var url = server.url + '/content/management/api/v1.1/repositories/' + repository.id;
 				var auth = serverUtils.getRequestAuth(server);
@@ -2638,6 +2643,7 @@ var _updateRepository = function (server, repository, contentTypes, channels, ta
 					body: data,
 					json: true
 				};
+				// console.log(JSON.stringify(data, null, 4));
 
 				request(postData, function (error, response, body) {
 					if (error) {
@@ -4754,4 +4760,219 @@ var _exportContentItem = function (server, id, name, published) {
  */
 module.exports.exportContentItem = function (args) {
 	return _exportContentItem(args.server, args.id, args.name, args.published);
+};
+
+
+
+// Update the rendition status for a publishing job on server
+var _updateRenditionStatus = function (server, isMultiPart, jobId, status, progress, compiledAt, filename, filepath) {
+	// ToDo:  Currently a placeholder waiting on the correct server API
+	// This will POST the "status" as well as a file in a multi-part form.  
+	// If the file isn't there, only the status will be passed
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token,
+					options = {
+						method: 'POST',
+						url: server.url + '/content/management/api/v1.1/contentRenditionJobs',
+						auth: serverUtils.getRequestAuth(server),
+					};
+
+				if (isMultiPart) {
+					options.headers = {
+						'Content-Type': 'multipart/form-data',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					};
+
+					var multiPartFormRequest = request.post(options, function optionalCallback(error, response, body) {
+						if (error) {
+							console.log('updateRenditionStatus: ' + error);
+							return resolve({
+								error: error
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+
+						if (response && response.statusCode >= 200 && response.statusCode < 300) {
+							return resolve(data);
+						} else {
+							var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response ? (response.statusMessage || response.statusCode) : '');
+							console.log('updateRenditionStatus: ' + msg);
+							return resolve({
+								error: data
+							});
+						}
+					});
+
+					// populate the form body
+					var form = multiPartFormRequest.form();
+
+					// add in the "status" details
+					form.append('status', JSON.stringify({
+						"jobId": jobId,
+						"status": status,
+						"progress": progress,
+						"compiledAt": compiledAt
+					}), {
+						contentType: 'application/json'
+					});
+
+					// add in the "file" details
+					form.append('file', fs.createReadStream(filepath), {
+						contentType: 'application/zip'
+					});
+				} else {
+					options.headers = {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					};
+
+					options.body = JSON.stringify({
+						"jobId": jobId,
+						"status": status,
+						"progress": progress,
+						"compiledAt": compiledAt
+					});
+
+
+					// console.log(' - uploading file ...');
+					request(options, function (error, response, body) {
+						if (error) {
+							console.log('updateRenditionStatus: ' + error);
+							return resolve({
+								error: error
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+
+						if (response && response.statusCode >= 200 && response.statusCode < 300) {
+							return resolve(data);
+						} else {
+							var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response ? (response.statusMessage || response.statusCode) : '');
+							console.log('updateRenditionStatus: ' + msg);
+							return resolve({
+								error: data
+							});
+						}
+					});
+				}
+			}
+		});
+	});
+};
+
+/**
+ * Update rendition generation status for publishing job
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.parentID The DOCS GUID for the folder where the new file should be created.
+ * @param {string} args.filename The name of the file to create.
+ * @param {stream} args.contents The filestream to upload.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.updateRenditionStatus = function (args) {
+	return _updateRenditionStatus(args.server, args.multipart, args.jobId, args.status, args.progress, args.compiledAt, args.filename, args.filePath);
+};
+
+
+var _publishLaterChannelItems = function (server, name, items, channelId, repositoryId, schedule) {
+
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var url = server.url + '/content/management/api/v1.1/publish/scheduledJobs';
+				var auth = serverUtils.getRequestAuth(server);
+				var postData = {
+					'name': name,
+					'items': items,
+					'channels': [channelId],
+					'repositoryId': repositoryId,
+					'schedule': schedule
+				};
+
+				var options = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest'
+					},
+					auth: auth,
+					body: JSON.stringify(postData)
+				};
+				// console.log(options);
+
+				request(options, function (err, response, body) {
+					if (err) {
+						console.log('ERROR: Failed to schedule publishing of items ' + name);
+						console.log(err);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					}
+					// console.log(data);
+					if (response && (response.statusCode === 200 || response.statusCode === 201)) {
+						var jobId = data && data.jobId;
+						if (!jobId) {
+							return resolve({
+								err: 'err'
+							});
+						} else {
+							return resolve({
+								jobId: jobId
+							});
+						}
+					} else {
+						// console.log(data);
+						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
+						console.log('ERROR: failed to schedule publishing of items: ' + msg);
+						return resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Publish items in a channel on server at a later date
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the scheduling job to create
+ * @param {string} args.channelId The id of the channel to publish items.
+ * @param {string} args.repositoryId The id of the repository to schedule publish items.
+ * @param {array} args.itemIds The id of items to publish
+ * @param {object} args.schedule Object containining the schedule of when to publish
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.publishLaterChannelItems = function (args) {
+	return _publishLaterChannelItems(args.server, args.name, args.itemIds, args.channelId, args.repositoryId, args.schedule);
 };

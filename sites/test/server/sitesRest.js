@@ -1772,6 +1772,8 @@ var _importTemplate = function (server, name, fileId) {
 							});
 						} else if (data.completed && data.progress === 'succeeded') {
 							clearInterval(inter);
+							process.stdout.write(' - importing template: percentage ' + data.completedPercentage +
+								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 							process.stdout.write(os.EOL);
 							return resolve(data.template);
 						} else {
@@ -1939,6 +1941,116 @@ module.exports.createSite = function (args) {
 		args.templateName, args.templateId, args.repositoryId,
 		args.localizationPolicyId, args.defaultLanguage,
 		args.updateContent, args.suppressgovernance);
+};
+
+var _copySite = function (server, sourceSiteName, name, description, sitePrefix, repositoryId) {
+	return new Promise(function (resolve, reject) {
+		var request = serverUtils.getRequest();
+
+		var url = '/sites/management/api/v1/sites/name:' + sourceSiteName + '/copy';
+		console.log(' - post ' + url);
+		var body = {
+			name: name,
+			description: description || ''
+		};
+		if (sitePrefix) {
+			body.sitePrefix = sitePrefix;
+		}
+		if (repositoryId) {
+			body.repository = repositoryId;
+		}
+
+		var headers = {
+			Prefer: 'respond-async'
+		};
+
+		var options = {
+			method: 'POST',
+			url: server.url + url,
+			headers: headers,
+			body: body,
+			json: true
+		};
+		if (server.env !== 'dev_ec') {
+			options.headers.Authorization = _getAuthorization(server);
+		} else {
+			options.auth = {
+				user: server.username,
+				password: server.password
+			};
+		}
+		// console.log(options);
+		request(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to copy site ' + sourceSiteName);
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 202) {
+				var statusLocation = response.headers && response.headers.location;
+				var startTime = new Date();
+				var needNewLine = false;
+				var inter = setInterval(function () {
+					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
+					jobPromise.then(function (data) {
+						// console.log(data);
+						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+							clearInterval(inter);
+							if (needNewLine) {
+								process.stdout.write(os.EOL);
+							}
+							var msg = data && data.message ? data.message : (data && data.error ? (data.error.detail || data.error.title) : '');
+							console.log('ERROR: copy site failed: ' + msg);
+							// console.log(data);
+							return resolve({
+								err: 'err'
+							});
+						} else if (data.completed && data.progress === 'succeeded') {
+							clearInterval(inter);
+							process.stdout.write(' - copying site in process: percentage ' + data.completedPercentage +
+								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							process.stdout.write(os.EOL);
+
+							return resolve({});
+						} else {
+							process.stdout.write(' - copying site in process: percentage ' + data.completedPercentage +
+								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+							needNewLine = true;
+						}
+					});
+				}, 5000);
+			} else {
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to copy site ' + sourceSiteName + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Copy a site 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} server the server object
+ * @param {string} sourceSite the name of the source site
+ * @param {string} name the name of the copied site
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.copySite = function (args) {
+	var server = args.server;
+	return _copySite(server, args.sourceSite, args.name, args.description, args.sitePrefix, args.repositoryId);
 };
 
 var _siteUpdated = function (server, name) {

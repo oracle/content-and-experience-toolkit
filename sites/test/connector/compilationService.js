@@ -203,6 +203,7 @@ CompilationService.prototype.updateJob = function (req, res) {
                     token: updatedJobMetadata.token,
                     status: updatedJobMetadata.status,
                     publishingJobId: updatedJobMetadata.publishingJobId,
+                    renditionJobId: updatedJobMetadata.renditionJobId,
                     contentTYpe: updatedJobMetadata.contentType,
                     compileContentJob: updatedJobMetadata.compileContentJob,
                     progress: updatedJobMetadata.progress
@@ -225,12 +226,23 @@ CompilationService.prototype.updateJob = function (req, res) {
 CompilationService.prototype.createJob = function (req, res) {
     var self = this;
 
+    var requiredData = ['name', 'siteName']; // default to site compilation
+
+    // update required params if doing content compilation
+    if (req.body) {
+        if (req.body.contentType) {
+            requiredData = ['contentType', 'renditionJobId'];
+        } else if (req.body.publishJobId) {
+            requiredData = ['publishJobId', 'renditionJobId'];
+        }
+    }
     this.validateRequest(req, {
-        requiredData: ['name', 'siteName']
+        requiredData: requiredData
     }).then(function (args) {
         var name = args.data.name,
             siteName = args.data.siteName,
-            publishingJobId = args.data.publishingJobId,
+            publishingJobId = args.data.publishJobId,
+            renditionJobId = args.data.renditionJobId,
             contentType = args.data.contentType,
             compileContentJob = !!publishingJobId || !!contentType,
             compileOnly = args.data.compileOnly || '0',
@@ -251,6 +263,7 @@ CompilationService.prototype.createJob = function (req, res) {
             serverUser: serverUser,
             serverPass: serverPass,
             publishingJobId: publishingJobId,
+            renditionJobId: renditionJobId,
             contentType: contentType,
             compileContentJob: compileContentJob,
             token: token
@@ -271,11 +284,19 @@ CompilationService.prototype.createJob = function (req, res) {
                 status: newJob.status,
                 progress: newJob.progress,
                 publishingJobId: publishingJobId,
+                renditionJobId: renditionJobId,
                 contentType: contentType,
                 compileContentJob: compileContentJob
             });
 
-            if (newJob.compileOnly === '1') {
+            if (compileContentJob) {
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify(response));
+
+                // start compiling the content job
+                self.jobQueue.enqueue(newJob);
+                self.compileJob();
+            } else if (newJob.compileOnly === '1') {
                 self.jobManager.updateStatus(newJob, "PUBLISH_SITE").then(function (updatedJobConfig) {
 
                     self.jobQueue.enqueue(updatedJobConfig);
@@ -469,19 +490,19 @@ CompilationService.prototype.compileJob = function () {
     self.setCompileJobBusy(true);
 
 
-    if (originalMetadata.compileContentJob) { 
+    if (originalMetadata.compileContentJob) {
         console.log('--------------------- Compile content begin ---------------------');
-        self.jobManager.compileContentJob(originalMetadata).then(function () { 
-            self.compileJobDone(); 
-        }, function () { 
-            self.compileJobDone(); 
+        self.jobManager.compileContentJob(originalMetadata).then(function () {
+            self.compileJobDone();
+        }, function () {
+            self.compileJobDone();
         });
-    } else { 
+    } else {
         console.log('--------------------- Compile site begin ---------------------');
-        self.jobManager.compileSiteJob(originalMetadata).then(function () { 
-            self.compileJobDone(); 
-        }, function () { 
-            self.compileJobDone(); 
+        self.jobManager.compileSiteJob(originalMetadata).then(function () {
+            self.compileJobDone();
+        }, function () {
+            self.compileJobDone();
         });
     }
 };

@@ -238,8 +238,19 @@ module.exports.copyComponent = function (argv, done) {
 
 	// update itemGUID
 	if (serverUtils.updateItemFolderJson(projectDir, 'component', compName)) {
+		// update appinfo.json 
+		var appinfoPath = path.join(componentsSrcDir, compName, 'appinfo.json');
+		if (fs.existsSync(appinfoPath)) {
+			var appinfojson = JSON.parse(fs.readFileSync(appinfoPath));
+			appinfojson.id = compName;
+			console.log(' - update component id to ' + compName);
+			fs.writeFileSync(appinfoPath, JSON.stringify(appinfojson));
+			// fs.writeFileSync(appinfoPath, JSON.stringify(appinfojson, null, 4));
+		}
 		console.log(' *** component is ready to test: http://localhost:8085/components/' + compName);
 		done(true);
+	} else {
+		done();
 	}
 };
 

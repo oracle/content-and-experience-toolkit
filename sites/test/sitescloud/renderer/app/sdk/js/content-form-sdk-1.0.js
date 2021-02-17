@@ -19,12 +19,12 @@
             return "[object Array]" === ostring.call(e);
         }
         function each(e, t) {
-            var i;
-            if (e) for (i = 0; i < e.length && (!e[i] || !t(e[i], i, e)); i += 1) ;
+            var r;
+            if (e) for (r = 0; r < e.length && (!e[r] || !t(e[r], r, e)); r += 1) ;
         }
         function eachReverse(e, t) {
-            var i;
-            if (e) for (i = e.length - 1; -1 < i && (!e[i] || !t(e[i], i, e)); i -= 1) ;
+            var r;
+            if (e) for (r = e.length - 1; -1 < r && (!e[r] || !t(e[r], r, e)); r -= 1) ;
         }
         function hasProp(e, t) {
             return hasOwn.call(e, t);
@@ -33,13 +33,13 @@
             return hasProp(e, t) && e[t];
         }
         function eachProp(e, t) {
-            var i;
-            for (i in e) if (hasProp(e, i) && t(e[i], i)) break;
+            var r;
+            for (r in e) if (hasProp(e, r) && t(e[r], r)) break;
         }
-        function mixin(e, t, i, r) {
+        function mixin(e, t, r, i) {
             return t && eachProp(t, function(t, n) {
-                !i && hasProp(e, n) || (!r || "object" != typeof t || !t || isArray(t) || isFunction(t) || t instanceof RegExp ? e[n] = t : (e[n] || (e[n] = {}), 
-                mixin(e[n], t, i, r)));
+                !r && hasProp(e, n) || (!i || "object" != typeof t || !t || isArray(t) || isFunction(t) || t instanceof RegExp ? e[n] = t : (e[n] || (e[n] = {}), 
+                mixin(e[n], t, r, i)));
             }), e;
         }
         function bind(e, t) {
@@ -60,116 +60,116 @@
                 t = t[e];
             }), t;
         }
-        function makeError(e, t, i, r) {
+        function makeError(e, t, r, i) {
             var n = new Error(t + "\nhttps://requirejs.org/docs/errors.html#" + e);
-            return n.requireType = e, n.requireModules = r, i && (n.originalError = i), n;
+            return n.requireType = e, n.requireModules = i, r && (n.originalError = r), n;
         }
         function newContext(e) {
-            function t(e, t, i) {
-                var r, n, o, a, s, d, u, c, l, f, p = t && t.split("/"), h = E.map, g = h && h["*"];
+            function t(e, t, r) {
+                var i, n, o, a, s, d, u, l, c, f, p = t && t.split("/"), h = E.map, g = h && h["*"];
                 if (e && (d = (e = e.split("/")).length - 1, E.nodeIdCompat && jsSuffixRegExp.test(e[d]) && (e[d] = e[d].replace(jsSuffixRegExp, "")), 
                 "." === e[0].charAt(0) && p && (e = p.slice(0, p.length - 1).concat(e)), function(e) {
-                    var t, i;
-                    for (t = 0; t < e.length; t++) if ("." === (i = e[t])) e.splice(t, 1), t -= 1; else if (".." === i) {
+                    var t, r;
+                    for (t = 0; t < e.length; t++) if ("." === (r = e[t])) e.splice(t, 1), t -= 1; else if (".." === r) {
                         if (0 === t || 1 === t && ".." === e[2] || ".." === e[t - 1]) continue;
                         0 < t && (e.splice(t - 1, 2), t -= 2);
                     }
-                }(e), e = e.join("/")), i && h && (p || g)) {
+                }(e), e = e.join("/")), r && h && (p || g)) {
                     e: for (o = (n = e.split("/")).length; 0 < o; o -= 1) {
-                        if (s = n.slice(0, o).join("/"), p) for (a = p.length; 0 < a; a -= 1) if ((r = getOwn(h, p.slice(0, a).join("/"))) && (r = getOwn(r, s))) {
-                            u = r, c = o;
+                        if (s = n.slice(0, o).join("/"), p) for (a = p.length; 0 < a; a -= 1) if ((i = getOwn(h, p.slice(0, a).join("/"))) && (i = getOwn(i, s))) {
+                            u = i, l = o;
                             break e;
                         }
-                        !l && g && getOwn(g, s) && (l = getOwn(g, s), f = o);
+                        !c && g && getOwn(g, s) && (c = getOwn(g, s), f = o);
                     }
-                    !u && l && (u = l, c = f), u && (n.splice(0, c, u), e = n.join("/"));
+                    !u && c && (u = c, l = f), u && (n.splice(0, l, u), e = n.join("/"));
                 }
                 return getOwn(E.pkgs, e) || e;
             }
-            function i(e) {
+            function r(e) {
                 isBrowser && each(scripts(), function(t) {
                     if (t.getAttribute("data-requiremodule") === e && t.getAttribute("data-requirecontext") === b.contextName) return t.parentNode.removeChild(t), 
                     !0;
                 });
             }
-            function r(e) {
+            function i(e) {
                 var t = getOwn(E.paths, e);
                 if (t && isArray(t) && 1 < t.length) return t.shift(), b.require.undef(e), b.makeRequire(null, {
                     skipMap: !0
                 })([ e ]), !0;
             }
             function n(e) {
-                var t, i = e ? e.indexOf("!") : -1;
-                return -1 < i && (t = e.substring(0, i), e = e.substring(i + 1, e.length)), [ t, e ];
+                var t, r = e ? e.indexOf("!") : -1;
+                return -1 < r && (t = e.substring(0, r), e = e.substring(r + 1, e.length)), [ t, e ];
             }
-            function o(e, i, r, o) {
-                var a, s, d, u, c = null, l = i ? i.name : null, f = e, p = !0, h = "";
-                return e || (p = !1, e = "_@r" + (M += 1)), c = (u = n(e))[0], e = u[1], c && (c = t(c, l, o), 
-                s = getOwn(S, c)), e && (c ? h = r ? e : s && s.normalize ? s.normalize(e, function(e) {
-                    return t(e, l, o);
-                }) : -1 === e.indexOf("!") ? t(e, l, o) : e : (c = (u = n(h = t(e, l, o)))[0], h = u[1], 
-                r = !0, a = b.nameToUrl(h))), {
-                    prefix: c,
+            function o(e, r, i, o) {
+                var a, s, d, u, l = null, c = r ? r.name : null, f = e, p = !0, h = "";
+                return e || (p = !1, e = "_@r" + (O += 1)), l = (u = n(e))[0], e = u[1], l && (l = t(l, c, o), 
+                s = getOwn(S, l)), e && (l ? h = i ? e : s && s.normalize ? s.normalize(e, function(e) {
+                    return t(e, c, o);
+                }) : -1 === e.indexOf("!") ? t(e, c, o) : e : (l = (u = n(h = t(e, c, o)))[0], h = u[1], 
+                i = !0, a = b.nameToUrl(h))), {
+                    prefix: l,
                     name: h,
-                    parentMap: i,
-                    unnormalized: !!(d = !c || s || r ? "" : "_unnormalized" + (R += 1)),
+                    parentMap: r,
+                    unnormalized: !!(d = !l || s || i ? "" : "_unnormalized" + (C += 1)),
                     url: a,
                     originalName: f,
                     isDefine: p,
-                    id: (c ? c + "!" + h : h) + d
+                    id: (l ? l + "!" + h : h) + d
                 };
             }
             function a(e) {
-                var t = e.id, i = getOwn(x, t);
-                return i || (i = x[t] = new b.Module(e)), i;
+                var t = e.id, r = getOwn(x, t);
+                return r || (r = x[t] = new b.Module(e)), r;
             }
-            function s(e, t, i) {
-                var r = e.id, n = getOwn(x, r);
-                !hasProp(S, r) || n && !n.defineEmitComplete ? (n = a(e)).error && "error" === t ? i(n.error) : n.on(t, i) : "defined" === t && i(S[r]);
+            function s(e, t, r) {
+                var i = e.id, n = getOwn(x, i);
+                !hasProp(S, i) || n && !n.defineEmitComplete ? (n = a(e)).error && "error" === t ? r(n.error) : n.on(t, r) : "defined" === t && r(S[i]);
             }
             function d(e, t) {
-                var i = e.requireModules, r = !1;
-                t ? t(e) : (each(i, function(t) {
-                    var i = getOwn(x, t);
-                    i && (i.error = e, i.events.error && (r = !0, i.emit("error", e)));
-                }), r || req.onError(e));
+                var r = e.requireModules, i = !1;
+                t ? t(e) : (each(r, function(t) {
+                    var r = getOwn(x, t);
+                    r && (r.error = e, r.events.error && (i = !0, r.emit("error", e)));
+                }), i || req.onError(e));
             }
             function u() {
                 globalDefQueue.length && (each(globalDefQueue, function(e) {
                     var t = e[0];
-                    "string" == typeof t && (b.defQueueMap[t] = !0), T.push(e);
+                    "string" == typeof t && (b.defQueueMap[t] = !0), I.push(e);
                 }), globalDefQueue = []);
             }
-            function c(e) {
+            function l(e) {
                 delete x[e], delete k[e];
             }
-            function l() {
-                var e, t, n = 1e3 * E.waitSeconds, o = n && b.startTime + n < new Date().getTime(), a = [], s = [], u = !1, c = !0;
+            function c() {
+                var e, t, n = 1e3 * E.waitSeconds, o = n && b.startTime + n < new Date().getTime(), a = [], s = [], u = !1, l = !0;
                 if (!m) {
                     if (m = !0, eachProp(k, function(e) {
                         var n = e.map, d = n.id;
-                        if (e.enabled && (n.isDefine || s.push(e), !e.error)) if (!e.inited && o) r(d) ? u = t = !0 : (a.push(d), 
-                        i(d)); else if (!e.inited && e.fetched && n.isDefine && (u = !0, !n.prefix)) return c = !1;
+                        if (e.enabled && (n.isDefine || s.push(e), !e.error)) if (!e.inited && o) i(d) ? u = t = !0 : (a.push(d), 
+                        r(d)); else if (!e.inited && e.fetched && n.isDefine && (u = !0, !n.prefix)) return l = !1;
                     }), o && a.length) return (e = makeError("timeout", "Load timeout for modules: " + a, null, a)).contextName = b.contextName, 
                     d(e);
-                    c && each(s, function(e) {
-                        !function e(t, i, r) {
+                    l && each(s, function(e) {
+                        !function e(t, r, i) {
                             var n = t.map.id;
-                            t.error ? t.emit("error", t.error) : (i[n] = !0, each(t.depMaps, function(n, o) {
+                            t.error ? t.emit("error", t.error) : (r[n] = !0, each(t.depMaps, function(n, o) {
                                 var a = n.id, s = getOwn(x, a);
-                                !s || t.depMatched[o] || r[a] || (getOwn(i, a) ? (t.defineDep(o, S[a]), t.check()) : e(s, i, r));
-                            }), r[n] = !0);
+                                !s || t.depMatched[o] || i[a] || (getOwn(r, a) ? (t.defineDep(o, S[a]), t.check()) : e(s, r, i));
+                            }), i[n] = !0);
                         }(e, {}, {});
                     }), o && !t || !u || !isBrowser && !isWebWorker || w || (w = setTimeout(function() {
-                        w = 0, l();
+                        w = 0, c();
                     }, 50)), m = !1;
                 }
             }
             function f(e) {
                 hasProp(S, e[0]) || a(o(e[0], null, !0)).init(e[1], e[2]);
             }
-            function p(e, t, i, r) {
-                e.detachEvent && !isOpera ? r && e.detachEvent(r, t) : e.removeEventListener(i, t, !1);
+            function p(e, t, r, i) {
+                e.detachEvent && !isOpera ? i && e.detachEvent(i, t) : e.removeEventListener(r, t, !1);
             }
             function h(e) {
                 var t = e.currentTarget || e.srcElement;
@@ -181,8 +181,8 @@
             }
             function g() {
                 var e;
-                for (u(); T.length; ) {
-                    if (null === (e = T.shift())[0]) return d(makeError("mismatch", "Mismatched anonymous define() module: " + e[e.length - 1]));
+                for (u(); I.length; ) {
+                    if (null === (e = I.shift())[0]) return d(makeError("mismatch", "Mismatched anonymous define() module: " + e[e.length - 1]));
                     f(e);
                 }
                 b.defQueueMap = {};
@@ -195,7 +195,7 @@
                 pkgs: {},
                 shim: {},
                 config: {}
-            }, x = {}, k = {}, I = {}, T = [], S = {}, q = {}, O = {}, M = 1, R = 1;
+            }, x = {}, k = {}, T = {}, I = [], S = {}, q = {}, A = {}, O = 1, C = 1;
             return y = {
                 require: function(e) {
                     return e.require ? e.require : e.require = b.makeRequire(e.map);
@@ -214,15 +214,15 @@
                     };
                 }
             }, (v = function(e) {
-                this.events = getOwn(I, e.id) || {}, this.map = e, this.shim = getOwn(E.shim, e.id), 
+                this.events = getOwn(T, e.id) || {}, this.map = e, this.shim = getOwn(E.shim, e.id), 
                 this.depExports = [], this.depMaps = [], this.depMatched = [], this.pluginMaps = {}, 
                 this.depCount = 0;
             }).prototype = {
-                init: function(e, t, i, r) {
-                    r = r || {}, this.inited || (this.factory = t, i ? this.on("error", i) : this.events.error && (i = bind(this, function(e) {
+                init: function(e, t, r, i) {
+                    i = i || {}, this.inited || (this.factory = t, r ? this.on("error", r) : this.events.error && (r = bind(this, function(e) {
                         this.emit("error", e);
-                    })), this.depMaps = e && e.slice(0), this.errback = i, this.inited = !0, this.ignore = r.ignore, 
-                    r.enabled || this.enabled ? this.enable() : this.check());
+                    })), this.depMaps = e && e.slice(0), this.errback = r, this.inited = !0, this.ignore = i.ignore, 
+                    i.enabled || this.enabled ? this.enable() : this.check());
                 },
                 defineDep: function(e, t) {
                     this.depMatched[e] || (this.depMatched[e] = !0, this.depCount -= 1, this.depExports[e] = t);
@@ -245,41 +245,41 @@
                 },
                 check: function() {
                     if (this.enabled && !this.enabling) {
-                        var e, t, i = this.map.id, r = this.depExports, n = this.exports, o = this.factory;
+                        var e, t, r = this.map.id, i = this.depExports, n = this.exports, o = this.factory;
                         if (this.inited) {
                             if (this.error) this.emit("error", this.error); else if (!this.defining) {
                                 if (this.defining = !0, this.depCount < 1 && !this.defined) {
                                     if (isFunction(o)) {
                                         if (this.events.error && this.map.isDefine || req.onError !== defaultOnError) try {
-                                            n = b.execCb(i, o, r, n);
+                                            n = b.execCb(r, o, i, n);
                                         } catch (t) {
                                             e = t;
-                                        } else n = b.execCb(i, o, r, n);
+                                        } else n = b.execCb(r, o, i, n);
                                         if (this.map.isDefine && void 0 === n && ((t = this.module) ? n = t.exports : this.usingExports && (n = this.exports)), 
                                         e) return e.requireMap = this.map, e.requireModules = this.map.isDefine ? [ this.map.id ] : null, 
                                         e.requireType = this.map.isDefine ? "define" : "require", d(this.error = e);
                                     } else n = o;
-                                    if (this.exports = n, this.map.isDefine && !this.ignore && (S[i] = n, req.onResourceLoad)) {
+                                    if (this.exports = n, this.map.isDefine && !this.ignore && (S[r] = n, req.onResourceLoad)) {
                                         var a = [];
                                         each(this.depMaps, function(e) {
                                             a.push(e.normalizedMap || e);
                                         }), req.onResourceLoad(b, this.map, a);
                                     }
-                                    c(i), this.defined = !0;
+                                    l(r), this.defined = !0;
                                 }
                                 this.defining = !1, this.defined && !this.defineEmitted && (this.defineEmitted = !0, 
                                 this.emit("defined", this.exports), this.defineEmitComplete = !0);
                             }
-                        } else hasProp(b.defQueueMap, i) || this.fetch();
+                        } else hasProp(b.defQueueMap, r) || this.fetch();
                     }
                 },
                 callPlugin: function() {
-                    var e = this.map, i = e.id, r = o(e.prefix);
-                    this.depMaps.push(r), s(r, "defined", bind(this, function(r) {
-                        var n, u, l, f = getOwn(O, this.map.id), p = this.map.name, h = this.map.parentMap ? this.map.parentMap.name : null, g = b.makeRequire(e.parentMap, {
+                    var e = this.map, r = e.id, i = o(e.prefix);
+                    this.depMaps.push(i), s(i, "defined", bind(this, function(i) {
+                        var n, u, c, f = getOwn(A, this.map.id), p = this.map.name, h = this.map.parentMap ? this.map.parentMap.name : null, g = b.makeRequire(e.parentMap, {
                             enableBuildCallback: !0
                         });
-                        return this.map.unnormalized ? (r.normalize && (p = r.normalize(p, function(e) {
+                        return this.map.unnormalized ? (i.normalize && (p = i.normalize(p, function(e) {
                             return t(e, h, !0);
                         }) || ""), s(u = o(e.prefix + "!" + p, this.map.parentMap, !0), "defined", bind(this, function(e) {
                             this.map.normalizedMap = u, this.init([], function() {
@@ -288,33 +288,33 @@
                                 enabled: !0,
                                 ignore: !0
                             });
-                        })), void ((l = getOwn(x, u.id)) && (this.depMaps.push(u), this.events.error && l.on("error", bind(this, function(e) {
+                        })), void ((c = getOwn(x, u.id)) && (this.depMaps.push(u), this.events.error && c.on("error", bind(this, function(e) {
                             this.emit("error", e);
-                        })), l.enable()))) : f ? (this.map.url = b.nameToUrl(f), void this.load()) : ((n = bind(this, function(e) {
+                        })), c.enable()))) : f ? (this.map.url = b.nameToUrl(f), void this.load()) : ((n = bind(this, function(e) {
                             this.init([], function() {
                                 return e;
                             }, null, {
                                 enabled: !0
                             });
                         })).error = bind(this, function(e) {
-                            this.inited = !0, (this.error = e).requireModules = [ i ], eachProp(x, function(e) {
-                                0 === e.map.id.indexOf(i + "_unnormalized") && c(e.map.id);
+                            this.inited = !0, (this.error = e).requireModules = [ r ], eachProp(x, function(e) {
+                                0 === e.map.id.indexOf(r + "_unnormalized") && l(e.map.id);
                             }), d(e);
-                        }), n.fromText = bind(this, function(t, r) {
-                            var s = e.name, u = o(s), c = useInteractive;
-                            r && (t = r), c && (useInteractive = !1), a(u), hasProp(E.config, i) && (E.config[s] = E.config[i]);
+                        }), n.fromText = bind(this, function(t, i) {
+                            var s = e.name, u = o(s), l = useInteractive;
+                            i && (t = i), l && (useInteractive = !1), a(u), hasProp(E.config, r) && (E.config[s] = E.config[r]);
                             try {
                                 req.exec(t);
                             } catch (t) {
-                                return d(makeError("fromtexteval", "fromText eval for " + i + " failed: " + t, t, [ i ]));
+                                return d(makeError("fromtexteval", "fromText eval for " + r + " failed: " + t, t, [ r ]));
                             }
-                            c && (useInteractive = !0), this.depMaps.push(u), b.completeLoad(s), g([ s ], n);
-                        }), void r.load(e.name, g, n, E));
-                    })), b.enable(r, this), this.pluginMaps[r.id] = r;
+                            l && (useInteractive = !0), this.depMaps.push(u), b.completeLoad(s), g([ s ], n);
+                        }), void i.load(e.name, g, n, E));
+                    })), b.enable(i, this), this.pluginMaps[i.id] = i;
                 },
                 enable: function() {
                     (k[this.map.id] = this).enabled = !0, this.enabling = !0, each(this.depMaps, bind(this, function(e, t) {
-                        var i, r, n;
+                        var r, i, n;
                         if ("string" == typeof e) {
                             if (e = o(e, this.map.isDefine ? this.map : this.map.parentMap, !1, !this.skipMap), 
                             this.depMaps[t] = e, n = getOwn(y, e.id)) return void (this.depExports[t] = n(this));
@@ -324,15 +324,15 @@
                                 this.emit("error", e);
                             }));
                         }
-                        i = e.id, r = x[i], hasProp(y, i) || !r || r.enabled || b.enable(e, this);
+                        r = e.id, i = x[r], hasProp(y, r) || !i || i.enabled || b.enable(e, this);
                     })), eachProp(this.pluginMaps, bind(this, function(e) {
                         var t = getOwn(x, e.id);
                         t && !t.enabled && b.enable(e, this);
                     })), this.enabling = !1, this.check();
                 },
                 on: function(e, t) {
-                    var i = this.events[e];
-                    i || (i = this.events[e] = []), i.push(t);
+                    var r = this.events[e];
+                    r || (r = this.events[e] = []), r.push(t);
                 },
                 emit: function(e, t) {
                     each(this.events[e], function(e) {
@@ -345,7 +345,7 @@
                 registry: x,
                 defined: S,
                 urlFetched: q,
-                defQueue: T,
+                defQueue: I,
                 defQueueMap: {},
                 Module: v,
                 makeModuleMap: o,
@@ -355,28 +355,28 @@
                     if (e.baseUrl && "/" !== e.baseUrl.charAt(e.baseUrl.length - 1) && (e.baseUrl += "/"), 
                     "string" == typeof e.urlArgs) {
                         var t = e.urlArgs;
-                        e.urlArgs = function(e, i) {
-                            return (-1 === i.indexOf("?") ? "?" : "&") + t;
+                        e.urlArgs = function(e, r) {
+                            return (-1 === r.indexOf("?") ? "?" : "&") + t;
                         };
                     }
-                    var i = E.shim, r = {
+                    var r = E.shim, i = {
                         paths: !0,
                         bundles: !0,
                         config: !0,
                         map: !0
                     };
                     eachProp(e, function(e, t) {
-                        r[t] ? (E[t] || (E[t] = {}), mixin(E[t], e, !0, !0)) : E[t] = e;
+                        i[t] ? (E[t] || (E[t] = {}), mixin(E[t], e, !0, !0)) : E[t] = e;
                     }), e.bundles && eachProp(e.bundles, function(e, t) {
                         each(e, function(e) {
-                            e !== t && (O[e] = t);
+                            e !== t && (A[e] = t);
                         });
                     }), e.shim && (eachProp(e.shim, function(e, t) {
                         isArray(e) && (e = {
                             deps: e
                         }), !e.exports && !e.init || e.exportsFn || (e.exportsFn = b.makeShimExports(e)), 
-                        i[t] = e;
-                    }), E.shim = i), e.packages && each(e.packages, function(e) {
+                        r[t] = e;
+                    }), E.shim = r), e.packages && each(e.packages, function(e) {
                         var t;
                         t = (e = "string" == typeof e ? {
                             name: e
@@ -391,74 +391,74 @@
                         return e.init && (t = e.init.apply(global, arguments)), t || e.exports && getGlobal(e.exports);
                     };
                 },
-                makeRequire: function(r, n) {
-                    function s(t, i, u) {
-                        var c, f;
-                        return n.enableBuildCallback && i && isFunction(i) && (i.__requireJsBuild = !0), 
-                        "string" == typeof t ? isFunction(i) ? d(makeError("requireargs", "Invalid require call"), u) : r && hasProp(y, t) ? y[t](x[r.id]) : req.get ? req.get(b, t, r, s) : (c = o(t, r, !1, !0).id, 
-                        hasProp(S, c) ? S[c] : d(makeError("notloaded", 'Module name "' + c + '" has not been loaded yet for context: ' + e + (r ? "" : ". Use require([])")))) : (g(), 
+                makeRequire: function(i, n) {
+                    function s(t, r, u) {
+                        var l, f;
+                        return n.enableBuildCallback && r && isFunction(r) && (r.__requireJsBuild = !0), 
+                        "string" == typeof t ? isFunction(r) ? d(makeError("requireargs", "Invalid require call"), u) : i && hasProp(y, t) ? y[t](x[i.id]) : req.get ? req.get(b, t, i, s) : (l = o(t, i, !1, !0).id, 
+                        hasProp(S, l) ? S[l] : d(makeError("notloaded", 'Module name "' + l + '" has not been loaded yet for context: ' + e + (i ? "" : ". Use require([])")))) : (g(), 
                         b.nextTick(function() {
-                            g(), (f = a(o(null, r))).skipMap = n.skipMap, f.init(t, i, u, {
+                            g(), (f = a(o(null, i))).skipMap = n.skipMap, f.init(t, r, u, {
                                 enabled: !0
-                            }), l();
+                            }), c();
                         }), s);
                     }
                     return n = n || {}, mixin(s, {
                         isBrowser: isBrowser,
                         toUrl: function(e) {
-                            var i, n = e.lastIndexOf("."), o = e.split("/")[0];
-                            return -1 !== n && (!("." === o || ".." === o) || 1 < n) && (i = e.substring(n, e.length), 
-                            e = e.substring(0, n)), b.nameToUrl(t(e, r && r.id, !0), i, !0);
+                            var r, n = e.lastIndexOf("."), o = e.split("/")[0];
+                            return -1 !== n && (!("." === o || ".." === o) || 1 < n) && (r = e.substring(n, e.length), 
+                            e = e.substring(0, n)), b.nameToUrl(t(e, i && i.id, !0), r, !0);
                         },
                         defined: function(e) {
-                            return hasProp(S, o(e, r, !1, !0).id);
+                            return hasProp(S, o(e, i, !1, !0).id);
                         },
                         specified: function(e) {
-                            return e = o(e, r, !1, !0).id, hasProp(S, e) || hasProp(x, e);
+                            return e = o(e, i, !1, !0).id, hasProp(S, e) || hasProp(x, e);
                         }
-                    }), r || (s.undef = function(e) {
+                    }), i || (s.undef = function(e) {
                         u();
-                        var t = o(e, r, !0), n = getOwn(x, e);
-                        n.undefed = !0, i(e), delete S[e], delete q[t.url], delete I[e], eachReverse(T, function(t, i) {
-                            t[0] === e && T.splice(i, 1);
-                        }), delete b.defQueueMap[e], n && (n.events.defined && (I[e] = n.events), c(e));
+                        var t = o(e, i, !0), n = getOwn(x, e);
+                        n.undefed = !0, r(e), delete S[e], delete q[t.url], delete T[e], eachReverse(I, function(t, r) {
+                            t[0] === e && I.splice(r, 1);
+                        }), delete b.defQueueMap[e], n && (n.events.defined && (T[e] = n.events), l(e));
                     }), s;
                 },
                 enable: function(e) {
                     getOwn(x, e.id) && a(e).enable();
                 },
                 completeLoad: function(e) {
-                    var t, i, n, o = getOwn(E.shim, e) || {}, a = o.exports;
-                    for (u(); T.length; ) {
-                        if (null === (i = T.shift())[0]) {
-                            if (i[0] = e, t) break;
+                    var t, r, n, o = getOwn(E.shim, e) || {}, a = o.exports;
+                    for (u(); I.length; ) {
+                        if (null === (r = I.shift())[0]) {
+                            if (r[0] = e, t) break;
                             t = !0;
-                        } else i[0] === e && (t = !0);
-                        f(i);
+                        } else r[0] === e && (t = !0);
+                        f(r);
                     }
                     if (b.defQueueMap = {}, n = getOwn(x, e), !t && !hasProp(S, e) && n && !n.inited) {
-                        if (!(!E.enforceDefine || a && getGlobal(a))) return r(e) ? void 0 : d(makeError("nodefine", "No define call for " + e, null, [ e ]));
+                        if (!(!E.enforceDefine || a && getGlobal(a))) return i(e) ? void 0 : d(makeError("nodefine", "No define call for " + e, null, [ e ]));
                         f([ e, o.deps || [], o.exportsFn ]);
                     }
-                    l();
+                    c();
                 },
-                nameToUrl: function(e, t, i) {
-                    var r, n, o, a, s, d, u = getOwn(E.pkgs, e);
-                    if (u && (e = u), d = getOwn(O, e)) return b.nameToUrl(d, t, i);
+                nameToUrl: function(e, t, r) {
+                    var i, n, o, a, s, d, u = getOwn(E.pkgs, e);
+                    if (u && (e = u), d = getOwn(A, e)) return b.nameToUrl(d, t, r);
                     if (req.jsExtRegExp.test(e)) a = e + (t || ""); else {
-                        for (r = E.paths, o = (n = e.split("/")).length; 0 < o; o -= 1) if (s = getOwn(r, n.slice(0, o).join("/"))) {
+                        for (i = E.paths, o = (n = e.split("/")).length; 0 < o; o -= 1) if (s = getOwn(i, n.slice(0, o).join("/"))) {
                             isArray(s) && (s = s[0]), n.splice(0, o, s);
                             break;
                         }
-                        a = n.join("/"), a = ("/" === (a += t || (/^data\:|^blob\:|\?/.test(a) || i ? "" : ".js")).charAt(0) || a.match(/^[\w\+\.\-]+:/) ? "" : E.baseUrl) + a;
+                        a = n.join("/"), a = ("/" === (a += t || (/^data\:|^blob\:|\?/.test(a) || r ? "" : ".js")).charAt(0) || a.match(/^[\w\+\.\-]+:/) ? "" : E.baseUrl) + a;
                     }
                     return E.urlArgs && !/^blob\:/.test(a) ? a + E.urlArgs(e, a) : a;
                 },
                 load: function(e, t) {
                     req.load(b, e, t);
                 },
-                execCb: function(e, t, i, r) {
-                    return t.apply(r, i);
+                execCb: function(e, t, r, i) {
+                    return t.apply(i, r);
                 },
                 onScriptLoad: function(e) {
                     if ("load" === e.type || readyRegExp.test((e.currentTarget || e.srcElement).readyState)) {
@@ -469,13 +469,13 @@
                 },
                 onScriptError: function(e) {
                     var t = h(e);
-                    if (!r(t.id)) {
-                        var i = [];
-                        return eachProp(x, function(e, r) {
-                            0 !== r.indexOf("_@r") && each(e.depMaps, function(e) {
-                                if (e.id === t.id) return i.push(r), !0;
+                    if (!i(t.id)) {
+                        var r = [];
+                        return eachProp(x, function(e, i) {
+                            0 !== i.indexOf("_@r") && each(e.depMaps, function(e) {
+                                if (e.id === t.id) return r.push(i), !0;
                             });
-                        }), d(makeError("scripterror", 'Script error for "' + t.id + (i.length ? '", needed by: ' + i.join(", ") : '"'), e, [ t.id ]));
+                        }), d(makeError("scripterror", 'Script error for "' + t.id + (r.length ? '", needed by: ' + r.join(", ") : '"'), e, [ t.id ]));
                     }
                 }
             }).require = b.makeRequire(), b;
@@ -492,11 +492,11 @@
                 cfg = requirejs, requirejs = void 0;
             }
             void 0 === require || isFunction(require) || (cfg = require, require = void 0), 
-            req = requirejs = function(e, t, i, r) {
+            req = requirejs = function(e, t, r, i) {
                 var n, o, a = defContextName;
-                return isArray(e) || "string" == typeof e || (o = e, isArray(t) ? (e = t, t = i, 
-                i = r) : e = []), o && o.context && (a = o.context), (n = getOwn(contexts, a)) || (n = contexts[a] = req.s.newContext(a)), 
-                o && n.configure(o), n.require(e, t, i);
+                return isArray(e) || "string" == typeof e || (o = e, isArray(t) ? (e = t, t = r, 
+                r = i) : e = []), o && o.context && (a = o.context), (n = getOwn(contexts, a)) || (n = contexts[a] = req.s.newContext(a)), 
+                o && n.configure(o), n.require(e, t, r);
             }, req.config = function(e) {
                 return req(e);
             }, req.nextTick = void 0 !== setTimeout ? function(e) {
@@ -513,22 +513,22 @@
                     return t.require[e].apply(t, arguments);
                 };
             }), isBrowser && (head = s.head = document.getElementsByTagName("head")[0], (baseElement = document.getElementsByTagName("base")[0]) && (head = s.head = baseElement.parentNode)), 
-            req.onError = defaultOnError, req.createNode = function(e, t, i) {
-                var r = e.xhtml ? document.createElementNS("http://www.w3.org/1999/xhtml", "html:script") : document.createElement("script");
-                return r.type = e.scriptType || "text/javascript", r.charset = "utf-8", r.async = !0, 
-                r;
-            }, req.load = function(e, t, i) {
-                var r, n = e && e.config || {};
-                if (isBrowser) return (r = req.createNode(n, t, i)).setAttribute("data-requirecontext", e.contextName), 
-                r.setAttribute("data-requiremodule", t), !r.attachEvent || r.attachEvent.toString && r.attachEvent.toString().indexOf("[native code") < 0 || isOpera ? (r.addEventListener("load", e.onScriptLoad, !1), 
-                r.addEventListener("error", e.onScriptError, !1)) : (useInteractive = !0, r.attachEvent("onreadystatechange", e.onScriptLoad)), 
-                r.src = i, n.onNodeCreated && n.onNodeCreated(r, n, t, i), currentlyAddingScript = r, 
-                baseElement ? head.insertBefore(r, baseElement) : head.appendChild(r), currentlyAddingScript = null, 
-                r;
+            req.onError = defaultOnError, req.createNode = function(e, t, r) {
+                var i = e.xhtml ? document.createElementNS("http://www.w3.org/1999/xhtml", "html:script") : document.createElement("script");
+                return i.type = e.scriptType || "text/javascript", i.charset = "utf-8", i.async = !0, 
+                i;
+            }, req.load = function(e, t, r) {
+                var i, n = e && e.config || {};
+                if (isBrowser) return (i = req.createNode(n, t, r)).setAttribute("data-requirecontext", e.contextName), 
+                i.setAttribute("data-requiremodule", t), !i.attachEvent || i.attachEvent.toString && i.attachEvent.toString().indexOf("[native code") < 0 || isOpera ? (i.addEventListener("load", e.onScriptLoad, !1), 
+                i.addEventListener("error", e.onScriptError, !1)) : (useInteractive = !0, i.attachEvent("onreadystatechange", e.onScriptLoad)), 
+                i.src = r, n.onNodeCreated && n.onNodeCreated(i, n, t, r), currentlyAddingScript = i, 
+                baseElement ? head.insertBefore(i, baseElement) : head.appendChild(i), currentlyAddingScript = null, 
+                i;
                 if (isWebWorker) try {
-                    setTimeout(function() {}, 0), importScripts(i), e.completeLoad(t);
-                } catch (r) {
-                    e.onError(makeError("importscripts", "importScripts failed for " + t + " at " + i, r, [ t ]));
+                    setTimeout(function() {}, 0), importScripts(r), e.completeLoad(t);
+                } catch (i) {
+                    e.onError(makeError("importscripts", "importScripts failed for " + t + " at " + r, i, [ t ]));
                 }
             }, isBrowser && !cfg.skipDataMain && eachReverse(scripts(), function(e) {
                 if (head || (head = e.parentNode), dataMain = e.getAttribute("data-main")) return mainScript = dataMain, 
@@ -536,15 +536,15 @@
                 subPath = src.length ? src.join("/") + "/" : "./", cfg.baseUrl = subPath), mainScript = mainScript.replace(jsSuffixRegExp, ""), 
                 req.jsExtRegExp.test(mainScript) && (mainScript = dataMain), cfg.deps = cfg.deps ? cfg.deps.concat(mainScript) : [ mainScript ], 
                 !0;
-            }), define = function(e, t, i) {
-                var r, n;
-                "string" != typeof e && (i = t, t = e, e = null), isArray(t) || (i = t, t = null), 
-                !t && isFunction(i) && (t = [], i.length && (i.toString().replace(commentRegExp, commentReplace).replace(cjsRequireRegExp, function(e, i) {
-                    t.push(i);
-                }), t = (1 === i.length ? [ "require" ] : [ "require", "exports", "module" ]).concat(t))), 
-                useInteractive && (r = currentlyAddingScript || getInteractiveScript()) && (e || (e = r.getAttribute("data-requiremodule")), 
-                n = contexts[r.getAttribute("data-requirecontext")]), n ? (n.defQueue.push([ e, t, i ]), 
-                n.defQueueMap[e] = !0) : globalDefQueue.push([ e, t, i ]);
+            }), define = function(e, t, r) {
+                var i, n;
+                "string" != typeof e && (r = t, t = e, e = null), isArray(t) || (r = t, t = null), 
+                !t && isFunction(r) && (t = [], r.length && (r.toString().replace(commentRegExp, commentReplace).replace(cjsRequireRegExp, function(e, r) {
+                    t.push(r);
+                }), t = (1 === r.length ? [ "require" ] : [ "require", "exports", "module" ]).concat(t))), 
+                useInteractive && (i = currentlyAddingScript || getInteractiveScript()) && (e || (e = i.getAttribute("data-requiremodule")), 
+                n = contexts[i.getAttribute("data-requirecontext")]), n ? (n.defQueue.push([ e, t, r ]), 
+                n.defQueueMap[e] = !0) : globalDefQueue.push([ e, t, r ]);
             }, define.amd = {
                 jQuery: !0
             }, req.exec = function(text) {
@@ -562,21 +562,21 @@
         function t(e) {
             return "true" === localStorage.getItem(e);
         }
-        function i(i) {
+        function r(r) {
             function a() {
                 return t(o) || t(u);
             }
             function s() {
                 try {
-                    for (var e, t = "[" + i + "]", r = [], n = 0; n < arguments.length; n++) r.push(arguments[n]);
-                    return e = r[0], "string" == typeof e || e instanceof String ? r[0] = t + " - " + e : r.unshift(t), 
-                    r;
+                    for (var e, t = "[" + r + "]", i = [], n = 0; n < arguments.length; n++) i.push(arguments[n]);
+                    return e = i[0], "string" == typeof e || e instanceof String ? i[0] = t + " - " + e : i.unshift(t), 
+                    i;
                 } catch (e) {
                     console.error("logger", e);
                 }
             }
-            var d, u = n + i + ".debug";
-            r = e.getWindow(), d = a(), r.addEventListener("storage", function(e) {
+            var d, u = n + r + ".debug";
+            i = e.getWindow(), d = a(), i.addEventListener("storage", function(e) {
                 e.key !== o && e.key !== u || (d = a());
             }), this.debug = function() {
                 var e = s.apply(null, arguments);
@@ -586,68 +586,68 @@
                 console.error.apply(null, e);
             };
         }
-        var r, n = "oracle.content.ui.customform.", o = n + "debug";
-        return i;
+        var i, n = "oracle.content.ui.customform.", o = n + "debug";
+        return r;
     }), define("sdk/dispatcher", [ "sdk/logger" ], function(e) {
-        var t = new e("dispatcher"), i = 0, r = {}, n = {}, o = {};
+        var t = new e("dispatcher"), r = 0, i = {}, n = {}, o = {};
         return {
-            on: function(e, t, i) {
-                n[e] = t.bind(i);
+            on: function(e, t, r) {
+                n[e] = t.bind(r);
             },
             startListening: function() {
                 window.addEventListener("message", this.onMessage.bind(this));
             },
             onMessage: function(e) {
                 if (e.origin === this.getOrigin()) {
-                    var i = e.data, a = i.type;
-                    t.debug("receiving data:", e.data), i.senderId && o[i.senderId] && o[i.senderId].frame ? (t.debug("subscriber found for sender:", i.senderId), 
-                    e.source === o[i.senderId].frame.contentWindow ? ("ready" === a && (t.debug("processing event customEditorReady for type:", a), 
-                    n.customEditorReady.call(null, e.data.payload, i.senderId, o[i.senderId].index)), 
-                    "edit" === a && (t.debug("processing event customEditorUpdate for type:", a), n.customEditorUpdate.call(null, e.data.payload, i.senderId, o[i.senderId].index)), 
+                    var r = e.data, a = r.type;
+                    t.debug("receiving data:", e.data), r.senderId && o[r.senderId] && o[r.senderId].frame ? (t.debug("subscriber found for sender:", r.senderId), 
+                    e.source === o[r.senderId].frame.contentWindow ? ("ready" === a && (t.debug("processing event customEditorReady for type:", a), 
+                    n.customEditorReady.call(null, e.data.payload, r.senderId, o[r.senderId].index)), 
+                    "edit" === a && (t.debug("processing event customEditorUpdate for type:", a), n.customEditorUpdate.call(null, e.data.payload, r.senderId, o[r.senderId].index)), 
                     "resize" === a && (t.debug("processing event customEditorResize for type:", a), 
-                    n.customEditorResize.call(null, e.data.payload, i.senderId, o[i.senderId].index)), 
-                    "replyTo" === a && (r[i.messageId] && "function" == typeof r[i.messageId].resolveCallBack ? (t.debug("processing resolve callback"), 
-                    r[i.messageId].resolveCallBack.call(null, i.payload)) : t.debug("no resolve callback for message id:", i.messageId))) : t.debug("No content window found for:", i.senderId)) : ("replyTo" === i.type && (i.replyStatus && "error" === i.replyStatus.replyType ? (t.error("replyTo returned error :", i.replyStatus.message), 
-                    r[i.messageId] && "function" == typeof r[i.messageId].rejectCallBack ? (t.debug("processing reject callback"), 
-                    r[i.messageId].rejectCallBack.call(null, i.replyStatus.message ? i.replyStatus.message : "Error")) : t.debug("no reject callback for message id:", i.messageId)) : r[i.messageId] && "function" == typeof r[i.messageId].resolveCallBack ? (t.debug("processing resolve callback"), 
-                    r[i.messageId].resolveCallBack.call(null, i.payload)) : t.debug("no resolve callback for message id:", i.messageId)), 
+                    n.customEditorResize.call(null, e.data.payload, r.senderId, o[r.senderId].index)), 
+                    "replyTo" === a && (i[r.messageId] && "function" == typeof i[r.messageId].resolveCallBack ? (t.debug("processing resolve callback"), 
+                    i[r.messageId].resolveCallBack.call(null, r.payload)) : t.debug("no resolve callback for message id:", r.messageId))) : t.debug("No content window found for:", r.senderId)) : ("replyTo" === r.type && (r.replyStatus && "error" === r.replyStatus.replyType ? (t.error("replyTo returned error :", r.replyStatus.message), 
+                    i[r.messageId] && "function" == typeof i[r.messageId].rejectCallBack ? (t.debug("processing reject callback"), 
+                    i[r.messageId].rejectCallBack.call(null, r.replyStatus.message ? r.replyStatus.message : "Error")) : t.debug("no reject callback for message id:", r.messageId)) : i[r.messageId] && "function" == typeof i[r.messageId].resolveCallBack ? (t.debug("processing resolve callback"), 
+                    i[r.messageId].resolveCallBack.call(null, r.payload)) : t.debug("no resolve callback for message id:", r.messageId)), 
                     "function" == typeof n[a] && (t.debug("processing event", a), n[a].call(null, e.data.payload, e.data.messageId)));
                 }
             },
             getSenderId: function() {
                 return window.location.hash.slice(1);
             },
-            send: function(e, i) {
-                i = i || {};
-                var r = {
+            send: function(e, r) {
+                r = r || {};
+                var i = {
                     type: e,
-                    payload: i,
+                    payload: r,
                     senderId: this.getSenderId()
                 };
-                t.debug("sending:", r), this.getTargetWindow().postMessage(r, this.getOrigin());
+                t.debug("sending:", i), this.getTargetWindow().postMessage(i, this.getOrigin());
             },
-            sendToSubscriber: function(e, i, r) {
+            sendToSubscriber: function(e, r, i) {
                 var n = {
-                    type: i,
-                    payload: r,
+                    type: r,
+                    payload: i,
                     senderId: e
                 }, a = o[e];
                 if (!a || !a.frame || !a.frame.contentWindow) throw new Error("There is no target window corresponding to subscriber :", e);
                 a.frame.contentWindow.postMessage(n, this.getOrigin()), t.debug("sending data " + n + " to subscriber " + e);
             },
-            replyTo: function(e, i, r) {
+            replyTo: function(e, r, i) {
                 var n = {
                     type: "replyTo",
-                    payload: i,
+                    payload: r,
                     messageId: e,
                     senderId: this.getSenderId(),
-                    replyStatus: r
+                    replyStatus: i
                 };
                 t.debug("sending:", n), this.getTargetWindow().postMessage(n, this.getOrigin());
             },
             sendAndWait: function(e, n) {
                 return new Promise(function(o, a) {
-                    n = n || {}, i++, r[i] = {
+                    n = n || {}, r++, i[r] = {
                         resolveCallBack: o,
                         rejectCallBack: a
                     };
@@ -655,7 +655,7 @@
                         type: e,
                         payload: n,
                         senderId: this.getSenderId(),
-                        messageId: i
+                        messageId: r
                     };
                     t.debug("sending:", s), this.getTargetWindow().postMessage(s, this.getOrigin());
                 }.bind(this));
@@ -664,14 +664,14 @@
                 var a = o[e];
                 if (!a || !a.frame || !a.frame.contentWindow) throw new Error("There is no target window corresponding to subscriber :", e);
                 return new Promise(function(e, o) {
-                    n = n || {}, i++, r[i] = {
+                    n = n || {}, r++, i[r] = {
                         resolveCallBack: e,
                         rejectCallBack: o
                     };
                     var s = {
                         type: t,
                         payload: n,
-                        messageId: i
+                        messageId: r
                     };
                     a.frame.contentWindow.postMessage(s, this.getOrigin());
                 }.bind(this));
@@ -682,47 +682,47 @@
             getOrigin: function() {
                 return window.origin;
             },
-            addToSubscriber: function(e, i) {
+            addToSubscriber: function(e, r) {
                 o[e] = {
-                    frame: i.frame,
-                    index: i.index
+                    frame: r.frame,
+                    index: r.index
                 }, t.debug("adding " + e + " to subscribers list");
             }
         };
     }), define("sdk/storage", [ "sdk/logger" ], function(e) {
-        var t = new e("storage"), i = {};
+        var t = new e("storage"), r = {};
         return {
-            put: function(e, r) {
-                if (!e || !r) throw new Error("key and value should be present");
-                i[e] = r, t.debug("Adding key: " + e + " to storage");
+            put: function(e, i) {
+                if (!e || !i) throw new Error("key and value should be present");
+                r[e] = i, t.debug("Adding key: " + e + " to storage");
             },
             get: function(e) {
                 if (!e) throw new Error("key should be present");
-                return t.debug("Getting value for key: " + e + " from storage"), i[e];
+                return t.debug("Getting value for key: " + e + " from storage"), r[e];
             },
             delete: function(e) {
-                e && (t.debug("Remove value for key: " + e + " from storage"), delete i[e]);
+                e && (t.debug("Remove value for key: " + e + " from storage"), delete r[e]);
             }
         };
     }), define("sdk/CustomEditor", [ "sdk/dispatcher", "sdk/logger" ], function(e, t) {
-        var i = new t("CustomEditor");
+        var r = new t("CustomEditor");
         return function(t) {
             t = t || {};
-            var r = {}, n = t.frame, o = t.editorValue, a = t.customEditor, s = t.frameId, d = {
+            var i = {}, n = t.frame, o = t.editorValue, a = t.customEditor, s = t.frameId, d = {
                 ready: !1
             };
             this.getCustomEditorInfo = function() {
                 var e = t.customEditor;
                 return e.widgetId = s, Object.freeze(e);
             }, this.setEditorReady = function() {
-                Object.isFrozen(d) || (d.ready = !0, Object.freeze(d), r.editorReady && (i.debug("Triggering custom editor ready"), 
-                r.editorReady.call(null)));
+                Object.isFrozen(d) || (d.ready = !0, Object.freeze(d), i.editorReady && (r.debug("Triggering custom editor ready"), 
+                i.editorReady.call(null)));
             }, this.triggerChange = function(e) {
-                o = e, r.change && (r.change.call(null, e), i.debug("Triggering custom editor value changed, new value :" + e));
+                o = e, i.change && (i.change.call(null, e), r.debug("Triggering custom editor value changed, new value :" + e));
             }, this.getValue = function() {
                 return o;
             }, this.on = function(e, t) {
-                r[e] = t;
+                i[e] = t;
             }, this.getFrame = function() {
                 return n;
             }, this.setDisabled = function(t) {
@@ -735,16 +735,16 @@
                         isValid: !0
                     });
                 }) : e.sendToSubscriberAndWait(s, "validate").then(function(e) {
-                    i.debug("Editor validation retuned :" + e);
-                    var t = !e || !e.hasOwnProperty("isValid") || e.isValid, r = {
+                    r.debug("Editor validation retuned :" + e);
+                    var t = !e || !e.hasOwnProperty("isValid") || e.isValid, i = {
                         isValid: t
                     };
                     if (!t) {
                         var n = !!(e && e.hasOwnProperty("error") && e.error.hasOwnProperty("title")), o = !!(e && e.hasOwnProperty("error") && e.error.hasOwnProperty("message"));
-                        r.errorMessageSummary = n ? e.error.title : "Invalid value", r.errorMessageDetail = o ? e.error.message : "Invalid value";
+                        i.errorMessageSummary = n ? e.error.title : "Invalid value", i.errorMessageDetail = o ? e.error.message : "Invalid value";
                     }
                     return new Promise(function(e) {
-                        e(r);
+                        e(i);
                     });
                 });
             }, this.resizeEditorFrame = function(e, t) {
@@ -752,11 +752,11 @@
                 if (e) {
                     var o = e.width ? e.width : 0, a = e.height ? e.height : 0;
                     o = "number" == typeof o ? o += "px" : o, a = "number" == typeof a ? a += "px" : a, 
-                    n.style.width = o, n.style.height = a, t && t.notify && r.editorResized && (i.debug("Triggering custom editor ready"), 
-                    r.editorResized.call(null, {
+                    n.style.width = o, n.style.height = a, t && t.notify && i.editorResized && (r.debug("Triggering custom editor ready"), 
+                    i.editorResized.call(null, {
                         width: o,
                         height: a
-                    })), i.debug("Resizing custom editor frame to width:" + o + " ,height:" + a);
+                    })), r.debug("Resizing custom editor frame to width:" + o + " ,height:" + a);
                 }
             };
         };
@@ -772,22 +772,22 @@
             JSON: "json"
         };
         return Object.freeze(e);
-    }), define("sdk/Field", [ "sdk/dispatcher", "sdk/storage", "sdk/CustomEditor", "sdk/dataTypes", "sdk/logger" ], function(e, t, i, r, n) {
+    }), define("sdk/Field", [ "sdk/dispatcher", "sdk/storage", "sdk/CustomEditor", "sdk/dataTypes", "sdk/logger" ], function(e, t, r, i, n) {
         function o(e, t) {
             return u++, "_widget_" + e + "_" + t + "_" + u;
         }
         function a(e, t) {
             if (!e || !t) return null;
-            var i = t.filter(function(t) {
+            var r = t.filter(function(t) {
                 return t.id === e;
             });
-            return i && i.length > 0 ? i[0] : null;
+            return r && r.length > 0 ? r[0] : null;
         }
-        function s(i, r, n, o, a) {
-            t.put(i, {
-                fieldId: r,
+        function s(r, i, n, o, a) {
+            t.put(r, {
+                fieldId: i,
                 widget: a
-            }), e.addToSubscriber(i, {
+            }), e.addToSubscriber(r, {
                 frame: n,
                 index: o
             });
@@ -795,39 +795,39 @@
         var d = new n("Field"), u = 0;
         return function(t) {
             function n(t) {
-                var i = {
+                var r = {
                     nodeName: h,
-                    value: l,
+                    value: c,
                     isField: !0,
                     options: t
                 };
-                d.debug("Notifying UI that the field value has changed:", i), e.send("edit", i);
+                d.debug("Notifying UI that the field value has changed:", r), e.send("edit", r);
             }
             if (d.debug("Field received params :", t), !t || !t.definition) {
                 var u = "Unable to initialize Field - invalid  parameter: no field definition provided";
                 throw d.error(u), new Error(u);
             }
-            var c = {}, l = t.value, f = t.definition, p = f.id, h = f.name, g = f.datatype, m = "list" === f.valuecount, v = (f.valuecount, 
+            var l = {}, c = t.value, f = t.definition, p = f.id, h = f.name, g = f.datatype, m = "list" === f.valuecount, v = (f.valuecount, 
             t.availableCustomEditors);
             this.on = function(e, t) {
-                c[e] = t;
+                l[e] = t;
             }, this.getDefinition = function() {
                 return Object.freeze(f);
             }, this.createCustomEditor = function(e, t) {
                 t = t || {};
-                var r = a(e, v), n = t.width ? t.width : "100%", u = t.height ? t.height : "0", c = t.index;
-                if (r) try {
-                    var f = o(p, r.id), g = document.createElement("iframe"), m = "/_themes/_components/" + r.id + "/publish/assets/edit.html#" + f;
+                var i = a(e, v), n = t.width ? t.width : "100%", u = t.height ? t.height : "0", l = t.index;
+                if (i) try {
+                    var f = o(p, i.id), g = document.createElement("iframe"), m = "/_themes/_components/" + i.id + "/publish/assets/edit.html#" + f;
                     g.setAttribute("src", m), g.setAttribute("frameborder", 0), g.style.height = u, 
                     g.style.width = n;
-                    var b = void 0 === c || isNaN(c) ? l : l && l.length && l.length > c ? l[c] : void 0, y = new i({
+                    var b = void 0 === l || isNaN(l) ? c : c && c.length && c.length > l ? c[l] : void 0, y = new r({
                         frame: g,
                         frameId: f,
                         fieldId: p,
-                        customEditor: r,
+                        customEditor: i,
                         editorValue: b
                     });
-                    return s(f, p, g, c, y), d.debug("custom editor frame is built for editor " + e), 
+                    return s(f, p, g, l, y), d.debug("custom editor frame is built for editor " + e), 
                     y;
                 } catch (t) {
                     throw d.debug("Failed to build custom editor frame for editor " + e), new Error("Failed to build custom editor frame for editor :" + t.message);
@@ -835,32 +835,39 @@
             }, this.removeValueAt = function(e, t) {
                 if (t = t || {}, !m) throw new Error("Field" + h + " is not a multi valued field");
                 if (void 0 === e || isNaN(e) || e < 0) throw new Error("Invalid index passed :" + e);
-                l && Array.isArray(l) && l.length > e && (l.splice(e, 1), n(t));
+                c && Array.isArray(c) && c.length > e && (c.splice(e, 1), n(t));
             }, this.getValueAt = function(e) {
                 if (!m) throw new Error("Field" + h + " is not a multi valued field");
                 if (void 0 === e || isNaN(e) || e < 0) throw new Error("Invalid index passed :" + e);
                 var t;
-                return l && Array.isArray(l) && l.length > e && (t = l[e]), t;
-            }, this.setValueAt = function(e, t, i) {
-                if (i = i || {}, void 0 === e || isNaN(e) || e < 0) throw new Error("Invalid index passed :" + e);
+                return c && Array.isArray(c) && c.length > e && (t = c[e]), t;
+            }, this.setValueAt = function(e, t, r) {
+                if (r = r || {}, void 0 === e || isNaN(e) || e < 0) throw new Error("Invalid index passed :" + e);
                 if (!m) throw new Error("Field" + h + " is not a multi valued field");
-                !l && m && (l = []), l[e] = t, n(i);
-            }, this.validate = function(t, i) {
-                if (i = i || {}, m && i.hasOwnProperty("index") && (void 0 === i.index || isNaN(i.index) || i.index < 0)) throw new Error("Invalid index passed :" + i.index);
+                !c && m && (c = []), c[e] = t, n(r);
+            }, this.validate = function(t, r) {
+                if (r = r || {}, m && r.hasOwnProperty("index") && (void 0 === r.index || isNaN(r.index) || r.index < 0)) throw new Error("Invalid index passed :" + r.index);
                 return e.sendAndWait("validateField", {
                     fieldValue: t,
                     fieldName: h,
-                    options: i
+                    options: r
                 });
             }, this.setValue = function(e, t) {
-                l = e, t = t || {}, t.notifyForm ? c.update && (d.debug("Notifying the form to update the value for field:" + h + "with value: " + l), 
-                c.update.call(null, l)) : n(t);
+                c = e, t = t || {}, t.notifyForm ? l.update && (d.debug("Notifying the form to update the value for field:" + h + "with value: " + c), 
+                l.update.call(null, c)) : n(t);
             }, this.getValue = function() {
-                return l;
+                return c;
             }, this.openAssetPicker = function(t) {
-                var i = g;
-                if (i !== r.REFERENCE && i !== r.LARGETEXT) throw new Error("Opening asset picker is not supported for field with data type " + i);
+                var r = g;
+                if (r !== i.REFERENCE && r !== i.LARGETEXT) throw new Error("Opening asset picker is not supported for field with data type " + r);
                 return t = t || {}, e.sendAndWait("openAssetPicker", {
+                    options: t,
+                    fieldName: h
+                });
+            }, this.openLinkDialog = function(t) {
+                var r = g;
+                if (r !== i.LARGETEXT) throw new Error("Opening link dialog is not supported for field with data type " + r);
+                return t = t || {}, e.sendAndWait("openLinkDialog", {
                     options: t,
                     fieldName: h
                 });
@@ -870,8 +877,8 @@
         var t = new e("Type");
         return function(e) {
             if (!e || !e.name) {
-                var i = "Unable to initialize Type - invalid  parameter: no name provided";
-                throw t.error(i), new Error(i);
+                var r = "Unable to initialize Type - invalid  parameter: no name provided";
+                throw t.error(r), new Error(r);
             }
             this.name = e.name, this.description = e.description, this.getSlug = function() {
                 return Object.freeze(e.slug);
@@ -879,37 +886,37 @@
                 return Object.freeze(e.groups);
             };
         };
-    }), define("sdk/Item", [ "sdk/Field", "sdk/Type", "sdk/dispatcher", "sdk/logger" ], function(e, t, i, r) {
+    }), define("sdk/Item", [ "sdk/Field", "sdk/Type", "sdk/dispatcher", "sdk/logger" ], function(e, t, r, i) {
         function n(e) {
-            a.debug("Notifying UI that the item property value has changed:", e), i.send("edit", e);
+            a.debug("Notifying UI that the item property value has changed:", e), r.send("edit", e);
         }
         function o(e, t) {
             return e = e || [], e.some(function(e) {
                 return e.value === t;
             });
         }
-        var a = new r("Item");
+        var a = new i("Item");
         return function(t) {
-            function r(e) {
-                c = e.id, l = e.type, f = e.name, p = e.description, h = e.slug, g = e.language, 
+            function i(e) {
+                l = e.id, c = e.type, f = e.name, p = e.description, h = e.slug, g = e.language, 
                 m = e.translatable, v = e.languageIsMaster, b = e.version, y = e.isPublished, w = e.status, 
-                E = e.createdDate, x = e.createdBy, k = e.updatedDate, I = e.updatedBy, T = e.repositoryId, 
-                S = e.latestVersion, q = e.currentVersion, O = e.mimeType, M = e.fileGroup, R = e.varSetId, 
-                P = e.versionInfo, C = e.publishInfo, D = e.tags, A = e.collections, N = e.channels, 
+                E = e.createdDate, x = e.createdBy, k = e.updatedDate, T = e.updatedBy, I = e.repositoryId, 
+                S = e.latestVersion, q = e.currentVersion, A = e.mimeType, O = e.fileGroup, C = e.varSetId, 
+                N = e.versionInfo, M = e.publishInfo, R = e.tags, D = e.collections, P = e.channels, 
                 j = e.publishedChannels, F = e.taxonomies, z = e.isNew;
             }
             function s() {
                 return {
-                    id: c,
-                    type: l,
+                    id: l,
+                    type: c,
                     name: f,
                     description: p,
                     createdBy: x,
                     createdDate: E,
-                    updatedBy: I,
+                    updatedBy: T,
                     updatedDate: k,
                     slug: h,
-                    repositoryId: T,
+                    repositoryId: I,
                     language: g,
                     translatable: m,
                     status: w,
@@ -918,20 +925,20 @@
                     version: b,
                     currentVersion: q,
                     latestVersion: S,
-                    mimeType: O,
-                    fileGroup: M,
-                    varSetId: R
+                    mimeType: A,
+                    fileGroup: O,
+                    varSetId: C
                 };
             }
             function d(e) {
-                a.debug("Item update recived data: ", e), r(e);
+                a.debug("Item update recived data: ", e), i(e);
                 var t = e.fieldData;
                 t && Array.isArray(t) && t.forEach(function(e) {
-                    var t = e.definition.id, i = e.value, r = _.filter(function(e) {
+                    var t = e.definition.id, r = e.value, i = _.filter(function(e) {
                         return e.getDefinition().id === t;
-                    }), n = r && r.length > 0 ? r[0] : null;
-                    n && (a.debug("Syncing field value for field : " + e.definition.name + " with value " + i), 
-                    n.setValue(i, {
+                    }), n = i && i.length > 0 ? i[0] : null;
+                    n && (a.debug("Syncing field value for field : " + e.definition.name + " with value " + r), 
+                    n.setValue(r, {
                         notifyForm: !0
                     }));
                 }), L.update && (a.debug("Notifying the form to update the item with itemData:" + s()), 
@@ -942,10 +949,10 @@
                 throw a.error(u), new Error(u);
             }
             if (!t.contentType) throw a.error("Type must be  provided"), new Error("Type must be  provided");
-            i.on("update", d);
-            var c, l, f, p, h, g, m, v, b, y, w, E, x, k, I, T, S, q, O, M, R, P, C, D, A, N, j, F, z, B = t.contentType, V = B.getSlug(), L = (V && V.enabled, 
+            r.on("update", d);
+            var l, c, f, p, h, g, m, v, b, y, w, E, x, k, T, I, S, q, A, O, C, N, M, R, D, P, j, F, z, B = t.contentType, V = B.getSlug(), L = (V && V.enabled, 
             {}), U = t.itemData, W = U.fieldData, Q = U.languageOptions;
-            r(U);
+            i(U);
             var _ = W.map(function(t) {
                 return new e(t);
             });
@@ -976,7 +983,7 @@
                     options: t
                 });
             }, this.validateName = function(e) {
-                return i.sendAndWait("validateItemName", {
+                return r.sendAndWait("validateItemName", {
                     value: e
                 });
             }, this.setDescription = function(e, t) {
@@ -986,7 +993,7 @@
                     options: t
                 });
             }, this.validateDescription = function(e) {
-                return i.sendAndWait("validateItemDescription", {
+                return r.sendAndWait("validateItemDescription", {
                     value: e
                 });
             }, this.setSlug = function(e, t) {
@@ -996,7 +1003,7 @@
                     options: t
                 });
             }, this.validateSlug = function(e) {
-                return i.sendAndWait("validateItemSlug", {
+                return r.sendAndWait("validateItemSlug", {
                     value: e
                 });
             }, this.setLanguage = function(e, t) {
@@ -1007,6 +1014,10 @@
                     value: g,
                     options: t
                 });
+            }, this.validateLanguage = function(e) {
+                return r.sendAndWait("validateItemLanguage", {
+                    value: e
+                });
             }, this.setTranslatable = function(e, t) {
                 if (t = t || {}, !this.isNew()) throw new Error("Translatbale property cannot be modified for an existing item");
                 if ("boolean" != typeof e) throw new Error("Translatbale property must be boolean");
@@ -1016,22 +1027,108 @@
                     options: t
                 });
             }, this.getVersionInfo = function() {
-                return Promise.resolve(P);
-            }, this.getPublishInfo = function() {
-                return Promise.resolve(C);
-            }, this.getTags = function() {
-                return Promise.resolve(D);
-            }, this.getCollections = function() {
-                return Promise.resolve(A);
-            }, this.getChannels = function() {
                 return Promise.resolve(N);
+            }, this.getPublishInfo = function() {
+                return Promise.resolve(M);
+            }, this.getTags = function() {
+                return Promise.resolve(R);
+            }, this.getCollections = function() {
+                return Promise.resolve(D);
+            }, this.getChannels = function() {
+                return Promise.resolve(P);
             }, this.getPublishedChannels = function() {
                 return Promise.resolve(j);
             }, this.getTaxonomies = function() {
                 return Promise.resolve(F);
+            }, this.addChannels = function(e, t) {
+                if (!Array.isArray(e)) throw new Error("Channels must be an array");
+                t = t || {}, n({
+                    nodeName: "channels",
+                    operation: "add",
+                    value: {
+                        channels: e
+                    },
+                    options: t
+                });
+            }, this.removeChannels = function(e, t) {
+                if (!Array.isArray(e)) throw new Error("Channels must be an array");
+                t = t || {}, n({
+                    nodeName: "channels",
+                    operation: "remove",
+                    value: {
+                        channels: e
+                    },
+                    options: t
+                });
+            }, this.addTags = function(e, t) {
+                if (!Array.isArray(e)) throw new Error("Tags must be an array");
+                t = t || {}, n({
+                    nodeName: "tags",
+                    operation: "add",
+                    value: {
+                        tags: e
+                    },
+                    options: t
+                });
+            }, this.removeTags = function(e, t) {
+                if (!Array.isArray(e)) throw new Error("Tags must be an array");
+                t = t || {}, n({
+                    nodeName: "tags",
+                    operation: "remove",
+                    value: {
+                        tags: e
+                    },
+                    options: t
+                });
+            }, this.addCollections = function(e, t) {
+                if (!Array.isArray(e)) throw new Error("Collections must be an array");
+                t = t || {}, n({
+                    nodeName: "collections",
+                    operation: "add",
+                    value: {
+                        collections: e
+                    },
+                    options: t
+                });
+            }, this.removeCollections = function(e, t) {
+                if (!Array.isArray(e)) throw new Error("Collections must be an array");
+                t = t || {}, n({
+                    nodeName: "collections",
+                    operation: "remove",
+                    value: {
+                        collections: e
+                    },
+                    options: t
+                });
+            }, this.addCategories = function(e, t, r) {
+                if (!e) throw new Error("Taxonomy is missing");
+                if (Array.isArray(e)) throw new Error("Taxonomy must not be an array");
+                if (!Array.isArray(t)) throw new Error("Categories must be an array");
+                r = r || {}, n({
+                    nodeName: "categories",
+                    operation: "add",
+                    value: {
+                        taxonomy: e,
+                        categories: t
+                    },
+                    options: r
+                });
+            }, this.removeCategories = function(e, t, r) {
+                if (!e) throw new Error("Taxonomy is missing");
+                if (Array.isArray(e)) throw new Error("Taxonomy must not be an array");
+                if (!Array.isArray(t)) throw new Error("Categories must be an array");
+                r = r || {}, n({
+                    nodeName: "categories",
+                    operation: "remove",
+                    value: {
+                        taxonomy: e,
+                        categories: t
+                    },
+                    options: r
+                });
             };
         };
-    }), define("sdk/api", [ "sdk/Item", "sdk/Type", "sdk/dataTypes", "sdk/dispatcher", "sdk/logger" ], function(e, t, i, r, n) {
+    }), define("sdk/api", [ "sdk/Item", "sdk/Type", "sdk/dataTypes", "sdk/dispatcher", "sdk/logger" ], function(e, t, r, i, n) {
         var o = new n("sdk");
         return function(n, a) {
             a = a || {};
@@ -1041,7 +1138,7 @@
             var d = document.querySelector("body");
             if (!n.contentItemData || !n.contentTypeData) throw s = 'Unable to initialize sdk - invalid  parameter: "contentItemData" and "contentTypeData', 
             o.error(s), new Error(s);
-            var u = n.contentItemData, c = n.contentTypeData, l = n.locale, f = n.repositoryDefaultLanguage, p = new t(c), h = new e({
+            var u = n.contentItemData, l = n.contentTypeData, c = n.locale, f = n.repositoryDefaultLanguage, p = new t(l), h = new e({
                 itemData: u,
                 contentType: p
             });
@@ -1050,12 +1147,12 @@
             }, this.getItem = function() {
                 return h;
             }, this.getLocale = function() {
-                return l;
+                return c;
             }, this.getRepositoryDefaultLanguage = function() {
                 return f;
             }, this.previewAsset = function(e) {
                 if (!e || !e.id) throw new Error('Invalid params. {"id" : "<id of asset>" must be provided to open asset preview.');
-                return r.send("previewAsset", e);
+                return i.send("previewAsset", e);
             }, this.resize = function(e) {
                 if (!e) {
                     var t = d.getBoundingClientRect();
@@ -1064,7 +1161,7 @@
                         height: t.height + "px"
                     };
                 }
-                r.send("resize", {
+                i.send("resize", {
                     width: e.width,
                     height: e.height
                 });
@@ -1096,28 +1193,28 @@
                             });
                         }
                         if (!t) {
-                            var i = 'Validation function must return a boolean, or an object with an "isValid" boolean property';
-                            throw o.error(i), new Error(i);
+                            var r = 'Validation function must return a boolean, or an object with an "isValid" boolean property';
+                            throw o.error(r), new Error(r);
                         }
                         return t.error = t.error || {}, t;
                     });
                 } catch (e) {
                     o.error("Validation function failed unexpectedly:", e);
                 }
-            }, this.dataTypes = i;
+            }, this.dataTypes = r;
         };
-    }), define("sdk/api/init", [ "sdk/api", "sdk/dispatcher", "sdk/storage", "sdk/logger" ], function(e, t, i, r) {
-        var n, o = new r("init");
+    }), define("sdk/api/init", [ "sdk/api", "sdk/dispatcher", "sdk/storage", "sdk/logger" ], function(e, t, r, i) {
+        var n, o = new i("init");
         return {
-            onInit: function(t, i) {
-                return o.debug("Received initialization data:", i), n = new e(i), "function" == typeof t && t.apply(null, [ n ]), 
+            onInit: function(t, r) {
+                return o.debug("Received initialization data:", r), n = new e(r), "function" == typeof t && t.apply(null, [ n ]), 
                 n;
             },
-            onCustomEditorReady: function(e, r, a) {
-                if (!r || !i.get(r)) throw o.error("There is no sender info to process ready message"), 
+            onCustomEditorReady: function(e, i, a) {
+                if (!i || !r.get(i)) throw o.error("There is no sender info to process ready message"), 
                 new Error("There is no sender info to process ready message");
-                var s = n.getItem(), d = s.getFields(), u = n.getLocale(), c = i.get(r), l = c.fieldId, f = s.getFieldById(l);
-                if (!f) throw o.error("There is no matching field for fieldId:", c.fieldId), new Error("There is no matching field for fieldId:", c.fieldId);
+                var s = n.getItem(), d = s.getFields(), u = n.getLocale(), l = r.get(i), c = l.fieldId, f = s.getFieldById(c);
+                if (!f) throw o.error("There is no matching field for fieldId:", l.fieldId), new Error("There is no matching field for fieldId:", l.fieldId);
                 var p = [];
                 d.forEach(function(e) {
                     var t = e.getDefinition();
@@ -1130,11 +1227,11 @@
                     });
                 });
                 var h = p.filter(function(e) {
-                    return l === e.id;
+                    return c === e.id;
                 }), g = h.length ? h[0] : null;
                 g && void 0 !== a && a >= 0 && (g.index = a);
-                var m = c.widget;
-                if (!m) throw o.error("There is no custom editor widget for sender:", r), new Error("There is no custom editor widget for sender:", r);
+                var m = l.widget;
+                if (!m) throw o.error("There is no custom editor widget for sender:", i), new Error("There is no custom editor widget for sender:", i);
                 var v = m.getCustomEditorInfo(), b = f.getDefinition().settings || {}, y = !!b.caas.editor.hasOwnProperty("isCustom") && b.caas.editor.hasOwnProperty("isCustom"), w = y ? b.caas.editor.options.settings || {} : {}, E = !!v.hasOwnProperty("autoresize") && v.autoresize;
                 (v.settings || []).filter(function(e) {
                     return "value" === e.type;
@@ -1151,34 +1248,34 @@
                         parameters: {}
                     }
                 };
-                t.sendToSubscriber(r, "init", x), m && m.setEditorReady(!0);
+                t.sendToSubscriber(i, "init", x), m && m.setEditorReady(!0);
             },
-            onCustomEditorUpdate: function(e, t, r) {
-                if (!t || !i.get(t)) throw o.error("There is no sender info to process editor update message"), 
+            onCustomEditorUpdate: function(e, t, i) {
+                if (!t || !r.get(t)) throw o.error("There is no sender info to process editor update message"), 
                 new Error("There is no sender info to process editor update message");
-                var a = i.get(t), s = a.widget, d = n.getItem(), u = d.getFieldById(a.fieldId), c = e.value, l = u.getDefinition();
+                var a = r.get(t), s = a.widget, d = n.getItem(), u = d.getFieldById(a.fieldId), l = e.value, c = u.getDefinition();
                 if (!u || !s) throw o.error("There is no matching field for fieldId:", a.fieldId), 
                 new Error("There is no matching field for fieldId:", a.fieldId);
-                void 0 !== r && r >= 0 ? (o.debug("Value changing for field " + l.name + " at index " + r + " with value " + c), 
-                s.triggerChange(c)) : (o.debug("Value changing for field " + l.name + " with value " + c), 
-                s.triggerChange(c));
+                void 0 !== i && i >= 0 ? (o.debug("Value changing for field " + c.name + " at index " + i + " with value " + l), 
+                s.triggerChange(l)) : (o.debug("Value changing for field " + c.name + " with value " + l), 
+                s.triggerChange(l));
             },
-            onCustomEditorResize: function(e, t, r) {
-                if (!t || !i.get(t)) throw o.error("There is no sender info to process custom editor resize"), 
+            onCustomEditorResize: function(e, t, i) {
+                if (!t || !r.get(t)) throw o.error("There is no sender info to process custom editor resize"), 
                 new Error("There is no sender info to process custom editor resize");
-                var n = i.get(t), a = n.widget;
+                var n = r.get(t), a = n.widget;
                 a && a.resizeEditorFrame(e, {
                     notify: !0
                 });
             },
-            onValidateForm: function(e, i) {
+            onValidateForm: function(e, r) {
                 if (o.debug("Received a validation request"), !n) return void o.debug('Ignoring incoming "validate" message: "init" not received yet');
-                var r = n.isFormValid();
-                return Promise.resolve(r).then(function(e) {
-                    var r = {
+                var i = n.isFormValid();
+                return Promise.resolve(i).then(function(e) {
+                    var i = {
                         isValid: e.isValid
                     };
-                    e.error && (r.error = e.error), t.replyTo(i, r);
+                    e.error && (i.error = e.error), t.replyTo(r, i);
                 }, function() {
                     o.error("Custom validation should not return a rejected promise");
                 }).catch(function(e) {

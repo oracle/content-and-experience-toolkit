@@ -527,6 +527,8 @@ JobManager.prototype.compileJob = function (jobConfig) {
 							compileArguments = [
 								'compile-content',
 								jobConfig.publishingJobId,
+								'-r',
+								jobConfig.renditionJobId,
 								'-s',
 								serverName,
 								'-v'
@@ -536,6 +538,8 @@ JobManager.prototype.compileJob = function (jobConfig) {
 								'compile-content',
 								'-t',
 								jobConfig.contentType,
+								'-r',
+								jobConfig.renditionJobId,
 								'-s',
 								serverName,
 								'-v'

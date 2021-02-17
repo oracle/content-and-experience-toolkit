@@ -12,6 +12,8 @@ var fs = require('fs'),
 	path = require('path'),
 	semver = require('semver'),
 	sprintf = require('sprintf-js').sprintf,
+	assetUtils = require('./asset.js').utils,
+	contentUtils = require('./content.js').utils,
 	documentUtils = require('./document.js').utils,
 	templateUtils = require('./template.js').utils,
 	siteUpdateLib = require('./siteUpdate.js'),
@@ -646,9 +648,572 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 	});
 };
 
+
+/**
+ * copy site
+ */
+module.exports.copySite = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+	var targetName = argv.target;
+	var repositoryName = argv.repository;
+	var description = argv.description;
+	var sitePrefix = argv.sitePrefix || targetName.toLowerCase();
+	sitePrefix = sitePrefix.substring(0, 15);
+
+	var request = serverUtils.getRequest();
+
+	var site;
+	var targetRepository;
+
+	var loginPromise = serverUtils.loginToServer(server, request);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		sitesRest.getSite({
+				server: server,
+				name: name,
+				expand: 'channel,repository'
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - verify source site');
+				site = result;
+
+				if (site.isEnterprise && !repositoryName) {
+					console.log('ERROR: repository is required to copy enterprise site');
+					return Promise.reject();
+				}
+
+				return sitesRest.resourceExist({
+					server: server,
+					type: 'sites',
+					name: targetName
+				});
+			})
+			.then(function (result) {
+				if (result && result.id) {
+					console.log('ERROR: site ' + targetName + ' already exists');
+					return Promise.reject();
+				}
+
+				var repositoryPromises = site.isEnterprise && repositoryName ? [serverRest.getRepositoryWithName({
+					server: server,
+					name: repositoryName
+				})] : [];
+
+				return Promise.all(repositoryPromises);
+			})
+			.then(function (results) {
+				if (site.isEnterprise && repositoryName) {
+					if (!results || !results[0] || results[0].err || !results[0].data) {
+						console.log('ERROR: repository ' + repositoryName + ' does not exist');
+						return Promise.reject();
+					}
+					targetRepository = results[0].data;
+					console.log(' - verify repository');
+				}
+
+				var channelId = site.channel && site.channel.id;
+				var repositoryId = site.repository && site.repository.id;
+
+				var checkAssetPromises = site.isEnterprise && repositoryName ? [contentUtils.getSiteAssetsFromOtherRepos(server, channelId, repositoryId)] : [];
+
+				return Promise.all(checkAssetPromises);
+
+			})
+			.then(function (results) {
+				var copyUsingAPI = true;
+				var otherItems = [];
+				if (site.isEnterprise && repositoryName) {
+					if (results && results[0] && results[0].data && results[0].data.length > 0) {
+						console.log(' - site has assets from other repositories, only the assets from the default repository will be copied');
+						copyUsingAPI = false;
+
+						var items = results[0].data;
+						var otherRepos = [];
+						items.forEach(function (item) {
+							if (item.repositoryId && !otherRepos.includes(item.repositoryId)) {
+								otherRepos.push(item.repositoryId);
+								otherItems.push({
+									repositoryId: item.repositoryId,
+									itemIds: []
+								});
+							}
+						});
+
+						for (var i = 0; i < otherItems.length; i++) {
+							for (var j = 0; j < items.length; j++) {
+								if (items[j].repositoryId === otherItems[i].repositoryId) {
+									otherItems[i].itemIds.push(items[j].id);
+								}
+							}
+						}
+					}
+				}
+
+				console.log(' - will copy ' + (site.isEnterprise ? 'enterprise' : 'standard') + ' site ' + name);
+				if (copyUsingAPI) {
+					return sitesRest.copySite({
+						server: server,
+						sourceSite: name,
+						name: targetName,
+						description: description,
+						sitePrefix: sitePrefix,
+						repositoryId: targetRepository && targetRepository.id
+					});
+
+				} else {
+					return _copySite(argv, request, server, site, targetName, description, sitePrefix, targetRepository, otherItems);
+				}
+
+			})
+			.then(function (result) {
+
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				return sitesRest.getSite({
+					server: server,
+					name: targetName
+				});
+
+			})
+			.then(function (result) {
+				if (result && result.id) {
+					console.log(' - site copied (name: ' + targetName + ' Id: ' + result.id + ')');
+					done(true);
+				} else {
+					done();
+				}
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+
+	});
+};
+
+// 
+// copy site that uses assets from multiple repositories
+// Currently cannot use sites API to copy such sites
+//
+var _copySite = function (argv, request, server, site, targetName, description, sitePrefix, repository, otherItems) {
+	return new Promise(function (resolve, reject) {
+		var templateName = site.name + serverUtils.createGUID();
+		var fileName = templateName + '.zip';
+		var fileId;
+		var destdir = path.join(projectDir, 'dist');
+
+		var startTime;
+		var idcToken;
+		var templateId;
+		var newTheme;
+
+		var excludecontent = true;
+		var enterprisetemplate = true;
+		var excludecomponents = true;
+		var excludeTheme = true;
+		var excludeType = true;
+		var siteHasAssets = true;
+		var otherItemsNum = 0;
+
+		var targetSite;
+
+		templateUtils.createLocalTemplateFromSite(argv, templateName, site.name, server, excludecontent, enterprisetemplate, excludecomponents, excludeTheme, excludeType)
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				// check if the site has assets
+				var q = '(repositoryId eq "' + site.repository.id + '") AND (channels co "' + site.channel.id + '")';
+				return serverRest.queryItems({
+					server: server,
+					q: q,
+					limit: 1
+				});
+
+			})
+			.then(function (result) {
+				var exportContentPromises = [];
+
+				var items = result && result.data || [];
+				if (items.length === 0) {
+					console.log(' - site ' + site.name + ' does not have any asset');
+					siteHasAssets = false;
+
+				} else {
+					siteHasAssets = true;
+
+					// download content from the default repository
+					var tempAssetPath = path.join(templatesSrcDir, templateName, 'assets', 'contenttemplate');
+
+					exportContentPromises.push(contentUtils.downloadContent({
+						projectDir: projectDir,
+						server: server,
+						channel: (site.channel && site.channel.name),
+						repositoryName: (site.repository && site.repository.name),
+						name: templateName + '_content',
+						publishedassets: false,
+						requiredContentPath: tempAssetPath,
+						requiredContentTemplateName: 'Content Template of ' + templateName
+
+					}));
+
+					console.log(' - downloading assets ...');
+				}
+
+				return Promise.all(exportContentPromises);
+			})
+			.then(function (results) {
+				if (siteHasAssets && (!results || !results[0] || results[0].err)) {
+					return Promise.reject();
+				}
+
+				// rename asset ids
+				var renameIdPromises = siteHasAssets ? [assetUtils.renameAssetIds(argv, templateName, [])] : [];
+
+				return Promise.all(renameIdPromises);
+
+			})
+			.then(function (result) {
+
+				// create a default theme
+				return _createDefaultTheme();
+
+			})
+			.then(function (result) {
+				newTheme = result;
+
+				// zip up the template
+				var optimize = false;
+				var excludeContentTemplate = true;
+				var extraComponents = [];
+				var excludeSiteContent = false;
+
+				return templateUtils.zipTemplate(argv, templateName, optimize, excludeContentTemplate, extraComponents, excludeSiteContent, excludecomponents, newTheme);
+
+			})
+			.then(function (result) {
+
+				var templatePath = path.join(destdir, fileName);
+				if (!fs.existsSync(templatePath)) {
+					console.log('ERROR: failed to download template ' + templateName);
+					return Promise.reject();
+				}
+
+				// upload template file to destination server
+				startTime = new Date();
+				return serverRest.createFile({
+					server: server,
+					parentID: 'self',
+					filename: fileName,
+					contents: fs.createReadStream(templatePath)
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					console.log('ERROR: failed to upload template file');
+					return Promise.reject();
+				}
+
+				var uploadedFile = result;
+				fileId = uploadedFile.id;
+				console.log(' - file ' + fileName + ' uploaded to Home folder (Id: ' + fileId + ' version:' + uploadedFile.version + ')' +
+					' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+
+				return sitesRest.importTemplate({
+					server: server,
+					name: templateName,
+					fileId: fileId
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					console.log('ERROR: failed to import template');
+					return Promise.reject();
+				}
+
+				return sitesRest.getTemplate({
+					server: server,
+					name: templateName
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					console.log('ERROR: failed to query template');
+					return Promise.reject();
+				}
+
+				templateId = result.id;
+
+				return serverUtils.getIdcToken(server);
+			})
+			.then(function (result) {
+				// fetch token
+				if (result && result.idcToken) {
+					idcToken = result && result.idcToken;
+				}
+
+				// update template to the original template
+				var values = {
+					'xScsSiteTheme': site.themeName
+				};
+				return serverUtils.setSiteMetadata(request, server, idcToken, templateId, values, []);
+
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					console.log('ERROR: failed to set template theme back to ' + site.themeName);
+					return Promise.reject();
+				}
+				console.log(' - set template theme back to ' + site.themeName);
+
+				// preserve asset Ids
+				return sitesRest.createSite({
+					server: server,
+					name: targetName,
+					description: description,
+					templateName: templateName,
+					templateId: templateId,
+					sitePrefix: sitePrefix,
+					repositoryId: repository.id,
+					localizationPolicyId: (site && site.channel && site.channel.localizationPolicy),
+					defaultLanguage: site.defaultLanguage,
+					updateContent: true
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					console.log('ERROR: failed to create site');
+					return Promise.reject();
+				}
+
+				return sitesRest.getSite({
+					server: server,
+					name: targetName,
+					expand: 'channel,defaultCollection'
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					console.log('ERROR: failed to query site ' + targetName);
+					return Promise.reject();
+				}
+				targetSite = result;
+
+				// query other repositories
+				var queryRepoPromises = [];
+				otherItems.forEach(function (repoItems) {
+					queryRepoPromises.push(serverRest.getRepository({
+						server: server,
+						id: repoItems.repositoryId
+					}));
+				});
+
+				return Promise.all(queryRepoPromises);
+
+			})
+			.then(function (results) {
+				var otherRepos = results || [];
+				var updateRepoPromises = [];
+				otherRepos.forEach(function (repo) {
+					if (repo && repo.id) {
+						var channels = repo.channels || [];
+						channels.push({
+							id: targetSite.channel.id,
+							name: targetSite.channel.name
+						});
+						updateRepoPromises.push(serverRest.updateRepository({
+							server: server,
+							repository: repo,
+							channels: channels
+						}));
+					}
+				});
+
+				// add the new site channel to the other repositories
+				return Promise.all(updateRepoPromises);
+
+			})
+			.then(function (results) {
+
+				results.forEach(function (result) {
+					if (result && result.id) {
+						console.log(' - channel ' + targetSite.channel.name + ' added to repository ' + result.name);
+					}
+				});
+
+				// add items from other repositories to the site channel
+				var addItemPromises = [];
+				otherItems.forEach(function (items) {
+					otherItemsNum = otherItemsNum + items.itemIds.length;
+					addItemPromises.push(serverRest.addItemsToChanel({
+						server: server,
+						channelId: targetSite.channel.id,
+						itemIds: items.itemIds
+					}));
+				});
+
+				return Promise.all(addItemPromises);
+
+			})
+			.then(function (results) {
+
+				console.log(' - items from other repositories added to site channel ' + targetSite.channel.name);
+
+				// delete template file
+				return serverRest.deleteFile({
+					server: server,
+					fFileGUID: fileId
+				});
+
+			})
+			.then(function (result) {
+				// delete the site template 
+				return sitesRest.deleteTemplate({
+					server: server,
+					name: templateName,
+					hard: true,
+					showError: false
+				});
+
+			})
+			.then(function (result) {
+				// delete the default theme
+				return sitesRest.deleteTheme({
+					server: server,
+					name: newTheme.name,
+					hard: true,
+					showError: false
+				});
+
+			})
+			.then(function (result) {
+
+
+				var importAssetPromises = [];
+				if (siteHasAssets) {
+					var collectionName = targetSite.defaultCollection && targetSite.defaultCollection.name ?
+						targetSite.defaultCollection.name : (targetName + ' Site');
+
+					// upload content to the site channel
+					var uploadArgs = {
+						argv: argv,
+						server: server,
+						name: templateName,
+						isTemplate: true,
+						repositoryName: repository.name,
+						collectionName: collectionName,
+						channelName: targetName,
+						updateContent: true,
+						contentpath: path.join(templatesSrcDir, templateName, 'assets', 'contenttemplate'),
+						contentfilename: templateName + '_export.zip'
+					};
+
+					importAssetPromises.push(contentUtils.uploadContent(uploadArgs));
+				}
+
+				return Promise.all(importAssetPromises);
+
+			})
+			.then(function (results) {
+
+				return (siteHasAssets ? resolve(results && results[0]) : resolve({}));
+
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				return resolve({
+					err: 'err'
+				});
+			});
+	});
+};
+
+
+var _createDefaultTheme = function () {
+	var defaultThemeName = '__toolkit_theme';
+	var newTheme;
+
+	return new Promise(function (resolve, reject) {
+
+		var buildfolder = serverUtils.getBuildFolder(projectDir);
+		if (!fs.existsSync(buildfolder)) {
+			fs.mkdirSync(buildfolder);
+		}
+		var themesBuildDir = path.join(buildfolder, 'themes');
+		if (!fs.existsSync(themesBuildDir)) {
+			fs.mkdirSync(themesBuildDir);
+		}
+		newThemeGUID = serverUtils.createGUID();
+		newThemeName = defaultThemeName + newThemeGUID;
+		newThemePath = path.join(themesBuildDir, newThemeName);
+		if (fs.existsSync(newThemePath)) {
+			fileUtils.remove(newThemePath);
+		}
+		fs.mkdirSync(newThemePath);
+		var themePath = path.join(themesDataDir, defaultThemeName + '.zip');
+
+		fileUtils.extractZip(themePath, newThemePath)
+			.then(function (result) {
+
+				var newTheme;
+				if (!result) {
+					// update the name and itemGUID
+					var filePath = path.join(newThemePath, '_folder.json');
+					if (fs.existsSync(filePath)) {
+						var folderStr = fs.readFileSync(path.join(filePath));
+						var folderJson = JSON.parse(folderStr);
+						folderJson.itemGUID = newThemeGUID;
+						folderJson.themeName = newThemeName;
+						fs.writeFileSync(filePath, JSON.stringify(folderJson));
+					}
+					newTheme = {
+						name: newThemeName,
+						srcPath: newThemePath
+					};
+				}
+
+				return resolve(newTheme);
+			});
+	});
+
+};
+
 var _transferSiteTemplateId;
 
-var _transferStandardSite = function (argv, localhost, request, server, destServer, site, excludecomponents, suppressgovernance) {
+var _transferStandardSite = function (argv, request, server, destServer, site, excludecomponents, suppressgovernance) {
 	return new Promise(function (resolve, reject) {
 		console.log(' - site ' + site.name + ' is a standard site');
 
@@ -959,6 +1524,20 @@ module.exports.transferSite = function (argv, done) {
 	var includestaticfiles = typeof argv.includestaticfiles === 'string' && argv.includestaticfiles.toLowerCase() === 'true';
 	var suppressgovernance = typeof argv.suppressgovernance === 'string' && argv.suppressgovernance.toLowerCase() === 'true';
 
+	var repositorymappings = argv.repositorymappings ? argv.repositorymappings.split(',') : [];
+
+	var repoMappings = [];
+	repositorymappings.forEach(function (mapping) {
+		var pair = mapping.split(':');
+		if (pair.length === 2) {
+			repoMappings.push({
+				srcName: pair[0],
+				destName: pair[1],
+				items: []
+			});
+		}
+	});
+
 	// console.log(' - excludecontent:' + excludecontent + ' excludecomponents:' + excludecomponents + ' excludetheme:' + excludetheme + ' excludetype:' + excludetype);
 
 	// when transfer site without content, the site content won't be included in the
@@ -1023,7 +1602,7 @@ module.exports.transferSite = function (argv, done) {
 			sitesRest.getSite({
 					server: server,
 					name: siteName,
-					expand: 'channel'
+					expand: 'channel,repository'
 				})
 				.then(function (result) {
 					if (!result || result.err) {
@@ -1042,7 +1621,7 @@ module.exports.transferSite = function (argv, done) {
 
 					if (!site.isEnterprise) {
 
-						_transferStandardSite(argv, localhost, request, server, destServer, site, excludecomponents, suppressgovernance)
+						_transferStandardSite(argv, request, server, destServer, site, excludecomponents, suppressgovernance)
 							.then(function (result) {
 								var success = result && !result.err;
 								_cmdEnd(done, success);
@@ -1159,6 +1738,71 @@ module.exports.transferSite = function (argv, done) {
 									console.log(' - verify repository');
 								}
 
+								// get all source repos
+								var srcRepoPromises = [];
+								repoMappings.forEach(function (mapping) {
+									srcRepoPromises.push(serverRest.getRepositoryWithName({
+										server: server,
+										name: mapping.srcName
+									}));
+								});
+
+								return Promise.all(srcRepoPromises);
+							})
+							.then(function (results) {
+								if (repoMappings.length > 0) {
+									var srcRepoNames = [];
+									for (var j = 0; j < repoMappings.length; j++) {
+										var found = false;
+										for (var i = 0; i < results.length; i++) {
+											if (results[i].data && results[i].data.name === repoMappings[j].srcName) {
+												found = true;
+												repoMappings[j].srcId = results[i].data.id;
+												srcRepoNames.push(results[i].data.name);
+												break;
+											}
+										}
+										if (!found) {
+											console.log('ERROR: repository ' + repoMappings[j].srcName + ' does not exist on server ' + server.name);
+											return Promise.reject();
+										}
+									}
+									console.log(' - verify repository ' + srcRepoNames + ' on server ' + server.name);
+								}
+								var destRepoPromises = [];
+								repoMappings.forEach(function (mapping) {
+									destRepoPromises.push(serverRest.getRepositoryWithName({
+										server: destServer,
+										name: mapping.destName
+									}));
+								});
+
+								return Promise.all(destRepoPromises);
+
+							})
+							.then(function (results) {
+								if (repoMappings.length > 0) {
+									var destRepoNames = [];
+									for (var j = 0; j < repoMappings.length; j++) {
+										var found = false;
+										for (var i = 0; i < results.length; i++) {
+											if (results[i].data && results[i].data.name === repoMappings[j].destName) {
+												found = true;
+												repoMappings[j].destId = results[i].data.id;
+												destRepoNames.push(results[i].data.name);
+												break;
+											}
+										}
+										if (!found) {
+											console.log('ERROR: repository ' + repoMappings[j].destName + ' does not exist on server ' + destServer.name);
+											return Promise.reject();
+										}
+									}
+									console.log(' - verify repository ' + destRepoNames + ' on server ' + destServer.name);
+									// console.log(repoMappings);
+								}
+
+								// get localizations
 								var localizationPolicyPromises = [];
 								if (creatNewSite) {
 									localizationPolicyPromises.push(serverRest.getLocalizationPolicies({
@@ -1215,7 +1859,7 @@ module.exports.transferSite = function (argv, done) {
 										return Promise.reject();
 									}
 								}
-							
+
 								// create template on the source server and download
 								var enterprisetemplate = true;
 								return templateUtils.createLocalTemplateFromSite(
@@ -1405,14 +2049,21 @@ module.exports.transferSite = function (argv, done) {
 								// query site to verify it's created
 								return sitesRest.getSite({
 									server: destServer,
-									name: siteName
+									name: siteName,
+									expand: 'channel,defaultCollection,repository'
 								});
 							})
 							.then(function (result) {
 								if (!result || result.err) {
 									return Promise.reject();
 								}
+
+								destSite = result;
+
 								console.log(' - site id: ' + result.id + ' prefix: ' + result.sitePrefix);
+
+							})
+							.then(function (result) {
 
 								// Now upload site content after the site is created in transfer site wo content mode
 								var uploadSiteContentPromises = [];
@@ -1525,20 +2176,24 @@ module.exports.transferSite = function (argv, done) {
 									if (actionSuccess) {
 										console.log(' - site ' + siteName + ' created on ' + destServer.url);
 									}
-									// update the localization policy
-									serverRest.updateLocalizationPolicy({
-										server: destServer,
-										id: policy.id,
-										name: policy.name,
-										data: srcPolicy
-									}).then(function (result) {
-										if (!result || result.err) {
-											actionSuccess = false;
-										} else {
-											var newPolicy = result;
-											console.log(' - update site localization policy ' + newPolicy.name);
-										}
-										_cmdEnd(done, actionSuccess);
+
+									_transferOtherAssets(argv, server, destServer, site, destSite, repoMappings, excludecontent).then(function (result) {
+
+										// update the localization policy
+										serverRest.updateLocalizationPolicy({
+											server: destServer,
+											id: policy.id,
+											name: policy.name,
+											data: srcPolicy
+										}).then(function (result) {
+											if (!result || result.err) {
+												actionSuccess = false;
+											} else {
+												var newPolicy = result;
+												console.log(' - update site localization policy ' + newPolicy.name);
+											}
+											_cmdEnd(done, actionSuccess);
+										});
 									});
 
 								} else {
@@ -1576,6 +2231,11 @@ module.exports.transferSite = function (argv, done) {
 													if (result && !result.err) {
 														console.log(' - update site metadata');
 													}
+
+													return _transferOtherAssets(argv, server, destServer, site, destSite, repoMappings, excludecontent);
+
+												})
+												.then(function (result) {
 
 													return serverRest.getLocalizationPolicy({
 														server: destServer,
@@ -1634,6 +2294,143 @@ module.exports.transferSite = function (argv, done) {
 				}); // get site
 
 		}); // login
+};
+
+var _transferOtherAssets = function (argv, server, destServer, site, destSite, repoMappings, excludecontent) {
+	return new Promise(function (resolve, reject) {
+		if (repoMappings.length === 0 || excludecontent) {
+			return resolve({});
+		}
+
+		contentUtils.getSiteAssetsFromOtherRepos(server, site.channel.id, site.repository.id)
+			.then(function (result) {
+				var items = result && result.data || [];
+				if (items.length === 0) {
+					return resolve({});
+				}
+
+				console.log(' - total assets from other repositories: ' + items.length);
+				var destRepoIds = [];
+				repoMappings.forEach(function (mapping) {
+					if (!destRepoIds.includes(mapping.destId)) {
+						destRepoIds.push(mapping.destId);
+					}
+					for (var i = 0; i < items.length; i++) {
+						if (items[i].repositoryId === mapping.srcId) {
+							mapping.items.push(items[i].id);
+						}
+
+					}
+				});
+				// console.log(repoMappings);
+
+				// remove the assets from the site channel on the target
+				return _removeRepoAssetsFromChannel(destServer, destSite.channel.id, destRepoIds);
+
+			})
+			.then(function (result) {
+
+				// transfer assets from other repositories
+				return _transferRepoAssets(argv, repoMappings, server, destServer, site, destSite);
+
+			})
+			.then(function (result) {
+
+				return resolve({});
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				return resolve({
+					err: err
+				});
+			});
+	});
+};
+
+var _removeRepoAssetsFromChannel = function (server, channelId, repoIds) {
+	return new Promise(function (resolve, reject) {
+		// console.log(repoIds);
+		repoIds.forEach(function (repoId) {
+			var q = 'repositoryId eq "' + repoId + '" AND channels co "' + channelId + '"';
+			serverRest.queryItems({
+				server: server,
+				q: q
+			}).then(function (result) {
+				var items = result && result.data || [];
+				var itemIds = [];
+				items.forEach(function (item) {
+					itemIds.push(item.id);
+				});
+				// console.log(' -- found assets (' + itemIds + ')');
+
+				var removePromises = itemIds.length === 0 ? [] : [serverRest.removeItemsFromChanel({
+					server: server,
+					channelId: channelId,
+					itemIds: itemIds
+				})];
+
+				Promise.all(removePromises).then(function (results) {
+					return resolve({});
+				});
+			});
+		});
+	});
+};
+
+var _transferRepoAssets = function (argv, repoMappings, server, destServer, site, destSite) {
+	return new Promise(function (resolve, reject) {
+		var total = repoMappings.length;
+		var destdir = path.join(projectDir, 'dist');
+		var transferAssets = repoMappings.reduce(function (transferPromise, mapping) {
+				return transferPromise.then(function (result) {
+					console.log(' - *** transfering assets from repository ' + mapping.srcName + ' to repository ' + mapping.destName + ' ...');
+
+					// download assets from the source server
+					var name = site.name + '_' + mapping.srcName + '_assets';
+					var downloadArgs = {
+						projectDir: projectDir,
+						server: server,
+						assetGUIDS: mapping.items,
+						name: name,
+						publishedassets: false
+					};
+					return contentUtils.downloadContent(downloadArgs).then(function (result) {
+						// console.log(' - * assets downloaded');
+
+						// upload the downloaded assets to the target server
+						var fileName = site.name + '_' + mapping.srcName + '_assets_export.zip';
+						var filePath = path.join(destdir, fileName);
+						if (fs.existsSync(filePath)) {
+							var uploadArgs = {
+								argv: argv,
+								server: destServer,
+								name: filePath,
+								isFile: true,
+								repositoryName: mapping.destName,
+								channelName: destSite.channel.name,
+								updateContent: true,
+								contentpath: destdir,
+								contentfilename: fileName
+							};
+
+							return contentUtils.uploadContent(uploadArgs).then(function (result) {
+								// console.log(' - * assets uploaded');
+							});
+
+						}
+					});
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		transferAssets.then(function (result) {
+			resolve({});
+		});
+
+	});
 };
 
 var _getNewUsedObjects = function (fields, srcRows, destRows, instanceFieldName, rowsToAdd, unitIdsToAdd, rowsRoRemove, unitIdsToRemove) {
@@ -2581,6 +3378,7 @@ module.exports.shareSite = function (argv, done) {
 		_cmdEnd(done);
 	}
 };
+
 
 /**
  * share site

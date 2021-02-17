@@ -976,6 +976,38 @@ module.exports.uploadContent = function (argv, done) {
 	});
 };
 
+var _uploadContentUtil = function (args) {
+	verifyRun(args.argv);
+
+	return new Promise(function (resolve, reject) {
+		var server = args.server;
+		var name = args.name;
+		var isTemplate = args.isTemplate;
+		var isFile = args.isFile;
+		var filePath = args.filePath;
+		var repositoryName = args.repositoryName;
+		var collectionName = args.collectionName;
+		var channelName = args.channelName;
+		var updateContent = args.updateContent;
+		var contentpath = args.contentpath;
+		var contentfilename = args.contentfilename;
+		var typesOnly = args.typesOnly;
+
+		var createZip = isFile ? false : true;
+
+		_contentHasTaxonomy(name, isTemplate, isFile, filePath)
+			.then(function (result) {
+				var hasTax = result && result.hasTax;
+
+				_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax)
+					.then(function (result) {
+						return resolve(result);
+					});
+
+			});
+	});
+};
+
 var _uploadContent = function (server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax) {
 	return new Promise(function (resolve, reject) {
 		var request = serverUtils.getRequest();
@@ -1369,6 +1401,8 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 			var channelName = argv.channel;
 			var collectionName = argv.collection;
 			var action = argv.action;
+			var dateToPublish = argv.date;
+			var publishingJobName = argv.name;
 			var repositoryName = argv.repository;
 			var assetGUIDS = argv.assets ? argv.assets.split(',') : [];
 
@@ -1454,6 +1488,9 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 							q = '(repositoryId eq "' + repository.id + '")';
 						}
 					} else {
+						if (repository) {
+							q = '(repositoryId eq "' + repository.id + '")';
+						}
 						if (collection) {
 							if (q) {
 								q = q + ' AND ';
@@ -1467,7 +1504,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 							q = q + '(channels co "' + channel.id + '")';
 						}
 					}
-					// console.log(' - q: ' + q);
+					console.log(' - q: ' + q);
 
 					return serverRest.queryItems({
 						server: server,
@@ -1575,14 +1612,55 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					}
 
 					if (action === 'publish') {
-						var opPromise = _performOneOp(server, action, channel.id, toPublishItemIds, true);
-						opPromise.then(function (result) {
-							if (result.err) {
+						if (dateToPublish) {
+							var dateObj = new Date(dateToPublish);
+
+							// make sure we had a valid date 
+							if (isNaN(dateObj.valueOf())) {
+								console.log('ERROR: invalid date - "' + dateToPublish + '"');
 								return cmdEnd(done);
-							} else {
-								return cmdSuccess(done, true);
 							}
-						});
+
+							var date = ("0" + dateObj.getDate()).slice(-2),
+								month = ("0" + (dateObj.getMonth() + 1)).slice(-2),
+								year = dateObj.getFullYear(),
+								hours = ("0" + dateObj.getHours()).slice(-2),
+								minutes = ("0" + dateObj.getMinutes()).slice(-2),
+								seconds = ("0" + dateObj.getSeconds()).slice(-2),
+								timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+							var opPromise = serverRest.publishLaterChannelItems({
+								server: server,
+								channelId: channel.id,
+								repositoryId: repository.id,
+								itemIds: toPublishItemIds,
+								name: publishingJobName,
+								schedule: {
+									frequency: 'one-off',
+									at: {
+										date: year + "-" + month + "-" + date,
+										time: hours + ":" + minutes + ":" + seconds,
+										zone: timezone
+									}
+								}
+							});
+							opPromise.then(function (result) {
+								if (result.err) {
+									return cmdEnd(done);
+								} else {
+									return cmdSuccess(done, true);
+								}
+							});
+						} else {
+							var plPromise = _performOneOp(server, action, channel.id, toPublishItemIds, true);
+							plPromise.then(function (result) {
+								if (result.err) {
+									return cmdEnd(done);
+								} else {
+									return cmdSuccess(done, true);
+								}
+							});
+						}
 
 					} else if (action === 'unpublish') {
 						var opPromise = _performOneOp(server, action, channel.id, itemIds, true);
@@ -2507,6 +2585,43 @@ var _exportContentIC = function (request, server, collectionId, exportfilepath) 
 };
 
 
+var _getSiteAssetsFromOtherRepos = function (server, siteChannelId, siteRepositoryId) {
+	return new Promise(function (resolve, reject) {
+		if (!siteChannelId || !siteRepositoryId) {
+			return resolve({});
+		}
+		var q = 'repositoryId ne "' + siteRepositoryId + '" AND channels co "' + siteChannelId + '"';
+		return serverRest.queryItems({
+			server: server,
+			q: q
+		}).then(function (result) {
+			return resolve(result);
+		});
+	});
+};
+
+var _siteHasAssets = function (server, siteChannelId, siteRepositoryId) {
+	return new Promise(function (resolve, reject) {
+		if (!siteChannelId || !siteRepositoryId) {
+			return resolve({
+				hasAssets: false
+			});
+		}
+		var q = 'repositoryId eq "' + siteRepositoryId + '" AND channels co "' + siteChannelId + '"';
+		serverRest.queryItems({
+				server: server,
+				q: q,
+				limit: 1
+			})
+			.then(function (result) {
+				var items = result && result.data || [];
+				return resolve({
+					hasAssets: (items.length > 0 ? true : false)
+				});
+			});
+	});
+};
+
 /**
  * Create transfer enterprise site content scripts
  */
@@ -2740,13 +2855,7 @@ module.exports.transferSiteContent = function (argv, done) {
 							break;
 						}
 					}
-					if (!found) {
-						console.log(' - item (id: ' + item.id + ' name: ' + item.name + ') will be placed in the site repository');
-					}
 				});
-			} else {
-				// If no mapping, all go into site repository
-				items = allItems;
 			}
 
 			var downloadScript = 'cd ' + projectDir + os.EOL + os.EOL;
@@ -3293,5 +3402,8 @@ module.exports.syncApproveItem = function (argv, done) {
 
 // export non "command line" utility functions
 module.exports.utils = {
-	downloadContent: _downloadContentUtil
+	downloadContent: _downloadContentUtil,
+	uploadContent: _uploadContentUtil,
+	getSiteAssetsFromOtherRepos: _getSiteAssetsFromOtherRepos,
+	siteHasAssets: _siteHasAssets
 };

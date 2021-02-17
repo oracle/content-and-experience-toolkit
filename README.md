@@ -15,6 +15,16 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.1.2a
+
+**Added**
+
+- `cec copy-site` - New command to copy a site on an OCE server
+- `cec transfer-site` - Supports transferring assets from multiple repositories
+- `cec create-template` - Supports sites with assets from multiple repositories
+- local server now supports rendering a content form with a content item
+
+
 # New in Release 21.1.2
 
 **Added**

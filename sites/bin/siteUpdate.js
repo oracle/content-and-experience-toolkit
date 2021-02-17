@@ -495,6 +495,7 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 	contentArgv.projectDir = projectDir;
 	contentArgv.action = 'remove'; // remove items from the channel
 	contentArgv.channel = argv.name || argv.site; // channel name is the same as the site name
+	contentArgv.repository = siteInfo.repositoryName;
 
 	// ToDo:  At the moment you can't remove the content from the channel as it doesn't get added back in
 	//        For now (for testing/demo) don't remove the content from the channel.
@@ -502,13 +503,14 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 		var maxWait = 100,
 			waitForCleanChannel = function () {
 				try {
+					var q = 'repositoryId eq "' + siteInfo.repositoryId + '" AND channels co "' + siteInfo.channelId + '"';
 					// make sure there are no items in the channel
-					serverRest.getChannelItems({
+					return serverRest.queryItems({
 						server: server,
-						channelToken: channelToken,
+						q: q,
 						fields: 'isPublished,status'
 					}).then(function (results) {
-						var items = results || [];
+						var items = results && results.data || [];
 						console.log(' - removing items in progress: channel has ' + items.length + ' items...');
 
 						if (items.length === 0) {

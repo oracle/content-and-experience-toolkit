@@ -131,10 +131,10 @@ function initialize() {
 		var cacheKey = '_cache_' + Math.floor(Math.random() * (Math.floor(0xFFFF) + 1)).toString(16);
 		cacheKeys = {
 			product: cacheKey,
-			site: cacheKey,
+			site: isSecureSite ? '' : cacheKey,
 			theme: cacheKey,
 			component: cacheKey,
-			caas: cacheKey
+			caas: isSecureSite ? '' : cacheKey
 		};
 	}
 }

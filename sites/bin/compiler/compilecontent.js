@@ -28,6 +28,9 @@ var gulp = require('gulp'),
     fileUtils = require('../../test/server/fileUtils'),
     compilationReporter = require('./reporter.js'),
     componentLib = require('../component');
+const {
+    _
+} = require('underscore');
 
 //*********************************************
 // Configuration
@@ -40,6 +43,7 @@ var componentsFolder, // <cec-install>/src/components
     projectDir, // cec install folder
     itemsDir, // output "items" folder
     publishingJobId, // ID of the job to extract content items from
+    renditionJobId, // ID of the rendition job associated with the publishing job, used by the server to identify the rendition call
     uploadContent, // TRUE if should upload the content to the server after compile
     contentIds, // list of content IDs to compile (if not specifying publishingJobID)
     contentType, // compile all published items of this content type
@@ -51,6 +55,10 @@ var componentsFolder, // <cec-install>/src/components
     server, // URL to the server that is hosting the content 
     projectDir, // the cec install folder
     itemsDir, // output location for compiled items
+    jobProgress = 0, // progress of the compilation job
+    lastStatusUpdate = 0, // the last time an update was sent
+    zipFileName = "items.zip",
+    zipFile, // the complete path to the zip file
     failedItems = []; // items that failed to compile
 
 
@@ -246,8 +254,7 @@ var compileContentItemLayout = function (contentContext, contentItem, componentN
         // if no component file, we're done
         if (!compileFile) {
             compilationReporter.warn({
-                message: 'no custom compiler for content layout: ' + componentName + '. Content Item: ' + contentItem.id + ' will not have ' + (isMobile ? 'mobile' : 'desktop') + ' rendition for ' + format,
-                error: e
+                message: 'no custom compiler for content layout: ' + componentName + '. Content Item: ' + contentItem.id + ' will not have ' + (isMobile ? 'mobile' : 'desktop') + ' rendition for ' + format
             });
             return Promise.resolve();
         } else {
@@ -278,19 +285,20 @@ var compileContentItemLayout = function (contentContext, contentItem, componentN
                 // write out the HTML in the structure
                 // +- items
                 //    +- <id1>
-                //       +- formats
-                //          +- <format1>
-                //             +- desktop
-                //                +- index.html
-                //             +- mobile
-                //                +- index.html
-                //          +- <format2>
-                //          ...
+                //       +- <version>
+                //          +- formats
+                //             +- <format1>
+                //                +- desktop
+                //                   +- index.html
+                //                +- mobile
+                //                   +- index.html
+                //             +- <format2>
+                //             ...
                 //    +- <id2>
                 //       +- ...
 
-                // create a clean ".../items/<id>/formats/<format>/<device>" folder 
-                var deviceDir = path.join(contentContext.itemsDir, 'items', contentItem.id, 'formats', format, isMobile ? 'mobile' : 'desktop');
+                // create a clean ".../items/<id>/<version>/formats/<format>/<device>" folder 
+                var deviceDir = path.join(contentContext.itemsDir, 'items', contentItem.id, contentItem.version, 'formats', format, isMobile ? 'mobile' : 'desktop');
                 if (!fs.existsSync(deviceDir)) {
                     fs.mkdirSync(deviceDir, {
                         recursive: true
@@ -318,89 +326,97 @@ var compileContentItemLayout = function (contentContext, contentItem, componentN
     });
 };
 
-var compileContentItem = function (contentContext, item) {
+var compileContentItem = function (contentContext, item, index) {
+
+    // update the progress
+    var itemProgress = (index / contentContext.items.length) * 100;
 
     // get the content client
-    return contentContext.SCSCompileAPI.getContentClient().then(function (contentClient) {
-        console.log('compileContentItem: Processing content item - ' + item.id + '...');
-        // get the content item 
-        // ToDo - add in version when available in the Content SDK
-        return contentClient.getItem({
-            id: item.id
-        }).then(function (contentItem) {
-            // get the content layout map for the content type
-            return getContentLayoutMap(contentContext, contentItem.type).then(function (contentLayoutMap) {
-                var compileLayoutPromises = [];
+    return updateStatus({
+        status: 'COMPILING',
+        progress: jobProgress + (itemProgress * 0.9)
+    }).then(function () {
+        return contentContext.SCSCompileAPI.getContentClient().then(function (contentClient) {
+            console.log('compileContentItem: Processing content item - ' + item.id + '...');
+            // get the content item 
+            // ToDo - add in version when available in the Content SDK
+            return contentClient.getItem({
+                id: item.id
+            }).then(function (contentItem) {
+                // get the content layout map for the content type
+                return getContentLayoutMap(contentContext, contentItem.type).then(function (contentLayoutMap) {
+                    var compileLayoutPromises = [];
 
-                // for each entry in the content layout map that needs to be compiled for this type
-                (contentLayoutMap && contentLayoutMap.data || []).forEach(function (layoutMap) {
-                    if (layoutMap.generateRendition) {
-                        // add in the desktop version
-                        if (!layoutMap.formats.desktop) {
-                            compilationReporter.warn({
-                                message: 'compileContentItem: no layout map for "' + contentItem.type + '" asset type on desktop. Will not be compiled'
-                            });
-                        } else {
-                            compileLayoutPromises.push(function () {
-                                return compileContentItemLayout(contentContext, contentItem, layoutMap.formats.desktop, false, layoutMap.apiname);
-                            });
-                        }
+                    // for each entry in the content layout map that needs to be compiled for this type
+                    (contentLayoutMap && contentLayoutMap.data || []).forEach(function (layoutMap) {
+                        if (layoutMap.generateRendition) {
+                            // add in the desktop version
+                            if (!layoutMap.formats.desktop) {
+                                compilationReporter.warn({
+                                    message: 'compileContentItem: no layout map for "' + contentItem.type + '" asset type on desktop. Will not be compiled'
+                                });
+                            } else {
+                                compileLayoutPromises.push(function () {
+                                    return compileContentItemLayout(contentContext, contentItem, layoutMap.formats.desktop, false, layoutMap.apiname);
+                                });
+                            }
 
-                        // add in the mobile version
-                        if (!layoutMap.formats.mobile) {
-                            compilationReporter.warn({
-                                message: 'compileContentItem: no layout map for "' + contentItem.type + '" asset type on mobile. Will not be compiled'
-                            });
-                        } else {
-                            compileLayoutPromises.push(function () {
-                                // use desktop for mobile, if no mobile option specified
-                                return compileContentItemLayout(contentContext, contentItem, layoutMap.formats.mobile || layoutMap.formats.desktop, true, layoutMap.apiname);
-                            });
+                            // add in the mobile version
+                            if (!layoutMap.formats.mobile) {
+                                compilationReporter.warn({
+                                    message: 'compileContentItem: no layout map for "' + contentItem.type + '" asset type on mobile. Will not be compiled'
+                                });
+                            } else {
+                                compileLayoutPromises.push(function () {
+                                    // use desktop for mobile, if no mobile option specified
+                                    return compileContentItemLayout(contentContext, contentItem, layoutMap.formats.mobile || layoutMap.formats.desktop, true, layoutMap.apiname);
+                                });
+                            }
                         }
+                    });
+
+                    if (compileLayoutPromises.length > 0) {
+
+                        // serially compile the content items
+                        var doCompileLayoutPromises = compileLayoutPromises.reduce(function (previousPromise, nextPromise) {
+                                return previousPromise.then(function () {
+                                    // wait for the previous promise to complete and then call the function to start executing the next promise
+                                    return nextPromise();
+                                });
+                            },
+                            // Start with a previousPromise value that is a resolved promise 
+                            Promise.resolve());
+
+                        return doCompileLayoutPromises;
+                    } else {
+                        compilationReporter.warn({
+                            message: 'compileContentItem: no valid compile options for - ' + item.id
+                        });
                     }
                 });
-
-                if (compileLayoutPromises.length > 0) {
-
-                    // serially compile the content items
-                    var doCompileLayoutPromises = compileLayoutPromises.reduce(function (previousPromise, nextPromise) {
-                            return previousPromise.then(function () {
-                                // wait for the previous promise to complete and then call the function to start executing the next promise
-                                return nextPromise();
-                            });
-                        },
-                        // Start with a previousPromise value that is a resolved promise 
-                        Promise.resolve());
-
-                    return doCompileLayoutPromises;
+            }).catch(function (e) {
+                if (e.statusCode) {
+                    compilationReporter.error({
+                        message: 'compileContentItem: failed to load content item - ' + item.id + '. Response code: ' + e.statusCode
+                    });
                 } else {
-                    compilationReporter.warn({
-                        message: 'compileContentItem: no valid compile options for - ' + item.id
+                    compilationReporter.error({
+                        message: 'compileContentItem: failed to compile content item - ' + item.id,
+                        error: e
                     });
                 }
+                return Promise.resolve();
             });
-        }).catch(function (e) {
-            if (e.statusCode) {
-                compilationReporter.error({
-                    message: 'compileContentItem: failed to load content item - ' + item.id + '. Response code: ' + e.statusCode
-                });
-            } else {
-                compilationReporter.error({
-                    message: 'compileContentItem: failed to compile content item - ' + item.id,
-                    error: e
-                });
-            }
-            return Promise.resolve();
         });
     });
 };
 var compileContentItems = function (contentContext) {
     var compileContentItemPromises = [];
-
     // create the content item compilation promises
-    contentContext.items.forEach(function (item) {
+    contentContext.items.forEach(function (item, index) {
         compileContentItemPromises.push(function () {
-            return compileContentItem(contentContext, item);
+            // update the current content Item
+            return compileContentItem(contentContext, item, index);
         });
     });
 
@@ -443,60 +459,120 @@ var folder2json = function (filename) {
     return info;
 };
 
-var uploadCompiledContent = function (contentContext) {
+var zipCompiledContent = function (contentContext) {
     // we need to import the renditions to the server
-    return new Promise(function (resolve, reject) {
-        // create the metadata file based on files created
-        var metadata = folder2json(path.join(itemsDir, 'items'));
-
-        // add in the version info
-        (metadata.items || []).forEach(function (item) {
-            // find the items in the list of items
-            var compiledItem = contentContext.items.find(function (contextItem) {
-                return Object.keys(item).indexOf(contextItem.id) !== -1;
-            });
-            // insert the version 
-            if (compiledItem && item[compiledItem.id]) {
-                item[compiledItem.id].version = compiledItem && compiledItem.version || '';
+    return updateStatus({
+        status: 'UPLOADING',
+        progress: 95
+    }).then(function () {
+        new Promise(function (resolve, reject) {
+            // create the metadata file based on files created
+            var compiledFiles = path.join(itemsDir, 'items');
+            if (!fs.existsSync(compiledFiles)) {
+                fs.mkdirSync(compiledFiles, {
+                    recursive: true
+                });
             }
-        });
+            var metadata = folder2json(compiledFiles);
 
-        // add in the job info
-        metadata.publishingJobId = contentContext.publishingJobId || '';
-        metadata.jobId = 'ToDo: not yet available';
-        metadata.compilationJobId = 'ToDo: not yet available';
-
-        // write the metadata file
-        var metadataFilename = path.join(contentContext.itemsDir, 'items', 'metadata.json');
-        if (fs.existsSync(metadataFilename)) {
-            fs.unlinkSync(metadataFilename);
-        }
-        fs.writeFileSync(metadataFilename, JSON.stringify(metadata));
-
-        // zip up the content 
-        var distFolder = path.join(projectDir, 'dist');
-
-        // finish up the reporting for the console.log file
-        console.log('Creating zip file of compiled content: ' + path.join(distFolder, 'items.zip'));
-        compilationReporter.renderReport();
-
-        // zip up all the files
-        gulp.src(itemsDir + '/**')
-            .pipe(zip('items.zip'))
-            .pipe(gulp.dest(distFolder))
-            .on('end', function () {
-
-                if (uploadContent) {
-                    // upload the zip file to the server
-                    // import the zip file renditions passing in the document ID
-                    // delete the zip file from the server
-                    return resolve();
-                } else {
-                    // we're done
-                    return resolve();
+            // add in the version info
+            (metadata.items || []).forEach(function (item) {
+                // find the items in the list of items
+                var compiledItem = contentContext.items.find(function (contextItem) {
+                    return Object.keys(item).indexOf(contextItem.id) !== -1;
+                });
+                // insert the version 
+                if (compiledItem && item[compiledItem.id]) {
+                    item[compiledItem.id].version = compiledItem && compiledItem.version || '';
                 }
             });
+
+            // add in the job info
+            metadata.publishingJobId = publishingJobId || '';
+            metadata.renditionJobId = renditionJobId || '';
+
+            // write the metadata file
+            var metadataFilename = path.join(contentContext.itemsDir, 'items', 'metadata.json');
+            if (fs.existsSync(metadataFilename)) {
+                fs.unlinkSync(metadataFilename);
+            }
+            fs.writeFileSync(metadataFilename, JSON.stringify(metadata));
+
+            // zip up the content 
+            var distFolder = path.join(projectDir, 'dist');
+
+            // finish up the reporting for the console.log file
+            console.log('Creating zip file of compiled content: ' + zipFile);
+            compilationReporter.renderReport();
+
+            // zip up all the files
+            fs.closeSync(fs.openSync(zipFile, 'w'));
+            gulp.src(itemsDir + '/**')
+                .pipe(zip(zipFileName))
+                .pipe(gulp.dest(distFolder))
+                .on('end', function () {
+                    return resolve();
+                });
+        });
     });
+};
+
+// update the rendition status on the server
+var updateStatus = function (args) {
+    var status = args.status,
+        progress = args.progress;
+
+    // placeholder until server available
+    var timeStamp = new Date();
+    thisStatusUpdate = timeStamp.getTime();
+
+    // check if not complete and it was 5 seconds since last update
+    if ((progress !== 100) && (thisStatusUpdate - lastStatusUpdate < 5000)) {
+        return Promise.resolve();
+    }
+
+    // ToDo:  We're waiting for the server API. 
+    // This is just a placeholder until that becomes avialable
+
+    // update the status
+    lastStatusUpdate = thisStatusUpdate;
+
+    // note that we're updating the status
+    compilationReporter.info({
+        message: 'updating status to: ' + progress + '%'
+    });
+
+
+    var statusArgs = {
+        server: server,
+        jobId: renditionJobId,
+        status: status,
+        progress: progress,
+        compiledAt: timeStamp.toISOString(),
+        multipart: false
+    };
+
+    // if we're done, add in the file as well
+    if (progress === 100 && zipFile) {
+        statusArgs.multipart = true;
+        statusArgs.filename = zipFileName;
+        statusArgs.filePath = zipFile;
+    }
+
+    // update the status on the server if we have a rendition job ID
+    if (statusArgs.jobId) {
+        return serverRest.updateRenditionStatus(statusArgs).then(function (result) {
+            if (result && result.error) {
+                compilationReporter.warn({
+                    message: 'failed to update rendition job status',
+                    error: result.error
+                });
+            }
+            return Promise.resolve();
+        });
+    } else {
+        return Promise.resolve();
+    }
 };
 
 var initializeContent = function () {
@@ -543,9 +619,18 @@ var initializeContent = function () {
                 serverRest.getPublishingJobItems({
                     server: server,
                     jobId: publishingJobId
-                }).then(function (data) {
+                }).then(function (results) {
+                    // if we got an error, report it
+                    if (results && results.error) {
+                        compilationReporter.error({
+                            message: 'publishingJob: failed to get items from ' + publishingJobId,
+                            error: results.error
+                        });
+                        return resolve([]);
+                    }
+
                     // extract all the IDs from the publishing job
-                    var items = (data && data.items || []).map(function (item) {
+                    var items = (results && results.items || []).map(function (item) {
                         return {
                             id: item.id,
                             version: item.version
@@ -573,56 +658,55 @@ var initializeContent = function () {
     };
 
     return serverUtils.loginToServer(server, request).then(function () {
+        // make a clean "itemsDir"
+        fileUtils.remove(itemsDir);
+        fs.mkdirSync(itemsDir, {
+            recursive: true
+        });
+
+        // remove any previous zip
+        zipFile = path.join(projectDir, 'dist', zipFileName);
+        fileUtils.remove(zipFile);
+
+        // ouput console & reporter messages to: <items>/console.log
+        var logFile = fs.createWriteStream(
+            itemsDir + '/console.log', {
+                flags: 'w'
+            });
+        var logStdout = process.stdout;
+
+        // write console.log messages to console.log
+        console.log = function () {
+            logFile.write(util.format.apply(null, arguments) + '\n');
+            logStdout.write(util.format.apply(null, arguments) + '\n');
+        }.bind(console);
+
+        // write reporter messages to console.log
+        compilationReporter.setOutputStream(logFile);
+
         return getContentItems().then(function (fetchedItems) {
-            // make sure there are content IDs
-            if (fetchedItems && fetchedItems.length > 0) {
-                // make a clean "itemsDir"
-                fileUtils.remove(itemsDir);
-                fs.mkdirSync(itemsDir, {
-                    recursive: true
-                });
+            // update the job progress
+            jobProgress = 5;
 
-                // remove any previous zip
-                var zipFile = path.join(projectDir, 'dist', 'items.zip');
-                fileUtils.remove(zipFile);
-
-                // ouput console & reporter messages to: <items>/console.log
-                var logFile = fs.createWriteStream(
-                    itemsDir + '/console.log', {
-                        flags: 'w'
-                    });
-                var logStdout = process.stdout;
-
-                // write console.log messages to console.log
-                console.log = function () {
-                    logFile.write(util.format.apply(null, arguments) + '\n');
-                    logStdout.write(util.format.apply(null, arguments) + '\n');
-                }.bind(console);
-
-                // write reporter messages to console.log
-                compilationReporter.setOutputStream(logFile);
-
-
+            // update the status of the job on the server to start at 5% now we have all the IDs
+            return updateStatus({
+                status: 'CREATED',
+                progress: jobProgress,
+            }).then(function () {
                 return Promise.resolve({
                     items: fetchedItems,
                     itemsDir: itemsDir,
                     request: request,
                     SCSCompileAPI: compiler.getContentCompileAPI()
                 });
-            } else {
-                compilationReporter.warn({
-                    message: 'initializeContent: no content IDs found.',
-                    error: e
-                });
-
-                return Promise.reject();
-            }
+            });
         });
     });
 };
 
 var compileContent = function (args) {
     publishingJobId = args.publishingJobId;
+    renditionJobId = args.renditionJobId;
     uploadContent = args.uploadContent;
     contentIds = args.contentIds;
     contentType = args.contentType;
@@ -652,9 +736,15 @@ var compileContent = function (args) {
         // compile the content items
         return compileContentItems(contentContext).then(function () {
             // upload the content items to the server
-            return uploadCompiledContent(contentContext).then(function () {
-                reportRendered = true;
-                return compilationReporter.hasErrors ? Promise.reject() : Promise.resolve();
+            return zipCompiledContent(contentContext).then(function () {
+                return updateStatus({
+                    status: 'COMPILED',
+                    progress: 100,
+
+                }).then(function () {
+                    reportRendered = true;
+                    return compilationReporter.hasErrors ? Promise.reject() : Promise.resolve();
+                });
             });
         });
     }).catch(function (error) {
@@ -662,7 +752,12 @@ var compileContent = function (args) {
             compilationReporter.renderReport();
             reportRendered = true;
         }
-        return compilationReporter.hasErrors ? Promise.reject() : Promise.resolve();
+        return updateStatus({
+            status: 'ERROR',
+            progress: 100
+        }).then(function () {
+            return compilationReporter.hasErrors ? Promise.reject() : Promise.resolve();
+        });
     });
 };
 

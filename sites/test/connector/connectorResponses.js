@@ -40,6 +40,7 @@ var responses = {
               "publishSiteBackgroundJobId": "{{publishSiteBackgroundJobId}}",
               "publishStaticBackgroundJobId": "{{publishStaticBackgroundJobId}}",
               "publishingJobId": "{{publishingJobId}}",
+              "renditionJobId": "{{renditionJobId}}",
               "contentType": "{{contentType}}"
             },
             "/jobNotFound": {
@@ -62,6 +63,7 @@ var responses = {
               "status": "{{status}}",
               "progress": "{{progress}}",
               "publishingJobId": "{{publishingJobId}}",
+              "renditionJobId": "{{renditionJobId}}",
               "contentType": "{{contentType}}",
             },
             "/v1.1/job/{{jobId}}": {
@@ -78,6 +80,7 @@ var responses = {
               "status": "{{status}}",
               "progress": "{{progress}}",
               "publishingJobId": "{{publishingJobId}}",
+              "renditionJobId": "{{renditionJobId}}",
               "contentType": "{{contentType}}"
             },
             "/v1.1/job/{{jobId}}/compile/queued": {

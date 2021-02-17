@@ -87,8 +87,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 	<table border="1" width="100%">
 		<tr>
 			<td valign="top" style="padding:10px; background-color:white;">
-				<button id="toggleSettings" title="Collapse Settings pane" alt="Collapse Settings pane" onclick="showHideSettings(this)">&lt;
-				</button>
+				<button id="toggleSettings" title="" value="" onclick="showHideSettings(this)"></button>
 				<div id="settingsMain" style="box-shadow: rgba(0, 0, 0, 0.75) 0px 0px 10px 0px;">
 					<div class="oj-dialog-header" style="background-color: rgb(51, 51, 51); border:0;">
 						
@@ -137,7 +136,24 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 
 		// mock the Sites SDK messages
 		var receiveMessage = function (event) {
-			
+			var compType = '_devcs_component_type';
+
+			//
+			// Save the current content item before any process
+			//
+			if (window.sessionStorage['currentContentItem']) {
+				var item = JSON.parse(window.sessionStorage['currentContentItem']);
+				var types = window.sessionStorage['currentContentTypes'];
+				var url = '/setcontentlayoutitem?id=' + item.id + '&type=' + item.type +
+					'&name=' + item.name + '&template=' + item.template +
+					'&isRemote=' + item.isRemote + '&types=' + types;
+
+				var xhttp = new XMLHttpRequest();
+				xhttp.open("POST", url, false);
+				xhttp.send();
+				console.log('set content item ' + item.name);
+			}
+
 			if (fieldEditorType && window.origin === event.origin) {
 				var data = event.data;
 				var value = data.type === 'ready' ? (fieldEditorType === 'map' ? "-73.968285,40.785091" : '') : 
@@ -187,22 +203,76 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 						console.log('ERROR: viewFrame not found');
 					}
 				}
-			}
-		
+
+			} else if (compType === 'contentform' && window.origin === event.origin) {
+				var data = event.data;
+				// console.log('content form event: ' + data.type);
+				
+				var contentTypeData = {
+						name: 'type1',
+						slug: 'slug1'
+					};
+				var contentItemData = {
+						id: 'id1',
+						name: 'item1',
+						fieldData: []
+					}
+				
+				if (data.type === 'formReady') {
+					
+					if (window.sessionStorage['currentContentItem']) {
+						var item = JSON.parse(window.sessionStorage['currentContentItem']);
+						
+						if (item && item.itemjson && item.itemjson.id && item.typejson && item.typejson.id) {
+							console.log('Render content form with item: ' + item.name);
+							contentItemData = item.itemjson;
+							contentItemData.isNew = false;
+
+							var itemFields = item.itemjson.fields;
+							var fields = item.typejson.fields || [];
+							var fieldData = [];
+    						fields.forEach(function (field) {
+      							var data = {
+       								definition: field,
+        							value: itemFields[field.name]
+     							}
+      							fieldData.push(data);
+    						});
+							contentItemData.fieldData = fieldData;
+							// console.log(contentItemData);
+						
+							var typeData = item.typejson;
+							contentTypeData = {
+      							name: typeData.name,
+      							description: item.typejson.description,
+      							groups: typeData.properties.groups || [],
+      							slug: (typeData.properties.caas && typeData.properties.caas.slug ? typeData.properties.caas.slug : '')
+	};
+						}
+					} else {
+						// no selected item
+					}
+				}
+				
+				var params = {
+      				locale: 'en-us',
+      				contentTypeData: contentTypeData,
+      				contentItemData: contentItemData
+   				};
+				var msg = {
+            		type: 'init',
+           			payload: params
+				};
+
+				var editFrame = document.getElementById('editFrame');
+				var editWindow = editFrame && editFrame.contentWindow;
+				if (editWindow) {
+					editWindow.postMessage(msg, window.origin); 
+				}
+
+			} else {
 
 			try {
-				if (window.sessionStorage['currentContentItem']) {
-					var item = JSON.parse(window.sessionStorage['currentContentItem']);
-					var types = window.sessionStorage['currentContentTypes'];
-					var url = '/setcontentlayoutitem?id=' + item.id + '&type=' + item.type +
-						'&name=' + item.name + '&template=' + item.template +
-						'&isRemote=' + item.isRemote + '&types=' + types;
-
-					var xhttp = new XMLHttpRequest();
-					xhttp.open("POST", url, false);
-					xhttp.send();
-					console.log('set content item ' + JSON.stringify(item));
-				}
 
 				var data = JSON.parse(event.data);
 
@@ -351,6 +421,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 				// console.log(event);
 				return true;
 			}
+			}
 		};
 		window.addEventListener("message", receiveMessage, false);
 
@@ -423,6 +494,28 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			
 		};
 
+		//
+		// setting pane setup
+		//
+		var settingsPaneStatus = window.sessionStorage['settingsPaneStatus'];
+		// console.log('settingsPaneStatus: ' + settingsPaneStatus);
+
+		var toggleSettingsButton = document.getElementById("toggleSettings");
+		var settingsPane = document.getElementById("settingsMain");
+		if (settingsPaneStatus === 'close') {
+			settingsPane.style.display = "none";
+			toggleSettingsButton.value = ">";
+			toggleSettingsButton.innerHTML = ">";
+			toggleSettingsButton.alt = "Expand Settings pane";
+			toggleSettingsButton.title = "Expand Settings pane";
+		} else {
+			settingsPane.style.display = "block";
+			toggleSettingsButton.value = "<";
+			toggleSettingsButton.innerHTML = "<";
+			toggleSettingsButton.alt = "Collapse Settings pane";
+			toggleSettingsButton.title = "Collapse Settings pane";
+		}
+		
 		var showHideSettings = function (event) {
 			// console.log('click show/hide settings...');
 			var x = document.getElementById("settingsMain");
@@ -433,12 +526,14 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 				button.innerHTML = "<";
 				button.alt = "Collapse Settings pane";
 				button.title = "Collapse Settings pane";
+				window.sessionStorage.setItem("settingsPaneStatus", "open");
   			} else {
 				x.style.display = "none";
 				button.value = ">";
 				button.innerHTML = ">";
 				button.alt = "Expand Settings pane";
 				button.title = "Expand Settings pane";
+				window.sessionStorage.setItem("settingsPaneStatus", "close");
   			}
 		};
 

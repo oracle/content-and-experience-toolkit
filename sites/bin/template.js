@@ -93,7 +93,6 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 			var tempSrcPath = path.join(templatesSrcDir, name);
 
 			fileUtils.remove(tempSrcPath);
-			fs.mkdirSync(tempSrcPath);
 
 			var themeSrcPath;
 
@@ -101,12 +100,18 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 			var templateIsEnterprise = 'true';
 			var themeName, themeId;
 			var channelId;
+			var channelName;
+			var repositoryId;
+			var repositoryName;
 			var site;
 			var contentTypeNames = [];
 			var contentLayoutNames = [];
 			var typePromises = [];
 			var comps = [];
 			var siteMetadata;
+
+			var otherAssets = [];
+			var hasAssets = false;
 
 			sitesRest.getSite({
 					server: server,
@@ -120,6 +125,14 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					}
 					site = result;
 					console.log(' - verify site');
+
+					// create local folder for the template
+
+					fs.mkdirSync(tempSrcPath);
+
+					repositoryName = site.repository && site.repository.name;
+					repositoryId = site.repository && site.repository.id;
+
 					// console.log(site);
 
 					// query site metadata to get static site settings
@@ -139,7 +152,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 					var repositoryTypes = site.repository && site.repository.contentTypes || [];
 					repositoryTypes.forEach(function (type) {
-						if (!contentTypeNames.includes(type.name)) {
+						if (type.name !== 'DigitalAsset' && !contentTypeNames.includes(type.name)) {
 							contentTypeNames.push(type.name);
 						}
 					});
@@ -156,6 +169,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					isEnterprise = site.isEnterprise;
 					themeName = site.themeName;
 					channelId = site.channel && site.channel.id;
+					channelName = site.channel && site.channel.name;
 
 					templateIsEnterprise = enterprisetemplate ? 'true' : (isEnterprise ? 'true' : 'false');
 
@@ -223,7 +237,29 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 				})
 				.then(function (results) {
 
-					var downloadContentPromises = (excludeContent || !isEnterprise) ? [] : [_downloadContent(request, server, name, channelId, excludeType)];
+					// check if the site has any asset
+					return contentUtils.siteHasAssets(server, channelId, repositoryId);
+
+				})
+				.then(function (result) {
+
+					hasAssets = result && result.hasAssets;
+					if (isEnterprise && !hasAssets) {
+						console.log(' - site does not have any asset');
+						excludeContent = true;
+					}
+
+					return contentUtils.getSiteAssetsFromOtherRepos(server, channelId, repositoryId);
+
+				})
+				.then(function (result) {
+
+					otherAssets = result && result.data || [];
+					if (otherAssets.length > 0) {
+						console.log(' - site has assets from other repositories and they will not be included in the template');
+					}
+
+					var downloadContentPromises = (excludeContent || !isEnterprise) ? [] : [_downloadContent(request, server, name, channelName, channelId, repositoryName, repositoryId, excludeType)];
 
 					return Promise.all(downloadContentPromises);
 				})
@@ -239,7 +275,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 				})
 				.then(function (results) {
-					if (excludeContent && !excludeType) {
+					if (hasAssets && excludeContent && !excludeType) {
 						var mappings = results || [];
 						var categoryLayoutMappings = [];
 						mappings.forEach(function (mapping) {
@@ -298,7 +334,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 				})
 				.then(function (results) {
-					if (excludeContent && !excludeType) {
+					if (hasAssets && excludeContent && !excludeType) {
 						var types = results || [];
 
 						var folderPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate',
@@ -508,37 +544,25 @@ var _createLocalTemplateFromSiteUtil = function (argv, name, siteName, server, e
 	return _createLocalTemplateFromSite(name, siteName, server, excludeContent, enterprisetemplate, excludeComponents, excludeTheme, excludeType);
 };
 
-var _downloadContent = function (request, server, name, channelId, excludeType) {
+var _downloadContent = function (request, server, name, channelName, channelId, repositoryName, repositoryId, excludeType) {
 	return new Promise(function (resolve, reject) {
-		var channelName;
 		var assetSummaryJson;
 		var assetContentTypes = [];
 		var tempContentPath;
-		serverRest.getChannel({
+
+		var tempAssetPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate');
+		tempContentPath = path.join(tempAssetPath, 'Content Template of ' + name);
+
+		// download all content from the site channel
+		contentUtils.downloadContent({
+				projectDir: projectDir,
 				server: server,
-				id: channelId
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return Promise.reject();
-				}
-
-				channelName = result.name;
-
-				var tempAssetPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate');
-				tempContentPath = path.join(tempAssetPath, 'Content Template of ' + name);
-
-				// download all content from the site channel
-				return contentUtils.downloadContent({
-					projectDir: projectDir,
-					server: server,
-					channel: channelName,
-					name: name + '_content',
-					publishedassets: false,
-					requiredContentPath: tempAssetPath,
-					requiredContentTemplateName: 'Content Template of ' + name
-
-				});
+				channel: channelName,
+				repositoryName: repositoryName,
+				name: name + '_content',
+				publishedassets: false,
+				requiredContentPath: tempAssetPath,
+				requiredContentTemplateName: 'Content Template of ' + name
 			})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -2827,6 +2851,7 @@ module.exports.compileContent = function (argv, done) {
 		verbose: verbose,
 		targetDevice: targetDevice,
 		publishingJobId: publishingJobId,
+		renditionJobId: argv.renditionJobId,
 		logLevel: 'log',
 		serverURL: serverURL
 	}).then(function (result) {
@@ -2906,6 +2931,8 @@ var _createTemplateFromSiteREST = function (server, name, siteName, includeUnpub
 				return Promise.reject();
 			}
 
+			var site;
+
 			// verify template 
 			sitesRest.resourceExist({
 					server: server,
@@ -2920,20 +2947,37 @@ var _createTemplateFromSiteREST = function (server, name, siteName, includeUnpub
 					// verify site
 					return sitesRest.getSite({
 						server: server,
-						name: siteName
+						name: siteName,
+						expand: 'channel,repository'
 					});
 				})
 				.then(function (result) {
 					if (result.err) {
 						return Promise.reject();
 					}
+					site = result;
 
-					console.log(' - get site (Id: ' + result.id + ')');
+					console.log(' - get site (Id: ' + site.id + ')');
+					var channelId = site.channel && site.channel.id;
+					var repositoryId = site.repository && site.repository.id;
 
-					if (enterprisetemplate || result.isEnterprise) {
+					if (enterprisetemplate || site.isEnterprise) {
 						console.log(' - will create enterprise template');
 					} else {
 						console.log(' - will create standard template');
+					}
+
+					var queryAssetPromises = site.isEnterprise ? [contentUtils.getSiteAssetsFromOtherRepos(server, channelId, repositoryId)] : [];
+
+					return Promise.all(queryAssetPromises);
+
+				})
+				.then(function (results) {
+					if (site.isEnterprise) {
+						if (results && results[0] && results[0].data && results[0].data.length > 0) {
+							console.log('ERROR: site has assets from other repositories, use command "cec create-template" to create');
+							return Promise.reject();
+						}
 					}
 
 					return sitesRest.createTemplateFromSite({

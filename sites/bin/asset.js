@@ -2616,108 +2616,102 @@ module.exports.renameAssetIds = function (argv, done) {
 		console.log(' - other content ' + goodContent);
 	}
 
-	var idMap = new Map();
+	_renameAssetIds(argv, templateName, goodContent)
+		.then(function (result) {
+			console.log(' - finished');
+			done(true);
+		});
+};
 
-	var _processItems = function (itemsPath) {
-		console.log(' - process content items in ' + itemsPath.substring(projectDir.length) + 1);
-		var types = fs.readdirSync(itemsPath);
-		types.forEach(function (type) {
-			if (type !== 'VariationSets') {
-				var typePath = path.join(itemsPath, type);
+var _renameAssetIds = function (argv, templateName, goodContent) {
+	verifyRun(argv);
 
-				var items = fs.readdirSync(typePath);
-				for (var i = 0; i < items.length; i++) {
-					var fileName = items[i];
-					if (serverUtils.endsWith(fileName, '.json')) {
-						var itemId = fileName.substring(0, fileName.length - 5);
+	return new Promise(function (resolve, reject) {
+		var idMap = new Map();
 
-						var newId;
-						if (idMap.get(itemId)) {
-							newId = idMap.get(itemId);
-							// console.log('*** id already created');
-						} else {
-							var isMedia = itemId.startsWith('CONT');
-							newId = serverUtils.createAssetGUID(isMedia);
-							// console.log('*** new id ' + newId);
-							idMap.set(itemId, newId);
+		var _processItems = function (itemsPath) {
+			console.log(' - process content items in ' + itemsPath.substring(projectDir.length) + 1);
+			var types = fs.readdirSync(itemsPath);
+			types.forEach(function (type) {
+				if (type !== 'VariationSets') {
+					var typePath = path.join(itemsPath, type);
+
+					var items = fs.readdirSync(typePath);
+					for (var i = 0; i < items.length; i++) {
+						var fileName = items[i];
+						if (serverUtils.endsWith(fileName, '.json')) {
+							var itemId = fileName.substring(0, fileName.length - 5);
+
+							var newId;
+							if (idMap.get(itemId)) {
+								newId = idMap.get(itemId);
+								// console.log('*** id already created');
+							} else {
+								var isMedia = itemId.startsWith('CONT');
+								newId = serverUtils.createAssetGUID(isMedia);
+								// console.log('*** new id ' + newId);
+								idMap.set(itemId, newId);
+							}
+
+							// rename the json file
+							var newFile = newId + '.json';
+							fs.renameSync(path.join(typePath, fileName), path.join(typePath, newFile));
+							// console.log(' - rename file ' + fileName + ' => ' + newFile);
+
 						}
+					}
 
-						// rename the json file
-						var newFile = newId + '.json';
-						fs.renameSync(path.join(typePath, fileName), path.join(typePath, newFile));
-						// console.log(' - rename file ' + fileName + ' => ' + newFile);
-
+					if (fs.existsSync(path.join(typePath, 'files'))) {
+						// rename the folder name under files
+						var files = fs.readdirSync(path.join(typePath, 'files'));
+						files.forEach(function (folder) {
+							var folderPath = path.join(typePath, 'files', folder);
+							var stat = fs.statSync(folderPath);
+							if (stat.isDirectory()) {
+								var newFolder = idMap.get(folder);
+								if (newFolder) {
+									fse.moveSync(folderPath, path.join(typePath, 'files', newFolder));
+									// console.log(' - rename folder ' + folder + ' => ' + newFolder);
+								}
+							}
+						});
 					}
 				}
+			});
+		};
 
-				if (fs.existsSync(path.join(typePath, 'files'))) {
-					// rename the folder name under files
-					var files = fs.readdirSync(path.join(typePath, 'files'));
-					files.forEach(function (folder) {
-						var folderPath = path.join(typePath, 'files', folder);
-						var stat = fs.statSync(folderPath);
-						if (stat.isDirectory()) {
-							var newFolder = idMap.get(folder);
-							if (newFolder) {
-								fse.moveSync(folderPath, path.join(typePath, 'files', newFolder));
-								// console.log(' - rename folder ' + folder + ' => ' + newFolder);
-							}
-						}
-					});
-				}
-			}
-		});
-	};
-
-	// collect all asset ids from template
-	var itemsFolder = path.join(templatesSrcDir, templateName, 'assets', 'contenttemplate',
-		'Content Template of ' + templateName, 'ContentItems');
-	if (fs.existsSync(itemsFolder)) {
-		_processItems(itemsFolder);
-	}
-
-	// collect all asset ids from other content
-	goodContent.forEach(function (content) {
-		var itemsFolder = path.join(contentSrcDir, content, 'contentexport', 'ContentItems');
+		// collect all asset ids from template
+		var itemsFolder = path.join(templatesSrcDir, templateName, 'assets', 'contenttemplate',
+			'Content Template of ' + templateName, 'ContentItems');
 		if (fs.existsSync(itemsFolder)) {
 			_processItems(itemsFolder);
 		}
-	});
 
-	console.log(' - total Ids: ' + idMap.size);
-	// console.log(idMap);
+		// collect all asset ids from other content
+		goodContent.forEach(function (content) {
+			var itemsFolder = path.join(contentSrcDir, content, 'contentexport', 'ContentItems');
+			if (fs.existsSync(itemsFolder)) {
+				_processItems(itemsFolder);
+			}
+		});
 
-	// update all json files under content assets
-	var contentFolders = [];
-	contentFolders.push(path.join(templatesSrcDir, templateName, 'assets', 'contenttemplate'));
-	goodContent.forEach(function (content) {
-		contentFolders.push(path.join(contentSrcDir, content, 'contentexport'));
-	});
-	// console.log(contentFolders);
+		console.log(' - total Ids: ' + idMap.size);
+		// console.log(idMap);
 
-	// update ids in site pages
-	contentFolders.push(path.join(templatesSrcDir, templateName, 'pages'));
+		// update all json files under content assets
+		var contentFolders = [];
+		contentFolders.push(path.join(templatesSrcDir, templateName, 'assets', 'contenttemplate'));
+		goodContent.forEach(function (content) {
+			contentFolders.push(path.join(contentSrcDir, content, 'contentexport'));
+		});
+		// console.log(contentFolders);
 
-	var doIdUpdate = contentFolders.reduce(function (idPromise, contentPath) {
-			return idPromise.then(function (result) {
-				return _updateIdInFiles(contentPath, idMap).then(function (result) {
-						// done
-					})
-					.catch((error) => {
-						// 
-					});
-			});
-		},
-		// Start with a previousPromise value that is a resolved promise 
-		Promise.resolve({}));
+		// update ids in site pages
+		contentFolders.push(path.join(templatesSrcDir, templateName, 'pages'));
 
-	doIdUpdate.then(function (result) {
-		var doZip = goodContent.reduce(function (zipPromise, content) {
-				return zipPromise.then(function (result) {
-					var contentpath = path.join(contentSrcDir, content);
-					// same file name as in the upload script from transfer-site-content
-					var contentfilename = content + '_export.zip';
-					return _zipContent(contentpath, contentfilename).then(function (result) {
+		var doIdUpdate = contentFolders.reduce(function (idPromise, contentPath) {
+				return idPromise.then(function (result) {
+					return _updateIdInFiles(contentPath, idMap).then(function (result) {
 							// done
 						})
 						.catch((error) => {
@@ -2728,9 +2722,26 @@ module.exports.renameAssetIds = function (argv, done) {
 			// Start with a previousPromise value that is a resolved promise 
 			Promise.resolve({}));
 
-		doZip.then(function (result) {
-			console.log(' - finished');
-			done(true);
+		doIdUpdate.then(function (result) {
+			var doZip = goodContent.reduce(function (zipPromise, content) {
+					return zipPromise.then(function (result) {
+						var contentpath = path.join(contentSrcDir, content);
+						// same file name as in the upload script from transfer-site-content
+						var contentfilename = content + '_export.zip';
+						return _zipContent(contentpath, contentfilename).then(function (result) {
+								// done
+							})
+							.catch((error) => {
+								// 
+							});
+					});
+				},
+				// Start with a previousPromise value that is a resolved promise 
+				Promise.resolve({}));
+
+			doZip.then(function (result) {
+				return resolve({});
+			});
 		});
 	});
 };
@@ -3212,4 +3223,9 @@ var _createItemFromWord = function (server, filePath, repository) {
 			});
 
 	});
+};
+
+// export non "command line" utility functions
+module.exports.utils = {
+	renameAssetIds: _renameAssetIds
 };

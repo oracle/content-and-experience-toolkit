@@ -927,7 +927,8 @@ const controlContent = {
 		['cec control-content add -c Channel1 -r Repo1 -a GUID1,GUID2 -s UAT', 'Add asset GUID1 and GUID2 in repository Repo1 to channel Channel1'],
 		['cec control-content remove -c Channel1 -s UAT', 'Remove all items in channel Channel1 on the registered server UAT'],
 		['cec control-content add -l Collection1 -r Repo1 -s UAT', 'Add all items in repository Repo1 to collection Collection1 on the registered server UAT'],
-		['cec control-content remove -l Collection -s UAT', 'Remove all items in collection Collection1 on the registered server UAT']
+		['cec control-content remove -l Collection -s UAT', 'Remove all items in collection Collection1 on the registered server UAT'],
+		['cec control-content publish -c C1 -r R1 -s UAT -d "2021/9/21 0:30:00 PST" -n Name', 'Create a publishing job called Name to publish all items in channel C1 on the specified date. Requires server version: 21.2.1']
 	]
 };
 
@@ -1139,6 +1140,25 @@ const createSite = {
 	]
 };
 
+const copySite = {
+	command: 'copy-site <name>',
+	alias: 'cps',
+	name: 'copy-site',
+	usage: {
+		'short': 'Copies Enterprise Site <name>.',
+		'long': (function () {
+			let desc = 'Copy Enterprise Site on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			desc = desc + 'If the site uses more than one repository, only the assets from the default repository will be copied.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec copy-site Site1 -t Site1Copy', 'Copies a standard site'],
+		['cec copy-site Site1 -t Site1Copy -r Repository1', 'Copies an enterprise site'],
+		['cec copy-site Site1 -t Site1Copy -r Repository1 -x site1c', 'Copies an enterprise site and sets the site prefix to site1c']
+	]
+};
+
 const controlSite = {
 	command: 'control-site <action>',
 	alias: 'cts',
@@ -1171,6 +1191,7 @@ const transferSite = {
 		'short': 'Transfers a site from one OCE server to another.',
 		'long': (function () {
 			let desc = 'Transfers a site from one OCE server to another. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>.';
+			desc = desc + ' If the site contains assets from other repositories, optionally provide the repository mapping otherwise those assets will not be transferred.';
 			return desc;
 		})()
 	},
@@ -1180,6 +1201,7 @@ const transferSite = {
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -x', 'Creates site Site1 on server UAT based on site Site1 on server DEV without content'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -e', 'Creates site Site1 on server UAT based on site Site1 on server DEV without transferring components to server UAT'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -e -c', 'Creates site Site1 on server UAT based on site Site1 on server DEV without transferring components and theme to server UAT'],
+		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -m "Shared Images:Shared Images,Shared Video:Shared Video"', 'Creates site Site1 on server UAT based on site Site1 on server DEV and transfter the assets from repository Shared Images and Shared Video'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -i', 'Creates site Site1 on server UAT based on site Site1 on server DEV with static files from DEV'],
 		['cec transfer-site Site1 -s DEV -d UAT', 'Updates site Site1 on server UAT based on site Site1 on server DEV'],
 		['cec transfer-site StandardSite1 -s DEV -d UAT', 'Creates standard site on server UAT based on site StandardSite1 on server DEV']
@@ -1195,7 +1217,7 @@ const transferSiteContent = {
 		'long': (function () {
 			let desc = 'Creates scripts to transfer Enterprise Site content from one OCE server to another. This command is used to transfer large number of content items and the items are transferred in batches. By default the scripts will not be executed by this command. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>. ';
 			desc = desc + 'Optionally specify -n for the number of items in each batch, defaults to 500.';
-			desc = desc + ' If the site contains assets from other repositories, optionally provide the repository mapping otherwise all assets will be uploaded into the same repository.';
+			desc = desc + ' If the site contains assets from other repositories, optionally provide the repository mapping otherwise those assets will not be transferred.';
 			return desc;
 		})()
 	},
@@ -2607,6 +2629,7 @@ _usage = _usage + os.EOL + 'Themes' + os.EOL +
 
 _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(createSite) + os.EOL +
+	_getCmdHelp(copySite) + os.EOL +
 	_getCmdHelp(updateSite) + os.EOL +
 	_getCmdHelp(transferSite) + os.EOL +
 	_getCmdHelp(transferSiteContent) + os.EOL +
@@ -3613,6 +3636,14 @@ const argv = yargs.usage(_usage)
 					alias: 's',
 					description: 'The registered OCE server'
 				})
+				.option('date', {
+					alias: 'd',
+					description: 'Date to publish items'
+				})
+				.option('name', {
+					alias: 'n',
+					description: 'Name of the scheduled publishing job to create'
+				})
 				.check((argv) => {
 					if (argv.action && !getContentActions().includes(argv.action)) {
 						throw new Error(`${argv.action} is not a valid value for <action>`);
@@ -3638,6 +3669,12 @@ const argv = yargs.usage(_usage)
 					if (argv.action === 'remove' && argv.collection && !argv.repository) {
 						throw new Error('Please specify repository to remove content items from collection');
 					}
+					if (argv.date && !argv.repository) {
+						throw new Error('Please specify repository to publish content items on a scheduled date');
+					}
+					if (argv.date && !argv.name) {
+						throw new Error('Please specify the name of the scheduled publishing job to create');
+					}
 					return true;
 				})
 				.example(...controlContent.example[0])
@@ -3649,6 +3686,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlContent.example[6])
 				.example(...controlContent.example[7])
 				.example(...controlContent.example[8])
+				.example(...controlContent.example[9])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -3994,6 +4032,37 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${createSite.command}\n\n${createSite.usage.long}`);
 		})
+	.command([copySite.command, copySite.alias], false,
+		(yargs) => {
+			yargs.option('target', {
+					alias: 't',
+					description: 'Target site',
+					demandOption: true
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'Repository, required for enterprise site'
+				})
+				.option('description', {
+					alias: 'd',
+					description: 'Site description'
+				})
+				.option('sitePrefix', {
+					alias: 'x',
+					description: 'Site Prefix'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCE server'
+				})
+				.example(...copySite.example[0])
+				.example(...copySite.example[1])
+				.example(...copySite.example[2])
+				.help('help')
+				.alias('help', 'h')
+				.version(false)
+				.usage(`Usage: cec ${copySite.command}\n\n${copySite.usage.long}`);
+		})
 	.command([transferSite.command, transferSite.alias], false,
 		(yargs) => {
 			yargs.option('server', {
@@ -4022,6 +4091,10 @@ const argv = yargs.usage(_usage)
 					alias: 'p',
 					description: 'The flag to indicate published assets only'
 				})
+				.option('repositorymappings', {
+					alias: 'm',
+					description: 'The repositories for assets from other repositories'
+				})
 				.option('excludecontent', {
 					alias: 'x',
 					description: 'Exclude content'
@@ -4046,6 +4119,12 @@ const argv = yargs.usage(_usage)
 					alias: 'p',
 					description: 'Suppress site governance controls'
 				})
+				.check((argv) => {
+					if (argv.repositorymappings && argv.repositorymappings.indexOf(':') < 0) {
+						throw new Error('Value for repositorymappings should be in the format of <source repo>:<target repo>');
+					}
+					return true;
+				})
 				.example(...transferSite.example[0])
 				.example(...transferSite.example[1])
 				.example(...transferSite.example[2])
@@ -4054,6 +4133,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferSite.example[5])
 				.example(...transferSite.example[6])
 				.example(...transferSite.example[7])
+				.example(...transferSite.example[8])
 				.help('help')
 				.alias('help', 'h')
 				.version(false)
@@ -4095,6 +4175,9 @@ const argv = yargs.usage(_usage)
 				.check((argv) => {
 					if (argv.limit === 0 || argv.limit && (!Number.isInteger(argv.limit) || argv.limit <= 0)) {
 						throw new Error('Value for limit should be an integer greater than 0');
+					}
+					if (argv.repositorymappings && argv.repositorymappings.indexOf(':') < 0) {
+						throw new Error('Value for repositorymappings should be in the format of <source repo>:<target repo>');
 					}
 					return true;
 				})
@@ -4666,7 +4749,11 @@ const argv = yargs.usage(_usage)
 				})
 				.option('contenttype', {
 					alias: 't',
-					description: 'compile all the published assets of this content type.'
+					description: 'Compile all the published assets of this content type.'
+				})
+				.option('renditionJobId', {
+					alias: 'r',
+					description: 'Server invoked rendition job id for a publishing job'
 				})
 				.option('debug', {
 					alias: 'd',
@@ -6856,6 +6943,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.assets) {
 		controlContentArgs.push(...['--assets', argv.assets]);
 	}
+	if (argv.date) {
+		controlContentArgs.push(...['--date', argv.date]);
+	}
+	if (argv.name) {
+		controlContentArgs.push(...['--name', argv.name]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlContentArgs.push(...['--server', argv.server]);
 	}
@@ -7161,6 +7254,30 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === copySite.name || argv._[0] === copySite.alias) {
+	let copySiteArgs = ['run', '-s', copySite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--target', argv.target
+	];
+	if (argv.repository) {
+		copySiteArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.description) {
+		copySiteArgs.push(...['--description', argv.description]);
+	}
+	if (argv.sitePrefix) {
+		copySiteArgs.push(...['--sitePrefix', argv.sitePrefix]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		copySiteArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, copySiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === transferSite.name || argv._[0] === transferSite.alias) {
 	let transferSiteArgs = ['run', '-s', transferSite.name, '--prefix', appRoot,
 		'--',
@@ -7180,6 +7297,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.publishedassets) {
 		transferSiteArgs.push(...['--publishedassets', argv.publishedassets]);
+	}
+	if (argv.repositorymappings) {
+		transferSiteArgs.push(...['--repositorymappings', argv.repositorymappings]);
 	}
 	if (argv.excludecontent) {
 		transferSiteArgs.push(...['--excludecontent', argv.excludecontent]);
@@ -7611,6 +7731,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.contenttype) {
 		compileContentArgs.push(...['--contenttype', argv.contenttype]);
+	}
+	if (argv.renditionJobId) {
+		compileContentArgs.push(...['--renditionJobId', argv.renditionJobId]);
 	}
 	if (argv.verbose) {
 		compileContentArgs.push(...['--verbose', argv.verbose]);
