@@ -1115,7 +1115,7 @@ var _getChildComponents = function (componentInstances, comp, children) {
 	}
 };
 
-var _ootbComps = ['scs-sl-horizontal', 'scs-sl-slider', 'scs-sl-tabs', 'scs-sl-three-columns', 'scs-sl-two-columns', 'scs-sl-vertical'];
+var _ootbComps = ['scs-sl-horizontal', 'scs-sl-slider', 'scs-sl-tabs', 'scs-sl-three-columns', 'scs-sl-two-columns', 'scs-sl-vertical', 'scs-contentplaceholder'];
 
 var _examPageSource = function (slots, componentInstances, links, triggerActions, fileIds, itemIds, typeNames, compNames) {
 	var contentlist = [];

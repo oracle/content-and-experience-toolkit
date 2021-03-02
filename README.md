@@ -15,6 +15,19 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.1.3
+
+**Added**
+
+- `cec upload-component` - Enhanced to support uploading large numbers of components
+- `cec control-component` - Enhanced to support publishing large numbers of components
+- `cec list` - Enhanced to list large numbers of sites, templates or components (250+)
+
+**Fixed**
+- `cec transfer-site` - Now only transfer published assets with `--publishedassets`, `-p`
+- `cec transfer-site` - Corrected alias for `--suppressgovernance`
+
+
 # New in Release 21.1.2a
 
 **Added**

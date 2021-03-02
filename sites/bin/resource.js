@@ -454,7 +454,9 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 			return;
 		}
 
-		var promises = (listChannels || listRepositories) ? [_getChannels(serverName, server)] : [];
+		var promises = (listChannels || listRepositories) ? [serverRest.getChannels({
+			server: server
+		})] : [];
 		var channels;
 
 		Promise.all(promises).then(function (results) {
@@ -504,17 +506,17 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					console.log(sprintf(format3, 'Name', 'Type', 'Published'));
 					for (var i = 0; i < comps.length; i++) {
 						var comp = comps[i];
-						var compType = comp.type;
+						var compType = comp.type || 'local';
 						var typeLabel = 'Local component';
-						if (compType === 'componentgroup') {
+						if (compType.toLowerCase() === 'componentgroup') {
 							typeLabel = 'Component group';
 						} else if (compType === 'remote') {
 							typeLabel = 'Remote component';
-						} else if (compType === 'contentlayout') {
+						} else if (compType.toLowerCase() === 'contentlayout') {
 							typeLabel = 'Content layout';
 						} else if (compType === 'sandboxed') {
 							typeLabel = 'Local component in an iframe';
-						} else if (compType === 'sectionlayout') {
+						} else if (compType.toLowerCase() === 'sectionlayout') {
 							typeLabel = 'Section layout';
 						}
 						var published = comp.publishStatus === 'published' ? '    √' : '';
@@ -776,35 +778,6 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 	});
 };
 
-var _getChannels = function (serverName, server) {
-	return new Promise(function (resolve, reject) {
-		var chanelsPromise = serverRest.getChannels({
-			server: server
-		});
-		chanelsPromise.then(function (result) {
-				if (result.err) {
-					return resolve(result);
-				}
-
-				var channels = result || [];
-				var channelPromises = [];
-				for (var i = 0; i < channels.length; i++) {
-					channelPromises.push(serverRest.getChannel({
-						server: server,
-						id: channels[i].id
-					}));
-				}
-
-				//
-				// get channel detail
-				//
-				return Promise.all(channelPromises);
-			})
-			.then(function (results) {
-				resolve(results);
-			});
-	});
-};
 
 module.exports.executeGet = function (argv, done) {
 	'use strict';
@@ -976,7 +949,7 @@ module.exports.renameContentType = function (argv, done) {
 					mappings[i].type = newName;
 				}
 			}
-			
+
 			if (summaryJson.hasOwnProperty('contentTypeMappings')) {
 				summaryJson.contentTypeMappings = mappings;
 			} else {
@@ -1135,32 +1108,34 @@ module.exports.renameContentType = function (argv, done) {
 	});
 
 	// update site pages
-	var pagesPath = path.join(templatePath, 'pages');
-	var pages = fs.readdirSync(pagesPath);
-	pages.forEach(function (pageFile) {
-		var pagePath = path.join(pagesPath, pageFile);
-		if (fs.statSync(pagePath).isFile() && pageFile.indexOf('.json') > 0) {
-			var needUpdate = false;
-			var pageJson = JSON.parse(fs.readFileSync(pagePath));
-			if (pageJson.componentInstances) {
-				Object.keys(pageJson.componentInstances).forEach(function (key) {
-					var comp = pageJson.componentInstances[key];
-					if (comp.data && comp.data.contentTypes && comp.data.contentTypes.includes(typeName)) {
-						for (var i = 0; i < comp.data.contentTypes.length; i++) {
-							if (comp.data.contentTypes[i] === typeName) {
-								comp.data.contentTypes[i] = newName;
-								needUpdate = true;
+	if (templatePath) {
+		var pagesPath = path.join(templatePath, 'pages');
+		var pages = fs.readdirSync(pagesPath);
+		pages.forEach(function (pageFile) {
+			var pagePath = path.join(pagesPath, pageFile);
+			if (fs.statSync(pagePath).isFile() && pageFile.indexOf('.json') > 0) {
+				var needUpdate = false;
+				var pageJson = JSON.parse(fs.readFileSync(pagePath));
+				if (pageJson.componentInstances) {
+					Object.keys(pageJson.componentInstances).forEach(function (key) {
+						var comp = pageJson.componentInstances[key];
+						if (comp.data && comp.data.contentTypes && comp.data.contentTypes.includes(typeName)) {
+							for (var i = 0; i < comp.data.contentTypes.length; i++) {
+								if (comp.data.contentTypes[i] === typeName) {
+									comp.data.contentTypes[i] = newName;
+									needUpdate = true;
+								}
 							}
 						}
-					}
-				});
+					});
+				}
+				if (needUpdate) {
+					fs.writeFileSync(pagePath, JSON.stringify(pageJson, null, 4));
+					console.log(' - update page ' + pageFile);
+				}
 			}
-			if (needUpdate) {
-				fs.writeFileSync(pagePath, JSON.stringify(pageJson, null, 4));
-				console.log(' - update page ' + pageFile);
-			}
-		}
-	});
+		});
+	}
 
 	done(true);
 };

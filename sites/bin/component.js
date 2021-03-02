@@ -501,31 +501,55 @@ module.exports.deployComponent = function (argv, done) {
 
 				var folderId = folder ? results[0].id : 'self';
 
-				var importsPromise = [];
+				var comps = [];
 				for (var i = 0; i < allComps.length; i++) {
 					var name = allComps[i];
 					var zipfile = path.join(projectDir, "dist", name) + ".zip";
-
-					importsPromise[i] = _deployOneComponentREST(server, folder, folderId, zipfile, name, publish);
-				}
-				Promise.all(importsPromise).then(function (results) {
-					// All done
-					var success = false;
-					if (results && results.length > 0) {
-						for (var i = 0; i < results.length; i++) {
-							if (!results[i].err) {
-								success = true;
-								break;
-							}
-						}
+					if (fs.existsSync(zipfile)) {
+						comps.push({
+							name: name,
+							zipfile: zipfile
+						});
 					}
-					done(success);
-				});
+				}
+
+				_uploadComponents(server, folder, folderId, comps, publish)
+					.then(function (result) {
+						if (result.err) {
+							done();
+						} else {
+							done(true);
+						}
+					});
 			});
 
 		}); // login 
 
 	}); // export
+};
+
+var _uploadComponents = function (server, folder, folderId, comps, publish) {
+	return new Promise(function (resolve, reject) {
+		var err;
+		var doUploadComp = comps.reduce(function (compPromise, comp) {
+				return compPromise.then(function (result) {
+					return _deployOneComponentREST(server, folder, folderId, comp.zipfile, comp.name, publish)
+						.then(function (result) {
+							if (!result || result.err) {
+								err = 'err';
+							}
+						});
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doUploadComp.then(function (result) {
+			resolve({
+				err: err
+			});
+		});
+	});
 };
 
 /** 
@@ -873,16 +897,6 @@ module.exports.controlComponent = function (argv, done) {
 	var components = argv.components.split(',');
 	var action = argv.action;
 
-	try {
-		_controlComponents(serverName, server, action, components, done);
-	} catch (e) {
-		console.log(e);
-		done();
-	}
-};
-
-var _controlComponents = function (serverName, server, action, componentNames, done) {
-
 	var request = serverUtils.getRequest();
 
 	var loginPromise = serverUtils.loginToServer(server, request);
@@ -893,69 +907,76 @@ var _controlComponents = function (serverName, server, action, componentNames, d
 			return;
 		}
 
-		_controlComponentsREST(server, componentNames, done);
+		_controlComponentsREST(server, components)
+			.then(function (result) {
+				if (!result || result.err) {
+					done();
+				} else {
+					done(true);
+				}
+			});
 
 	}); // login
 };
 
-var _controlComponentsREST = function (server, componentNames, done) {
-
-	var compPromises = [];
-	for (var i = 0; i < componentNames.length; i++) {
-		compPromises.push(sitesRest.getComponent({
-			server: server,
-			name: componentNames[i]
-		}));
-	}
-
-	var comps = [];
-	var publishedComps = [];
-	var publishSuccess = false;
-	Promise.all(compPromises).then(function (results) {
-			var allComps = results || [];
-			for (var i = 0; i < componentNames.length; i++) {
-				var found = false;
-				var compName = componentNames[i];
-				for (var j = 0; j < allComps.length; j++) {
-					if (allComps[j].name && compName.toLowerCase() === allComps[j].name.toLowerCase()) {
-						found = true;
-						comps.push(allComps[j]);
-						break;
+var _controlComponentsREST = function (server, componentNames) {
+	return new Promise(function (resolve, reject) {
+		var err;
+		var total = componentNames.length;
+		var groups = [];
+		var limit = 8;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+		console.log(' - publishing ' + total + (total === 1 ? ' component ...' : ' components ...'));
+		var doPublishComps = groups.reduce(function (compPromise, param) {
+				return compPromise.then(function (result) {
+					var publishPromises = [];
+					for (var i = param.start; i <= param.end; i++) {
+						publishPromises.push(sitesRest.publishComponent({
+							server: server,
+							name: componentNames[i],
+							hideAPI: true
+						}));
 					}
-				}
 
-				if (!found) {
-					// console.log('ERROR: component ' + compName + ' does not exist');
-					// return Promise.reject();
-				}
-			}
+					return Promise.all(publishPromises).then(function (results) {
+						for (var i = 0; i < results.length; i++) {
+							if (!results[i] || results[i].err) {
+								err = 'err';
+							} else {
+								console.log(' - publish ' + results[i].name + ' finished [' + results[i].timeUsed + ']');
+							}
+						}
+					});
 
-			var publishPromises = [];
-			for (var i = 0; i < comps.length; i++) {
-				publishPromises.push(sitesRest.publishComponent({
-					server: server,
-					id: comps[i].id,
-					name: comps[i].name
-				}));
-			}
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
 
-			return Promise.all(publishPromises);
-		})
-		.then(function (results) {
-
-			var success = false;
-			for (var i = 0; i < results.length; i++) {
-				if (results[i].id) {
-					console.log(' - publish ' + results[i].name + ' finished');
-					success = true;
-				}
-			}
-
-			done(success);
-		})
-		.catch((error) => {
-			done();
+		doPublishComps.then(function (result) {
+			resolve({
+				err: err
+			});
 		});
+
+	});
 };
 
 /**

@@ -244,6 +244,9 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 					if (channelId) {
 						q = q + ' AND (channels co "' + channelId + '")';
 					}
+					if (publishedassets) {
+						q = q + ' AND status eq "published"';
+					}
 					console.log(' - query: ' + q);
 
 					queryItemPromises.push(serverRest.queryItems({
@@ -2585,12 +2588,15 @@ var _exportContentIC = function (request, server, collectionId, exportfilepath) 
 };
 
 
-var _getSiteAssetsFromOtherRepos = function (server, siteChannelId, siteRepositoryId) {
+var _getSiteAssetsFromOtherRepos = function (server, siteChannelId, siteRepositoryId, publishedassets) {
 	return new Promise(function (resolve, reject) {
 		if (!siteChannelId || !siteRepositoryId) {
 			return resolve({});
 		}
 		var q = 'repositoryId ne "' + siteRepositoryId + '" AND channels co "' + siteChannelId + '"';
+		if (publishedassets) {
+			q = q + ' AND status eq "published"';
+		}
 		return serverRest.queryItems({
 			server: server,
 			q: q
@@ -2600,7 +2606,7 @@ var _getSiteAssetsFromOtherRepos = function (server, siteChannelId, siteReposito
 	});
 };
 
-var _siteHasAssets = function (server, siteChannelId, siteRepositoryId) {
+var _siteHasAssets = function (server, siteChannelId, siteRepositoryId, publishedassets) {
 	return new Promise(function (resolve, reject) {
 		if (!siteChannelId || !siteRepositoryId) {
 			return resolve({
@@ -2608,6 +2614,9 @@ var _siteHasAssets = function (server, siteChannelId, siteRepositoryId) {
 			});
 		}
 		var q = 'repositoryId eq "' + siteRepositoryId + '" AND channels co "' + siteChannelId + '"';
+		if (publishedassets) {
+			q = q + ' AND status eq "published"';
+		}
 		serverRest.queryItems({
 				server: server,
 				q: q,
@@ -2713,6 +2722,7 @@ module.exports.transferSiteContent = function (argv, done) {
 		})
 		.then(function (result) {
 			if (!result || result.err) {
+				console.log('ERROR: site ' + siteName + ' not found on server ' + server.name);
 				return Promise.reject();
 			}
 			site = result;
@@ -2735,6 +2745,19 @@ module.exports.transferSiteContent = function (argv, done) {
 			channelToken = _getChannelToken(site.channel);
 
 			console.log(' - site channel (Id: ' + channelId + ' token: ' + channelToken + ')');
+
+			// verify site on target server
+			return sitesRest.getSite({
+				server: destServer,
+				name: siteName,
+				expand: 'channel,repository'
+			});
+		})
+		.then(function (result) {
+			if (!result || result.err) {
+				console.log('ERROR: site ' + siteName + ' not found on server ' + destServer.name);
+				return Promise.reject();
+			}
 
 			// query the respotiory on the destination server
 			return serverRest.getRepositoryWithName({
@@ -2814,6 +2837,9 @@ module.exports.transferSiteContent = function (argv, done) {
 
 			// query all items in the channel
 			var q = 'channels co "' + channelId + '"';
+			if (publishedassets) {
+				q = q + ' AND status eq "published"';
+			}
 			return serverRest.queryItems({
 				server: server,
 				q: q
@@ -2827,7 +2853,7 @@ module.exports.transferSiteContent = function (argv, done) {
 
 			var allItems = result.data;
 			if (!allItems || allItems.length === 0) {
-				console.log('ERROR: no item in the site channle');
+				console.log('ERROR: no item in the site channel');
 				return Promise.reject();
 			}
 

@@ -1863,7 +1863,7 @@ module.exports.transferSite = function (argv, done) {
 								// create template on the source server and download
 								var enterprisetemplate = true;
 								return templateUtils.createLocalTemplateFromSite(
-									argv, templateName, siteName, server, excludecontent, enterprisetemplate, excludecomponents, excludetheme, excludetype);
+									argv, templateName, siteName, server, excludecontent, enterprisetemplate, excludecomponents, excludetheme, excludetype, publishedassets);
 
 							})
 							.then(function (result) {
@@ -2177,7 +2177,7 @@ module.exports.transferSite = function (argv, done) {
 										console.log(' - site ' + siteName + ' created on ' + destServer.url);
 									}
 
-									_transferOtherAssets(argv, server, destServer, site, destSite, repoMappings, excludecontent).then(function (result) {
+									_transferOtherAssets(argv, server, destServer, site, destSite, repoMappings, excludecontent, publishedassets).then(function (result) {
 
 										// update the localization policy
 										serverRest.updateLocalizationPolicy({
@@ -2232,7 +2232,7 @@ module.exports.transferSite = function (argv, done) {
 														console.log(' - update site metadata');
 													}
 
-													return _transferOtherAssets(argv, server, destServer, site, destSite, repoMappings, excludecontent);
+													return _transferOtherAssets(argv, server, destServer, site, destSite, repoMappings, excludecontent, publishedassets);
 
 												})
 												.then(function (result) {
@@ -2296,13 +2296,13 @@ module.exports.transferSite = function (argv, done) {
 		}); // login
 };
 
-var _transferOtherAssets = function (argv, server, destServer, site, destSite, repoMappings, excludecontent) {
+var _transferOtherAssets = function (argv, server, destServer, site, destSite, repoMappings, excludecontent, publishedassets) {
 	return new Promise(function (resolve, reject) {
 		if (repoMappings.length === 0 || excludecontent) {
 			return resolve({});
 		}
 
-		contentUtils.getSiteAssetsFromOtherRepos(server, site.channel.id, site.repository.id)
+		contentUtils.getSiteAssetsFromOtherRepos(server, site.channel.id, site.repository.id, publishedassets)
 			.then(function (result) {
 				var items = result && result.data || [];
 				if (items.length === 0) {
@@ -2331,7 +2331,7 @@ var _transferOtherAssets = function (argv, server, destServer, site, destSite, r
 			.then(function (result) {
 
 				// transfer assets from other repositories
-				return _transferRepoAssets(argv, repoMappings, server, destServer, site, destSite);
+				return _transferRepoAssets(argv, repoMappings, server, destServer, site, destSite, publishedassets);
 
 			})
 			.then(function (result) {
@@ -2379,48 +2379,51 @@ var _removeRepoAssetsFromChannel = function (server, channelId, repoIds) {
 	});
 };
 
-var _transferRepoAssets = function (argv, repoMappings, server, destServer, site, destSite) {
+var _transferRepoAssets = function (argv, repoMappings, server, destServer, site, destSite, publishedassets) {
 	return new Promise(function (resolve, reject) {
 		var total = repoMappings.length;
 		var destdir = path.join(projectDir, 'dist');
 		var transferAssets = repoMappings.reduce(function (transferPromise, mapping) {
 				return transferPromise.then(function (result) {
-					console.log(' - *** transfering assets from repository ' + mapping.srcName + ' to repository ' + mapping.destName + ' ...');
+					if (mapping.items.length > 0) {
+						console.log(' - *** transfering assets from repository ' + mapping.srcName + ' to repository ' + mapping.destName + ' (' + mapping.items.length + ') ...');
 
-					// download assets from the source server
-					var name = site.name + '_' + mapping.srcName + '_assets';
-					var downloadArgs = {
-						projectDir: projectDir,
-						server: server,
-						assetGUIDS: mapping.items,
-						name: name,
-						publishedassets: false
-					};
-					return contentUtils.downloadContent(downloadArgs).then(function (result) {
-						// console.log(' - * assets downloaded');
+						// download assets from the source server
+						var name = site.name + '_' + mapping.srcName + '_assets';
+						var downloadArgs = {
+							projectDir: projectDir,
+							server: server,
+							channel: site.name,
+							assetGUIDS: mapping.items,
+							name: name,
+							publishedassets: publishedassets
+						};
+						return contentUtils.downloadContent(downloadArgs).then(function (result) {
+							// console.log(' - * assets downloaded');
 
-						// upload the downloaded assets to the target server
-						var fileName = site.name + '_' + mapping.srcName + '_assets_export.zip';
-						var filePath = path.join(destdir, fileName);
-						if (fs.existsSync(filePath)) {
-							var uploadArgs = {
-								argv: argv,
-								server: destServer,
-								name: filePath,
-								isFile: true,
-								repositoryName: mapping.destName,
-								channelName: destSite.channel.name,
-								updateContent: true,
-								contentpath: destdir,
-								contentfilename: fileName
-							};
+							// upload the downloaded assets to the target server
+							var fileName = site.name + '_' + mapping.srcName + '_assets_export.zip';
+							var filePath = path.join(destdir, fileName);
+							if (fs.existsSync(filePath)) {
+								var uploadArgs = {
+									argv: argv,
+									server: destServer,
+									name: filePath,
+									isFile: true,
+									repositoryName: mapping.destName,
+									channelName: destSite.name,
+									updateContent: true,
+									contentpath: destdir,
+									contentfilename: fileName
+								};
 
-							return contentUtils.uploadContent(uploadArgs).then(function (result) {
-								// console.log(' - * assets uploaded');
-							});
+								return contentUtils.uploadContent(uploadArgs).then(function (result) {
+									// console.log(' - * assets uploaded');
+								});
 
-						}
-					});
+							}
+						});
+					}
 				});
 			},
 			// Start with a previousPromise value that is a resolved promise 

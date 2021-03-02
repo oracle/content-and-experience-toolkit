@@ -13,15 +13,23 @@ var _getAuthorization = function (server) {
 	return (server.tokentype || 'Bearer') + ' ' + server.oauthtoken;
 };
 
-var _getResources = function (server, type, expand) {
+var MAX_LIMIT = 250;
+
+var _getResources = function (server, type, expand, offset) {
 	return new Promise(function (resolve, reject) {
 		var request = serverUtils.getRequest();
 
-		var url = server.url + '/sites/management/api/v1/' + type + '?links=none&orderBy=name&limit=250';
+		var url = server.url + '/sites/management/api/v1/' + type + '?links=none&orderBy=name&limit=' + MAX_LIMIT;
+
+		if (offset) {
+			url = url + '&offset=' + offset;
+		}
+
 		if (expand) {
 			url = url + '&expand=' + expand + '&expansionErrors=ignore';
 		}
 		// console.log(' - GET ' + url);
+
 		var options = {
 			url: url
 		};
@@ -49,7 +57,7 @@ var _getResources = function (server, type, expand) {
 			if (response && response.statusCode === 200) {
 				var data = JSON.parse(body);
 				var items = data && data.items || [];
-				resolve(items);
+				resolve(data);
 			} else {
 				console.log('ERROR: failed to get ' + type + ' : ' + (response ? (response.statusMessage + ' ' + response.statusCode) : ''));
 				resolve({
@@ -57,6 +65,37 @@ var _getResources = function (server, type, expand) {
 				});
 			}
 
+		});
+	});
+};
+
+// get all resources with pagination
+var _getAllResources = function (server, type, expand) {
+	return new Promise(function (resolve, reject) {
+		var groups = [];
+		// 1000 * 250 should be enough
+		for (var i = 1; i < 1000; i++) {
+			groups.push(MAX_LIMIT * i);
+		}
+
+		var resources = [];
+
+		var doGetResources = groups.reduce(function (resPromise, offset) {
+				return resPromise.then(function (result) {
+					if (result && result.items && result.items.length > 0) {
+						resources = resources.concat(result.items);
+					}
+					if (result && result.hasMore) {
+						return _getResources(server, type, expand, offset);
+					}
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			_getResources(server, type, expand));
+
+		doGetResources.then(function (result) {
+			// console.log(resources.length);
+			resolve(resources);
 		});
 	});
 };
@@ -69,7 +108,7 @@ var _getResources = function (server, type, expand) {
  */
 module.exports.getTemplates = function (args) {
 	var server = args.server;
-	return _getResources(server, 'templates', args.expand);
+	return _getAllResources(server, 'templates', args.expand);
 };
 
 /**
@@ -80,7 +119,7 @@ module.exports.getTemplates = function (args) {
  */
 module.exports.getComponents = function (args) {
 	var server = args.server;
-	return _getResources(server, 'components');
+	return _getAllResources(server, 'components');
 };
 
 /**
@@ -91,7 +130,7 @@ module.exports.getComponents = function (args) {
  */
 module.exports.getSites = function (args) {
 	var server = args.server;
-	return _getResources(server, 'sites', args.expand);
+	return _getAllResources(server, 'sites', args.expand);
 };
 
 var _getResource = function (server, type, id, name, expand, showError) {
@@ -818,6 +857,7 @@ var _publishResource = function (server, type, id, name, hideAPI) {
 			};
 		}
 		// console.log(options);
+		var startTime = new Date();
 		request(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to publish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
@@ -837,7 +877,8 @@ var _publishResource = function (server, type, id, name, hideAPI) {
 			if (response && response.statusCode === 303) {
 				resolve({
 					id: id,
-					name: name
+					name: name,
+					timeUsed: (serverUtils.timeUsed(startTime, new Date()))
 				});
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
@@ -1884,6 +1925,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.headers && response.headers.location;
+				console.log(' - creating site (job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1) + ')');
 				var startTime = new Date();
 				var needNewLine = false;
 				var inter = setInterval(function () {
@@ -1903,9 +1945,10 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 							});
 						} else if (data.completed && data.progress === 'succeeded') {
 							clearInterval(inter);
-							if (needNewLine) {
-								process.stdout.write(os.EOL);
-							}
+							process.stdout.write(' - creating site in process: percentage ' + data.completedPercentage +
+								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+
+							process.stdout.write(os.EOL);
 
 							return resolve({});
 						} else {
@@ -1998,6 +2041,7 @@ var _copySite = function (server, sourceSiteName, name, description, sitePrefix,
 
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.headers && response.headers.location;
+				console.log(' - copying site (job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1) + ')');
 				var startTime = new Date();
 				var needNewLine = false;
 				var inter = setInterval(function () {

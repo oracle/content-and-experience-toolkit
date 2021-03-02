@@ -4116,7 +4116,7 @@ const argv = yargs.usage(_usage)
 					description: 'Include site static files'
 				})
 				.option('suppressgovernance', {
-					alias: 'p',
+					alias: 'g',
 					description: 'Suppress site governance controls'
 				})
 				.check((argv) => {

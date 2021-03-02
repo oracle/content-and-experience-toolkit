@@ -28,9 +28,6 @@ var gulp = require('gulp'),
     fileUtils = require('../../test/server/fileUtils'),
     compilationReporter = require('./reporter.js'),
     componentLib = require('../component');
-const {
-    _
-} = require('underscore');
 
 //*********************************************
 // Configuration
@@ -118,7 +115,7 @@ var compiler = {
                             beforeSend: beforeSend,
                             contentVersion: 'v1.1',
                             channelToken: channelAccessToken || '',
-                            isCompiler: true
+                            isContentCompiler: true // currently not used but differentiate from template compiler
                         });
                     }
                     resolve(self.contentClients[contentClientType]);
@@ -134,40 +131,23 @@ var compiler = {
 var contentLayoutMapPromises = {};
 var getContentLayoutMap = function (contentContext, contentType) {
     if (!contentLayoutMapPromises[contentType]) {
-        contentLayoutMapPromises[contentType] = serverUtils.getContentTypeLayoutMapping(
-            contentContext.request,
-            server,
-            contentType
-        ).then(function (contentLayoutMap) {
-            // convert rows to normal JSON object
-            var items = (contentLayoutMap.ResultSets.ContentTypeCategoryLayoutMapping.rows || []).map(function (result) {
-                var name = result[0].replace('|mobile', '');
-                return {
-                    label: name,
-                    apiname: name,
-                    isMobile: name !== result[0],
-                    format: result[1],
-                    generateRendition: true
-                };
-            });
+        contentLayoutMapPromises[contentType] = serverRest.getContentType({
+            server: server,
+            name: contentType,
+            expand: 'layoutMapping'
+        }).then(function (result) {
+            // setup the map, default to empty values if not available
+            var layoutMap = result && result.layoutMapping || {};
+            layoutMap.data = layoutMap.data || [];
 
-            // merge desktop & mobile formats
-            var entries = {};
-            items.forEach(function (item) {
-                var entry = entries[item.label] = entries[item.label] || {};
-                entry.label = item.label;
-                entry.apiname = item.apiname;
-                entry.formats = entry.formats || {};
-                entry.generateRendition = item.generateRendition;
-                entry.formats[item.isMobile ? 'mobile' : 'desktop'] = item.format;
+            layoutMap.data.forEach(function (entry) {
+                // if no mobile, then default to desktop
+                if (entry.formats) {
+                    if (entry.formats.desktop && !entry.formats.mobile) {
+                        entry.formats.mobile = entry.formats.desktop;
+                    }
+                }
             });
-
-            // update the result to new format
-            var layoutMap = {
-                data: Object.keys(entries).map(function (key) {
-                    return entries[key];
-                })
-            };
 
             return Promise.resolve(layoutMap);
         });
@@ -353,25 +333,29 @@ var compileContentItem = function (contentContext, item, index) {
                             // add in the desktop version
                             if (!layoutMap.formats.desktop) {
                                 compilationReporter.warn({
-                                    message: 'compileContentItem: no layout map for "' + contentItem.type + '" asset type on desktop. Will not be compiled'
+                                    message: 'compileContentItem: no layout map for "' + contentItem.type + ':' + layoutMap.apiName + '" asset type on desktop. Will not be compiled'
                                 });
                             } else {
                                 compileLayoutPromises.push(function () {
-                                    return compileContentItemLayout(contentContext, contentItem, layoutMap.formats.desktop, false, layoutMap.apiname);
+                                    return compileContentItemLayout(contentContext, contentItem, layoutMap.formats.desktop, false, layoutMap.apiName);
                                 });
                             }
 
                             // add in the mobile version
                             if (!layoutMap.formats.mobile) {
                                 compilationReporter.warn({
-                                    message: 'compileContentItem: no layout map for "' + contentItem.type + '" asset type on mobile. Will not be compiled'
+                                    message: 'compileContentItem: no layout map for "' + contentItem.type + ':' + layoutMap.apiName + '" asset type on mobile. Will not be compiled'
                                 });
                             } else {
                                 compileLayoutPromises.push(function () {
                                     // use desktop for mobile, if no mobile option specified
-                                    return compileContentItemLayout(contentContext, contentItem, layoutMap.formats.mobile || layoutMap.formats.desktop, true, layoutMap.apiname);
+                                    return compileContentItemLayout(contentContext, contentItem, layoutMap.formats.mobile, true, layoutMap.apiName);
                                 });
                             }
+                        } else {
+                            compilationReporter.info({
+                                message: 'compileContentItem: generateRendition set to false for: "' + contentItem.type + ':' + layoutMap.apiName + '". Will not be compiled'
+                            });
                         }
                     });
 
@@ -465,7 +449,7 @@ var zipCompiledContent = function (contentContext) {
         status: 'UPLOADING',
         progress: 95
     }).then(function () {
-        new Promise(function (resolve, reject) {
+        return new Promise(function (resolve, reject) {
             // create the metadata file based on files created
             var compiledFiles = path.join(itemsDir, 'items');
             if (!fs.existsSync(compiledFiles)) {

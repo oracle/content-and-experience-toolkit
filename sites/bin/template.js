@@ -77,7 +77,7 @@ var _cmdEnd = function (done, success) {
 
 
 var _createLocalTemplateFromSite = function (name, siteName, server, excludeContent, enterprisetemplate,
-	excludeComponents, excludeTheme, excludeType) {
+	excludeComponents, excludeTheme, excludeType, publishedassets) {
 	return new Promise(function (resolve, reject) {
 		var request = serverUtils.getRequest();
 
@@ -238,7 +238,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 				.then(function (results) {
 
 					// check if the site has any asset
-					return contentUtils.siteHasAssets(server, channelId, repositoryId);
+					return contentUtils.siteHasAssets(server, channelId, repositoryId, publishedassets);
 
 				})
 				.then(function (result) {
@@ -259,7 +259,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						console.log(' - site has assets from other repositories and they will not be included in the template');
 					}
 
-					var downloadContentPromises = (excludeContent || !isEnterprise) ? [] : [_downloadContent(request, server, name, channelName, channelId, repositoryName, repositoryId, excludeType)];
+					var downloadContentPromises = (excludeContent || !isEnterprise) ? [] : [_downloadContent(request, server, name, channelName, channelId, repositoryName, repositoryId, excludeType, publishedassets)];
 
 					return Promise.all(downloadContentPromises);
 				})
@@ -539,12 +539,12 @@ var _downloadSiteComponents = function (request, server, compNames) {
 };
 
 var _createLocalTemplateFromSiteUtil = function (argv, name, siteName, server, excludeContent, enterprisetemplate,
-	excludeComponents, excludeTheme, excludeType) {
+	excludeComponents, excludeTheme, excludeType, publishedassets) {
 	verifyRun(argv);
-	return _createLocalTemplateFromSite(name, siteName, server, excludeContent, enterprisetemplate, excludeComponents, excludeTheme, excludeType);
+	return _createLocalTemplateFromSite(name, siteName, server, excludeContent, enterprisetemplate, excludeComponents, excludeTheme, excludeType, publishedassets);
 };
 
-var _downloadContent = function (request, server, name, channelName, channelId, repositoryName, repositoryId, excludeType) {
+var _downloadContent = function (request, server, name, channelName, channelId, repositoryName, repositoryId, excludeType, publishedassets) {
 	return new Promise(function (resolve, reject) {
 		var assetSummaryJson;
 		var assetContentTypes = [];
@@ -560,7 +560,7 @@ var _downloadContent = function (request, server, name, channelName, channelId, 
 				channel: channelName,
 				repositoryName: repositoryName,
 				name: name + '_content',
-				publishedassets: false,
+				publishedassets: publishedassets,
 				requiredContentPath: tempAssetPath,
 				requiredContentTemplateName: 'Content Template of ' + name
 			})
