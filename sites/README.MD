@@ -31,7 +31,8 @@ npm install
 > **Mac**:
 
 ```
-sudo ln -s $PWD/content-and-experience-toolkit/sites/node_modules/.bin/cec /usr/local/bin/cec
+npm pack
+npm install cec-sites-toolkit-<version>.tgz --global
 ```
 
 > **Windows**:
