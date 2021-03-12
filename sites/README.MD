@@ -31,7 +31,7 @@ npm install
 > **Mac**:
 
 ```
-sudo ln -s $PWD/content-and-experience-toolkit/sites/node_modules/.bin/cec /usr/local/bin/cec
+sudo ln -s $PWD/node_modules/.bin/cec /usr/local/bin/cec
 ```
 
 > **Windows**:
