@@ -6164,7 +6164,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('detailpage', {
 					alias: 'd',
-					description: 'The full url of the sit detail page for this type',
+					description: 'The full url of the site detail page for this type',
 					demandOption: true
 				})
 				.option('server', {
