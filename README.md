@@ -15,6 +15,20 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.2.1a
+
+**Added**
+
+- `cec transfer-content` - Transfers content from one OCE server to another and supports large numbers of items (10000+)
+- `cec execute-get` - Make an HTTP GET request to a REST API endpoint on an OCE server
+- `cec webhook-server` - Starts up a server that listens for webhook events from an OCE server
+
+**Fixed**
+
+- Can now use the word `help` as a resource name such as a site, repository or channel name
+- Updated version of xmldom library
+
+
 # New in Release 21.2.1
 
 **Added**
