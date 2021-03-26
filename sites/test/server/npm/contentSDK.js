@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017, 2020 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, 2021 Oracle and/or its affiliates.
  * Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
  * $Id: content.js 167153 2019-01-25 21:29:15Z muralik $
  */
@@ -645,46 +645,55 @@
 	_ContentAPI.prototype.isDigitalAsset = function (id) {
 		return /^DigitalAsset_/i.test(id) || (id.length === 36 && (/^CONT/.test(id) || /^CORE/.test(id)));
 	};
-	_ContentAPI.prototype.getRenditionURL = function (itemGUID, itemType, restArgs) {
-		var url = '';
+	_ContentAPI.prototype.getRenditionURL = function (itemGUID, itemType, restArgs, isCompiler) {
+		var url = '',
+			type = itemType || this.properties.digitalAssetDefault,
+			format = restArgs.format;
 
-		if (itemGUID) {
-			if (this.isDigitalAsset(itemGUID)) {
-				// Content URL
-				var type,
-					digitalAssets,
-					format = restArgs.format,
-					download = restArgs.download,
-					cacheBusterValue = typeof restArgs.cacheBuster === 'object' ? restArgs.cacheBuster.contentKey : restArgs.cacheBuster,
-					joinChar = '?'; // character to use to join query parameters
+		if (isCompiler) {
+			// get the id, rendition & format values
+			var macroParams = [itemGUID]; // id
+			macroParams.push(type || this.properties.digitalAssetDefault); // rendition
+			macroParams.push(format || ''); // format
+
+			// encode into a macro and let the compiler expand
+			url = '[!--$SCS_DIGITAL_ASSET--]' + macroParams.join(',') + '[/!--$SCS_DIGITAL_ASSET--]';
+		} else {
+			if (itemGUID) {
+				if (this.isDigitalAsset(itemGUID)) {
+					// Content URL
+					var digitalAssets,
+						download = restArgs.download,
+						cacheBusterValue = typeof restArgs.cacheBuster === 'object' ? restArgs.cacheBuster.contentKey : restArgs.cacheBuster,
+						joinChar = '?'; // character to use to join query parameters
 
 
-				// secure and non-secure assets now use the same path
-				digitalAssets = restArgs.secureContent ? this.properties.secureAssetURLName : this.properties.assetURLName;
+					// secure and non-secure assets now use the same path
+					digitalAssets = restArgs.secureContent ? this.properties.secureAssetURLName : this.properties.assetURLName;
 
-				type = itemType || this.properties.digitalAssetDefault;
-				url = this.createPrefix(restArgs) + '/' + digitalAssets + '/' + itemGUID + '/' + type;
+					url = this.createPrefix(restArgs) + '/' + digitalAssets + '/' + itemGUID + '/' + type;
 
-				// add in any query parameters
-				if (cacheBusterValue) {
-					url += joinChar + 'cb=' + cacheBusterValue;
-					joinChar = '&';
+					// add in any query parameters
+					if (cacheBusterValue) {
+						url += joinChar + 'cb=' + cacheBusterValue;
+						joinChar = '&';
+					}
+					if (format) {
+						url += joinChar + 'format=' + format;
+						joinChar = '&';
+					}
+					if (download) {
+						url += joinChar + 'download=true';
+						joinChar = '&';
+					}
+					if ((restArgs.contentType === 'published') && (restArgs.channelToken)) {
+						url += joinChar + this.properties.tokenName + '=' + restArgs.channelToken;
+						joinChar = '&';
+					}
+				} else {
+					// Documents URL
+					url = restArgs.contentServer + '/documents/file/' + itemGUID;
 				}
-				if (format) {
-					url += joinChar + 'format=' + format;
-					joinChar = '&';
-				}
-				if (download) {
-					url += joinChar + 'download=true';
-					joinChar = '&';
-				}
-				if ((restArgs.contentType === 'published') && (restArgs.channelToken)) {
-					url += joinChar + this.properties.tokenName + '=' + restArgs.channelToken;
-					joinChar = '&';
-				}
-			} else {
-				// Documents URL
-				url = restArgs.contentServer + '/documents/file/' + itemGUID;
 			}
 		}
 
@@ -695,7 +704,8 @@
 		var queryParams = _utils.extend({}, args),
 			searchParams = {
 				postData: {},
-				getData: ''
+				getData: '',
+				assetVersion: ''
 			},
 			parameters = '',
 			search = queryParams.search;
@@ -707,6 +717,7 @@
 		delete queryParams.ID;
 		delete queryParams.itemGUID;
 		delete queryParams.itemGUIDs;
+		delete queryParams.slug;
 		delete queryParams.timeout;
 		delete queryParams.search;
 		delete queryParams.types;
@@ -731,6 +742,17 @@
 							orderEntry = order ? ':' + (order === 'des' ? 'desc' : order) : '';
 
 						propVal = propVal[0].name + orderEntry;
+					}
+
+					if (property === 'expand') {
+						continue;
+					}
+
+					if (property === 'version') {
+						if (propVal !== undefined && propVal) {
+							searchParams.assetVersion = propVal;
+						}
+						continue;
 					}
 
 					// we're only handling scalar parameters in GET requests
@@ -822,14 +844,22 @@
 			aggregate = args.useAggregate ? nextParam + 'expand=' + args.useAggregate : '',
 			slug = args.slug ? '.by.slug/' + args.slug : '';
 
+		// Ignored if language is given to not create an invalid URL
+		var versionStr = '';
+		if (!language) {
+			if (args.assetVersion !== '') {
+				versionStr = '/versions/' + args.assetVersion;
+			}
+		}
+
 		if (args.itemGUID) {
 			// .../items/{id}                                                : Get Published Item by ID
 			// .../items/{id}/variations/language/{languageValue}            : Get Published Item by ID for specified language
-			return '/items/' + args.itemGUID + language + aggregate;
+			return '/items/' + args.itemGUID + versionStr + language + aggregate;
 		} else {
 			// .../items/.by.slug/{slug}                                     : Get Published Item by slug
 			// .../items/.by.slug/{slug}/variations/language/{languageValue} : Get published item by slug for specified language
-			return '/items/' + slug + language + aggregate;
+			return '/items/' + slug + versionStr + language + aggregate;
 		}
 	};
 	_ContentAPI_v1_1Impl.prototype.resolveQueryTaxonomyCategoriesPath = function (args) {
@@ -1002,6 +1032,7 @@
 		//
 		restArgs.postData = searchParams.postData;
 		restArgs.useAggregate = searchParams.useAggregate;
+		restArgs.assetVersion = searchParams.assetVersion;
 
 		// getData passed in as 'search' parameter for URL construction
 		restArgs.search = searchParams.getData;
@@ -1100,6 +1131,7 @@
 	 * @param {string} [args.id] - The ID of the content item to return. <br/>The ID or SLUG must be specified.
 	 * @param {string} [args.slug] - The SLUG of the content item to return, used instead of id. <br/>The ID or SLUG must be specified.
 	 * @param {string} [args.language] - The language locale variant of the content item to return.
+	 * @param {string} [args.version] - The version of the asset to return. Should only be used when calling getItem in a preview, not a delivery context. Ignored if language is specified
 	 * @param {function} [args.beforeSend=undefined] - A callback passing in the xhr (browser) or options (node) object before making the REST call.
 	 * @returns {Promise} A JavaScript Promise object that can be used to retrieve the data after the call has completed.
 	 * @example
@@ -1132,6 +1164,7 @@
 		// create the URL
 		var url = this.restAPI.formatURL(this.restAPI.resolveGetItemPath({
 			'itemGUID': guid,
+			'assetVersion': restCallArgs.assetVersion,
 			'useAggregate': restCallArgs.useAggregate,
 			'language': params.language,
 			'slug': params.slug
@@ -1446,12 +1479,7 @@
 			guid = args.id || args.ID || args.itemGUID,
 			restCallArgs = self.resolveRESTArgs('GET', args);
 
-		if (this.isCompiler) {
-			// encode into a macro and let the compiler expand
-			return '[!--$SCS_DIGITAL_ASSET--]' + guid + '[/!--$SCS_DIGITAL_ASSET--]';
-		} else {
-			return self.restAPI.getRenditionURL(guid, args.type, restCallArgs);
-		}
+		return self.restAPI.getRenditionURL(guid, args.type, restCallArgs, this.isCompiler);
 	};
 
 

@@ -34,8 +34,7 @@ var gulp = require('gulp'),
 //*********************************************
 
 // Configured Variables
-var componentsFolder, // <cec-install>/src/components
-    channelAccessToken = '', // channel access token for the site
+var channelAccessToken = '', // channel access token for the site
     server, // server to use for any content calls
     projectDir, // cec install folder
     itemsDir, // output "items" folder
@@ -44,18 +43,19 @@ var componentsFolder, // <cec-install>/src/components
     uploadContent, // TRUE if should upload the content to the server after compile
     contentIds, // list of content IDs to compile (if not specifying publishingJobID)
     contentType, // compile all published items of this content type
+    repositoryId, // ID of the repository to restrict queries by for content type compilation
     componentsFolder, // The src/components folder path
     verbose, // run displaying all messages
     targetDevice, // compile for mobile or desktop.  If not specified, both will be compiled
     logLevel,
     channelAccessToken, // token to use for Content calls 
     server, // URL to the server that is hosting the content 
-    projectDir, // the cec install folder
     itemsDir, // output location for compiled items
     jobProgress = 0, // progress of the compilation job
     lastStatusUpdate = 0, // the last time an update was sent
     zipFileName = "items.zip",
     zipFile, // the complete path to the zip file
+    installedNodePackages = [],
     failedItems = []; // items that failed to compile
 
 
@@ -115,7 +115,7 @@ var compiler = {
                             beforeSend: beforeSend,
                             contentVersion: 'v1.1',
                             channelToken: channelAccessToken || '',
-                            isContentCompiler: true // currently not used but differentiate from template compiler
+                            isCompiler: true
                         });
                     }
                     resolve(self.contentClients[contentClientType]);
@@ -123,6 +123,57 @@ var compiler = {
             },
             getChannelAccessToken: function () {
                 return channelAccessToken;
+            },
+            installNodePackages: function (packages) {
+                var nodePackages = [];
+
+                (Array.isArray(packages) ? packages : (typeof packages === 'string' ? [packages] : [])).forEach(function (package) {
+                    if (installedNodePackages.indexOf(package) === -1) {
+                        // try to install this package
+                        nodePackages.push(package);
+
+                        // don't try to install this package again
+                        installedNodePackages.push(package);
+                    }
+                });
+
+                if (nodePackages.length > 0) {
+                    compilationReporter.info({
+                        message: 'Installing node packages: "' + nodePackages + '"'
+                    });
+
+                    return new Promise(function (resolve, reject) {
+                        var spawnCmd = 'npm install ' + nodePackages.join(' ') + (verbose ? ' --loglevel verbose' : '');
+                        var child = require('child_process').exec(spawnCmd, {
+                            cwd: projectDir
+                        }, function (error, stdout, stderr) {
+                            if (error) {
+                                // warn on error - we don't consider this fatal as package may not be required
+                                compilationReporter.warn({
+                                    message: 'Error encountered installing node packages: "' + nodePackages + '"'
+                                });
+                                compilationReporter.warn({
+                                    message: error
+                                });
+                            } else {
+                                // report the output so it is included in the log files
+                                compilationReporter.info({
+                                    message: stderr
+                                });
+
+                                // report the output so it is included in the log files
+                                compilationReporter.info({
+                                    message: stdout
+                                });
+                            }
+
+                            // continue...
+                            return resolve();
+                        });
+                    });
+                } else {
+                    return Promise.resolve();
+                }
             }
         };
     },
@@ -576,10 +627,21 @@ var initializeContent = function () {
                 });
                 return resolve(items);
             } else if (contentType) {
+                var queryParts = [
+                    '(type eq "' + contentType + '")',
+                    '(isPublished eq "true")'
+                ];
+
+                if (repositoryId) {
+                    queryParts.push('(repositoryid eq "' + repositoryId + '")');
+                }
+
+                var query = '(' + queryParts.join(' AND ') + ')';
+
                 // get all the published items for the specified content type
                 serverRest.queryItems({
                     server: server,
-                    q: '((type eq "' + contentType + '") AND (isPublished eq "true"))',
+                    q: query,
                     fields: 'versionInfo',
                     limit: 9999
                 }).then(function (result) {
@@ -694,6 +756,7 @@ var compileContent = function (args) {
     uploadContent = args.uploadContent;
     contentIds = args.contentIds;
     contentType = args.contentType;
+    repositoryId = args.repositoryId;
     componentsFolder = args.componentsFolder;
     outputFolder = args.outputFolder;
     verbose = args.verbose;

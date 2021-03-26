@@ -204,7 +204,8 @@ CompilationService.prototype.updateJob = function (req, res) {
                     status: updatedJobMetadata.status,
                     publishingJobId: updatedJobMetadata.publishingJobId,
                     renditionJobId: updatedJobMetadata.renditionJobId,
-                    contentTYpe: updatedJobMetadata.contentType,
+                    contentType: updatedJobMetadata.contentType,
+                    repositoryId: updatedJobMetadata.repositoryId,
                     compileContentJob: updatedJobMetadata.compileContentJob,
                     progress: updatedJobMetadata.progress
                 });
@@ -244,6 +245,7 @@ CompilationService.prototype.createJob = function (req, res) {
             publishingJobId = args.data.publishJobId,
             renditionJobId = args.data.renditionJobId,
             contentType = args.data.contentType,
+            repositoryId = args.data.repositoryId,
             compileContentJob = !!publishingJobId || !!contentType,
             compileOnly = args.data.compileOnly || '0',
             publishUsedContentOnly = args.data.publishUsedContentOnly || '0',
@@ -265,6 +267,7 @@ CompilationService.prototype.createJob = function (req, res) {
             publishingJobId: publishingJobId,
             renditionJobId: renditionJobId,
             contentType: contentType,
+            repositoryId: repositoryId,
             compileContentJob: compileContentJob,
             token: token
         }).then(function (newJob) {
@@ -286,6 +289,7 @@ CompilationService.prototype.createJob = function (req, res) {
                 publishingJobId: publishingJobId,
                 renditionJobId: renditionJobId,
                 contentType: contentType,
+                repositoryId: repositoryId,
                 compileContentJob: compileContentJob
             });
 

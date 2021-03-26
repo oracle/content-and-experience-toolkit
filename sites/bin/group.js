@@ -40,6 +40,7 @@ module.exports.createGroup = function (argv, done) {
 	var type = argv.type || 'PUBLIC_OPEN';
 
 	var request = serverUtils.getRequest();
+	var exitCode;
 
 	var loginPromise = serverUtils.loginToServer(server, request);
 	loginPromise.then(function (result) {
@@ -58,7 +59,8 @@ module.exports.createGroup = function (argv, done) {
 				var found = result && result.name;
 
 				if (found) {
-					console.log('ERROR: group ' + name + ' already exists');
+					console.log(' - group ' + name + ' already exists');
+					exitCode = 2;
 					return Promise.reject();
 				}
 
@@ -78,7 +80,7 @@ module.exports.createGroup = function (argv, done) {
 				done(true);
 			})
 			.catch((error) => {
-				done();
+				done(exitCode);
 			});
 	});
 

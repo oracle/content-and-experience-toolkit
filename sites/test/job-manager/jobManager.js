@@ -524,6 +524,7 @@ JobManager.prototype.compileJob = function (jobConfig) {
 							compileArguments;
 
 						if (jobConfig.publishingJobId) {
+							// compile by publishing job
 							compileArguments = [
 								'compile-content',
 								jobConfig.publishingJobId,
@@ -534,16 +535,33 @@ JobManager.prototype.compileJob = function (jobConfig) {
 								'-v'
 							];
 						} else {
-							compileArguments = [
-								'compile-content',
-								'-t',
-								jobConfig.contentType,
-								'-r',
-								jobConfig.renditionJobId,
-								'-s',
-								serverName,
-								'-v'
-							];
+							// compile by content type
+							if (jobConfig.repositoryId) {
+								// compile by content type restricted by repository
+								compileArguments = [
+									'compile-content',
+									'-t',
+									jobConfig.contentType,
+									'-i',
+									jobConfig.repositoryId,
+									'-r',
+									jobConfig.renditionJobId,
+									'-s',
+									serverName,
+									'-v'
+								];
+							} else {
+								compileArguments = [
+									'compile-content',
+									'-t',
+									jobConfig.contentType,
+									'-r',
+									jobConfig.renditionJobId,
+									'-s',
+									serverName,
+									'-v'
+								];
+							}
 						}
 
 						logCommand(compileArguments);

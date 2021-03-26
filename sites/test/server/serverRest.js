@@ -17,21 +17,25 @@ var request = require('request'),
 // Create Folder on server
 var _createFolder = function (server, parentID, foldername) {
 	return new Promise(function (resolve, reject) {
+		var body = {
+			'name': foldername,
+			'description': ''
+		};
 		var options = {
 			method: 'POST',
 			url: server.url + '/documents/api/1.2/folders/' + parentID,
 			auth: serverUtils.getRequestAuth(server),
 			headers: {
-				'Content-Type': 'application/json'
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
 			},
-			body: {
-				'name': foldername,
-				'description': ''
-			},
+			body: JSON.stringify(body),
 			json: true
 		};
+		// console.log(options);
 
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to create folder ' + foldername);
 				console.log(error);
@@ -39,8 +43,13 @@ var _createFolder = function (server, parentID, foldername) {
 					err: 'err'
 				});
 			}
+
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
-				resolve(body);
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (e) {}
+				resolve(data);
 			} else {
 				console.log('ERROR: failed to create folder ' + foldername + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 				resolve({
@@ -159,10 +168,13 @@ var _deleteFolder = function (server, fFolderGUID) {
 		var options = {
 			method: 'DELETE',
 			url: server.url + '/documents/api/1.2/folders/' + fFolderGUID,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
 		};
 
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.delete(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to delete folder ' + fFolderGUID);
 				console.log(error);
@@ -171,7 +183,12 @@ var _deleteFolder = function (server, fFolderGUID) {
 				});
 			}
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
-				resolve(body);
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (e) {}
+
+				resolve(data);
 			} else {
 				console.log('ERROR: failed to delete folder ' + foldername + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 				resolve({
@@ -206,9 +223,12 @@ var _getChildItems = function (server, parentID, limit, offset) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get folder child items ' + parentID);
 				console.log(error);
@@ -253,9 +273,12 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get folder child items ' + parentID);
 				console.log(error);
@@ -385,9 +408,12 @@ var _readFile = function (server, fFileGUID) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to read file ' + fFileGUID);
 				console.log(error);
@@ -431,9 +457,12 @@ var _getFile = function (server, id) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get file ' + id);
 				console.log(error);
@@ -472,14 +501,16 @@ module.exports.getFile = function (args) {
 
 var _downloadFile = function (server, fFileGUID) {
 	return new Promise(function (resolve, reject) {
-		var auth = serverUtils.getRequestAuth(server);
 		var url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data/';
 		var options = {
 			url: url,
-			auth: auth,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
 			encoding: null
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to download file');
 				console.log(error);
@@ -520,9 +551,12 @@ var _deleteFile = function (server, fFileGUID) {
 		var options = {
 			method: 'DELETE',
 			url: server.url + '/documents/api/1.2/files/' + fFileGUID,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.delete(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to delete file ' + fFileGUID);
 				console.log(error);
@@ -531,7 +565,12 @@ var _deleteFile = function (server, fFileGUID) {
 				});
 			}
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
-				resolve(body);
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (e) {}
+
+				resolve(data);
 			} else {
 				console.log('ERROR: failed to delete file ' + fFileGUID + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 				resolve({
@@ -560,10 +599,13 @@ var _getFileVersions = function (server, fFileGUID) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 		// console.log(options);
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get file version ' + fFileGUID);
 				console.log(error);
@@ -605,9 +647,12 @@ var _getItem = function (server, id, expand) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get item ' + id);
 				console.log(error);
@@ -651,9 +696,12 @@ var _getItemRelationships = function (server, id) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get item relationships ' + id);
 				console.log(error);
@@ -714,9 +762,12 @@ var _getItemVariations = function (server, id) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get item variations ' + id);
 				console.log(error);
@@ -764,7 +815,7 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 			url = url + sep + 'q=' + q;
 			sep = '&';
 		}
-		url = url + sep + 'limit=' + (limit || 9999);
+		url = url + sep + 'limit=' + (limit || 10000);
 		if (offset) {
 			url = url + '&offset=' + offset;
 		}
@@ -783,11 +834,14 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 		var query = url.substring(url.indexOf('?') + 1);
 		// console.log(query);
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to query items with ' + query);
 				console.log(error);
@@ -806,7 +860,8 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 				return resolve({
 					data: data && data.items,
 					query: query,
-					hasMore: data && data.hasMore
+					hasMore: data && data.hasMore,
+					limit: data && data.limit
 				});
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
@@ -827,6 +882,69 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
  */
 module.exports.queryItems = function (args) {
 	return _queryItems(args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken, args.includeAdditionalData);
+};
+
+var _getAllItemIds = function (server, repositoryId, channelId, publishedassets) {
+	return new Promise(function (resolve, reject) {
+		var max = 1000000;
+		var url = server.url + '/content/management/api/v1.1/content-templates/export/items?repositoryId=' + repositoryId + '&limit=' + max;
+		if (channelId) {
+			url = url + '&channelId=' + channelId;
+		}
+		if (publishedassets) {
+			url = url + '&publishedItems=true';
+		}
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		var query = url.substring(url.indexOf('?') + 1);
+		// console.log(query);
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get all item Ids ' + query);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 200) {
+				return resolve({
+					data: data && data.items,
+					query: query,
+					hasMore: data && data.hasMore,
+					limit: data && data.limit
+				});
+			} else {
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get all item Ids ' + query + ' : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get Id of all items
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} args.server the server object
+ * @param {string} args.repositoryId the repository
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getAllItemIds = function (args) {
+	return _getAllItemIds(args.server, args.repositoryId, args.channelId, args.publishedassets);
 };
 
 // Create item on server
@@ -999,21 +1117,21 @@ var _createChannel = function (server, name, channelType, description, publishPo
 				}
 
 				var url = server.url + '/content/management/api/v1.1/channels';
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'POST',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: payload,
+					body: JSON.stringify(payload),
 					json: true
 				};
 
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
 					if (error) {
 						console.log('Failed to create channel ' + name);
 						console.log(error);
@@ -1027,6 +1145,7 @@ var _createChannel = function (server, name, channelType, description, publishPo
 					} catch (err) {
 						data = body;
 					}
+					// console.log(data);
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
@@ -1066,19 +1185,19 @@ var _deleteChannel = function (server, id) {
 			} else {
 				var csrfToken = result && result.token;
 				var url = server.url + '/content/management/api/v1.1/channels/' + id;
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'DELETE',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					}
 				};
 
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.delete(postData, function (error, response, body) {
 					if (error) {
 						console.log('Failed to delete channel ' + id);
 						console.log(error);
@@ -1125,19 +1244,19 @@ var _deleteRepository = function (server, id) {
 			} else {
 				var csrfToken = result && result.token;
 				var url = server.url + '/content/management/api/v1.1/repositories/' + id;
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'DELETE',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					}
 				};
 
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.delete(postData, function (error, response, body) {
 					if (error) {
 						console.log('Failed to delete repository ' + id);
 						console.log(error);
@@ -1195,23 +1314,23 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 					data.channels = [channel];
 				}
 
-				var request = require('request');
 				var url = server.url + '/content/management/api/v1.1/repositories/' + repository.id;
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'PUT',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: data,
+					body: JSON.stringify(data),
 					json: true
 				};
+				// console.log(postData);
 
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.put(postData, function (error, response, body) {
 					if (error) {
 						console.log('Failed to add channel ' + channelName + ' to repository ' + repository.name);
 						console.log(error);
@@ -1258,13 +1377,17 @@ module.exports.addChannelToRepository = function (args) {
 // Get channels from server
 var _getChannels = function (server) {
 	return new Promise(function (resolve, reject) {
+
 		var url = server.url + '/content/management/api/v1.1/channels?limit=99999&fields=all';
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get channels');
 				console.log(error);
@@ -1307,9 +1430,12 @@ var _getChannel = function (server, channelId) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get channel ' + channelId);
 				console.log(error);
@@ -1357,23 +1483,26 @@ module.exports.getChannel = function (args) {
 module.exports.getChannelWithName = function (args) {
 	return new Promise(function (resolve, reject) {
 		if (!args.name) {
-			resolve({});
+			return resolve({});
 		}
 		var channelName = args.name;
 		var server = args.server;
 
 		var url = server.url + '/content/management/api/v1.1/channels';
-		url = url + '?q=(name mt "' + channelName + '")';
+		url = url + '?q=(name mt "' + encodeURIComponent(channelName) + '")';
 		url = url + '&fields=all';
 
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 		// console.log(options);
 
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get channel ' + channelName);
 				console.log(error);
@@ -1427,9 +1556,12 @@ var _getChannelItems = function (server, channelToken, fields) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get channel items');
 				console.log(error);
@@ -1478,8 +1610,6 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 
 				var csrfToken = result && result.token;
 
-				var request = serverUtils.getRequest();
-
 				var q = '';
 				if (queryString) {
 					q = queryString;
@@ -1510,8 +1640,6 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 
 				var url = server.url + '/content/management/api/v1.1/bulkItemsOperations';
 
-				var auth = serverUtils.getRequestAuth(server);
-
 				var operations = {};
 				if (operation === 'deleteItems' || operation === 'approve' || operation === 'setAsTranslated') {
 					operations[operation] = {
@@ -1541,7 +1669,8 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 				var headers = {
 					'Content-Type': 'application/json',
 					'X-CSRF-TOKEN': csrfToken,
-					'X-REQUESTED-WITH': 'XMLHttpRequest'
+					'X-REQUESTED-WITH': 'XMLHttpRequest',
+					Authorization: serverUtils.getRequestAuthorization(server)
 				};
 				if (async &&async ==='true') {
 					headers.Prefer = 'respond-async';
@@ -1549,13 +1678,13 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 				var postData = {
 					method: 'POST',
 					url: url,
-					auth: auth,
 					headers: headers,
-					body: formData,
+					body: JSON.stringify(formData),
 					json: true
 				};
 
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
 					if (error) {
 						console.log('Failed to ' + operation + ' items ');
 						console.log(error);
@@ -1719,9 +1848,12 @@ var _getPublishingJobItems = function (server, jobId) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				return resolve({
 					error: error
@@ -1763,9 +1895,12 @@ var _getItemOperationStatus = function (server, statusId) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: get channel operation status');
 				console.log(error);
@@ -1857,22 +1992,22 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 				// console.log(JSON.stringify(formData));
 
 				var url = server.url + '/content/management/api/v1.1/bulkItemsOperations';
-				var auth = serverUtils.getRequestAuth(server);
 
 				var postData = {
 					method: 'POST',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: formData,
+					body: JSON.stringify(formData),
 					json: true
 				};
 
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
 					if (error) {
 						console.log('Failed to copy assets ');
 						console.log(error);
@@ -1956,9 +2091,12 @@ var _getLocalizationPolicies = function (server) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to localization policies');
 				console.log(error);
@@ -2001,9 +2139,13 @@ var _getLocalizationPolicy = function (server, id) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get localization policy ' + id);
 				console.log(error);
@@ -2057,21 +2199,21 @@ var _createLocalizationPolicy = function (server, name, description, requiredLan
 				payload.optionalValues = optionalLanguages || [];
 
 				var url = server.url + '/content/management/api/v1.1/localizationPolicies';
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'POST',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: payload,
+					body: JSON.stringify(payload),
 					json: true
 				};
 
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
 					if (error) {
 						console.log('Failed to create localization policy ' + name);
 						console.log(error);
@@ -2189,13 +2331,18 @@ module.exports.updateLocalizationPolicy = function (args) {
 // Get repositories from server
 var _getRepositories = function (server) {
 	return new Promise(function (resolve, reject) {
+
 		var url = server.url + '/content/management/api/v1.1/repositories?limit=99999&fields=all';
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get repositories');
 				console.log(error);
@@ -2238,9 +2385,13 @@ var _getRepository = function (server, repoId) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get repository ' + repoId);
 				console.log(error);
@@ -2287,23 +2438,26 @@ module.exports.getRepository = function (args) {
 module.exports.getRepositoryWithName = function (args) {
 	return new Promise(function (resolve, reject) {
 		if (!args.name) {
-			resolve({});
+			return resolve({});
 		}
 		var repoName = args.name;
 		var server = args.server;
 
 		var url = server.url + '/content/management/api/v1.1/repositories';
-		url = url + '?q=(name mt "' + repoName + '")';
+		url = url + '?q=(name mt "' + encodeURIComponent(repoName) + '")';
 		url = url + '&fields=all';
 
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 		// console.log(options);
 
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get repository ' + repoName);
 				console.log(error);
@@ -2352,9 +2506,12 @@ var _getCollections = function (server, repositoryId) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get collections');
 				console.log(error);
@@ -2391,6 +2548,45 @@ module.exports.getCollections = function (args) {
 	return _getCollections(args.server, args.repositoryId);
 };
 
+/**
+ * Get a collection with name on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the collection to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getCollectionWithName = function (args) {
+	return new Promise(function (resolve, reject) {
+		if (!args.name) {
+			return resolve({
+				err: 'err'
+			});
+		}
+		_getCollections(args.server, args.repositoryId).then(function (result) {
+			if (result.err) {
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var collections = result || [];
+			var collection;
+			var name = args.name.toLowerCase();
+			for (var i = 0; i < collections.length; i++) {
+				if (name === collections[i].name.toLowerCase()) {
+					collection = collections[i];
+					break;
+				}
+			}
+
+			resolve({
+				data: collection
+			});
+		});
+	});
+};
+
+
 // Get taxonomies from server
 var _getTaxonomies = function (server) {
 	return new Promise(function (resolve, reject) {
@@ -2398,10 +2594,13 @@ var _getTaxonomies = function (server) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get taxonomies');
 				console.log(error);
@@ -2437,44 +2636,6 @@ module.exports.getTaxonomies = function (args) {
 	return _getTaxonomies(args.server);
 };
 
-/**
- * Get a collection with name on server 
- * @param {object} args JavaScript object containing parameters. 
- * @param {object} args.server the server object
- * @param {string} args.name The name of the collection to query.
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.getCollectionWithName = function (args) {
-	return new Promise(function (resolve, reject) {
-		if (!args.name) {
-			resolve({
-				err: 'err'
-			});
-		}
-		_getCollections(args.server, args.repositoryId).then(function (result) {
-			if (result.err) {
-				resolve({
-					err: 'err'
-				});
-			}
-
-			var collections = result || [];
-			var collection;
-			var name = args.name.toLowerCase();
-			for (var i = 0; i < collections.length; i++) {
-				if (name === collections[i].name.toLowerCase()) {
-					collection = collections[i];
-					break;
-				}
-			}
-
-			resolve({
-				data: collection
-			});
-		});
-	});
-};
-
 
 var _getResourcePermissions = function (server, id, type) {
 	return new Promise(function (resolve, reject) {
@@ -2484,9 +2645,12 @@ var _getResourcePermissions = function (server, id, type) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get ' + type + ' permissions for ' + id);
 				console.log(error);
@@ -2559,13 +2723,14 @@ var _createRepository = function (server, name, description, contentTypes, chann
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: payload,
+					body: JSON.stringify(payload),
 					json: true
 				};
-
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
 					if (error) {
 						console.log('Failed to create repository ' + name);
 						console.log(error);
@@ -2630,22 +2795,22 @@ var _updateRepository = function (server, repository, contentTypes, channels, ta
 				}
 
 				var url = server.url + '/content/management/api/v1.1/repositories/' + repository.id;
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'PUT',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: data,
+					body: JSON.stringify(data),
 					json: true
 				};
 				// console.log(JSON.stringify(data, null, 4));
 
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.put(postData, function (error, response, body) {
 					if (error) {
 						console.log('Failed to update repository ' + repository.name);
 						console.log(error);
@@ -2822,7 +2987,60 @@ module.exports.performPermissionOperation = function (args) {
 		args.operation, args.resourceId, args.resourceName, args.resourceType, args.role, args.users || [], args.groups || []);
 };
 
-// Get typefrom server
+// Get types from server
+var _getContentTypes = function (server) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/types?limit=99999&links=none';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				if (showError) {
+					console.log('ERROR: failed to get types');
+					console.log(error);
+				}
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				if (showError) {
+					console.log('ERROR: failed to get types');
+				}
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get all types on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getContentTypes = function (args) {
+	return _getContentTypes(args.server);
+};
+
+// Get type from server
 var _getContentType = function (server, typeName, expand, showError) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/types/' + typeName + '?links=none';
@@ -2833,9 +3051,12 @@ var _getContentType = function (server, typeName, expand, showError) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				if (showError) {
 					console.log('ERROR: failed to get type ' + typeName);
@@ -3014,9 +3235,12 @@ var _getUser = function (server, userName) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get user ' + userName);
 				console.log(error);
@@ -3059,9 +3283,12 @@ var _getFolderUsers = function (server, folderId) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get folder users ' + folderId);
 				console.log(error);
@@ -3223,10 +3450,13 @@ var _getGroups = function (server, count, offset) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 		// console.log(options);
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get groups');
 				console.log(error);
@@ -3466,10 +3696,13 @@ var _getGroupMembers = function (server, id, name) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get members of group ' + (name || id));
 				console.log(error);
@@ -3635,10 +3868,13 @@ var _getGroup = function (server, name) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 		// console.log(options);
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				// console.log('ERROR: failed to get group ' + name);
 				// console.log(error);
@@ -3970,10 +4206,13 @@ var _getTaxonomyExportStatus = function (server, id, jobId) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: get taxonomy export status');
 				console.log(error);
@@ -4045,7 +4284,7 @@ var _exportTaxonomy = function (server, id, name, status) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						var jobId = data && data.jobId;
 						if (jobId) {
-							console.log(' - submit request');
+							console.log(' - job id: ' + jobId);
 							var count = [];
 							var needNewLine = false;
 							var inter = setInterval(function () {
@@ -4126,10 +4365,13 @@ var _getTaxonomyImportStatus = function (server, jobId) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: get taxonomy import status');
 				console.log(error);
@@ -4205,7 +4447,7 @@ var _importTaxonomy = function (server, fileId, name, isNew, hasNewIds, taxonomy
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						var jobId = data && data.jobId;
 						if (jobId) {
-							console.log(' - submit request');
+							console.log(' - job id: ' + jobId);
 							var count = [];
 							var needNewLine = false;
 							var inter = setInterval(function () {
@@ -4272,10 +4514,12 @@ var _getTaxonomyActionStatus = function (server, url, action) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: get ' + action + ' taxonomy  status');
 				console.log(error);
@@ -4426,9 +4670,12 @@ var _getRecommendations = function (server, repositoryId, repositoryName) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get recommendations from repository ' + (repositoryName || repositoryId));
 				console.log(error);
@@ -4471,11 +4718,13 @@ module.exports.getRecommendations = function (args) {
 var _getContentJobStatus = function (server, jobId) {
 	return new Promise(function (resolve, reject) {
 		var statusUrl = server.url + '/content/management/api/v1.1/content-templates/exportjobs/' + jobId;
-		var auth = serverUtils.getRequestAuth(server);
 		var options = {
 			url: statusUrl,
-			'auth': auth
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
+		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get export job status');
@@ -4938,12 +5187,15 @@ var _publishLaterChannelItems = function (server, name, items, channelId, reposi
 					}
 					// console.log(data);
 					if (response && (response.statusCode === 200 || response.statusCode === 201)) {
-						var jobId = data && data.jobId;
+						var jobId = data && data.id;
 						if (!jobId) {
+							console.log(data);
 							return resolve({
 								err: 'err'
 							});
 						} else {
+							var scheduledRunTime = Array.isArray(data.scheduledRunTime) ? data.scheduledRunTime[0].value : 'unknown';
+							console.log(' - Scheduled run time: ' + scheduledRunTime);
 							return resolve({
 								jobId: jobId
 							});

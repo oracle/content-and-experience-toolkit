@@ -55,8 +55,8 @@ var verifyRun = function (argv) {
 	return true;
 };
 
-var _cmdEnd = function (done, success) {
-	done(success);
+var _cmdEnd = function (done, exitCode) {
+	done(exitCode);
 };
 
 module.exports.downloadContent = function (argv, done) {
@@ -223,8 +223,7 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 					console.log(' - validate collection');
 				}
 
-				var queryItemPromises = [];
-				if (query || repository || collection) {
+				if (query || repository || collection || (assetGUIDS && assetGUIDS.length > 0)) {
 					q = '';
 					if (repository) {
 						q = '(repositoryId eq "' + repository.id + '")';
@@ -241,30 +240,31 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 						}
 						q = q + '(' + query + ')';
 					}
-					if (channelId) {
-						q = q + ' AND (channels co "' + channelId + '")';
-					}
+
 					if (publishedassets) {
-						q = q + ' AND status eq "published"';
+						if (q) {
+							q = q + ' AND ';
+						}
+						q = q + 'status eq "published" AND publishedChannels co "' + channelId + '"';
+					} else {
+						if (channelId) {
+							if (q) {
+								q = q + ' AND ';
+							}
+							q = q + '(channels co "' + channelId + '")';
+						}
 					}
 					console.log(' - query: ' + q);
-
-					queryItemPromises.push(serverRest.queryItems({
-						server: server,
-						q: q
-					}));
 				}
 
-				return Promise.all(queryItemPromises);
+				return _queryItems(server, q, assetGUIDS);
 
 			})
-			.then(function (results) {
+			.then(function (result) {
 				var guids = [];
-				if (query || repository || collection) {
-					if (!results || !results[0] || results[0].err) {
-						return Promise.reject();
-					}
-					var items = results[0].data || [];
+				if (query || repository || collection || (assetGUIDS && assetGUIDS.length > 0)) {
+
+					var items = result || [];
 					console.log(' - total items from query: ' + items.length);
 
 					// the export items have to be in both query result and specified item list
@@ -345,6 +345,88 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 					err: 'err'
 				});
 			});
+	});
+};
+
+var _queryItems = function (server, qstr, assetGUIDS) {
+	return new Promise(function (resolve, reject) {
+		var items = [];
+		if (!qstr && (!assetGUIDS || assetGUIDS.length === 0)) {
+
+			return resolve(items);
+
+		} else if (!assetGUIDS || assetGUIDS.length === 0) {
+
+			return serverRest.queryItems({
+				server: server,
+				q: qstr
+			}).then(function (result) {
+				items = result && result.data || [];
+				return resolve(items);
+			});
+
+		} else {
+
+			var total = assetGUIDS.length;
+			// console.log(' - total number of assets: ' + total);
+			var groups = [];
+			var limit = 100;
+			var start, end;
+			for (var i = 0; i < total / limit; i++) {
+				start = i * limit;
+				end = start + limit - 1;
+				if (end >= total) {
+					end = total - 1;
+				}
+				groups.push({
+					start: start,
+					end: end
+				});
+			}
+			if (end < total - 1) {
+				groups.push({
+					start: end + 1,
+					end: total - 1
+				});
+			}
+			// console.log(groups);
+
+			var items = [];
+
+			var doQueryItems = groups.reduce(function (itemPromise, param) {
+					return itemPromise.then(function (result) {
+						var q = qstr;
+						var idq = '';
+						for (var i = param.start; i <= param.end; i++) {
+							if (idq) {
+								idq = idq + ' OR ';
+							}
+							idq = idq + 'id eq "' + assetGUIDS[i] + '"';
+						}
+						if (q) {
+							q = q + ' AND ';
+						}
+						q = q + '(' + idq + ')';
+						// console.log(q);
+
+						return serverRest.queryItems({
+							server: server,
+							q: q
+						}).then(function (result) {
+							if (result && result.data && result.data.length > 0) {
+								items = items.concat(result.data);
+							}
+						});
+
+					});
+				},
+				// Start with a previousPromise value that is a resolved promise 
+				Promise.resolve({}));
+
+			doQueryItems.then(function (result) {
+				resolve(items);
+			});
+		}
 	});
 };
 
@@ -520,7 +602,10 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 					var needNewline = false;
 					var startTime = new Date();
 					var inter = setInterval(function () {
-						var checkExportStatusPromise = _checkJobStatus(request, server, jobId);
+						var checkExportStatusPromise = serverRest.getContentJobStatus({
+							server: server,
+							jobId: jobId
+						});
 						checkExportStatusPromise.then(function (result) {
 							if (result.status !== 'success') {
 								clearInterval(inter);
@@ -949,7 +1034,7 @@ module.exports.uploadContent = function (argv, done) {
 	}
 
 	var repositoryName = argv.repository;
-	var channelName = argv.channel || (isFile ? fileChannelName : name);
+	var channelName = argv.channel || (isFile ? '' : name);
 	var collectionName = argv.collection;
 	var updateContent = typeof argv.update === 'string' && argv.update.toLowerCase() === 'true';
 	var typesOnly = typeof argv.types === 'string' && argv.types.toLowerCase() === 'true';
@@ -1091,14 +1176,16 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 
 				channelId = result.data && result.data.id;
 
-				if (!channelId) {
-					// need to create the channel first
-					createChannelPromises.push(serverRest.createChannel({
-						server: server,
-						name: channelName
-					}));
-				} else {
-					console.log(' - get channel');
+				if (channelName) {
+					if (!channelId) {
+						// need to create the channel first
+						createChannelPromises.push(serverRest.createChannel({
+							server: server,
+							name: channelName
+						}));
+					} else {
+						console.log(' - get channel');
+					}
 				}
 
 				return Promise.all(createChannelPromises);
@@ -1107,32 +1194,34 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 				//
 				// Create channel
 				//
-				if (results.length > 0) {
-					if (results[0].err) {
-						return Promise.reject();
+				if (channelName) {
+					if (results.length > 0) {
+						if (results[0].err) {
+							return Promise.reject();
+						}
+
+						console.log(' - create channel ' + channelName);
+						channelId = results[0] && results[0].id;
 					}
 
-					console.log(' - create channel ' + channelName);
-					channelId = results[0] && results[0].id;
-				}
-
-				// check if the channel is associated with the channel
-				var repositoryChannels = repository.channels || [];
-				var channelInRepository = false;
-				for (var i = 0; i < repositoryChannels.length; i++) {
-					if (repositoryChannels[i].id === channelId) {
-						channelInRepository = true;
-						break;
+					// check if the channel is associated with the channel
+					var repositoryChannels = repository.channels || [];
+					var channelInRepository = false;
+					for (var i = 0; i < repositoryChannels.length; i++) {
+						if (repositoryChannels[i].id === channelId) {
+							channelInRepository = true;
+							break;
+						}
 					}
-				}
 
-				if (!channelInRepository) {
-					addChannelToRepositoryPromises.push(serverRest.addChannelToRepository({
-						server: server,
-						id: channelId,
-						name: channelName,
-						repository: repository
-					}));
+					if (!channelInRepository) {
+						addChannelToRepositoryPromises.push(serverRest.addChannelToRepository({
+							server: server,
+							id: channelId,
+							name: channelName,
+							repository: repository
+						}));
+					}
 				}
 
 				return Promise.all(addChannelToRepositoryPromises);
@@ -1141,12 +1230,14 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 				//
 				// add channel to repository
 				//
-				if (results.length > 0) {
-					if (results[0].err) {
-						return Promise.reject();
-					}
+				if (channelName) {
+					if (results.length > 0) {
+						if (results[0].err) {
+							return Promise.reject();
+						}
 
-					console.log(' - add channel ' + channelName + ' to repository ' + repositoryName);
+						console.log(' - add channel ' + channelName + ' to repository ' + repositoryName);
+					}
 				}
 
 				var args = {
@@ -1249,7 +1340,10 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 				var count = [];
 				var needNewline = false;
 				var inter = setInterval(function () {
-					var checkImportStatusPromise = _checkJobStatus(request, server, jobId);
+					var checkImportStatusPromise = serverRest.getContentJobStatus({
+						server: server,
+						jobId: jobId
+					});
 					checkImportStatusPromise.then(function (result) {
 						if (result.status !== 'success') {
 							clearInterval(inter);
@@ -1392,6 +1486,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 		console.log(' - server: ' + server.url);
 
 		var request = serverUtils.getRequest();
+		var exitCode;
 
 		var loginPromise = serverUtils.loginToServer(server, request);
 		loginPromise.then(function (result) {
@@ -1606,11 +1701,13 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 
 					if (action === 'publish' && toPublishItemIds.length === 0) {
 						console.log(' - no item to publish');
+						exitCode = 2;
 						return Promise.reject();
 					}
 
 					if (action === 'unpublish' && !hasPublishedItems) {
 						console.log(' - all items are already draft');
+						exitCode = 2;
 						return Promise.reject();
 					}
 
@@ -1711,7 +1808,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					}
 				})
 				.catch((error) => {
-					cmdEnd(done);
+					cmdEnd(done, exitCode);
 				});
 		});
 	} catch (e) {
@@ -3006,6 +3103,269 @@ module.exports.transferSiteContent = function (argv, done) {
 
 };
 
+
+/**
+ * Create transfer content scripts
+ */
+module.exports.transferContent = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server;
+	server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var destServerName = argv.destination;
+	var destServer = serverUtils.verifyServer(destServerName, projectDir);
+	if (!destServer || !destServer.valid) {
+		done();
+		return;
+	}
+
+	if (server.url === destServer.url) {
+		console.log('ERROR: source and destination server are the same');
+		done();
+		return;
+	}
+
+	var executeScripts = typeof argv.execute === 'string' && argv.execute.toLowerCase() === 'true';
+	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
+
+	var repositoryName = argv.repository;
+	var channelName = argv.channel;
+
+	var limit = argv.number || 200;
+
+	var srcRepo, destRepo;
+	var srcChannel;
+
+	var total;
+	var items = [];
+	var channelId;
+	var channelToken;
+
+	var isWindows = /^win/.test(process.platform) ? true : false;
+
+	var repoName2 = serverUtils.replaceAll(repositoryName, ' ', '');
+	var downloadContentFileName = repoName2 + '_downloadcontent' + (isWindows ? '.bat' : '');
+	var uploadContentFileName = repoName2 + '_uploadcontent' + (isWindows ? '.bat' : '');
+	var downloadContentFilePath = path.join(projectDir, downloadContentFileName);
+	var uploadContentFilePath = path.join(projectDir, uploadContentFileName);
+
+
+	var request = serverUtils.getRequest();
+	serverUtils.loginToServer(server, request)
+		.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server ' + server.url);
+				return Promise.reject();
+			}
+
+			return serverUtils.loginToServer(destServer, request);
+		})
+		.then(function (result) {
+			if (!result.status) {
+				console.log(' - failed to connect to the server ' + destServer.url);
+				return Promise.reject();
+			}
+
+			// verify repository on source server
+			return serverRest.getRepositoryWithName({
+				server: server,
+				name: repositoryName
+			});
+
+		})
+		.then(function (result) {
+			if (!result || result.err || !result.data) {
+				console.log('ERROR: repository ' + repositoryName + ' does not exist on ' + serverName);
+				return Promise.reject();
+			}
+			srcRepo = result.data;
+			console.log(' - verify repository on source server');
+
+			// verify repository on target server
+			return serverRest.getRepositoryWithName({
+				server: destServer,
+				name: repositoryName
+			});
+
+		})
+		.then(function (result) {
+			if (!result || result.err || !result.data) {
+				console.log('ERROR: repository ' + repositoryName + ' does not exist on ' + destServerName);
+				return Promise.reject();
+			}
+
+			destRepo = result.data;
+			console.log(' - verify repository on destination server');
+
+			var channelPromises = channelName ? [serverRest.getChannelWithName({
+				server: server,
+				name: channelName
+			})] : [];
+
+			return Promise.all(channelPromises);
+
+		})
+		.then(function (results) {
+			if (channelName) {
+				if (!results || !results[0] || results[0].err || !results[0].data) {
+					console.log('ERROR: channel ' + channelName + ' does not exist on ' + serverName);
+					return Promise.reject();
+				}
+				srcChannel = results[0].data;
+				channelId = srcChannel.id;
+				channelName = srcChannel.name;
+				channelToken = _getChannelToken(srcChannel);
+
+				console.log(' - verify channel on source server');
+			}
+
+			return _getAllItems(server, srcRepo, srcChannel, publishedassets);
+
+		})
+		.then(function (result) {
+			if (!result || result.length === 0) {
+				console.log('ERROR: no item to transfer');
+				return Promise.reject();
+			}
+
+			items = result;
+			console.log(' - total items: ' + items.length);
+
+			var downloadScript = 'cd ' + projectDir + os.EOL + os.EOL;
+			var uploadScript = 'cd ' + projectDir + os.EOL + os.EOL;
+			var cmd;
+			var winCall = isWindows ? 'call ' : '';
+			var zipPath;
+
+			var count = 0;
+			var ids = [];
+			var groups = [];
+			var groupName;
+			items.forEach(function (item) {
+				ids.push(item.id);
+				count += 1;
+
+				if (count === limit) {
+					groups.push(ids.toString());
+					ids = [];
+					count = 0;
+				}
+			});
+			if (ids.length > 0) {
+				groups.push(ids.toString());
+			}
+			// console.log(groups);
+
+			console.log(' - total batches: ' + groups.length);
+
+			for (var i = 0; i < groups.length; i++) {
+				ids = groups[i];
+				var idx = serverUtils.lpad((i + 1).toString(), '0', 3);
+				groupName = repoName2 + '_content_batch_' + idx;
+
+				// download command for this group
+				cmd = winCall + 'cec download-content';
+				if (channelName) {
+					cmd += ' "' + channelName + '"';
+				}
+				if (publishedassets) {
+					cmd += ' -p';
+				}
+				cmd += ' -r "' + repositoryName + '"';
+				cmd += ' -n ' + groupName;
+				cmd += ' -s ' + serverName;
+				cmd += ' -a ' + ids;
+
+				downloadScript += 'echo "*** download-content ' + groupName + '"' + os.EOL;
+				downloadScript += cmd + os.EOL + os.EOL;
+
+				// upload command for this group
+				zipPath = path.join(distFolder, groupName + '_export.zip');
+				cmd = winCall + 'cec upload-content ' + zipPath + ' -f -u';
+				cmd += ' -r "' + repositoryName + '"';
+				if (channelName) {
+					cmd += ' -c "' + channelName + '"';
+				}
+				cmd += ' -s ' + destServerName;
+
+				uploadScript += 'echo "*** upload-content ' + groupName + '"' + os.EOL;
+				uploadScript += cmd + os.EOL + os.EOL;
+
+			}
+
+			fs.writeFileSync(downloadContentFilePath, downloadScript);
+			fs.writeFileSync(uploadContentFilePath, uploadScript);
+			fs.chmodSync(downloadContentFilePath, '755');
+			fs.chmodSync(uploadContentFilePath, '755');
+
+			console.log(' - create script ' + downloadContentFilePath);
+			console.log(' - create script ' + uploadContentFilePath);
+
+			if (executeScripts) {
+				var childProcess = require('child_process');
+				console.log('');
+				console.log('Executing script ' + downloadContentFileName + ' ...');
+				var downloadCmd = childProcess.execSync(downloadContentFilePath, {
+					stdio: 'inherit'
+				});
+
+				console.log('');
+				console.log('Executing script ' + uploadContentFileName + ' ...');
+				var uploadCmd = childProcess.execSync(uploadContentFilePath, {
+					stdio: 'inherit'
+				});
+
+				console.log('');
+				process.exitCode = 0;
+				done(true);
+			} else {
+				console.log('Please execute ' + downloadContentFileName + ' first to download content from the source server, then execute ' + uploadContentFileName + ' to upload the content to the destination server.');
+				done(true);
+			}
+		})
+		.catch((error) => {
+			if (error) {
+				console.log(error);
+			}
+			done();
+		});
+
+};
+
+var _getAllItems = function (server, repository, channel, publishedassets) {
+	return new Promise(function (resolve, reject) {
+
+		serverRest.getAllItemIds({
+				server: server,
+				repositoryId: repository.id,
+				channelId: channel && channel.id,
+				publishedassets: publishedassets
+			})
+			.then(function (result) {
+
+				var items = result && result.data || [];
+
+				return resolve(items);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				return resolve([]);
+			});
+	});
+};
 
 //////////////////////////////////////////////////////////////////////////
 //    Sync server event handlers

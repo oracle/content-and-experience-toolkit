@@ -414,6 +414,7 @@ module.exports.listServerResources = function (argv, done) {
 		return;
 	}
 
+
 	_listServerResourcesRest(server, serverName, argv, done);
 
 };
@@ -778,6 +779,58 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 	});
 };
 
+var lpad = function (s) {
+	var width = 5;
+	var char = '0';
+	return (s.length >= width) ? s : (new Array(width).join(char) + s).slice(-width);
+};
+var _create10000Assets = function (server) {
+	return new Promise(function (resolve, reject) {
+		var items = [];
+		var start = 0;
+		var max = 10100;
+		for (var i = start; i < max; i++) {
+			var idx = lpad(i + 1);
+			items.push({
+				name: 'item_' + idx,
+				title: 'Item ' + idx
+			});
+		}
+		// console.log(items);
+
+		var doCreate = items.reduce(function (createPromise, itemData) {
+				var item = {
+					type: 'SimpleType',
+					name: itemData.name,
+					fields: {
+						title: itemData.title
+					}
+				};
+				// console.log(item);
+				var repoId = 'F4FF138980864725A135C2D3EFB79371';
+				return createPromise.then(function (result) {
+					return serverRest.createItem({
+						server: server,
+						repositoryId: repoId,
+						type: item.type,
+						name: item.name,
+						fields: item.fields,
+						language: 'en-US'
+					}).then(function (result) {
+						if (result.id) {
+							console.log(' - create content item ' + result.name + ' (Id: ' + result.id + ')');
+						}
+					});
+				});
+			},
+			Promise.resolve({}));
+
+		doCreate.then(function (result) {
+			resolve(result);
+		});
+	});
+
+};
 
 module.exports.executeGet = function (argv, done) {
 	'use strict';
@@ -826,23 +879,28 @@ module.exports.executeGet = function (argv, done) {
 			return;
 		}
 
+		/*
+		var startTime = new Date();
+		_create10000Assets(server).then(function (result) {
+			console.log(' - finished [' + serverUtils.timeUsed(startTime, new Date()) + ']')
+			done(true);
+		});
+		*/
+
 		var url = server.url + endpoint;
 		var auth = serverUtils.getRequestAuth(server);
 
 		var options = {
 			url: url,
-			auth: auth,
-			encoding: null
+			encoding: null,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-
-		if (endpoint.indexOf('/sites/management/api') === 0 && server.oauthtoken) {
-			auth = (server.tokentype || 'Bearer') + ' ' + server.oauthtoken;
-			options.headers = {
-				Authorization: auth
-			};
-		}
+		// console.log(options);
 
 		console.log(' - executing endpoint: ' + endpoint);
+		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to execute');

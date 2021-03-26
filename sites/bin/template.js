@@ -2852,6 +2852,7 @@ module.exports.compileContent = function (argv, done) {
 		targetDevice: targetDevice,
 		publishingJobId: publishingJobId,
 		renditionJobId: argv.renditionJobId,
+		repositoryId: argv.repositoryId,
 		logLevel: 'log',
 		serverURL: serverURL
 	}).then(function (result) {

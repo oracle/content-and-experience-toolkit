@@ -428,6 +428,8 @@ module.exports.controlTaxonomy = function (argv, done) {
 	var channels2 = [];
 	var publishedChannelNames = [];
 
+	var exitCode;
+
 	var request = serverUtils.getRequest();
 
 	var loginPromise = serverUtils.loginToServer(server, request);
@@ -575,7 +577,8 @@ module.exports.controlTaxonomy = function (argv, done) {
 								}
 							}
 							if (alreadyPublished && promotedPublished) {
-								console.log('ERROR: the taxonomy is already published to channel ' + channel.name +
+								exitCode = 2;
+								console.log(' - the taxonomy is already published to channel ' + channel.name +
 									'. A new promoted version is required to publish it again');
 							} else {
 								channels2.push(channel);
@@ -597,7 +600,8 @@ module.exports.controlTaxonomy = function (argv, done) {
 								}
 							}
 							if (!alreadyPublished) {
-								console.log('ERROR: the taxonomy has not been published to channel ' + channel.name);
+								exitCode = 2;
+								console.log(' - the taxonomy has not been published to channel ' + channel.name);
 							} else {
 								channels2.push(channel);
 								publishedChannelNames.push(channel.name);
@@ -642,7 +646,7 @@ module.exports.controlTaxonomy = function (argv, done) {
 				if (error) {
 					console.log(error);
 				}
-				done();
+				done(exitCode);
 			});
 	});
 };

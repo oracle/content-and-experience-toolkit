@@ -71,6 +71,7 @@ module.exports.createRepository = function (argv, done) {
 
 	var channels = [];
 	var contentTypes = [];
+	var exitCode;
 
 	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
 		if (!result.status) {
@@ -89,7 +90,8 @@ module.exports.createRepository = function (argv, done) {
 				var repositories = result || [];
 				for (var i = 0; i < repositories.length; i++) {
 					if (name.toLowerCase() === repositories[i].name.toLowerCase()) {
-						console.log('ERROR: repository ' + name + ' already exists');
+						console.log(' - repository ' + name + ' already exists');
+						exitCode = 2;
 						return Promise.reject();
 					}
 				}
@@ -174,7 +176,10 @@ module.exports.createRepository = function (argv, done) {
 				done(true);
 			})
 			.catch((error) => {
-				done();
+				if (error) {
+					console.log(error);
+				}
+				done(exitCode);
 			});
 	});
 };
@@ -826,6 +831,9 @@ module.exports.shareRepository = function (argv, done) {
 
 			})
 			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
 				done();
 			});
 	});
@@ -1790,7 +1798,7 @@ module.exports.createChannel = function (argv, done) {
 	var localizationPolicyName = argv.localizationpolicy;
 
 	var localizationId;
-
+	var exitCode;
 	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -1809,7 +1817,8 @@ module.exports.createChannel = function (argv, done) {
 				var channels = result || [];
 				for (var i = 0; i < channels.length; i++) {
 					if (name.toLowerCase() === channels[i].name.toLowerCase()) {
-						console.log('ERROR: channel ' + name + ' already exists');
+						console.log(' - channel ' + name + ' already exists');
+						exitCode = 2;
 						return Promise.reject();
 					}
 				}
@@ -1857,7 +1866,7 @@ module.exports.createChannel = function (argv, done) {
 				done(true);
 			})
 			.catch((error) => {
-				done();
+				done(exitCode);
 			});
 	});
 };
@@ -2252,7 +2261,7 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 	var requiredLanguages = argv.requiredlanguages.split(',');
 	var defaultLanguage = argv.defaultlanguage;
 	var optionalLanguages = argv.optionallanguages ? argv.optionallanguages.split(',') : [];
-
+	var exitCode;
 	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -2272,7 +2281,8 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 				var policies = result || [];
 				for (var i = 0; i < policies.length; i++) {
 					if (name === policies[i].name) {
-						console.log('ERROR: localization policy ' + name + ' already exists');
+						console.log(' - localization policy ' + name + ' already exists');
+						exitCode = 2;
 						return Promise.reject();
 					}
 				}
@@ -2295,10 +2305,10 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 				// console.log(result);
 				console.log(' - localization policy ' + name + ' created');
 
-				done(done);
+				done(true);
 			})
 			.catch((error) => {
-				done();
+				done(exitCode);
 			});
 	});
 };
@@ -2329,8 +2339,9 @@ module.exports.listAssets = function (argv, done) {
 		return;
 	}
 
-	var total;
+	var total, limit;
 	var repository, collection, channel, channelToken;
+	var items = [];
 
 	var showURLS = typeof argv.urls === 'boolean' ? argv.urls : argv.urls === 'true';
 
@@ -2455,7 +2466,7 @@ module.exports.listAssets = function (argv, done) {
 				return serverRest.queryItems({
 					server: server,
 					q: q,
-					fields: 'name,status,slug',
+					fields: 'name,status,slug,publishedChannels',
 					includeAdditionalData: true
 				});
 			})
@@ -2464,14 +2475,15 @@ module.exports.listAssets = function (argv, done) {
 					return Promise.reject();
 				}
 
-				var items = result && result.data || [];
+				items = result && result.data || [];
 				total = items.length;
+				limit = result.limit;
 
-				console.log(' - total items: ' + total);
+				console.log(' - items: ' + total + ' of ' + limit);
 
 				if (total > 0) {
 					_displayAssets(server, repository, collection, channel, channelToken, items, showURLS);
-					console.log(' - total items: ' + total);
+					console.log(' - items: ' + total + ' of ' + limit);
 				}
 
 				done(true);
@@ -2630,7 +2642,7 @@ var _renameAssetIds = function (argv, templateName, goodContent) {
 		var idMap = new Map();
 
 		var _processItems = function (itemsPath) {
-			console.log(' - process content items in ' + itemsPath.substring(projectDir.length) + 1);
+			console.log(' - process content items in ' + itemsPath.substring(projectDir.length + 1));
 			var types = fs.readdirSync(itemsPath);
 			types.forEach(function (type) {
 				if (type !== 'VariationSets') {

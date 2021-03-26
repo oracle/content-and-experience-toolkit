@@ -41,7 +41,8 @@ var responses = {
               "publishStaticBackgroundJobId": "{{publishStaticBackgroundJobId}}",
               "publishingJobId": "{{publishingJobId}}",
               "renditionJobId": "{{renditionJobId}}",
-              "contentType": "{{contentType}}"
+              "contentType": "{{contentType}}",
+              "repositoryId": "{{repositoryId}}"
             },
             "/jobNotFound": {
               "errorCode": "404",
@@ -65,6 +66,7 @@ var responses = {
               "publishingJobId": "{{publishingJobId}}",
               "renditionJobId": "{{renditionJobId}}",
               "contentType": "{{contentType}}",
+              "repositoryId": "{{repositoryId}}"
             },
             "/v1.1/job/{{jobId}}": {
               "id": "{{jobId}}",
@@ -81,7 +83,8 @@ var responses = {
               "progress": "{{progress}}",
               "publishingJobId": "{{publishingJobId}}",
               "renditionJobId": "{{renditionJobId}}",
-              "contentType": "{{contentType}}"
+              "contentType": "{{contentType}}",
+              "repositoryId": "{{repositoryId}}"
             },
             "/v1.1/job/{{jobId}}/compile/queued": {
                 "id": "{{jobId}}",

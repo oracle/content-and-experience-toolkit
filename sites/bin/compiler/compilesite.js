@@ -47,6 +47,7 @@ if (componentsEnabled) {
 
 // Configured Variables
 var siteFolder, // Z:/sitespublish/SiteC/
+	projectDir,
 	templateName, // name of the template being compiled
 	themesFolder, // Z:/themespublish/
 	componentsFolder, // Z:/componentspublish/
@@ -81,6 +82,7 @@ var defaultLocale; // set if required by command line parameter
 var outputAlternateHierarchy = true; // Emit to /folder/_files/<filename> structure
 var pagesToCompile; // list of pages that will be compiled
 var siteInfoCommonHasBeenWritten = false; // Determines if the siteinfo-common.js file has already been written
+var installedNodePackages = [];
 
 
 // create a reporter object to output any required information during compile and then a summary report at the end
@@ -896,6 +898,7 @@ var compiler = {
 			siteInfo: self.siteInfo,
 			siteFolder: siteFolder,
 			pageLocale: self.pageLocale,
+			pageModel: self.pageModel,
 			localeAlias: self.localeAlias,
 			detailContentItem: self.detailContentItem,
 			channelAccessToken: channelAccessToken,
@@ -1068,6 +1071,57 @@ var compiler = {
 				}
 
 				return pageURL;
+			},
+			installNodePackages: function (packages) {
+				var nodePackages = [];
+
+				(Array.isArray(packages) ? packages : (typeof packages === 'string' ? [packages] : [])).forEach(function (package) {
+					if (installedNodePackages.indexOf(package) === -1) {
+						// try to install this package
+						nodePackages.push(package);
+
+						// don't try to install this package again
+						installedNodePackages.push(package);
+					}
+				});
+
+				if (nodePackages.length > 0) {
+					compilationReporter.info({
+						message: 'Installing node packages: "' + nodePackages + '"'
+					});
+
+					return new Promise(function (resolve, reject) {
+						var spawnCmd = 'npm install ' + nodePackages.join(' ') + (verbose ? ' --loglevel verbose' : '');
+						var child = require('child_process').exec(spawnCmd, {
+							cwd: projectDir
+						}, function (error, stdout, stderr) {
+							if (error) {
+								// warn on error - we don't consider this fatal as package may not be required
+								compilationReporter.warn({
+									message: 'Error encountered installing node packages: "' + nodePackages + '"'
+								});
+								compilationReporter.warn({
+									message: error
+								});
+							} else {
+								// report the output so it is included in the log files
+								compilationReporter.info({
+									message: stderr
+								});
+
+								// report the output so it is included in the log files
+								compilationReporter.info({
+									message: stdout
+								});
+							}
+
+							// continue...
+							return resolve();
+						});
+					});
+				} else {
+					return Promise.resolve();
+				}
 			}
 		};
 	},
@@ -1474,10 +1528,10 @@ function resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, conte
 		// Place the common site info <script> tag just before the renderer.js script tag.
 		// Or, if that fails, just insert it in the head after the scsRenderInfo tag.
 		var tagWasPlaced = false;
-		pageMarkup = pageMarkup.replace( /(\s*)?<script\s+[^<>]+?\/renderer\/renderer.js/ig, function(match, whitespace) {
-				tagWasPlaced = true;
-				return (whitespace || '') + commonSiteInfoStr + match;
-			});
+		pageMarkup = pageMarkup.replace(/(\s*)?<script\s+[^<>]+?\/renderer\/renderer.js/ig, function (match, whitespace) {
+			tagWasPlaced = true;
+			return (whitespace || '') + commonSiteInfoStr + match;
+		});
 		renderInfo += !tagWasPlaced ? '\n' + commonSiteInfoStr : '';
 	}
 	renderInfo += getStyleFixup(pageModel, context, sitePrefix);
@@ -1689,7 +1743,7 @@ function parseTagAttributes(attString) {
 			}
 		}
 
-		name = attString.substr(start, pos - start).replace(/^\s+/,'');
+		name = attString.substr(start, pos - start).replace(/^\s+/, '');
 
 		// look for the "="
 		for (; pos < limit; pos++) {
@@ -2427,7 +2481,7 @@ function setupContext(language) {
 	}
 
 	// Write common SCSInfo if needed
-	if(!useInlineSiteInfo && !siteInfoCommonHasBeenWritten) {
+	if (!useInlineSiteInfo && !siteInfoCommonHasBeenWritten) {
 		writeCommonSiteInfo(context);
 		siteInfoCommonHasBeenWritten = true;
 	}
@@ -2465,15 +2519,15 @@ function writeCommonSiteInfo(context) {
 
 	// Manufacture the common-siteinfo.js script
 	var js = '(function() {\n';
-		js += 'var SCSSiteCommon = "' + SCSSiteCommon + '";\n';
-		js += 'var dataElement = document.getElementById("scsRenderInfo");\n';
-		js += 'if(dataElement) {\n';
-		js += '\tvar jsonText = dataElement.textContent || dataElement.innerText || dataElement.text;\n';
-		js += '\tif (jsonText) {\n';
-		js += '\t\tdataElement.textContent = jsonText.replace(/^\\s*\\{/, SCSSiteCommon);\n';
-		js += '\t}\n';
-		js += '}\n';
-		js += '})()';
+	js += 'var SCSSiteCommon = "' + SCSSiteCommon + '";\n';
+	js += 'var dataElement = document.getElementById("scsRenderInfo");\n';
+	js += 'if(dataElement) {\n';
+	js += '\tvar jsonText = dataElement.textContent || dataElement.innerText || dataElement.text;\n';
+	js += '\tif (jsonText) {\n';
+	js += '\t\tdataElement.textContent = jsonText.replace(/^\\s*\\{/, SCSSiteCommon);\n';
+	js += '\t}\n';
+	js += '}\n';
+	js += '})()';
 
 	// Write the common-siteinfo.js script to disk
 	console.log("writeCommonSiteInfo: Generating shared siteinfo-common.js")
@@ -2584,6 +2638,7 @@ var compileSite = function (args) {
 	outputURL = args.outputURL;
 	channelAccessToken = args.channelToken || '';
 	server = args.server;
+	projectDir = args.currPath;
 	defaultContentType = args.type === 'published' ? 'published' : 'draft'; // default to draft content, URLs will still be published
 
 	console.log("Oracle Content and Experience Site Compiler");

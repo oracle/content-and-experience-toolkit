@@ -17,7 +17,7 @@ var MAX_LIMIT = 250;
 
 var _getResources = function (server, type, expand, offset) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
+		var request = require('./requestUtils.js').request;
 
 		var url = server.url + '/sites/management/api/v1/' + type + '?links=none&orderBy=name&limit=' + MAX_LIMIT;
 
@@ -31,20 +31,13 @@ var _getResources = function (server, type, expand, offset) {
 		// console.log(' - GET ' + url);
 
 		var options = {
-			url: url
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 
-		request(options, function (error, response, body) {
+		request.get(options, function (error, response, body) {
 			var result = {};
 
 			if (error) {
@@ -135,7 +128,6 @@ module.exports.getSites = function (args) {
 
 var _getResource = function (server, type, id, name, expand, showError) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
@@ -149,21 +141,16 @@ var _getResource = function (server, type, id, name, expand, showError) {
 		if (expand) {
 			url = url + '&expand=' + expand;
 		}
-		var options = {
-			url: server.url + url
-		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 
-		request(options, function (error, response, body) {
+		var options = {
+			url: server.url + url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			var result = {};
 
 			if (error) {
@@ -181,6 +168,7 @@ var _getResource = function (server, type, id, name, expand, showError) {
 			} catch (e) {
 				data = body;
 			}
+
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
@@ -266,7 +254,6 @@ module.exports.resourceExist = function (args) {
 
 var _getSiteAccess = function (server, id, name) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
@@ -280,20 +267,14 @@ var _getSiteAccess = function (server, id, name) {
 		url = url + '?links=none';
 
 		var options = {
-			url: server.url + url
+			url: server.url + url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			var result = {};
 
 			if (error) {
@@ -337,7 +318,6 @@ module.exports.getSiteAccess = function (args) {
 
 var _removeSiteAccess = function (server, id, name, member) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
@@ -350,20 +330,14 @@ var _removeSiteAccess = function (server, id, name, member) {
 
 		var options = {
 			method: 'DELETE',
-			url: server.url + url
+			url: server.url + url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.delete(options, function (error, response, body) {
 
 			if (error) {
 				console.log('ERROR: failed to remove ' + member + ' from accessing site ' + (id || name) + ' : ');
@@ -382,7 +356,7 @@ var _removeSiteAccess = function (server, id, name, member) {
 				resolve(data);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to remove ' + member + ' from accessing site ' + (id || name) + ' : ' + msg);
+				console.log('ERROR: failed to remove ' + member + ' from accessing site ' + (name || id) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
 				});
@@ -407,7 +381,6 @@ module.exports.removeSiteAccess = function (args) {
 
 var _grantSiteAccess = function (server, id, name, member) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
@@ -418,26 +391,22 @@ var _grantSiteAccess = function (server, id, name, member) {
 		url = url + '/access';
 		console.log(' - post ' + url);
 
+		var body = {
+			id: member
+		};
 		var options = {
 			method: 'POST',
 			url: server.url + url,
-			body: {
-				id: member
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
 			},
+			body: JSON.stringify(body),
 			json: true
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to grant ' + member + ' to access site ' + (id || name) + ' : ');
 				console.log(error);
@@ -455,7 +424,7 @@ var _grantSiteAccess = function (server, id, name, member) {
 				resolve(data);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to grant ' + member + ' to access site ' + (id || name) + ' : ' + msg);
+				console.log('ERROR: failed to grant ' + member + ' to access site ' + (name || id) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
 				});
@@ -480,7 +449,6 @@ module.exports.grantSiteAccess = function (args) {
 
 var _setSiteRuntimeAccess = function (server, id, name, accessList) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
@@ -490,28 +458,25 @@ var _setSiteRuntimeAccess = function (server, id, name, accessList) {
 		}
 		console.log(' - patch ' + url);
 
+		var body = {
+			security: {
+				access: accessList
+			}
+		};
 		var options = {
 			method: 'PATCH',
 			url: server.url + url,
-			body: {
-				security: {
-					access: accessList
-				}
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
 			},
+			body: JSON.stringify(body),
 			json: true
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		// console.log(options);
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.patch(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to set runtime access for site ' + (id || name) + ' : ');
 				console.log(error);
@@ -525,11 +490,12 @@ var _setSiteRuntimeAccess = function (server, id, name, accessList) {
 			} catch (e) {
 				data = body;
 			}
+
 			if (response && response.statusCode < 300) {
 				resolve(data);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to set runtime access for site ' + (id || name) + ' : ' + msg);
+				console.log('ERROR: failed to set runtime access for site ' + (name || id) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
 				});
@@ -554,7 +520,6 @@ module.exports.setSiteRuntimeAccess = function (args) {
 
 var _refreshSiteContent = function (server, id, name) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
@@ -567,22 +532,17 @@ var _refreshSiteContent = function (server, id, name) {
 
 		var options = {
 			method: 'POST',
+			url: server.url + url,
 			headers: {
-				Prefer: 'respond-async'
-			},
-			url: server.url + url
+				Prefer: 'respond-async',
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 
-		if (server.env !== 'dev_ec') {
-			options.headers.Authorization = _getAuthorization(server);
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		// console.log(options);
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to refresh pre-render cache for site ' + (name || id) + ' : ');
 				console.log(error);
@@ -603,10 +563,12 @@ var _refreshSiteContent = function (server, id, name) {
 					var jobPromise = _getBackgroundServiceJobStatus(server, status);
 					jobPromise.then(function (data) {
 						// console.log(data);
-						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+						if (!data || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
 							clearInterval(inter);
-							var msg = data && data.error ? (data.error.detail || data.error.title) : '';
-							console.log('ERROR: refresh pre-render cache failed: ' + msg);
+							console.log('ERROR: refresh pre-render cache failed');
+							if (data && data.error && data.error['o:errorDetails'] && data.error['o:errorDetails'].length > 0) {
+								console.log(data.error);
+							}
 							return resolve({
 								err: 'err'
 							});
@@ -615,7 +577,11 @@ var _refreshSiteContent = function (server, id, name) {
 
 							return resolve({});
 						} else {
-							console.log(' - refreshing pre-render cache: percentage ' + data.completedPercentage);
+							var completedPercentage = '';
+							if (data.pageCount) {
+								completedPercentage = 100 * (data.completedCount / data.pageCount).toFixed(2);
+							}
+							console.log(' - refreshing pre-render cache: percentage ' + completedPercentage);
 						}
 					});
 				}, 5000);
@@ -645,7 +611,6 @@ module.exports.refreshSiteContent = function (args) {
 
 var _exportResource = function (server, type, id, name) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
@@ -657,20 +622,15 @@ var _exportResource = function (server, type, id, name) {
 		console.log(' - post ' + url);
 		var options = {
 			method: 'POST',
-			url: server.url + url
+			url: server.url + url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		// console.log(options);
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to export ' + type.substring(0, type.length - 1) + ' ' + (id || name) + ' : ');
 				console.log(error);
@@ -686,8 +646,8 @@ var _exportResource = function (server, type, id, name) {
 				data = body;
 			}
 
-			if (response && response.statusCode === 303) {
-				var fileLocation = response.headers && response.headers.location;
+			if (response && response.statusCode === 200) {
+				var fileLocation = response.headers && response.headers.location || response.url;
 				resolve({
 					id: id,
 					name: name,
@@ -695,7 +655,7 @@ var _exportResource = function (server, type, id, name) {
 				});
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to export ' + type.substring(0, type.length - 1) + ' ' + (id || name) + ' : ' + msg);
+				console.log('ERROR: failed to export ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
 				});
@@ -719,7 +679,6 @@ module.exports.exportComponent = function (args) {
 
 var _exportResourceAsync = function (server, type, id, name) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
@@ -732,25 +691,19 @@ var _exportResourceAsync = function (server, type, id, name) {
 		var options = {
 			method: 'POST',
 			headers: {
-				Prefer: 'respond-async'
+				Prefer: 'respond-async',
+				Authorization: serverUtils.getRequestAuthorization(server)
 			},
 			url: server.url + url
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers.Authorization = _getAuthorization(server);
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		// console.log(options);
 
 		var resource = type.substring(0, type.length - 1);
 
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to export ' + resource + ' ' + (id || name) + ' : ');
+				console.log('ERROR: failed to export ' + resource + ' ' + (name || id) + ' : ');
 				console.log(error);
 				resolve({
 					err: error
@@ -829,7 +782,6 @@ module.exports.exportTemplate = function (args) {
 
 var _publishResource = function (server, type, id, name, hideAPI) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
@@ -844,21 +796,16 @@ var _publishResource = function (server, type, id, name, hideAPI) {
 		var options = {
 			method: 'POST',
 			url: server.url + url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
 			timeout: 3600000
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		// console.log(options);
+
 		var startTime = new Date();
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to publish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
 				console.log(error);
@@ -874,7 +821,7 @@ var _publishResource = function (server, type, id, name, hideAPI) {
 				data = body;
 			}
 
-			if (response && response.statusCode === 303) {
+			if (response && response.statusCode === 200) {
 				resolve({
 					id: id,
 					name: name,
@@ -907,7 +854,6 @@ module.exports.publishComponent = function (args) {
 
 var _publishResourceAsync = function (server, type, id, name, usedContentOnly, compileSite, staticOnly, fullpublish) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
@@ -920,19 +866,12 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 		var options = {
 			method: 'POST',
 			headers: {
-				Prefer: 'respond-async'
+				Prefer: 'respond-async',
+				Authorization: serverUtils.getRequestAuthorization(server)
 			},
 			url: server.url + url
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers.Authorization = _getAuthorization(server);
 
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		if (type === 'sites' && (usedContentOnly || compileSite || staticOnly || fullpublish)) {
 			var body = {};
 			if (usedContentOnly) {
@@ -947,14 +886,16 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 			if (fullpublish) {
 				body.type = 'full';
 			}
-			options.body = body;
+			options.body = JSON.stringify(body);
 			options.json = true;
 		}
 
 		// console.log(options);
 
 		var resTitle = type.substring(0, type.length - 1);
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to publish ' + resTitle + ' ' + (name || id) + ' : ');
 				console.log(error);
@@ -1045,7 +986,6 @@ module.exports.publishSite = function (args) {
 
 var _unpublishResource = function (server, type, id, name) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
@@ -1057,20 +997,15 @@ var _unpublishResource = function (server, type, id, name) {
 		console.log(' - post ' + url);
 		var options = {
 			method: 'POST',
-			url: server.url + url
+			url: server.url + url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		// console.log(options);
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to unpublish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
 				console.log(error);
@@ -1086,7 +1021,7 @@ var _unpublishResource = function (server, type, id, name) {
 				data = body;
 			}
 
-			if (response && response.statusCode === 303) {
+			if (response && response.statusCode === 200) {
 				resolve({
 					id: id,
 					name: name
@@ -1115,81 +1050,9 @@ module.exports.unpublishSite = function (args) {
 	return _unpublishResource(server, 'sites', args.id, args.name);
 };
 
-var _unpublishResource = function (server, type, id, name) {
-	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
-
-		var url = '/sites/management/api/v1/' + type + '/';
-		if (id) {
-			url = url + id;
-		} else if (name) {
-			url = url + 'name:' + name;
-		}
-		url = url + '/unpublish';
-		console.log(' - post ' + url);
-		var options = {
-			method: 'POST',
-			url: server.url + url
-		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
-		// console.log(options);
-		request(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to unpublish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
-				console.log(error);
-				resolve({
-					err: error
-				});
-			}
-
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-
-			if (response && response.statusCode === 303) {
-				resolve({
-					id: id,
-					name: name
-				});
-			} else {
-				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to unpublish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
-				resolve({
-					err: msg || 'err'
-				});
-			}
-
-		});
-	});
-};
-/**
- * Unpublish a site on server 
- * @param {object} args JavaScript object containing parameters. 
- * @param {object} server the server object
- * @param {string} id the id of the site or
- * @param {string} name the name of the site
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.unpublishSite = function (args) {
-	var server = args.server;
-	return _unpublishResource(server, 'sites', args.id, args.name);
-};
 
 var _setSiteOnlineStatus = function (server, id, name, status) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
@@ -1203,20 +1066,15 @@ var _setSiteOnlineStatus = function (server, id, name, status) {
 		console.log(' - post ' + url);
 		var options = {
 			method: 'POST',
-			url: server.url + url
+			url: server.url + url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		// console.log(options);
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to ' + action + ' site ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
 				console.log(error);
@@ -1232,7 +1090,7 @@ var _setSiteOnlineStatus = function (server, id, name, status) {
 				data = body;
 			}
 
-			if (response && response.statusCode === 303) {
+			if (response && response.statusCode === 200) {
 				resolve({
 					id: id,
 					name: name
@@ -1276,7 +1134,6 @@ module.exports.deactivateSite = function (args) {
 
 var _validateSite = function (server, id, name) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/sites/';
 		if (id) {
@@ -1289,20 +1146,15 @@ var _validateSite = function (server, id, name) {
 		console.log(' - post ' + url);
 		var options = {
 			method: 'POST',
-			url: server.url + url
+			url: server.url + url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		// console.log(options);
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to validate site ' + (name || id) + ' : ');
 				console.log(error);
@@ -1347,7 +1199,6 @@ module.exports.validateSite = function (args) {
 
 var _softDeleteResource = function (server, type, id, name) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
@@ -1359,20 +1210,15 @@ var _softDeleteResource = function (server, type, id, name) {
 		console.log(' - delete ' + url);
 		var options = {
 			method: 'DELETE',
-			url: server.url + url
+			url: server.url + url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		// console.log(options);
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.delete(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
 				console.log(error);
@@ -1406,7 +1252,6 @@ var _softDeleteResource = function (server, type, id, name) {
 };
 var _hardDeleteResource = function (server, type, id, name, showError) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/' + type + '/';
 		if (id) {
@@ -1418,20 +1263,15 @@ var _hardDeleteResource = function (server, type, id, name, showError) {
 		console.log(' - post ' + url);
 		var options = {
 			method: 'POST',
-			url: server.url + url
+			url: server.url + url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		// console.log(options);
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.delete(options, function (error, response, body) {
 			if (error) {
 				if (showError) {
 					console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
@@ -1600,24 +1440,19 @@ module.exports.importComponent = function (args) {
 var _getBackgroundServiceJobStatus = function (server, url) {
 	return new Promise(function (resolve, reject) {
 		var options = {
-			url: url + '?links=none'
+			url: url + '?links=none',
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 
 		var endpoint = serverUtils.replaceAll(url, server.url);
 		if (endpoint.indexOf('/') > 0) {
 			endpoint = endpoint.substring(endpoint.indexOf('/'));
 		}
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 
 			if (error) {
 				console.log('ERROR: failed to get status from ' + endpoint);
@@ -1650,7 +1485,6 @@ var _getBackgroundServiceJobStatus = function (server, url) {
 
 var _createTemplateFromSite = function (server, name, siteName, includeUnpublishedAssets, enterprisetemplate) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/sites/' + 'name:' + siteName + '/templates';
 		console.log(' - post ' + url);
@@ -1665,21 +1499,17 @@ var _createTemplateFromSite = function (server, name, siteName, includeUnpublish
 			method: 'POST',
 			url: server.url + url,
 			headers: {
-				Prefer: 'respond-async'
+				Prefer: 'respond-async',
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
 			},
-			body: body,
+			body: JSON.stringify(body),
 			json: true
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers.Authorization = _getAuthorization(server);
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		// console.log(options);
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to create template ' + name + ' from site ' + siteName);
 				console.log(error);
@@ -1860,7 +1690,6 @@ module.exports.importTemplate = function (args) {
 
 var _createSite = function (server, name, description, sitePrefix, templateName, templateId, repositoryId, localizationPolicyId, defaultLanguage, updateContent, suppressgovernance) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/sites';
 		console.log(' - post ' + url + ' ' + (updateContent ? '(preserve asset ID)' : ''));
@@ -1883,7 +1712,9 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 		}
 
 		var headers = {
-			Prefer: 'respond-async'
+			Prefer: 'respond-async',
+			'Content-Type': 'application/json',
+			Authorization: serverUtils.getRequestAuthorization(server)
 		};
 		if (updateContent) {
 			headers['X-Preserve-Guids'] = true;
@@ -1895,19 +1726,13 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 			method: 'POST',
 			url: server.url + url,
 			headers: headers,
-			body: body,
+			body: JSON.stringify(body),
 			json: true
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers.Authorization = _getAuthorization(server);
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		// console.log(options);
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to create site ' + name + ' from template ' + templateName);
 				console.log(error);

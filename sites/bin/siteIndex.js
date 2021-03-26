@@ -1644,7 +1644,10 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 				repository = result;
 				console.log(' - query site repository');
 
-				return serverUtils.getContentTypeFromServer(server, contenttype);
+				return serverRest.getContentType({
+					server: server,
+					name: contenttype
+				});
 			})
 			.then(function (result) {
 				//
@@ -1736,7 +1739,10 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 					for (var i = 0; i < contentTypes.length; i++) {
 						if (contentTypes[i] !== contenttype) {
 							contentTypeNames.push(contentTypes[i]);
-							contentTypesPromise.push(serverUtils.getContentTypeFromServer(server, contentTypes[i]));
+							contentTypesPromise.push(serverRest.getContentType({
+								server: server,
+								name: contentTypes[i]
+							}));
 						}
 					}
 				}

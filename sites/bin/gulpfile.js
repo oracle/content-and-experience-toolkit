@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global console, __dirname, process, console */
@@ -366,6 +366,39 @@ gulp.task('sync-server', function (done) {
 
 });
 
+gulp.task('webhook-server', function (done) {
+	'use strict';
+
+	if (!verifyRun()) {
+		done();
+		return;
+	}
+
+	var srcServerName = argv.server;
+	if (!fs.existsSync(path.join(serversSrcDir, srcServerName, 'server.json'))) {
+		console.log('ERROR: server ' + srcServerName + ' does not exist');
+		done();
+		return;
+	}
+
+
+	var port = argv.port || '8087';
+	process.env.CEC_TOOLKIT_WEBHOOK_PORT = port;
+	process.env.CEC_TOOLKIT_WEBHOOK_SERVER = srcServerName;
+	process.env.CEC_TOOLKIT_WEBHOOK_CONTENTTYPE = argv.contenttype;
+	process.env.CEC_TOOLKIT_WEBHOOK_DETAILPAGE = argv.detailpage;
+	process.env.CEC_TOOLKIT_PROJECTDIR = projectDir;
+
+	var args = ['run', 'start-webhook', '--prefix', cecDir];
+	var spawnCmd;
+
+	spawnCmd = childProcess.spawnSync(npmCmd, args, {
+		projectDir,
+		stdio: 'inherit'
+	});
+
+});
+
 gulp.task('compilation-server', function (done) {
 	'use strict';
 
@@ -471,6 +504,17 @@ var _promptInput = function (rl, question) {
 	});
 };
 
+var _getExitCode = function (value) {
+	var exitCode = 0;
+	if (value === undefined || !value) {
+		exitCode = 1;
+	} else if (typeof value === 'number') {
+		exitCode = value;
+	}
+	// console.log('value: ' + value + ' exitCode: ' + exitCode);
+	return exitCode;
+};
+
 /**
  * Create folder
  */
@@ -478,7 +522,7 @@ gulp.task('create-folder', function (done) {
 	'use strict';
 
 	doclib.createFolder(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -490,7 +534,7 @@ gulp.task('share-folder', function (done) {
 	'use strict';
 
 	doclib.shareFolder(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -502,7 +546,7 @@ gulp.task('unshare-folder', function (done) {
 	'use strict';
 
 	doclib.unshareFolder(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -514,7 +558,7 @@ gulp.task('download-folder', function (done) {
 	'use strict';
 
 	doclib.downloadFolder(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -526,7 +570,7 @@ gulp.task('upload-folder', function (done) {
 	'use strict';
 
 	doclib.uploadFolder(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -538,7 +582,7 @@ gulp.task('delete-folder', function (done) {
 	'use strict';
 
 	doclib.deleteFolder(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -550,7 +594,7 @@ gulp.task('upload-file', function (done) {
 	'use strict';
 
 	doclib.uploadFile(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -562,7 +606,7 @@ gulp.task('download-file', function (done) {
 	'use strict';
 
 	doclib.downloadFile(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -574,7 +618,7 @@ gulp.task('delete-file', function (done) {
 	'use strict';
 
 	doclib.deleteFile(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -587,7 +631,7 @@ gulp.task('create-component', function (done) {
 	'use strict';
 
 	componentlib.createComponent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -600,7 +644,7 @@ gulp.task('copy-component', function (done) {
 	'use strict';
 
 	componentlib.copyComponent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -613,7 +657,7 @@ gulp.task('import-component', function (done) {
 	'use strict';
 
 	componentlib.importComponent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -625,7 +669,7 @@ gulp.task('share-component', function (done) {
 	'use strict';
 
 	componentlib.shareComponent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -637,7 +681,7 @@ gulp.task('unshare-component', function (done) {
 	'use strict';
 
 	componentlib.unshareComponent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -649,7 +693,7 @@ gulp.task('list-server-content-types', function (done) {
 	'use strict';
 
 	contentlayoutlib.listServerContentTypes(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -662,7 +706,7 @@ gulp.task('create-contentlayout', function (done) {
 	'use strict';
 
 	contentlayoutlib.createContentLayout(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -675,12 +719,12 @@ gulp.task('add-contentlayout-mapping', function (done) {
 
 	if (argv.server) {
 		contentlayoutlib.addContentLayoutMappingServer(argv, function (success) {
-			process.exitCode = success ? 0 : 1;
+			process.exitCode = _getExitCode(success);
 			done();
 		});
 	} else {
 		contentlayoutlib.addContentLayoutMapping(argv, function (success) {
-			process.exitCode = success ? 0 : 1;
+			process.exitCode = _getExitCode(success);
 			done();
 		});
 	}
@@ -694,12 +738,12 @@ gulp.task('remove-contentlayout-mapping', function (done) {
 
 	if (argv.server) {
 		contentlayoutlib.removeContentLayoutMappingServer(argv, function (success) {
-			process.exitCode = success ? 0 : 1;
+			process.exitCode = _getExitCode(success);
 			done();
 		});
 	} else {
 		contentlayoutlib.removeContentLayoutMapping(argv, function (success) {
-			process.exitCode = success ? 0 : 1;
+			process.exitCode = _getExitCode(success);
 			done();
 		});
 	}
@@ -712,7 +756,7 @@ gulp.task('add-field-editor', function (done) {
 	'use strict';
 
 	contentlayoutlib.addFieldEditor(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -724,7 +768,7 @@ gulp.task('remove-field-editor', function (done) {
 	'use strict';
 
 	contentlayoutlib.removeFieldEditor(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -738,7 +782,7 @@ gulp.task('create-template', function (done) {
 	'use strict';
 
 	templatelib.createTemplate(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -750,7 +794,7 @@ gulp.task('create-template-from-site', function (done) {
 	'use strict';
 
 	templatelib.createTemplateFromSite(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -763,7 +807,7 @@ gulp.task('copy-template', function (done) {
 	'use strict';
 
 	templatelib.copyTemplate(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -776,7 +820,7 @@ gulp.task('import-template', function (done) {
 	'use strict';
 
 	templatelib.importTemplate(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -789,7 +833,7 @@ gulp.task('export-template', function (done) {
 	'use strict';
 
 	templatelib.exportTemplate(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -801,7 +845,7 @@ gulp.task('deploy-template', function (done) {
 	'use strict';
 
 	templatelib.deployTemplate(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -813,7 +857,7 @@ gulp.task('upload-template', function (done) {
 	'use strict';
 
 	templatelib.deployTemplate(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -825,7 +869,7 @@ gulp.task('describe-template', function (done) {
 	'use strict';
 
 	templatelib.describeTemplate(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -837,7 +881,7 @@ gulp.task('create-template-report', function (done) {
 	'use strict';
 
 	reportlib.createTemplateReport(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -849,7 +893,7 @@ gulp.task('cleanup-template', function (done) {
 	'use strict';
 
 	reportlib.cleanupTemplate(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -861,7 +905,7 @@ gulp.task('download-template', function (done) {
 	'use strict';
 
 	templatelib.downloadTemplate(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -874,7 +918,7 @@ gulp.task('compile-template', function (done) {
 	'use strict';
 
 	templatelib.compileTemplate(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -887,7 +931,7 @@ gulp.task('compile-content', function (done) {
 	'use strict';
 
 	templatelib.compileContent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -901,7 +945,7 @@ gulp.task('delete-template', function (done) {
 	'use strict';
 
 	templatelib.deleteTemplate(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -913,7 +957,7 @@ gulp.task('share-template', function (done) {
 	'use strict';
 
 	templatelib.shareTemplate(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -925,7 +969,7 @@ gulp.task('unshare-template', function (done) {
 	'use strict';
 
 	templatelib.unshareTemplate(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -938,7 +982,7 @@ gulp.task('update-template', function (done) {
 
 	if (argv.action === 'rename-asset-id') {
 		assetlib.renameAssetIds(argv, function (success) {
-			process.exitCode = success ? 0 : 1;
+			process.exitCode = _getExitCode(success);
 			done();
 		});
 	} else {
@@ -955,7 +999,7 @@ gulp.task('download-content', function (done) {
 	'use strict';
 
 	contentlib.downloadContent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -967,7 +1011,7 @@ gulp.task('upload-content', function (done) {
 	'use strict';
 
 	contentlib.uploadContent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -979,10 +1023,23 @@ gulp.task('control-content', function (done) {
 	'use strict';
 
 	contentlib.controlContent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
+
+/**
+ * tranfer content from one OCE server to another
+ */
+gulp.task('transfer-content', function (done) {
+	'use strict';
+
+	contentlib.transferContent(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
 
 /**
  * Copy assets to another repository
@@ -991,7 +1048,7 @@ gulp.task('copy-assets', function (done) {
 	'use strict';
 
 	contentlib.copyAssets(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1003,7 +1060,7 @@ gulp.task('migrate-content', function (done) {
 	'use strict';
 
 	contentlib.migrateContent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1024,7 +1081,7 @@ gulp.task('download-taxonomy', function (done) {
 	'use strict';
 
 	taxonomylib.downloadTaxonomy(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1036,7 +1093,7 @@ gulp.task('upload-taxonomy', function (done) {
 	'use strict';
 
 	taxonomylib.uploadTaxonomy(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1048,7 +1105,7 @@ gulp.task('control-taxonomy', function (done) {
 	'use strict';
 
 	taxonomylib.controlTaxonomy(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1060,7 +1117,7 @@ gulp.task('add-theme-component', function (done) {
 	'use strict';
 
 	templatelib.addThemeComponent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1072,7 +1129,7 @@ gulp.task('remove-theme-component', function (done) {
 	'use strict';
 
 	templatelib.removeThemeComponent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1084,7 +1141,7 @@ gulp.task('control-theme', function (done) {
 	'use strict';
 
 	themelib.controlTheme(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1096,7 +1153,7 @@ gulp.task('share-theme', function (done) {
 	'use strict';
 
 	themelib.shareTheme(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1108,7 +1165,7 @@ gulp.task('unshare-theme', function (done) {
 	'use strict';
 
 	themelib.unshareTheme(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1121,7 +1178,7 @@ gulp.task('export-component', function (done) {
 	'use strict';
 
 	componentlib.exportComponent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1131,7 +1188,7 @@ gulp.task('export-component', function (done) {
  */
 gulp.task('download-component', function (done) {
 	componentlib.downloadComponent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1142,7 +1199,7 @@ gulp.task('download-component', function (done) {
  */
 gulp.task('deploy-component', function (done) {
 	componentlib.deployComponent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1152,7 +1209,7 @@ gulp.task('deploy-component', function (done) {
  */
 gulp.task('upload-component', function (done) {
 	componentlib.deployComponent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1162,7 +1219,7 @@ gulp.task('upload-component', function (done) {
  */
 gulp.task('control-component', function (done) {
 	componentlib.controlComponent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1174,7 +1231,7 @@ gulp.task('download-recommendation', function (done) {
 	'use strict';
 
 	recommendationlib.downloadRecommendation(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1186,7 +1243,7 @@ gulp.task('upload-recommendation', function (done) {
 	'use strict';
 
 	recommendationlib.uploadRecommendation(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1237,12 +1294,12 @@ gulp.task('list', function (done) {
 
 	if (argv.server) {
 		resourcelib.listServerResources(argv, function (success) {
-			process.exitCode = success ? 0 : 1;
+			process.exitCode = _getExitCode(success);
 			done();
 		});
 	} else {
 		resourcelib.listLocalResources(argv, function (success) {
-			process.exitCode = success ? 0 : 1;
+			process.exitCode = _getExitCode(success);
 			done();
 		});
 	}
@@ -1255,7 +1312,7 @@ gulp.task('rename-content-type', function (done) {
 	'use strict';
 
 	resourcelib.renameContentType(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1267,7 +1324,7 @@ gulp.task('create-site', function (done) {
 	'use strict';
 
 	sitelib.createSite(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1279,7 +1336,7 @@ gulp.task('copy-site', function (done) {
 	'use strict';
 
 	sitelib.copySite(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1291,7 +1348,7 @@ gulp.task('transfer-site', function (done) {
 	'use strict';
 
 	sitelib.transferSite(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1303,7 +1360,7 @@ gulp.task('transfer-site-content', function (done) {
 	'use strict';
 
 	contentlib.transferSiteContent(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1315,7 +1372,7 @@ gulp.task('migrate-site', function (done) {
 	'use strict';
 
 	sitelib.migrateSite(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1327,7 +1384,7 @@ gulp.task('control-site', function (done) {
 	'use strict';
 
 	sitelib.controlSite(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1339,7 +1396,7 @@ gulp.task('share-site', function (done) {
 	'use strict';
 
 	sitelib.shareSite(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1351,7 +1408,7 @@ gulp.task('unshare-site', function (done) {
 	'use strict';
 
 	sitelib.unshareSite(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1363,7 +1420,7 @@ gulp.task('get-site-security', function (done) {
 	'use strict';
 
 	sitelib.getSiteSecurity(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1375,7 +1432,7 @@ gulp.task('set-site-security', function (done) {
 	'use strict';
 
 	sitelib.setSiteSecurity(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1387,7 +1444,7 @@ gulp.task('update-site', function (done) {
 	'use strict';
 
 	siteUpdateLib.updateSite(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1399,7 +1456,7 @@ gulp.task('validate-site', function (done) {
 	'use strict';
 
 	sitelib.validateSite(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1412,7 +1469,7 @@ gulp.task('index-site', function (done) {
 	'use strict';
 
 	siteIndexlib.indexSite(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1425,7 +1482,7 @@ gulp.task('create-site-map', function (done) {
 	'use strict';
 
 	siteMaplib.createSiteMap(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1438,7 +1495,7 @@ gulp.task('create-rss-feed', function (done) {
 	'use strict';
 
 	rsslib.createRSSFeed(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1450,7 +1507,7 @@ gulp.task('create-asset-report', function (done) {
 	'use strict';
 
 	reportlib.createAssetReport(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1462,7 +1519,7 @@ gulp.task('upload-static-site-files', function (done) {
 	'use strict';
 
 	sitelib.uploadStaticSite(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1474,7 +1531,7 @@ gulp.task('refresh-prerender-cache', function (done) {
 	'use strict';
 
 	sitelib.refreshPrerenderCache(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1486,7 +1543,7 @@ gulp.task('download-static-site-files', function (done) {
 	'use strict';
 
 	sitelib.downloadStaticSite(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1498,7 +1555,7 @@ gulp.task('delete-static-site-files', function (done) {
 	'use strict';
 
 	sitelib.deleteStaticSite(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1511,7 +1568,7 @@ gulp.task('create-repository', function (done) {
 	'use strict';
 
 	assetlib.createRepository(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1523,7 +1580,7 @@ gulp.task('control-repository', function (done) {
 	'use strict';
 
 	assetlib.controlRepository(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1535,7 +1592,7 @@ gulp.task('share-repository', function (done) {
 	'use strict';
 
 	assetlib.shareRepository(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1547,7 +1604,7 @@ gulp.task('unshare-repository', function (done) {
 	'use strict';
 
 	assetlib.unShareRepository(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1559,7 +1616,7 @@ gulp.task('share-type', function (done) {
 	'use strict';
 
 	assetlib.shareType(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1571,7 +1628,7 @@ gulp.task('unshare-type', function (done) {
 	'use strict';
 
 	assetlib.unshareType(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1583,7 +1640,7 @@ gulp.task('download-type', function (done) {
 	'use strict';
 
 	assetlib.downloadType(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1595,7 +1652,7 @@ gulp.task('upload-type', function (done) {
 	'use strict';
 
 	assetlib.uploadType(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1609,12 +1666,12 @@ gulp.task('update-type', function (done) {
 	if (argv.action === 'add-content-form') {
 		if (argv.server) {
 			contentlayoutlib.addContentFormServer(argv, function (success) {
-				process.exitCode = success ? 0 : 1;
+				process.exitCode = _getExitCode(success);
 				done();
 			});
 		} else {
 			contentlayoutlib.addContentForm(argv, function (success) {
-				process.exitCode = success ? 0 : 1;
+				process.exitCode = _getExitCode(success);
 				done();
 			});
 		}
@@ -1622,12 +1679,12 @@ gulp.task('update-type', function (done) {
 	} else if (argv.action === 'remove-content-form') {
 		if (argv.server) {
 			contentlayoutlib.removeContentFormServer(argv, function (success) {
-				process.exitCode = success ? 0 : 1;
+				process.exitCode = _getExitCode(success);
 				done();
 			});
 		} else {
 			contentlayoutlib.removeContentForm(argv, function (success) {
-				process.exitCode = success ? 0 : 1;
+				process.exitCode = _getExitCode(success);
 				done();
 			});
 		}
@@ -1646,7 +1703,7 @@ gulp.task('create-word-template', function (done) {
 	'use strict';
 
 	assetlib.createMSWordTemplate(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1658,7 +1715,7 @@ gulp.task('create-content-item', function (done) {
 	'use strict';
 
 	assetlib.createContentItem(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1670,7 +1727,7 @@ gulp.task('create-channel', function (done) {
 	'use strict';
 
 	assetlib.createChannel(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1682,7 +1739,7 @@ gulp.task('share-channel', function (done) {
 	'use strict';
 
 	assetlib.shareChannel(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1694,7 +1751,7 @@ gulp.task('unshare-channel', function (done) {
 	'use strict';
 
 	assetlib.unshareChannel(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1706,7 +1763,7 @@ gulp.task('create-localization-policy', function (done) {
 	'use strict';
 
 	assetlib.createLocalizationPolicy(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1718,7 +1775,7 @@ gulp.task('list-assets', function (done) {
 	'use strict';
 
 	assetlib.listAssets(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1730,7 +1787,7 @@ gulp.task('create-asset-usage-report', function (done) {
 	'use strict';
 
 	reportlib.createAssetUsageReport(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1742,7 +1799,7 @@ gulp.task('download-translation-job', function (done) {
 	'use strict';
 
 	translationlib.downloadTranslationJob(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1754,7 +1811,7 @@ gulp.task('upload-translation-job', function (done) {
 	'use strict';
 
 	translationlib.uploadTranslationJob(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1766,7 +1823,7 @@ gulp.task('list-translation-jobs', function (done) {
 	'use strict';
 
 	translationlib.listTranslationJobs(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1778,7 +1835,7 @@ gulp.task('create-translation-job', function (done) {
 	'use strict';
 
 	translationlib.createTranslationJob(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1790,7 +1847,7 @@ gulp.task('submit-translation-job', function (done) {
 	'use strict';
 
 	translationlib.submitTranslationJob(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1802,7 +1859,7 @@ gulp.task('refresh-translation-job', function (done) {
 	'use strict';
 
 	translationlib.refreshTranslationJob(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1814,7 +1871,7 @@ gulp.task('ingest-translation-job', function (done) {
 	'use strict';
 
 	translationlib.ingestTranslationJob(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1827,7 +1884,7 @@ gulp.task('register-translation-connector', function (done) {
 	'use strict';
 
 	translationlib.registerTranslationConnector(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1839,7 +1896,7 @@ gulp.task('create-translation-connector', function (done) {
 	'use strict';
 
 	translationlib.createTranslationConnector(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1860,7 +1917,7 @@ gulp.task('create-group', function (done) {
 	'use strict';
 
 	grouplib.createGroup(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1872,7 +1929,7 @@ gulp.task('delete-group', function (done) {
 	'use strict';
 
 	grouplib.deleteGroup(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1884,7 +1941,7 @@ gulp.task('add-member-to-group', function (done) {
 	'use strict';
 
 	grouplib.addMemberToGroup(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1896,7 +1953,7 @@ gulp.task('remove-member-from-group', function (done) {
 	'use strict';
 
 	grouplib.removeMemberFromGroup(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -1908,7 +1965,7 @@ gulp.task('execute-get', function (done) {
 	'use strict';
 
 	resourcelib.executeGet(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -2053,7 +2110,7 @@ gulp.task('create-encryption-key', function (done) {
 	'use strict';
 
 	resourcelib.createEncryptionKey(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -2065,7 +2122,7 @@ gulp.task('register-server', function (done) {
 	'use strict';
 
 	resourcelib.registerServer(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });
@@ -2077,7 +2134,7 @@ gulp.task('set-oauth-token', function (done) {
 	'use strict';
 
 	resourcelib.setOAuthToken(argv, function (success) {
-		process.exitCode = success ? 0 : 1;
+		process.exitCode = _getExitCode(success);
 		done();
 	});
 });

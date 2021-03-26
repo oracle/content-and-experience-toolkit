@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global console, __dirname, process, module, Buffer, console */
@@ -2664,7 +2664,7 @@ module.exports.controlSite = function (argv, done) {
 			_controlSiteREST(request, server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish)
 				.then(function (result) {
 					if (result.err) {
-						done();
+						done(result.exitCode);
 					} else {
 						done(true);
 					}
@@ -3090,6 +3090,7 @@ var _getOneIdcService = function (request, localhost, server, service, params) {
 var _controlSiteREST = function (request, server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish) {
 
 	return new Promise(function (resolve, reject) {
+		var exitCode;
 		sitesRest.getSite({
 				server: server,
 				name: siteName
@@ -3106,10 +3107,12 @@ var _controlSiteREST = function (request, server, action, siteName, usedContentO
 
 				if (action === 'take-offline' && runtimeStatus === 'offline') {
 					console.log(' - site is already offline');
+					exitCode = 2;
 					return Promise.reject();
 				}
 				if (action === 'bring-online' && runtimeStatus === 'online') {
 					console.log(' - site is already online');
+					exitCode = 2;
 					return Promise.reject();
 				}
 				if (action === 'bring-online' && publishStatus === 'unpublished') {
@@ -3178,7 +3181,8 @@ var _controlSiteREST = function (request, server, action, siteName, usedContentO
 					console.log(error);
 				}
 				return resolve({
-					err: 'err'
+					err: 'err',
+					exitCode: exitCode
 				});
 			});
 	});
@@ -3946,7 +3950,7 @@ module.exports.setSiteSecurity = function (argv, done) {
 var _setSiteSecurityREST = function (server, name, signin, access, addUserNames, deleteUserNames, done) {
 	try {
 		var request = serverUtils.getRequest();
-
+		var exitCode;
 		var loginPromise = serverUtils.loginToServer(server, request);
 		loginPromise.then(function (result) {
 			if (!result.status) {
@@ -3980,6 +3984,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 
 					if (signin === 'no' && !siteSecured) {
 						console.log(' - site is already publicly available to anyone');
+						exitCode = 2;
 						return Promise.reject();
 					}
 					if (siteOnline) {
@@ -4095,6 +4100,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 					return sitesRest.setSiteRuntimeAccess({
 						server: server,
 						id: siteId,
+						name: name,
 						accessList: accessValues
 					});
 				})
@@ -4111,6 +4117,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 								removeAccessPromises.push(sitesRest.removeSiteAccess({
 									server: server,
 									id: siteId,
+									name: name,
 									member: 'user:' + users[i].loginName
 								}));
 							}
@@ -4127,6 +4134,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 								grantAccessPromises.push(sitesRest.grantSiteAccess({
 									server: server,
 									id: siteId,
+									name: name,
 									member: 'user:' + users[i].loginName
 								}));
 							}
@@ -4196,7 +4204,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 					done(true);
 				})
 				.catch((error) => {
-					done();
+					done(exitCode);
 				});
 		});
 	} catch (e) {
@@ -4701,8 +4709,10 @@ module.exports.refreshPrerenderCache = function (argv, done) {
 					.catch((error) => {
 						done();
 					});
+			})
+			.catch((error) => {
+				done();
 			});
-
 	});
 };
 
@@ -5382,4 +5392,123 @@ module.exports.syncControlSiteSite = function (argv, done) {
 			});
 	});
 
+};
+
+//////////////////////////////////////////////////////////////////////////
+//    Refresh server event handlers
+//////////////////////////////////////////////////////////////////////////
+
+module.exports.refreshSitePrerenderCache = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	// console.log(' - source server: ' + srcServer.url);
+
+	var server = argv.server;
+	var channelId = argv.id;
+	var siteName = argv.name;
+	var items = argv.items;
+	var typeDetailPages = argv.typeDetailPages;
+
+	var urls = [];
+	items.forEach(function (item) {
+		if (item.slug) {
+			var itemDetailPage;
+			for (var i = 0; i < typeDetailPages.length; i++) {
+				if (item.type === typeDetailPages[i].type && typeDetailPages[i].detailpage) {
+					itemDetailPage = typeDetailPages[i].detailpage;
+					break;
+				}
+			}
+			if (itemDetailPage) {
+				// console.log(' - item: ' + item.name + ' ' + item.slug);
+				var url = (itemDetailPage.indexOf('http') < 0 ? server.url + itemDetailPage : itemDetailPage) + '/' + item.slug + '?_escaped_fragment_=';
+				urls.push(url);
+			}
+		}
+	});
+	// console.log(urls);
+	_refreshPrerenderCache(urls)
+		.then(function (result) {
+			done(true);
+		});
+
+};
+
+var _refreshPrerenderCache = function (urls) {
+	return new Promise(function (resolve, reject) {
+		var total = urls.length;
+		// console.log(' - total number of urls: ' + total);
+		var groups = [];
+		var limit = 5;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+		// console.log(' - total number of groups: ' + groups.length);
+
+		var doSendUrl = groups.reduce(function (urlPromise, param) {
+				return urlPromise.then(function (result) {
+					var urlPromises = [];
+					for (var i = param.start; i <= param.end; i++) {
+						urlPromises.push(_doGet(urls[i]));
+					}
+
+					return Promise.all(urlPromises).then(function (results) {});
+
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doSendUrl.then(function (result) {
+			resolve({});
+		});
+
+	});
+};
+
+var _doGet = function (url) {
+	return new Promise(function (resolve, reject) {
+		var options = {
+			url: url
+		};
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.log(' - ' + url + ' : ERROR ' + err.toString());
+				resolve({
+					err: 'err'
+				});
+			}
+			// console.log(' - status: ' + response.statusCode + ' (' + response.statusMessage + ')');
+			if (response && response.statusCode === 200) {
+				console.log('GET ' + url + ' : OK ');
+				resolve({});
+			} else {
+				console.log(' - ' + url + ' : ' + (response.statusMessage | response.statusCode));
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
 };

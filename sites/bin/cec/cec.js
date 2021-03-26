@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -235,6 +235,16 @@ var updateTypeActions = function () {
 	const actions = ['add-content-form', 'remove-content-form'];
 	return actions;
 };
+
+var getWebhookTypes = function () {
+	const actions = ['seo'];
+	return actions;
+};
+var getWebhookTypesDesc = function () {
+	const actions = ['seo - refresh Detailed page in the Prerender cache'];
+	return actions;
+};
+
 
 /*********************
  * Command definitions
@@ -675,6 +685,7 @@ const compileContent = {
 				'Specify -s <server> to make content queries against this server.\n' +
 				'Optionally specify -a <assets> comma separated lists of assets.\n' +
 				'Optionally specify -t <contentType> compile all published assets of this content type.\n' +
+				'Optionally specify -i <repositoryId> Id of the repository for content type queries.\n' +
 				'Optionally specify -d <debug> to start the compilation with --inspect-brk flag.\n' +
 				'Optionally specify -v <verbose> to display all warning messages during compilation.\n';
 			return desc;
@@ -684,7 +695,7 @@ const compileContent = {
 		['cec compile-content publishingJobId -s UAT', 'Compiles the content items in the specified publishing job retrieving content from the server.'],
 		['cec compile-content publishingJobId -s UAT -d', 'Waits for the debugger to be attached.  Once attached, compiles the content in the specified publishing job.'],
 		['cec compile-content -a GUID1,GUID2 -s UAT', 'Compiles the assets by retrieving content from the specified server.'],
-		['cec compile-content -t Blog -s UAT', 'Compiles the published assets of this content type from the specified server.']
+		['cec compile-content -t Blog -i REPOGUID -s UAT', 'Compiles the published assets of this content type from the specified server.']
 	]
 };
 
@@ -929,6 +940,28 @@ const controlContent = {
 		['cec control-content add -l Collection1 -r Repo1 -s UAT', 'Add all items in repository Repo1 to collection Collection1 on the registered server UAT'],
 		['cec control-content remove -l Collection -s UAT', 'Remove all items in collection Collection1 on the registered server UAT'],
 		['cec control-content publish -c C1 -r R1 -s UAT -d "2021/9/21 0:30:00 PST" -n Name', 'Create a publishing job called Name to publish all items in channel C1 on the specified date. Requires server version: 21.2.1']
+	]
+};
+
+const transferContent = {
+	command: 'transfer-content <repository>',
+	alias: 'tc',
+	name: 'transfer-content',
+	usage: {
+		'short': 'Creates scripts to transfer content from one OCE server to another.',
+		'long': (function () {
+			let desc = 'Creates scripts to transfer content from one OCE server to another. This command is used to transfer large number of content items and the items are transferred in batches. By default the scripts will not be executed by this command. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>. ';
+			desc = desc + 'Optionally specify -n for the number of items in each batch, defaults to 200. ';
+			desc = desc + 'Due to the command line limit on Windows, the number should not exceed 200.'
+			return desc;
+		})()
+	},
+	example: [
+		['cec transfer-content Repository1 -s DEV -d UAT', 'Generate script Repository1_downloadcontent and Repository1_uploadcontent'],
+		['cec transfer-content Repository1 -s DEV -d UAT -e', 'Generate script Repository1_downloadcontent and Repository1_uploadcontent and execute them'],
+		['cec transfer-content Repository1 -s DEV -d UAT -n 100', 'Set the number of items in each batch to 100'],
+		['cec transfer-content Repository1 -s DEV -d UAT -c Channel1', 'Transfer the items added to channel Channel1 in repository Repository1'],
+		['cec transfer-content Repository1 -s DEV -d UAT -c Channel1 -p', 'Transfer the items published to channel Channel1 in repository Repository1']
 	]
 };
 
@@ -2446,6 +2479,27 @@ const syncServer = {
 	]
 };
 
+const webhookServer = {
+	command: 'webhook-server',
+	alias: 'whs',
+	name: 'webhook-server',
+	usage: {
+		'short': 'Starts a webhook server.',
+		'long': (function () {
+			let desc = 'Starts a server in the current folder to handle events notified by web hook from <server>. ' +
+				'Optionally specify -p <port> to set the port, default port is 8087. ' +
+				'The supported event types are \n\n';
+			return getWebhookTypesDesc().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+
+		})()
+	},
+	example: [
+		['cec webhook-server -t seo -s DEV -c Blog -d "/site/blogsite/detailpage"'],
+		['cec webhook-server -t seo -s DEV -c Blog,Author -d "/site/blogsite/blogdetail,/site/blogsite/authordetail"'],
+		['cec webhook-server -t seo -s DEV -c Blog -d "/site/blogsite/detailpage" -p 7878']
+	]
+};
+
 const compilationServer = {
 	command: 'compilation-server',
 	alias: 'scps',
@@ -2546,13 +2600,17 @@ const executeGet = {
 	alias: 'exeg',
 	name: 'execute-get',
 	usage: {
-		'short': 'Executes a GET on OCE server.',
+		'short': 'Makes an HTTP GET request to a REST API endpoint on OCE server',
 		'long': (function () {
-			let desc = 'Executes a GET on OCE server. Specify the server with -s <server>. ';
+			let desc = 'Makes an HTTP GET request to a REST API endpoint on OCE server. Specify the server with -s <server>. ';
 			return desc;
 		})()
 	},
-	example: []
+	example: [
+		['cec exeg "/sites/management/api/v1/sites?links=none" -f allsites.json -s DEV'],
+		['cec exeg "/content/management/api/v1.1/channels?links=none" -f allchannels.json -s DEV'],
+		['cec exeg "/documents/api/1.2/folders/self/items" -f homefolderitems.json -s DEV']
+	]
 };
 
 /*********************
@@ -2653,6 +2711,7 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(downloadContent) + os.EOL +
 	_getCmdHelp(uploadContent) + os.EOL +
 	_getCmdHelp(controlContent) + os.EOL +
+	_getCmdHelp(transferContent) + os.EOL +
 	_getCmdHelp(listAssets) + os.EOL +
 	_getCmdHelp(copyAssets) + os.EOL +
 	_getCmdHelp(createAssetUsageReport) + os.EOL;
@@ -2710,16 +2769,18 @@ _usage = _usage + os.EOL + 'Local Environment' + os.EOL +
 	_getCmdHelp(registerServer) + os.EOL +
 	_getCmdHelp(setOAuthToken) + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
+	_getCmdHelp(executeGet) + os.EOL +
 	_getCmdHelp(install) + os.EOL +
 	_getCmdHelp(develop) + os.EOL +
-	_getCmdHelp(syncServer);
+	_getCmdHelp(syncServer) + os.EOL +
+	_getCmdHelp(webhookServer);
 
 const argv = yargs.usage(_usage)
 	.command([createComponent.command, createComponent.alias], false,
 		(yargs) => {
 			yargs.option('from', {
 					alias: 'f',
-					description: '<from> Source to create from',
+					description: '<from> Source to create from'
 				})
 				.check((argv) => {
 					if (argv.from && !getComponentSources().includes(argv.from)) {
@@ -2730,8 +2791,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...createComponent.examples[0])
 				.example(...createComponent.examples[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createComponent.command}\n\n${createComponent.usage.long}`);
 		})
@@ -2770,32 +2830,28 @@ const argv = yargs.usage(_usage)
 				.example(...createContentLayout.example[2])
 				.example(...createContentLayout.example[3])
 				.example(...createContentLayout.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createContentLayout.command}\n\n${createContentLayout.usage.long}`);
 		})
 	.command([copyComponent.command, copyComponent.alias], false,
 		(yargs) => {
 			yargs.example(...copyComponent.example)
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${copyComponent.command}\n\n${copyComponent.usage.long}`);
 		})
 	.command([importComponent.command, importComponent.alias], false,
 		(yargs) => {
 			yargs.example(...importComponent.example)
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${importComponent.command}\n\n${importComponent.usage.long}`);
 		})
 	.command([exportComponent.command, exportComponent.alias], false,
 		(yargs) => {
 			yargs.example(...exportComponent.example)
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${exportComponent.command}\n\n${exportComponent.usage.long}`);
 		})
@@ -2808,8 +2864,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadComponent.example[0])
 				.example(...downloadComponent.example[1])
 				.example(...downloadComponent.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadComponent.command}\n\n${downloadComponent.usage.long}`);
 		})
@@ -2832,8 +2887,7 @@ const argv = yargs.usage(_usage)
 				.example(...deployComponent.example[2])
 				.example(...deployComponent.example[3])
 				.example(...deployComponent.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${deployComponent.command}\n\n${deployComponent.usage.long}`);
 		})
@@ -2856,8 +2910,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadComponent.example[2])
 				.example(...uploadComponent.example[3])
 				.example(...uploadComponent.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadComponent.command}\n\n${uploadComponent.usage.long}`);
 		})
@@ -2883,8 +2936,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlComponent.example[0])
 				.example(...controlComponent.example[1])
 				.example(...controlComponent.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlComponent.command}\n\n${controlComponent.usage.long}`);
 		})
@@ -2919,8 +2971,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareComponent.example[0])
 				.example(...shareComponent.example[1])
 				.example(...shareComponent.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${shareComponent.command}\n\n${shareComponent.usage.long}`);
 		})
@@ -2947,8 +2998,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareComponent.example[0])
 				.example(...unshareComponent.example[1])
 				.example(...unshareComponent.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${unshareComponent.command}\n\n${unshareComponent.usage.long}`);
 		})
@@ -2989,8 +3039,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTemplate.example[3])
 				.example(...createTemplate.example[4])
 				.example(...createTemplate.example[5])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createTemplate.command}\n\n${createTemplate.usage.long}`);
 		})
@@ -3017,24 +3066,21 @@ const argv = yargs.usage(_usage)
 				.example(...createTemplateFromSite.example[1])
 				.example(...createTemplateFromSite.example[2])
 				.example(...createTemplateFromSite.example[3])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createTemplateFromSite.command}\n\n${createTemplateFromSite.usage.long}`);
 		})
 	.command([copyTemplate.command, copyTemplate.alias], false,
 		(yargs) => {
 			yargs.example(...copyTemplate.example)
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${copyTemplate.command}\n\n${copyTemplate.usage.long}`);
 		})
 	.command([importTemplate.command, importTemplate.alias], false,
 		(yargs) => {
 			yargs.example(...importTemplate.example)
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${importTemplate.command}\n\n${importTemplate.usage.long}`);
 		})
@@ -3045,8 +3091,7 @@ const argv = yargs.usage(_usage)
 					description: 'Optimize the template'
 				})
 				.example(...exportTemplate.example)
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${exportTemplate.command}\n\n${exportTemplate.usage.long}`);
 		})
@@ -3058,8 +3103,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...downloadTemplate.example[0])
 				.example(...downloadTemplate.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadTemplate.command}\n\n${downloadTemplate.usage.long}`);
 		})
@@ -3138,8 +3182,7 @@ const argv = yargs.usage(_usage)
 				.example(...compileTemplate.example[2])
 				.example(...compileTemplate.example[3])
 				.example(...compileTemplate.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${compileTemplate.command}\n\n${compileTemplate.usage.long}`);
 		})
@@ -3156,8 +3199,7 @@ const argv = yargs.usage(_usage)
 				.example(...deleteTemplate.example[0])
 				.example(...deleteTemplate.example[1])
 				.example(...deleteTemplate.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${deleteTemplate.command}\n\n${deleteTemplate.usage.long}`);
 		})
@@ -3184,8 +3226,7 @@ const argv = yargs.usage(_usage)
 				.example(...deployTemplate.example[2])
 				.example(...deployTemplate.example[3])
 				.example(...deployTemplate.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${deployTemplate.command}\n\n${deployTemplate.usage.long}`);
 		})
@@ -3222,8 +3263,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadTemplate.example[4])
 				.example(...uploadTemplate.example[5])
 				.example(...uploadTemplate.example[6])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadTemplate.command}\n\n${uploadTemplate.usage.long}`);
 		})
@@ -3258,8 +3298,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareTemplate.example[0])
 				.example(...shareTemplate.example[1])
 				.example(...shareTemplate.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${shareTemplate.command}\n\n${shareTemplate.usage.long}`);
 		})
@@ -3286,16 +3325,14 @@ const argv = yargs.usage(_usage)
 				.example(...unshareTemplate.example[0])
 				.example(...unshareTemplate.example[1])
 				.example(...unshareTemplate.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${unshareTemplate.command}\n\n${unshareTemplate.usage.long}`);
 		})
 	.command([describeTemplate.command, describeTemplate.alias], false,
 		(yargs) => {
 			yargs.example(...describeTemplate.example)
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${describeTemplate.command}\n\n${describeTemplate.usage.long}`);
 		})
@@ -3313,16 +3350,14 @@ const argv = yargs.usage(_usage)
 				.example(...createTemplateReport.example[2])
 				.example(...createTemplateReport.example[3])
 				.example(...createTemplateReport.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createTemplateReport.command}\n\n${createTemplateReport.usage.long}`);
 		})
 	.command([cleanupTemplate.command, cleanupTemplate.alias], false,
 		(yargs) => {
 			yargs.example(...cleanupTemplate.example[0])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${cleanupTemplate.command}\n\n${cleanupTemplate.usage.long}`);
 		})
@@ -3345,8 +3380,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...updateTemplate.example[0])
 				.example(...updateTemplate.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${updateTemplate.command}\n\n${updateTemplate.usage.long}`);
 		})
@@ -3358,8 +3392,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...listServerContentTypes.example[0])
 				.example(...listServerContentTypes.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listServerContentTypes.command}\n\n${listServerContentTypes.usage.long}`);
 		})
@@ -3398,8 +3431,7 @@ const argv = yargs.usage(_usage)
 				.example(...addContentLayoutMapping.example[3])
 				.example(...addContentLayoutMapping.example[4])
 				.example(...addContentLayoutMapping.example[5])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${addContentLayoutMapping.command}\n\n${addContentLayoutMapping.usage.long}`);
 		})
@@ -3438,8 +3470,7 @@ const argv = yargs.usage(_usage)
 				.example(...removeContentLayoutMapping.example[1])
 				.example(...removeContentLayoutMapping.example[2])
 				.example(...removeContentLayoutMapping.example[3])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${removeContentLayoutMapping.command}\n\n${removeContentLayoutMapping.usage.long}`);
 		})
@@ -3466,8 +3497,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...addFieldEditor.example[0])
 				.example(...addFieldEditor.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${addFieldEditor.command}\n\n${addFieldEditor.usage.long}`);
 		})
@@ -3494,8 +3524,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...removeFieldEditor.example[0])
 				.example(...removeFieldEditor.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${removeFieldEditor.command}\n\n${removeFieldEditor.usage.long}`);
 		})
@@ -3543,6 +3572,9 @@ const argv = yargs.usage(_usage)
 					if (!argv.channel && !argv.repository && !argv.name) {
 						throw new Error(os.EOL + 'Please specify the name for the download');
 					}
+					if (argv.publishedassets && !argv.channel) {
+						throw new Error(os.EOL + 'Please specify channel for published assets');
+					}
 					return true;
 				})
 				.example(...downloadContent.example[0])
@@ -3554,8 +3586,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadContent.example[6])
 				.example(...downloadContent.example[7])
 				.example(...downloadContent.example[8])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadContent.command}\n\n${downloadContent.usage.long}`);
 		})
@@ -3608,10 +3639,55 @@ const argv = yargs.usage(_usage)
 				.example(...uploadContent.example[4])
 				.example(...uploadContent.example[5])
 				.example(...uploadContent.example[6])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadContent.command}\n\n${uploadContent.usage.long}`);
+		})
+	.command([transferContent.command, transferContent.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered OCE server the content is from',
+					demandOption: true,
+				})
+				.option('destination', {
+					alias: 'd',
+					description: 'The registered OCE server to transfer the content',
+					demandOption: true
+				})
+				.option('channel', {
+					alias: 'c',
+					description: 'The channel',
+				})
+				.option('publishedassets', {
+					alias: 'p',
+					description: 'The flag to indicate published assets only'
+				})
+				.option('number', {
+					alias: 'n',
+					description: 'The number of items in each batch, defaults to 200'
+				})
+				.option('execute', {
+					alias: 'e',
+					description: 'Execute the scripts'
+				})
+				.check((argv) => {
+					if (argv.number === 0 || argv.number && (!Number.isInteger(argv.number) || argv.number <= 0)) {
+						throw new Error(os.EOL + 'Value for limit should be an integer greater than 0');
+					}
+					if (argv.publishedassets && !argv.channel) {
+						throw new Error(os.EOL + 'Please specify channel for published assets');
+					}
+					return true;
+				})
+				.example(...transferContent.example[0])
+				.example(...transferContent.example[1])
+				.example(...transferContent.example[2])
+				.example(...transferContent.example[3])
+				.example(...transferContent.example[4])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${transferContent.command}\n\n${transferContent.usage.long}`);
 		})
 	.command([controlContent.command, controlContent.alias], false,
 		(yargs) => {
@@ -3687,8 +3763,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlContent.example[7])
 				.example(...controlContent.example[8])
 				.example(...controlContent.example[9])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlContent.command}\n\n${controlContent.usage.long}`);
 		})
@@ -3726,8 +3801,7 @@ const argv = yargs.usage(_usage)
 				.example(...copyAssets.example[4])
 				.example(...copyAssets.example[5])
 				.example(...copyAssets.example[6])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${copyAssets.command}\n\n${copyAssets.usage.long}`);
 		})
@@ -3755,8 +3829,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadTaxonomy.example[0])
 				.example(...downloadTaxonomy.example[1])
 				.example(...downloadTaxonomy.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadTaxonomy.command}\n\n${downloadTaxonomy.usage.long}`);
 		})
@@ -3797,8 +3870,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadTaxonomy.example[2])
 				.example(...uploadTaxonomy.example[3])
 				.example(...uploadTaxonomy.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadTaxonomy.command}\n\n${uploadTaxonomy.usage.long}`);
 		})
@@ -3842,8 +3914,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlTaxonomy.example[2])
 				.example(...controlTaxonomy.example[3])
 				.example(...controlTaxonomy.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlTaxonomy.command}\n\n${controlTaxonomy.usage.long}`);
 		})
@@ -3878,8 +3949,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareTheme.example[0])
 				.example(...shareTheme.example[1])
 				.example(...shareTheme.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${shareTheme.command}\n\n${shareTheme.usage.long}`);
 		})
@@ -3906,8 +3976,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareTheme.example[0])
 				.example(...unshareTheme.example[1])
 				.example(...unshareTheme.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${unshareTheme.command}\n\n${unshareTheme.usage.long}`);
 		})
@@ -3924,8 +3993,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...addComponentToTheme.example[0])
 				.example(...addComponentToTheme.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${addComponentToTheme.command}\n\n${addComponentToTheme.usage.long}`);
 		})
@@ -3937,8 +4005,7 @@ const argv = yargs.usage(_usage)
 					demandOption: true
 				})
 				.example(...removeComponentFromTheme.example[0])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${removeComponentFromTheme.command}\n\n${removeComponentFromTheme.usage.long}`);
 		})
@@ -3963,8 +4030,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...controlTheme.example[0])
 				.example(...controlTheme.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlTheme.command}\n\n${controlTheme.usage.long}`);
 		})
@@ -3982,8 +4048,7 @@ const argv = yargs.usage(_usage)
 				.example(...listResources.example[1])
 				.example(...listResources.example[2])
 				.example(...listResources.example[3])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listResources.command}\n\n${listResources.usage.long}`);
 		})
@@ -4027,8 +4092,7 @@ const argv = yargs.usage(_usage)
 				.example(...createSite.example[2])
 				.example(...createSite.example[3])
 				.example(...createSite.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createSite.command}\n\n${createSite.usage.long}`);
 		})
@@ -4058,8 +4122,7 @@ const argv = yargs.usage(_usage)
 				.example(...copySite.example[0])
 				.example(...copySite.example[1])
 				.example(...copySite.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${copySite.command}\n\n${copySite.usage.long}`);
 		})
@@ -4134,8 +4197,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferSite.example[6])
 				.example(...transferSite.example[7])
 				.example(...transferSite.example[8])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${transferSite.command}\n\n${transferSite.usage.long}`);
 		})
@@ -4186,8 +4248,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferSiteContent.example[2])
 				.example(...transferSiteContent.example[3])
 				.example(...transferSiteContent.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${transferSiteContent.command}\n\n${transferSiteContent.usage.long}`);
 		})
@@ -4235,8 +4296,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlSite.example[6])
 				.example(...controlSite.example[7])
 				.example(...controlSite.example[8])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlSite.command}\n\n${controlSite.usage.long}`);
 		})
@@ -4271,8 +4331,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareSite.example[0])
 				.example(...shareSite.example[1])
 				.example(...shareSite.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${shareSite.command}\n\n${shareSite.usage.long}`);
 		})
@@ -4299,8 +4358,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareSite.example[0])
 				.example(...unshareSite.example[1])
 				.example(...unshareSite.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${unshareSite.command}\n\n${unshareSite.usage.long}`);
 		})
@@ -4312,8 +4370,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...getSiteSecurity.example[0])
 				.example(...getSiteSecurity.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${getSiteSecurity.command}\n\n${getSiteSecurity.usage.long}`);
 		})
@@ -4360,8 +4417,7 @@ const argv = yargs.usage(_usage)
 				.example(...setSiteSecurity.example[3])
 				.example(...setSiteSecurity.example[4])
 				.example(...setSiteSecurity.example[5])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${setSiteSecurity.command}\n\n${setSiteSecurity.usage.long}`);
 		})
@@ -4382,8 +4438,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...updateSite.example[0])
 				.example(...updateSite.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${updateSite.command}\n\n${updateSite.usage.long}`);
 		})
@@ -4395,8 +4450,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...validateSite.example[0])
 				.example(...validateSite.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${validateSite.command}\n\n${validateSite.usage.long}`);
 		})
@@ -4424,8 +4478,7 @@ const argv = yargs.usage(_usage)
 				.example(...indexSite.example[0])
 				.example(...indexSite.example[1])
 				.example(...indexSite.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${indexSite.command}\n\n${indexSite.usage.long}`);
 		})
@@ -4486,8 +4539,7 @@ const argv = yargs.usage(_usage)
 				.example(...createSiteMap.example[4])
 				.example(...createSiteMap.example[5])
 				.example(...createSiteMap.example[6])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createSiteMap.command}\n\n${createSiteMap.usage.long}`);
 		})
@@ -4571,8 +4623,7 @@ const argv = yargs.usage(_usage)
 				.example(...createRSSFeed.example[0])
 				.example(...createRSSFeed.example[1])
 				.example(...createRSSFeed.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createRSSFeed.command}\n\n${createRSSFeed.usage.long}`);
 		})
@@ -4591,8 +4642,7 @@ const argv = yargs.usage(_usage)
 				.example(...createAssetReport.example[2])
 				.example(...createAssetReport.example[3])
 				.example(...createAssetReport.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createAssetReport.command}\n\n${createAssetReport.usage.long}`);
 		})
@@ -4609,8 +4659,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...uploadStaticSite.example[0])
 				.example(...uploadStaticSite.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadStaticSite.command}\n\n${uploadStaticSite.usage.long}`);
 		})
@@ -4627,8 +4676,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadStaticSite.example[0])
 				.example(...downloadStaticSite.example[1])
 				.example(...downloadStaticSite.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadStaticSite.command}\n\n${downloadStaticSite.usage.long}`);
 		})
@@ -4640,8 +4688,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...deleteStaticSite.example[0])
 				.example(...deleteStaticSite.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${deleteStaticSite.command}\n\n${deleteStaticSite.usage.long}`);
 		})
@@ -4653,8 +4700,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...refreshPrerenderCache.example[0])
 				.example(...refreshPrerenderCache.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${refreshPrerenderCache.command}\n\n${refreshPrerenderCache.usage.long}`);
 		})
@@ -4699,8 +4745,7 @@ const argv = yargs.usage(_usage)
 				.example(...migrateSite.example[0])
 				.example(...migrateSite.example[1])
 				.example(...migrateSite.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${migrateSite.command}\n\n${migrateSite.usage.long}`);
 		})
@@ -4732,8 +4777,7 @@ const argv = yargs.usage(_usage)
 				.example(...migrateContent.example[0])
 				.example(...migrateContent.example[1])
 				.example(...migrateContent.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${migrateContent.command}\n\n${migrateContent.usage.long}`);
 		})
@@ -4750,6 +4794,10 @@ const argv = yargs.usage(_usage)
 				.option('contenttype', {
 					alias: 't',
 					description: 'Compile all the published assets of this content type.'
+				})
+				.option('repositoryId', {
+					alias: 'i',
+					description: 'Id of the repository for content type queries.'
 				})
 				.option('renditionJobId', {
 					alias: 'r',
@@ -4780,8 +4828,7 @@ const argv = yargs.usage(_usage)
 				.example(...compileContent.example[1])
 				.example(...compileContent.example[2])
 				.example(...compileContent.example[3])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${compileContent.command}\n\n${compileContent.usage.long}`);
 		})
@@ -4803,8 +4850,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...renameContentType.example[0])
 				.example(...renameContentType.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${renameContentType.command}\n\n${renameContentType.usage.long}`);
 		})
@@ -4832,8 +4878,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...createRepository.example[0])
 				.example(...createRepository.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createRepository.command}\n\n${createRepository.usage.long}`);
 		})
@@ -4881,8 +4926,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlRepository.example[5])
 				.example(...controlRepository.example[6])
 				.example(...controlRepository.example[7])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlRepository.command}\n\n${controlRepository.usage.long}`);
 		})
@@ -4933,8 +4977,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareRepository.example[2])
 				.example(...shareRepository.example[3])
 				.example(...shareRepository.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${shareRepository.command}\n\n${shareRepository.usage.long}`);
 		})
@@ -4966,8 +5009,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareRepository.example[1])
 				.example(...unshareRepository.example[2])
 				.example(...unshareRepository.example[3])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${unshareRepository.command}\n\n${unshareRepository.usage.long}`);
 		})
@@ -5002,8 +5044,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareType.example[0])
 				.example(...shareType.example[1])
 				.example(...shareType.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${shareType.command}\n\n${shareType.usage.long}`);
 		})
@@ -5030,8 +5071,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareType.example[0])
 				.example(...unshareType.example[1])
 				.example(...unshareType.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${unshareType.command}\n\n${unshareType.usage.long}`);
 		})
@@ -5044,8 +5084,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadType.example[0])
 				.example(...downloadType.example[1])
 				.example(...downloadType.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadType.command}\n\n${downloadType.usage.long}`);
 		})
@@ -5089,8 +5128,7 @@ const argv = yargs.usage(_usage)
 				.example(...updateType.example[4])
 				.example(...updateType.example[5])
 				.example(...updateType.example[6])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${updateType.command}\n\n${updateType.usage.long}`);
 		})
@@ -5103,8 +5141,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadType.example[0])
 				.example(...uploadType.example[1])
 				.example(...uploadType.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadType.command}\n\n${uploadType.usage.long}`);
 		})
@@ -5132,8 +5169,7 @@ const argv = yargs.usage(_usage)
 				.example(...createWordTemplate.example[1])
 				.example(...createWordTemplate.example[2])
 				.example(...createWordTemplate.example[3])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createWordTemplate.command}\n\n${createWordTemplate.usage.long}`);
 		})
@@ -5161,8 +5197,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...createContentItem.example[0])
 				.example(...createContentItem.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createContentItem.command}\n\n${createContentItem.usage.long}`);
 		})
@@ -5201,8 +5236,7 @@ const argv = yargs.usage(_usage)
 				.example(...createChannel.example[1])
 				.example(...createChannel.example[2])
 				.example(...createChannel.example[3])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createChannel.command}\n\n${createChannel.usage.long}`);
 		})
@@ -5237,8 +5271,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareChannel.example[0])
 				.example(...shareChannel.example[1])
 				.example(...shareChannel.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${shareChannel.command}\n\n${shareChannel.usage.long}`);
 		})
@@ -5265,8 +5298,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareChannel.example[0])
 				.example(...unshareChannel.example[1])
 				.example(...unshareChannel.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${unshareChannel.command}\n\n${unshareChannel.usage.long}`);
 		})
@@ -5297,8 +5329,7 @@ const argv = yargs.usage(_usage)
 				.example(...createLocalizationPolicy.example[0])
 				.example(...createLocalizationPolicy.example[1])
 				.example(...createLocalizationPolicy.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createLocalizationPolicy.command}\n\n${createLocalizationPolicy.usage.long}`);
 		})
@@ -5342,8 +5373,7 @@ const argv = yargs.usage(_usage)
 				.example(...listAssets.example[3])
 				.example(...listAssets.example[4])
 				.example(...listAssets.example[5])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listAssets.command}\n\n${listAssets.usage.long}`);
 		})
@@ -5362,8 +5392,7 @@ const argv = yargs.usage(_usage)
 				.example(...createAssetUsageReport.example[2])
 				.example(...createAssetUsageReport.example[3])
 				.example(...createAssetUsageReport.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createAssetUsageReport.command}\n\n${createAssetUsageReport.usage.long}`);
 		})
@@ -5376,8 +5405,7 @@ const argv = yargs.usage(_usage)
 				.example(...listTranslationJobs.example[0])
 				.example(...listTranslationJobs.example[1])
 				.example(...listTranslationJobs.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listTranslationJobs.command}\n\n${listTranslationJobs.usage.long}`);
 		})
@@ -5417,8 +5445,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTranslationJob.example[2])
 				.example(...createTranslationJob.example[3])
 				.example(...createTranslationJob.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createTranslationJob.command}\n\n${createTranslationJob.usage.long}`);
 		})
@@ -5430,8 +5457,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...downloadTranslationJob.example[0])
 				.example(...downloadTranslationJob.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadTranslationJob.command}\n\n${downloadTranslationJob.usage.long}`);
 		})
@@ -5450,8 +5476,7 @@ const argv = yargs.usage(_usage)
 					}
 				})
 				.example(...submitTranslationJob.example[0])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${submitTranslationJob.command}\n\n${submitTranslationJob.usage.long}`);
 		})
@@ -5463,8 +5488,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...refreshTranslationJob.example[0])
 				.example(...refreshTranslationJob.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${refreshTranslationJob.command}\n\n${refreshTranslationJob.usage.long}`);
 		})
@@ -5476,8 +5500,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...ingestTranslationJob.example[0])
 				.example(...ingestTranslationJob.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${ingestTranslationJob.command}\n\n${ingestTranslationJob.usage.long}`);
 		})
@@ -5499,8 +5522,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadTranslationJob.example[1])
 				.example(...uploadTranslationJob.example[2])
 				.example(...uploadTranslationJob.example[3])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadTranslationJob.command}\n\n${uploadTranslationJob.usage.long}`);
 		})
@@ -5518,8 +5540,7 @@ const argv = yargs.usage(_usage)
 					}
 				})
 				.example(...createTranslationConnector.example[0])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createTranslationConnector.command}\n\n${createTranslationConnector.usage.long}`);
 		})
@@ -5536,8 +5557,7 @@ const argv = yargs.usage(_usage)
 				.example(...startTranslationConnector.example[0])
 				.example(...startTranslationConnector.example[1])
 				.example(...startTranslationConnector.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${startTranslationConnector.command}\n\n${startTranslationConnector.usage.long}`);
 		})
@@ -5581,8 +5601,7 @@ const argv = yargs.usage(_usage)
 						return true;
 				})
 				.example(...registerTranslationConnector.example[0])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${registerTranslationConnector.command}\n\n${registerTranslationConnector.usage.long}`);
 		})
@@ -5595,8 +5614,7 @@ const argv = yargs.usage(_usage)
 				.example(...createFolder.example[0])
 				.example(...createFolder.example[1])
 				.example(...createFolder.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createFolder.command}\n\n${createFolder.usage.long}`);
 		})
@@ -5632,8 +5650,7 @@ const argv = yargs.usage(_usage)
 				.example(...shareFolder.example[1])
 				.example(...shareFolder.example[2])
 				.example(...shareFolder.example[3])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${shareFolder.command}\n\n${shareFolder.usage.long}`);
 		})
@@ -5661,8 +5678,7 @@ const argv = yargs.usage(_usage)
 				.example(...unshareFolder.example[1])
 				.example(...unshareFolder.example[2])
 				.example(...unshareFolder.example[3])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${unshareFolder.command}\n\n${unshareFolder.usage.long}`);
 		})
@@ -5684,8 +5700,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadFolder.example[5])
 				.example(...downloadFolder.example[6])
 				.example(...downloadFolder.example[7])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadFolder.command}\n\n${downloadFolder.usage.long}`);
 		})
@@ -5707,8 +5722,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadFolder.example[5])
 				.example(...uploadFolder.example[6])
 				.example(...uploadFolder.example[7])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadFolder.command}\n\n${uploadFolder.usage.long}`);
 		})
@@ -5728,8 +5742,7 @@ const argv = yargs.usage(_usage)
 				.example(...deleteFolder.example[3])
 				.example(...deleteFolder.example[4])
 				.example(...deleteFolder.example[5])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${deleteFolder.command}\n\n${deleteFolder.usage.long}`);
 		})
@@ -5749,8 +5762,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadFile.example[3])
 				.example(...uploadFile.example[4])
 				.example(...uploadFile.example[5])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadFile.command}\n\n${uploadFile.usage.long}`);
 		})
@@ -5771,8 +5783,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadFile.example[4])
 				.example(...downloadFile.example[5])
 				.example(...downloadFile.example[6])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadFile.command}\n\n${downloadFile.usage.long}`);
 		})
@@ -5792,8 +5803,7 @@ const argv = yargs.usage(_usage)
 				.example(...deleteFile.example[3])
 				.example(...deleteFile.example[4])
 				.example(...deleteFile.example[5])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${deleteFile.command}\n\n${deleteFile.usage.long}`);
 		})
@@ -5817,8 +5827,7 @@ const argv = yargs.usage(_usage)
 				.example(...createGroup.example[1])
 				.example(...createGroup.example[2])
 				.example(...createGroup.example[3])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createGroup.command}\n\n${createGroup.usage.long}`);
 		})
@@ -5830,8 +5839,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...deleteGroup.example[0])
 				.example(...deleteGroup.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${deleteGroup.command}\n\n${deleteGroup.usage.long}`);
 		})
@@ -5862,8 +5870,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...addMemberToGroup.example[0])
 				.example(...addMemberToGroup.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${addMemberToGroup.command}\n\n${addMemberToGroup.usage.long}`);
 		})
@@ -5880,8 +5887,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...removeMemberFromGroup.example[0])
 				.example(...removeMemberFromGroup.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${removeMemberFromGroup.command}\n\n${removeMemberFromGroup.usage.long}`);
 		})
@@ -5913,8 +5919,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadRecommendation.example[1])
 				.example(...downloadRecommendation.example[2])
 				.example(...downloadRecommendation.example[3])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadRecommendation.command}\n\n${downloadRecommendation.usage.long}`);
 		})
@@ -5931,16 +5936,14 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...uploadRecommendation.example[0])
 				.example(...uploadRecommendation.example[1])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadRecommendation.command}\n\n${uploadRecommendation.usage.long}`);
 		})
 	.command([createEncryptionKey.command, createEncryptionKey.alias], false,
 		(yargs) => {
 			yargs.example(...createEncryptionKey.example[0])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createEncryptionKey.command}\n\n${createEncryptionKey.usage.long}`);
 		})
@@ -6017,8 +6020,7 @@ const argv = yargs.usage(_usage)
 				.example(...registerServer.example[2])
 				.example(...registerServer.example[3])
 				.example(...registerServer.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${registerServer.command}\n\n${registerServer.usage.long}`);
 		})
@@ -6031,8 +6033,7 @@ const argv = yargs.usage(_usage)
 					demandOption: true
 				})
 				.example(...setOAuthToken.example[0])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${setOAuthToken.command}\n\n${setOAuthToken.usage.long}`);
 		})
@@ -6047,16 +6048,17 @@ const argv = yargs.usage(_usage)
 					alias: 's',
 					description: 'The registered OCE server'
 				})
-				.help('help')
-				.alias('help', 'h')
+				.example(...executeGet.example[0])
+				.example(...executeGet.example[1])
+				.example(...executeGet.example[2])
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${executeGet.command}\n\n${executeGet.usage.long}`);
 		})
 	.command([install.command, install.alias], false,
 		(yargs) => {
 			yargs.example(...install.example[0])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${install.command}\n\n${install.usage.long}`);
 		})
@@ -6077,8 +6079,7 @@ const argv = yargs.usage(_usage)
 				.example(...develop.example[0])
 				.example(...develop.example[1])
 				.example(...develop.example[2])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${develop.command}\n\n${develop.usage.long}`);
 		})
@@ -6144,10 +6145,49 @@ const argv = yargs.usage(_usage)
 				.example(...syncServer.example[4])
 				.example(...syncServer.example[5])
 				.example(...syncServer.example[6])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${syncServer.command}\n\n${syncServer.usage.long}`);
+		})
+	.command([webhookServer.command, webhookServer.alias], false,
+		(yargs) => {
+			yargs
+				.option('type', {
+					alias: 't',
+					description: 'The webhook server type [' + getWebhookTypes().join(' | ') + ']',
+					demandOption: true
+				})
+				.option('contenttype', {
+					alias: 'c',
+					description: 'The content type',
+					demandOption: true
+				})
+				.option('detailpage', {
+					alias: 'd',
+					description: 'The full url of the sit detail page for this type',
+					demandOption: true
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCE server',
+					demandOption: true
+				})
+				.option('port', {
+					alias: 'p',
+					description: 'Set port. Defaults to 8087.'
+				})
+				.check((argv) => {
+					if (argv.type && !getWebhookTypes().includes(argv.type)) {
+						throw new Error(`${argv.type} is not a valid value for <type>`);
+					}
+					return true;
+				})
+				.example(...webhookServer.example[0])
+				.example(...webhookServer.example[1])
+				.example(...webhookServer.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${webhookServer.command}\n\n${webhookServer.usage.long}`);
 		})
 	.command([compilationServer.command, compilationServer.alias], false,
 		(yargs) => {
@@ -6185,15 +6225,17 @@ const argv = yargs.usage(_usage)
 				.example(...compilationServer.example[2])
 				.example(...compilationServer.example[3])
 				.example(...compilationServer.example[4])
-				.help('help')
-				.alias('help', 'h')
+				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${compilationServer.command}\n\n${compilationServer.usage.long}`);
 		})
-	.help('help')
-	.alias('help', 'h')
+	.help(false)
 	.version()
 	.alias('version', 'v')
+	.option('help', {
+		alias: 'h',
+		description: 'Show Help'
+	})
 	.strict()
 	.wrap(yargs.terminalWidth())
 	.fail((msg, err, yargs) => {
@@ -6201,15 +6243,22 @@ const argv = yargs.usage(_usage)
 		if (msg.indexOf('Not enough non-option arguments') < 0) {
 			console.log(msg);
 		}
+		console.log('');
 		process.exit(1);
 	})
 	.argv;
 
-if (!argv._[0]) {
+if (!argv._[0] || argv.help) {
 	// prints to stdout
 	yargs.showHelp('log');
+	console.log('');
 	return;
 }
+
+
+// Display timestamp
+var d = new Date();
+console.log(d.toUTCString());
 
 // Display toolkit version
 if (fs.existsSync(path.join(appRoot, 'package.json'))) {
@@ -6953,6 +7002,31 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		controlContentArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, controlContentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === transferContent.name || argv._[0] === transferContent.alias) {
+	let transferContentArgs = ['run', '-s', transferContent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--repository', argv.repository,
+		'--server', argv.server,
+		'--destination', argv.destination
+	];
+	if (argv.channel) {
+		transferContentArgs.push(...['--channel', argv.channel]);
+	}
+	if (argv.publishedassets) {
+		transferContentArgs.push(...['--publishedassets', argv.publishedassets]);
+	}
+	if (argv.number) {
+		transferContentArgs.push(...['--number', argv.number]);
+	}
+	if (argv.execute) {
+		transferContentArgs.push(...['--execute', argv.execute]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, transferContentArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -7731,6 +7805,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.contenttype) {
 		compileContentArgs.push(...['--contenttype', argv.contenttype]);
+	}
+	if (argv.repositoryId) {
+		compileContentArgs.push(...['--repositoryId', argv.repositoryId]);
 	}
 	if (argv.renditionJobId) {
 		compileContentArgs.push(...['--renditionJobId', argv.renditionJobId]);
@@ -8552,6 +8629,25 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		cwd,
 		stdio: 'inherit'
 	});
+} else if (argv._[0] === webhookServer.name || argv._[0] === webhookServer.alias) {
+	let webhookServerArgs = ['run', '-s', webhookServer.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--server', argv.server,
+		'--type', argv.type,
+		'--contenttype', argv.contenttype,
+		'--detailpage', argv.detailpage
+	];
+
+	if (argv.port) {
+		webhookServerArgs.push(...['--port', argv.port]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, webhookServerArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === compilationServer.name || argv._[0] === compilationServer.alias) {
 	let compilationServerArgs = ['run', '-s', compilationServer.name, '--prefix', appRoot,
 		'--',

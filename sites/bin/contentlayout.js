@@ -73,7 +73,9 @@ module.exports.listServerContentTypes = function (argv, done) {
 			done();
 			return;
 		}
-		var typesPromise = serverUtils.getContentTypesFromServer(server);
+		var typesPromise = serverRest.getContentTypes({
+			server: server
+		});
 		typesPromise.then(function (result) {
 			var types = result && result.items;
 			var typeFound = false;
@@ -186,7 +188,9 @@ module.exports.createContentLayout = function (argv, done) {
 	if (useserver) {
 
 		// verify the content type
-		var typesPromise = serverUtils.getContentTypesFromServer(server);
+		var typesPromise = serverRest.getContentTypes({
+			server: server
+		});
 		typesPromise.then(function (result) {
 			var types = result && result.items || [];
 			var foundtype = false,
@@ -204,28 +208,29 @@ module.exports.createContentLayout = function (argv, done) {
 				return;
 			}
 
-			serverUtils.getContentTypeFieldsFromServer(server, contenttypename, function (typefields) {
-				if (!typefields || typefields.length === 0) {
-					console.error('ERROR: content type ' + contenttypename + ' does not have any field');
-					done();
-					return;
-				}
-				var fields = [],
-					typeprefix = contenttypename.toLowerCase();
+			var typefields = contenttype.fields;
 
-				for (var i = 0; i < typefields.length; i++) {
-					var field = typefields[i];
-					fields[fields.length] = field;
-				}
-				if (fields.length === 0) {
-					console.error('ERROR: content type ' + contenttypename + ' does not have any field');
-					done();
-					return;
-				}
+			if (!typefields || typefields.length === 0) {
+				console.error('ERROR: content type ' + contenttypename + ' does not have any field');
+				done();
+				return;
+			}
+			var fields = [],
+				typeprefix = contenttypename.toLowerCase();
 
-				contenttype['fields'] = fields;
-				_createContentLayout(contenttypename, contenttype, layoutname, layoutstyle, true, addcustomsettings, done);
-			});
+			for (var i = 0; i < typefields.length; i++) {
+				var field = typefields[i];
+				fields[fields.length] = field;
+			}
+			if (fields.length === 0) {
+				console.error('ERROR: content type ' + contenttypename + ' does not have any field');
+				done();
+				return;
+			}
+
+			contenttype['fields'] = fields;
+			_createContentLayout(contenttypename, contenttype, layoutname, layoutstyle, true, addcustomsettings, done);
+
 		});
 
 	} else {
@@ -802,7 +807,7 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 									'// Retrieve the reference item from the query result.' +
 									os.EOL + ident3 +
 									'if (data["' + field.name + '"] && data["' + field.name + '"].id === item.id) {' + os.EOL;
-								
+
 								if (field.referenceType && field.referenceType.typeCategory === 'DigitalAssetType') {
 									refstr = refstr +
 										ident4 + 'item["url"] = contentClient.getRenditionURL({"id": item.id});' + os.EOL +
@@ -811,7 +816,7 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 										ident4 + 'item["renderAsVideo"] = mimeType && mimeType.indexOf("video/") === 0;' + os.EOL +
 										ident4 + 'item["renderAsDownload"] = !mimeType || (mimeType.indexOf("image/") !== 0 && mimeType.indexOf("video/") !== 0);' + os.EOL;
 								}
-								
+
 								refstr = refstr +
 									ident4 + 'data["' + field.name + '"]["contentItem"] = item;' + os.EOL +
 									ident3 + '}';

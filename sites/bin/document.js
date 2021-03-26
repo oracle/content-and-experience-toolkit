@@ -531,6 +531,9 @@ module.exports.downloadFile = function (argv, done) {
 				done(true);
 			})
 			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
 				done();
 			});
 	}); // login 

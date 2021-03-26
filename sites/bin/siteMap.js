@@ -1139,7 +1139,10 @@ var _prepareData = function (server, site, languages, done) {
 				if (contentTypes.length > 0) {
 					for (var i = 0; i < contentTypes.length; i++) {
 						contentTypeNames.push(contentTypes[i]);
-						contentTypesPromise.push(serverUtils.getContentTypeFromServer(server, contentTypes[i]));
+						contentTypesPromise.push(serverRest.getContentType({
+							server: server,
+							name: contentTypes[i]
+						}));
 					}
 				}
 

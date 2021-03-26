@@ -240,6 +240,19 @@ var _getRequestAuth = function (server) {
 	return auth;
 };
 
+/**
+ * Return the Authorization for request headers
+ * @param server the object obtained from API getConfiguredServer()
+ */
+module.exports.getRequestAuthorization = function (server) {
+	return _getRequestAuthorization(server);
+};
+var _getRequestAuthorization = function (server) {
+	var auth = server.env === 'dev_ec' || !server.oauthtoken ? ('Basic ' + _btoa(server.username + ':' + server.password)) : ((server.tokentype || 'Bearer') + ' ' + server.oauthtoken);
+
+	return auth;
+};
+
 module.exports.verifyServer = function (serverName, currPath, showError) {
 	return _verifyServer(serverName, currPath, showError);
 };
@@ -374,6 +387,14 @@ var _unescapeHTML = function (str) {
 		return str;
 	}
 };
+
+module.exports.lpad = function (str, char, width) {
+	return _lpad(str, char, width);
+};
+var _lpad = function (s, char, width) {
+	return (s.length >= width) ? s : (new Array(width).join(char) + s).slice(-width);
+};
+
 
 module.exports.fixHeaders = (origResponse, response) => {
 	_fixHeaders(origResponse, response);
@@ -1114,152 +1135,19 @@ module.exports.getContentType = function (projectDir, typeName, templateName) {
 	return contenttype;
 };
 
-/**
- * Get content types from server
- */
-module.exports.getContentTypesFromServer = function (server) {
-	var contentTypesPromise = new Promise(function (resolve, reject) {
-		if (!server || !server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			return resolve({
-				err: 'no server'
-			});
-		}
-
-		var request = _getRequest();
-		var url = server.url + '/content/management/api/v1.1/types?limit=99999';
-		var options = {
-			method: 'GET',
-			url: url,
-			auth: _getRequestAuth(server)
-		};
-
-		request(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to get types');
-				console.log(error);
-				resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				resolve(data);
-			} else {
-				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get types  : ' + msg);
-				resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-	return contentTypesPromise;
-};
-
-/**
- * Get content type from server
- */
-module.exports.getContentTypeFromServer = function (server, typename) {
-	var contentTypePromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			resolve({
-				err: 'no server'
-			});
-		}
-
-		var request = _getRequest();
-		var url = server.url + '/content/management/api/v1.1/types/' + typename;
-		var options = {
-			method: 'GET',
-			url: url,
-			auth: _getRequestAuth(server)
-		};
-		request(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to get type ' + typename);
-				console.log(error);
-				resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				resolve(data);
-			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get type ' + typename + ' : ' + msg);
-				resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-	return contentTypePromise;
-};
-
-
-/**
- * Get all fields of a content types from server
- */
-module.exports.getContentTypeFieldsFromServer = function (server, typeName, callback) {
-	if (!server.url || !server.username || !server.password) {
-		console.log('ERROR: no server is configured');
-		return;
-	}
-
-	var request = _getRequest();
-	var url = server.url + '/content/management/api/v1.1/types/' + typeName;
-	var options = {
-		method: 'GET',
-		url: url,
-		auth: _getRequestAuth(server)
-	};
-
-	request(options, function (error, response, body) {
-		var fields = [];
-		if (error) {
-			console.log('ERROR: failed to get type ' + typeName);
-			console.log(error);
-			callback(fields);
-		}
-		var data;
-		try {
-			data = JSON.parse(body);
-		} catch (e) {
-			data = body;
-		}
-		if (response && response.statusCode === 200) {
-			fields = data && data.fields;
-			callback(fields);
-		} else {
-			var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-			console.log('ERROR: failed to get type ' + typeName + ' : ' + msg);
-			callback(fields);
-		}
-	});
-};
 
 module.exports.getCaasCSRFToken = function (server) {
 	var csrfTokenPromise = new Promise(function (resolve, reject) {
-		var request = _getRequest();
 		var url = server.url + '/content/management/api/v1.1/token';
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: _getRequestAuth(server)
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
 		};
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get CSRF token');
 				console.log(error);
@@ -2244,10 +2132,10 @@ var _loginToServer = function (server, request) {
 	} else if (server.oauthtoken) {
 		// console.log(server);
 		// verify the token
-		return _getIdcToken(server)
+		return _getConnection(server)
 			.then(function (result) {
-				var idcToken = result && result.idcToken;
-				if (!idcToken) {
+				var userId = result && result.user && result.user.id;
+				if (!userId) {
 					server.login = false;
 					server.oauthtoken = '';
 					// remove the expired/invalid token
@@ -2257,7 +2145,7 @@ var _loginToServer = function (server, request) {
 					return _loginToServer(server, request);
 				} else {
 					return Promise.resolve({
-						status: idcToken ? true : false
+						status: userId ? true : false
 					});
 				}
 			});
@@ -2282,6 +2170,45 @@ var _loginToServer = function (server, request) {
 		// default
 		return _loginToPODServer(server);
 	}
+};
+
+var _getConnection = function (server) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/osn/social/api/v1/connections';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log(' - failed to get connect');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				var msg = response.statusMessage || response.statusCode;
+				console.log(' - failed to connect : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
 };
 
 module.exports.timeUsed = function (start, end) {

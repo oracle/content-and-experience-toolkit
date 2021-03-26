@@ -2982,8 +2982,7 @@ module.exports.createAssetUsageReport = function (argv, done) {
 						}
 					}
 					if (!found) {
-						done();
-						return;
+						return Promise.reject();
 					}
 				}
 
@@ -2992,7 +2991,7 @@ module.exports.createAssetUsageReport = function (argv, done) {
 				return _getItemValues(server, itemIds, 'relationships');
 			})
 			.then(function (result) {
-				itemRelationships = result;
+				itemRelationships = result || [];
 				var i, j;
 				for (i = 0; i < items.length; i++) {
 					var item = items[i];
@@ -3444,7 +3443,7 @@ var _createItemData = function (item, refItems) {
 
 	var referenceItems = [];
 	var i;
-	if (item.references.length > 0) {
+	if (item && item.references && item.references.length > 0) {
 		for (i = 0; i < item.references.length; i++) {
 			var refItem = _findItem(item.references[i]);
 			if (refItem) {
@@ -3459,7 +3458,7 @@ var _createItemData = function (item, refItems) {
 	}
 
 	var referencedByItems = [];
-	if (item.referencedBy.length > 0) {
+	if (item && item.referencedBy && item.referencedBy.length > 0) {
 		for (i = 0; i < item.referencedBy.length; i++) {
 			var refByItem = _findItem(item.referencedBy[i]);
 			if (refByItem) {
@@ -3477,7 +3476,7 @@ var _createItemData = function (item, refItems) {
 	data.referencedByItems = referencedByItems;
 
 	var variations = [];
-	if (item.variations.length > 0) {
+	if (item && item.variations && item.variations.length > 0) {
 		for (i = 0; i < item.variations.length; i++) {
 			var variation = item.variations[i];
 			if (variation.varType === 'language') {

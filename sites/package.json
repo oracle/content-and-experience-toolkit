@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "21.1.3",
+	"version": "21.2.1",
 	"license": "UPL-1.0",
 	"description": "Oracle Content and Experience Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content and Experience.",
 	"main": "index.js",
@@ -11,6 +11,7 @@
 		"postinstall": "gulp --gulpfile bin/gulpfile.js copy-libs && npm install bin/cec --no-save || npm install bin\\cec --no-save",
 		"start": "node test/server.js",
 		"start-sync": "node test/sync-server.js",
+		"start-webhook": "node test/webhook-server.js",
 		"start-compilation": "node test/compilation-server.js",
 		"debug": "node --inspect --debug-brk test/server.js",
 		"check-version": "gulp -LL --gulpfile bin/gulpfile.js check-version ",
@@ -42,6 +43,7 @@
 		"download-content": "gulp -LL --gulpfile bin/gulpfile.js download-content ",
 		"upload-content": "gulp -LL --gulpfile bin/gulpfile.js upload-content ",
 		"control-content": "gulp -LL --gulpfile bin/gulpfile.js control-content ",
+		"transfer-content": "gulp -LL --gulpfile bin/gulpfile.js transfer-content ",
 		"copy-assets": "gulp -LL --gulpfile bin/gulpfile.js copy-assets ",
 		"rename-content-type": "gulp -LL --gulpfile bin/gulpfile.js rename-content-type ",
 		"download-taxonomy": "gulp -LL --gulpfile bin/gulpfile.js download-taxonomy ",
@@ -138,6 +140,7 @@
 		"install-src": "gulp -LL --gulpfile bin/gulpfile.js install-src ",
 		"develop": "gulp -LL --gulpfile bin/gulpfile.js develop ",
 		"sync-server": "gulp -LL --gulpfile bin/gulpfile.js sync-server ",
+		"webhook-server": "gulp -LL --gulpfile bin/gulpfile.js webhook-server ",
 		"compilation-server": "gulp -LL --gulpfile bin/gulpfile.js compilation-server"
 	},
 	"repository": {
@@ -172,6 +175,7 @@
 		"marked": "0.7.0",
 		"mocha": "8.2.1",
 		"mustache": "3.1.0",
+		"node-fetch": "2.6.1",
 		"puppeteer": "2.0.0",
 		"request": "2.88.0",
 		"semver": "7.1.3",
