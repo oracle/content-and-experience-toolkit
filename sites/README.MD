@@ -61,33 +61,22 @@ cec develop
 
 * the runtime test harness can be accessed from the browser using address: [http://localhost:8085](http://localhost:8085)
 
-* Your components, themes, templates, layouts can all be found in `src/main`
+* Your components, themes, templates, layouts can all be found in `src/`
  
-## Using a Content and Experience instance for local testing
 
-The CEC instance can be used for the following things:
-
-* Testing components like Sample-File-List which access content
-* Generating Content Layouts from content types stored in CEC
-* Rendering Content Layouts using content from CEC
-* Exporting and Importing templates, and components from / to CEC into local file system
- 
-The steps are as follows:
-
-* Update `cec.properties` file to point to your CEC instance.  Note for internal compute CEC instances, use `cec_env=pod`
- 
-```
-cec_url=https://<documents-hostname>:443
-cec_username=your.username
-cec_password=your.password
-cec_env=pod_ec
-```
-
-`cec.properties` file will be loaded from your current working directory.  Alternatively, you can use an environment variable to specify the location.  E.g.:
+## Setup connections to your OCE instances
+You can have one, two, or more registered servers, based on your scenario.  It could be for example, DEV, TEST, PROD, or DEV, PROD.
 
 ```
-# optional
-export CEC_PROPERTIES=~/my.properties
+cec register-server DEV -e https://your-dev-instance.com -u user -p password
+cec register-server UAT -e https://your-test-instance.com -u user -p password
+cec register-server PROD -e https://your-production-instance.com -u user -p password
+```
+
+Test your connections as follows:
+
+```
+cec list --server DEV
 ```
 
 ## Using an IDCS Application to access CEC Instance to have a CLI without Chromium popup for Authentication
