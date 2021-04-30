@@ -15,10 +15,7 @@ var express = require('express'),
 	fs = require('fs'),
 	path = require('path'),
 	url = require('url'),
-	argv = require('yargs').argv,
 	request = require('request'),
-	http = require('http'),
-	cors = require('cors'),
 	puppeteer = require('puppeteer'),
 	documentsRouter = require('./server/documentsRouter.js'),
 	contentRouter = require('./server/contentRouter.js'),
@@ -43,12 +40,12 @@ var serverName = process.env.CEC_TOOLKIT_SERVER || '';
 if (serverName && !fs.existsSync(path.join(srcfolder, 'servers', serverName, 'server.json'))) {
 	console.log('ERROR: server ' + serverName + ' does not exist');
 	process.exit(1);
-};
+}
 var useCAASServer = serverName ? true : false;
 var server = serverUtils.verifyServer(serverName, projectDir);
 if (serverName && (!server || !server.valid)) {
 	process.exit(1);
-};
+}
 // console.log('cecDir: ' + cecDir + ' projectDir: ' + projectDir + ' port: ' + port + ' server: ' + serverName);
 
 // console.log('Configured server=' + JSON.stringify(server));
@@ -74,9 +71,6 @@ app.locals.currentContentItem = {
 };
 app.locals.documents = [];
 app.locals.currentContentTypes = [];
-
-// allow cross-origin requests for all
-app.use(cors());
 
 // enable cookies
 request = request.defaults({
@@ -553,100 +547,7 @@ app.get('/getvbcsconnection', function (req, res) {
 		res.end();
 	});
 });
-
-app.get('/getcontentlayoutmappings', function (req, res) {
-	if (!app.locals.serverURL) {
-		res.write(JSON.stringify([]));
-		res.end();
-		return;
-	}
-	var location = app.locals.serverURL + '/documents/web?IdcService=CAAS_BROWSE_CONTENT_TYPES&suppressHttpErrorCodes=1&folderCount=100&folderStartRow=0&foldersSortField=fFolderName&foldersSortOrder=Asc&doRetrieveMetadata=1';
-	console.log('Remote traffic:', location);
-	var options = {
-		isJson: true,
-		timeout: 1000
-	};
-	if (app.locals.server.env !== 'dev_ec') {
-		options['auth'] = {
-			bearer: app.locals.server.oauthtoken
-		};
-	}
-	request(location, options, function (err, response, body) {
-		var mappings = [];
-		if (response && response.statusCode === 200) {
-			var data = JSON.parse(body);
-			if (data && data.ResultSets) {
-				var contentTypes = data.ResultSets.ContentTypes,
-					layoutMappings = data.ResultSets.xCaasTypeCategoryLayoutMappingCollection,
-					types = [];
-				if (contentTypes) {
-					var typeIdIdx = -1,
-						typeNameIdx = -1;
-					for (var i = 0; i < contentTypes.fields.length; i++) {
-						if (contentTypes.fields[i].name === 'fFolderGUID') {
-							typeIdIdx = i;
-						} else if (contentTypes.fields[i].name === 'fFolderName') {
-							typeNameIdx = i;
-						}
-						if (typeIdIdx >= 0 && typeNameIdx >= 0) {
-							break;
-						}
-					}
-					if (typeIdIdx >= 0 && typeNameIdx >= 0) {
-						for (var i = 0; i < contentTypes.rows.length; i++) {
-							types[i] = {
-								id: contentTypes.rows[i][typeIdIdx],
-								name: contentTypes.rows[i][typeNameIdx]
-							};
-						}
-					}
-				} // content type
-				// console.log('types: ' + JSON.stringify(types));
-
-				if (types.length > 0 && layoutMappings) {
-					var categoryNameIdx = -1,
-						layoutNameIdx = -1,
-						typeIdIdx = -1;
-					for (var i = 0; i < layoutMappings.fields.length; i++) {
-						if (layoutMappings.fields[i].name === 'xCaasCategoryName') {
-							categoryNameIdx = i;
-						} else if (layoutMappings.fields[i].name === 'xCaasLayoutName') {
-							layoutNameIdx = i;
-						} else if (layoutMappings.fields[i].name === 'dParentMetadataUnitID') {
-							typeIdIdx = i;
-						}
-						if (categoryNameIdx >= 0 && layoutNameIdx >= 0 && typeIdIdx >= 0) {
-							break;
-						}
-					}
-					if (categoryNameIdx >= 0 && layoutNameIdx >= 0) {
-						for (var i = 0; i < types.length; i++) {
-							var categoryList = [];
-							for (var j = 0; j < layoutMappings.rows.length; j++) {
-								if (layoutMappings.rows[j][typeIdIdx] === types[i].id) {
-									categoryList.push({
-										categoryName: layoutMappings.rows[j][categoryNameIdx],
-										layoutName: layoutMappings.rows[j][layoutNameIdx]
-									});
-								}
-							}
-							mappings[i] = {
-								type: types[i].name,
-								categoryList: categoryList
-							};
-						}
-					}
-				}
-			}
-
-		} else {
-			console.log('status=' + JSON.stringify(response) + ' err=' + err);
-		}
-		console.log(' - layout mapping: ' + JSON.stringify(mappings));
-		res.write(JSON.stringify(mappings));
-		res.end();
-	});
-});
+	
 
 app.get('/public/components', function (req, res) {
 	"use strict";

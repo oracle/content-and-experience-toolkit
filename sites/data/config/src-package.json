@@ -29,7 +29,7 @@
 		"del": "5.1.0",
 		"fs-extra": "9.0.0",
 		"gulp": "4.0.2",
-		"gulp-replace": "1.0.0",
+		"gulp-replace": "1.1.1",
 		"lodash": "4.17.20",
 		"marked": "0.7.0",
 		"mocha": "8.2.1",

@@ -14,7 +14,6 @@ var express = require('express'),
 	fs = require('fs'),
 	path = require('path'),
 	request = require('request'),
-	cors = require('cors'),
 	siteLib = require('../bin/site.js'),
 	serverUtils = require('./server/serverUtils.js');
 
@@ -61,7 +60,6 @@ for (var i = 0; i < typeNames.length; i++) {
 }
 // console.log(typeDetailPages);
 
-app.use(cors());
 app.use(express.json());
 
 // enable cookies

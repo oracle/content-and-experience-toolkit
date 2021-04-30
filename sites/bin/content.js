@@ -132,7 +132,7 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 			fs.mkdirSync(destdir);
 		}
 
-		var request = serverUtils.getRequest();
+		var request = require('../test/server/requestUtils.js').request;
 
 		var channelId = '';
 		var channelName = '';
@@ -505,14 +505,15 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 			});
 		}
 
-		var auth = serverUtils.getRequestAuth(server);
 		// Get CSRF token
 		var csrfTokenPromise = new Promise(function (resolve, reject) {
 			var tokenUrl = server.url + '/content/management/api/v1.1/token';
 
 			var options = {
 				url: tokenUrl,
-				'auth': auth
+				headers: {
+					Authorization: serverUtils.getRequestAuthorization(server)
+				}
 			};
 			request.get(options, function (err, response, body) {
 				if (err) {
@@ -568,14 +569,14 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 				headers: {
 					'Content-Type': 'application/json',
 					'X-CSRF-TOKEN': csrfToken,
-					'X-REQUESTED-WITH': 'XMLHttpRequest'
+					'X-REQUESTED-WITH': 'XMLHttpRequest',
+					Authorization: serverUtils.getRequestAuthorization(server)
 				},
-				auth: auth,
 				body: JSON.stringify(postData)
 			};
 			// console.log(JSON.stringify(options));
 
-			request(options, function (err, response, body) {
+			request.post(options, function (err, response, body) {
 				if (err) {
 					console.log('ERROR: Failed to export');
 					console.log(err);
@@ -630,9 +631,9 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 								if (downloadLink) {
 									options = {
 										url: downloadLink,
-										auth: auth,
 										headers: {
-											'Content-Type': 'application/zip'
+											'Content-Type': 'application/zip',
+											Authorization: serverUtils.getRequestAuthorization(server)
 										},
 										timeout: 3600000,
 										encoding: null
@@ -842,6 +843,7 @@ var _uploadContentFromZipFile = function (args) {
 		zippath = args.zippath,
 		repositoryName = args.repositoryName,
 		repositoryId = args.repositoryId,
+		repositoryType = args.repositoryType,
 		channelName = args.channelName,
 		channelId = args.channelId,
 		collectionName = args.collectionName,
@@ -850,8 +852,6 @@ var _uploadContentFromZipFile = function (args) {
 		typesOnly = args.typesOnly,
 		hasTax = args.hasTax,
 		errorMessage;
-
-	var request = serverUtils.getRequest();
 
 	var format = '   %-15s %-s';
 	var importSuccess = false;
@@ -895,7 +895,7 @@ var _uploadContentFromZipFile = function (args) {
 				console.log(' - get CSRF token');
 
 				var importTypes = typesOnly || hasTax;
-				return _importContent(request, server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent, importTypes);
+				return _importContent(server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent, importTypes);
 
 			}).then(function (result) {
 
@@ -911,7 +911,7 @@ var _uploadContentFromZipFile = function (args) {
 					if (typeof collectionName === 'string') {
 						console.log(sprintf(format, 'collection', collectionName));
 					}
-					if (typeof channelName === 'string') {
+					if (channelId && typeof channelName === 'string') {
 						console.log(sprintf(format, 'channel', channelName));
 					}
 					importSuccess = true;
@@ -923,7 +923,7 @@ var _uploadContentFromZipFile = function (args) {
 					importTypes = false;
 					importSuccess = false;
 					importAgainPromises.push(
-						_importContent(request, server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent, importTypes));
+						_importContent(server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent, importTypes));
 				}
 
 				return Promise.all(importAgainPromises);
@@ -1048,17 +1048,32 @@ module.exports.uploadContent = function (argv, done) {
 			return;
 		}
 
-		_contentHasTaxonomy(name, isTemplate, isFile, filePath)
+		serverRest.getRepositoryWithName({
+				server: server,
+				name: repositoryName
+			})
 			.then(function (result) {
-				var hasTax = result && result.hasTax;
+				if (!result || result.err) {
+					return Promise.reject();
+				}
 
-				_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax)
+				var repository = result.data;
+				if (argv.channel && repository.repositoryType && repository.repositoryType === 'Business') {
+					console.log(' - ' + repositoryName + ' is a business repository, channel will not be added to the repository');
+				}
+
+				_contentHasTaxonomy(name, isTemplate, isFile, filePath)
 					.then(function (result) {
-						if (result && result.err) {
-							done();
-						} else {
-							done(true);
-						}
+						var hasTax = result && result.hasTax;
+
+						_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax)
+							.then(function (result) {
+								if (result && result.err) {
+									done();
+								} else {
+									done(true);
+								}
+							});
 					});
 			});
 	});
@@ -1098,11 +1113,11 @@ var _uploadContentUtil = function (args) {
 
 var _uploadContent = function (server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var repository, repositoryId;
 		var channelId;
 		var collectionId;
+		var isBusinessRepo;
 
 		var getCollectionsPromises = [];
 		var createChannelPromises = [];
@@ -1124,7 +1139,8 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 				}
 
 				repositoryId = repository.id;
-				console.log(' - get repository');
+				isBusinessRepo = repository.repositoryType && repository.repositoryType === 'Business';
+				console.log(' - get repository (type: ' + (isBusinessRepo ? 'Business' : 'Asset') + ')');
 
 				if (collectionName) {
 					getCollectionsPromises.push(serverRest.getCollections({
@@ -1159,49 +1175,52 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 					console.log(' - get collection');
 				}
 
-				return serverRest.getChannelWithName({
+				var channelPromises = isBusinessRepo ? [] : [serverRest.getChannelWithName({
 					server: server,
 					name: channelName
-				});
+				})];
+
+				return Promise.all(channelPromises);
 
 			})
-			.then(function (result) {
+			.then(function (results) {
 
 				//
 				// Get channel
 				//
-				if (!result || result.err) {
-					return Promise.reject();
-				}
+				if (!isBusinessRepo) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
 
-				channelId = result.data && result.data.id;
+					channelId = results[0].data && results[0].data.id;
 
-				if (channelName) {
-					if (!channelId) {
-						// need to create the channel first
-						createChannelPromises.push(serverRest.createChannel({
-							server: server,
-							name: channelName
-						}));
-					} else {
-						console.log(' - get channel');
+					if (channelName) {
+						if (!channelId) {
+							// need to create the channel first
+							createChannelPromises.push(serverRest.createChannel({
+								server: server,
+								name: channelName
+							}));
+						} else {
+							console.log(' - get channel (Id: ' + channelId + ')');
+						}
 					}
 				}
-
 				return Promise.all(createChannelPromises);
 			})
 			.then(function (results) {
 				//
 				// Create channel
 				//
-				if (channelName) {
+				if (!isBusinessRepo && channelName) {
 					if (results.length > 0) {
 						if (results[0].err) {
 							return Promise.reject();
 						}
 
-						console.log(' - create channel ' + channelName);
 						channelId = results[0] && results[0].id;
+						console.log(' - create channel ' + channelName + ' (Id: ' + channelId + ')');
 					}
 
 					// check if the channel is associated with the channel
@@ -1230,7 +1249,7 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 				//
 				// add channel to repository
 				//
-				if (channelName) {
+				if (!isBusinessRepo && channelName) {
 					if (results.length > 0) {
 						if (results[0].err) {
 							return Promise.reject();
@@ -1248,6 +1267,7 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 					projectDir: projectDir,
 					repositoryName: repositoryName,
 					repositoryId: repositoryId,
+					repositoryType: repository.repositoryType,
 					channelName: channelName,
 					channelId: channelId,
 					collectionName: collectionName,
@@ -1280,11 +1300,9 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 	});
 };
 
-var _importContent = function (request, server, csrfToken, contentZipFileId, repositoryId, channelId, collectionId, updateContent, typesOnly) {
+var _importContent = function (server, csrfToken, contentZipFileId, repositoryId, channelId, collectionId, updateContent, typesOnly) {
 	var importPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/content-templates/importjobs';
-
-		var auth = serverUtils.getRequestAuth(server);
 
 		var postData = {
 			'exportDocId': contentZipFileId,
@@ -1301,6 +1319,9 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 			postData.collections = [collectionId];
 		}
 
+		// Support downgrade if advanced video not enabled
+		postData.allowVideoDowngrade = true;
+
 		if (typesOnly) {
 			url = url + '?import=types';
 		}
@@ -1311,13 +1332,15 @@ var _importContent = function (request, server, csrfToken, contentZipFileId, rep
 			headers: {
 				'Content-Type': 'application/json',
 				'X-CSRF-TOKEN': csrfToken,
-				'X-REQUESTED-WITH': 'XMLHttpRequest'
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: serverUtils.getRequestAuthorization(server)
 			},
-			auth: auth,
 			body: JSON.stringify(postData)
 		};
 		// console.log(options);
-		request(options, function (err, response, body) {
+
+		var request = require('../test/server/requestUtils.js').request;
+		request.post(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to import');
 				console.log(err);
@@ -2762,6 +2785,7 @@ module.exports.transferSiteContent = function (argv, done) {
 
 	var executeScripts = typeof argv.execute === 'string' && argv.execute.toLowerCase() === 'true';
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
+	var addtositecollection = typeof argv.addtositecollection === 'string' && argv.addtositecollection.toLowerCase() === 'true';
 	var siteName = argv.name;
 	var repositoryName = argv.repository;
 	var limit = argv.number || 500;
@@ -2782,6 +2806,7 @@ module.exports.transferSiteContent = function (argv, done) {
 	var items = [];
 	var otherItems = [];
 	var site;
+	var destSite;
 	var channelId;
 	var channelName;
 	var channelToken;
@@ -2847,7 +2872,7 @@ module.exports.transferSiteContent = function (argv, done) {
 			return sitesRest.getSite({
 				server: destServer,
 				name: siteName,
-				expand: 'channel,repository'
+				expand: 'channel,repository,defaultCollection'
 			});
 		})
 		.then(function (result) {
@@ -2855,6 +2880,9 @@ module.exports.transferSiteContent = function (argv, done) {
 				console.log('ERROR: site ' + siteName + ' not found on server ' + destServer.name);
 				return Promise.reject();
 			}
+
+			destSite = result;
+			console.log(' - site default collection (Id: ' + destSite.defaultCollection.id + ' name: ' + destSite.defaultCollection.name + ')');
 
 			// query the respotiory on the destination server
 			return serverRest.getRepositoryWithName({
@@ -2866,6 +2894,12 @@ module.exports.transferSiteContent = function (argv, done) {
 		.then(function (result) {
 			if (!result || result.err || !result.data) {
 				console.log('ERROR: repository ' + repositoryName + ' does not exist');
+				return Promise.reject();
+			}
+
+			var destRepo = result.data;
+			if (destRepo.repositoryType && destRepo.repositoryType.toLowerCase() === 'business') {
+				console.log('ERROR: repository ' + repositoryName + ' is a business repository');
 				return Promise.reject();
 			}
 
@@ -2981,8 +3015,8 @@ module.exports.transferSiteContent = function (argv, done) {
 				});
 			}
 
-			var downloadScript = 'cd ' + projectDir + os.EOL + os.EOL;
-			var uploadScript = 'cd ' + projectDir + os.EOL + os.EOL;
+			var downloadScript = 'cd "' + projectDir + '"' + os.EOL + os.EOL;
+			var uploadScript = 'cd "' + projectDir + '"' + os.EOL + os.EOL;
 			var cmd;
 			var winCall = isWindows ? 'call ' : '';
 			var zipPath;
@@ -3008,6 +3042,8 @@ module.exports.transferSiteContent = function (argv, done) {
 
 			console.log(' - total batches: ' + groups.length);
 
+			var collectionName = destServer.defaultCollection && destServer.defaultCollection.name || (siteName + ' Site');
+
 			for (var i = 0; i < groups.length; i++) {
 				ids = groups[i];
 				groupName = siteName2 + '_content_batch_' + i.toString();
@@ -3026,9 +3062,12 @@ module.exports.transferSiteContent = function (argv, done) {
 
 				// upload command for this group
 				zipPath = path.join(distFolder, groupName + '_export.zip');
-				cmd = winCall + 'cec upload-content ' + zipPath + ' -f -u';
+				cmd = winCall + 'cec upload-content "' + zipPath + '" -f -u';
 				cmd += ' -r "' + repositoryName + '"';
 				cmd += ' -c ' + channelName;
+				if (addtositecollection) {
+					cmd += ' -l "' + collectionName + '"';
+				}
 				cmd += ' -s ' + destServerName;
 
 				uploadScript += 'echo "*** upload-content ' + groupName + '"' + os.EOL;
@@ -3054,7 +3093,7 @@ module.exports.transferSiteContent = function (argv, done) {
 					downloadScript += cmd + os.EOL + os.EOL;
 
 					zipPath = path.join(distFolder, groupName + '_export.zip');
-					cmd = winCall + 'cec upload-content ' + zipPath + ' -f -u';
+					cmd = winCall + 'cec upload-content "' + zipPath + '" -f -u';
 					cmd += ' -r "' + repoMappings[i].destName + '"';
 					cmd += ' -c ' + channelName;
 					cmd += ' -s ' + destServerName;
@@ -3076,13 +3115,17 @@ module.exports.transferSiteContent = function (argv, done) {
 				var childProcess = require('child_process');
 				console.log('');
 				console.log('Executing script ' + downloadContentFileName + ' ...');
-				var downloadCmd = childProcess.execSync(downloadContentFilePath, {
+				var scriptPath = '"' + downloadContentFilePath.substring(0, downloadContentFilePath.lastIndexOf(path.sep)) + '"' +
+					downloadContentFilePath.substring(downloadContentFilePath.lastIndexOf(path.sep));
+				var downloadCmd = childProcess.execSync(scriptPath, {
 					stdio: 'inherit'
 				});
 
 				console.log('');
 				console.log('Executing script ' + uploadContentFileName + ' ...');
-				var uploadCmd = childProcess.execSync(uploadContentFilePath, {
+				scriptPath = '"' + uploadContentFilePath.substring(0, uploadContentFilePath.lastIndexOf(path.sep)) + '"' +
+					uploadContentFilePath.substring(uploadContentFilePath.lastIndexOf(path.sep));
+				var uploadCmd = childProcess.execSync(scriptPath, {
 					stdio: 'inherit'
 				});
 
@@ -3242,8 +3285,8 @@ module.exports.transferContent = function (argv, done) {
 			items = result;
 			console.log(' - total items: ' + items.length);
 
-			var downloadScript = 'cd ' + projectDir + os.EOL + os.EOL;
-			var uploadScript = 'cd ' + projectDir + os.EOL + os.EOL;
+			var downloadScript = 'cd "' + projectDir + '"' + os.EOL + os.EOL;
+			var uploadScript = 'cd "' + projectDir + '"' + os.EOL + os.EOL;
 			var cmd;
 			var winCall = isWindows ? 'call ' : '';
 			var zipPath;
@@ -3292,7 +3335,7 @@ module.exports.transferContent = function (argv, done) {
 
 				// upload command for this group
 				zipPath = path.join(distFolder, groupName + '_export.zip');
-				cmd = winCall + 'cec upload-content ' + zipPath + ' -f -u';
+				cmd = winCall + 'cec upload-content "' + zipPath + '" -f -u';
 				cmd += ' -r "' + repositoryName + '"';
 				if (channelName) {
 					cmd += ' -c "' + channelName + '"';
@@ -3316,13 +3359,17 @@ module.exports.transferContent = function (argv, done) {
 				var childProcess = require('child_process');
 				console.log('');
 				console.log('Executing script ' + downloadContentFileName + ' ...');
-				var downloadCmd = childProcess.execSync(downloadContentFilePath, {
+				var scriptPath = '"' + downloadContentFilePath.substring(0, downloadContentFilePath.lastIndexOf(path.sep)) + '"' +
+					downloadContentFilePath.substring(downloadContentFilePath.lastIndexOf(path.sep));
+				var downloadCmd = childProcess.execSync(scriptPath, {
 					stdio: 'inherit'
 				});
 
 				console.log('');
 				console.log('Executing script ' + uploadContentFileName + ' ...');
-				var uploadCmd = childProcess.execSync(uploadContentFilePath, {
+				scriptPath = '"' + uploadContentFilePath.substring(0, uploadContentFilePath.lastIndexOf(path.sep)) + '"' +
+					uploadContentFilePath.substring(uploadContentFilePath.lastIndexOf(path.sep));
+				var uploadCmd = childProcess.execSync(scriptPath, {
 					stdio: 'inherit'
 				});
 

@@ -275,10 +275,13 @@ var _readFile = function (server, id, fileName) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: auth
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		var request = serverUtils.getRequest();
-		request(options, function (error, response, body) {
+
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to download file ' + fileName);
 				console.log(error);
@@ -308,7 +311,7 @@ var _readPageFiles = function (server, files) {
 		var total = files.length;
 		console.log(' - total number of files: ' + total);
 		var groups = [];
-		var limit = 16;
+		var limit = 12;
 		var start, end;
 		for (var i = 0; i < total / limit; i++) {
 			start = i * limit;
@@ -339,8 +342,7 @@ var _readPageFiles = function (server, files) {
 						filePromises.push(_readFile(server, files[i].id, files[i].name));
 					}
 
-					count.push('.');
-					process.stdout.write(' - downloading files ' + count.join(''));
+					process.stdout.write(' - downloading files [' + param.start + ', ' + param.end + '] ...');
 					readline.cursorTo(process.stdout, 0);
 					return Promise.all(filePromises).then(function (results) {
 						fileData = fileData.concat(results);
@@ -491,9 +493,12 @@ var _getPageContent = function (server, request, channelToken, q, pageId, queryT
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (err, response, body) {
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get content: url: ' + url.replace(server.url, ''));
 				console.log(err);
@@ -1144,20 +1149,20 @@ var _updatePageIndexItem = function (server, request, dataIndex, locale, isMaste
 			var id = indexData.id;
 			var itemName = indexData.name;
 			var url = server.url + '/content/management/api/v1.1/items/' + id;
-			var auth = serverUtils.getRequestAuth(server);
 			var postData = {
 				method: 'PUT',
 				url: url,
-				auth: auth,
 				headers: {
 					'Content-Type': 'application/json',
 					'X-CSRF-TOKEN': _CSRFToken,
-					'X-REQUESTED-WITH': 'XMLHttpRequest'
+					'X-REQUESTED-WITH': 'XMLHttpRequest',
+					Authorization: serverUtils.getRequestAuthorization(server)
 				},
-				body: indexData,
+				body: JSON.stringify(indexData),
 				json: true
 			};
-			request(postData, function (err, response, body) {
+			var request = require('../test/server/requestUtils.js').request;
+			request.post(postData, function (err, response, body) {
 				if (err) {
 					console.log('ERROR: Failed to update page index item for page' + pageName + localemsg);
 					console.log(err);
@@ -2008,31 +2013,6 @@ var _indexSite = function (server, request, site, contenttype, publish, done) {
 
 };
 
-var _getCSRFToken = function (server, request) {
-	var csrfTokenPromise = new Promise(function (resolve, reject) {
-		var tokenUrl = server.url + '/content/management/api/v1.1/token';
-		var auth = serverUtils.getRequestAuth(server);
-		var options = {
-			url: tokenUrl,
-			'auth': auth
-		};
-		request.get(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get CSRF token');
-				console.log(err);
-				return resolve({});
-			}
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
-				return resolve(data);
-			} else {
-				console.log('ERROR: Failed to get CSRF token, status=' + response.statusCode);
-				return resolve({});
-			}
-		});
-	});
-	return csrfTokenPromise;
-};
 
 //
 // Tasks

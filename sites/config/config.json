@@ -7,7 +7,6 @@
             "requirejs-text",
             "require-css",            
             "jquery-ui",
-            "knockout-sortable",
             "@fortawesome/fontawesome-free",
             "webcomponents.js",
             "es6-promise",

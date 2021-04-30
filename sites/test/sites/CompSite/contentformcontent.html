@@ -170,7 +170,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			}
 
             self.prepareItems = function (data, remote) {
-				var results = data;
+				var results = data || [];
 				var items = [];
                 for (var i = 0; i < results.length; i++) {
                     var item = results[i],
@@ -302,8 +302,12 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                 async: false,
                 'url': url,
                 'success': function (data) {
-                    // prepare for the mustache template
-					var results = self.prepareItems(data, false);
+					// prepare for the mustache template
+					var results = self.prepareItems(data.items, false);
+					
+					if (data.types && data.types.length > 0) {
+						window.sessionStorage.setItem('currentContentType', JSON.stringify(data.types[0].typejson));
+					}
 
                     self.items(results);
                     self.noLocalContent(results.length === 0);

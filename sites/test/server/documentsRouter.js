@@ -121,6 +121,9 @@ router.post('/*', (req, res) => {
 			// body contains json data
 			postData.json = true;
 			postData.body = JSON.parse(body);
+		} else if (requestUrl.indexOf('/osn/fc/RemoteJSONBatch') >= 0) {
+			postData.json = true;
+			postData.body = JSON.parse(body);
 		} else {
 			// body contains URL-encoded form data
 			postData.form = body;

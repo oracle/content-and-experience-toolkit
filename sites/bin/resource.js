@@ -566,8 +566,8 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 				var repositories = results.length > 0 ? results[0] : [];
 				if (listRepositories) {
 					console.log('Repositories:');
-					var repoFormat = '  %-36s  %-16s  %-42s  %-s';
-					console.log(sprintf(repoFormat, 'Name', 'Default Language', 'Channels', 'Content Types'));
+					var repoFormat = '  %-4s  %-36s  %-16s  %-42s  %-s';
+					console.log(sprintf(repoFormat, 'Type', 'Name', 'Default Language', 'Channels', 'Content Types'));
 					for (var i = 0; i < repositories.length; i++) {
 						var repo = repositories[i];
 						var contentTypes = [];
@@ -582,7 +582,8 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 								}
 							}
 						}
-						console.log(sprintf(repoFormat, repo.name, repo.defaultLanguage, repoChannels, contentTypes));
+						var repoType = repositories[i].repositoryType === 'Business' ? ' B' : ' S';
+						console.log(sprintf(repoFormat, repoType, repo.name, repo.defaultLanguage, repoChannels, contentTypes));
 					}
 					if (repositories.length > 0) {
 						console.log('Total: ' + repositories.length);
@@ -753,7 +754,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					console.log('');
 				}
 
-				promises = listTaxonomies ? [serverUtils.browseTranslationConnectorsOnServer(request, server)] : [];
+				promises = listTranslationConnectors ? [serverUtils.browseTranslationConnectorsOnServer(request, server)] : [];
 
 				return Promise.all(promises);
 

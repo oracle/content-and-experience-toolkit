@@ -9,9 +9,7 @@
  * Content Layout library
  */
 
-var express = require('express'),
-	app = express(),
-	fs = require('fs'),
+var fs = require('fs'),
 	os = require('os'),
 	path = require('path'),
 	sprintf = require('sprintf-js').sprintf,
@@ -1657,9 +1655,7 @@ module.exports.addContentLayoutMappingServer = function (argv, done) {
 		mobile = argv.mobile.toLowerCase() === 'true';
 	}
 
-	if (mobile) {
-		layoutStyle = layoutStyle + '|mobile';
-	}
+	var format = mobile ? 'mobile' : 'desktop';
 
 	var serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
 	var server = serverUtils.verifyServer(serverName, projectDir);
@@ -1698,20 +1694,30 @@ module.exports.addContentLayoutMappingServer = function (argv, done) {
 
 				console.log(' - verify component');
 
-				return serverUtils.addContentTypeLayoutMapping(request, server, contentType, contentLayoutName, layoutStyle);
+				return serverRest.addContentTypeLayoutMapping({
+					server: server,
+					typeName: contentType,
+					contentLayout: contentLayoutName,
+					style: layoutStyle,
+					format: format
+				});
 			})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
 				}
 
-				return serverUtils.getContentTypeLayoutMapping(request, server, contentType);
+				return serverRest.getContentType({
+					server: server,
+					name: contentType,
+					expand: 'layoutMapping'
+				});
 			})
 			.then(function (result) {
 
 				console.log(' - content layout mapping ' + layoutStyle + ':' + contentLayoutName + ' added for type ' + contentType);
-				if (result.data) {
-					_displayContentLayoutMapping(result.data);
+				if (result.layoutMapping && result.layoutMapping.data) {
+					_displayContentLayoutMapping(result.layoutMapping.data);
 				}
 				done(true);
 			})
@@ -1745,9 +1751,7 @@ module.exports.removeContentLayoutMappingServer = function (argv, done) {
 		mobile = argv.mobile.toLowerCase() === 'true';
 	}
 
-	if (mobile) {
-		layoutStyle = layoutStyle + '|mobile';
-	}
+	var format = mobile ? 'mobile' : 'desktop';
 
 	var serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
 	var server = serverUtils.verifyServer(serverName, projectDir);
@@ -1786,20 +1790,30 @@ module.exports.removeContentLayoutMappingServer = function (argv, done) {
 
 				console.log(' - verify component');
 
-				return serverUtils.removeContentTypeLayoutMapping(request, server, contentType, contentLayoutName, layoutStyle);
+				return serverRest.removeContentTypeLayoutMapping({
+					server: server,
+					typeName: contentType,
+					contentLayout: contentLayoutName,
+					style: layoutStyle,
+					format: format
+				});
 			})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
 				}
 
-				return serverUtils.getContentTypeLayoutMapping(request, server, contentType);
+				return serverRest.getContentType({
+					server: server,
+					name: contentType,
+					expand: 'layoutMapping'
+				});
 			})
 			.then(function (result) {
 
 				console.log(' - content layout mapping ' + layoutStyle + ':' + contentLayoutName + ' removed for type ' + contentType);
-				if (result.data) {
-					_displayContentLayoutMapping(result.data);
+				if (result.layoutMapping && result.layoutMapping.data) {
+					_displayContentLayoutMapping(result.layoutMapping.data);
 				}
 				done(true);
 			})
@@ -1814,6 +1828,7 @@ module.exports.removeContentLayoutMappingServer = function (argv, done) {
 };
 
 var _displayContentLayoutMapping = function (mappings) {
+	// console.log(mappings);
 	console.log('');
 	var format = '   %-30s  %-30s  %-s';
 	console.log(sprintf(format, 'Layout Styles', 'Desktop Content Layout', 'Mobile Content Layout'));
@@ -1824,11 +1839,9 @@ var _displayContentLayoutMapping = function (mappings) {
 
 		for (var i = 0; i < mappings.length; i++) {
 			var mapping = mappings[i];
-			if (mapping.xCaasCategoryName === style) {
-				desktopLayout = mapping.xCaasLayoutName || desktopLayout;
-			}
-			if (mapping.xCaasCategoryName === style + '|mobile') {
-				mobileLayout = mapping.xCaasLayoutName || mobileLayout;
+			if (mapping.label === style) {
+				desktopLayout = mapping.formats && mapping.formats.desktop || desktopLayout;
+				mobileLayout = mapping.formats && mapping.formats.mobile || mobileLayout;
 			}
 		}
 		console.log(sprintf(format, style, desktopLayout, mobileLayout));
@@ -1845,10 +1858,11 @@ var _displayContentLayoutMapping = function (mappings) {
 		'Content Placeholder Default', 'Content Placeholder Default|mobile'
 	];
 	for (var i = 0; i < mappings.length; i++) {
-		var style = mappings[i].xCaasCategoryName;
-		if (!ootbStyles.includes(style) && !serverUtils.endsWith(style, '|mobile')) {
+		var style = mappings[i].label;
+		if (!ootbStyles.includes(style)) {
 			_displayOne(style);
 		}
 	}
+	console.log('');
 
 };

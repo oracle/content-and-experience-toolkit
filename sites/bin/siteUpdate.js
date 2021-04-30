@@ -206,7 +206,7 @@ SiteUpdate.prototype.updateSiteFiles = function (argv, siteEntry, updateStep, fo
 					_logFiles(updateStep, folderName, currentFileIndex, files.length);
 
 					// get the content from the filesystem
-					var contents = fs.readFileSync(file.filePath);
+					var contents = fs.createReadStream(file.filePath);
 
 					// create the file
 					return serverRest.createFile({
@@ -337,11 +337,15 @@ SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
 						currSiteInfo.properties[property] = siteinfo.properties[property];
 					});
 
+					// write the file to build
+					var tempSiteInfoFilePath = path.join(projectDir, 'build', SITE_INFO_FILE);
+					fs.writeFileSync(tempSiteInfoFilePath, JSON.stringify(currSiteInfo));
+
 					serverRest.createFile({
 						server: server,
 						parentID: siteEntry.siteGUID,
 						filename: SITE_INFO_FILE,
-						contents: JSON.stringify(currSiteInfo)
+						contents: fs.createReadStream(tempSiteInfoFilePath)
 					}).then(function (result) {
 						// note whether we successfully update the file
 						return resolve(!!result);

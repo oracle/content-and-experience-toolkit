@@ -64,6 +64,7 @@ module.exports.createRepository = function (argv, done) {
 	console.log(' - server: ' + server.url);
 
 	var name = argv.name;
+	var repoType = argv.type && argv.type === 'business' ? 'Business' : 'Standard';
 	var typeNames = argv.contenttypes ? argv.contenttypes.split(',') : [];
 	var channelNames = argv.channels ? argv.channels.split(',') : [];
 	var desc = argv.description;
@@ -163,7 +164,8 @@ module.exports.createRepository = function (argv, done) {
 					description: desc,
 					defaultLanguage: defaultLanguage,
 					contentTypes: contentTypes,
-					channels: channels
+					channels: channels,
+					repositoryType: repoType
 				});
 			})
 			.then(function (result) {
@@ -223,6 +225,7 @@ module.exports.controlRepository = function (argv, done) {
 			return;
 		}
 
+		var exitCode;
 		serverRest.getRepositories({
 				server: server
 			})
@@ -236,16 +239,28 @@ module.exports.controlRepository = function (argv, done) {
 					var found = false;
 					for (var i = 0; i < repositories.length; i++) {
 						if (name.toLowerCase() === repositories[i].name.toLowerCase()) {
-							allRepos.push(repositories[i]);
-							allRepoNames.push(name);
+							var repoType = repositories[i].repositoryType;
+							if (repoType && repoType.toLowerCase() === 'business' && (action === 'add-channel' || action === 'remove-channel')) {
+								if (action === 'add-channel') {
+									console.log('ERROR: repository ' + name + ' is a business repository');
+								} else if (action === 'remove-channel') {
+									console.log(' - repository ' + name + ' is a business repository');
+									exitCode = 2;
+								}
+							} else {
+								allRepos.push(repositories[i]);
+								allRepoNames.push(name);
+							}
 							found = true;
 							break;
 						}
 					}
 					if (!found) {
+						exitCode = 1;
 						console.log('ERROR: repository ' + name + ' does not exist');
 					}
 				});
+
 				if (allRepos.length === 0) {
 					return Promise.reject();
 				}
@@ -378,7 +393,10 @@ module.exports.controlRepository = function (argv, done) {
 				done(true);
 			})
 			.catch((error) => {
-				done();
+				if (error) {
+					console.log(error);
+				}
+				done(exitCode);
 			});
 	});
 };
@@ -613,7 +631,7 @@ module.exports.shareRepository = function (argv, done) {
 				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
 					for (var i = 0; i < allUsers.length; i++) {
-						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+						if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 							users.push(allUsers[i]);
 							found = true;
 							break;
@@ -2239,6 +2257,774 @@ module.exports.unshareChannel = function (argv, done) {
 	});
 };
 
+/**
+ * List Editorial Permissions
+ */
+module.exports.listEditorialPermission = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		var repository;
+
+		serverRest.getRepositoryWithName({
+				server: server,
+				name: name
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				repository = result.data;
+				if (!repository || !repository.id) {
+					console.log('ERROR: repository ' + name + ' does not exist');
+					return Promise.reject();
+				}
+
+				console.log(' - get repository (Id: ' + repository.id + ')');
+
+				return serverRest.getPermissionSets({
+					server: server,
+					id: repository.id,
+					name: repository.name
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var permissionSets = result && result.permissionSets;
+
+				_listPermissionSets(repository, permissionSets);
+
+				// console.log(JSON.stringify(permissionSets, null, 4));
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
+var _listPermissionSets = function (repository, data) {
+	// console.log(JSON.stringify(data, null, 4));
+	// order by user/group name
+	var byName = data.slice(0);
+	byName.sort(function (a, b) {
+		var x = a.principal.name;
+		var y = b.principal.name;
+		return (x < y ? -1 : x > y ? 1 : 0);
+	});
+	data = byName;
+
+	data.forEach(function (item) {
+		// sort by asset type name (Any Type on top)
+		if (item.contentPrivileges.length > 1) {
+			var byAssetName = item.contentPrivileges.slice(0);
+			byAssetName.sort(function (a, b) {
+				var x = a.typeName;
+				var y = b.typeName;
+				return (!x ? -1 : (!y ? 1 : (x < y ? -1 : x > y ? 1 : 0)));
+			});
+			item.contentPrivileges = byAssetName;
+		}
+
+		// sort by category name (Any Category on top)
+		if (item.taxonomyPrivileges.length > 1) {
+			var byCatName = item.taxonomyPrivileges.slice(0);
+			byCatName.sort(function (a, b) {
+				var x = a.taxonomyShortName;
+				var y = b.taxonomyShortName;
+				return (!x ? -1 : (!y ? 1 : (x < y ? -1 : x > y ? 1 : 0)));
+			});
+			item.taxonomyPrivileges = byCatName;
+		}
+	});
+
+	console.log('');
+	var format1 = '%-20s  %-53s  %-s';
+	console.log(sprintf(format1, 'Users & Groups', 'Assets', 'Taxonomies'));
+
+	var format2 = '%-20s  %-20s  %-4s  %-6s  %-6s  %-6s     %-30s  %-6s  %-s';
+	console.log(sprintf(format2, '', '', 'View', 'Update', 'Create', 'Delete', '', 'View', 'Categorize'));
+
+	data.forEach(function (item) {
+		// console.log(item.principal);
+		// console.log(item.contentPrivileges);
+		// console.log(JSON.stringify(item.taxonomyPrivileges, null, 4));
+		var idx = 0;
+		var max = Math.max(item.contentPrivileges.length, item.taxonomyPrivileges.length);
+		for (var i = 0; i < max; i++) {
+			var user = idx === 0 ? item.principal.name : '';
+			var typeLabel = '',
+				typeView = '',
+				typeUpdate = '',
+				typeCreate = '',
+				typeDelete = '';
+			var catLabel = '',
+				catView = '',
+				catCategorize = '';
+			if (idx < item.contentPrivileges.length) {
+				typeLabel = item.contentPrivileges[idx].typeName ? item.contentPrivileges[idx].typeName : 'Any Type';
+				typeView = item.contentPrivileges[idx].operations.includes('view') ? '  √' : '';
+				typeUpdate = item.contentPrivileges[idx].operations.includes('update') ? '  √' : '';
+				typeCreate = item.contentPrivileges[idx].operations.includes('create') ? '  √' : '';
+				typeDelete = item.contentPrivileges[idx].operations.includes('delete') ? '  √' : '';
+			}
+			if (idx < item.taxonomyPrivileges.length) {
+				if (item.taxonomyPrivileges[idx].categoryId) {
+					catLabel = item.taxonomyPrivileges[idx].taxonomyShortName;
+					if (item.taxonomyPrivileges[idx].nodes && item.taxonomyPrivileges[idx].nodes.length > 0) {
+						var nodeNames = [];
+						for (var j = 0; j < item.taxonomyPrivileges[idx].nodes.length; j++) {
+							nodeNames.push(item.taxonomyPrivileges[idx].nodes[j].name);
+						}
+						catLabel = catLabel + '|' + nodeNames.join('/');
+					}
+				} else {
+					catLabel = 'Any Category';
+				}
+				catView = item.taxonomyPrivileges[idx].operations.includes('view') ? '  √' : '';
+				catCategorize = item.taxonomyPrivileges[idx].operations.includes('categorize') ? '  √' : '';
+			}
+
+			console.log(sprintf(format2, user, typeLabel, typeView, typeUpdate, typeCreate, typeDelete,
+				catLabel, catView, catCategorize));
+
+			//move to next one
+			idx += 1;
+		}
+	});
+	console.log('');
+};
+
+/**
+ * Set Editorial Permissions
+ */
+module.exports.setEditorialPermission = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+	var userNames = argv.users ? argv.users.split(',') : [];
+	var groupNames = argv.groups ? argv.groups.split(',') : [];
+	var typeNames = argv.assettypes ? argv.assettypes.split(',') : [];
+	var assetPermission = argv.assetpermission;
+	var categoryNames = argv.categories ? argv.categories.split(',') : [];
+	var categoryPermission = argv.categorypermission;
+
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		const ANY_TYPE = '__cecanytype';
+		const ANY_CATEGORY = '__cecanycategory';
+		const DELETE_TYPE = '__cecdeletetype';
+		const DELETE_CATEGORY = '__cecdeletecategory';
+
+		var repository;
+		var goodUserNames = [];
+		var goodGroupNames = [];
+		var types = [];
+		var goodTypeNames = [];
+		var taxonomies = [];
+		var goodTaxonomyNames = [];
+		var goodCateNames = [];
+		var taxCategories = [];
+
+		var principals = [];
+		var permissionSets = [];
+
+		var toAdd = [];
+		var toUpdate = [];
+
+		var err;
+		serverRest.getRepositoryWithName({
+				server: server,
+				name: name
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				repository = result.data;
+				if (!repository || !repository.id) {
+					console.log('ERROR: repository ' + name + ' does not exist');
+					return Promise.reject();
+				}
+
+				console.log(' - get repository (Id: ' + repository.id + ')');
+
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+
+			})
+			.then(function (result) {
+
+				if (groupNames.length > 0) {
+					// verify groups
+					var allGroups = result || [];
+					for (var i = 0; i < groupNames.length; i++) {
+						var found = false;
+						for (var j = 0; j < allGroups.length; j++) {
+							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+								found = true;
+								goodGroupNames.push(allGroups[j].name);
+								principals.push({
+									name: allGroups[j].name,
+									type: 'group',
+									scope: allGroups[j].groupOriginType
+								});
+								break;
+							}
+						}
+						if (!found) {
+							console.log(' - WARNING: group ' + groupNames[i] + ' does not exist');
+						}
+					}
+					if (goodGroupNames.length) {
+						console.log(' - valid groups: ' + goodGroupNames);
+					}
+					// console.log(groups);
+				}
+
+				var usersPromises = [];
+				for (var i = 0; i < userNames.length; i++) {
+					usersPromises.push(serverRest.getUser({
+						server: server,
+						name: userNames[i]
+					}));
+				}
+
+				return Promise.all(usersPromises);
+			})
+			.then(function (results) {
+				var allUsers = [];
+				for (var i = 0; i < results.length; i++) {
+					if (results[i].items) {
+						allUsers = allUsers.concat(results[i].items);
+					}
+				}
+				if (userNames.length > 0) {
+					// verify users
+					for (var k = 0; k < userNames.length; k++) {
+						var found = false;
+						for (var i = 0; i < allUsers.length; i++) {
+							if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
+								principals.push({
+									name: allUsers[i].loginName,
+									type: 'user'
+								});
+								goodUserNames.push(allUsers[i].loginName);
+								found = true;
+								break;
+							}
+							if (found) {
+								break;
+							}
+						}
+						if (!found) {
+							console.log(' - WARNING: user ' + userNames[k] + ' does not exist');
+						}
+					}
+					if (goodUserNames.length) {
+						console.log(' - valid user: ' + goodUserNames);
+					}
+					// console.log(users);
+				}
+
+				if (principals.length === 0) {
+					console.log('ERROR: no valid user nor group');
+					return Promise.reject();
+				}
+
+				var typesPromises = [];
+				for (var i = 0; i < typeNames.length; i++) {
+					if (typeNames[i] !== ANY_TYPE) {
+						typesPromises.push(serverRest.getContentType({
+							server: server,
+							name: typeNames[i],
+							showError: false
+						}));
+					}
+				}
+
+				return Promise.all(typesPromises);
+
+			})
+			.then(function (results) {
+
+				if (typeNames.length > 0) {
+					// verify types
+					var allTypes = [];
+					for (var i = 0; i < results.length; i++) {
+						if (results[i] && results[i].id) {
+							allTypes = allTypes.concat(results[i]);
+						}
+					}
+
+					for (var k = 0; k < typeNames.length; k++) {
+						var found = false;
+						for (var i = 0; i < allTypes.length; i++) {
+							if (allTypes[i].name.toLowerCase() === typeNames[k].toLowerCase()) {
+								types.push(allTypes[i]);
+								goodTypeNames.push(typeNames[k]);
+								found = true;
+								break;
+							}
+							if (found) {
+								break;
+							}
+						}
+						if (!found && typeNames[k] !== ANY_TYPE) {
+							console.log(' - WARNING: asset type ' + typeNames[k] + ' does not exist, ignore');
+						}
+					}
+
+					if (goodTypeNames.length > 0) {
+						console.log(' - valid asset types: ' + goodTypeNames);
+					}
+					if (typeNames.includes(ANY_TYPE)) {
+						types.push({
+							id: '',
+							name: 'any'
+						});
+					}
+					// console.log(types);
+				}
+
+				var taxonomiesPromises = [];
+				var taxNames = [];
+				for (var i = 0; i < categoryNames.length; i++) {
+					if (categoryNames[i].indexOf(':') > 0) {
+						var taxName = categoryNames[i].substring(0, categoryNames[i].indexOf(':'));
+						if (!taxNames.includes(taxName)) {
+							taxonomiesPromises.push(serverRest.getTaxonomyWithName({
+								server: server,
+								name: taxName
+							}));
+							taxNames.push(taxName);
+						}
+					}
+				}
+
+				return Promise.all(taxonomiesPromises);
+
+			})
+			.then(function (results) {
+
+				if (categoryNames.length > 0) {
+					// verify taxonomies
+					var allTaxonomies = [];
+					for (var i = 0; i < results.length; i++) {
+						if (results[i] && results[i].data && results[i].data.name) {
+							allTaxonomies.push(results[i].data);
+						}
+					}
+
+					for (var k = 0; k < categoryNames.length; k++) {
+						if (categoryNames[k] !== ANY_CATEGORY) {
+							var taxName = categoryNames[k].substring(0, categoryNames[k].indexOf(':'));
+							var found = false;
+							for (var i = 0; i < allTaxonomies.length; i++) {
+								if (allTaxonomies[i].name === taxName) {
+									if (!goodTaxonomyNames.includes(taxName)) {
+										taxonomies.push(allTaxonomies[i]);
+										goodTaxonomyNames.push(taxName);
+									}
+									found = true;
+									break;
+								}
+							}
+							if (!found) {
+								console.log(' - WARNING: taxonomy ' + taxName + ' does not exist, ignore');
+							}
+						}
+					}
+
+					// console.log(taxonomies);
+				}
+
+				var categoryPromises = [];
+				for (var i = 0; i < taxonomies.length; i++) {
+					categoryPromises.push(serverRest.getCategories({
+						server: server,
+						taxonomyId: taxonomies[i].id,
+						taxonomyName: taxonomies[i].name
+					}));
+				}
+
+				return Promise.all(categoryPromises);
+
+			})
+			.then(function (results) {
+
+				if (categoryNames.length > 0) {
+					// verify categories
+					var allCategories = [];
+					for (var i = 0; i < results.length; i++) {
+						if (results[i] && results[i].categories) {
+							allCategories.push(results[i]);
+						}
+					}
+
+					for (var k = 0; k < categoryNames.length; k++) {
+						var found = false;
+						var cateName;
+						if (categoryNames[k] !== ANY_CATEGORY) {
+							var taxName = categoryNames[k].substring(0, categoryNames[k].indexOf(':'));
+							cateName = categoryNames[k].substring(categoryNames[k].indexOf(':') + 1);
+							// console.log(' - category name: ' + cateName);
+							for (var i = 0; i < allCategories.length; i++) {
+								if (allCategories[i].taxonomyName === taxName &&
+									allCategories[i].categories && allCategories[i].categories.length > 0) {
+									for (var j = 0; j < allCategories[i].categories.length; j++) {
+										var cateFullPath = '';
+										var ancestors = allCategories[i].categories[j].ancestors || [];
+										ancestors.forEach(function (ancestor) {
+											if (cateFullPath) {
+												cateFullPath = cateFullPath + '/';
+											}
+											cateFullPath = cateFullPath + ancestor.name;
+										});
+										if (cateFullPath) {
+											cateFullPath = cateFullPath + '/';
+										}
+										cateFullPath = cateFullPath + allCategories[i].categories[j].name;
+
+										if (cateName.indexOf('/') > 0) {
+											if (cateFullPath === cateName) {
+												found = true;
+											}
+										} else {
+											if (allCategories[i].categories[j].name === cateName) {
+												found = true;
+											}
+										}
+										if (found) {
+											taxCategories.push({
+												taxonomyId: allCategories[i].taxonomyId,
+												taxonomyName: allCategories[i].taxonomyName,
+												categoryId: allCategories[i].categories[j].id,
+												categoryName: allCategories[i].categories[j].name
+											});
+											goodCateNames.push(allCategories[i].taxonomyName + '|' + cateFullPath);
+											break;
+										}
+									}
+								}
+							}
+							if (found) {
+								break;
+							}
+						}
+
+						if (!found) {
+							console.log(' - WARNING: category ' + cateName + ' does not exist, ignore');
+						}
+
+					}
+
+					if (goodCateNames.length > 0) {
+						console.log(' - valid categories: ' + goodCateNames);
+					}
+
+					if (categoryNames.includes(ANY_CATEGORY)) {
+						taxCategories.push({
+							taxonomyId: 'any',
+							taxonomyName: 'any',
+							categoryId: ''
+						});
+					}
+
+					// console.log(taxCategories);
+				}
+
+				if (types.length === 0 && taxCategories.length === 0) {
+					console.log('ERROR: no valid asset type nor category');
+					return Promise.reject();
+				}
+
+				return serverRest.getPermissionSets({
+					server: server,
+					id: repository.id,
+					name: repository.name
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				permissionSets = result && result.permissionSets || [];
+				// console.log(JSON.stringify(permissionSets, null, 4));
+
+				var assetOps = [];
+				if (assetPermission) {
+					if (assetPermission === 'view') {
+						assetOps = ['view'];
+					} else if (assetPermission === 'update') {
+						assetOps = ['view', 'update'];
+					} else if (assetPermission === 'create') {
+						assetOps = ['view', 'update', 'create'];
+					} else if (assetPermission === 'delete') {
+						assetOps = ['view', 'update', 'create', 'delete'];
+					}
+				}
+
+				var catOps = [];
+				if (categoryPermission) {
+					if (categoryPermission === 'view') {
+						catOps = ['view'];
+					} else if (categoryPermission === 'categorize') {
+						catOps = ['view', 'categorize'];
+					}
+				}
+
+				// console.log(principals);
+				principals.forEach(function (pal) {
+
+					var found = false;
+					var permissionId;
+					var contentPrivileges = [];
+					var taxonomyPrivileges = [];
+					for (var i = 0; i < permissionSets.length; i++) {
+						if (permissionSets[i].principal.type === pal.type && permissionSets[i].principal.name === pal.name) {
+							found = true;
+							permissionId = permissionSets[i].id;
+							contentPrivileges = permissionSets[i].contentPrivileges;
+
+							for (var j = 0; j < types.length; j++) {
+								var foundType = false;
+
+								for (var k = 0; k < contentPrivileges.length; k++) {
+									if (!types[j].id && !contentPrivileges[k].typeId ||
+										types[j].id === contentPrivileges[k].typeId) {
+										foundType = true;
+										if (assetPermission !== DELETE_TYPE) {
+											// update the permissions
+											contentPrivileges[k].operations = assetOps;
+										} else {
+											// delete the type
+											contentPrivileges.splice(k, 1);
+										}
+										break;
+									}
+								}
+
+								if (!foundType && assetPermission !== DELETE_TYPE) {
+									// append 
+									contentPrivileges.push({
+										typeId: types[j].id,
+										typeName: types[j].name,
+										isValid: true,
+										operations: assetOps
+									});
+								}
+							}
+
+							taxonomyPrivileges = permissionSets[i].taxonomyPrivileges;
+
+							for (var j = 0; j < taxCategories.length; j++) {
+								var foundCat = false;
+
+								for (var k = 0; k < taxonomyPrivileges.length; k++) {
+									if (!taxonomyPrivileges[k].taxonomyId && taxCategories[j].taxonomyId === 'any' ||
+										(taxonomyPrivileges[k].taxonomyId === taxCategories[j].taxonomyId &&
+											taxonomyPrivileges[k].categoryId === taxCategories[j].categoryId)) {
+										foundCat = true;
+										if (!taxonomyPrivileges[k].taxonomyId) {
+											taxonomyPrivileges[k].taxonomyId = 'any';
+										}
+										if (categoryPermission !== DELETE_CATEGORY) {
+											// update the permissions
+											taxonomyPrivileges[k].operations = catOps;
+										} else {
+											console.log('deleting....');
+											// delete the category
+											taxonomyPrivileges.splice(k, 1);
+										}
+										break;
+									}
+								}
+
+								if (!foundCat && categoryPermission !== DELETE_CATEGORY) {
+									// append
+									taxonomyPrivileges.push({
+										taxonomyId: taxCategories[j].taxonomyId,
+										categoryId: taxCategories[j].categoryId,
+										isValid: true,
+										operations: catOps
+									});
+								}
+							}
+
+						} // match principal
+					}
+
+					if (found) {
+						toUpdate.push({
+							id: permissionId,
+							principal: pal,
+							contentPrivileges: contentPrivileges,
+							taxonomyPrivileges: taxonomyPrivileges
+						});
+					} else if (assetPermission !== DELETE_TYPE || categoryPermission !== DELETE_CATEGORY) {
+						if (assetPermission !== DELETE_TYPE) {
+							for (var j = 0; j < types.length; j++) {
+								contentPrivileges.push({
+									typeId: types[j].id,
+									typeName: types[j].name,
+									isValid: true,
+									operations: assetOps
+								});
+							}
+						}
+						if (categoryPermission !== DELETE_CATEGORY) {
+							for (var j = 0; j < taxCategories.length; j++) {
+								taxonomyPrivileges.push({
+									taxonomyId: taxCategories[j].taxonomyId,
+									categoryId: taxCategories[j].categoryId,
+									isValid: true,
+									operations: catOps
+								});
+							}
+						}
+						if (contentPrivileges.length > 0 || taxonomyPrivileges.length > 0)
+							toAdd.push({
+								principal: pal,
+								contentPrivileges: contentPrivileges,
+								taxonomyPrivileges: taxonomyPrivileges
+							});
+					}
+				});
+
+				// console.log(' - to add: ' + JSON.stringify(toAdd, null, 4));
+				// console.log(' - to update: ' + JSON.stringify(toUpdate, null, 4));
+
+				return _setPermissions(server, repository, toAdd, 'add');
+
+			})
+			.then(function (result) {
+				if (result.err) {
+					err = 'err';
+				}
+
+				return _setPermissions(server, repository, toUpdate, 'update');
+
+			})
+			.then(function (result) {
+				if (result.err) {
+					err = 'err';
+				}
+
+				// query again
+				return serverRest.getPermissionSets({
+					server: server,
+					id: repository.id,
+					name: repository.name
+				});
+			})
+			.then(function (result) {
+
+				var newPermissionSets = result && result.permissionSets || [];
+				_listPermissionSets(repository, newPermissionSets);
+
+				done(!err);
+
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+					done();
+				}
+				done();
+			});
+	});
+
+};
+
+var _setPermissions = function (server, repository, permissions, action) {
+	return new Promise(function (resolve, reject) {
+		if (permissions.length === 0) {
+			return resolve({});
+		}
+		var err;
+		var doSet = permissions.reduce(function (setPromise, permission) {
+				return setPromise.then(function (result) {
+					return serverRest.setPermissionSets({
+							server: server,
+							id: repository.id,
+							name: repository.name,
+							permissions: permission,
+							action: action
+						})
+						.then(function (result) {
+							if (!result || result.err) {
+								err = 'err';
+							} else {
+								console.log(' - ' + action + ' editorial permissions for ' + (result.principal && result.principal.name));
+							}
+						});
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doSet.then(function (result) {
+			resolve({
+				err: err
+			});
+		});
+	});
+};
 
 module.exports.createLocalizationPolicy = function (argv, done) {
 	'use strict';
@@ -2822,6 +3608,9 @@ var _zipContent = function (contentpath, contentfilename) {
 
 var MSWord = require('./msword/js/msWord.js');
 var Files = require('./msword/js/files.js');
+const {
+	type
+} = require('os');
 
 module.exports.createMSWordTemplate = function (argv, done) {
 	'use strict';

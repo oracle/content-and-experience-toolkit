@@ -4,14 +4,9 @@
  */
 /* global module, process */
 /* jshint esversion: 6 */
-var request = require('request'),
-	os = require('os'),
+var os = require('os'),
 	readline = require('readline'),
 	serverUtils = require('./serverUtils');
-
-var _getAuthorization = function (server) {
-	return (server.tokentype || 'Bearer') + ' ' + server.oauthtoken;
-};
 
 var MAX_LIMIT = 250;
 
@@ -867,6 +862,7 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 			method: 'POST',
 			headers: {
 				Prefer: 'respond-async',
+				'Content-Type': 'application/json',
 				Authorization: serverUtils.getRequestAuthorization(server)
 			},
 			url: server.url + url
@@ -889,7 +885,6 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 			options.body = JSON.stringify(body);
 			options.json = true;
 		}
-
 		// console.log(options);
 
 		var resTitle = type.substring(0, type.length - 1);
@@ -946,7 +941,7 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 					});
 				}, 5000);
 			} else {
-				var msg = data && typeof data === 'object' ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.log('ERROR: failed to publish ' + resTitle + ' ' + (name || id) + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
@@ -1338,34 +1333,30 @@ module.exports.deleteTheme = function (args) {
 
 var _importComponent = function (server, name, fileId) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/components';
 		console.log(' - post ' + url);
+		var body = {
+			file: fileId,
+			conflicts: {
+				'resolution': "overwrite"
+			}
+		};
 		var options = {
 			method: 'POST',
 			url: server.url + url,
-			body: {
-				file: fileId,
-				conflicts: {
-					'resolution': "overwrite"
-				}
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
 			},
+			body: JSON.stringify(body),
 			timeout: 3600000,
 			json: true
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers = {
-				Authorization: _getAuthorization(server)
-			};
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		// console.log(options);
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to import component ' + name);
 				console.log(error);
@@ -1383,7 +1374,7 @@ var _importComponent = function (server, name, fileId) {
 
 			// console.log(response.statusCode);
 			if (response && response.statusCode >= 200 && response.statusCode <= 303) {
-				var statusLocation = response.headers && response.headers.location;
+				var statusLocation = response.headers && response.headers.location || response.url;
 				var itemId;
 				if (statusLocation && statusLocation.indexOf('/') > 0) {
 					itemId = statusLocation.substring(statusLocation.lastIndexOf('/') + 1);
@@ -1574,41 +1565,38 @@ module.exports.createTemplateFromSite = function (args) {
 
 var _importTemplate = function (server, name, fileId) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/templates';
 		console.log(' - post ' + url);
+		var body = {
+			file: fileId,
+			template: {
+				resolution: 'overwrite'
+			},
+			theme: {
+				resolution: 'overwrite'
+			},
+			components: {
+				resolution: 'overwrite'
+			}
+		};
 		var options = {
 			method: 'POST',
 			headers: {
-				Prefer: 'respond-async'
+				Prefer: 'respond-async',
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
 			},
 			url: server.url + url,
-			body: {
-				file: fileId,
-				template: {
-					resolution: 'overwrite'
-				},
-				theme: {
-					resolution: 'overwrite'
-				},
-				components: {
-					resolution: 'overwrite'
-				}
-			},
+			body: JSON.stringify(body),
 			json: true
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers.Authorization = _getAuthorization(server);
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
+
 		// console.log(JSON.stringify(options, null, 4));
 		// console.log(options);
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to import template ' + name);
 				console.log(error);
@@ -1813,7 +1801,6 @@ module.exports.createSite = function (args) {
 
 var _copySite = function (server, sourceSiteName, name, description, sitePrefix, repositoryId) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		var url = '/sites/management/api/v1/sites/name:' + sourceSiteName + '/copy';
 		console.log(' - post ' + url);
@@ -1829,26 +1816,22 @@ var _copySite = function (server, sourceSiteName, name, description, sitePrefix,
 		}
 
 		var headers = {
-			Prefer: 'respond-async'
+			Prefer: 'respond-async',
+			'Content-Type': 'application/json',
+			Authorization: serverUtils.getRequestAuthorization(server)
 		};
 
 		var options = {
 			method: 'POST',
 			url: server.url + url,
 			headers: headers,
-			body: body,
+			body: JSON.stringify(body),
 			json: true
 		};
-		if (server.env !== 'dev_ec') {
-			options.headers.Authorization = _getAuthorization(server);
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
 		// console.log(options);
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to copy site ' + sourceSiteName);
 				console.log(error);
@@ -1924,7 +1907,6 @@ module.exports.copySite = function (args) {
 
 var _siteUpdated = function (server, name) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
 		_getResource(server, 'sites', '', name, '', true)
 			.then(function (result) {
@@ -1938,26 +1920,23 @@ var _siteUpdated = function (server, name) {
 					var url = '/sites/management/api/v1/sites/' + site.id;
 					console.log(' - patch ' + url);
 
+					var body = {
+						description: site.description ? site.description : ''
+					};
 					var options = {
 						method: 'PATCH',
 						url: server.url + url,
-						body: {
-							description: site.description ? site.description : ''
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: serverUtils.getRequestAuthorization(server)
 						},
+						body: JSON.stringify(body),
 						json: true
 					};
-					if (server.env !== 'dev_ec') {
-						options.headers = {
-							Authorization: _getAuthorization(server)
-						};
-					} else {
-						options.auth = {
-							user: server.username,
-							password: server.password
-						};
-					}
 					// console.log(options);
-					request(options, function (error, response, body) {
+
+					var request = require('./requestUtils.js').request;
+					request.patch(options, function (error, response, body) {
 						if (error) {
 							console.log('ERROR: failed to update site ' + site.name);
 							console.log(error);

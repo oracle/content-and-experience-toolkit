@@ -118,7 +118,6 @@ _findItemBySlug = function (files, slug) {
 //
 router.get('/*', (req, res) => {
 	let location, app = req.app,
-		request = app.locals.request,
 		requestUrl = req.originalUrl,
 		cntPath = req.path,
 		cntURL = url.parse(req.url),
@@ -134,8 +133,8 @@ router.get('/*', (req, res) => {
 	var contentitem = app.locals.currentContentItem;
 
 	console.log('   server channel token: ' + app.locals.channelToken +
-		' app.locals.localTemplate: ' + app.locals.localTemplate + 
-		' current item: ' + (contentitem && contentitem.id ? ( contentitem.id + ' ' + (contentitem.isRemote ? 'remote' : 'local')) : ''));
+		' app.locals.localTemplate: ' + app.locals.localTemplate +
+		' current item: ' + (contentitem && contentitem.id ? (contentitem.id + ' ' + (contentitem.isRemote ? 'remote' : 'local')) : ''));
 	if ((app.locals.useCAASServer && app.locals.currentTemplate) ||
 		(contentitem && contentitem.id && contentitem.isRemote) ||
 		app.locals.channelToken ||
@@ -159,25 +158,37 @@ router.get('/*', (req, res) => {
 		}
 		console.log('Remote traffic:', location);
 		var options = {
-			url: location
-		};
-		if (location.indexOf('8080') > 0 || app.locals.server.env !== 'dev_ec') {
-			if (app.locals.server.oauthtoken) {
-				options.auth = {
-					bearer: app.locals.server.oauthtoken
-				};
-			} else {
-				options.auth = {
-					user: app.locals.server.username,
-					password: app.locals.server.password
-				};
+			method: 'GET',
+			url: location,
+			encoding: null,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(app.locals.server)
 			}
-		}
+		};
 		// console.log(options);
-		request(options).on('response', function (response) {
-			// fix headers for cross-domain and capitalization issues
-			serverUtils.fixHeaders(response, res);
-		}).pipe(res);
+		
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: request failed:');
+				console.log(error);
+				res.writeHead(response.statusCode, {});
+				res.end();
+				return;
+			}
+			
+			if (response && response.statusCode === 200) {
+				res.write(body);
+				res.end();
+				return;
+			} else {
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: request failed : ' + msg);
+				res.writeHead(response.statusCode, {});
+				res.end();
+				return;
+			}
+		});
 		return;
 	}
 

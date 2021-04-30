@@ -245,15 +245,16 @@ var _getPageData = function (server, locale, isMaster) {
 
 var _readFile = function (server, id, fileName) {
 	return new Promise(function (resolve, reject) {
-		var auth = serverUtils.getRequestAuth(server);
 		var url = server.url + '/documents/api/1.2/files/' + id + '/data/';
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: auth
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		var request = serverUtils.getRequest();
-		request(options, function (error, response, body) {
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to download file ' + fileName);
 				console.log(error);
@@ -283,7 +284,7 @@ var _readPageFiles = function (server, files) {
 		var total = files.length;
 		console.log(' - total number of files: ' + total);
 		var groups = [];
-		var limit = 16;
+		var limit = 12;
 		var start, end;
 		for (var i = 0; i < total / limit; i++) {
 			start = i * limit;
@@ -314,8 +315,7 @@ var _readPageFiles = function (server, files) {
 						filePromises.push(_readFile(server, files[i].id, files[i].name));
 					}
 
-					count.push('.');
-					process.stdout.write(' - downloading files ' + count.join(''));
+					process.stdout.write(' - downloading files [' + param.start + ', ' + param.end + '] ...');
 					readline.cursorTo(process.stdout, 0);
 					return Promise.all(filePromises).then(function (results) {
 						fileData = fileData.concat(results);
@@ -541,9 +541,12 @@ var _getPageContent = function (server, request, channelToken, locale, q, pageId
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(options, function (err, response, body) {
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get content: url: ' + url.replace(server.url, ''));
 				console.log(err);
@@ -896,7 +899,7 @@ var _uploadSiteMapToServer = function (server, localFilePath) {
 					server: server,
 					parentID: seoFolderId,
 					filename: fileName,
-					contents: fs.readFileSync(localFilePath)
+					contents: fs.createReadStream(localFilePath)
 				});
 			})
 			.then(function (result) {

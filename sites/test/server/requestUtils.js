@@ -15,7 +15,7 @@ var _get = function (options, callback) {
 	var url = options.url;
 	return fetch(url, options)
 		.then(function (response) {
-			// console.log(response.status + ' ' + response.statusText);
+			// console.log(response);
 			return response.buffer().then(function (data) {
 				var err = response.error;
 				var res = {
@@ -26,7 +26,7 @@ var _get = function (options, callback) {
 			});
 		})
 		.catch(error => {
-			console.log(error);
+			// console.log(error);
 			return callback(error, {}, '');
 		});
 };
@@ -53,7 +53,7 @@ var _post = function (options, callback) {
 			});
 		})
 		.catch(error => {
-			console.log(error);
+			// console.log(error);
 			return callback(error, {}, '');
 		});
 };

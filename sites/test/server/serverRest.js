@@ -10,9 +10,9 @@ var request = require('request'),
 	readline = require('readline'),
 	serverUtils = require('./serverUtils');
 
-//
-// Folder CRUD
-//
+///////////////////////////////////////////////////////////
+//                 Documents Management APIs
+///////////////////////////////////////////////////////////
 
 // Create Folder on server
 var _createFolder = function (server, parentID, foldername) {
@@ -162,8 +162,99 @@ module.exports.findFolderHierarchy = function (args) {
 	return _findFolderHierarchy(args.server, args.parentID, args.folderPath);
 };
 
+var _findFolderItems = function (server, parentId, parentPath, _files) {
+	// console.log(' - folder: id=' + parentId + ' path=' + parentPath);
+	return new Promise(function (resolve, reject) {
+
+		if (!parentId) {
+			return resolve(_files);
+		}
+
+		var items;
+		var size = 10000;
+		_getChildItems(server, parentId, size)
+			.then(function (result) {
+				if (!result) {
+					resolve();
+				}
+
+				items = result && result.items || [];
+				// console.log(' - total ' + result.childItemsCount);
+				// console.log(' - offset: ' + result.offset + ' count: ' + result.count);
+
+				var remaining = result.childItemsCount - size;
+				var queryAgainPromises = [];
+				var extra = 1;
+				while (remaining > 0) {
+					var offset = size * extra;
+					queryAgainPromises.push(_.getChildItems({
+						server: server,
+						parentID: parentId,
+						limit: size,
+						offset: offset
+					}));
+					remaining = remaining - size;
+					extra = extra + 1;
+				}
+
+				return Promise.all(queryAgainPromises);
+
+			})
+			.then(function (results) {
+
+				if (results && results.length > 0) {
+					for (var i = 0; i < results.length; i++) {
+						// console.log(' - ' + i + ' offset: ' + results[i].offset + ' count: ' + results[i].count);
+						var items2 = results[i] && results[i].items;
+						if (items2.length > 0) {
+							items = items.concat(items2);
+						}
+					}
+				}
+
+				var subfolderPromises = [];
+				for (var i = 0; i < items.length; i++) {
+					if (items[i].type === 'file') {
+						// console.log(' - file: id=' + items[i].id + ' path=' + parentPath + '/' + items[i].name);
+						_files.push({
+							type: 'File',
+							id: items[i].id,
+							path: parentPath ? parentPath + '/' + items[i].name : items[i].name
+						});
+					} else {
+						_files.push({
+							type: 'Folder',
+							id: items[i].id,
+							path: parentPath ? parentPath + '/' + items[i].name : items[i].name
+						});
+						subfolderPromises.push(_findFolderItems(server, items[i].id, parentPath ? parentPath + '/' + items[i].name : items[i].name, _files));
+					}
+				}
+				return Promise.all(subfolderPromises);
+
+			})
+			.then(function (results) {
+				resolve(_files);
+			});
+
+	});
+};
+/**
+ * Find all items of a folder (folder tree)on server by folder name
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.parentID The DOCS GUID for the folder where the new file should be created.
+ * @param {string} args.folderPath The path of the folder.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.findFolderItems = function (args) {
+	var _files = [];
+	var parentPath = '';
+	return _findFolderItems(args.server, args.parentID, parentPath, _files);
+};
+
 // Delete Folder on server
-var _deleteFolder = function (server, fFolderGUID) {
+var _deleteFolder = function (server, fFolderGUID, folderPath) {
 	return new Promise(function (resolve, reject) {
 		var options = {
 			method: 'DELETE',
@@ -190,7 +281,7 @@ var _deleteFolder = function (server, fFolderGUID) {
 
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to delete folder ' + foldername + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.log('ERROR: failed to delete folder ' + (folderPath || fFolderGUID) + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 				resolve({
 					err: 'err'
 				});
@@ -207,7 +298,7 @@ var _deleteFolder = function (server, fFolderGUID) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.deleteFolder = function (args) {
-	return _deleteFolder(args.server, args.fFolderGUID);
+	return _deleteFolder(args.server, args.fFolderGUID, args.folderPath);
 };
 
 // Get child items with the parent folder
@@ -227,6 +318,7 @@ var _getChildItems = function (server, parentID, limit, offset) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -264,6 +356,68 @@ var _getChildItems = function (server, parentID, limit, offset) {
  */
 module.exports.getChildItems = function (args) {
 	return _getChildItems(args.server, args.parentID, args.limit, args.offset);
+};
+
+// Get folder metadata
+var _getFolderMetadata = function (server, folderId) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/api/1.2/folders/' + folderId + '/metadata';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get folder metadata ' + folderId);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				var metadata = {};
+				if (data && data.metadata) {
+					Object.keys(data.metadata).forEach(function (key) {
+						var collectionMetadata = data.metadata[key];
+						Object.assign(metadata, collectionMetadata);
+					});
+				}
+				// console.log(metadata);
+				resolve({
+					folderId: folderId,
+					metadata: metadata
+				});
+			} else {
+				console.log('ERROR: failed to get folder metadata ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+
+	});
+};
+/**
+ * Get a folder's metadata on OCE server
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.folderId The DOCS GUID for the folder
+ * @returns {array} The array of data object returned by the server.
+ */
+module.exports.getFolderMetadata = function (args) {
+	return _getFolderMetadata(args.server, args.folderId);
 };
 
 // Find file by name with the parent folder
@@ -336,28 +490,25 @@ module.exports.findFile = function (args) {
 // Create file on server
 var _createFile = function (server, parentID, filename, contents, filepath) {
 	return new Promise(function (resolve, reject) {
+		var FormData = require('form-data');
+		var form = new FormData();
+		form.append('jsonInputParameters', JSON.stringify({
+			'parentID': parentID
+		}));
+		form.append('primaryFile', contents);
+
 		var options = {
 			method: 'POST',
 			url: server.url + '/documents/api/1.2/files/data/',
-			auth: serverUtils.getRequestAuth(server),
 			headers: {
-				'Content-Type': 'multipart/form-data'
+				Authorization: serverUtils.getRequestAuthorization(server)
 			},
-			formData: {
-				jsonInputParameters: JSON.stringify({
-					'parentID': parentID
-				}),
-				'primaryFile': {
-					value: contents,
-					options: {
-						'filename': filename
-					}
-				}
-			}
+			body: form
 		};
 
 		// console.log(' - uploading file ...');
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to create file ' + filename);
 				console.log(error);
@@ -546,7 +697,7 @@ module.exports.downloadFile = function (args) {
 };
 
 // Delete file from server
-var _deleteFile = function (server, fFileGUID) {
+var _deleteFile = function (server, fFileGUID, filePath) {
 	return new Promise(function (resolve, reject) {
 		var options = {
 			method: 'DELETE',
@@ -572,7 +723,7 @@ var _deleteFile = function (server, fFileGUID) {
 
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to delete file ' + fFileGUID + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.log('ERROR: failed to delete file ' + (filePath || fFileGUID) + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 				resolve({
 					err: 'err'
 				});
@@ -589,7 +740,7 @@ var _deleteFile = function (server, fFileGUID) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.deleteFile = function (args) {
-	return _deleteFile(args.server, args.fFileGUID);
+	return _deleteFile(args.server, args.fFileGUID, args.filePath);
 };
 
 // Get file versions from server
@@ -637,6 +788,10 @@ var _getFileVersions = function (server, fFileGUID) {
 module.exports.getFileVersions = function (args) {
 	return _getFileVersions(args.server, args.fFileGUID);
 };
+
+///////////////////////////////////////////////////////////
+//                  Content Management APIs
+///////////////////////////////////////////////////////////
 
 var _getItem = function (server, id, expand) {
 	return new Promise(function (resolve, reject) {
@@ -966,21 +1121,21 @@ var _createItem = function (server, repositoryId, type, name, desc, fields, lang
 				};
 
 				var url = server.url + '/content/management/api/v1.1/items';
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'POST',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: payload,
+					body: JSON.stringify(payload),
 					json: true
 				};
 				// console.log(postData);
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
 					if (error) {
 						console.log('Failed to create create ' + name);
 						console.log(error);
@@ -1041,21 +1196,21 @@ var _createCollection = function (server, repositoryId, name, channels) {
 				};
 
 				var url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections';
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'POST',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: payload,
+					body: JSON.stringify(payload),
 					json: true
 				};
 				// console.log(postData);
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
 					if (error) {
 						console.log('Failed to create collection ' + name);
 						console.log(error);
@@ -1946,8 +2101,6 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 
 				var csrfToken = result && result.token;
 
-				var request = serverUtils.getRequest();
-
 				var q = '';
 
 				if (itemIds && itemIds.length > 0) {
@@ -2280,13 +2433,15 @@ var _updateLocalizationPolicy = function (server, id, name, data) {
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: payload,
+					body: JSON.stringify(payload),
 					json: true
 				};
 
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.put(postData, function (error, response, body) {
 					if (error) {
 						console.log('Failed to update localization policy ' + (name || id));
 						console.log(error);
@@ -2636,6 +2791,131 @@ module.exports.getTaxonomies = function (args) {
 	return _getTaxonomies(args.server);
 };
 
+/**
+ * Get a taxonomy with name on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the taxonomy to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getTaxonomyWithName = function (args) {
+	return new Promise(function (resolve, reject) {
+		if (!args.name) {
+			return resolve({});
+		}
+		var taxonomyName = args.name;
+		var server = args.server;
+
+		var url = server.url + '/content/management/api/v1.1/taxonomies';
+		url = url + '?q=(name mt "' + encodeURIComponent(taxonomyName) + '")';
+		url = url + '&fields=all';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		// console.log(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get taxonomy ' + taxonomyName);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 200) {
+				var taxonomies = data && data.items || [];
+				var taxonomy;
+				for (var i = 0; i < taxonomies.length; i++) {
+					if (taxonomies[i].name && taxonomies[i].name === taxonomyName) {
+						taxonomy = taxonomies[i];
+						break;
+					}
+				}
+				if (taxonomy) {
+					resolve({
+						data: taxonomy
+					});
+				} else {
+					// console.log('ERROR:  channel ' + channelName + ' not found');
+					return resolve({});
+				}
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get taxonomy ' + taxonomyName + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
+// Get categories of a taxonomy from server
+var _getCategories = function (server, taxonomyId, taxonomyName) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/taxonomies/' + taxonomyId + '/categories?fields=all&limit=9999';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get categories');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve({
+					taxonomyName: taxonomyName,
+					taxonomyId: taxonomyId,
+					categories: data && data.items
+				});
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get categories : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get all categories of a taxonomy on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getCategories = function (args) {
+	return _getCategories(args.server, args.taxonomyId, args.taxonomyName);
+};
+
 
 var _getResourcePermissions = function (server, id, type) {
 	return new Promise(function (resolve, reject) {
@@ -2692,8 +2972,127 @@ module.exports.getResourcePermissions = function (args) {
 	return _getResourcePermissions(args.server, args.id, args.type);
 };
 
+var _getPermissionSets = function (server, id, name) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/repositories/' + id + '/permissionSets?limit=1000&links=none';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get permission sets for ' + (name || id));
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve({
+					id: id,
+					name: name,
+					permissionSets: data && data.items
+				});
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get permission sets for ' + (name || id) + ' : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get all permission sets of repository  on a oce server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} server the server object
+ * @param {string} args.id The id of the repository to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getPermissionSets = function (args) {
+	return _getPermissionSets(args.server, args.id, args.name);
+};
+
+var _setPermissionSets = function (server, id, name, action, permissions) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var url = server.url + '/content/management/api/v1.1/repositories/' + id + '/permissionSets';
+				if (action === 'update' && permissions.id) {
+					url = url + '/' + permissions.id;
+				}
+				var method = action === 'add' ? 'POST' : 'PUT';
+				var postData = {
+					method: method,
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: JSON.stringify(permissions),
+					json: true
+				};
+				// console.log(postData);
+
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to ' + action + ' permission sets for ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
+						console.log('Failed to ' + action + ' permission sets for ' + name + ' - ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Set editorial permissions for arepository on a oce server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} server the server object
+ * @param {string} args.id The id of the repository to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.setPermissionSets = function (args) {
+	return _setPermissionSets(args.server, args.id, args.name, args.action, args.permissions);
+};
+
 // Create repository on server
-var _createRepository = function (server, name, description, contentTypes, channels, defaultLanguage) {
+var _createRepository = function (server, name, description, contentTypes, channels, defaultLanguage, repositoryType) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -2704,7 +3103,11 @@ var _createRepository = function (server, name, description, contentTypes, chann
 				var payload = {};
 				payload.name = name;
 				payload.description = description || '';
-				payload.defaultLanguage = defaultLanguage || 'en-US';
+				if (repositoryType) {
+					payload.repositoryType = repositoryType;
+				}
+				payload.defaultLanguage = repositoryType && repositoryType === 'Business' ? 'und' : (defaultLanguage || 'en-US');
+
 				payload.taxonomies = [];
 
 				if (contentTypes && contentTypes.length > 0) {
@@ -2715,11 +3118,9 @@ var _createRepository = function (server, name, description, contentTypes, chann
 				}
 
 				var url = server.url + '/content/management/api/v1.1/repositories';
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'POST',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
@@ -2729,6 +3130,8 @@ var _createRepository = function (server, name, description, contentTypes, chann
 					body: JSON.stringify(payload),
 					json: true
 				};
+				// console.log(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
@@ -2739,12 +3142,12 @@ var _createRepository = function (server, name, description, contentTypes, chann
 						});
 					}
 					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
-						try {
-							data = JSON.parse(body);
-						} catch (err) {
-							data = body;
-						}
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
@@ -2771,7 +3174,7 @@ var _createRepository = function (server, name, description, contentTypes, chann
  */
 module.exports.createRepository = function (args) {
 	return _createRepository(args.server, args.name, args.description,
-		args.contentTypes, args.channels, args.defaultLanguage);
+		args.contentTypes, args.channels, args.defaultLanguage, args.repositoryType);
 };
 
 // Update repository
@@ -2863,8 +3266,6 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 			} else {
 				var csrfToken = result && result.token;
 
-				var request = serverUtils.getRequest();
-
 				var url = server.url + '/content/management/api/v1.1/permissionOperations';
 				var auth = serverUtils.getRequestAuth(server);
 
@@ -2917,13 +3318,15 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: formData,
+					body: JSON.stringify(formData),
 					json: true
 				};
 
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
 					if (error) {
 						console.log('ERROR: failed to ' + operation + ' resource ');
 						console.log(error);
@@ -3119,13 +3522,15 @@ var _createContentType = function (server, typeObj) {
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: payload,
+					body: JSON.stringify(payload),
 					json: true
 				};
 
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
 					if (error) {
 						console.log('Failed to create type ' + name);
 						console.log(error);
@@ -3184,13 +3589,15 @@ var _updateContentType = function (server, typeObj) {
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: payload,
+					body: JSON.stringify(payload),
 					json: true
 				};
 
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.put(postData, function (error, response, body) {
 					if (error) {
 						console.log('Failed to update type ' + name);
 						console.log(error);
@@ -3227,6 +3634,140 @@ var _updateContentType = function (server, typeObj) {
  */
 module.exports.updateContentType = function (args) {
 	return _updateContentType(args.server, args.type);
+};
+
+/**
+ * Add content layout mapping to a content type on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.type the type to update
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.addContentTypeLayoutMapping = function (args) {
+	var server = args.server;
+	var typeName = args.typeName;
+	var contentLayout = args.contentLayout;
+	var style = args.style;
+	var format = args.format || 'desktop';
+
+	return new Promise(function (resolve, reject) {
+		_getContentType(server, typeName, 'layoutMapping')
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				var typeObj = result;
+				var layoutMappings = result.layoutMapping && result.layoutMapping.data || [];
+
+				var formats = format === 'desktop' ? {
+					'desktop': contentLayout
+				} : {
+					'mobile': contentLayout
+				};
+				var found = false;
+				for (var i = 0; i < layoutMappings.length; i++) {
+					var mapping = layoutMappings[i];
+					if (mapping.label === style) {
+						if (mapping.hasOwnProperty('formats')) {
+							mapping.formats[format] = contentLayout;
+						} else {
+							mapping.formats = formats;
+						}
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					layoutMappings.push({
+						label: style,
+						apiName: serverUtils.replaceAll(style, ' ', '').toLowerCase(),
+						formats: formats
+					});
+				}
+				// console.log(JSON.stringify(layoutMappings, null, 4));
+
+				typeObj.layoutMapping.data = layoutMappings;
+
+				return _updateContentType(server, typeObj);
+			})
+			.then(function (result) {
+				return resolve(result);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				resolve({
+					err: 'err'
+				});
+			});
+	});
+};
+
+/**
+ * Remove content layout mapping from a content type on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.type the type to update
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.removeContentTypeLayoutMapping = function (args) {
+	var server = args.server;
+	var typeName = args.typeName;
+	var contentLayout = args.contentLayout;
+	var style = args.style;
+	var format = args.format || 'desktop';
+
+	var ootbStyles = ['Default', 'Content List Default', 'Empty Content List Default', 'Content Placeholder Default'];
+
+	return new Promise(function (resolve, reject) {
+		_getContentType(server, typeName, 'layoutMapping')
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				var typeObj = result;
+				var layoutMappings = result.layoutMapping && result.layoutMapping.data || [];
+				var found = false;
+				for (var i = 0; i < layoutMappings.length; i++) {
+					var mapping = layoutMappings[i];
+					if (mapping.label === style && mapping.formats) {
+						if (mapping.formats[format] && mapping.formats[format] === contentLayout) {
+							found = true;
+							delete mapping.formats[format];
+							if (Object.keys(mapping.formats).length === 0) {
+								delete mapping.formats;
+								// will delete the entry if it is custom style
+								if (!ootbStyles.includes(style)) {
+									layoutMappings.splice(i, 1);
+								}
+							}
+							break;
+						}
+					}
+				}
+				// console.log(JSON.stringify(layoutMappings, null, 4));
+
+				if (!found) {
+					return resolve({});
+				} else {
+					typeObj.layoutMapping.data = layoutMappings;
+				}
+
+				return _updateContentType(server, typeObj);
+			})
+			.then(function (result) {
+				return resolve(result);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				resolve({
+					err: 'err'
+				});
+			});
+	});
 };
 
 var _getUser = function (server, userName) {
@@ -3345,20 +3886,24 @@ var _shareFolder = function (server, folderId, userId, role, createNew) {
 		if (!createNew) {
 			url = url + '/role';
 		}
+		var body = {
+			'userID': userId,
+			'role': role
+		};
 		var options = {
 			method: createNew ? 'POST' : 'PUT',
 			url: url,
 			auth: serverUtils.getRequestAuth(server),
 			headers: {
-				'Content-Type': 'application/json'
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
 			},
-			body: {
-				'userID': userId,
-				'role': role
-			},
+			body: JSON.stringify(body),
 			json: true
 		};
-		request(options, function (error, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to share folder ' + folderId);
 				console.log(error);
@@ -3367,8 +3912,13 @@ var _shareFolder = function (server, folderId, userId, role, createNew) {
 				});
 			}
 
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
-				resolve(body);
+				resolve(data);
 			} else {
 				var objName = body && body.user ? body.user.displayName : 'folder ' + folderId;
 				var msg = body && body.errorMessage ? body.errorMessage : (response ? (response.statusMessage || response.statusCode) : '');
@@ -3397,20 +3947,23 @@ module.exports.shareFolder = function (args) {
 var _unshareFolder = function (server, folderId, userId) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/documents/api/1.2/shares/' + folderId + '/user';
+		var body = {
+			'userID': userId
+		};
 		var options = {
 			method: 'DELETE',
 			url: url,
 			auth: serverUtils.getRequestAuth(server),
 			headers: {
-				'Content-Type': 'application/json'
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
 			},
-			body: {
-				'userID': userId
-			},
+			body: JSON.stringify(body),
 			json: true
 		};
 
-		request(options, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.delete(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to unshare folder ' + folderId);
 				console.log(error);
@@ -3418,8 +3971,12 @@ var _unshareFolder = function (server, folderId, userId) {
 					err: 'err'
 				});
 			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
-				resolve(body);
+				resolve(data);
 			} else {
 				console.log('ERROR: failed to unshare folder ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 				resolve({
@@ -3792,75 +4349,6 @@ module.exports.createConnection = function (args) {
 	return _createConnection(args.request, args.server);
 };
 
-var _getGroup2 = function (request, server, connection, name) {
-	return new Promise(function (resolve, reject) {
-
-		// console.log(' - get group: ' + name);
-
-		var apiVersion = connection.apiVersion;
-		var apiRandomID = connection.apiRandomID;
-
-		var url = server.url + '/osn/fc/RemoteJSONBatch';
-		var payload = [{
-			'ModuleName': 'XMemberModule$Server',
-			'MethodName': 'findMembers',
-			'Arguments': [{
-				'IncludeGroups': true,
-				'IncludeUsers': false,
-				'SearchString': name,
-				'NumResults': 1
-			}]
-		}];
-
-		var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
-			'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
-		var postData = {
-			method: 'POST',
-			url: url,
-			headers: {
-				Authorization: auth,
-				'X-Requested-With': 'XMLHttpRequest',
-				'X-Waggle-APIVersion': apiVersion,
-				'X-Waggle-RandomID': apiRandomID
-			},
-			body: payload,
-			json: true
-		};
-		// console.log(JSON.stringify(postData, null, 4));
-
-		request(postData, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to get group');
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			// console.log(JSON.stringify(data, null, 4));
-
-			if (response && response.statusCode === 200) {
-				var returnStatus = data && data[0] && data[0].returnStatus;
-				var items = returnStatus === 'success' ? data && data[0] && data[0].returnValue : [];
-				return resolve({
-					data: items
-				});
-			} else {
-				var msg = response.statusMessage || response.statusCode;
-				console.log('ERROR: failed to get group ' + name + ' : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-
-};
 
 var _getGroup = function (server, name) {
 	return new Promise(function (resolve, reject) {
@@ -4252,21 +4740,21 @@ var _exportTaxonomy = function (server, id, name, status) {
 				};
 
 				var url = server.url + '/content/management/api/v1.1/taxonomies/' + id + '/export';
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'POST',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: payload,
+					body: JSON.stringify(payload),
 					json: true
 				};
 
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
 					if (error) {
 						console.log('ERROR: failed to export taxonomy ' + name);
 						console.log(error);
@@ -4415,21 +4903,22 @@ var _importTaxonomy = function (server, fileId, name, isNew, hasNewIds, taxonomy
 				};
 
 				var url = server.url + '/content/management/api/v1.1/taxonomies/import';
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'POST',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: payload,
+					body: JSON.stringify(payload),
 					json: true
 				};
 				// console.log(postData);
-				request(postData, function (error, response, body) {
+
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
 					if (error) {
 						console.log('ERROR: failed to import taxonomy ' + name);
 						console.log(error);
@@ -4474,7 +4963,7 @@ var _importTaxonomy = function (server, fileId, name, isNew, hasNewIds, taxonomy
 
 									} else {
 										count.push('.');
-										process.stdout.write(' - export taxonomy in process ' + count.join(''));
+										process.stdout.write(' - import taxonomy in process ' + count.join(''));
 										readline.cursorTo(process.stdout, 0);
 										needNewLine = true;
 									}
@@ -4488,7 +4977,7 @@ var _importTaxonomy = function (server, fileId, name, isNew, hasNewIds, taxonomy
 						}
 					} else {
 						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-						console.log('ERROR: failed to export taxonomy ' + name + ' - ' + msg);
+						console.log('ERROR: failed to import taxonomy ' + name + ' - ' + msg);
 						resolve({
 							err: 'err'
 						});
@@ -4563,22 +5052,22 @@ var _controlTaxonomy = function (server, id, name, action, isPublishable, channe
 				}
 
 				var url = server.url + '/content/management/api/v1.1/taxonomies/' + id + '/' + action;
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'POST',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					body: payload,
+					body: JSON.stringify(payload),
 					json: true
 				};
 				// console.log(postData);
 
-				request(postData, function (error, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
 					if (error) {
 						console.log('ERROR: failed to ' + action + ' taxonomy ' + name);
 						console.log(error);
@@ -4596,7 +5085,8 @@ var _controlTaxonomy = function (server, id, name, action, isPublishable, channe
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						var statusUrl = response.headers && response.headers.location;
 						if (statusUrl) {
-							console.log(' - submit request');
+							var jobId = statusUrl.substring(statusUrl.lastIndexOf('/') + 1);
+							console.log(' - submit request (job id: ' + jobId + ')');
 							var count = [];
 							var needNewLine = false;
 							var inter = setInterval(function () {
@@ -4767,7 +5257,6 @@ var _exportRecommendation = function (server, id, name, published, publishedChan
 				var csrfToken = result && result.token;
 
 				var url = server.url + '/content/management/api/v1.1/content-templates/exportjobs';
-				var auth = serverUtils.getRequestAuth(server);
 				var contentTemplateName = 'contentexport';
 				var postData = {
 					'name': contentTemplateName,
@@ -4789,14 +5278,15 @@ var _exportRecommendation = function (server, id, name, published, publishedChan
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					auth: auth,
 					body: JSON.stringify(postData)
 				};
 				// console.log(options);
 
-				request(options, function (err, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(options, function (err, response, body) {
 					if (err) {
 						console.log('ERROR: Failed to export recommendation ' + name);
 						console.log(err);
@@ -4854,8 +5344,6 @@ var _importContent = function (server, fileId, repositoryId, channelId, update) 
 				var csrfToken = result && result.token;
 				var url = server.url + '/content/management/api/v1.1/content-templates/importjobs';
 
-				var auth = serverUtils.getRequestAuth(server);
-
 				var postData = {
 					'exportDocId': fileId,
 					'repositoryId': repositoryId,
@@ -4871,13 +5359,14 @@ var _importContent = function (server, fileId, repositoryId, channelId, update) 
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
 					},
-					auth: auth,
 					body: JSON.stringify(postData)
 				};
 				// console.log(options);
-				request(options, function (err, response, body) {
+				var request = require('./requestUtils.js').request;
+				request.post(options, function (err, response, body) {
 					if (err) {
 						console.log('ERROR: Failed to import');
 						console.log(err);

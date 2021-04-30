@@ -245,7 +245,20 @@ var getWebhookTypesDesc = function () {
 	return actions;
 };
 
+var getAssetEditorialPermissions = function () {
+	const permissions = ['none', 'view', 'update', 'create', 'delete'];
+	return permissions;
+};
 
+var getTaxonomyEditorialPermissions = function () {
+	const permissions = ['none', 'view', 'categorize'];
+	return permissions;
+};
+
+var getRepositoryTypes = function () {
+	const types = ['asset', 'business'];
+	return types;
+};
 /*********************
  * Command definitions
  **********************/
@@ -1257,8 +1270,9 @@ const transferSiteContent = {
 	example: [
 		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1', 'Generate script Site1_downloadcontent and Site1_uploadcontent'],
 		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -e', 'Generate script Site1_downloadcontent and Site1_uploadcontent and execute them'],
-		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -n 200'],
-		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -p'],
+		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -n 200', 'Set batch size to 200 items'],
+		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -p', 'Only the published assets will be transferred'],
+		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -l', 'The assets from the site repository will be added to site default collection on destination server'],
 		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -m "Shared Images:Shared Images,Shared Video:Shared Video"']
 	]
 };
@@ -1593,12 +1607,15 @@ const createRepository = {
 				'Optionally specify -d <description> to set the description. ' +
 				'Optionally specify -t <contenttypes> to set the content types. ' +
 				'Optionally specify -c <channels> to set the publishing channels. ' +
-				'Optionally specify -l <defaultlanguage> to set the default language.';
+				'Optionally specify -l <defaultlanguage> to set the default language. ' +
+				'Optionally specify -p <type> to set the repository type. The valid repository types are\n\n';
+			desc = getRepositoryTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			return desc;
 		})()
 	},
 	example: [
 		['cec create-repository Repo1'],
+		['cec create-repository BusinessRepo -p business'],
 		['cec create-repository Repo1 -d "Blog Repository" -t BlogType,AuthorType -c channel1,channel2 -l en-US -s UAT']
 	]
 };
@@ -1670,6 +1687,55 @@ const unshareRepository = {
 		['cec unshare-repository Repo1 -u user1,user2 -g group1,group2'],
 		['cec unshare-repository Repo1 -u user1,user2 -s UAT'],
 		['cec unshare-repository Repo1 -u user1,user2 -t']
+	]
+};
+
+const setEditorialPermission = {
+	command: 'set-editorial-permission <name>',
+	alias: 'sep',
+	name: 'set-editorial-permission',
+	usage: {
+		'short': 'Grants repository members Editorial Permissions on assets.',
+		'long': (function () {
+			let desc = 'Grants repository members Editorial Permissions on assets on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'The valid permission for assets are' + os.EOL + os.EOL;
+			desc = getAssetEditorialPermissions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + 'The valid permissions for taxonomies are ' + os.EOL + os.EOL;
+			desc = getTaxonomyEditorialPermissions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return desc;
+
+		})()
+	},
+	example: [
+		['cec set-editorial-permission Repo1 -u user1,user2 -a -p view', 'User user1 and user2 can see assets of any type'],
+		['cec set-editorial-permission Repo1 -u user1,user2 -a -p none', 'User user1 and user2 cannot see assets of any type'],
+		['cec set-editorial-permission Repo1 -u user1,user2 -a Article -p update', 'User user1 and user2 can view and edit existing assets of “Article” type'],
+		['cec set-editorial-permission Repo1 -u user1,user2 -a Article -p none', 'User user1 and user2 cannot see assets of “Article” type'],
+		['cec set-editorial-permission Repo1 -u user1,user2 -a Article -p', 'Remove type Article from user user1 and user2'],
+		['cec set-editorial-permission Repo1 -u user1,user2 -g group1,goup2 -a Article -p update', 'User user1 and user2, group group1 and group2 can view and edit existing assets of “Article” type'],
+		['cec set-editorial-permission Repo1 -u user1,user2 -c -t categorize', 'User user1 and user2 can see and add assets to any category'],
+		['cec set-editorial-permission Repo1 -u user1,user2 -c -t none', 'User user1 and user2 cannot see any categorized assets'],
+		['cec set-editorial-permission Repo1 -u user1,user2 -c "Region:Asia" -t categorize', 'User user1 and user2 User can see and add assets to Asia category and its children in taxonomy Region'],
+		['cec set-editorial-permission Repo1 -u user1,user2 -c "Region:Asia/East" -t categorize', 'User user1 and user2 User can see and add assets to Asia\'s child category East and its children in taxonomy Region'],
+		['cec set-editorial-permission Repo1 -u user1,user2 -c "Region:Asia" -t', 'Remove category Region|Asia from user1 and user2']
+	]
+};
+
+const listEditorialPermission = {
+	command: 'list-editorial-permission <name>',
+	alias: 'lep',
+	name: 'list-editorial-permission',
+	usage: {
+		'short': 'Lists repository members Editorial Permissions on assets.',
+		'long': (function () {
+			let desc = 'Lists repository members Editorial Permissions on assets on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+
+		})()
+	},
+	example: [
+		['cec list-editorial-permission Repo1'],
+		['cec list-editorial-permission Repo1 -s DEV'],
 	]
 };
 
@@ -2207,6 +2273,26 @@ const downloadFolder = {
 	]
 };
 
+const listFolder = {
+	command: 'list-folder <path>',
+	alias: 'lfd',
+	name: 'list-folder',
+	usage: {
+		'short': 'Displays folder hierarchy on OCE server.',
+		'long': (function () {
+			let desc = 'Displays folder and all its content on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec list-folder Releases/1'],
+		['cec list-folder Releases/1 -s UAT'],
+		['cec list-folder site:blog1'],
+		['cec list-folder theme:blog1Theme'],
+		['cec list-folder component:Comp1/assets']
+	]
+};
+
 const uploadFolder = {
 	command: 'upload-folder <path>',
 	alias: 'ulfd',
@@ -2644,6 +2730,7 @@ _usage = _usage + os.EOL + 'Documents' + os.EOL +
 	_getCmdHelp(createFolder) + os.EOL +
 	_getCmdHelp(shareFolder) + os.EOL +
 	_getCmdHelp(unshareFolder) + os.EOL +
+	_getCmdHelp(listFolder) + os.EOL +
 	_getCmdHelp(downloadFolder) + os.EOL +
 	_getCmdHelp(uploadFolder) + os.EOL +
 	_getCmdHelp(deleteFolder) + os.EOL +
@@ -4222,6 +4309,10 @@ const argv = yargs.usage(_usage)
 					alias: 'p',
 					description: 'The flag to indicate published assets only'
 				})
+				.option('addtositecollection', {
+					alias: 'l',
+					description: 'Add assets to the site collection'
+				})
 				.option('repositorymappings', {
 					alias: 'm',
 					description: 'The repositories for assets from other repositories '
@@ -4248,6 +4339,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferSiteContent.example[2])
 				.example(...transferSiteContent.example[3])
 				.example(...transferSiteContent.example[4])
+				.example(...transferSiteContent.example[5])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${transferSiteContent.command}\n\n${transferSiteContent.usage.long}`);
@@ -4273,7 +4365,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('compilesite', {
 					alias: 'c',
-					description: 'Compile and publish site'
+					description: 'Compile site after publish'
 				})
 				.option('staticonly', {
 					alias: 't',
@@ -4860,6 +4952,10 @@ const argv = yargs.usage(_usage)
 					alias: 'd',
 					description: 'The description for the repository'
 				})
+				.option('type', {
+					alias: 'p',
+					description: 'The repository type [' + getRepositoryTypes().join(' | ') + ']. Defaults to asset'
+				})
 				.option('contenttypes', {
 					alias: 't',
 					description: 'The comma separated list of content types for the repository'
@@ -4876,8 +4972,18 @@ const argv = yargs.usage(_usage)
 					alias: 's',
 					description: 'The registered OCE server'
 				})
+				.check((argv) => {
+					if (argv.type && !getRepositoryTypes().includes(argv.type)) {
+						throw new Error(`${os.EOL}${argv.type} is not a valid value for <type>`);
+					}
+					if (argv.type && argv.type === 'business' && argv.channels) {
+						throw new Error(os.EOL + 'Cannot add channel to a business repository');
+					}
+					return true;
+				})
 				.example(...createRepository.example[0])
 				.example(...createRepository.example[1])
+				.example(...createRepository.example[2])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createRepository.command}\n\n${createRepository.usage.long}`);
@@ -5012,6 +5118,95 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${unshareRepository.command}\n\n${unshareRepository.usage.long}`);
+		})
+	.command([setEditorialPermission.command, setEditorialPermission.alias], false,
+		(yargs) => {
+			yargs.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
+				})
+				.option('assettypes', {
+					alias: 'a',
+					description: 'The comma separated list of asset types'
+				})
+				.option('assetpermission', {
+					alias: 'p',
+					description: 'Asset permission [' + getAssetEditorialPermissions().join(' | ') + ']'
+				})
+				.option('categories', {
+					alias: 'c',
+					description: 'The comma separated list of categories in format of <taxonomy>:<category>'
+				})
+				.option('categorypermission', {
+					alias: 't',
+					description: 'Category permission [' + getTaxonomyEditorialPermissions().join(' | ') + ']'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCE server'
+				})
+				.check((argv) => {
+					if (!argv.users && !argv.groups) {
+						throw new Error(os.EOL + 'Please specify users or groups');
+					}
+					if (!argv.assettypes && !argv.categories) {
+						throw new Error(os.EOL + 'Please specify asset types or categories');
+					}
+					if (argv.assettypes && !argv.assetpermission) {
+						throw new Error(os.EOL + 'Please specify asset permission');
+					}
+					if (argv.assettypes && argv.assetpermission &&
+						typeof argv.assetpermission !== 'boolean' && !getAssetEditorialPermissions().includes(argv.assetpermission)) {
+						throw new Error(os.EOL + `${argv.assetpermission} is not a valid value for <assetpermission>`);
+					}
+					if (typeof argv.assettypes === 'boolean' && typeof argv.assetpermission === 'boolean') {
+						throw new Error(os.EOL + 'Any Type cannot be removed');
+					}
+					if (argv.categories && !argv.categorypermission) {
+						throw new Error(os.EOL + 'Please specify category permission');
+					}
+					if (argv.categories && argv.categorypermission &&
+						typeof argv.categorypermission !== 'boolean' && !getTaxonomyEditorialPermissions().includes(argv.categorypermission)) {
+						throw new Error(os.EOL + `${argv.categorypermission} is not a valid value for <categorypermission>`);
+					}
+					if (argv.categories && typeof argv.categories !== 'boolean' && argv.categories.indexOf(':') <= 0) {
+						throw new Error(os.EOL + 'Please specify category in format of <taxonomy>:<category>');
+					}
+					if (typeof argv.categories === 'boolean' && typeof argv.categorypermission === 'boolean') {
+						throw new Error(os.EOL + 'Any Category cannot be removed');
+					}
+					return true;
+				})
+				.example(...setEditorialPermission.example[0])
+				.example(...setEditorialPermission.example[1])
+				.example(...setEditorialPermission.example[2])
+				.example(...setEditorialPermission.example[3])
+				.example(...setEditorialPermission.example[4])
+				.example(...setEditorialPermission.example[5])
+				.example(...setEditorialPermission.example[6])
+				.example(...setEditorialPermission.example[7])
+				.example(...setEditorialPermission.example[8])
+				.example(...setEditorialPermission.example[9])
+				.example(...setEditorialPermission.example[10])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${setEditorialPermission.command}\n\n${setEditorialPermission.usage.long}`);
+		})
+	.command([listEditorialPermission.command, listEditorialPermission.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered OCE server'
+				})
+				.example(...listEditorialPermission.example[0])
+				.example(...listEditorialPermission.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${listEditorialPermission.command}\n\n${listEditorialPermission.usage.long}`);
 		})
 	.command([shareType.command, shareType.alias], false,
 		(yargs) => {
@@ -5681,6 +5876,21 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${unshareFolder.command}\n\n${unshareFolder.usage.long}`);
+		})
+	.command([listFolder.command, listFolder.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered OCE server'
+				})
+				.example(...listFolder.example[0])
+				.example(...listFolder.example[1])
+				.example(...listFolder.example[2])
+				.example(...listFolder.example[3])
+				.example(...listFolder.example[4])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${listFolder.command}\n\n${listFolder.usage.long}`);
 		})
 	.command([downloadFolder.command, downloadFolder.alias], false,
 		(yargs) => {
@@ -7410,6 +7620,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.publishedassets) {
 		transferSiteContentArgs.push(...['--publishedassets', argv.publishedassets]);
 	}
+	if (argv.addtositecollection) {
+		transferSiteContentArgs.push(...['--addtositecollection', argv.addtositecollection]);
+	}
 	if (argv.repositorymappings) {
 		transferSiteContentArgs.push(...['--repositorymappings', argv.repositorymappings]);
 	}
@@ -7845,6 +8058,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.description) {
 		createRepositoryArgs.push(...['--description', argv.description]);
 	}
+	if (argv.type) {
+		createRepositoryArgs.push(...['--type', argv.type]);
+	}
 	if (argv.contenttypes) {
 		createRepositoryArgs.push(...['--contenttypes', argv.contenttypes]);
 	}
@@ -7934,6 +8150,56 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		unshareRepositoryArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, unshareRepositoryArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === setEditorialPermission.name || argv._[0] === setEditorialPermission.alias) {
+	let setEditorialPermissionArgs = ['run', '-s', setEditorialPermission.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.users && typeof argv.users !== 'boolean') {
+		setEditorialPermissionArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups && typeof argv.groups !== 'boolean') {
+		setEditorialPermissionArgs.push(...['--groups', argv.groups]);
+	}
+	if (argv.assettypes) {
+		var assettypes = typeof argv.assettypes === 'boolean' ? '__cecanytype' : argv.assettypes;
+		setEditorialPermissionArgs.push(...['--assettypes', assettypes]);
+	}
+	if (argv.assetpermission) {
+		var assetpermission = typeof argv.assetpermission === 'boolean' ? '__cecdeletetype' : argv.assetpermission;
+		setEditorialPermissionArgs.push(...['--assetpermission', assetpermission]);
+	}
+	if (argv.categories) {
+		var categories = typeof argv.categories === 'boolean' ? '__cecanycategory' : argv.categories;
+		setEditorialPermissionArgs.push(...['--categories', categories]);
+	}
+	if (argv.categorypermission) {
+		var categorypermission = typeof argv.categorypermission === 'boolean' ? '__cecdeletecategory' : argv.categorypermission;
+		setEditorialPermissionArgs.push(...['--categorypermission', categorypermission]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		setEditorialPermissionArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, setEditorialPermissionArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === listEditorialPermission.name || argv._[0] === listEditorialPermission.alias) {
+	let listEditorialPermissionArgs = ['run', '-s', listEditorialPermission.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		listEditorialPermissionArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, listEditorialPermissionArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -8373,6 +8639,20 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		unshareFolderArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, unshareFolderArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === listFolder.name || argv._[0] === listFolder.alias) {
+	let listFolderArgs = ['run', '-s', listFolder.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--path', argv.path
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		listFolderArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, listFolderArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

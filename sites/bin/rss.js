@@ -381,7 +381,7 @@ var _pubishRSSFile = function (server, siteUrl, siteName, rssFile, done) {
 				server: server,
 				parentID: seoFolderId,
 				filename: filename,
-				contents: fs.readFileSync(rssFile)
+				contents: fs.createReadStream(rssFile)
 			});
 		})
 		.then(function (result) {

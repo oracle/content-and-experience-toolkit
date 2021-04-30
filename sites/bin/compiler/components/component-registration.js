@@ -829,6 +829,7 @@
 						'componentConfig': '', // !!important indicates whether read is required from themes
 						'contentPlaceholder': false,
 						'contentTypes': [],
+						'contentTypeCategory': 'ContentType',
 						'customRenderComplete': false,
 						'initialized': false,
 						'isCaaSLayout': false,
@@ -863,6 +864,7 @@
 						'contentLayoutCategory',
 						'contentPlaceholder',
 						'contentTypes',
+						'contentTypeCategory', // 'DigitalAssetType' or 'ContentType' CCS-76377 - support Custom Digital Asset in Content Item component
 						'contentViewing',
 						'customRenderComplete',
 						'customSettingsData',

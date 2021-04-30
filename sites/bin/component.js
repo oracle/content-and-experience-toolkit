@@ -586,7 +586,7 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 				server: server,
 				parentID: folderId,
 				filename: fileName,
-				contents: fs.readFileSync(zipfile)
+				contents: fs.createReadStream(zipfile)
 			}).then(function (result) {
 				if (!result || !result.id) {
 					return Promise.reject();

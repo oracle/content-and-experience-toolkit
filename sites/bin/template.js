@@ -162,7 +162,11 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					// query content layout mappings if needed
 					if (excludeContent && contentTypeNames.length > 0) {
 						contentTypeNames.forEach(function (typeName) {
-							typePromises.push(serverUtils.getContentTypeLayoutMapping(request, server, typeName));
+							typePromises.push(serverRest.getContentType({
+								server: server,
+								name: typeName,
+								expand: 'layoutMapping'
+							}));
 						});
 					}
 
@@ -276,24 +280,49 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 				})
 				.then(function (results) {
 					if (hasAssets && excludeContent && !excludeType) {
-						var mappings = results || [];
+						var types = results || [];
 						var categoryLayoutMappings = [];
-						mappings.forEach(function (mapping) {
-							// console.log(mapping);
+						types.forEach(function (type) {
+							var mapping = type.layoutMapping;
 							if (mapping.data && mapping.data.length > 0) {
 								var typeMappings = mapping.data;
+								// console.log(type.name);
+								// console.log(JSON.stringify(typeMappings, null, 4));
 								var categoryList = [];
 								for (var j = 0; j < typeMappings.length; j++) {
-									if (typeMappings[j].xCaasLayoutName && !contentLayoutNames.includes(typeMappings[j].xCaasLayoutName)) {
-										contentLayoutNames.push(typeMappings[j].xCaasLayoutName);
+									if (typeMappings[j].label) {
+										var desktopLayout = typeMappings[j].formats && typeMappings[j].formats.desktop;
+										var mobileLayout = typeMappings[j].formats && typeMappings[j].formats.mobile;
+										if (desktopLayout) {
+											categoryList.push({
+												categoryName: typeMappings[j].label,
+												layoutName: desktopLayout
+											});
+											if (!contentLayoutNames.includes(desktopLayout)) {
+												contentLayoutNames.push(desktopLayout);
+											}
+										}
+										if (mobileLayout) {
+											categoryList.push({
+												categoryName: typeMappings[j].label + '|mobile',
+												layoutName: mobileLayout
+											});
+											if (!contentLayoutNames.includes(mobileLayout)) {
+												contentLayoutNames.push(mobileLayout);
+											}
+										}
+										if (!desktopLayout && !mobileLayout) {
+											// default settings
+											categoryList.push({
+												categoryName: typeMappings[j].label,
+												layoutName: ''
+											});
+										}
 									}
-									categoryList.push({
-										categoryName: typeMappings[j].xCaasCategoryName,
-										layoutName: typeMappings[j].xCaasLayoutName
-									});
+
 								}
 								categoryLayoutMappings.push({
-									type: mapping.type,
+									type: type.name,
 									categoryList: categoryList
 								});
 							}
@@ -325,7 +354,8 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						contentTypeNames.forEach(function (typeName) {
 							contentTypePromises.push(serverRest.getContentType({
 								server: server,
-								name: typeName
+								name: typeName,
+								expand: 'all'
 							}));
 						});
 					}
@@ -449,11 +479,15 @@ var _downloadTheme = function (request, server, themeName, themeId, themeSrcPath
 			.then(function (result) {
 				console.log(' - download theme files');
 
-				return serverUtils.getFolderInfoOnServer(request, server, themeId);
+				return serverRest.getFolderMetadata({
+					server: server,
+					folderId: themeId
+				});
 
 			}).then(function (result) {
+				
 				// get the theme identity in folder info
-				var itemGUID = result && result.folderInfo && result.folderInfo.xScsItemGUID || themeId;
+				var itemGUID = result && result.metadata && result.metadata.xScsItemGUID || themeId;
 
 				// create _folder.json for theme
 				var folderJson = {
@@ -487,7 +521,10 @@ var _downloadSiteComponents = function (request, server, compNames) {
 
 				var compFolderInfoPromises = [];
 				for (var i = 0; i < comps.length; i++) {
-					compFolderInfoPromises.push(serverUtils.getFolderInfoOnServer(request, server, comps[i].id));
+					compFolderInfoPromises.push(serverRest.getFolderMetadata({
+						server: server,
+						folderId: comps[i].id
+					}));
 				}
 
 				return Promise.all(compFolderInfoPromises);
@@ -501,9 +538,9 @@ var _downloadSiteComponents = function (request, server, compNames) {
 					var itemGUID = comps[i].id;
 					// get the component's identity 
 					for (var j = 0; j < compFolderInfo.length; j++) {
-						var compInfo = compFolderInfo[j] && compFolderInfo[j].folderInfo;
-						if (compInfo && compInfo.fFolderGUID === comps[i].id && compInfo.xScsItemGUID) {
-							itemGUID = compInfo.xScsItemGUID;
+						var compInfo = compFolderInfo[j];
+						if (compInfo && compInfo.folderId === comps[i].id && compInfo.metadata.xScsItemGUID) {
+							itemGUID = compInfo.metadata.xScsItemGUID;
 							break;
 						}
 					}
@@ -578,7 +615,11 @@ var _downloadContent = function (request, server, name, channelName, channelId, 
 				if (!excludeType) {
 					for (var i = 0; i < contentTypes.length; i++) {
 						if (contentTypes[i] !== 'DigitalAsset' && contentTypes[i] !== 'Recommendation') {
-							typePromises.push(serverUtils.getContentTypeLayoutMapping(request, server, contentTypes[i]));
+							typePromises.push(serverRest.getContentType({
+								server: server,
+								name: contentTypes[i],
+								expand: 'layoutMapping'
+							}));
 							assetContentTypes.push(contentTypes[i]);
 						}
 					}
@@ -594,28 +635,52 @@ var _downloadContent = function (request, server, name, channelName, channelId, 
 				var customEditors = [];
 
 				if (!excludeType) {
-					var mappings = results || [];
+					var types = results || [];
 
-					var typeName = assetContentTypes[i];
-					for (var i = 0; i < mappings.length; i++) {
-						if (mappings[i].data && mappings[i].data.length > 0) {
-							var typeMappings = mappings[i].data;
+					types.forEach(function (type) {
+						var mapping = type.layoutMapping;
+						if (mapping.data && mapping.data.length > 0) {
+							var typeMappings = mapping.data;
+							// console.log(type.name);
+							// console.log(JSON.stringify(typeMappings, null, 4));
 							var categoryList = [];
 							for (var j = 0; j < typeMappings.length; j++) {
-								if (!layoutComponents.includes(typeMappings[j].xCaasLayoutName)) {
-									layoutComponents.push(typeMappings[j].xCaasLayoutName);
+								if (typeMappings[j].label) {
+									var desktopLayout = typeMappings[j].formats && typeMappings[j].formats.desktop;
+									var mobileLayout = typeMappings[j].formats && typeMappings[j].formats.mobile;
+									if (desktopLayout) {
+										categoryList.push({
+											categoryName: typeMappings[j].label,
+											layoutName: desktopLayout
+										});
+										if (!layoutComponents.includes(desktopLayout)) {
+											layoutComponents.push(desktopLayout);
+										}
+									}
+									if (mobileLayout) {
+										categoryList.push({
+											categoryName: typeMappings[j].label + '|mobile',
+											layoutName: mobileLayout
+										});
+										if (!layoutComponents.includes(mobileLayout)) {
+											layoutComponents.push(mobileLayout);
+										}
+									}
+									if (!desktopLayout && !mobileLayout) {
+										// default settings
+										categoryList.push({
+											categoryName: typeMappings[j].label,
+											layoutName: ''
+										});
+									}
 								}
-								categoryList.push({
-									categoryName: typeMappings[j].xCaasCategoryName,
-									layoutName: typeMappings[j].xCaasLayoutName
-								});
 							}
 							categoryLayoutMappings.push({
-								type: mappings[i].type,
+								type: type.name,
 								categoryList: categoryList
 							});
 						}
-					}
+					});
 
 					customEditors = _getCustomEditors(tempContentPath);
 				}

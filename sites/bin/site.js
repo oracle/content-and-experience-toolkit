@@ -94,359 +94,6 @@ module.exports.createSite = function (argv, done) {
 
 
 /**
- * Use Idc Service APIs to create a site
- * @param {*} request 
- * @param {*} server 
- * @param {*} name 
- * @param {*} templateName 
- * @param {*} repositoryName 
- * @param {*} localizationPolicyName 
- * @param {*} defaultLanguage 
- * @param {*} description 
- * @param {*} sitePrefix 
- */
-var _createSiteSCS = function (request, server, siteName, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, updateContent, done) {
-
-	try {
-		var loginPromise = serverUtils.loginToServer(server, request);
-		loginPromise.then(function (result) {
-			if (!result.status) {
-				console.log(' - failed to connect to the server');
-				done();
-				return;
-			}
-
-			var express = require('express');
-			var app = express();
-
-			var port = '9191';
-			var localhost = 'http://localhost:' + port;
-
-			var dUser = '';
-			var idcToken;
-
-			var auth = serverUtils.getRequestAuth(server);
-
-			var template, templateGUID;
-			var repositoryId, localizationPolicyId;
-			var createEnterprise;
-
-			var cecVersion;
-
-			var format = '   %-20s %-s';
-
-			app.get('/*', function (req, res) {
-				// console.log('GET: ' + req.url);
-				if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-					var url = server.url + req.url;
-
-					var options = {
-						url: url,
-					};
-
-					options.auth = auth;
-
-					request(options).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
-						.on('error', function (err) {
-							console.log('ERROR: GET request failed: ' + req.url);
-							console.log(error);
-							return resolve({
-								err: 'err'
-							});
-						})
-						.pipe(res);
-
-				} else {
-					console.log('ERROR: GET request not supported: ' + req.url);
-					res.write({});
-					res.end();
-				}
-			});
-			app.post('/documents/web', function (req, res) {
-				// console.log('POST: ' + req.url);
-				var url = server.url + req.url;
-
-				var repositoryPrefix = 'arCaaSGUID';
-				// console.log(' - CEC version: ' + cecVersion + ' repositoryPrefix: ' + repositoryPrefix);
-				var formData = createEnterprise ? {
-					'idcToken': idcToken,
-					'names': siteName,
-					'descriptions': description,
-					'items': 'fFolderGUID:' + templateGUID,
-					'isEnterprise': '1',
-					'repository': repositoryPrefix + ':' + repositoryId,
-					'slugPrefix': sitePrefix,
-					'defaultLanguage': defaultLanguage,
-					'localizationPolicy': localizationPolicyId,
-					'useBackgroundThread': 1
-				} : {
-					'idcToken': idcToken,
-					'names': siteName,
-					'descriptions': description,
-					'items': 'fFolderGUID:' + templateGUID,
-					'useBackgroundThread': 1
-				};
-
-				// keep the existing ids
-				if (updateContent) {
-					formData.doPreserveCaaSGUID = 1;
-				}
-
-				var postData = {
-					method: 'POST',
-					url: url,
-					auth: auth,
-					formData: formData
-				};
-
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						console.log('ERROR: Failed to ' + action + ' site');
-						console.log(error);
-						return resolve({
-							err: 'err'
-						});
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						res.end();
-					});
-
-			});
-
-			localServer = app.listen(0, function () {
-				port = localServer.address().port;
-				localhost = 'http://localhost:' + port;
-				localServer.setTimeout(0);
-
-				var inter = setInterval(function () {
-					// console.log(' - getting login user: ' + total);
-					var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-					request.get(url, function (err, response, body) {
-						var data;
-						try {
-							data = JSON.parse(body);
-						} catch (e) {
-
-						}
-						dUser = data && data.LocalData && data.LocalData.dUser;
-						idcToken = data && data.LocalData && data.LocalData.idcToken;
-						if (dUser && dUser !== 'anonymous' && idcToken) {
-							// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-							clearInterval(inter);
-							console.log(' - establish user session');
-
-							// verify site 
-							var sitePromise = serverUtils.browseSitesOnServer(request, server);
-							sitePromise.then(function (result) {
-									if (result.err) {
-										return Promise.reject();
-									}
-
-									var sites = result.data || [];
-									var site;
-									for (var i = 0; i < sites.length; i++) {
-										if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-											site = sites[i];
-											break;
-										}
-									}
-									if (site && site.fFolderGUID) {
-										console.log('ERROR: site ' + siteName + ' already exists');
-										return Promise.reject();
-									}
-
-									// Verify template
-									return serverUtils.browseSitesOnServer(request, server, 'framework.site.template', templateName);
-
-								})
-								.then(function (result) {
-									if (!result || result.err) {
-										return Promise.reject();
-									}
-
-									var templates = result.data;
-									for (var i = 0; i < templates.length; i++) {
-										if (templateName.toLowerCase() === templates[i].fFolderName.toLowerCase()) {
-											templateGUID = templates[i].fFolderGUID;
-											break;
-										}
-									}
-									if (!templateGUID) {
-										console.log('ERROR: template ' + templateName + ' does not exist');
-										return Promise.reject();
-									}
-
-									// get other template info
-									return _getOneIdcService(request, localhost, server, 'SCS_GET_SITE_INFO_FILE', 'siteId=SCSTEMPLATE_' + templateName + '&IsJson=1');
-								})
-								.then(function (result) {
-									if (!result || result.err) {
-										return Promise.reject();
-									}
-
-									template = result.base ? result.base.properties : undefined;
-									if (!template || !template.siteName) {
-										console.log('ERROR: failed to get template info');
-										return Promise.reject();
-									}
-
-									console.log(' - get template ');
-									// console.log(template);
-
-									if (template.isEnterprise && !repositoryName) {
-										console.log('ERROR: repository is required to create enterprise site');
-										return Promise.reject();
-									}
-
-									createEnterprise = repositoryName ? true : false;
-
-									if (createEnterprise && !template.localizationPolicy && !localizationPolicyName) {
-										console.log('ERROR: localization policy is required to create enterprise site');
-										return Promise.reject();
-									}
-									// Remove this condition when defaultLanguage returned from API /templates 
-									if (createEnterprise && !defaultLanguage) {
-										console.log('ERROR: default language is required to create enterprise site');
-										return Promise.reject();
-									}
-
-									if (!createEnterprise) {
-										console.log(' - creating standard site ...');
-										console.log(sprintf(format, 'name', siteName));
-										console.log(sprintf(format, 'template', templateName));
-
-										var actionPromise = _postOneIdcService(request, localhost, server, 'SCS_COPY_SITES', 'create site', idcToken);
-										actionPromise.then(function (result) {
-											if (result.err) {
-												_cmdEnd(done);
-											} else {
-												console.log(' - site created');
-												_cmdEnd(done, true);
-											}
-										});
-
-									} else {
-										var repositoryPromise = serverRest.getRepositoryWithName({
-											server: server,
-											name: repositoryName
-										});
-										repositoryPromise.then(function (result) {
-												//
-												// validate repository
-												//
-												if (!result || result.err) {
-													return Promise.reject();
-												}
-
-												var repository = result.data;
-												if (!repository || !repository.id) {
-													console.log('ERROR: repository ' + repositoryName + ' does not exist');
-													return Promise.reject();
-												}
-												repositoryId = repository.id;
-												console.log(' - get repository');
-
-												var policyPromises = [];
-												if (localizationPolicyName) {
-													policyPromises.push(serverUtils.getLocalizationPolicyFromServer(request, server, localizationPolicyName));
-												} else {
-													policyPromises.push(serverUtils.getLocalizationPolicyFromServer(request, server, template.localizationPolicy, 'id'));
-												}
-												return Promise.all(policyPromises);
-											})
-											.then(function (results) {
-												//
-												// validate localization policy
-												//
-												var result = results.length > 0 ? results[0] : undefined;
-												if (!result || result.err) {
-													return Promise.reject();
-												}
-
-												var policy = result.data;
-												if (!policy || !policy.id) {
-													if (localizationPolicyName) {
-														console.log('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
-													} else {
-														console.log('ERROR: localization policy in template does not exist');
-													}
-													return Promise.reject();
-												}
-
-												if (localizationPolicyName) {
-													console.log(' - get localization policy');
-												} else {
-													console.log(' - use localization policy from template: ' + policy.name);
-												}
-												localizationPolicyId = policy.id;
-
-												//
-												// validate default language
-												//
-
-												var requiredLanguages = policy.requiredValues;
-												if (!requiredLanguages.includes(defaultLanguage)) {
-													console.log('ERROR: language ' + defaultLanguage + ' is not in localization policy ' + policy.name);
-													return Promise.reject();
-												}
-
-												//
-												// create enterprise site
-												//
-												console.log(' - creating enterprise site ...');
-												console.log(sprintf(format, 'name', siteName));
-												console.log(sprintf(format, 'template', templateName));
-												console.log(sprintf(format, 'site prefix', sitePrefix));
-												console.log(sprintf(format, 'repository', repositoryName));
-												console.log(sprintf(format, 'localization policy', policy.name));
-												console.log(sprintf(format, 'default language', defaultLanguage));
-
-												var actionPromise = _postOneIdcService(request, localhost, server, 'SCS_COPY_SITES', 'create site', idcToken);
-												actionPromise.then(function (result) {
-													if (result.err) {
-														_cmdEnd(done);
-													} else {
-														console.log(' - site created');
-														sitesRest.getSite({
-															server: server,
-															name: siteName
-														}).then(function (result) {
-															console.log(' - site id: ' + (result && result.id));
-															_cmdEnd(done, true);
-														});
-													}
-												});
-
-											})
-											.catch((error) => {
-												_cmdEnd(done);
-											});
-
-									} // enterprise site
-								})
-								.catch((error) => {
-									_cmdEnd(done);
-								});
-						}
-					}); // idc token
-				}, 5000);
-			}); // local
-		});
-	} catch (e) {
-		console.log(e);
-		_cmdEnd(done);
-	}
-};
-
-/**
  * Create a site using REST APIs
  * @param {*} request 
  * @param {*} server 
@@ -541,9 +188,11 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 						})
 						.then(function (result) {
 							var repositories = result || [];
+							var repositoryType;
 							for (var i = 0; i < repositories.length; i++) {
 								if (repositories[i].name.toLowerCase() === repositoryName.toLowerCase()) {
 									repositoryId = repositories[i].id;
+									repositoryType = repositories[i].repositoryType;
 									break;
 								}
 							}
@@ -552,7 +201,12 @@ var _createSiteREST = function (request, server, name, templateName, repositoryN
 								console.log('ERROR: repository ' + repositoryName + ' does not exist');
 								return Promise.reject();
 							}
-							console.log(' - get repository');
+							if (repositoryType && repositoryType.toLowerCase() === 'business') {
+								console.log('ERROR: repository is a business repository');
+								return Promise.reject();
+							}
+
+							console.log(' - get repository (Id: ' + repositoryId + ')');
 
 							return serverRest.getLocalizationPolicies({
 								server: server
@@ -731,6 +385,12 @@ module.exports.copySite = function (argv, done) {
 						return Promise.reject();
 					}
 					targetRepository = results[0].data;
+
+					if (targetRepository.repositoryType && targetRepository.repositoryType.toLowerCase() === 'business') {
+						console.log('ERROR: repository is a business repository');
+						return Promise.reject();
+					}
+
 					console.log(' - verify repository');
 				}
 
@@ -1735,6 +1395,12 @@ module.exports.transferSite = function (argv, done) {
 										return Promise.reject();
 									}
 									repository = results[0].data;
+
+									if (repository.repositoryType && repository.repositoryType.toLowerCase() === 'business') {
+										console.log('ERROR: repository is a business repository');
+										return Promise.reject();
+									}
+
 									console.log(' - verify repository');
 								}
 
@@ -2683,289 +2349,7 @@ module.exports.controlSite = function (argv, done) {
 
 };
 
-/**
- * Use sites management API to activate / deactivate a site
- * @param {*} request 
- * @param {*} server the server object
- * @param {*} action bring-online / take-offline
- * @param {*} siteId 
- */
-var _setSiteRuntimeStatus = function (request, server, action, siteId) {
-	var sitePromise = new Promise(function (resolve, reject) {
 
-		var url = server.url + '/sites/management/api/v1/sites/' + siteId + '/' + (action === 'bring-online' ? 'activate' : 'deactivate');
-
-		var headers = {
-			'Content-Type': 'application/json'
-		};
-		var options = {
-			method: 'POST',
-			url: url,
-			headers: headers
-		};
-
-		if (server.env === 'pod_ec') {
-			headers.Authorization = server.oauthtoken;
-			options.headers = headers;
-		} else {
-			options.auth = {
-				user: server.username,
-				password: server.password
-			};
-		}
-
-		request(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to ' + action + ' the site');
-				console.log(error);
-				resolve({
-					err: 'err'
-				});
-			}
-
-			if (response.statusCode === 303) {
-
-				resolve({});
-
-			} else {
-				var data;
-				try {
-					data = JSON.parse(body);
-				} catch (err) {}
-
-				var msg = data ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to ' + action + ' the site - ' + msg);
-				resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-	return sitePromise;
-};
-
-
-/**
- * Use Idc service to control a site
- */
-var _controlSiteSCS = function (request, server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish, done) {
-
-	var express = require('express');
-	var app = express();
-
-	var port = '9191';
-	var localhost = 'http://localhost:' + port;
-
-	var dUser = '';
-	var idcToken;
-
-	var auth = serverUtils.getRequestAuth(server);
-
-	var siteId;
-
-	app.get('/*', function (req, res) {
-		// console.log('GET: ' + req.url);
-		if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-			var url = server.url + req.url;
-
-			var options = {
-				url: url,
-			};
-
-			options.auth = auth;
-
-			request(options).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					serverUtils.fixHeaders(response, res);
-				})
-				.on('error', function (err) {
-					console.log('ERROR: GET request failed: ' + req.url);
-					console.log(error);
-					return resolve({
-						err: 'err'
-					});
-				})
-				.pipe(res);
-
-		} else {
-			console.log('ERROR: GET request not supported: ' + req.url);
-			res.write({});
-			res.end();
-		}
-	});
-	app.post('/documents/web', function (req, res) {
-		// console.log('POST: ' + req.url);
-
-		var url = server.url + req.url;
-		var formData = {
-			'idcToken': idcToken,
-			'item': 'fFolderGUID:' + siteId
-		};
-
-		if (req.url.indexOf('SCS_ACTIVATE_SITE') > 0 || req.url.indexOf('SCS_DEACTIVATE_SITE') > 0) {
-			formData.isSitePublishV2 = 1;
-		}
-		if (req.url.indexOf('SCS_PUBLISH_SITE')) {
-			if (staticOnly > 0) {
-				formData.doStaticFilePublishOnly = 1;
-				formData.skipCompileSiteCheck = 1;
-			} else if (!compileSite) {
-				formData.skipCompileSiteCheck = 1;
-			}
-
-			if (usedContentOnly) {
-				formData.publishUsedContentOnly = 1;
-			}
-
-			if (fullpublish) {
-				formData.doForceActivate = 1;
-			}
-		}
-
-		// console.log('controlSite formData', formData);
-
-		var postData = {
-			method: 'POST',
-			url: url,
-			'auth': auth,
-			'formData': formData
-		};
-		request(postData).on('response', function (response) {
-				// fix headers for cross-domain and capitalization issues
-				serverUtils.fixHeaders(response, res);
-			})
-			.on('error', function (err) {
-				console.log('ERROR: Failed to ' + action + ' site');
-				console.log(err);
-				return resolve({
-					err: 'err'
-				});
-			})
-			.pipe(res)
-			.on('finish', function (err) {
-				res.end();
-			});
-
-	});
-
-	localServer = app.listen(0, function () {
-		port = localServer.address().port;
-		localhost = 'http://localhost:' + port;
-		localServer.setTimeout(0);
-
-		var inter = setInterval(function () {
-			// console.log(' - getting login user: ' + total);
-			var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-			request.get(url, function (err, response, body) {
-				var data;
-				try {
-					data = JSON.parse(body);
-				} catch (e) {}
-				dUser = data && data.LocalData && data.LocalData.dUser;
-				idcToken = data && data.LocalData && data.LocalData.idcToken;
-				if (dUser && dUser !== 'anonymous' && idcToken) {
-					// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-					clearInterval(inter);
-					console.log(' - establish user session');
-
-					// verify site 
-					var sitePromise = serverUtils.browseSitesOnServer(request, server, '', siteName);
-					sitePromise.then(function (result) {
-							if (result.err) {
-								return Promise.reject();
-							}
-
-							var sites = result.data || [];
-							var site;
-							for (var i = 0; i < sites.length; i++) {
-								if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-									site = sites[i];
-									break;
-								}
-							}
-							if (!site || !site.fFolderGUID) {
-								console.log('ERROR: site ' + siteName + ' does not exist');
-								return Promise.reject();
-							}
-
-							siteId = site.fFolderGUID;
-
-							// console.log(' - xScsIsSiteActive: ' + site.xScsIsSiteActive + ' xScsSitePublishStatus: ' + site.xScsSitePublishStatus);
-							var runtimeStatus = site.xScsIsSiteActive && site.xScsIsSiteActive === '1' ? 'online' : 'offline';
-							var publishStatus = site.xScsSitePublishStatus && site.xScsSitePublishStatus === 'published' ? 'published' : 'unpublished';
-							console.log(' - get site: runtimeStatus: ' + runtimeStatus + '  publishStatus: ' + publishStatus);
-
-							if (action === 'take-offline' && runtimeStatus === 'offline') {
-								console.log(' - site is already offline');
-								return Promise.reject();
-							}
-							if (action === 'bring-online' && runtimeStatus === 'online') {
-								console.log(' - site is already online');
-								return Promise.reject();
-							}
-							if (action === 'bring-online' && publishStatus === 'unpublished') {
-								console.log('ERROR: site ' + siteName + ' is draft, publish it first');
-								return Promise.reject();
-							}
-
-							if (action === 'unpublish' && runtimeStatus === 'online') {
-								console.log('ERROR: site ' + siteName + ' is online, take it offline first');
-								return Promise.reject();
-							}
-							if (action === 'unpublish' && publishStatus === 'unpublished') {
-								console.log('ERROR: site ' + siteName + ' is draft');
-								return Promise.reject();
-							}
-
-							var service;
-							if (action === 'publish') {
-								service = 'SCS_PUBLISH_SITE';
-							} else if (action === 'unpublish') {
-								service = 'SCS_UNPUBLISH_SITE';
-							} else if (action === 'bring-online') {
-								service = 'SCS_ACTIVATE_SITE';
-							} else if (action === 'take-offline') {
-								service = 'SCS_DEACTIVATE_SITE';
-							} else {
-								console.log('ERROR: invalid action ' + action);
-								return Promise.reject();
-							}
-
-							var actionPromise = _postOneIdcService(request, localhost, server, service, action, idcToken);
-							actionPromise.then(function (result) {
-								if (result.err) {
-									_cmdEnd(done);
-									return;
-								}
-
-								if (action === 'bring-online') {
-									console.log(' - site ' + siteName + ' is online now');
-								} else if (action === 'take-offline') {
-									console.log(' - site ' + siteName + ' is offline now');
-								} else if (action === 'publish') {
-									if (compileSite) {
-										console.log(' - ' + action + ' ' + siteName + ' (compile and publish) finished');
-									} else if (staticOnly) {
-										console.log(' - ' + action + ' ' + siteName + ' (static files) finished');
-									} else {
-										console.log(' - ' + action + ' ' + siteName + ' finished');
-									}
-								} else {
-									console.log(' - ' + action + ' ' + siteName + ' finished');
-								}
-								_cmdEnd(done, true);
-							});
-						})
-						.catch((error) => {
-							_cmdEnd(done);
-						});
-				}
-			}); // idc token request
-
-		}, 5000);
-	}); // local 
-};
 
 var _postOneIdcService = function (request, localhost, server, service, action, idcToken) {
 	return new Promise(function (resolve, reject) {
@@ -4256,6 +3640,7 @@ module.exports.uploadStaticSite = function (argv, done) {
 	var request = serverUtils.getRequest();
 
 	var siteId;
+
 	serverUtils.loginToServer(server, request).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -4294,12 +3679,55 @@ module.exports.uploadStaticSite = function (argv, done) {
 			})
 			.then(function (result) {
 				console.log(' - static files uploaded');
+
 				done(true);
 			})
+			.then(function (result) {
+
+				done(true);
+
+			})
 			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
 				done();
 			});
 
+	});
+};
+
+var _deleteOldStaticFiles = function (server, items) {
+	return new Promise(function (resolve, reject) {
+		if (items.length === 0) {
+			return resolve({});
+		}
+
+		var doDelete = items.reduce(function (deletePromise, item) {
+				return deletePromise.then(function (result) {
+					var promise = item.type === 'Folder' ? serverRest.deleteFolder({
+						server: server,
+						fFolderGUID: item.id,
+						folderPath: item.path
+					}) : serverRest.deleteFile({
+						server: server,
+						fFileGUID: item.id,
+						filePath: item.path
+					});
+					return promise.then(function (result) {
+						if (result && !result.err) {
+							console.log(' - deleted old ' + item.type.toLowerCase() + ' ' + item.path);
+						}
+					});
+
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doDelete.then(function (result) {
+			resolve({});
+		});
 	});
 };
 
@@ -5029,12 +4457,6 @@ module.exports.migrateSite = function (argv, done) {
 					auth: auth
 				};
 
-				if (server.cookies) {
-					options.headers = {
-						Cookie: server.cookies
-					};
-				}
-
 				request(options).on('response', function (response) {
 						// fix headers for cross-domain and capitalization issues
 						serverUtils.fixHeaders(response, res);
@@ -5074,11 +4496,7 @@ module.exports.migrateSite = function (argv, done) {
 					'auth': auth,
 					'form': data
 				};
-				if (server.cookies) {
-					postData.headers = {
-						Cookie: server.cookies
-					};
-				}
+
 				// console.log(postData);
 				request(postData).on('response', function (response) {
 						// fix headers for cross-domain and capitalization issues
@@ -5116,11 +4534,7 @@ module.exports.migrateSite = function (argv, done) {
 					auth: auth,
 					formData: formData
 				};
-				if (server.cookies) {
-					postData.headers = {
-						Cookie: server.cookies
-					};
-				}
+
 				request(postData).on('response', function (response) {
 						// fix headers for cross-domain and capitalization issues
 						serverUtils.fixHeaders(response, res);

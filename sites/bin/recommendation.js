@@ -442,8 +442,8 @@ module.exports.uploadRecommendation = function (argv, done) {
 					return Promise.reject();
 				}
 
-				console.log(' - submit import job');
 				var jobId = result.jobId;
+				console.log(' - submit import job (' + jobId + ')');
 				// Wait for job to finish
 				var inter = setInterval(function () {
 					var checkExportStatusPromise = serverRest.getContentJobStatus({

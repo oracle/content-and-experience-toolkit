@@ -214,7 +214,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 					};
 				var contentItemData = {
 						id: 'id1',
-						name: 'item1',
+						name: '',
 						fieldData: []
 					}
 				
@@ -251,6 +251,28 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 						}
 					} else {
 						// no selected item
+						contentItemData.isNew = true;
+						if (window.sessionStorage['currentContentType']) {
+							var currentType = JSON.parse(sessionStorage['currentContentType']);
+							// console.log(currentType);
+							var fields = currentType.fields || [];
+							var fieldData = [];
+    						fields.forEach(function (field) {
+      							var data = {
+       								definition: field,
+        							value: ''
+     							}
+      							fieldData.push(data);
+    						});
+							contentItemData.fieldData = fieldData;
+							contentTypeData = {
+      							name: currentType.name,
+      							description: currentType.description,
+      							groups: currentType.properties.groups || [],
+      							slug: (currentType.properties.caas && currentType.properties.caas.slug ? currentType.properties.caas.slug : '')
+	};
+						}
+
 					}
 				}
 				
@@ -269,6 +291,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 				if (editWindow) {
 					editWindow.postMessage(msg, window.origin); 
 				}
+				
 
 			} else {
 

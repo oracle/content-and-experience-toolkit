@@ -942,23 +942,25 @@ module.exports.getContentLayoutItems = function (projectDir, layoutName) {
 		if (fs.existsSync(itemspath)) {
 			var itemfiles = fs.readdirSync(itemspath);
 			for (var k = 0; k < itemfiles.length; k++) {
-				var itemjson = JSON.parse(fs.readFileSync(path.join(itemspath, itemfiles[k]))),
-					found = false;
+				if (fs.statSync(path.join(itemspath, itemfiles[k])).isFile()) {
+					var itemjson = JSON.parse(fs.readFileSync(path.join(itemspath, itemfiles[k]))),
+						found = false;
 
-				for (var idx = 0; idx < items.length; idx++) {
-					if (itemjson.id === items[idx].id) {
-						found = true;
+					for (var idx = 0; idx < items.length; idx++) {
+						if (itemjson.id === items[idx].id) {
+							found = true;
+						}
 					}
-				}
 
-				if (!found) {
-					items[items.length] = {
-						id: itemjson.id,
-						name: itemjson.name,
-						type: itemjson.type,
-						template: tempname,
-						data: itemjson
-					};
+					if (!found) {
+						items[items.length] = {
+							id: itemjson.id,
+							name: itemjson.name,
+							type: itemjson.type,
+							template: tempname,
+							data: itemjson
+						};
+					}
 				}
 			}
 		}
@@ -1077,7 +1079,10 @@ module.exports.getContentFormItems = function (projectDir, formName) {
 		// console.log(' - items ' + msgs);
 	}
 
-	return items;
+	return {
+		items: items,
+		types: contenttypes
+	};
 };
 
 
@@ -1178,6 +1183,66 @@ module.exports.getCaasCSRFToken = function (server) {
 module.exports.getIdcToken = function (server) {
 	return _getIdcToken(server);
 };
+/*
+var _getIdcToken = function (server) {
+	var idcTokenPromise = new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		var url = server.url + '/documents/integration?IdcService=SCS_GET_TENANT_CONFIG';
+		url += '&IsJson=1';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+		if (server.cookies) {
+			options.headers = {
+				Cookie: server.cookies
+			};
+		}
+		var total = 0;
+		var inter = setInterval(function () {
+			request.get(options, function (error, response, body) {
+				if (error) {
+					clearInterval(inter);
+					console.log(' - failed to connect ' + error);
+					return resolve({
+						err: 'err'
+					});
+				} else if (response.statusCode !== 200) {
+					clearInterval(inter);
+					console.log(' - failed to connect: ' + (response.statusMessage || response.statusCode));
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var data = JSON.parse(body);
+					dUser = data && data.LocalData && data.LocalData.dUser;
+					idcToken = data && data.LocalData && data.LocalData.idcToken;
+					if (dUser && dUser !== 'anonymous' && idcToken) {
+						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
+						clearInterval(inter);
+						// console.log(' - establish user session');
+						resolve({
+							idcToken: idcToken
+						});
+					}
+					total += 1;
+					if (total >= 10) {
+						clearInterval(inter);
+						console.log('ERROR: disconnect from the server, try again');
+						resolve({
+							err: 'err'
+						});
+					}
+				}
+			});
+		}, 3000);
+	});
+	return idcTokenPromise;
+};
+*/
 var _getIdcToken = function (server) {
 	var idcTokenPromise = new Promise(function (resolve, reject) {
 		var request = _getRequest();
@@ -1239,14 +1304,16 @@ var _getIdcToken = function (server) {
  */
 module.exports.getTenantConfig = function (server) {
 	return new Promise(function (resolve, reject) {
-		var request = _getRequest();
 		var url = server.url + '/documents/integration?IdcService=GET_TENANT_CONFIG&IsJson=1';
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: _getRequestAuth(server)
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
 		};
-		request(options, function (err, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get tenant config');
 				console.log(err);
@@ -1375,10 +1442,7 @@ var _getOAuthTokenFromIDCS = function (server) {
 		}
 
 		var url = server.idcs_url + '/oauth2/v1/token';
-		var auth = {
-			user: server.client_id,
-			password: server.client_secret
-		};
+		var auth = 'Basic ' + _btoa(server.client_id + ':' + server.client_secret);
 
 		var formData = new URLSearchParams();
 		formData.append('grant_type', 'password');
@@ -1391,13 +1455,14 @@ var _getOAuthTokenFromIDCS = function (server) {
 			url: url,
 			auth: auth,
 			headers: {
-				'Content-Type': 'application/x-www-form-urlencoded;'
+				Authorization: auth
 			},
-			body: formData.toString(),
+			body: formData,
 			json: true
 		};
-		var request = _getRequest();
-		request(postData, function (err, response, body) {
+
+		var request = require('./requestUtils.js').request;
+		request.post(postData, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get OAuth token');
 				console.log(err);
@@ -1411,7 +1476,7 @@ var _getOAuthTokenFromIDCS = function (server) {
 			} catch (error) {
 				data = body;
 			}
-
+			// console.log(data);
 			if (!data || response.statusCode !== 200) {
 				var msg = (data && (data.error || data.error_description)) ? (data.error_description || data.error) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: Failed to get OAuth token - ' + msg);
@@ -1434,66 +1499,6 @@ var _getOAuthTokenFromIDCS = function (server) {
 	return tokenPromise;
 };
 
-
-/**
- * Get localization policy from server
- */
-module.exports.getLocalizationPolicyFromServer = function (request, server, policyIdentifier, identifierType) {
-	var policyPromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-
-		var auth = _getRequestAuth(server);
-
-		var url = server.url + '/content/management/api/v1.1/policy?limit=9999';
-
-		var options = {
-			url: url,
-			auth: auth
-		};
-		request(options, function (error, response, body) {
-
-			if (error) {
-				console.log('ERROR: failed to get localization policy:');
-				console.log(error);
-				resolve({
-					err: error
-				});
-			}
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
-				var items = data && data.items;
-				var policy;
-				for (var i = 0; i < items.length; i++) {
-					if (identifierType && identifierType === 'id') {
-						if (items[i].id === policyIdentifier) {
-							policy = items[i];
-						}
-					} else {
-						if (items[i].name === policyIdentifier) {
-							policy = items[i];
-							break;
-						}
-					}
-				}
-				resolve({
-					data: policy
-				});
-			} else {
-				console.log('ERROR: failed to get localization policy: ' + (response ? (response.statusMessage || response.statusCode) : ''));
-				resolve({
-					err: (response ? (response.statusMessage || response.statusCode) : 'err')
-				});
-			}
-
-		});
-	});
-	return policyPromise;
-};
 
 var _btoa = function (value) {
 	var encoding = (value instanceof Buffer) ? 'utf8' : 'binary';
@@ -2496,269 +2501,6 @@ module.exports.getSiteInfo = function (server, site) {
 };
 
 
-module.exports.getContentTypeLayoutMapping = function (request, server, typeName) {
-	return _getContentTypeLayoutMapping(request, server, typeName);
-};
-
-var _getContentTypeLayoutMapping = function (request, server, typeName) {
-	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
-
-		var auth = _getRequestAuth(server);
-		var url = server.url + '/documents/web?IdcService=AR_GET_CONTENT_TYPE_CONFIG&contentTypeName=' + typeName;
-
-		var options = {
-			method: 'GET',
-			url: url,
-			auth: auth,
-		};
-
-		request(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get content layout mapping for ' + typeName);
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get content layout mapping for ' + typeName + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.ContentTypeCategoryLayoutMapping && data.ResultSets.ContentTypeCategoryLayoutMapping.fields || [];
-			var rows = data.ResultSets && data.ResultSets.ContentTypeCategoryLayoutMapping && data.ResultSets.ContentTypeCategoryLayoutMapping.rows;
-			var mappings = [];
-			rows.forEach(function (row) {
-				mappings.push({});
-			});
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
-				for (var j = 0; j < rows.length; j++) {
-					mappings[j][attr] = rows[j][i];
-				}
-			}
-
-			resolve({
-				type: typeName,
-				data: mappings,
-				ResultSets: data.ResultSets
-			});
-		});
-	});
-};
-
-/**
- * 
- */
-module.exports.addContentTypeLayoutMapping = function (request, server, typeName, contentLayout, style) {
-	return new Promise(function (resolve, reject) {
-		_getIdcToken(server)
-			.then(function (result) {
-				var idcToken = result && result.idcToken;
-				if (!idcToken) {
-					console.log('ERROR: failed to get idcToken');
-					return Promise.reject();
-				}
-
-				return _getContentTypeLayoutMapping(request, server, typeName);
-			})
-			.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
-
-				var ResultSets = result.ResultSets;
-				var rows = ResultSets && ResultSets.ContentTypeCategoryLayoutMapping && ResultSets.ContentTypeCategoryLayoutMapping.rows || [];
-				var exist = false;
-				for (var i = 0; i < rows.length; i++) {
-					if (rows[i][0] && rows[i][0].toLowerCase() === style.toLowerCase()) {
-						// category exists
-						rows[i][1] = contentLayout;
-						exist = true;
-						break;
-					}
-				}
-				if (!exist) {
-					rows.push([style, contentLayout]);
-				}
-				// console.log(JSON.stringify(ResultSets, null, 4));
-				var auth = _getRequestAuth(server);
-				var url = server.url + '/documents/web?IdcService=AR_SET_CONTENT_TYPE_CONFIG&contentTypeName=' + typeName;
-
-				var formData = {
-					'idcToken': idcToken,
-					'ResultSets': ResultSets
-				};
-
-				var postData = {
-					method: 'POST',
-					url: url,
-					auth: auth,
-					headers: {
-						'Content-Type': 'application/json',
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
-					},
-					body: formData,
-					json: true
-				};
-
-				request(postData, function (err, response, body) {
-					if (err) {
-						console.log('ERROR: Failed to add content layout mapping');
-						console.log(err);
-						return resolve({
-							err: 'err'
-						});
-					}
-					var data;
-					try {
-						data = JSON.parse(body);
-					} catch (e) {
-						if (typeof body === 'object') {
-							data = body;
-						}
-					}
-					// console.log(data);
-					if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-						console.log('ERROR: failed to add content layout mapping ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-						return resolve({
-							err: 'err'
-						});
-					} else {
-						return resolve({});
-					}
-				});
-
-			})
-			.catch((error) => {
-				if (error) {
-					console.log(error);
-				}
-				return resolve({
-					err: 'err'
-				});
-			});
-	});
-};
-
-module.exports.removeContentTypeLayoutMapping = function (request, server, typeName, contentLayout, style) {
-	return new Promise(function (resolve, reject) {
-		_getIdcToken(server)
-			.then(function (result) {
-				var idcToken = result && result.idcToken;
-				if (!idcToken) {
-					console.log('ERROR: failed to get idcToken');
-					return Promise.reject();
-				}
-
-				return _getContentTypeLayoutMapping(request, server, typeName);
-			})
-			.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
-
-				var ResultSets = result.ResultSets;
-				var rows = ResultSets && ResultSets.ContentTypeCategoryLayoutMapping && ResultSets.ContentTypeCategoryLayoutMapping.rows || [];
-				var exist = false;
-				var idx;
-				for (var i = 0; i < rows.length; i++) {
-					if (rows[i][0] && rows[i][0].toLowerCase() === style.toLowerCase() &&
-						rows[i][1] && rows[i][1].toLowerCase() === contentLayout.toLowerCase()) {
-						idx = i;
-						exist = true;
-						break;
-					}
-				}
-				if (!exist) {
-
-					// Not exist, do nothing
-					// console.log(' - the mapping ' + style + ':' + contentLayout + ' does not exist');
-					return resolve({});
-
-				} else {
-					// remove 
-					rows.splice(idx, 1);
-					// console.log(JSON.stringify(ResultSets, null, 4));
-
-					var auth = _getRequestAuth(server);
-					var url = server.url + '/documents/web?IdcService=AR_SET_CONTENT_TYPE_CONFIG&contentTypeName=' + typeName;
-
-					var formData = {
-						'idcToken': idcToken,
-						'ResultSets': ResultSets
-					};
-
-					var postData = {
-						method: 'POST',
-						url: url,
-						auth: auth,
-						headers: {
-							'Content-Type': 'application/json',
-							'X-REQUESTED-WITH': 'XMLHttpRequest'
-						},
-						body: formData,
-						json: true
-					};
-
-					request(postData, function (err, response, body) {
-						if (err) {
-							console.log('ERROR: Failed to remove content layout mapping');
-							console.log(err);
-							return resolve({
-								err: 'err'
-							});
-						}
-						var data;
-						try {
-							data = JSON.parse(body);
-						} catch (e) {
-							if (typeof body === 'object') {
-								data = body;
-							}
-						}
-						// console.log(data);
-						if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-							console.log('ERROR: failed to remove content layout mapping ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-							return resolve({
-								err: 'err'
-							});
-						} else {
-							return resolve({});
-						}
-					});
-				}
-			})
-			.catch((error) => {
-				if (error) {
-					console.log(error);
-				}
-				return resolve({
-					err: 'err'
-				});
-			});
-	});
-};
-
 module.exports.sleep = function (delay) {
 	_sleep(delay);
 };
@@ -3301,102 +3043,6 @@ var _browseThemesOnServer = function (request, server, params) {
 };
 
 
-/**
- * Get folder info from server using IdcService
- */
-module.exports.getFolderInfoOnServer = function (request, server, folderId) {
-
-	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
-
-		var auth = _getRequestAuth(server);
-
-		var url = server.url + '/documents/web?IdcService=FLD_INFO&item=fFolderGUID:' + folderId + '&doRetrieveMetadata=1';
-
-		var options = {
-			method: 'GET',
-			url: url,
-			auth: auth,
-		};
-		if (server.cookies) {
-			options.headers = {
-				Cookie: server.cookies
-			};
-		}
-		request(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get folder info');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get folder info' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.FolderInfo && data.ResultSets.FolderInfo.fields || [];
-			var rows = data.ResultSets && data.ResultSets.FolderInfo && data.ResultSets.FolderInfo.rows;
-			var folders = [];
-			rows.forEach(function (row) {
-				folders.push({});
-			});
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
-				for (var j = 0; j < rows.length; j++) {
-					folders[j][attr] = rows[j][i];
-				}
-			}
-
-			// add metadata
-			var mFields = data.ResultSets && data.ResultSets.dCommonSCSMetaCollection && data.ResultSets.dCommonSCSMetaCollection.fields || [];
-			var mRows = data.ResultSets && data.ResultSets.dCommonSCSMetaCollection && data.ResultSets.dCommonSCSMetaCollection.rows || [];
-			var appMetadata = [];
-			(function () {
-				mRows.forEach(function (row) {
-					appMetadata.push({});
-				});
-				for (var i = 0; i < mFields.length; i++) {
-					var attr = mFields[i].name;
-					for (var j = 0; j < mRows.length; j++) {
-						appMetadata[j][attr] = mRows[j][i];
-					}
-				}
-				folders.forEach(function (folder) {
-					for (var j = 0; j < appMetadata.length; j++) {
-						if (folder.fFolderGUID === appMetadata[j].dIdentifier) {
-							Object.assign(folder, appMetadata[j]);
-							break;
-						}
-					}
-				});
-			})();
-
-			return resolve({
-				folderInfo: folders[0]
-			});
-		});
-	});
-};
 
 /**
  * Get collections from server using IdcService (IC)
@@ -3487,17 +3133,18 @@ module.exports.browseTranslationConnectorsOnServer = function (request, server) 
 			});
 		}
 
-		var auth = _getRequestAuth(server);
-
 		var url = server.url + '/documents/integration?IdcService=GET_ALL_CONNECTOR_INSTANCES&IsJson=1&type=translation';
 
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: auth,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
 		};
 
-		request(options, function (err, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get translation connectors');
 				console.log(err);
@@ -3556,17 +3203,19 @@ module.exports.getTranslationConnectorJobOnServer = function (request, server, j
 			});
 		}
 
-		var auth = _getRequestAuth(server);
-
-		var url = server.url + '/documents/web?IdcService=GET_CONNECTOR_JOB_INFO&jobId=' + jobId;
+		var url = server.url + '/documents/integration?IdcService=GET_CONNECTOR_JOB_INFO&jobId=' + jobId;
+		url += '&IsJson=1';
 
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: auth,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
 		};
 
-		request(options, function (err, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get translation connector job ' + jobId);
 				console.log(err);
@@ -3590,9 +3239,11 @@ module.exports.getTranslationConnectorJobOnServer = function (request, server, j
 			var rows = data.ResultSets && data.ResultSets.ConnectorJobInfo && data.ResultSets.ConnectorJobInfo.rows;
 			var jobs = {};
 
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
-				jobs[attr] = rows[0][i];
+			if (rows && rows.length > 0) {
+				for (var i = 0; i < fields.length; i++) {
+					var attr = fields[i].name;
+					jobs[attr] = rows[0][i];
+				}
 			}
 
 			resolve({

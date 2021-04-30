@@ -15,6 +15,16 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.2.2
+
+**Added**
+
+- `cec create-repository` - Can now create Business Asset Repositories
+
+- Updated BlogTemplate with custom CDT samples
+- Updated local server to support content form in Create new item mode
+
+
 # New in Release 21.2.1a
 
 **Added**

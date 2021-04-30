@@ -1471,16 +1471,17 @@ var _getPageFiles = function (server, pages) {
 
 var _readFile = function (server, id, fileName) {
 	return new Promise(function (resolve, reject) {
-		var auth = serverUtils.getRequestAuth(server);
 		var url = server.url + '/documents/api/1.2/files/' + id + '/data/';
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: auth
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 
-		var request = serverUtils.getRequest();
-		request(options, function (error, response, body) {
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to download file ' + fileName);
 				console.log(error);

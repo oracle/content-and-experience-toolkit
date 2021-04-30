@@ -552,6 +552,19 @@ gulp.task('unshare-folder', function (done) {
 });
 
 /**
+ * List folder
+ */
+ gulp.task('list-folder', function (done) {
+	'use strict';
+
+	doclib.listFolder(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+
+/**
  * Download folder
  */
 gulp.task('download-folder', function (done) {
@@ -1610,6 +1623,30 @@ gulp.task('unshare-repository', function (done) {
 });
 
 /**
+ * Set Editorial Permissions
+ */
+gulp.task('set-editorial-permission', function (done) {
+	'use strict';
+
+	assetlib.setEditorialPermission(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * List Editorial Permissions
+ */
+gulp.task('list-editorial-permission', function (done) {
+	'use strict';
+
+	assetlib.listEditorialPermission(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Share a type
  */
 gulp.task('share-type', function (done) {
@@ -1976,6 +2013,8 @@ gulp.task('check-version', function (done) {
 
 	// check if the message already shown 
 	var msgFile = path.join(os.tmpdir(), 'cec_sitestoolkit_message');
+	// console.log(msgFile);
+	
 	if (fs.existsSync(msgFile)) {
 		var statInfo = fs.statSync(msgFile);
 		var lastModifiedTime = statInfo.mtimeMs;
@@ -1999,15 +2038,18 @@ gulp.task('check-version', function (done) {
 		return;
 	}
 
-	var isPod = server.env !== 'dev_ec';
-	var url = server.url + (isPod ? '/content' : '/osn/social/api/v1/connections');
+	var url = server.url + '/osn/social/api/v1/connections';
 	var options = {
 		method: 'GET',
 		url: url,
-		auth: serverUtils.getRequestAuth(server)
+		headers: {
+			Authorization: serverUtils.getRequestAuthorization(server)
+		}
 	};
-	var request = serverUtils.getRequest();
-	request(options, function (error, response, body) {
+	// console.log(options);
+
+	var request = require('../test/server/requestUtils.js').request;
+	request.get(options, function (error, response, body) {
 		if (error || !response || response.statusCode !== 200) {
 			// console.log('ERROR: failed to query  version: ' + (response && response.statusMessage));
 			done();
@@ -2020,51 +2062,20 @@ gulp.task('check-version', function (done) {
 		} catch (e) {
 			data = body;
 		}
+		// console.log(data);
 
 		var cecVersion, cecVersion2;
 		var arr;
-		if (isPod) {
-			cecVersion = data ? data.toString() : '';
-			if (!cecVersion) {
-				// console.log('ERROR: no value returned for CEC version');
-				done();
-				return;
-			}
-			// console.log(cecVersion);
-			if (cecVersion.indexOf('Revision:') >= 0) {
-				cecVersion = cecVersion.substring(cecVersion.indexOf('Revision:') + 'Revision:'.length);
-			}
-			cecVersion = cecVersion.trim();
 
-			if (cecVersion.indexOf('/') > 0) {
-				cecVersion = cecVersion.substring(0, cecVersion.indexOf('/'));
-			}
-
-			arr = cecVersion.split('.');
-			var versionstr = arr.length >= 2 ? arr[1] : '';
-			// the version is a string such as 1922ec
-			if (versionstr && versionstr.length >= 3) {
-				if (versionstr.indexOf('Smart_Content_') >= 0) {
-					versionstr = versionstr.replace('Smart_Content_', '');
-				}
-
-				cecVersion2 = versionstr.charAt(0) + versionstr.charAt(1) + '.' + versionstr.charAt(2);
-
-				cecVersion = cecVersion2;
-				if (versionstr.length > 3) {
-					cecVersion = cecVersion + '.' + versionstr.charAt(3);
-				}
-			}
-		} else {
-			cecVersion = data && data.version;
-			if (!cecVersion) {
-				// console.log('ERROR: no value returned for CEC version');
-				done();
-				return;
-			}
-			arr = cecVersion.split('.');
-			cecVersion2 = arr.length >= 2 ? arr[0] + '.' + arr[1] : (arr.length > 0 ? arr[0] : '');
+		cecVersion = data && data.version;
+		if (!cecVersion) {
+			// console.log('ERROR: no value returned for CEC version');
+			done();
+			return;
 		}
+		arr = cecVersion.split('.');
+		cecVersion2 = arr.length >= 2 ? arr[0] + '.' + arr[1] : (arr.length > 0 ? arr[0] : '');
+
 		// console.log(' CEC server: ' + server.url + '  version: ' + cecVersion + ' version2: ' + cecVersion2);
 
 		// get the toolkit version

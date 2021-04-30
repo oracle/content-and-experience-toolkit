@@ -291,6 +291,9 @@ var _uploadFile = function (argv, server) {
 				}
 			})
 			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
 				return Promise.reject();
 			});
 	}); // login
@@ -907,17 +910,19 @@ module.exports.unshareFolder = function (argv, done) {
 var _readFile = function (server, fFileGUID, fileName, folderPath) {
 	return new Promise(function (resolve, reject) {
 
-		var auth = serverUtils.getRequestAuth(server);
-
 		url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data/';
 
 		var options = {
 			url: url,
-			auth: auth,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
 			encoding: null
 		};
-		var request = serverUtils.getRequest();
-		request(options, function (error, response, body) {
+
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to get file ' + fileName);
 				console.log(error);
@@ -938,6 +943,153 @@ var _readFile = function (server, fFileGUID, fileName, folderPath) {
 		});
 	});
 };
+
+module.exports.listFolder = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		var inputPath = argv.path === '/' ? '' : serverUtils.trimString(argv.path, '/');
+		var resourceFolder = false;
+		var resourceName;
+		var resourceType;
+		var resourceLabel;
+		if (inputPath && (inputPath.indexOf('site:') === 0 || inputPath.indexOf('theme:') === 0 || inputPath.indexOf('component:') === 0)) {
+			resourceFolder = true;
+			if (inputPath.indexOf('site:') === 0) {
+				inputPath = inputPath.substring(5);
+				resourceType = 'site';
+				resourceLabel = 'Sites';
+			} else if (inputPath.indexOf('theme:') === 0) {
+				inputPath = inputPath.substring(6);
+				resourceType = 'theme';
+				resourceLabel = 'Themes';
+			} else {
+				inputPath = inputPath.substring(10);
+				resourceType = 'component';
+				resourceLabel = 'Components';
+			}
+			if (inputPath.indexOf('/') > 0) {
+				resourceName = inputPath.substring(0, inputPath.indexOf('/'));
+				inputPath = inputPath.substring(inputPath.indexOf('/') + 1);
+			} else {
+				resourceName = inputPath;
+				inputPath = '';
+			}
+		}
+
+		var resourcePromises = [];
+		if (resourceFolder) {
+			if (resourceType === 'site') {
+				resourcePromises.push(sitesRest.getSite({
+					server: server,
+					name: resourceName
+				}));
+			} else if (resourceType === 'theme') {
+				resourcePromises.push(sitesRest.getTheme({
+					server: server,
+					name: resourceName
+				}));
+			} else {
+				resourcePromises.push(sitesRest.getComponent({
+					server: server,
+					name: resourceName,
+					showError: showError
+				}));
+			}
+		}
+
+		var folderPath = argv.path === '/' || !inputPath ? [] : inputPath.split('/');
+		var folderId;
+
+		Promise.all(resourcePromises).then(function (results) {
+				var rootParentId = 'self';
+				if (resourceFolder) {
+					var resourceGUID;
+					if (results.length > 0 && results[0]) {
+						resourceGUID = results[0].id;
+					}
+
+					if (!resourceGUID) {
+						if (showError) {
+							console.log('ERROR: invalid ' + resourceType + ' ' + resourceName);
+						}
+						return Promise.reject();
+					}
+					rootParentId = resourceGUID;
+				}
+
+				return _findFolder(server, rootParentId, folderPath);
+			})
+			.then(function (result) {
+				if (folderPath.length > 0 && !result) {
+					return Promise.reject();
+				}
+
+				if (resourceFolder && !result.id || !resourceFolder && result.id !== 'self' && (!result.type || result.type !== 'folder')) {
+					console.log('ERROR: invalid folder ' + argv.path);
+					return Promise.reject();
+				}
+				folderId = result.id;
+
+				console.log(' - parent folder: ' + argv.path + ' (Id: ' + folderId + ')');
+
+				return serverRest.findFolderItems({
+					server: server,
+					parentID: folderId
+				});
+			})
+			.then(function (result) {
+				var items = result || [];
+
+				var byName = items.slice(0);
+				byName.sort(function (a, b) {
+					var x = a.path;
+					var y = b.path;
+					return (x < y ? -1 : x > y ? 1 : 0);
+				});
+				items = byName;
+
+				console.log('');
+				var format = '   %-6s  %-44s  %-s';
+				console.log(sprintf(format, 'Type', 'Id', 'Path'));
+				items.forEach(function (item) {
+					var itemPath = argv.path + '/' + item.path;
+					console.log(sprintf(format, item.type, item.id, item.path));
+				});
+				console.log('');
+				console.log('Total: ' + items.length);
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+
+	});
+
+};
+
 
 // All files to download from server
 var _files = [];
@@ -1908,7 +2060,7 @@ var _deletePermanentSCS = function (request, server, id, isFile) {
 					})
 					.on('error', function (err) {
 						console.log('ERROR: GET request failed: ' + req.url);
-						console.log(error);
+						console.log(err);
 						return resolve({
 							err: 'err'
 						});

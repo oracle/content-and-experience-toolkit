@@ -55,8 +55,9 @@ var _setupSourceDir = function (req, compName) {
 // Get requests
 //
 router.get('/*', (req, res) => {
-	let app = req.app,
-		request = app.locals.request;
+	let app = req.app;
+
+	var request = require('./requestUtils.js').request;
 
 	var filePathSuffix = req.path.replace(/\/components\//, '').replace(/\/$/, ''),
 		filePath = '',
@@ -742,9 +743,11 @@ router.get('/*', (req, res) => {
 		} else if (filePath.indexOf('structure.json') > 0) {
 			// add connections
 			var vbcsconn = '';
-			request('http://localhost:' + app.locals.port + '/getvbcsconnection', {
-				isJson: true
-			}, function (err, response, body) {
+			var options = {
+				method: 'GET',
+				url: 'http://localhost:' + app.locals.port + '/getvbcsconnection'
+			};
+			request.get(options, function (err, response, body) {
 				if (response && response.statusCode === 200) {
 					var data = JSON.parse(body);
 					vbcsconn = data ? data.VBCSConnection : '';

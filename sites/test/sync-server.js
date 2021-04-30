@@ -16,7 +16,6 @@ var express = require('express'),
 	os = require('os'),
 	path = require('path'),
 	request = require('request'),
-	cors = require('cors'),
 	contentLib = require('../bin/content.js'),
 	siteLib = require('../bin/site.js'),
 	serverUtils = require('./server/serverUtils.js');
@@ -66,7 +65,6 @@ var header = headerStr ? headerStr.split(',') : [];
 var username = process.env.CEC_TOOLKIT_SYNC_USERNAME;
 var password = process.env.CEC_TOOLKIT_SYNC_PASSWORD;
 
-app.use(cors());
 app.use(express.json());
 
 // enable cookies
