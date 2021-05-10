@@ -2742,10 +2742,15 @@ module.exports.getCollectionWithName = function (args) {
 };
 
 
+var TAX_MAX_LIMIT = 100;
 // Get taxonomies from server
-var _getTaxonomies = function (server) {
+var _getTaxonomies = function (server, offset) {
 	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/taxonomies?fields=all&limit=9999&q=(status eq "all")';
+		var url = server.url + '/content/management/api/v1.1/taxonomies?fields=all&q=(status eq "all")&totalResults=true';
+		url = url + '&limit=' + TAX_MAX_LIMIT;
+		if (offset) {
+			url = url + '&offset=' + offset;
+		}
 		var options = {
 			method: 'GET',
 			url: url,
@@ -2770,7 +2775,7 @@ var _getTaxonomies = function (server) {
 				data = body;
 			}
 			if (response && response.statusCode === 200) {
-				resolve(data && data.items);
+				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to get taxonomies : ' + msg);
@@ -2781,6 +2786,37 @@ var _getTaxonomies = function (server) {
 		});
 	});
 };
+
+// get all taxonomies with pagination
+var _getAllTaxonomies = function (server) {
+	return new Promise(function (resolve, reject) {
+		var groups = [];
+		// 1000 * 100 should be enough
+		for (var i = 1; i < 1000; i++) {
+			groups.push(TAX_MAX_LIMIT * i);
+		}
+
+		var resources = [];
+
+		var doGetResources = groups.reduce(function (resPromise, offset) {
+				return resPromise.then(function (result) {
+					if (result && result.items && result.items.length > 0) {
+						resources = resources.concat(result.items);
+					}
+					if (result && result.hasMore) {
+						return _getTaxonomies(server, offset);
+					}
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			_getTaxonomies(server));
+
+		doGetResources.then(function (result) {
+			// console.log(resources.length);
+			resolve(resources);
+		});
+	});
+};
 /**
  * Get all taxonomies on server 
  * @param {object} args JavaScript object containing parameters. 
@@ -2788,7 +2824,7 @@ var _getTaxonomies = function (server) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getTaxonomies = function (args) {
-	return _getTaxonomies(args.server);
+	return _getAllTaxonomies(args.server);
 };
 
 /**
@@ -4549,7 +4585,7 @@ var _addMemberToGroup = function (request, server, apiRandomID, id, name, member
 			body: payload,
 			json: true
 		};
-		// console.log(postData);
+		// console.log(JSON.stringify(postData, null, 4));
 		request(postData, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: add member ' + (memberName || memberId) + ' to group ' + (name || id));

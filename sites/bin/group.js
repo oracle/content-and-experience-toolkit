@@ -166,7 +166,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 	// console.log(' - server: ' + server.url);
 
 	var name = argv.name;
-	var role = 'GROUP_' + argv.role;
+	var role = 'GROUP_' + argv.role.toUpperCase();
 	var userNames = argv.users ? argv.users.split(',') : [];
 	var groupNames = argv.groups ? argv.groups.split(',') : [];
 

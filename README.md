@@ -15,6 +15,13 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.2.2a
+
+**Fixed**
+
+- Updated `underscore` to 1.13.1 to resolve vulnerability
+
+
 # New in Release 21.2.2
 
 **Added**

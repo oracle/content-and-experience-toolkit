@@ -17,6 +17,7 @@ var path = require('path'),
 	sprintf = require('sprintf-js').sprintf,
 	zip = require('gulp-zip'),
 	serverRest = require('../test/server/serverRest.js'),
+	sitesRest = require('../test/server/sitesRest.js'),
 	fileUtils = require('../test/server/fileUtils.js'),
 	serverUtils = require('../test/server/serverUtils.js');
 
@@ -764,154 +765,6 @@ var _execdeployTranslationJob = function (server, request, validateonly, folder,
 		});
 };
 
-var _getSiteInfoFile = function (request, localhost, site) {
-	var siteInfoFilePromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=SCS_GET_SITE_INFO_FILE&siteId=' + site + '&IsJson=1';
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get site info');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			try {
-				var data = JSON.parse(body);
-				if (!data) {
-					console.log('ERROR: Failed to get site info');
-					return resolve({
-						'err': 'error'
-					});
-				}
-				if (data.LocalData && data.LocalData.StatusCode === '-32') {
-					console.log('ERROR: site ' + site + ' does not exist');
-					return resolve({
-						'err': 'site does not exist'
-					});
-				}
-				if (response && response.statusCode !== 200) {
-					console.log('ERROR: Failed to get site info');
-					return resolve({
-						'err': response.statusCode
-					});
-				}
-				resolve({
-					'data': data
-				});
-			} catch (error) {
-				console.log('ERROR: Failed to get site info');
-				console.log(error);
-				return resolve({
-					'err': 'error'
-				});
-			}
-		});
-	});
-	return siteInfoFilePromise;
-};
-
-var _getSiteGUID = function (request, localhost, site) {
-	var sitesPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=SCS_BROWSE_SITES&siteCount=-1';
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get site Id');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get site Id ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.fields || [];
-			var rows = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.rows;
-			var sites = [];
-			for (var j = 0; j < rows.length; j++) {
-				sites.push({});
-			}
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
-				for (var j = 0; j < rows.length; j++) {
-					sites[j][attr] = rows[j][i];
-				}
-			}
-			var siteGUID;
-			for (var i = 0; i < sites.length; i++) {
-				if (sites[i]['fFolderName'] === site) {
-					siteGUID = sites[i]['fFolderGUID'];
-					break;
-				}
-			}
-			return resolve({
-				siteGUID: siteGUID
-			});
-		});
-	});
-	return sitesPromise;
-};
-
-var _getChannelInfo = function (request, localhost, channelId) {
-	var channelPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/content/management/api/v1.1/channels/' + channelId;
-		url = url + '?includeAdditionalData=true&fields=all';
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get channel with id ' + channelId);
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
-				resolve(data);
-			} else {
-				console.log('ERROR: Failed to get channel with id ' + policyId);
-				console.log(response ? response.statusCode + response.statusMessage : '');
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-	return channelPromise;
-};
-
-var _getLocalizationPolicy = function (request, localhost, policyId) {
-	var policyPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/content/management/api/v1.1/policy/' + policyId;
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get policy with id ' + policyId);
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
-				resolve(data);
-			} else {
-				console.log('ERROR: Failed to get policy with id ' + policyId);
-				console.log(response ? response.statusCode + response.statusMessage : '');
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-	return policyPromise;
-};
 
 var _exportTranslationJobSCS = function (request, localhost, idcToken, jobName, siteInfo, targetLanguages, exportType, connectorId) {
 	var exportPromise = new Promise(function (resolve, reject) {
@@ -921,7 +774,7 @@ var _exportTranslationJobSCS = function (request, localhost, idcToken, jobName, 
 		url = url + '&exportType=' + exportType;
 		url = url + '&sourceLanguage=' + siteInfo.defaultLanguage;
 		url = url + '&targetLanguages=' + targetLanguages;
-		url = url + '&siteGUID=' + siteInfo.siteGUID;
+		url = url + '&siteGUID=' + siteInfo.id;
 		if (connectorId) {
 			url = url + '&connectorId=' + connectorId;
 		}
@@ -1039,16 +892,23 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 				return Promise.reject();
 			}
 
-			return _getSiteInfoFile(request, localhost, site);
+			// query site
+			return sitesRest.getSite({
+				server: server,
+				name: site,
+				expand: 'channel'
+			});
+
 		})
 		.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
 			//
 			// validate site
 			//
-			if (result.err) {
-				return Promise.reject();
-			}
-			siteInfo = result.data.base.properties;
+			siteInfo = result;
+
 			if (!siteInfo.isEnterprise) {
 				console.log('ERROR: site ' + site + ' is not an enterprise site');
 				return Promise.reject();
@@ -1061,29 +921,14 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 			}
 			console.log(' - site: ' + site + ', default language: ' + defaultLanguage);
 
-			return _getSiteGUID(request, localhost, site);
-		})
-		.then(function (result) {
-			//
-			// ger site GUID
-			//
-			if (result.err) {
-				return Promise.reject();
-			}
-			siteInfo.siteGUID = result.siteGUID;
 
-			return _getChannelInfo(request, localhost, siteInfo.channelId);
-		})
-		.then(function (result) {
-			//
-			// get channel
-			//
-			if (result.err) {
-				return Promise.reject();
-			}
-			console.log(' - query channel');
-			var policyId = result.localizationPolicy;
-			return _getLocalizationPolicy(request, localhost, policyId);
+			var policyId = siteInfo.channel.localizationPolicy;
+
+			// return _getLocalizationPolicy(request, localhost, policyId);
+			return serverRest.getLocalizationPolicy({
+				server: server,
+				id: policyId
+			});
 		})
 		.then(function (result) {
 			//
@@ -1132,6 +977,9 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 
 		})
 		.catch((error) => {
+			if (error) {
+				console.log(error);
+			}
 			_cmdEnd(done);
 		});
 

@@ -965,14 +965,13 @@ const transferContent = {
 		'long': (function () {
 			let desc = 'Creates scripts to transfer content from one OCE server to another. This command is used to transfer large number of content items and the items are transferred in batches. By default the scripts will not be executed by this command. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>. ';
 			desc = desc + 'Optionally specify -n for the number of items in each batch, defaults to 200. ';
-			desc = desc + 'Due to the command line limit on Windows, the number should not exceed 200.'
 			return desc;
 		})()
 	},
 	example: [
 		['cec transfer-content Repository1 -s DEV -d UAT', 'Generate script Repository1_downloadcontent and Repository1_uploadcontent'],
 		['cec transfer-content Repository1 -s DEV -d UAT -e', 'Generate script Repository1_downloadcontent and Repository1_uploadcontent and execute them'],
-		['cec transfer-content Repository1 -s DEV -d UAT -n 100', 'Set the number of items in each batch to 100'],
+		['cec transfer-content Repository1 -s DEV -d UAT -n 1000', 'Set the number of items in each batch to 1000'],
 		['cec transfer-content Repository1 -s DEV -d UAT -c Channel1', 'Transfer the items added to channel Channel1 in repository Repository1'],
 		['cec transfer-content Repository1 -s DEV -d UAT -c Channel1 -p', 'Transfer the items published to channel Channel1 in repository Repository1']
 	]
@@ -3637,6 +3636,10 @@ const argv = yargs.usage(_usage)
 					alias: 'a',
 					description: 'The comma separated list of asset GUIDS'
 				})
+				.option('assetsfile', {
+					alias: 'f',
+					description: 'The file with an array of asset GUIDS'
+				})
 				.option('name', {
 					alias: 'n',
 					description: 'The name for this download, default to the channel or repository name'
@@ -3650,7 +3653,7 @@ const argv = yargs.usage(_usage)
 						argv.channel = argv._[1];
 					}
 					// console.log(argv);
-					if (!argv.channel && !argv.repository && !argv.query && !argv.assets) {
+					if (!argv.channel && !argv.repository && !argv.query && !argv.assets && !argv.assetsfile) {
 						throw new Error(os.EOL + 'Please specify the channel, repository, query or assets');
 					}
 					if (argv.collection && !argv.repository) {
@@ -6076,6 +6079,9 @@ const argv = yargs.usage(_usage)
 					if (!argv.users && !argv.groups) {
 						throw new Error('Please specify users or groups');
 					}
+					if (argv.role && !getGroupMemberRoles().includes(argv.role.toUpperCase())) {
+						throw new Error(`${os.EOL}${argv.role} is not a valid value for <role>`);
+					}
 					return true;
 				})
 				.example(...addMemberToGroup.example[0])
@@ -7142,6 +7148,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.assets && typeof argv.assets !== 'boolean') {
 		downloadContentArgs.push(...['--assets', argv.assets]);
+	}
+	if (argv.assetsfile && typeof argv.assetsfile !== 'boolean') {
+		downloadContentArgs.push(...['--assetsfile', argv.assetsfile]);
 	}
 	if (argv.name && typeof argv.name !== 'boolean') {
 		downloadContentArgs.push(...['--name', argv.name]);

@@ -1643,34 +1643,6 @@ var _getThemeComponents = function (themeName) {
 };
 
 
-/**
- * Get the attribute of a component
- * @param data the result from API SCS_BROWSE_APPS or SCS_ACTIVATE_COMPONENT
- * @param fieldName
- */
-module.exports.getComponentAttribute = function (data, fieldName) {
-	return _getComponentAttribute(data, fieldName);
-};
-var _getComponentAttribute = function (data, fieldName) {
-	var compAttr;
-	var appInfo = data && data.ResultSets && data.ResultSets.AppInfo;
-	if (appInfo && appInfo.rows.length > 0) {
-		var fieldIdx = -1;
-		var fields = appInfo.fields;
-		for (var i = 0; i < fields.length; i++) {
-			if (fields[i].name === fieldName) {
-				fieldIdx = i;
-				break;
-			}
-		}
-		if (fieldIdx >= 0 && fieldIdx < appInfo.rows[0].length) {
-			compAttr = appInfo.rows[0][fieldIdx];
-		}
-	}
-	return compAttr;
-};
-
-
 var _loginToDevServer = function (server, request) {
 	var loginPromise = new Promise(function (resolve, reject) {
 		// open user session
@@ -2229,196 +2201,6 @@ var _timeUsed = function (start, end) {
 	return seconds.toString() + 's';
 };
 
-/**
- * Use API FLD_BROWSE to get child folders
- * @param {*} request 
- * @param {*} server 
- * @param {*} host 
- * @param {*} folerId 
- */
-function _browseFolder(request, server, host, folderId, folderName) {
-	var foldersPromise = new Promise(function (resolve, reject) {
-		var url = host + '/documents/web?IdcService=FLD_BROWSE&itemType=Folder&item=fFolderGUID:' + folderId;
-		var options = {
-			url: url
-		};
-		if (server.env !== 'dev_ec') {
-			options.auth = {
-				bearer: server.oauthtoken
-			};
-		}
-
-		request.get(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: failed to query folder ' + folderName);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to query folder ' + folderName);
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			resolve(data);
-
-		});
-	});
-	return foldersPromise;
-}
-
-/**
- * Get the id of the last folder in the folder path folder1/folder2/.../folder[n]
- * @param {*} request 
- * @param {*} server 
- * @param {*} host 
- * @param {*} folderPath 
- */
-module.exports.queryFolderId = function (request, server, host, folderPath) {
-	return _queryFolderId(request, server, host, folderPath);
-};
-
-var _queryFolderId = function (request, server, host, folderPath) {
-	var folderIdPromise = new Promise(function (resolve, reject) {
-
-		var folderNames = folderPath ? folderPath.split('/') : [];
-
-		// First query user personal folder home
-		var url = host + '/documents/web?IdcService=FLD_BROWSE_PERSONAL&itemType=Folder';
-		var auth = _getRequestAuth(server);
-		var options = {
-			url: url,
-			auth: auth
-		};
-
-		request.get(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: failed to query home folder');
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to query home folder');
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			if (!folderPath) {
-				// the personal home folder GUID
-				return resolve({
-					folderId: data.LocalData.OwnerFolderGUID
-				});
-			}
-
-			// The top folder
-			var folderId = _getFolderIdFromResultSets(data, folderNames[0]);
-
-			if (!folderId) {
-				console.log('ERROR: folder ' + folderNames[0] + ' does not exist');
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			if (folderNames.length === 1) {
-				return resolve({
-					folderId: folderId
-				});
-			}
-
-			var folderName = folderNames[0];
-
-			// Varify and get sub folders 
-			/* jshint ignore:start */
-			async function _querysubFolders(request, server, host, parentFolderId, folderNames) {
-				var id = parentFolderId,
-					name = folderNames[0];
-				// console.log('Folder: ' + folderNames[0] + ' id: ' + parentFolderId);
-				for (var i = 1; i < folderNames.length; i++) {
-					var result = await _browseFolder(request, server, host, id, name);
-					if (result.err) {
-						return ({
-							err: 'err'
-						});
-					}
-					id = _getFolderIdFromResultSets(result, folderNames[i]);
-					if (!id) {
-						console.log('ERROR: folder ' + folderNames[i] + ' does not exist');
-						return ({
-							err: 'err'
-						});
-					}
-					// console.log('Folder: ' + folderNames[i] + ' id: ' + id);
-					name = folderNames[i];
-				}
-				return ({
-					folderId: id
-				});
-			};
-			_querysubFolders(request, server, host, folderId, folderNames).then((result) => {
-				if (result.err) {
-					return resolve({
-						err: 'err'
-					});
-				}
-				return resolve(result);
-			});
-			/* jshint ignore:end */
-
-		});
-
-	});
-	return folderIdPromise;
-};
-
-
-/**
- * Get the id of a folder in the browse result with a specific name
- * @param {*} data the JSON result from FLD_BROWSER
- * @param {*} folderName 
- */
-var _getFolderIdFromResultSets = function (data, folderName) {
-	var result;
-
-	var folders = data && data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.rows;
-	if (!folders || folders.length === 0) {
-		return result;
-	}
-	var fields = data.ResultSets.ChildFolders.fields;
-	var fFolderGUIDIdx, fFolderNameIdx;
-	var i;
-	for (i = 0; i < fields.length; i++) {
-		if (fields[i].name === 'fFolderName') {
-			fFolderNameIdx = i;
-		} else if (fields[i].name === 'fFolderGUID') {
-			fFolderGUIDIdx = i;
-		}
-	}
-
-	var folderId;
-	for (i = 0; i < folders.length; i++) {
-		if (folders[i][fFolderNameIdx] === folderName) {
-			folderId = folders[i][fFolderGUIDIdx];
-			break;
-		}
-	}
-
-	return folderId;
-};
 
 /**
  * get request 
@@ -2861,188 +2643,6 @@ module.exports.browseSitesOnServer = function (request, server, fApplication, na
 	return sitePromise;
 };
 
-/**
- * NOT Used
- * Get components from server using IdcService
- */
-module.exports.browseComponentsOnServer = function (request, server, name) {
-	var compPromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
-
-		var auth = _getRequestAuth(server);
-
-		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_APPS&appCount=-1';
-		if (name) {
-			url = url + '&name=' + name;
-		}
-
-		var options = {
-			method: 'GET',
-			url: url,
-			auth: auth
-		};
-		if (server.cookies) {
-			options.headers = {
-				Cookie: server.cookies
-			};
-		}
-
-		request(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get components');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get components ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.AppInfo && data.ResultSets.AppInfo.fields || [];
-			var rows = data.ResultSets && data.ResultSets.AppInfo && data.ResultSets.AppInfo.rows;
-			var comps = [];
-			rows.forEach(function (row) {
-				comps.push({});
-			});
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
-				for (var j = 0; j < rows.length; j++) {
-					comps[j][attr] = rows[j][i];
-				}
-			}
-
-			// add metadata
-			var mFields = data.ResultSets && data.ResultSets.dAppMetaCollection && data.ResultSets.dAppMetaCollection.fields || [];
-			var mRows = data.ResultSets && data.ResultSets.dAppMetaCollection && data.ResultSets.dAppMetaCollection.rows || [];
-			var appMetadata = [];
-			(function () {
-				mRows.forEach(function (row) {
-					appMetadata.push({});
-				});
-				for (var i = 0; i < mFields.length; i++) {
-					var attr = mFields[i].name;
-					for (var j = 0; j < mRows.length; j++) {
-						appMetadata[j][attr] = mRows[j][i];
-					}
-				}
-				comps.forEach(function (comp) {
-					for (var j = 0; j < appMetadata.length; j++) {
-						if (comp.fFolderGUID === appMetadata[j].dIdentifier) {
-							Object.assign(comp, appMetadata[j]);
-							break;
-						}
-					}
-				});
-			})();
-
-			resolve({
-				data: comps
-			});
-		});
-	});
-	return compPromise;
-};
-
-/**
- * NOT Used
- * Get themes from server using IdcService
- */
-module.exports.browseThemesOnServer = function (request, server, params) {
-	return _browseThemesOnServer(request, server, params);
-};
-
-var _browseThemesOnServer = function (request, server, params) {
-	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
-
-		var auth = _getRequestAuth(server);
-
-		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_THEMES&themeCount=-1';
-		if (params) {
-			url = url + '&' + params;
-		}
-		var options = {
-			method: 'GET',
-			url: url,
-			auth: auth,
-		};
-		if (server.cookies) {
-			options.headers = {
-				Cookie: server.cookies
-			};
-		}
-		request(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get themes');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get themes' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.ThemeInfo && data.ResultSets.ThemeInfo.fields || [];
-			var rows = data.ResultSets && data.ResultSets.ThemeInfo && data.ResultSets.ThemeInfo.rows;
-			var themes = [];
-			rows.forEach(function (row) {
-				themes.push({});
-			});
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
-				for (var j = 0; j < rows.length; j++) {
-					themes[j][attr] = rows[j][i];
-				}
-			}
-
-			resolve({
-				data: themes
-			});
-		});
-	});
-};
-
-
 
 /**
  * Get collections from server using IdcService (IC)
@@ -3254,86 +2854,6 @@ module.exports.getTranslationConnectorJobOnServer = function (request, server, j
 	return jobPromise;
 };
 
-/**
- * Get content types used in a site from server using IdcService
- */
-module.exports.getSiteContentTypes = function (request, server, siteId) {
-	var compPromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
-
-		var auth = _getRequestAuth(server);
-
-		var url = server.url + '/documents/web?IdcService=GET_METADATA&items=fFolderGUID:' + siteId;
-
-		var options = {
-			method: 'GET',
-			url: url,
-			auth: auth
-		};
-		if (server.cookies) {
-			options.headers = {
-				Cookie: server.cookies
-			};
-		}
-
-		request(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get site content types');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get site content types ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.xScsContentTypesUsedCollection && data.ResultSets.xScsContentTypesUsedCollection.fields || [];
-			var rows = data.ResultSets && data.ResultSets.xScsContentTypesUsedCollection && data.ResultSets.xScsContentTypesUsedCollection.rows || [];
-			var usedTypes = [];
-			rows.forEach(function (row) {
-				usedTypes.push({});
-			});
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
-				for (var j = 0; j < rows.length; j++) {
-					usedTypes[j][attr] = rows[j][i];
-				}
-			}
-
-			var typeNames = [];
-			usedTypes.forEach(function (type) {
-				if (!typeNames.includes(type.xScsContentTypesUsedName)) {
-					typeNames.push(type.xScsContentTypesUsedName);
-				}
-			});
-
-			resolve({
-				data: typeNames
-			});
-		});
-	});
-	return compPromise;
-};
 
 /**
  * Get a site's metadata (text type) from server using IdcService
@@ -3355,8 +2875,7 @@ module.exports.getSiteMetadata = function (request, server, siteId) {
 
 		var auth = _getRequestAuth(server);
 
-		// set dMetadataSerializer to get value raw values (not escaped ones)
-		var url = server.url + '/documents/web?IdcService=GET_METADATA&items=fFolderGUID:' + siteId + '&dMetadataSerializer=BaseSerializer';
+		var url = server.url + '/documents/web?IdcService=SCS_GET_SITE_METADATA&item=fFolderGUID:' + siteId;
 
 		var options = {
 			method: 'GET',
@@ -3389,23 +2908,13 @@ module.exports.getSiteMetadata = function (request, server, siteId) {
 				});
 			}
 
-			var fields = data.ResultSets && data.ResultSets.Metadata && data.ResultSets.Metadata.fields || [];
-			var rows = data.ResultSets && data.ResultSets.Metadata && data.ResultSets.Metadata.rows || [];
+			var fields = data.ResultSets && data.ResultSets.SiteMetadata && data.ResultSets.SiteMetadata.fields || [];
+			var rows = data.ResultSets && data.ResultSets.SiteMetadata && data.ResultSets.SiteMetadata.rows || [];
 			var metadata = {};
 
-			var dFieldNameIdx, dTextValueIdx;
 			for (var i = 0; i < fields.length; i++) {
-				if (fields[i].name === 'dFieldName') {
-					dFieldNameIdx = i;
-				}
-				if (fields[i].name === 'dTextValue') {
-					dTextValueIdx = i;
-				}
-			}
-
-			for (var j = 0; j < rows.length; j++) {
-				var attr = rows[j][dFieldNameIdx];
-				metadata[attr] = rows[j][dTextValueIdx];
+				var attr = fields[i].name;
+				metadata[attr] = rows[0][i];
 			}
 
 			resolve({
@@ -3416,6 +2925,69 @@ module.exports.getSiteMetadata = function (request, server, siteId) {
 
 };
 
+/**
+ * Get the used components, content items and content types of a site
+ */
+ module.exports.getSiteUsedData = function (request, server, siteId) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var auth = _getRequestAuth(server);
+
+		// set dMetadataSerializer to get value raw values (not escaped ones)
+		var url = server.url + '/documents/web?IdcService=SCS_GET_SITE_COMPS_CONTENT_USED&item=fFolderGUID:' + siteId;
+
+		var options = {
+			method: 'GET',
+			url: url,
+			auth: auth
+		};
+		if (server.cookies) {
+			options.headers = {
+				Cookie: server.cookies
+			};
+		}
+
+		request(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get site used data');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get site used data ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			resolve({
+				ComponentsUsed: data.ResultSets && data.ResultSets.ComponentsUsed,
+				ContentItemsUsed: data.ResultSets && data.ResultSets.ContentItemsUsed,
+				ContentTypesUsed: data.ResultSets && data.ResultSets.ContentTypesUsed
+			});
+		});
+	});
+
+};
 
 /**
  * Get a site's metadata from server using IdcService
@@ -3582,123 +3154,6 @@ module.exports.setSiteMetadata = function (request, server, idcToken, siteId, va
 
 };
 
-
-/**
- * Delete a file from trash using IdcService
- */
-module.exports.deleteFileFromTrash = function (server, fileName) {
-	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			return resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			return console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
-
-		var auth = _getRequestAuth(server);
-
-		var url = server.url + '/documents/web?IdcService=FLD_BROWSE_TRASH&fileCount=-1';
-
-		var options = {
-			method: 'GET',
-			url: url,
-			auth: auth,
-		};
-
-		var request = _getRequest();
-		request(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to query trash');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to browse trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
-				});
-			} else {
-				var idcToken = data.LocalData.idcToken;
-				var fields;
-				var rows;
-				var fields = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.fields || [];
-				var rows = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.rows;
-
-				var items = [];
-				var i, j;
-				for (j = 0; j < rows.length; j++) {
-					items.push({});
-				}
-				for (i = 0; i < fields.length; i++) {
-					var attr = fields[i].name;
-					for (j = 0; j < rows.length; j++) {
-						items[j][attr] = rows[j][i];
-					}
-				}
-
-				var idInTrash;
-				for (i = 0; i < items.length; i++) {
-					if (items[i].fFileName === fileName) {
-						idInTrash = items[i].fFileGUID;
-						break;
-					}
-				}
-
-				if (idInTrash) {
-					url = server.url + '/documents/web?IdcService=FLD_DELETE_FROM_TRASH';
-					var formData = {
-						'idcToken': idcToken,
-						'items': 'fFileGUID:' + idInTrash
-					};
-					var postData = {
-						url: url,
-						'auth': auth,
-						'form': formData
-					};
-					request.post(postData, function (err, response, body) {
-						if (err) {
-							return resolve({
-								'err': err
-							});
-						}
-
-						var data;
-						try {
-							data = JSON.parse(body);
-						} catch (e) {}
-
-						if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-							console.log('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-							return resolve({
-								err: 'err'
-							});
-						} else {
-							console.log(' - file ' + fileName + ' deleted permanently');
-							return resolve({});
-						}
-					});
-
-				} else {
-					console.log(' - file ' + fileName + ' is not in trash');
-					return resolve({});
-				}
-			}
-		});
-	});
-};
 
 module.exports.templateHasContentItems = function (projectDir, templateName) {
 	_setupSourceDir(projectDir);

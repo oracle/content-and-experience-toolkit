@@ -101,6 +101,40 @@ module.exports.downloadContent = function (argv, done) {
 
 	var assetGUIDS = argv.assets ? argv.assets.split(',') : [];
 
+	var assetsFile = argv.assetsfile;
+	if (assetsFile) {
+		var filePath = assetsFile;
+		if (!path.isAbsolute(filePath)) {
+			filePath = path.join(projectDir, filePath);
+		}
+		filePath = path.resolve(filePath);
+
+		if (!fs.existsSync(filePath)) {
+			console.log('ERROR: file ' + filePath + ' does not exist');
+			done();
+			return;
+		}
+		if (fs.statSync(filePath).isDirectory()) {
+			console.log('ERROR: file ' + filePath + ' is not a file');
+			done();
+			return;
+		}
+
+		var assetsInFile = [];
+		try {
+			assetsInFile = JSON.parse(fs.readFileSync(filePath));
+		} catch (e) {
+			console.log(e);
+		}
+		if (assetsInFile.length === 0) {
+			console.log('ERROR: file ' + filePath + ' does not contain any asset GUID');
+			done();
+			return;
+		}
+		// console.log(' - total asset GUIDs in file ' + assetsFile + ': ' + assetsInFile.length);
+		assetGUIDS = assetGUIDS.concat(assetsInFile);
+	}
+
 	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -3048,6 +3082,10 @@ module.exports.transferSiteContent = function (argv, done) {
 				ids = groups[i];
 				groupName = siteName2 + '_content_batch_' + i.toString();
 
+				// save ids to file
+				var assetsFile = path.join(distFolder, groupName + '_assets');
+				fs.writeFileSync(assetsFile, JSON.stringify(ids.split(',')));
+
 				// download command for this group
 				cmd = winCall + 'cec download-content ' + channelName;
 				if (publishedassets) {
@@ -3055,7 +3093,7 @@ module.exports.transferSiteContent = function (argv, done) {
 				}
 				cmd += ' -n ' + groupName;
 				cmd += ' -s ' + serverName;
-				cmd += ' -a ' + ids;
+				cmd += ' -f "' + assetsFile + '"';
 
 				downloadScript += 'echo "*** download-content ' + groupName + '"' + os.EOL;
 				downloadScript += cmd + os.EOL + os.EOL;
@@ -3081,13 +3119,17 @@ module.exports.transferSiteContent = function (argv, done) {
 				if (repoMappings[i].items.length > 0) {
 					groupName = siteName2 + '_content_batch_others_' + i.toString();
 
+					// save ids to file
+					var assetsFile = path.join(distFolder, groupName + '_assets');
+					fs.writeFileSync(assetsFile, JSON.stringify(repoMappings[i].items));
+
 					cmd = winCall + 'cec download-content ' + channelName;
 					if (publishedassets) {
 						cmd += ' -p';
 					}
 					cmd += ' -n ' + groupName;
 					cmd += ' -s ' + serverName;
-					cmd += ' -a ' + repoMappings[i].items;
+					cmd += ' -f "' + assetsFile + '"';
 
 					downloadScript += 'echo "*** download-content ' + groupName + '"' + os.EOL;
 					downloadScript += cmd + os.EOL + os.EOL;
@@ -3314,8 +3356,13 @@ module.exports.transferContent = function (argv, done) {
 
 			for (var i = 0; i < groups.length; i++) {
 				ids = groups[i];
+
 				var idx = serverUtils.lpad((i + 1).toString(), '0', 3);
 				groupName = repoName2 + '_content_batch_' + idx;
+
+				// save ids to file
+				var assetsFile = path.join(distFolder, groupName + '_assets');
+				fs.writeFileSync(assetsFile, JSON.stringify(ids.split(',')));
 
 				// download command for this group
 				cmd = winCall + 'cec download-content';
@@ -3328,7 +3375,7 @@ module.exports.transferContent = function (argv, done) {
 				cmd += ' -r "' + repositoryName + '"';
 				cmd += ' -n ' + groupName;
 				cmd += ' -s ' + serverName;
-				cmd += ' -a ' + ids;
+				cmd += ' -f "' + assetsFile + '"';
 
 				downloadScript += 'echo "*** download-content ' + groupName + '"' + os.EOL;
 				downloadScript += cmd + os.EOL + os.EOL;

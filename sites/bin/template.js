@@ -108,7 +108,6 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 			var contentLayoutNames = [];
 			var typePromises = [];
 			var comps = [];
-			var siteMetadata;
 
 			var otherAssets = [];
 			var hasAssets = false;
@@ -116,7 +115,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 			sitesRest.getSite({
 					server: server,
 					name: siteName,
-					expand: 'channel,repository'
+					expand: 'channel,repository,staticSiteDeliveryOptions'
 				})
 				.then(function (result) {
 					if (!result || result.err || !result.id) {
@@ -135,16 +134,12 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 					// console.log(site);
 
-					// query site metadata to get static site settings
-					return serverUtils.getSiteMetadata(request, server, site.id);
-				})
-				.then(function (result) {
-
-					siteMetadata = result && result.data;
-					// console.log(siteMetadata);
-
 					// query to get the content types used in the site
-					return serverUtils.getSiteContentTypes(request, server, site.id);
+					return sitesRest.getSiteContentTypes({
+						server: server,
+						id: site.id,
+						name: siteName
+					});
 
 				})
 				.then(function (result) {
@@ -203,11 +198,11 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					folderJson.isEnterprise = templateIsEnterprise;
 					folderJson.siteName = name;
 					folderJson.siteLongDescription = 'Template ' + name;
-					if (siteMetadata && siteMetadata.xScsSiteStaticResponseHeaders) {
-						folderJson.staticResponseHeaders = siteMetadata.xScsSiteStaticResponseHeaders;
+					if (site.staticSiteDeliveryOptions && site.staticSiteDeliveryOptions.cachingResponseHeaders) {
+						folderJson.staticResponseHeaders = site.staticSiteDeliveryOptions.cachingResponseHeaders;
 					}
-					if (siteMetadata && siteMetadata.xScsSiteMobileUserAgents) {
-						folderJson.mobileUserAgents = siteMetadata.xScsSiteMobileUserAgents;
+					if (site.staticSiteDeliveryOptions && site.staticSiteDeliveryOptions.mobileUserAgents) {
+						folderJson.mobileUserAgents = site.staticSiteDeliveryOptions.mobileUserAgents;
 					}
 					fs.writeFileSync(path.join(tempSrcPath, '_folder.json'), JSON.stringify(folderJson));
 
@@ -485,7 +480,7 @@ var _downloadTheme = function (request, server, themeName, themeId, themeSrcPath
 				});
 
 			}).then(function (result) {
-				
+
 				// get the theme identity in folder info
 				var itemGUID = result && result.metadata && result.metadata.xScsItemGUID || themeId;
 
@@ -553,6 +548,7 @@ var _downloadSiteComponents = function (request, server, compNames) {
 							appType = appinfo.type;
 						}
 					}
+					appType = appType || 'component';
 
 					// console.log(' - name: ' + comps[i].name + ' type: ' + comps[i].type + ' appType: ' + appType);
 					var folderJson = {
@@ -757,26 +753,19 @@ var _queryComponents = function (request, server, compNames) {
 		var comps = [];
 		var compsPromises = [];
 		compNames.forEach(function (compName) {
-			/*
+
 			compsPromises.push(sitesRest.getComponent({
 				server: server,
 				name: compName
 			}));
-			*/
-			compsPromises.push(serverUtils.browseComponentsOnServer(request, server, compName));
+
 		});
 		Promise.all(compsPromises).then(function (results) {
-				// var allComps = results || [];
-				var allComps = [];
-				for (var i = 0; i < results.length; i++) {
-					if (results[i] && results[i].data) {
-						allComps = allComps.concat(results[i].data);
-					}
-				}
-				// console.log(allComps);
+				var allComps = results || [];
+				
 				for (var i = 0; i < compNames.length; i++) {
 					for (var j = 0; j < allComps.length; j++) {
-						/*
+
 						if (compNames[i] === allComps[j].name) {
 							comps.push({
 								id: allComps[j].id,
@@ -785,17 +774,10 @@ var _queryComponents = function (request, server, compNames) {
 								isHidden: allComps[j].isHidden ? '1' : '0'
 							});
 						}
-						*/
-						if (compNames[i] === allComps[j].fFolderName) {
-							comps.push({
-								id: allComps[j].fFolderGUID,
-								name: allComps[j].fFolderName,
-								appType: allComps[j].xScsAppType,
-								isHidden: allComps[j].xScsAppIsHiddenInBuilder
-							});
-						}
+						
 					}
 				}
+				// console.log(JSON.stringify(comps, null, 4));
 				return resolve(comps);
 			})
 			.catch((error) => {
@@ -2328,109 +2310,6 @@ var getContents = function (path) {
 	return contents;
 };
 
-var _getServerTemplate = function (request, localhost, name) {
-	var sitesPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=SCS_BROWSE_SITES&siteCount=-1';
-		url = url + '&fApplication=framework.site.template';
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get template');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get template ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.fields || [];
-			var rows = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.rows;
-			var sites = [];
-			for (var j = 0; j < rows.length; j++) {
-				sites.push({});
-			}
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
-				for (var j = 0; j < rows.length; j++) {
-					sites[j][attr] = rows[j][i];
-				}
-			}
-			var tempGUID;
-			for (var i = 0; i < sites.length; i++) {
-				if (sites[i].fFolderName === name) {
-					tempGUID = sites[i].fFolderGUID;
-					break;
-				}
-			}
-			return resolve({
-				templateGUID: tempGUID
-			});
-		});
-	});
-	return sitesPromise;
-};
-
-var _getServerTemplateFromTrash = function (request, localhost, name) {
-	return new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=FLD_BROWSE_TRASH';
-		url = url + '&fApplication=framework.site.template';
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get template from trash');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get template from trash' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.fields || [];
-			var rows = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.rows;
-			var sites = [];
-			for (var j = 0; j < rows.length; j++) {
-				sites.push({});
-			}
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
-				for (var j = 0; j < rows.length; j++) {
-					sites[j][attr] = rows[j][i];
-				}
-			}
-			var tempGUID, tempFolderGUID;
-			for (var i = 0; i < sites.length; i++) {
-				if (sites[i].fFolderName === name) {
-					tempGUID = sites[i].fRealItemGUID;
-					tempFolderGUID = sites[i].fFolderGUID;
-					break;
-				}
-			}
-			return resolve({
-				templateGUID: tempGUID,
-				templateFolderGUID: tempFolderGUID
-			});
-		});
-	});
-};
-
 var _exportServerTemplate = function (server, request, localhost) {
 	var exportPromise = new Promise(function (resolve, reject) {
 		var url = localhost + '/documents/web?IdcService=SCS_EXPORT_TEMPLATE_PACKAGE';
@@ -2492,59 +2371,6 @@ var _exportServerTemplate = function (server, request, localhost) {
 	return exportPromise;
 };
 
-var _getHomeFolderFile = function (request, localhost, fileName) {
-	var filesPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=FLD_BROWSE_PERSONAL&itemType=File&combinedCount=-1';
-
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get template zip file');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get template zip file ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.fields || [];
-			var rows = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.rows;
-			var files = [];
-			for (var j = 0; j < rows.length; j++) {
-				files.push({});
-			}
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
-				for (var j = 0; j < rows.length; j++) {
-					files[j][attr] = rows[j][i];
-				}
-			}
-			var fileGUID;
-			var fileSize;
-			for (var i = 0; i < files.length; i++) {
-				if (files[i].fFileName === fileName) {
-					fileGUID = files[i].fFileGUID;
-					fileSize = files[i].dFileSize;
-					break;
-				}
-			}
-			return resolve({
-				fileGUID: fileGUID,
-				fileSize: fileSize
-			});
-		});
-	});
-	return filesPromise;
-};
 
 var _downloadServerFile = function (request, server, fFileGUID, fileName) {
 	var downloadPromise = new Promise(function (resolve, reject) {
@@ -2598,118 +2424,6 @@ var _downloadServerFile = function (request, server, fFileGUID, fileName) {
 		});
 	});
 	return downloadPromise;
-};
-
-var _moveToTrash = function (request, localhost) {
-	var deletePromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=FLD_MOVE_TO_TRASH';
-
-		request.post(url, function (err, response, body) {
-			if (err) {
-				return resolve({
-					'err': err
-				});
-			}
-
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to delete file ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
-				});
-			} else {
-				return resolve(data);
-			}
-		});
-	});
-	return deletePromise;
-};
-
-var _getFolderFromTrash = function (request, localhost, realItemGUID) {
-	var trashPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=FLD_BROWSE_TRASH&itemType=Folder';
-
-		request.get(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to browse trash');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to browse trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.fields || [];
-			var rows = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.rows;
-			var folders = [];
-			for (var j = 0; j < rows.length; j++) {
-				folders.push({});
-			}
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
-				for (var j = 0; j < rows.length; j++) {
-					folders[j][attr] = rows[j][i];
-				}
-			}
-			var folderGUIDInTrash;
-			for (var i = 0; i < folders.length; i++) {
-				if (folders[i].fRealItemGUID === realItemGUID) {
-					folderGUIDInTrash = folders[i].fFolderGUID;
-					break;
-				}
-			}
-
-			return resolve({
-				folderGUIDInTrash: folderGUIDInTrash
-			});
-		});
-	});
-	return trashPromise;
-};
-
-var _deleteFromTrash = function (request, localhost) {
-	var deletePromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=FLD_DELETE_FROM_TRASH';
-
-		request.post(url, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to delete from trash');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
-				});
-			} else {
-				return resolve(data);
-			}
-		});
-	});
-	return deletePromise;
 };
 
 
@@ -3397,39 +3111,7 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 						.on('finish', function (err) {
 							res.end();
 						});
-				} else if (req.url.indexOf('FLD_MOVE_TO_TRASH') > 0) {
-					var url = server.url + '/documents/web?IdcService=FLD_MOVE_TO_TRASH';
-					var formData = {
-						'idcToken': idcToken,
-						'items': 'fFileGUID:' + templateZipFileGUID
-					};
 
-					var postData = {
-						method: 'POST',
-						url: url,
-						'auth': auth,
-						'formData': formData
-					};
-					if (server.cookies) {
-						postData.headers = {
-							Cookie: server.cookies
-						};
-					}
-					request(postData).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
-						.on('error', function (err) {
-							console.log('ERROR: Failed to delete template zip:');
-							console.log(error);
-							return resolve({
-								err: 'err'
-							});
-						})
-						.pipe(res)
-						.on('finish', function (err) {
-							res.end();
-						});
 				} else {
 					console.log('ERROR: POST request not supported: ' + req.url);
 					res.write({});
@@ -3531,14 +3213,19 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 									}
 									console.log(' - create template ' + name + ' (Id: ' + templateId + ')');
 
-									return serverUtils.queryFolderId(request, server, localhost);
+									return serverRest.getUser({
+										server: server,
+										name: server.username
+									});
 								})
 								.then(function (result) {
 									// get personal home folder
-									if (result.err) {
+									// console.log(result);
+									if (result.err || !result.items || result.items.length === 0) {
 										return Promise.reject();
 									}
-									homeFolderGUID = result.folderId;
+
+									homeFolderGUID = 'F:USER:' + result.items[0].id;
 									// console.log(' - Home folder GUID: ' + homeFolderGUID);
 
 									console.log(' - exporting template ...');
@@ -3553,16 +3240,21 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 									}
 									console.log(' - template exported ' + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 
-									return _getHomeFolderFile(request, localhost, templateZipFile);
+									return serverRest.findFile({
+										server: server,
+										parentID: 'self',
+										filename: templateZipFile,
+										itemtype: 'file'
+									});
 								})
 								.then(function (result) {
 									// get template zip file GUID from the Home folder
-									if (result.err) {
+									if (result.err || !result.id) {
 										return Promise.reject();
 									}
 
-									templateZipFileGUID = result.fileGUID;
-									console.log(' - downloading template zip file (id: ' + templateZipFileGUID + ' size: ' + result.fileSize + ') ...');
+									templateZipFileGUID = result.id;
+									console.log(' - downloading template zip file (id: ' + templateZipFileGUID + ' size: ' + result.size + ') ...');
 									startTime = new Date();
 									return _downloadServerFile(request, server, templateZipFileGUID, templateZipFile);
 
