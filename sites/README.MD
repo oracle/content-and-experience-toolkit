@@ -74,7 +74,7 @@ The CEC instance can be used for the following things:
  
 The steps are as follows:
 
-* Update `cec.properties` file to point to your CEC instance.  Note for internal compute CEC instances, use `cec_env=pod`
+* Update `cec.properties` file to point to your CEC instance.
  
 ```
 cec_url=https://<documents-hostname>:443
