@@ -61,7 +61,7 @@ cec develop
 
 * the runtime test harness can be accessed from the browser using address: [http://localhost:8085](http://localhost:8085)
 
-* Your components, themes, templates, layouts can all be found in `src/main`
+* Your components, themes, templates, layouts can all be found in `src/`
  
 ## Using a Content and Experience instance for local testing
 
@@ -72,24 +72,29 @@ The CEC instance can be used for the following things:
 * Rendering Content Layouts using content from CEC
 * Exporting and Importing templates, and components from / to CEC into local file system
  
-The steps are as follows:
-
-* Update `cec.properties` file to point to your CEC instance.
+You can register one, two, or more OCE servers.
  
 ```
-cec_url=https://<documents-hostname>:443
-cec_username=your.username
-cec_password=your.password
-cec_env=pod_ec
+cec register-server DEV -e https://your-dev-instance.com -u user -p password
+cec register-server DEV2 -e https://your-dev-instance.com -u user2 -p password
+cec register-server UAT -e https://your-test-instance.com -u user -p password
+cec register-server PROD -e https://your-production-instance.com -u user -p password
 ```
 
-`cec.properties` file will be loaded from your current working directory.  Alternatively, you can use an environment variable to specify the location.  E.g.:
+If you want the password to be encrypted, create an encryption key first and register the server with the key
 
 ```
-# optional
-export CEC_PROPERTIES=~/my.properties
+cec create-encryption-key ~/.ceckey
+cec register-server DEV -e https://your-dev-instance.com -u user -p password -k ~/.ceckey
+```
+
+Test your registered server
+
+```
+cec list --server DEV
 ```
 
 ## Using an IDCS Application to access CEC Instance to have a CLI without Chromium popup for Authentication
 Instructions on how to setup the IDCS for headless CLI are [here](doc/IDCS-App.md)
+
 
