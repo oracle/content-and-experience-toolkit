@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global console, __dirname, process, console */
@@ -71,46 +71,6 @@ var _cmdEnd = function (done, success) {
 	}
 };
 
-var _getIdcToken = function (request, server) {
-	var tokenPromise = new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-		var auth = serverUtils.getRequestAuth(server);
-
-		var params = {
-			method: 'GET',
-			url: url,
-			auth: auth,
-		};
-
-		request(params, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: Failed to get idcToken');
-				console.log(error);
-				resolve({
-					err: 'err'
-				});
-			}
-
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get IdcToken' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			return resolve({
-				idcToken: data && data.LocalData && data.LocalData.idcToken
-			});
-		});
-	});
-	return tokenPromise;
-};
 
 /**
  * Query translation jobs on the server
@@ -124,10 +84,12 @@ var _getTranslationJobs = function (server, jobType) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		var request = serverUtils.getRequest();
-		request(options, function (error, response, body) {
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to query translation jobs');
 				console.log(error);
@@ -171,10 +133,12 @@ var _getTranslationJob = function (server, jobId) {
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		var request = serverUtils.getRequest();
-		request(options, function (error, response, body) {
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to query translation job ' + jobId);
 				console.log(error);
@@ -196,6 +160,7 @@ var _getTranslationJob = function (server, jobId) {
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: failed to query translation job ' + jobId + '  : ' + msg);
+				console.log(data);
 				return resolve({
 					err: 'err'
 				});
@@ -209,25 +174,24 @@ var _getTranslationJob = function (server, jobId) {
 var _updateTranslationJobStatus = function (server, csrfToken, job, status) {
 	var updatePromise = new Promise(function (resolve, reject) {
 
-		var request = serverUtils.getRequest();
-
 		var url = server.url + '/content/management/api/v1.1/translationJobs/' + job.id;
 		job.status = status;
 		var formDataStr = JSON.stringify(job);
-		var auth = serverUtils.getRequestAuth(server);
 		var postData = {
 			method: 'PUT',
 			url: url,
-			auth: auth,
 			headers: {
 				'Content-Type': 'application/json',
 				'X-CSRF-TOKEN': csrfToken,
-				'X-REQUESTED-WITH': 'XMLHttpRequest'
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: serverUtils.getRequestAuthorization(server)
 			},
 			body: formDataStr
 		};
+		// console.log(postData);
 
-		request(postData, function (error, response, body) {
+		var request = require('../test/server/requestUtils.js').request;
+		request.put(postData, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to change translation job status ' + err);
 				resolve({
@@ -243,7 +207,7 @@ var _updateTranslationJobStatus = function (server, csrfToken, job, status) {
 					data
 				});
 			} else {
-				console.log('ERROR: failed to change translation job status ' + response.statusCode);
+				console.log('ERROR: failed to change translation job status ' + (response.statusMessage || response.statusCode));
 				resolve({
 					err: 'err'
 				});
@@ -280,146 +244,27 @@ var _getJobData = function (job) {
 	return data;
 };
 
-/**
- * Unused
- */
-var _validateTranslationJob = function (request, server, translationJobType, job, file) {
-	var validatePromise = new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/translationJobs';
-		var formData = {
-			jobType: 'import',
-			properties: {
-				jobName: job.jobName,
-				translationJobType: translationJobType,
-				jobId: job.jobId,
-				fFileGUID: file.LocalData && file.LocalData.fFileGUID,
-				validationMode: 'validateOnly'
-			}
-		};
-		// console.log(formData);
-		var formDataStr = JSON.stringify(formData);
-		var auth = serverUtils.getRequestAuth(server);
-		var postData = {
-			method: 'POST',
-			url: url,
-			auth: auth,
-			headers: {
-				'Content-Type': 'application/json',
-				'X-CSRF-TOKEN': _CSRFToken,
-				'X-REQUESTED-WITH': 'XMLHttpRequest'
-			},
-			body: formDataStr
-		};
-		request(postData, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to submit validate translation job ' + job.jobName);
-				console.log(err);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (error) {}
-
-			if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
-				var statusUrl = response.headers && response.headers.location || '';
-				return resolve({
-					statusUrl: statusUrl
-				});
-			} else {
-				// console.log(data);
-				var err = data ? (data.detail || data.title) : (response ? response.statusCode + response.statusMessage : '');
-				console.log('ERROR: Failed to validate translation job - ' + err);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-	return validatePromise;
-};
-
-//
-// Unused
-//
-var _deployTranslationJob = function (request, server, translationJobType, job, file) {
+var _validateTranslationJobSCS = function (server, idcToken, jobName, file) {
 	var importPromise = new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/translationJobs';
-		var formData = {
-			jobType: 'import',
-			properties: {
-				jobName: job.jobName,
-				translationJobType: translationJobType,
-				jobId: job.jobId,
-				fFileGUID: file.LocalData && file.LocalData.fFileGUID,
-				repositoryId: job.repositoryId,
-				validationMode: 'validateAndImport'
-			}
-		};
-		// console.log(formData);
-		var formDataStr = JSON.stringify(formData);
-		var auth = serverUtils.getRequestAuth(server);
-		var postData = {
-			method: 'POST',
-			url: url,
-			auth: auth,
-			headers: {
-				'Content-Type': 'application/json',
-				'X-CSRF-TOKEN': _CSRFToken,
-				'X-REQUESTED-WITH': 'XMLHttpRequest'
-			},
-			body: formDataStr
-		};
-		request(postData, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to submit import translation job ' + job.jobName);
-				console.log(err);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (error) {}
-
-			if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
-				var statusUrl = response.headers && response.headers.location || '';
-				return resolve({
-					statusUrl: statusUrl
-				});
-			} else {
-				// console.log(data);
-				var err = data ? (data.detail || data.title) : (response ? response.statusCode + response.statusMessage : '');
-				console.log('ERROR: Failed to import translation job - ' + err);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-	return importPromise;
-};
-
-var _validateTranslationJobSCS = function (request, server, idcToken, jobName, file) {
-	var importPromise = new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/web?IdcService=SCS_IMPORT_SITE_TRANS';
+		var url = server.url + '/documents/integration?IdcService=SCS_IMPORT_SITE_TRANS';
+		url = url + '&IsJson=1';
 		url = url + '&jobName=' + jobName;
-		url = url + '&fFileGUID=' + (file.LocalData && file.LocalData.fFileGUID);
+		url = url + '&fFileGUID=' + file.id;
 		url = url + '&validationMode=validateOnly&useBackgroundThread=1';
 		url = url + '&idcToken=' + idcToken;
-
-		var auth = serverUtils.getRequestAuth(server);
 
 		var params = {
 			method: 'GET',
 			url: url,
-			auth: auth,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
+		// console.log(params);
 
-		request(params, function (error, response, body) {
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(params, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: Failed to submit import translation job (validate) ' + job.jobName);
 				console.log(error);
@@ -447,9 +292,10 @@ var _validateTranslationJobSCS = function (request, server, idcToken, jobName, f
 	return importPromise;
 };
 
-var _deployTranslationJobSCS = function (request, server, idcToken, jobName, file) {
+var _deployTranslationJobSCS = function (server, idcToken, jobName, file) {
 	var importPromise = new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/web?IdcService=SCS_IMPORT_SITE_TRANS';
+		var url = server.url + '/documents/integration?IdcService=SCS_IMPORT_SITE_TRANS';
+		url = url + '&IsJson=1';
 		url = url + '&jobName=' + jobName;
 		url = url + '&fFileGUID=' + (file.id);
 		url = url + '&validationMode=validateAndImport&useBackgroundThread=1';
@@ -460,10 +306,14 @@ var _deployTranslationJobSCS = function (request, server, idcToken, jobName, fil
 		var params = {
 			method: 'GET',
 			url: url,
-			auth: auth,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 
-		request(params, function (error, response, body) {
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(params, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: Failed to submit import translation job ' + job.jobName);
 				console.log(error);
@@ -491,21 +341,24 @@ var _deployTranslationJobSCS = function (request, server, idcToken, jobName, fil
 	return importPromise;
 };
 
-var _getImportValidateStatusSCS = function (server, request, idcToken, jobId) {
+var _getImportValidateStatusSCS = function (server, idcToken, jobId) {
 	var statusPromise = new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/web?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_STATUS';
+		var url = server.url + '/documents/integration?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_STATUS';
+		url = url + '&IsJson=1';
 		url = url + '&JobID=' + jobId;
 		url = url + '&idcToken=' + idcToken;
-
-		var auth = serverUtils.getRequestAuth(server);
 
 		var params = {
 			method: 'GET',
 			url: url,
-			auth: auth,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 
-		request(params, function (error, response, body) {
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(params, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: Failed to get import translation job status');
 				console.log(error);
@@ -539,21 +392,24 @@ var _getImportValidateStatusSCS = function (server, request, idcToken, jobId) {
 	return statusPromise;
 };
 
-var _getJobReponseDataSCS = function (server, request, idcToken, jobId) {
+var _getJobReponseDataSCS = function (server, idcToken, jobId) {
 	var statusPromise = new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/web?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_RESPONSE_DATA';
+		var url = server.url + '/documents/integration?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_RESPONSE_DATA';
+		url = url + '&IsJson=1';
 		url = url + '&JobID=' + jobId;
 		url = url + '&idcToken=' + idcToken;
-
-		var auth = serverUtils.getRequestAuth(server);
 
 		var params = {
 			method: 'GET',
 			url: url,
-			auth: auth,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
 
-		request(params, function (error, response, body) {
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(params, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: Failed to get import translation job response data');
 				console.log(error);
@@ -633,11 +489,11 @@ var _displayValidationResult = function (result, jobType, tempDir) {
 	}
 };
 
-var _execdeployTranslationJob = function (server, request, validateonly, folder, filePath, jobName, jobType, tempDir, done) {
+var _execdeployTranslationJob = function (server, validateonly, folder, filePath, jobName, jobType, tempDir, done) {
 	var fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
 	// console.log(' - folder: ' + folder + ' filePath: ' + filePath + ' fileName: ' + fileName);
 	var idcToken;
-	var tokenPromise = _getIdcToken(request, server);
+	var tokenPromise = serverUtils.getIdcToken(server);
 	tokenPromise
 		.then(function (result) {
 			idcToken = result.idcToken;
@@ -679,7 +535,7 @@ var _execdeployTranslationJob = function (server, request, validateonly, folder,
 				//
 				// validate
 				//
-				var validatePromise = _validateTranslationJobSCS(request, server, idcToken, jobName, file);
+				var validatePromise = _validateTranslationJobSCS(server, idcToken, jobName, file);
 				validatePromise.then(function (result) {
 						if (result.err) {
 							return Promise.reject();
@@ -688,12 +544,12 @@ var _execdeployTranslationJob = function (server, request, validateonly, folder,
 
 						// wait validate to finish
 						var inter = setInterval(function () {
-							var jobPromise = _getImportValidateStatusSCS(server, request, idcToken, jobId);
+							var jobPromise = _getImportValidateStatusSCS(server, idcToken, jobId);
 							jobPromise.then(function (data) {
 								if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
 									clearInterval(inter);
 									// try to get error message
-									var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
+									var jobDataPromise = _getJobReponseDataSCS(server, idcToken, jobId);
 									jobDataPromise.then(function (data) {
 										console.log('ERROR: validation failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
 										_cmdEnd(done);
@@ -702,7 +558,7 @@ var _execdeployTranslationJob = function (server, request, validateonly, folder,
 								if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
 									clearInterval(inter);
 									console.log(' - validate ' + jobName + ' finished');
-									var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
+									var jobDataPromise = _getJobReponseDataSCS(server, idcToken, jobId);
 									jobDataPromise.then(function (data) {
 										_displayValidationResult(data, jobType, tempDir);
 										_cmdEnd(done, true);
@@ -721,7 +577,7 @@ var _execdeployTranslationJob = function (server, request, validateonly, folder,
 				//
 				// Import
 				//
-				var importPromise = _deployTranslationJobSCS(request, server, idcToken, jobName, file);
+				var importPromise = _deployTranslationJobSCS(server, idcToken, jobName, file);
 				importPromise.then(function (result) {
 						if (result.err) {
 							return Promise.reject();
@@ -732,12 +588,12 @@ var _execdeployTranslationJob = function (server, request, validateonly, folder,
 
 						// wait import to finish
 						var inter = setInterval(function () {
-							var jobPromise = _getImportValidateStatusSCS(server, request, idcToken, jobId);
+							var jobPromise = _getImportValidateStatusSCS(server, idcToken, jobId);
 							jobPromise.then(function (data) {
 								if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
 									clearInterval(inter);
 									// try to get error message
-									var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
+									var jobDataPromise = _getJobReponseDataSCS(server, idcToken, jobId);
 									jobDataPromise.then(function (data) {
 										console.log('ERROR: import failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
 										_cmdEnd(done);
@@ -766,20 +622,41 @@ var _execdeployTranslationJob = function (server, request, validateonly, folder,
 };
 
 
-var _exportTranslationJobSCS = function (request, localhost, idcToken, jobName, siteInfo, targetLanguages, exportType, connectorId) {
+var _exportTranslationJobSCS = function (server, idcToken, jobName, siteInfo, targetLanguages, exportType, connectorId) {
 	var exportPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=SCS_EXPORT_SITE_TRANS';
-		url = url + '&idcToken=' + idcToken;
-		url = url + '&jobName=' + jobName;
-		url = url + '&exportType=' + exportType;
-		url = url + '&sourceLanguage=' + siteInfo.defaultLanguage;
-		url = url + '&targetLanguages=' + targetLanguages;
-		url = url + '&siteGUID=' + siteInfo.id;
+		var url = server.url + '/documents/integration?IdcService=SCS_EXPORT_SITE_TRANS';
+		url = url + '&IsJson=1';
+		var data = {
+			'idcToken': idcToken,
+			'LocalData': {
+				'IdcService': 'SCS_EXPORT_SITE_TRANS',
+				'jobName': jobName,
+				'exportType': exportType,
+				'sourceLanguage': siteInfo.defaultLanguage,
+				'targetLanguages': targetLanguages.toString(),
+				'siteGUID': siteInfo.id,
+				'useBackgroundThread': '1'
+			}
+		};
+
 		if (connectorId) {
-			url = url + '&connectorId=' + connectorId;
+			data.LocalData.connectorId = connectorId;
 		}
 
-		request.post(url, function (err, response, body) {
+		var options = {
+			method: 'POST',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(data)
+		};
+		// console.log(options);
+
+		var request = require('../test/server/requestUtils.js').request;
+		request.post(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to create translation job');
 				console.log(err);
@@ -793,22 +670,22 @@ var _exportTranslationJobSCS = function (request, localhost, idcToken, jobName, 
 				data = JSON.parse(body);
 			} catch (e) {}
 
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0' || !data.LocalData.JobID) {
 				console.log('ERROR: failed to create translation job ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 				return resolve({
 					err: 'err'
 				});
 			}
 
-			console.log(' - create translation job submitted');
+			console.log(' - create translation job submitted (' + data.LocalData.JobID + ')');
 			resolve(data);
 		});
 	});
 	return exportPromise;
 };
 
-var _execCreateTranslationJob = function (server, request, localhost, idcToken, name, siteInfo, targetLanguages, exportType, connectorId, done) {
-	var exportPromise = _exportTranslationJobSCS(request, localhost, idcToken, name, siteInfo, targetLanguages, exportType, connectorId);
+var _execCreateTranslationJob = function (server, idcToken, name, siteInfo, targetLanguages, exportType, connectorId, done) {
+	var exportPromise = _exportTranslationJobSCS(server, idcToken, name, siteInfo, targetLanguages, exportType, connectorId);
 	exportPromise.then(function (result) {
 			if (result.err) {
 				return Promise.reject();
@@ -818,11 +695,12 @@ var _execCreateTranslationJob = function (server, request, localhost, idcToken, 
 
 			// wait export to finish
 			var inter = setInterval(function () {
-				var jobPromise = _getImportValidateStatusSCS(server, request, idcToken, jobId);
+				var jobPromise = _getImportValidateStatusSCS(server, idcToken, jobId);
 				jobPromise.then(function (data) {
 					if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
 						clearInterval(inter);
 						console.log('ERROR: create translation job failed: ' + (data && data.JobMessage));
+						console.log(data);
 						_cmdEnd(done);
 					}
 					if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
@@ -837,11 +715,14 @@ var _execCreateTranslationJob = function (server, request, localhost, idcToken, 
 			}, 5000);
 		})
 		.catch((error) => {
+			if (error) {
+				console.log(error);
+			}
 			_cmdEnd(done);
 		});
 };
 
-var _createTranslationJob = function (server, request, localhost, idcToken, site, name, langs, exportType, connectorName, done) {
+var _createTranslationJob = function (server, idcToken, site, name, langs, exportType, connectorName, done) {
 	// console.log('site: ' + site + ' job name: ' + name + ' languages: ' + langs + ' export type: ' + exportType);
 	var allLangs = [];
 	var siteInfo;
@@ -849,7 +730,7 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 
 	var connectorPromises = [];
 	if (connectorName) {
-		connectorPromises.push(serverUtils.browseTranslationConnectorsOnServer(request, server));
+		connectorPromises.push(serverUtils.browseTranslationConnectorsOnServer(server));
 	}
 	Promise.all(connectorPromises)
 		.then(function (results) {
@@ -924,7 +805,6 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 
 			var policyId = siteInfo.channel.localizationPolicy;
 
-			// return _getLocalizationPolicy(request, localhost, policyId);
 			return serverRest.getLocalizationPolicy({
 				server: server,
 				id: policyId
@@ -972,7 +852,7 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 				return Promise.reject();
 			}
 			console.log(' - target languages: ' + targetLanguages);
-			_execCreateTranslationJob(server, request, localhost, idcToken, name, siteInfo, targetLanguages, exportType,
+			_execCreateTranslationJob(server, idcToken, name, siteInfo, targetLanguages, exportType,
 				(connector && connector.connectorId), done);
 
 		})
@@ -985,7 +865,7 @@ var _createTranslationJob = function (server, request, localhost, idcToken, site
 
 };
 
-var _createConnectorJob = function (request, translationconnector, jobName) {
+var _createConnectorJob = function (translationconnector, jobName) {
 	var jobPromise = new Promise(function (resolve, reject) {
 		var url = translationconnector.url + '/v1/job';
 
@@ -996,51 +876,53 @@ var _createConnectorJob = function (request, translationconnector, jobName) {
 		var basicAuth = 'Basic ' + serverUtils.btoa(translationconnector.user + ':' + translationconnector.password);
 		var headers = {};
 		headers['Authorization'] = basicAuth;
+		headers['Content-Type'] = 'application/json';
 		for (var i = 0; i < translationconnector.fields.length; i++) {
 			headers[translationconnector.fields[i].name] = translationconnector.fields[i].value;
 			formData[translationconnector.fields[i].name] = translationconnector.fields[i].value;
 		}
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: headers,
+			body: JSON.stringify(formData)
+		};
+		// console.log(postData);
 
-		request({
-				method: 'POST',
-				url: url,
-				headers: headers,
-				form: formData
-			},
-			function (error, response, body) {
-				if (error) {
-					console.log('ERROR: failed to create job on the connector: ' + error);
-					return resolve({
-						err: 'err'
-					});
-				}
-
-				if (response.statusCode != 200) {
-					console.log('ERROR: failed to create job on the connector: ' + response.statusMessage);
-					return resolve({
-						err: 'err'
-					});
-				}
-
-				var data;
-				try {
-					data = JSON.parse(body);
-				} catch (err) {}
-
-				if (!data || !data.properties) {
-					console.log('ERROR: failed to create job on the connector: no data returned');
-					return resolve({
-						err: 'err'
-					});
-				}
-				return resolve(data);
+		var request = require('../test/server/requestUtils.js').request;
+		request.post(postData, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to create job on the connector: ' + error);
+				return resolve({
+					err: 'err'
+				});
 			}
-		);
+
+			if (response.statusCode != 200) {
+				console.log('ERROR: failed to create job on the connector: ' + response.statusMessage);
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (err) {}
+
+			if (!data || !data.properties) {
+				console.log('ERROR: failed to create job on the connector: no data returned');
+				return resolve({
+					err: 'err'
+				});
+			}
+			return resolve(data);
+		});
 	});
 	return jobPromise;
 };
 
-var _sendFileToConnector = function (request, translationconnector, jobId, filePath) {
+var _sendFileToConnector = function (translationconnector, jobId, filePath) {
 	var filePromise = new Promise(function (resolve, reject) {
 		var url = translationconnector.url + '/v1/job/' + jobId + '/translate';
 
@@ -1051,95 +933,96 @@ var _sendFileToConnector = function (request, translationconnector, jobId, fileP
 		for (var i = 0; i < translationconnector.fields.length; i++) {
 			headers[translationconnector.fields[i].name] = translationconnector.fields[i].value;
 		}
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: headers,
+			body: fs.createReadStream(filePath)
+		};
+		var request = require('../test/server/requestUtils.js').request;
+		request.post(postData, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to send zip to the job: ' + error);
+				return resolve({
+					err: 'err'
+				});
+			}
 
-		request({
-				method: 'POST',
-				url: url,
-				headers: headers,
-				body: fs.readFileSync(filePath)
-			},
-			function (error, response, body) {
-				if (error) {
-					console.log('ERROR: failed to send zip to the job: ' + error);
-					return resolve({
-						err: 'err'
-					});
-				}
+			if (response.statusCode != 200) {
+				console.log('ERROR: failed to send zip to the job: ' + response.statusMessage);
+				return resolve({
+					err: 'err'
+				});
+			}
 
-				if (response.statusCode != 200) {
-					console.log('ERROR: failed to send zip to the job: ' + response.statusMessage);
-					return resolve({
-						err: 'err'
-					});
-				}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (err) {}
 
-				var data;
-				try {
-					data = JSON.parse(body);
-				} catch (err) {}
-
-				return resolve(data);
-			});
+			return resolve(data);
+		});
 	});
 
 	return filePromise;
 };
 
-var _refreshConnectorJob = function (request, translationconnector, connection, jobId) {
+var _refreshConnectorJob = function (translationconnector, connection, jobId) {
 	var jobPromise = new Promise(function (resolve, reject) {
 		var url = translationconnector.url + '/v1/job/' + jobId + '/refreshTranslation?connection=' + connection;
 
 		var basicAuth = 'Basic ' + serverUtils.btoa(translationconnector.user + ':' + translationconnector.password);
 		var headers = {};
 		headers['Authorization'] = basicAuth;
+		headers['Content-Type'] = 'application/json';
 		for (var i = 0; i < translationconnector.fields.length; i++) {
 			headers[translationconnector.fields[i].name] = translationconnector.fields[i].value;
 		}
-
-		request({
-				method: 'POST',
-				url: url,
-				headers: headers
-			},
-			function (error, response, body) {
-				if (error) {
-					console.log('ERROR: failed to refresh job on the connector: ' + error);
-					return resolve({
-						err: 'err'
-					});
-				}
-
-				if (response.statusCode != 200) {
-					console.log('ERROR: failed to refresh job on the connector: ' + response.statusMessage);
-					return resolve({
-						err: 'err'
-					});
-				}
-
-				var data;
-				try {
-					data = JSON.parse(body);
-				} catch (err) {}
-
-				if (!data || !data.properties) {
-					console.log('ERROR: failed to refresh job on the connector: no data returned');
-					return resolve({
-						err: 'err'
-					});
-				}
-				return resolve(data);
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: headers
+		};
+		var request = require('../test/server/requestUtils.js').request;
+		request.post(postData, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to refresh job on the connector: ' + error);
+				return resolve({
+					err: 'err'
+				});
 			}
-		);
+
+			if (response.statusCode != 200) {
+				console.log('ERROR: failed to refresh job on the connector: ' + response.statusMessage);
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (err) {}
+
+			if (!data || !data.properties) {
+				console.log('ERROR: failed to refresh job on the connector: no data returned');
+				return resolve({
+					err: 'err'
+				});
+			}
+			return resolve(data);
+		});
 	});
 	return jobPromise;
 };
 
-var _getJobFromConnector = function (request, translationconnector, jobId, jobName) {
+var _getJobFromConnector = function (translationconnector, jobId, jobName) {
 	var jobPromise = new Promise(function (resolve, reject) {
 		var url = translationconnector.url + '/v1/job/' + jobId;
 		var basicAuth = 'Basic ' + serverUtils.btoa(translationconnector.user + ':' + translationconnector.password);
 		var headers = {};
 		headers['Authorization'] = basicAuth;
+		headers['Content-Type'] = 'application/json';
 		for (var i = 0; i < translationconnector.fields.length; i++) {
 			headers[translationconnector.fields[i].name] = translationconnector.fields[i].value;
 		}
@@ -1148,7 +1031,7 @@ var _getJobFromConnector = function (request, translationconnector, jobId, jobNa
 			url: url,
 			headers: headers
 		};
-
+		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get job ' + jobName + ' from connector: ' + err);
@@ -1174,51 +1057,45 @@ var _getJobFromConnector = function (request, translationconnector, jobId, jobNa
 	return jobPromise;
 };
 
-var _getTranslationFromConnector = function (request, translationconnector, jobId, targetFile) {
+var _getTranslationFromConnector = function (translationconnector, jobId, targetFile) {
 	var transPromise = new Promise(function (resolve, reject) {
 		var url = translationconnector.url + '/v1/job/' + jobId + '/translation';
 
 		var basicAuth = 'Basic ' + serverUtils.btoa(translationconnector.user + ':' + translationconnector.password);
 		var headers = {};
 		headers['Authorization'] = basicAuth;
+		//headers['Content-Type'] = 'application/json';
 		for (var i = 0; i < translationconnector.fields.length; i++) {
 			headers[translationconnector.fields[i].name] = translationconnector.fields[i].value;
 		}
 
 		var options = {
 			url: url,
-			headers: headers
+			headers: headers,
+			encoding: null
 		};
 
+		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
-				if (err) {
-					console.log('ERROR: Failed to get translation from connector:');
-					console.log(err);
-					return resolve({
-						err: 'err'
-					});
-				}
-
-				if (!response || response.statusCode !== 200) {
-					console.log('ERROR: Failed to get translation from connector: ' + response.errorMessage);
-					return resolve({
-						'err': 'err'
-					});
-				}
-
-				return resolve(body);
-			})
-			.on('error', function (err) {
+			if (err) {
 				console.log('ERROR: Failed to get translation from connector:');
-				console.log(error);
+				console.log(err);
 				return resolve({
 					err: 'err'
 				});
-			})
-			.pipe(fs.createWriteStream(targetFile))
-			.on('close', function () {
-				console.log(' - translation saved to ' + targetFile);
-			});
+			}
+
+			if (!response || response.statusCode !== 200) {
+				console.log('ERROR: Failed to get translation from connector: ' + response.errorMessage);
+				return resolve({
+					'err': 'err'
+				});
+			} else {
+				fs.writeFileSync(targetFile, body);
+				return resolve(body);
+			}
+
+		});
 	});
 	return transPromise;
 };
@@ -1392,7 +1269,7 @@ var _listServerTranslationJobs = function (argv, done) {
 		}
 		var connectors;
 		var jobs = [];
-		serverUtils.browseTranslationConnectorsOnServer(request, server)
+		serverUtils.browseTranslationConnectorsOnServer(server)
 			.then(function (result) {
 				connectors = result && result.data || [];
 				// console.log(connectors);
@@ -1427,7 +1304,7 @@ var _listServerTranslationJobs = function (argv, done) {
 						jobs.push(values[i].job);
 
 						if (values[i].job.id && values[i].job.connectorId) {
-							connectorJobPromises.push(serverUtils.getTranslationConnectorJobOnServer(request, server, values[i].job.id));
+							connectorJobPromises.push(serverUtils.getTranslationConnectorJobOnServer(server, values[i].job.id));
 						}
 					}
 				}
@@ -1767,7 +1644,7 @@ module.exports.uploadTranslationJob = function (argv, done) {
 				var tempDir = path.join(transBuildDir, name);
 				var jobType = _getJobType(name);
 				// console.log(' - job: ' + name + ' type: ' + jobType + ' zip: ' + zippath);
-				_execdeployTranslationJob(server, request, validateonly, folder, zippath, name, jobType, tempDir, done);
+				_execdeployTranslationJob(server, validateonly, folder, zippath, name, jobType, tempDir, done);
 
 			}); // login to server
 		});
@@ -1826,127 +1703,20 @@ module.exports.createTranslationJob = function (argv, done) {
 			return;
 		}
 
-		var auth = serverUtils.getRequestAuth(server);
-
-		var express = require('express');
-		var app = express();
-
-		var port = '9191';
-		var localhost = 'http://localhost:' + port;
-
-		var dUser = '';
 		var idcToken;
 
-		app.get('/*', function (req, res) {
-			// console.log('GET: ' + req.url);
-			if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-				var url = server.url + req.url;
+		serverUtils.getIdcToken(server)
+			.then(function (result) {
+				idcToken = result && result.idcToken;
+				if (!idcToken) {
+					console.log('ERROR: failed to get idcToken');
+					done();
+				} else {
 
-				var options = {
-					url: url,
-					auth: auth
-				};
-
-				request(options).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					serverUtils.fixHeaders(response, res);
-				}).pipe(res);
-
-			} else {
-				console.log('ERROR: request not supported: ' + req.url);
-				res.write({});
-				res.end();
-			}
-		});
-		app.post('/documents/web', function (req, res) {
-			// console.log('POST: ' + req.url);
-			if (req.url.indexOf('SCS_EXPORT_SITE_TRANS') > 0) {
-				var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
-				var idcToken = params.idcToken;
-				var jobName = params.jobName;
-				var exportType = params.exportType;
-				var sourceLanguage = params.sourceLanguage;
-				var targetLanguages = params.targetLanguages;
-				var siteGUID = params.siteGUID;
-				var connectorId = params.connectorId;
-
-				var exportUrl = server.url + '/documents/web?IdcService=SCS_EXPORT_SITE_TRANS';
-				var data = {
-					'idcToken': idcToken,
-					'jobName': jobName,
-					'exportType': exportType,
-					'sourceLanguage': sourceLanguage,
-					'targetLanguages': targetLanguages,
-					'siteGUID': siteGUID,
-					'useBackgroundThread': '1',
-				};
-
-				if (connectorId) {
-					data['connectorId'] = connectorId;
+					console.log(' - establish user session');
+					_createTranslationJob(server, idcToken, site, name, langs, exportType, connector, done);
 				}
-				var postData = {
-					method: 'POST',
-					url: exportUrl,
-					'auth': auth,
-					'form': data
-				};
-				// console.log(postData)
-				request(postData).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						res.write({
-							err: err
-						});
-						res.end();
-					})
-					.pipe(res)
-					.on('finish', function (err) {
-						// console.log(' - submit create translation job finished');
-						res.end();
-					});
-
-			} else {
-				console.log('ERROR: request not supported: ' + req.url);
-				res.write({});
-				res.end();
-			}
-		});
-
-		localServer = app.listen(0, function () {
-			port = localServer.address().port;
-			localhost = 'http://localhost:' + port;
-
-			var total = 0;
-			var inter = setInterval(function () {
-				// console.log(' - getting login user: ' + total);
-				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-				request.get(url, function (err, response, body) {
-					var data;
-					try {
-						data = JSON.parse(body);
-					} catch (err) {}
-
-					dUser = data && data.LocalData && data.LocalData.dUser;
-					idcToken = data && data.LocalData && data.LocalData.idcToken;
-					if (dUser && dUser !== 'anonymous' && idcToken) {
-						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-						clearInterval(inter);
-						console.log(' - establish user session');
-						_createTranslationJob(server, request, localhost, idcToken, site, name, langs, exportType, connector, done);
-					}
-					total += 1;
-					if (total >= 10) {
-						clearInterval(inter);
-						console.log('ERROR: disconnect from the server, try again');
-						_cmdEnd(done);
-					}
-				});
-			}, 2000);
-
-		});
+			});
 	});
 };
 
@@ -2006,7 +1776,6 @@ module.exports.listTranslationJobs = function (argv, done) {
 	// check jobs sent the connector
 	var connectJobPromises = [];
 
-	var request = serverUtils.getRequest();
 	for (var i = 0; i < jobs.length; i++) {
 		var jobConnectionInfo = _getJobConnectionInfo(jobs[i].jobName);
 		if (jobConnectionInfo && jobConnectionInfo.connection && jobConnectionInfo.jobId) {
@@ -2014,7 +1783,7 @@ module.exports.listTranslationJobs = function (argv, done) {
 			jobs[i]['connectionJobId'] = jobConnectionInfo.jobId;
 			if (jobConnectionInfo.status !== 'INGESTED') {
 				var connectionjson = _getConnectionInfo(jobConnectionInfo.connection);
-				connectJobPromises.push(_getJobFromConnector(request, connectionjson, jobConnectionInfo.jobId, jobs[i].jobName));
+				connectJobPromises.push(_getJobFromConnector(connectionjson, jobConnectionInfo.jobId, jobs[i].jobName));
 			}
 		}
 	}
@@ -2094,12 +1863,10 @@ module.exports.submitTranslationJob = function (argv, done) {
 			var zippath = path.join(projectDir, 'dist', name + '.zip');
 			console.log(' - created translation job zip file ' + zippath);
 
-			var request = serverUtils.getRequest();
-
 			// 
 			// create connector job
 			//
-			var jobPromise = _createConnectorJob(request, connectionjson, name);
+			var jobPromise = _createConnectorJob(connectionjson, name);
 			var jobId, projectId;
 			jobPromise
 				.then(function (result) {
@@ -2110,7 +1877,7 @@ module.exports.submitTranslationJob = function (argv, done) {
 					jobId = result.properties.id;
 					projectId = result.properties.projectId;
 					console.log(' - create translation job on the connector: ' + jobId);
-					return _sendFileToConnector(request, connectionjson, jobId, zippath);
+					return _sendFileToConnector(connectionjson, jobId, zippath);
 
 				})
 				.then(function (result) {
@@ -2191,8 +1958,8 @@ module.exports.ingestTranslationJob = function (argv, done) {
 	var connectionJobId = jobConnectionInfo.jobId;
 
 	console.log(' - query translation connection to get job status');
-	var request = serverUtils.getRequest();
-	var connectionJobPromise = _getJobFromConnector(request, connectionjson, connectionJobId, name);
+	
+	var connectionJobPromise = _getJobFromConnector(connectionjson, connectionJobId, name);
 	connectionJobPromise.then(function (result) {
 		if (result.err || !result.properties) {
 			done();
@@ -2208,7 +1975,7 @@ module.exports.ingestTranslationJob = function (argv, done) {
 		console.log(' - get translation');
 		var targetFileName = name + '-translated.zip';
 		var target = path.join(projectDir, 'dist', targetFileName);
-		var getTransPromise = _getTranslationFromConnector(request, connectionjson, connectionJobId, target);
+		var getTransPromise = _getTranslationFromConnector(connectionjson, connectionJobId, target);
 		getTransPromise.then(function (result) {
 			if (result.err) {
 				done();
@@ -2260,7 +2027,7 @@ var _ingestServerTranslationJob = function (argv, done) {
 		var connectors;
 		var job;
 		var idcToken;
-		serverUtils.browseTranslationConnectorsOnServer(request, server)
+		serverUtils.browseTranslationConnectorsOnServer(server)
 			.then(function (result) {
 				connectors = result && result.data || [];
 
@@ -2293,7 +2060,7 @@ var _ingestServerTranslationJob = function (argv, done) {
 					return Promise.reject();
 				}
 
-				return serverUtils.getTranslationConnectorJobOnServer(request, server, job.id);
+				return serverUtils.getTranslationConnectorJobOnServer(server, job.id);
 
 			})
 			.then(function (result) {
@@ -2309,12 +2076,12 @@ var _ingestServerTranslationJob = function (argv, done) {
 				}
 				console.log(' - verify job');
 
-				return _getIdcToken(request, server);
+				return serverUtils.getIdcToken(server);
 			})
 			.then(function (result) {
 				idcToken = result.idcToken;
 
-				return _ingestTranslationJobSCS(request, server, idcToken, job.id, job.connectorId);
+				return _ingestTranslationJobSCS(server, idcToken, job.id, job.connectorId);
 			})
 			.then(function (result) {
 				if (result.err) {
@@ -2326,12 +2093,12 @@ var _ingestServerTranslationJob = function (argv, done) {
 
 				// wait ingest to finish
 				var inter = setInterval(function () {
-					var jobPromise = _getImportValidateStatusSCS(server, request, idcToken, jobId);
+					var jobPromise = _getImportValidateStatusSCS(server, idcToken, jobId);
 					jobPromise.then(function (data) {
 						if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
 							clearInterval(inter);
 							// try to get error message
-							var jobDataPromise = _getJobReponseDataSCS(server, request, idcToken, jobId);
+							var jobDataPromise = _getJobReponseDataSCS(server, idcToken, jobId);
 							jobDataPromise.then(function (data) {
 								console.log('ERROR: ingest failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
 								_cmdEnd(done);
@@ -2353,25 +2120,29 @@ var _ingestServerTranslationJob = function (argv, done) {
 			});
 	});
 };
-var _ingestTranslationJobSCS = function (request, server, idcToken, jobId, connectorId) {
+var _ingestTranslationJobSCS = function (server, idcToken, jobId, connectorId) {
 	var importPromise = new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/web?IdcService=SCS_IMPORT_SITE_TRANS';
+		var url = server.url + '/documents/integration?IdcService=SCS_IMPORT_SITE_TRANS';
+		url = url + '&IsJson=1';
 		url = url + '&jobId=' + jobId;
 		url = url + '&connectorId=' + connectorId;
 		url = url + '&validationMode=validateAndImport&useBackgroundThread=1';
 		url = url + '&idcToken=' + idcToken;
 
-		var auth = serverUtils.getRequestAuth(server);
-
 		var params = {
 			method: 'GET',
 			url: url,
-			auth: auth,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
+		// console.log(params);
 
-		request(params, function (error, response, body) {
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(params, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: Failed to submit ingest translation job ' + job.jobName);
+				console.log('ERROR: Failed to submit ingest translation job ' + jobId);
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -2384,7 +2155,7 @@ var _ingestTranslationJobSCS = function (request, server, idcToken, jobId, conne
 			} catch (e) {}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to submit ingest translation job ' + jobName + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				console.log('ERROR: Failed to submit ingest translation job ' + jobId + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 				return resolve({
 					err: 'err'
 				});
@@ -2397,22 +2168,25 @@ var _ingestTranslationJobSCS = function (request, server, idcToken, jobId, conne
 	return importPromise;
 };
 
-var _refreshTranslationJobSCS = function (request, server, idcToken, jobId, connectorId) {
+var _refreshTranslationJobSCS = function (server, idcToken, jobId, connectorId) {
 	var refreshPromise = new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/web?IdcService=REFRESH_CONNECTOR_JOB';
+		var url = server.url + '/documents/integration?IdcService=REFRESH_CONNECTOR_JOB';
+		url = url + '&IsJson=1';
+		url = url + '&idcToken=' + idcToken;
+		url = url + '&jobId=' + jobId;
 
-		var auth = serverUtils.getRequestAuth(server);
-		var formData = {
-			'idcToken': idcToken,
-			'jobId': jobId
-		};
 		var params = {
 			method: 'POST',
 			url: url,
-			auth: auth,
-			formData: formData
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		request(params, function (error, response, body) {
+		// console.log(params);
+
+		var request = require('../test/server/requestUtils.js').request;
+		request.post(params, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: Failed to submit refresh translation job ' + job.jobName);
 				console.log(error);
@@ -2464,7 +2238,7 @@ var _refreshServerTranslationJob = function (argv, done) {
 		var connectors;
 		var job;
 		var idcToken;
-		serverUtils.browseTranslationConnectorsOnServer(request, server)
+		serverUtils.browseTranslationConnectorsOnServer(server)
 			.then(function (result) {
 				connectors = result && result.data || [];
 
@@ -2497,12 +2271,12 @@ var _refreshServerTranslationJob = function (argv, done) {
 					return Promise.reject();
 				}
 
-				return _getIdcToken(request, server);
+				return serverUtils.getIdcToken(server);
 			})
 			.then(function (result) {
 				idcToken = result.idcToken;
 
-				return _refreshTranslationJobSCS(request, server, idcToken, job.id, job.connectorId);
+				return _refreshTranslationJobSCS(server, idcToken, job.id, job.connectorId);
 			})
 			.then(function (result) {
 				if (result.err) {
@@ -2574,8 +2348,7 @@ module.exports.refreshTranslationJob = function (argv, done) {
 		return;
 	}
 
-	var request = serverUtils.getRequest();
-	_refreshConnectorJob(request, connectionjson, jobConnectionInfo.connection, jobConnectionInfo.jobId)
+	_refreshConnectorJob(connectionjson, jobConnectionInfo.connection, jobConnectionInfo.jobId)
 		.then(function (result) {
 			if (!result || result.err) {
 				done();

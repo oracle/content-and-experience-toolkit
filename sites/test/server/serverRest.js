@@ -1177,6 +1177,75 @@ module.exports.createItem = function (args) {
 		args.name, args.desc, args.fields, args.language);
 };
 
+// Create digital item on server
+var _createDigitalItem = function (server, repositoryId, type, filename, contents) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+				var FormData = require('form-data');
+				var form = new FormData();
+				form.append('item', JSON.stringify({
+					repositoryId: repositoryId,
+					type: type
+				}));
+				form.append('file', contents);
+
+				var url = server.url + '/content/management/api/v1.1/items';
+				var postData = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: form
+				};
+				// console.log(postData);
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to create create digital item for ' + filename);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						console.log('Failed to create digital item for ' + filename + ' : ' + (response.statusMessage || response.statusCode));
+						console.log(data);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+
+/**
+ * create a digital item on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} args.server the server object
+ * @param {string} args.item the item object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createDigitalItem = function (args) {
+	return _createDigitalItem(args.server, args.repositoryId, args.type, args.filename, args.contents);
+};
 
 // Create collection on server
 var _createCollection = function (server, repositoryId, name, channels) {

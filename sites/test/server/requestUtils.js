@@ -20,7 +20,8 @@ var _get = function (options, callback) {
 				var err = response.error;
 				var res = {
 					statusCode: response.status,
-					statusMessage: response.statusText
+					statusMessage: response.statusText,
+					headers: response.headers
 				};
 				return callback(err, res, data);
 			});

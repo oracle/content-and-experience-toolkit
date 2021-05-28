@@ -2343,24 +2343,7 @@ module.exports.migrateContent = function (argv, done) {
 			return;
 		}
 
-		var express = require('express');
-		var app = express();
-
-		var port = '9191';
-		var localhost = 'http://localhost:' + port;
-
-		var idcToken;
-
-		var auth = serverUtils.getRequestAuth(server);
-
-		serverUtils.getIdcToken(server)
-			.then(function (result) {
-				if (!result || result.err) {
-					return Promise.reject();
-				}
-
-				return serverUtils.browseCollectionsOnServer(request, server);
-			})
+		serverUtils.browseCollectionsOnServer(server)
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -2532,7 +2515,7 @@ module.exports.migrateContent = function (argv, done) {
 				exportFilePath = path.join(buildfolder, exportFileName);
 				fileUtils.remove(exportFilePath);
 
-				return _exportContentIC(request, server, collectionId, exportFilePath);
+				return _exportContentIC(server, collectionId, exportFilePath);
 			})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -2613,7 +2596,7 @@ var _checkJobStatusIC = function (request, server, jobId) {
 	});
 	return checkExportStatusPromise;
 };
-var _exportContentIC = function (request, server, collectionId, exportfilepath) {
+var _exportContentIC = function (server, collectionId, exportfilepath) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1/content-templates/exportjobs';
 		var contentTemplateName = 'contentexport';
@@ -2624,21 +2607,21 @@ var _exportContentIC = function (request, server, collectionId, exportfilepath) 
 			}]
 		};
 
-		var auth = serverUtils.getRequestAuth(server);
-
 		var options = {
 			method: 'POST',
 			url: url,
 			headers: {
 				'Content-Type': 'application/json',
 				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: serverUtils.getRequestAuthorization(server),
 				Cookie: server.cookies
 			},
-			auth: auth,
 			body: JSON.stringify(postData)
 		};
 		// console.log(options);
-		request(options, function (err, response, body) {
+
+		var request = require('../test/server/requestUtils.js').request;
+		request.post(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to export');
 				console.log(err);
@@ -2682,9 +2665,9 @@ var _exportContentIC = function (request, server, collectionId, exportfilepath) 
 							if (downloadLink) {
 								options = {
 									url: downloadLink,
-									auth: auth,
 									headers: {
 										'Content-Type': 'application/zip',
+										Authorization: serverUtils.getRequestAuthorization(server),
 										Cookie: server.cookies
 									},
 									encoding: null

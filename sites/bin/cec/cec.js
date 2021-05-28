@@ -78,7 +78,7 @@ const appRoot = path.join(cecRootReal, '../..');
  ***************************/
 
 var getComponentSources = function () {
-	const seededComponentSources = ['local', 'local-iframe', 'remote', 'sectionlayout', 'Sample-File-List', 'Sample-Folder-List', 'Sample-Documents-Manager',
+	const seededComponentSources = ['local', 'local-template', 'local-iframe', 'remote', 'sectionlayout', 'Sample-File-List', 'Sample-Folder-List', 'Sample-Documents-Manager',
 		'Sample-Process-Start-Form', 'Sample-Process-Task-List', 'Sample-Process-Task-Details', 'Sample-Stocks-Embedded',
 		'Sample-Text-With-Image', 'Sample-To-Do'
 	];
@@ -1706,9 +1706,9 @@ const setEditorialPermission = {
 		})()
 	},
 	example: [
-		['cec set-editorial-permission Repo1 -u user1,user2 -a -p view', 'User user1 and user2 can see assets of any type'],
-		['cec set-editorial-permission Repo1 -u user1,user2 -a -p none', 'User user1 and user2 cannot see assets of any type'],
+		['cec set-editorial-permission Repo1 -u user1 -a -p view -c -t view', 'Initial grant for user1 to set "Any" content type rule and "Any" taxonomy category rule'],
 		['cec set-editorial-permission Repo1 -u user1,user2 -a Article -p update', 'User user1 and user2 can view and edit existing assets of “Article” type'],
+		['cec set-editorial-permission Repo1 -u user1,user2 -a -p none', 'User user1 and user2 cannot see assets of any type'],
 		['cec set-editorial-permission Repo1 -u user1,user2 -a Article -p none', 'User user1 and user2 cannot see assets of “Article” type'],
 		['cec set-editorial-permission Repo1 -u user1,user2 -a Article -p', 'Remove type Article from user user1 and user2'],
 		['cec set-editorial-permission Repo1 -u user1,user2 -g group1,goup2 -a Article -p update', 'User user1 and user2, group group1 and group2 can view and edit existing assets of “Article” type'],

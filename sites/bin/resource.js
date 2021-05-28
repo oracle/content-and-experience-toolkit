@@ -754,7 +754,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					console.log('');
 				}
 
-				promises = listTranslationConnectors ? [serverUtils.browseTranslationConnectorsOnServer(request, server)] : [];
+				promises = listTranslationConnectors ? [serverUtils.browseTranslationConnectorsOnServer(server)] : [];
 
 				return Promise.all(promises);
 
@@ -889,7 +889,6 @@ module.exports.executeGet = function (argv, done) {
 		*/
 
 		var url = server.url + endpoint;
-		var auth = serverUtils.getRequestAuth(server);
 
 		var options = {
 			url: url,
@@ -898,6 +897,9 @@ module.exports.executeGet = function (argv, done) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		if (server.cookies) {
+			options.headers.Cookie = server.cookies;
+		}
 		// console.log(options);
 
 		console.log(' - executing endpoint: ' + endpoint);

@@ -1183,12 +1183,10 @@ module.exports.getCaasCSRFToken = function (server) {
 module.exports.getIdcToken = function (server) {
 	return _getIdcToken(server);
 };
-/*
 var _getIdcToken = function (server) {
 	var idcTokenPromise = new Promise(function (resolve, reject) {
 		var request = require('./requestUtils.js').request;
-		var url = server.url + '/documents/integration?IdcService=SCS_GET_TENANT_CONFIG';
-		url += '&IsJson=1';
+		var url = server.url + '/documents/integration?IdcService=SCS_GET_TENANT_CONFIG&IsJson=1';
 		var options = {
 			method: 'GET',
 			url: url,
@@ -1197,69 +1195,11 @@ var _getIdcToken = function (server) {
 			}
 		};
 		if (server.cookies) {
-			options.headers = {
-				Cookie: server.cookies
-			};
+			options.headers.Cookie = server.cookies;
 		}
 		var total = 0;
 		var inter = setInterval(function () {
 			request.get(options, function (error, response, body) {
-				if (error) {
-					clearInterval(inter);
-					console.log(' - failed to connect ' + error);
-					return resolve({
-						err: 'err'
-					});
-				} else if (response.statusCode !== 200) {
-					clearInterval(inter);
-					console.log(' - failed to connect: ' + (response.statusMessage || response.statusCode));
-					return resolve({
-						err: 'err'
-					});
-				} else {
-					var data = JSON.parse(body);
-					dUser = data && data.LocalData && data.LocalData.dUser;
-					idcToken = data && data.LocalData && data.LocalData.idcToken;
-					if (dUser && dUser !== 'anonymous' && idcToken) {
-						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-						clearInterval(inter);
-						// console.log(' - establish user session');
-						resolve({
-							idcToken: idcToken
-						});
-					}
-					total += 1;
-					if (total >= 10) {
-						clearInterval(inter);
-						console.log('ERROR: disconnect from the server, try again');
-						resolve({
-							err: 'err'
-						});
-					}
-				}
-			});
-		}, 3000);
-	});
-	return idcTokenPromise;
-};
-*/
-var _getIdcToken = function (server) {
-	var idcTokenPromise = new Promise(function (resolve, reject) {
-		var request = _getRequest();
-		var url = server.url + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-		var options = {
-			method: 'GET',
-			url: url,
-			auth: _getRequestAuth(server)
-		};
-		if (server.cookies) {
-			options.headers = {
-				Cookie: server.cookies
-			};
-		}
-		var total = 0;
-		var inter = setInterval(function () {
-			request(options, function (error, response, body) {
 				if (error) {
 					clearInterval(inter);
 					console.log(' - failed to connect ' + error);
@@ -2294,138 +2234,29 @@ var _sleep = function (delay) {
 		}
 	}
 };
-/**
- * 
- * @param {*} jobId 
- */
-module.exports.getTemplateImportStatus = function (server, request, host, jobId, action) {
-	return _getTemplateImportStatus(server, request, host, jobId, action);
-};
-var _getTemplateImportStatus = function (server, request, host, jobId, action) {
-	var importStatusPromise = new Promise(function (resolve, reject) {
-		var actionLabel = action ? action : 'import';
-		var startTime = new Date();
-		var needNewLine = false;
-		var inter = setInterval(function () {
 
-			var jobStatusPromise = _getBackgroundServiceStatus(server, request, host, jobId);
-			jobStatusPromise.then(function (result) {
-				// console.log(result);
-				if (!result || result.err) {
-					if (needNewLine) {
-						process.stdout.write(os.EOL);
-					}
-					clearInterval(inter);
-					return resolve({
-						err: 'err'
-					});
-				} else if (result.status === 'COMPLETE' || result.status === 'FAILED') {
-					if (needNewLine) {
-						process.stdout.write(os.EOL);
-					}
-					clearInterval(inter);
-					return resolve({
-						status: result.status,
-						LocalData: result.LocalData,
-						JobInfo: result.JobInfo
-					});
-				} else {
-					process.stdout.write(' - ' + actionLabel + ' in process: percentage ' + result.percentage +
-						' [' + _timeUsed(startTime, new Date()) + ']');
-					readline.cursorTo(process.stdout, 0);
-					needNewLine = true;
-				}
-			});
-		}, 6000);
-	});
-	return importStatusPromise;
-};
-
-var _getBackgroundServiceStatus = function (server, request, host, jobId) {
-	var statusPromise = new Promise(function (resolve, reject) {
-		var url = host + '/documents/web?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_STATUS&JobID=' + jobId;
-		var options = {
-			method: 'GET',
-			url: url,
-			auth: _getRequestAuth(server)
-		};
-		request(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get job status ');
-				console.log(err);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get job status ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : response.statusMessage));
-				return resolve({
-					err: 'err'
-				});
-			}
-			var status;
-			var percentage;
-			var jobInfo = data.ResultSets && data.ResultSets.JobInfo;
-			if (jobInfo) {
-				var statusIdx, percentageIdx;
-				jobInfo.fields.forEach(function (field, index) {
-					if (field.name === 'JobStatus') {
-						statusIdx = index;
-					} else if (field.name === 'JobPercentage') {
-						percentageIdx = index;
-					}
-				});
-				status = statusIdx ? jobInfo.rows[0][statusIdx] : '';
-				percentage = percentageIdx ? jobInfo.rows[0][percentageIdx] : '';
-			}
-			var fields = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.fields || [];
-			var rows = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.rows || [];
-
-			var result = {};
-			if (rows && rows.length > 0) {
-				for (var i = 0; i < fields.length; i++) {
-					var attr = fields[i].name;
-					result[attr] = rows[0][i];
-				}
-			}
-			return resolve({
-				'status': status,
-				'percentage': percentage,
-				'LocalData': data.LocalData,
-				'JobInfo': result
-			});
-		});
-	});
-	return statusPromise;
-};
 
 /**
- * @param server the server object
+ * @param server the server object (IC)
  */
-module.exports.getBackgroundServiceJobStatus = function (server, request, idcToken, jobId) {
+module.exports.getBackgroundServiceJobStatus = function (server, idcToken, jobId) {
 	var statusPromise = new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/web?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_STATUS';
+		var url = server.url + '/documents/integration?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_STATUS&IsJson=1';
 		url = url + '&JobID=' + jobId;
 		url = url + '&idcToken=' + idcToken;
-
-		var auth = _getRequestAuth(server);
 
 		var params = {
 			method: 'GET',
 			url: url,
-			auth: auth,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			},
 		};
 		if (server.cookies) {
-			params.headers = {
-				Cookie: server.cookies
-			};
+			params.headers.Cookie = server.cookies;
 		}
-		request(params, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(params, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: Failed to get job status');
 				console.log(error);
@@ -2463,27 +2294,26 @@ module.exports.getBackgroundServiceJobStatus = function (server, request, idcTok
 };
 
 /**
- * @param server the server object
+ * @param server the server object (IC)
  */
-module.exports.getBackgroundServiceJobData = function (server, request, idcToken, jobId) {
+module.exports.getBackgroundServiceJobData = function (server, idcToken, jobId) {
 	var statusPromise = new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/web?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_RESPONSE_DATA';
+		var url = server.url + '/documents/integration?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_RESPONSE_DATA&IsJson=1';
 		url = url + '&JobID=' + jobId;
 		url = url + '&idcToken=' + idcToken;
-
-		var auth = _getRequestAuth(server);
 
 		var params = {
 			method: 'GET',
 			url: url,
-			auth: auth,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
 		};
 		if (server.cookies) {
-			params.headers = {
-				Cookie: server.cookies
-			};
+			params.headers.Cookie = server.cookies;
 		}
-		request(params, function (error, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(params, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: Failed to get job response data');
 				console.log(error);
@@ -2503,48 +2333,11 @@ module.exports.getBackgroundServiceJobData = function (server, request, idcToken
 	return statusPromise;
 };
 
-module.exports.getBackgroundServiceJobErrorData = function (server, request, idcToken, jobId) {
-	var statusPromise = new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/web?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_RESPONSE_ERROR_DATA';
-		url = url + '&JobID=' + jobId;
-		url = url + '&idcToken=' + idcToken;
-
-		var auth = _getRequestAuth(server);
-
-		var params = {
-			method: 'GET',
-			url: url,
-			auth: auth,
-		};
-		if (server.cookies) {
-			params.headers = {
-				Cookie: server.cookies
-			};
-		}
-		request(params, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: Failed to get job error data');
-				console.log(error);
-				resolve({
-					err: 'err'
-				});
-			}
-
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			return resolve(data);
-		});
-	});
-	return statusPromise;
-};
 
 /**
- * Get sites or templates from server using IdcService
+ * Get sites or templates from server using IdcService (IC)
  */
-module.exports.browseSitesOnServer = function (request, server, fApplication, name) {
+module.exports.browseSitesOnServer = function (server, fApplication, name) {
 	var sitePromise = new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -2559,9 +2352,7 @@ module.exports.browseSitesOnServer = function (request, server, fApplication, na
 			});
 		}
 
-		var auth = _getRequestAuth(server);
-
-		var url = server.url + '/documents/web?IdcService=SCS_BROWSE_SITES&siteCount=-1';
+		var url = server.url + '/documents/integration?IdcService=SCS_BROWSE_SITES&IsJson=1&siteCount=-1';
 		if (fApplication) {
 			url = url + '&fApplication=' + fApplication;
 		}
@@ -2571,15 +2362,17 @@ module.exports.browseSitesOnServer = function (request, server, fApplication, na
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: auth,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: _getRequestAuthorization(server)
+			},
 		};
 		if (server.cookies) {
-			options.headers = {
-				Cookie: server.cookies
-			};
+			options.headers.Cookie = server.cookies
 		}
 		// console.log(options);
-		request(options, function (err, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get sites/templates');
 				console.log(err);
@@ -2647,10 +2440,10 @@ module.exports.browseSitesOnServer = function (request, server, fApplication, na
 /**
  * Get collections from server using IdcService (IC)
  */
-module.exports.browseCollectionsOnServer = function (request, server, params) {
-	return _browseCollectionsOnServer(request, server, params);
+module.exports.browseCollectionsOnServer = function (server, params) {
+	return _browseCollectionsOnServer(server, params);
 };
-var _browseCollectionsOnServer = function (request, server, params) {
+var _browseCollectionsOnServer = function (server, params) {
 	return new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -2659,23 +2452,22 @@ var _browseCollectionsOnServer = function (request, server, params) {
 			});
 		}
 
-		var auth = _getRequestAuth(server);
-
-		var url = server.url + '/documents/web?IdcService=FLD_BROWSE_COLLECTIONS&itemCount=9999';
+		var url = server.url + '/documents/integration?IdcService=FLD_BROWSE_COLLECTIONS&IsJson=1&itemCount=9999';
 		if (params) {
 			url = url + '&' + params;
 		}
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: auth,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			},
 		};
 		if (server.cookies) {
-			options.headers = {
-				Cookie: server.cookies
-			};
+			options.headers.Cookie = server.cookies;
 		}
-		request(options, function (err, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get collections');
 				console.log(err);
@@ -2718,7 +2510,7 @@ var _browseCollectionsOnServer = function (request, server, params) {
 /**
  * Get translation connectors from server using IdcService
  */
-module.exports.browseTranslationConnectorsOnServer = function (request, server) {
+module.exports.browseTranslationConnectorsOnServer = function (server) {
 	var transPromise = new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -2788,7 +2580,7 @@ module.exports.browseTranslationConnectorsOnServer = function (request, server) 
 /**
  * Get translation connector job status from server using IdcService
  */
-module.exports.getTranslationConnectorJobOnServer = function (request, server, jobId) {
+module.exports.getTranslationConnectorJobOnServer = function (server, jobId) {
 	var jobPromise = new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -2855,80 +2647,11 @@ module.exports.getTranslationConnectorJobOnServer = function (request, server, j
 };
 
 
-/**
- * Get a site's metadata (text type) from server using IdcService
- */
-module.exports.getSiteMetadata = function (request, server, siteId) {
-	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
-
-		var auth = _getRequestAuth(server);
-
-		var url = server.url + '/documents/web?IdcService=SCS_GET_SITE_METADATA&item=fFolderGUID:' + siteId;
-
-		var options = {
-			method: 'GET',
-			url: url,
-			auth: auth
-		};
-		if (server.cookies) {
-			options.headers = {
-				Cookie: server.cookies
-			};
-		}
-
-		request(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get site metadata');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get site metadata ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.SiteMetadata && data.ResultSets.SiteMetadata.fields || [];
-			var rows = data.ResultSets && data.ResultSets.SiteMetadata && data.ResultSets.SiteMetadata.rows || [];
-			var metadata = {};
-
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
-				metadata[attr] = rows[0][i];
-			}
-
-			resolve({
-				data: metadata
-			});
-		});
-	});
-
-};
 
 /**
  * Get the used components, content items and content types of a site
  */
- module.exports.getSiteUsedData = function (request, server, siteId) {
+module.exports.getSiteUsedData = function (server, siteId) {
 	return new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -2943,23 +2666,19 @@ module.exports.getSiteMetadata = function (request, server, siteId) {
 			});
 		}
 
-		var auth = _getRequestAuth(server);
-
-		// set dMetadataSerializer to get value raw values (not escaped ones)
-		var url = server.url + '/documents/web?IdcService=SCS_GET_SITE_COMPS_CONTENT_USED&item=fFolderGUID:' + siteId;
+		var url = server.url + '/documents/integration?IdcService=SCS_GET_SITE_COMPS_CONTENT_USED&item=fFolderGUID:' + siteId;
+		url = url + '&IsJson=1';
 
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: auth
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
 		};
-		if (server.cookies) {
-			options.headers = {
-				Cookie: server.cookies
-			};
-		}
 
-		request(options, function (err, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get site used data');
 				console.log(err);
@@ -2979,89 +2698,48 @@ module.exports.getSiteMetadata = function (request, server, siteId) {
 				});
 			}
 
-			resolve({
-				ComponentsUsed: data.ResultSets && data.ResultSets.ComponentsUsed,
-				ContentItemsUsed: data.ResultSets && data.ResultSets.ContentItemsUsed,
-				ContentTypesUsed: data.ResultSets && data.ResultSets.ContentTypesUsed
-			});
-		});
-	});
-
-};
-
-/**
- * Get a site's metadata from server using IdcService
- */
-module.exports.getSiteMetadataRaw = function (request, server, siteId) {
-	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
-
-		var auth = _getRequestAuth(server);
-
-		// set dMetadataSerializer to get value raw values (not escaped ones)
-		var url = server.url + '/documents/web?IdcService=GET_METADATA&items=fFolderGUID:' + siteId;
-
-		var options = {
-			method: 'GET',
-			url: url,
-			auth: auth
-		};
-		if (server.cookies) {
-			options.headers = {
-				Cookie: server.cookies
-			};
-		}
-
-		request(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to get site metadata');
-				console.log(err);
-				return resolve({
-					'err': err
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get site metadata ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var fields = data.ResultSets && data.ResultSets.dCommonSCSMetaCollection && data.ResultSets.dCommonSCSMetaCollection.fields || [];
-			var rows = data.ResultSets && data.ResultSets.dCommonSCSMetaCollection && data.ResultSets.dCommonSCSMetaCollection.rows || [];
-			var metadata = [];
-
+			var fields = data.ResultSets && data.ResultSets.ComponentsUsed && data.ResultSets.ComponentsUsed.fields || [];
+			var rows = data.ResultSets && data.ResultSets.ComponentsUsed && data.ResultSets.ComponentsUsed.rows || [];
+			var componentsUsed = [];
 			rows.forEach(function (row) {
-				metadata.push({});
+				componentsUsed.push({});
 			});
 			for (var i = 0; i < fields.length; i++) {
 				var attr = fields[i].name;
 				for (var j = 0; j < rows.length; j++) {
-					metadata[j][attr] = rows[j][i];
+					componentsUsed[j][attr] = rows[j][i];
 				}
 			}
 
+			fields = data.ResultSets && data.ResultSets.ContentItemsUsed && data.ResultSets.ContentItemsUsed.fields || [];
+			rows = data.ResultSets && data.ResultSets.ContentItemsUsed && data.ResultSets.ContentItemsUsed.rows || [];
+			var contentItemsUsed = [];
+			rows.forEach(function (row) {
+				contentItemsUsed.push({});
+			});
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				for (var j = 0; j < rows.length; j++) {
+					contentItemsUsed[j][attr] = rows[j][i];
+				}
+			}
+
+			fields = data.ResultSets && data.ResultSets.ContentTypesUsed && data.ResultSets.ContentTypesUsed.fields || [];
+			rows = data.ResultSets && data.ResultSets.ContentTypesUsed && data.ResultSets.ContentTypesUsed.rows || [];
+			var contentTypesUsed = [];
+			rows.forEach(function (row) {
+				contentTypesUsed.push({});
+			});
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				for (var j = 0; j < rows.length; j++) {
+					contentTypesUsed[j][attr] = rows[j][i];
+				}
+			}
 			resolve({
-				data: metadata,
-				xScsComponentsUsedCollection: data.ResultSets && data.ResultSets.xScsComponentsUsedCollection,
-				xScsContentItemsUsedCollection: data.ResultSets && data.ResultSets.xScsContentItemsUsedCollection,
-				xScsContentTypesUsedCollection: data.ResultSets && data.ResultSets.xScsContentTypesUsedCollection
+				componentsUsed: componentsUsed,
+				contentItemsUsed: contentItemsUsed,
+				contentTypesUsed: contentTypesUsed
 			});
 		});
 	});
@@ -3071,7 +2749,7 @@ module.exports.getSiteMetadataRaw = function (request, server, siteId) {
 /**
  * Set metadata for a site using IdcService
  */
-module.exports.setSiteMetadata = function (request, server, idcToken, siteId, values, resultSets) {
+module.exports.setSiteUsedData = function (server, idcToken, siteId, itemsUsedAdded, itemsUsedDeleted) {
 	return new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -3086,15 +2764,95 @@ module.exports.setSiteMetadata = function (request, server, idcToken, siteId, va
 			});
 		}
 
-		var auth = _getRequestAuth(server);
-
-		var url = server.url + '/documents/web?IdcService=SET_METADATA';
+		var url = server.url + '/documents/integration?IdcService=SCS_EDIT_SITE_COMPS_CONTENT_USED&IsJson=1';
 
 		var formData = {
 			'idcToken': idcToken,
 			'LocalData': {
-				'IdcService': 'SET_METADATA',
-				items: 'fFolderGUID:' + siteId
+				'IdcService': 'SCS_EDIT_SITE_COMPS_CONTENT_USED',
+				item: 'fFolderGUID:' + siteId,
+				siteItemsUsed: JSON.stringify({
+					itemsUsedAdded: itemsUsedAdded,
+					itemsUsedDeleted: itemsUsedDeleted
+				})
+			}
+		};
+		// console.log(formData);
+
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: _getRequestAuthorization(server)
+			},
+			body: JSON.stringify(formData),
+			json: true
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.post(postData, function (err, response, body) {
+			if (response && response.statusCode !== 200) {
+				console.log('ERROR: Failed to set site used items');
+				console.log('compilation server message: response status -', response.statusCode);
+			}
+			if (err) {
+				console.log('ERROR: Failed to set site used items');
+				console.log('compilation server message: error -', err);
+				return reject({
+					err: err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				if (typeof body === 'object') {
+					data = body;
+				}
+			}
+			// console.log(data);
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				// console.log('ERROR: failed to set site metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				var errorMsg = data && data.LocalData ? '- ' + data.LocalData.StatusMessage : "failed to set site used items";
+				return reject({
+					err: errorMsg
+				});
+			} else {
+				return resolve({});
+			}
+		});
+	});
+
+};
+
+
+/**
+ * Set metadata for a site using IdcService
+ */
+module.exports.setSiteMetadata = function (request, server, idcToken, siteId, values) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var url = server.url + '/documents/integration?IdcService=SCS_SET_SITE_METADATA&IsJson=1';
+
+		var formData = {
+			'idcToken': idcToken,
+			'LocalData': {
+				'IdcService': 'SCS_SET_SITE_METADATA',
+				item: 'fFolderGUID:' + siteId
 			}
 		};
 		if (values) {
@@ -3102,24 +2860,22 @@ module.exports.setSiteMetadata = function (request, server, idcToken, siteId, va
 				formData.LocalData[key] = values[key];
 			});
 		}
-		if (resultSets) {
-			formData.ResultSets = resultSets;
-		}
-		// console.log(JSON.stringify(formData, null, 4));
 
 		var postData = {
 			method: 'POST',
 			url: url,
-			auth: auth,
 			headers: {
 				'Content-Type': 'application/json',
-				'X-REQUESTED-WITH': 'XMLHttpRequest'
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: _getRequestAuthorization(server)
 			},
-			body: formData,
+			body: JSON.stringify(formData),
 			json: true
 		};
+		// console.log(postData);
 
-		request(postData, function (err, response, body) {
+		var request = require('./requestUtils.js').request;
+		request.post(postData, function (err, response, body) {
 			if (response && response.statusCode !== 200) {
 				console.log('ERROR: Failed to set site metadata');
 				console.log('compilation server message: response status -', response.statusCode);
@@ -3348,93 +3104,3 @@ module.exports.stripTopDirectory = function (dir) {
 	});
 };
 
-/**
- * Create a digital asset
- */
-module.exports.createDigitalAsset = function (request, server, repositoryId, filePath) {
-	return new Promise(function (resolve, reject) {
-
-		_getIdcToken(server)
-			.then(function (result) {
-				var idcToken = result && result.idcToken;
-				if (!idcToken) {
-					console.log('ERROR: failed to get idcToken');
-					return Promise.reject();
-				}
-
-				var auth = _getRequestAuth(server);
-				var url = server.url + '/documents/web';
-				var formData = {
-					idcToken: idcToken,
-					IdcService: 'AR_UPLOAD_DIGITAL_ASSET',
-					ConflictResolutionMethod: 'ResolveDuplicates',
-					repository: 'arCaaSGUID:' + repositoryId,
-					primaryFile: fs.createReadStream(filePath)
-				};
-
-				var postData = {
-					method: 'POST',
-					url: url,
-					auth: auth,
-					headers: {
-						'Content-Type': 'application/json',
-						'X-REQUESTED-WITH': 'XMLHttpRequest'
-					},
-					formData: formData,
-					json: true
-				};
-				// console.log(' - creating digital asset: ' + filePath);
-				request(postData, function (err, response, body) {
-					if (err) {
-						console.log('ERROR: Failed to create digital asset ' + filePath);
-						console.log(err);
-						return resolve({
-							filePath: filePath,
-							err: 'err'
-						});
-					}
-					var data;
-					try {
-						data = JSON.parse(body);
-					} catch (e) {
-						if (typeof body === 'object') {
-							data = body;
-						}
-					}
-					// console.log(data);
-					if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-						console.log('ERROR: failed to create digital asset ' + filePath);
-						console.log(data);
-						return resolve({
-							filePath: filePath,
-							err: 'err'
-						});
-					} else {
-						var fields = data.ResultSets && data.ResultSets.AssetInfo && data.ResultSets.AssetInfo.fields || [];
-						var rows = data.ResultSets && data.ResultSets.AssetInfo && data.ResultSets.AssetInfo.rows;
-						var asset = {};
-						for (var i = 0; i < fields.length; i++) {
-							var attr = fields[i].name;
-							asset[attr] = rows[0][i];
-						}
-						// console.log(asset);
-						return resolve({
-							filePath: filePath,
-							fileName: asset.fItemName,
-							assetId: asset.xARCaaSGUID
-						});
-					}
-				});
-			})
-			.catch((error) => {
-				if (error) {
-					console.log(error);
-				}
-				return resolve({
-					filePath: filePath,
-					err: 'err'
-				});
-			});
-	});
-
-};

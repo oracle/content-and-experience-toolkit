@@ -700,7 +700,7 @@ var _refreshSiteContent = function (server, id, name) {
 			if (response && response.statusCode < 300) {
 				var status = response.headers && response.headers.location;
 				var inter = setInterval(function () {
-					var jobPromise = _getBackgroundServiceJobStatus(server, status);
+					var jobPromise = _getBackgroundJobStatus(server, status);
 					jobPromise.then(function (data) {
 						// console.log(data);
 						if (!data || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
@@ -864,7 +864,7 @@ var _exportResourceAsync = function (server, type, id, name) {
 				var startTime = new Date();
 				var needNewLine = false;
 				var inter = setInterval(function () {
-					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
+					var jobPromise = _getBackgroundJobStatus(server, statusLocation);
 					jobPromise.then(function (data) {
 						// console.log(data);
 						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
@@ -1058,7 +1058,7 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 				var needNewLine = false;
 				var startTime = new Date();
 				var inter = setInterval(function () {
-					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
+					var jobPromise = _getBackgroundJobStatus(server, statusLocation);
 					jobPromise.then(function (data) {
 						// console.log(data);
 						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
@@ -1548,10 +1548,10 @@ var _importComponent = function (server, name, fileId) {
 				// console.log(data);
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				var owner = data && data.owner && data.owner.displayName || '';
-				if (response.statusCode === 403 && owner) {
-					msg = 'The component ' + name + ' is owned by ' + owner + ' and you do not have privileges to overwrite it.';
+				console.log('ERROR: failed to import component ' + name + (owner ? ' (owned by ' + owner + ')' : '') + ' : ' + msg);
+				if (!msg) {
+					console.log(data);
 				}
-				console.log('ERROR: failed to import component ' + name + ' : ' + msg);
 				resolve({
 					err: msg || 'err'
 				});
@@ -1573,7 +1573,7 @@ module.exports.importComponent = function (args) {
 	return _importComponent(server, args.name, args.fileId);
 };
 
-var _getBackgroundServiceJobStatus = function (server, url) {
+var _getBackgroundJobStatus = function (server, url) {
 	return new Promise(function (resolve, reject) {
 		var options = {
 			url: url + '?links=none',
@@ -1664,7 +1664,7 @@ var _createTemplateFromSite = function (server, name, siteName, includeUnpublish
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.headers && response.headers.location;
 				var inter = setInterval(function () {
-					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
+					var jobPromise = _getBackgroundJobStatus(server, statusLocation);
 					jobPromise.then(function (data) {
 						// console.log(data);
 						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
@@ -1762,7 +1762,7 @@ var _importTemplate = function (server, name, fileId) {
 				console.log(' - import template (job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1) + ')');
 				var startTime = new Date();
 				var inter = setInterval(function () {
-					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
+					var jobPromise = _getBackgroundJobStatus(server, statusLocation);
 					jobPromise.then(function (data) {
 						// console.log(data);
 						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
@@ -1887,7 +1887,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 				var startTime = new Date();
 				var needNewLine = false;
 				var inter = setInterval(function () {
-					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
+					var jobPromise = _getBackgroundJobStatus(server, statusLocation);
 					jobPromise.then(function (data) {
 						// console.log(data);
 						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
@@ -1998,7 +1998,7 @@ var _copySite = function (server, sourceSiteName, name, description, sitePrefix,
 				var startTime = new Date();
 				var needNewLine = false;
 				var inter = setInterval(function () {
-					var jobPromise = _getBackgroundServiceJobStatus(server, statusLocation);
+					var jobPromise = _getBackgroundJobStatus(server, statusLocation);
 					jobPromise.then(function (data) {
 						// console.log(data);
 						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {

@@ -2760,16 +2760,15 @@ module.exports.setEditorialPermission = function (argv, done) {
 										}
 									}
 								}
+								if (found) {
+									break;
+								}
 							}
-							if (found) {
-								break;
+
+							if (!found) {
+								console.log(' - WARNING: category ' + cateName + ' does not exist, ignore');
 							}
 						}
-
-						if (!found) {
-							console.log(' - WARNING: category ' + cateName + ' does not exist, ignore');
-						}
-
 					}
 
 					if (goodCateNames.length > 0) {
@@ -2840,110 +2839,115 @@ module.exports.setEditorialPermission = function (argv, done) {
 							found = true;
 							permissionId = permissionSets[i].id;
 							contentPrivileges = permissionSets[i].contentPrivileges;
-
-							for (var j = 0; j < types.length; j++) {
-								var foundType = false;
-
-								for (var k = 0; k < contentPrivileges.length; k++) {
-									if (!types[j].id && !contentPrivileges[k].typeId ||
-										types[j].id === contentPrivileges[k].typeId) {
-										foundType = true;
-										if (assetPermission !== DELETE_TYPE) {
-											// update the permissions
-											contentPrivileges[k].operations = assetOps;
-										} else {
-											// delete the type
-											contentPrivileges.splice(k, 1);
-										}
-										break;
-									}
-								}
-
-								if (!foundType && assetPermission !== DELETE_TYPE) {
-									// append 
-									contentPrivileges.push({
-										typeId: types[j].id,
-										typeName: types[j].name,
-										isValid: true,
-										operations: assetOps
-									});
-								}
-							}
-
 							taxonomyPrivileges = permissionSets[i].taxonomyPrivileges;
-
-							for (var j = 0; j < taxCategories.length; j++) {
-								var foundCat = false;
-
-								for (var k = 0; k < taxonomyPrivileges.length; k++) {
-									if (!taxonomyPrivileges[k].taxonomyId && taxCategories[j].taxonomyId === 'any' ||
-										(taxonomyPrivileges[k].taxonomyId === taxCategories[j].taxonomyId &&
-											taxonomyPrivileges[k].categoryId === taxCategories[j].categoryId)) {
-										foundCat = true;
-										if (!taxonomyPrivileges[k].taxonomyId) {
-											taxonomyPrivileges[k].taxonomyId = 'any';
-										}
-										if (categoryPermission !== DELETE_CATEGORY) {
-											// update the permissions
-											taxonomyPrivileges[k].operations = catOps;
-										} else {
-											console.log('deleting....');
-											// delete the category
-											taxonomyPrivileges.splice(k, 1);
-										}
-										break;
-									}
-								}
-
-								if (!foundCat && categoryPermission !== DELETE_CATEGORY) {
-									// append
-									taxonomyPrivileges.push({
-										taxonomyId: taxCategories[j].taxonomyId,
-										categoryId: taxCategories[j].categoryId,
-										isValid: true,
-										operations: catOps
-									});
-								}
-							}
-
-						} // match principal
+							break;
+						}
 					}
 
-					if (found) {
-						toUpdate.push({
-							id: permissionId,
-							principal: pal,
-							contentPrivileges: contentPrivileges,
-							taxonomyPrivileges: taxonomyPrivileges
-						});
-					} else if (assetPermission !== DELETE_TYPE || categoryPermission !== DELETE_CATEGORY) {
-						if (assetPermission !== DELETE_TYPE) {
-							for (var j = 0; j < types.length; j++) {
-								contentPrivileges.push({
-									typeId: types[j].id,
-									typeName: types[j].name,
-									isValid: true,
-									operations: assetOps
-								});
+					for (var j = 0; j < types.length; j++) {
+						var foundType = false;
+
+						for (var k = 0; k < contentPrivileges.length; k++) {
+							if (!types[j].id && !contentPrivileges[k].typeId ||
+								types[j].id === contentPrivileges[k].typeId) {
+								foundType = true;
+								if (assetPermission !== DELETE_TYPE) {
+									// update the permissions
+									contentPrivileges[k].operations = assetOps;
+								} else {
+									// delete the type
+									contentPrivileges.splice(k, 1);
+								}
+								break;
 							}
 						}
-						if (categoryPermission !== DELETE_CATEGORY) {
-							for (var j = 0; j < taxCategories.length; j++) {
-								taxonomyPrivileges.push({
-									taxonomyId: taxCategories[j].taxonomyId,
-									categoryId: taxCategories[j].categoryId,
-									isValid: true,
-									operations: catOps
-								});
+
+						if (!foundType && assetPermission !== DELETE_TYPE) {
+							// append 
+							contentPrivileges.push({
+								typeId: types[j].id,
+								typeName: types[j].name,
+								isValid: true,
+								operations: assetOps
+							});
+						}
+					}
+
+					for (var j = 0; j < taxCategories.length; j++) {
+						var foundCat = false;
+
+						for (var k = 0; k < taxonomyPrivileges.length; k++) {
+							if (!taxonomyPrivileges[k].taxonomyId && taxCategories[j].taxonomyId === 'any' ||
+								(taxonomyPrivileges[k].taxonomyId === taxCategories[j].taxonomyId &&
+									taxonomyPrivileges[k].categoryId === taxCategories[j].categoryId)) {
+								foundCat = true;
+								if (!taxonomyPrivileges[k].taxonomyId) {
+									taxonomyPrivileges[k].taxonomyId = 'any';
+								}
+								if (categoryPermission !== DELETE_CATEGORY) {
+									// update the permissions
+									taxonomyPrivileges[k].operations = catOps;
+								} else {
+									// delete the category
+									taxonomyPrivileges.splice(k, 1);
+								}
+								break;
 							}
 						}
-						if (contentPrivileges.length > 0 || taxonomyPrivileges.length > 0)
-							toAdd.push({
+
+						if (!foundCat && categoryPermission !== DELETE_CATEGORY) {
+							// append
+							taxonomyPrivileges.push({
+								taxonomyId: taxCategories[j].taxonomyId,
+								categoryId: taxCategories[j].categoryId,
+								isValid: true,
+								operations: catOps
+							});
+						}
+					}
+
+					var anyTypeExist = false;
+					for (var i = 0; i < contentPrivileges.length; i++) {
+						if (!contentPrivileges[i].typeId) {
+							anyTypeExist = true;
+							break;
+						}
+					}
+
+					var anyTaxExist = false;
+					for (var i = 0; i < taxonomyPrivileges.length; i++) {
+						if (!taxonomyPrivileges[i].categoryId) {
+							anyTaxExist = true;
+							break;
+						}
+					}
+
+					if (!anyTypeExist && !anyTaxExist) {
+						console.log('ERROR: "Any" content type rule and "Any" taxonomy category rule are missing for ' + pal.name);
+					} else if (!anyTypeExist) {
+						console.log('ERROR: "Any" content type rule is missing for ' + pal.name);
+					} else if (!anyTaxExist) {
+						console.log('ERROR: "Any" taxonomy category rule is missing for ' + pal.name);
+					} else {
+						if (found) {
+							// update permission for the principal
+							toUpdate.push({
+								id: permissionId,
 								principal: pal,
 								contentPrivileges: contentPrivileges,
 								taxonomyPrivileges: taxonomyPrivileges
 							});
+						} else if (assetPermission !== DELETE_TYPE || categoryPermission !== DELETE_CATEGORY) {
+							// create new permission for the principal
+							if (contentPrivileges.length > 0 || taxonomyPrivileges.length > 0)
+								toAdd.push({
+									principal: pal,
+									contentPrivileges: contentPrivileges,
+									taxonomyPrivileges: taxonomyPrivileges
+								});
+						}
 					}
+
 				});
 
 				// console.log(' - to add: ' + JSON.stringify(toAdd, null, 4));
@@ -2975,9 +2979,12 @@ module.exports.setEditorialPermission = function (argv, done) {
 			.then(function (result) {
 
 				var newPermissionSets = result && result.permissionSets || [];
-				_listPermissionSets(repository, newPermissionSets);
-
-				done(!err);
+				if (toAdd.length > 0 || toUpdate.length > 0) {
+					_listPermissionSets(repository, newPermissionSets);
+					done(!err);
+				} else {
+					done();
+				}
 
 			})
 			.catch((error) => {
@@ -3853,7 +3860,14 @@ module.exports.createContentItem = function (argv, done) {
 										break;
 									} else {
 
-										createDigitalAssetPromises.push(serverUtils.createDigitalAsset(request, server, repository.id, field.val));
+										createDigitalAssetPromises.push(serverRest.createDigitalItem({
+											server: server,
+											repositoryId: repository.id,
+											type: 'Image',
+											filename: field.val.substring(field.val.lastIndexOf(path.sep) + 1),
+											contents: fs.createReadStream(field.val)
+										}));
+
 									}
 								}
 							}

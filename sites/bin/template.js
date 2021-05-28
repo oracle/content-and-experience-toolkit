@@ -762,7 +762,7 @@ var _queryComponents = function (request, server, compNames) {
 		});
 		Promise.all(compsPromises).then(function (results) {
 				var allComps = results || [];
-				
+
 				for (var i = 0; i < compNames.length; i++) {
 					for (var j = 0; j < allComps.length; j++) {
 
@@ -774,7 +774,7 @@ var _queryComponents = function (request, server, compNames) {
 								isHidden: allComps[j].isHidden ? '1' : '0'
 							});
 						}
-						
+
 					}
 				}
 				// console.log(JSON.stringify(comps, null, 4));
@@ -2310,15 +2310,34 @@ var getContents = function (path) {
 	return contents;
 };
 
-var _exportServerTemplate = function (server, request, localhost) {
+var _exportServerTemplate = function (server, idcToken, templateId, homeFolderGUID) {
 	var exportPromise = new Promise(function (resolve, reject) {
-		var url = localhost + '/documents/web?IdcService=SCS_EXPORT_TEMPLATE_PACKAGE';
-
-		var options = {
-			url: url
+		var url = server.url + '/documents/integration?IdcService=SCS_EXPORT_TEMPLATE_PACKAGE&IsJson=1';
+		var formData = {
+			'idcToken': idcToken,
+			'LocalData': {
+				'IdcService': 'SCS_EXPORT_TEMPLATE_PACKAGE',
+				'item': 'fFolderGUID:' + templateId,
+				'destination': 'fFolderGUID:' + homeFolderGUID
+			}
 		};
 
-		request.post(options, function (err, response, body) {
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(formData)
+		};
+		if (server.cookies) {
+			postData.headers.Cookie = server.cookies
+		}
+		// console.log(postData);
+
+		var request = require('../test/server/requestUtils.js').request;
+		request.post(postData, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to export template:');
 				console.log(err);
@@ -2331,6 +2350,7 @@ var _exportServerTemplate = function (server, request, localhost) {
 			try {
 				data = JSON.parse(body);
 			} catch (e) {}
+			// console.log(JSON.stringify(data, null, 4));
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.log('ERROR: Failed to export template ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
@@ -2338,33 +2358,7 @@ var _exportServerTemplate = function (server, request, localhost) {
 					err: 'err'
 				});
 			} else {
-				var jobId = data.LocalData.JobID;
-				if (jobId) {
-					console.log(' - job id: ' + jobId + ')');
-					var exportTempStatusPromise = serverUtils.getTemplateImportStatus(server, request, server.url, jobId, 'export');
-					exportTempStatusPromise.then(function (data) {
-						var success = false;
-						if (data && data.LocalData) {
-							if (data.LocalData.StatusCode !== '0') {
-								console.log(' - failed to export ' + name + ': ' + data.LocalData.StatusMessage);
-								console.log(data.LocalData);
-							} else if (data.JobInfo && data.JobInfo.JobStatus && data.JobInfo.JobStatus === 'FAILED') {
-								console.log(' - failed to export: ' + data.JobInfo.JobMessage);
-								console.log(data.JobInfo);
-							} else {
-								success = true;
-								return resolve(data);
-							}
-						} else {
-							console.log(' - failed to export template');
-						}
-						return success ? resolve({}) : resolve({
-							err: 'err'
-						});
-					});
-				} else {
-					return resolve(data);
-				}
+				return resolve(data);
 			}
 		});
 	});
@@ -2372,23 +2366,24 @@ var _exportServerTemplate = function (server, request, localhost) {
 };
 
 
-var _downloadServerFile = function (request, server, fFileGUID, fileName) {
+var _downloadServerFile = function (server, fFileGUID, fileName) {
 	var downloadPromise = new Promise(function (resolve, reject) {
-		var auth = serverUtils.getRequestAuth(server);
 		var url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data';
+		var headers = {
+			Authorization: serverUtils.getRequestAuthorization(server)
+		};
+		if (server.cookies) {
+			headers.Cookie = server.cookies
+		}
 		var options = {
+			method: 'GET',
 			url: url,
-			auth: auth,
+			headers: headers,
 			encoding: null
 		};
 
-		if (server.cookies) {
-			options.headers = {
-				Cookie: server.cookies
-			};
-		}
-
-		request(options, function (error, response, body) {
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(options, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to download file ' + fileName);
 				console.log(error);
@@ -2427,11 +2422,41 @@ var _downloadServerFile = function (request, server, fFileGUID, fileName) {
 };
 
 
-var _IdcCopySites2 = function (request, localhost, server, idcToken) {
+var _IdcCopySites2 = function (server, idcToken, name, fFolderGUID, exportPublishedAssets) {
 	return new Promise(function (resolve, reject) {
-		url = localhost + '/documents/web?IdcService=SCS_COPY_SITES';
 
-		request.post(url, function (err, response, body) {
+		var url = server.url + '/documents/integration?IdcService=SCS_COPY_SITES&IsJson=1';
+
+		var formData = {
+			'idcToken': idcToken,
+			'LocalData': {
+				'IdcService': 'SCS_COPY_SITES',
+				'names': name,
+				'items': 'fFolderGUID:' + fFolderGUID,
+				'doCopyToTemplate': 1,
+				'useBackgroundThread': 1,
+				'exportPublishedAssets': exportPublishedAssets
+			}
+		};
+
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(formData),
+			json: true
+		};
+
+		if (server.cookies) {
+			postData.headers.Cookie = server.cookies
+		}
+		// console.log(postData);
+
+		var request = require('../test/server/requestUtils.js').request;
+		request.post(postData, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to create template');
 				console.log(err);
@@ -2457,13 +2482,13 @@ var _IdcCopySites2 = function (request, localhost, server, idcToken) {
 			// wait create to finish
 			var startTime = new Date();
 			var inter = setInterval(function () {
-				var jobPromise = serverUtils.getBackgroundServiceJobStatus(server, request, idcToken, jobId);
+				var jobPromise = serverUtils.getBackgroundServiceJobStatus(server, idcToken, jobId);
 				jobPromise.then(function (data) {
 					if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
 						clearInterval(inter);
 						process.stdout.write(os.EOL);
 						// try to get error message
-						var jobDataPromise = serverUtils.getBackgroundServiceJobData(server, request, idcToken, jobId);
+						var jobDataPromise = serverUtils.getBackgroundServiceJobData(server, idcToken, jobId);
 						jobDataPromise.then(function (data) {
 							console.log('ERROR: create template failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
 							// console.log(data);
@@ -2947,7 +2972,7 @@ var _importTemplateToServerRest = function (server, name, folder, zipfile) {
 };
 
 /**
- * Create and download template with Idc Service APIs
+ * Create and download template with Idc Service APIs (IC)
  * @param {*} server 
  * @param {*} name 
  * @param {*} siteName 
@@ -2982,16 +3007,7 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 				});
 			}
 
-			var express = require('express');
-			var app = express();
-
-			var port = '9191';
-			var localhost = 'http://localhost:' + port;
-
-			var dUser = '';
 			var idcToken;
-
-			var auth = serverUtils.getRequestAuth(server);
 
 			// the site id
 			var fFolderGUID;
@@ -2999,306 +3015,166 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 
 			var startTime;
 
-			app.get('/*', function (req, res) {
-				// console.log('GET: ' + req.url);
-				if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-					var url = server.url + req.url;
-
-					var options = {
-						url: url,
-					};
-
-					options.auth = auth;
-					if (server.cookies) {
-						options.headers = {
-							Cookie: server.cookies
-						};
+			// verify template
+			serverUtils.getIdcToken(server)
+				.then(function (result) {
+					idcToken = result && result.idcToken;
+					if (!idcToken) {
+						console.log('ERROR: failed to get idcToken');
+						return Promise.reject();
 					}
 
-					request(options).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
-						.on('error', function (err) {
-							console.log('ERROR: GET request failed: ' + req.url);
-							console.log(error);
-							return resolve({
-								err: 'err'
-							});
-						})
-						.pipe(res);
-
-				} else {
-					console.log('ERROR: GET request not supported: ' + req.url);
-					res.write({});
-					res.end();
-				}
-			});
-			app.post('/documents/web', function (req, res) {
-				// console.log('POST: ' + req.url);
-				if (req.url.indexOf('SCS_COPY_SITES') > 0) {
-					var url = server.url + '/documents/web?IdcService=SCS_COPY_SITES';
-
-					var formData = {
-						'idcToken': idcToken,
-						'names': name,
-						'items': 'fFolderGUID:' + fFolderGUID,
-						'doCopyToTemplate': 1,
-						'useBackgroundThread': 1,
-						'exportPublishedAssets': exportPublishedAssets
-					};
-
-					var postData = {
-						method: 'POST',
-						url: url,
-						'auth': auth,
-						'formData': formData
-					};
-
-					if (server.cookies) {
-						postData.headers = {
-							Cookie: server.cookies
-						};
+					return serverUtils.browseSitesOnServer(server, 'framework.site.template');
+				})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
 					}
 
-					request(postData).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
-						.on('error', function (err) {
-							console.log('ERROR: Failed to create template:');
-							console.log(error);
-							return resolve({
-								err: 'err'
-							});
-						})
-						.pipe(res)
-						.on('finish', function (err) {
-							res.end();
-						});
-
-				} else if (req.url.indexOf('SCS_EXPORT_TEMPLATE_PACKAGE') > 0) {
-					var url = server.url + '/documents/web?IdcService=SCS_EXPORT_TEMPLATE_PACKAGE';
-					var formData = {
-						'idcToken': idcToken,
-						'item': 'fFolderGUID:' + templateId,
-						'destination': 'fFolderGUID:' + homeFolderGUID
-					};
-
-					var postData = {
-						method: 'POST',
-						url: url,
-						'auth': auth,
-						'formData': formData
-					};
-					if (server.cookies) {
-						postData.headers = {
-							Cookie: server.cookies
-						};
-					}
-					request(postData).on('response', function (response) {
-							// fix headers for cross-domain and capitalization issues
-							serverUtils.fixHeaders(response, res);
-						})
-						.on('error', function (err) {
-							console.log('ERROR: Failed to export template:');
-							console.log(error);
-							return resolve({
-								err: 'err'
-							});
-						})
-						.pipe(res)
-						.on('finish', function (err) {
-							res.end();
-						});
-
-				} else {
-					console.log('ERROR: POST request not supported: ' + req.url);
-					res.write({});
-					res.end();
-				}
-			});
-
-			localServer = app.listen(0, function () {
-				port = localServer.address().port;
-				localhost = 'http://localhost:' + port;
-				localServer.setTimeout(0);
-
-				var inter = setInterval(function () {
-					// console.log(' - getting login user: ' + total);
-					var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-					request.get(url, function (err, response, body) {
-						var data;
-						try {
-							data = JSON.parse(body);
-						} catch (e) {}
-						dUser = data && data.LocalData && data.LocalData.dUser;
-						idcToken = data && data.LocalData && data.LocalData.idcToken;
-						if (dUser && dUser !== 'anonymous' && idcToken) {
-							// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-							clearInterval(inter);
-							console.log(' - establish user session');
-
-							// verify template
-							var templatesPromise = serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
-							templatesPromise.then(function (result) {
-									if (result.err) {
-										return Promise.reject();
-									}
-
-									var templates = result.data || [];
-									var foundTemplate = false;
-									for (var i = 0; i < templates.length; i++) {
-										if (name.toLowerCase() === templates[i].fFolderName.toLowerCase()) {
-											foundTemplate = true;
-											break;
-										}
-									}
-									if (foundTemplate) {
-										console.log('ERROR: template ' + name + ' already exists');
-										return Promise.reject();
-									}
-
-									//
-									// verify site
-									//
-									return serverUtils.browseSitesOnServer(request, server, '');
-								})
-								.then(function (result) {
-									if (result.err) {
-										return Promise.reject();
-									}
-
-									var sites = result.data || [];
-									var site;
-									for (var i = 0; i < sites.length; i++) {
-										if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
-											site = sites[i];
-											break;
-										}
-									}
-									if (!site || !site.fFolderGUID) {
-										console.log('ERROR: site ' + siteName + ' does not exist');
-										return Promise.reject();
-									}
-
-									console.log(' - get site ');
-									fFolderGUID = site.fFolderGUID;
-
-									return _IdcCopySites2(request, localhost, server, idcToken);
-								})
-								.then(function (result) {
-									if (result.err) {
-										return Promise.reject();
-									}
-
-									return serverUtils.browseSitesOnServer(request, server, 'framework.site.template');
-								})
-								.then(function (result) {
-									if (result.err) {
-										return Promise.reject();
-									}
-
-									var templates = result.data || [];
-									for (var i = 0; i < templates.length; i++) {
-										if (name.toLowerCase() === templates[i].fFolderName.toLowerCase()) {
-											templateId = templates[i].fFolderGUID;
-											break;
-										}
-									}
-									if (!templateId) {
-										console.log('ERROR: failed to get template ' + name);
-										return Promise.reject();
-									}
-									console.log(' - create template ' + name + ' (Id: ' + templateId + ')');
-
-									return serverRest.getUser({
-										server: server,
-										name: server.username
-									});
-								})
-								.then(function (result) {
-									// get personal home folder
-									// console.log(result);
-									if (result.err || !result.items || result.items.length === 0) {
-										return Promise.reject();
-									}
-
-									homeFolderGUID = 'F:USER:' + result.items[0].id;
-									// console.log(' - Home folder GUID: ' + homeFolderGUID);
-
-									console.log(' - exporting template ...');
-									startTime = new Date();
-									return _exportServerTemplate(server, request, localhost);
-
-								})
-								.then(function (result) {
-									// template exported
-									if (result.err) {
-										return Promise.reject();
-									}
-									console.log(' - template exported ' + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-
-									return serverRest.findFile({
-										server: server,
-										parentID: 'self',
-										filename: templateZipFile,
-										itemtype: 'file'
-									});
-								})
-								.then(function (result) {
-									// get template zip file GUID from the Home folder
-									if (result.err || !result.id) {
-										return Promise.reject();
-									}
-
-									templateZipFileGUID = result.id;
-									console.log(' - downloading template zip file (id: ' + templateZipFileGUID + ' size: ' + result.size + ') ...');
-									startTime = new Date();
-									return _downloadServerFile(request, server, templateZipFileGUID, templateZipFile);
-
-								})
-								.then(function (result) {
-									// zip file downloaded
-									if (result.err) {
-										return Promise.reject();
-									}
-
-									fs.writeFileSync(zippath, result.data);
-									console.log(' - template download to ' + zippath + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-
-									var deleteArgv = {
-										file: templateZipFile,
-										permanent: 'true'
-									};
-									return documentUtils.deleteFile(deleteArgv, server, false);
-
-								})
-								.then(function (result) {
-
-									if (localServer) {
-										localServer.close();
-									}
-									return resolve({});
-								})
-								.catch((error) => {
-									if (error) {
-										console.log(error);
-									}
-									if (localServer) {
-										localServer.close();
-									}
-									return resolve({
-										err: 'err'
-									});
-								});
+					var templates = result.data || [];
+					var foundTemplate = false;
+					for (var i = 0; i < templates.length; i++) {
+						if (name.toLowerCase() === templates[i].fFolderName.toLowerCase()) {
+							foundTemplate = true;
+							break;
 						}
+					}
+					if (foundTemplate) {
+						console.log('ERROR: template ' + name + ' already exists');
+						return Promise.reject();
+					}
 
-					}); // get idcToken
+					//
+					// verify site
+					//
+					return serverUtils.browseSitesOnServer(server, '');
+				})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
+					}
 
-				}, 10000);
-			}); // local 
+					var sites = result.data || [];
+					var site;
+					for (var i = 0; i < sites.length; i++) {
+						if (siteName.toLowerCase() === sites[i].fFolderName.toLowerCase()) {
+							site = sites[i];
+							break;
+						}
+					}
+					if (!site || !site.fFolderGUID) {
+						console.log('ERROR: site ' + siteName + ' does not exist');
+						return Promise.reject();
+					}
+
+					console.log(' - get site ');
+					fFolderGUID = site.fFolderGUID;
+
+					return _IdcCopySites2(server, idcToken, name, fFolderGUID, exportPublishedAssets);
+				})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
+					}
+
+					return serverUtils.browseSitesOnServer(server, 'framework.site.template');
+				})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
+					}
+
+					var templates = result.data || [];
+					for (var i = 0; i < templates.length; i++) {
+						if (name.toLowerCase() === templates[i].fFolderName.toLowerCase()) {
+							templateId = templates[i].fFolderGUID;
+							break;
+						}
+					}
+					if (!templateId) {
+						console.log('ERROR: failed to get template ' + name);
+						return Promise.reject();
+					}
+					console.log(' - create template ' + name + ' (Id: ' + templateId + ')');
+
+					return serverRest.getUser({
+						server: server,
+						name: server.username
+					});
+				})
+				.then(function (result) {
+					// get personal home folder
+					// console.log(result);
+					if (result.err || !result.items || result.items.length === 0) {
+						return Promise.reject();
+					}
+
+					homeFolderGUID = 'F:USER:' + result.items[0].id;
+					// console.log(' - Home folder GUID: ' + homeFolderGUID);
+
+					console.log(' - exporting template ...');
+					startTime = new Date();
+					return _exportServerTemplate(server, idcToken, templateId, homeFolderGUID);
+
+				})
+				.then(function (result) {
+					// template exported
+					if (result.err) {
+						return Promise.reject();
+					}
+					console.log(' - template exported ' + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+
+					return serverRest.findFile({
+						server: server,
+						parentID: 'self',
+						filename: templateZipFile,
+						itemtype: 'file'
+					});
+				})
+				.then(function (result) {
+					// get template zip file GUID from the Home folder
+					if (result.err || !result.id) {
+						return Promise.reject();
+					}
+
+					templateZipFileGUID = result.id;
+					console.log(' - downloading template zip file (id: ' + templateZipFileGUID + ' size: ' + result.size + ') ...');
+					startTime = new Date();
+					return _downloadServerFile(server, templateZipFileGUID, templateZipFile);
+
+				})
+				.then(function (result) {
+					// zip file downloaded
+					if (result.err) {
+						return Promise.reject();
+					}
+
+					fs.writeFileSync(zippath, result.data);
+					console.log(' - template download to ' + zippath + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+
+					var deleteArgv = {
+						file: templateZipFile,
+						permanent: 'true'
+					};
+					return documentUtils.deleteFile(deleteArgv, server, false);
+
+				})
+				.then(function (result) {
+
+					return resolve({});
+
+				})
+				.catch((error) => {
+					if (error) {
+						console.log(error);
+					}
+
+					return resolve({
+						err: 'err'
+					});
+				});
+
+
 		}); // login
 	});
 };

@@ -8,6 +8,7 @@ var path = require('path'),
 const cecCmd = /^win/.test(process.platform) ? 'cec.cmd' : 'cec';
 const UPDATESTATUSRETRY = 5;
 const UPDATESTATUSERRORCODE = "IRRECOVERABLE_ERROR";
+const FAILED_TO_CONNECT = "failed to connect :";
 
 var JobManager = function (args) {
 		this.ps = args.ps;
@@ -799,32 +800,44 @@ JobManager.prototype.getSiteMetadata = function (jobConfig) {
 
 		// connect to the server
 		var request = serverUtils.getRequest();
-		serverUtils.loginToServer(server, request).then(function (result) {
-			// get the current site to get the siteId
-			sitesRest.getSite({
-				server: server,
-				name: jobConfig.siteName,
-				expand: 'channel,repository'
-			}).then(function (result) {
-				if (!result || result.err || !result.id) {
-					console.log('ERROR: site ' + siteName + ' does not exist');
-					reject();
-				}
-				var site = result;
+		serverUtils.loginToServer(server, request).then(function (loginStatus) {
+			if (loginStatus.status) {
+				// get the current site to get the siteId
+				sitesRest.getSite({
+					server: server,
+					name: jobConfig.siteName,
+					expand: 'channel,repository'
+				}).then(function (result) {
+					var errorMessage;
 
-				// get the site medatadata
-				serverUtils.getIdcToken(server).then(function (result) {
-					var idcToken = result.idcToken;
+					if (!result || result.err || !result.id) {
+						console.log('ERROR: site ' + jobConfig.siteName + ' does not exist');
+						console.log('ERROR: getSite', result);
+						errorMessage = result && result.err || "getSite failed";
+						reject({
+							err: errorMessage
+						});
+						return;
+					}
+					var site = result;
 
-					serverUtils.getSiteMetadata(request, server, site.id).then(function (result) {
+					// get the site medatadata
+					serverUtils.getIdcToken(server).then(function (idcResult) {
+						var idcToken = idcResult.idcToken;
+
+						// Referenced by siteData in updateSiteMetadata
 						resolve({
 							site: site,
-							idcToken: idcToken,
-							metadata: result.data
+							idcToken: idcToken
 						});
 					});
 				});
-			});
+			}
+			else {
+				reject({
+					err: FAILED_TO_CONNECT + 'login issues'
+				});
+			}
 		});
 	});
 };
@@ -861,9 +874,8 @@ JobManager.prototype.updateSiteMetadata = function (jobConfig) {
 				server = serverUtils.verifyServer(self.serverName, projectDir),
 				site = siteData.site,
 				idcToken = siteData.idcToken,
-				metadata = siteData.metadata,
 				siteSettings = {
-					xScsSiteCompileStatus: updateStatus
+					scsCompileStatus: updateStatus
 				};
 
 			return serverUtils.setSiteMetadata(request, server, idcToken, site.id, siteSettings, {});
@@ -899,15 +911,18 @@ JobManager.prototype.updateStatus = function (jobConfig, status, progress) {
 			var retry = UPDATESTATUSRETRY;
 			var update = function () {
 				retry--;
-				self.updateSiteMetadata(updatedJobConfig).then(function (s) {
-					console.log('compilation server successfully updated site metadata in server ', s);
+				self.updateSiteMetadata(updatedJobConfig).then(function () {
+					console.log('compilation server successfully updated site metadata in server');
 					resolve(updatedJobConfig);
 				}).catch(function (e) {
-					console.log('compilation server error: failed to update site metadata in server -', e.err);
-					if (retry > 0) {
+					console.log('compilation server error: failed to update site metadata in server -', e && e.err || '');
+					if (retry > 0 && !(e && e.err && e.err.startsWith(FAILED_TO_CONNECT))) {
 						update();
 					} else {
-						console.log('Error irrecoverable:', e.err);
+						// Update local job status file to FAILED.
+						data.status = 'FAILED';
+						self.updateJob(jobConfig, data);
+						console.log('Error irrecoverable:', e && e.err || '');
 						reject(UPDATESTATUSERRORCODE);
 					}
 				});

@@ -57,6 +57,8 @@ Component.prototype.compile = function (args) {
 			// render the content
 			self.customContent = compiledComponent.customContent;
 			self.customHydration = compiledComponent.hydrate ? 'data-scs-hydrate="true"' : '';
+			self.contentType = compiledComponent.contentType ? 'data-scs-contenttype="' + compiledComponent.contentType + '"' : '';
+
 			content = self.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'component.html'), 'utf8'));
 		}
 
@@ -262,7 +264,8 @@ Component.prototype.compileComponent = function (args) {
 								var customContent = mustache.render(compiledComp.content, compiledComps);
 								return resolve({
 									customContent: customContent,
-									hydrate: compiledComp.hydrate
+									hydrate: compiledComp.hydrate,
+									contentType: compiledComp.contentType
 								});
 							} catch (e) {
 								compilationReporter.error({

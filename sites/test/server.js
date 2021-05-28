@@ -189,6 +189,7 @@ app.use('*sites.mock.min.js', express.static(testDir + '/sitescloud/renderer/app
 app.use('*content.min.js', express.static(testDir + '/sitescloud/renderer/app/sdk/js/content.min.js'));
 app.use('*field-editor-sdk-1.0.js', express.static(testDir + '/sitescloud/renderer/app/sdk/js/field-editor-sdk-1.0.js'));
 app.use('*content-form-sdk-1.0.js', express.static(testDir + '/sitescloud/renderer/app/sdk/js/content-form-sdk-1.0.js'));
+app.use('*mustache.min.js', express.static(testDir + '/sitescloud/renderer/mustache.min.js'));
 app.use('/src', express.static(path.join(projectDir, 'src')));
 app.use('/main/components', express.static(componentsDir));
 app.use('/themes', express.static(themesDir));

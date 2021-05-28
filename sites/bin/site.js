@@ -642,9 +642,9 @@ var _copySite = function (argv, request, server, site, targetName, description, 
 
 				// update template to the original template
 				var values = {
-					'xScsSiteTheme': site.themeName
+					'scsSiteTheme': site.themeName
 				};
-				return serverUtils.setSiteMetadata(request, server, idcToken, templateId, values, []);
+				return serverUtils.setSiteMetadata(request, server, idcToken, templateId, values);
 
 			})
 			.then(function (result) {
@@ -885,9 +885,9 @@ var _transferStandardSite = function (argv, request, server, destServer, site, e
 		var fileName, fileId;
 
 		var creatNewSite = false;
-		var siteMetadataRaw;
+		var siteUsedData;
 		var destSite;
-		var destSiteMetadataRaw;
+		var destSiteUsedData;
 		var templateId;
 		var contentLayoutNames = [];
 
@@ -896,15 +896,14 @@ var _transferStandardSite = function (argv, request, server, destServer, site, e
 		var idcToken;
 
 		// query site metadata to get static site settings
-		serverUtils.getSiteMetadataRaw(request, server, site.id)
+		serverUtils.getSiteUsedData(server, site.id)
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
 				}
 				console.log(' - get site metadata');
 
-				siteMetadataRaw = result;
-				// console.log(siteMetadataRaw);
+				siteUsedData = result;
 
 				// check site on destination server
 				return sitesRest.resourceExist({
@@ -1100,20 +1099,16 @@ var _transferStandardSite = function (argv, request, server, destServer, site, e
 										console.log(' - update site static delivery options');
 									}
 
-									return serverUtils.getSiteMetadataRaw(request, destServer, destSite.id);
+									return serverUtils.getSiteUsedData(destServer, destSite.id);
 
 								})
 								.then(function (result) {
-									destSiteMetadataRaw = result;
-									// console.log(destSiteMetadataRaw);
+									destSiteUsedData = result;
 
-									// update site metadata
-									return _updateSiteMetadata(request, destServer, idcToken, destSite, siteMetadataRaw, destSiteMetadataRaw);
+									// update site used items
+									return _updateSiteUsedData(destServer, idcToken, destSite, siteUsedData, destSiteUsedData);
 								})
 								.then(function (result) {
-									if (result && !result.err) {
-										console.log(' - update site metadata');
-									}
 
 									return resolve({});
 								})
@@ -1220,9 +1215,9 @@ module.exports.transferSite = function (argv, done) {
 	var policy;
 	var srcPolicy;
 	var site;
-	var siteMetadataRaw;
+	var siteUsedData;
 	var destSite;
-	var destSiteMetadataRaw;
+	var destSiteUsedData;
 	var templateId;
 	var contentLayoutNames = [];
 	var defaultThemeName = '__toolkit_theme';
@@ -1314,15 +1309,14 @@ module.exports.transferSite = function (argv, done) {
 								}
 
 								// query site metadata to get used components, content types and items
-								return serverUtils.getSiteMetadataRaw(request, server, site.id);
+								return serverUtils.getSiteUsedData(server, site.id);
 							})
 							.then(function (result) {
 								if (!result || result.err) {
 									return Promise.reject();
 								}
 
-								siteMetadataRaw = result;
-								// console.log(siteMetadataRaw);
+								siteUsedData = result;
 
 								return serverRest.getLocalizationPolicy({
 									server: server,
@@ -1656,9 +1650,9 @@ module.exports.transferSite = function (argv, done) {
 
 								if (excludetheme) {
 									var values = {
-										'xScsSiteTheme': site.themeName
+										'scsSiteTheme': site.themeName
 									};
-									updateTemplatePromises.push(serverUtils.setSiteMetadata(request, destServer, idcToken, templateId, values, []));
+									updateTemplatePromises.push(serverUtils.setSiteMetadata(request, destServer, idcToken, templateId, values));
 
 								}
 
@@ -1886,20 +1880,16 @@ module.exports.transferSite = function (argv, done) {
 														console.log(' - update site static delivery options');
 													}
 
-													return serverUtils.getSiteMetadataRaw(request, destServer, destSite.id);
+													return serverUtils.getSiteUsedData(destServer, destSite.id);
 
 												})
 												.then(function (result) {
-													destSiteMetadataRaw = result;
-													// console.log(destSiteMetadataRaw);
+													destSiteUsedData = result;
 
-													// update site metadata
-													return _updateSiteMetadata(request, destServer, idcToken, destSite, siteMetadataRaw, destSiteMetadataRaw);
+													// update site used items
+													return _updateSiteUsedData(destServer, idcToken, destSite, siteUsedData, destSiteUsedData);
 												})
 												.then(function (result) {
-													if (result && !result.err) {
-														console.log(' - update site metadata');
-													}
 
 													return _transferOtherAssets(argv, server, destServer, site, destSite, repoMappings, excludecontent, publishedassets);
 
@@ -2150,97 +2140,182 @@ var _getNewUsedObjects = function (fields, srcRows, destRows, instanceFieldName,
 	// console.log(instanceFieldName + ' to add ' + unitIdsToAdd + ' to remove ' + unitIdsToRemove);
 };
 
-var _updateSiteMetadata = function (request, destServer, idcToken, destSite, siteMetadataRaw, destSiteMetadataRaw) {
+
+var _updateSiteUsedData = function (destServer, idcToken, destSite, siteUsedData, destSiteUsedData) {
 	return new Promise(function (resolve, reject) {
-		// update site metadata
-		var siteSettings = {};
+		// console.log(JSON.stringify(siteUsedData, null, 4));
+		// console.log(JSON.stringify(destSiteUsedData, null, 4));
 
-		var compFields = siteMetadataRaw && siteMetadataRaw.xScsComponentsUsedCollection && siteMetadataRaw.xScsComponentsUsedCollection.fields ||
-			destSiteMetadataRaw && destSiteMetadataRaw.xScsComponentsUsedCollection && destSiteMetadataRaw.xScsComponentsUsedCollection.fields;
-		var srcCompRows = siteMetadataRaw && siteMetadataRaw.xScsComponentsUsedCollection && siteMetadataRaw.xScsComponentsUsedCollection.rows || [];
-		var destCompRows = destSiteMetadataRaw && destSiteMetadataRaw.xScsComponentsUsedCollection && destSiteMetadataRaw.xScsComponentsUsedCollection.rows || [];
-		var compsToAdd = [];
-		var compsToAddUnitId = [];
-		var compsToRemove = [];
-		var compsToRemoveUnitId = [];
-		_getNewUsedObjects(compFields, srcCompRows, destCompRows, 'xScsComponentsUsedInstanceID',
-			compsToAdd, compsToAddUnitId, compsToRemove, compsToRemoveUnitId);
+		var itemsUsedAdded = [];
+		var itemsUsedDeleted = [];
 
-		var itemFields = siteMetadataRaw && siteMetadataRaw.xScsContentItemsUsedCollection && siteMetadataRaw.xScsContentItemsUsedCollection.fields ||
-			destSiteMetadataRaw && destSiteMetadataRaw.xScsContentItemsUsedCollection && destSiteMetadataRaw.xScsContentItemsUsedCollection.fields;
-		var srcItemRows = siteMetadataRaw && siteMetadataRaw.xScsContentItemsUsedCollection && siteMetadataRaw.xScsContentItemsUsedCollection.rows || [];
-		var destItemRows = destSiteMetadataRaw && destSiteMetadataRaw.xScsContentItemsUsedCollection && destSiteMetadataRaw.xScsContentItemsUsedCollection.rows || [];
-		var itemsToAdd = [];
-		var itemsToAddUnitId = [];
-		var itemsToRemove = [];
-		var itemsToRemoveUnitId = [];
-		_getNewUsedObjects(itemFields, srcItemRows, destItemRows,
-			'xScsContentItemsUsedInstanceID', itemsToAdd, itemsToAddUnitId, itemsToRemove, itemsToRemoveUnitId);
-
-		var typeFields = siteMetadataRaw && siteMetadataRaw.xScsContentTypesUsedCollection && siteMetadataRaw.xScsContentTypesUsedCollection.fields ||
-			destSiteMetadataRaw && destSiteMetadataRaw.xScsContentTypesUsedCollection && destSiteMetadataRaw.xScsContentTypesUsedCollection.fields;
-		var srcTypeRows = siteMetadataRaw && siteMetadataRaw.xScsContentTypesUsedCollection && siteMetadataRaw.xScsContentTypesUsedCollection.rows || [];
-		var destTypeRows = destSiteMetadataRaw && destSiteMetadataRaw.xScsContentTypesUsedCollection && destSiteMetadataRaw.xScsContentTypesUsedCollection.rows || [];
-		var typesToAdd = [];
-		var typesToAddUnitId = [];
-		var typesToRemove = [];
-		var typesToRemoveUnitId = [];
-		_getNewUsedObjects(typeFields, srcTypeRows, destTypeRows,
-			'xScsContentTypesUsedInstanceID', typesToAdd, typesToAddUnitId, typesToRemove, typesToRemoveUnitId);
-
-		var resultSets = {};
-		if (compsToAdd.length > 0 || compsToRemove.length > 0) {
-			if (compsToAddUnitId.length > 0) {
-				siteSettings['xScsComponentsUsedCollection+'] = compsToAddUnitId.join(',');
-			}
-			if (compsToRemoveUnitId.length > 0) {
-				siteSettings['xScsComponentsUsedCollection-'] = compsToRemoveUnitId.join(',');
-			}
-			resultSets.xScsComponentsUsedCollection = siteMetadataRaw.xScsComponentsUsedCollection || destSiteMetadataRaw.xScsComponentsUsedCollection;
-			resultSets.xScsComponentsUsedCollection.rows = compsToAdd.concat(compsToRemove);
-		}
-		if (itemsToAdd.length > 0 || itemsToRemove.length > 0) {
-			if (itemsToAddUnitId.length > 0) {
-				siteSettings['xScsContentItemsUsedCollection+'] = itemsToAddUnitId.join(',');
-			}
-			if (itemsToRemoveUnitId.length > 0) {
-				siteSettings['xScsContentItemsUsedCollection-'] = itemsToRemoveUnitId.join(',');
-			}
-			resultSets.xScsContentItemsUsedCollection = siteMetadataRaw.xScsContentItemsUsedCollection || destSiteMetadataRaw.xScsContentItemsUsedCollection;
-			resultSets.xScsContentItemsUsedCollection.rows = itemsToAdd.concat(itemsToRemove);
-		}
-		if (typesToAdd.length > 0 || typesToRemove.length > 0) {
-			if (typesToAddUnitId.length > 0) {
-				siteSettings['xScsContentTypesUsedCollection+'] = typesToAddUnitId.join(',');
-			}
-			if (typesToRemoveUnitId.length > 0) {
-				siteSettings['xScsContentTypesUsedCollection-'] = typesToRemoveUnitId.join(',');
-			}
-			resultSets.xScsContentTypesUsedCollection = siteMetadataRaw.xScsContentTypesUsedCollection || destSiteMetadataRaw.xScsContentTypesUsedCollection;
-			resultSets.xScsContentTypesUsedCollection.rows = typesToAdd.concat(typesToRemove);
-		}
-
-		serverUtils.setSiteMetadata(request, destServer, idcToken, destSite.id, siteSettings, resultSets)
-			.then(function (result) {
-				if (!result || result.err) {
-					console.log('ERROR: failed to set site metadata');
-					return Promise.reject();
+		// components to add
+		siteUsedData.componentsUsed.forEach(function (comp) {
+			var found = false;
+			for (var i = 0; i < destSiteUsedData.componentsUsed.length; i++) {
+				var destComp = destSiteUsedData.componentsUsed[i];
+				if (comp.scsPageID === destComp.scsPageID &&
+					comp.scsInstanceID === destComp.scsInstanceID &&
+					comp.scsComponentName === destComp.scsComponentName) {
+					found = true;
+					break;
 				}
-
-				return resolve({});
-			})
-			.catch((error) => {
-				if (error) {
-					console.log(error);
-				}
-				return resolve({
-					err: 'err'
+			}
+			if (!found) {
+				itemsUsedAdded.push({
+					type: 'component',
+					identifier: destSite.id,
+					instanceID: comp.scsInstanceID,
+					pageID: comp.scsPageID,
+					name: comp.scsComponentName
 				});
-			});
+			}
+		});
+
+		// components to delete
+		destSiteUsedData.componentsUsed.forEach(function (destComp) {
+			var found = false;
+			for (var i = 0; i < siteUsedData.componentsUsed.length; i++) {
+				var comp = siteUsedData.componentsUsed[i];
+				if (comp.scsPageID === destComp.scsPageID &&
+					comp.scsInstanceID === destComp.scsInstanceID &&
+					comp.scsComponentName === destComp.scsComponentName) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				itemsUsedDeleted.push({
+					type: 'component',
+					identifier: destComp.scsIdentifier,
+					instanceID: destComp.scsInstanceID,
+					pageID: destComp.scsPageID,
+					name: destComp.scsComponentName
+				});
+			}
+		});
+
+		// content items to add 
+		siteUsedData.contentItemsUsed.forEach(function (item) {
+			var found = false;
+			for (var i = 0; i < destSiteUsedData.contentItemsUsed.length; i++) {
+				var destItem = destSiteUsedData.contentItemsUsed[i];
+				if (item.scsPageID === destItem.scsPageID &&
+					item.scsInstanceID === destItem.scsInstanceID &&
+					item.scsContentItemID === destItem.scsContentItemID) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				itemsUsedAdded.push({
+					type: 'contentItem',
+					identifier: destSite.id,
+					instanceID: item.scsInstanceID,
+					pageID: item.scsPageID,
+					contentItemID: item.scsContentItemID,
+					version: item.scsVersion
+				});
+			}
+		});
+
+		// content items to delete 
+		destSiteUsedData.contentItemsUsed.forEach(function (destItem) {
+			var found = false;
+			for (var i = 0; i < siteUsedData.contentItemsUsed.length; i++) {
+				var item = siteUsedData.contentItemsUsed[i];
+				if (item.scsPageID === destItem.scsPageID &&
+					item.scsInstanceID === destItem.scsInstanceID &&
+					item.scsContentItemID === destItem.scsContentItemID) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				itemsUsedDeleted.push({
+					type: 'contentItem',
+					identifier: destItem.scsIdentifier,
+					instanceID: destItem.scsInstanceID,
+					pageID: destItem.scsPageID,
+					contentItemID: destItem.scsContentItemID
+				});
+			}
+		});
+
+		// content types to add 
+		siteUsedData.contentTypesUsed.forEach(function (type) {
+			var found = false;
+			for (var i = 0; i < destSiteUsedData.contentTypesUsed.length; i++) {
+				var destType = destSiteUsedData.contentTypesUsed[i];
+				if (type.scsPageID === destType.scsPageID &&
+					type.scsInstanceID === destType.scsInstanceID &&
+					type.scsTypeName === destType.scsTypeName) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				itemsUsedAdded.push({
+					type: 'contentType',
+					identifier: destSite.id,
+					instanceID: type.scsInstanceID,
+					pageID: type.scsPageID,
+					name: type.scsTypeName
+				});
+			}
+		});
+		// content types to delete 
+		destSiteUsedData.contentTypesUsed.forEach(function (destType) {
+			var found = false;
+			for (var i = 0; i < siteUsedData.contentTypesUsed.length; i++) {
+				var type = siteUsedData.contentTypesUsed[i];
+				if (type.scsPageID === destType.scsPageID &&
+					type.scsInstanceID === destType.scsInstanceID &&
+					type.scsTypeName === destType.scsTypeName) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				itemsUsedDeleted.push({
+					type: 'contentType',
+					identifier: destType.scsIdentifier,
+					instanceID: destType.scsInstanceID,
+					pageID: destType.scsPageID,
+					name: destType.scsTypeName
+				});
+			}
+		});
+
+		// console.log(' - itemsUsedAdded: \n' + JSON.stringify(itemsUsedAdded, null, 4));
+		// console.log(' - itemsUsedDeleted: \n' + JSON.stringify(itemsUsedDeleted, null, 4));
+
+		if (itemsUsedAdded.length === 0 && itemsUsedAdded.length === 0) {
+			console.log(' - no change for site used items')
+			return resolve({});
+		} else {
+			serverUtils.setSiteUsedData(destServer, idcToken, destSite.id, itemsUsedAdded, itemsUsedDeleted)
+				.then(function (result) {
+					if (!result || result.err) {
+						console.log('ERROR: failed to set site used data');
+						return Promise.reject();
+					}
+
+					console.log(' - update site used items');
+					return resolve({});
+				})
+				.catch((error) => {
+					if (error) {
+						console.log(error);
+					}
+					return resolve({
+						err: 'err'
+					});
+				});
+		}
 	});
 
 };
-
 
 
 /**

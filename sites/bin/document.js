@@ -1989,7 +1989,7 @@ var _deleteFolder = function (argv, server) {
 				}
 				folderId = result.id;
 
-				var deletePromise = permanent ? _deletePermanentSCS(request, server, folderId, false) : serverRest.deleteFolder({
+				var deletePromise = permanent ? _deletePermanentSCS(server, folderId, false) : serverRest.deleteFolder({
 					server: server,
 					fFolderGUID: folderId
 				});
@@ -2023,214 +2023,139 @@ var _deleteDone = function (success, resolve) {
 		err: 'err'
 	});
 };
-var _deletePermanentSCS = function (request, server, id, isFile) {
+var _deletePermanentSCS = function (server, id, isFile) {
 	return new Promise(function (resolve, reject) {
-		var express = require('express');
-		var app = express();
 
-		var port = '9191';
-		var localhost = 'http://localhost:' + port;
-
-		var dUser = '';
 		var idcToken;
-
-		var auth = serverUtils.getRequestAuth(server);
 
 		var idInTrash;
 
-		app.get('/*', function (req, res) {
-			// console.log('GET: ' + req.url);
-			if (req.url.indexOf('/documents/') >= 0 || req.url.indexOf('/content/') >= 0) {
-				var url = server.url + req.url;
-
-				var options = {
-					url: url,
-				};
-
-				options['auth'] = auth;
-				if (server.cookies) {
-					options.headers = {
-						Cookie: server.cookies
-					};
-				}
-
-				request(options).on('response', function (response) {
-						// fix headers for cross-domain and capitalization issues
-						serverUtils.fixHeaders(response, res);
-					})
-					.on('error', function (err) {
-						console.log('ERROR: GET request failed: ' + req.url);
-						console.log(err);
-						return resolve({
-							err: 'err'
-						});
-					})
-					.pipe(res);
-
-			} else {
-				console.log('ERROR: GET request not supported: ' + req.url);
-				res.write({});
-				res.end();
-			}
-		});
-		app.post('/documents/web', function (req, res) {
-			// console.log('POST: ' + req.url);
-			var url;
-			var action;
-			var formData;
-			if (req.url.indexOf('FLD_MOVE_TO_TRASH') > 0) {
-				url = server.url + '/documents/web?IdcService=FLD_MOVE_TO_TRASH';
-				action = 'delete';
-				formData = {
-					'idcToken': idcToken,
-					'items': (isFile ? 'fFileGUID:' : 'fFolderGUID:') + id
-				};
-			} else {
-				url = server.url + '/documents/web?IdcService=FLD_DELETE_FROM_TRASH';
-				action = 'delete from trash';
-				formData = {
-					'idcToken': idcToken,
-					'items': (isFile ? 'fFileGUID:' : 'fFolderGUID:') + idInTrash
-				};
+		serverUtils.getIdcToken(server).then(function (result) {
+			idcToken = result && result.idcToken;
+			if (!idcToken) {
+				console.log('ERROR: failed to get idcToken');
+				done();
 			}
 
-			var postData = {
-				method: 'POST',
-				url: url,
-				'auth': auth,
-				'formData': formData
+			var headers = {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
 			};
 			if (server.cookies) {
-				postData.headers = {
-					Cookie: server.cookies
-				};
+				headers.Cookie = server.cookies;
 			}
 
-			request(postData).on('response', function (response) {
-					// fix headers for cross-domain and capitalization issues
-					serverUtils.fixHeaders(response, res);
-				})
-				.on('error', function (err) {
-					console.log('ERROR: Failed to ' + action);
-					console.log(error);
+			url = server.url + '/documents/integration?IdcService=FLD_MOVE_TO_TRASH';
+			url = url + '&IsJson=1';
+			url = url + '&idcToken=' + idcToken;
+			url = url + '&item=' + (isFile ? 'fFileGUID:' : 'fFolderGUID:') + id;
+
+			var options = {
+				method: 'POST',
+				url: url,
+				headers: headers
+			};
+			// console.log(options);
+
+			var request = require('../test/server/requestUtils.js').request;
+			request.post(options, function (err, response, body) {
+				if (err) {
+					console.log('ERROR: Failed to delete');
+					console.log(err);
 					return resolve({
 						err: 'err'
 					});
-				})
-				.pipe(res)
-				.on('finish', function (err) {
-					res.end();
-				});
-		});
+				}
 
-		localServer = app.listen(0, function () {
-			port = localServer.address().port;
-			localhost = 'http://localhost:' + port;
-			localServer.setTimeout(0);
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (e) {}
 
-			var inter = setInterval(function () {
-				// console.log(' - getting login user: ' + total);
-				var url = localhost + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-
-				request.get(url, function (err, response, body) {
-					var data;
-					try {
-						data = JSON.parse(body);
-					} catch (e) {}
-
-					dUser = data && data.LocalData && data.LocalData.dUser;
-					idcToken = data && data.LocalData && data.LocalData.idcToken;
-					if (dUser && dUser !== 'anonymous' && idcToken) {
-						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-						clearInterval(inter);
-						// console.log(' - establish user session');
-
-						url = localhost + '/documents/web?IdcService=FLD_MOVE_TO_TRASH';
-
-						request.post(url, function (err, response, body) {
-							if (err) {
-								console.log('ERROR: Failed to delete');
-								console.log(err);
-								return resolve({
-									err: 'err'
-								});
-							}
-
-							var data;
-							try {
-								data = JSON.parse(body);
-							} catch (e) {}
-
-							if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-								console.log('ERROR: failed to delete  ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-								_deleteDone(false, resolve);
+				if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+					console.log('ERROR: failed to delete  ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+					_deleteDone(false, resolve);
+				} else {
+					// query the GUID in the trash folder
+					url = server.url + '/documents/integration?IdcService=FLD_BROWSE_TRASH&fileCount=-1';
+					url = url + '&IsJson=1';
+					options = {
+						method: 'GET',
+						url: url,
+						headers: headers
+					};
+					// console.log(options);
+					request.get(options, function (err, response, body) {
+						var data = JSON.parse(body);
+						if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+							console.log('ERROR: failed to browse trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+							_deleteDone(false, resolve);
+						} else {
+							var fields;
+							var rows;
+							if (isFile) {
+								fields = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.fields || [];
+								rows = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.rows;
 							} else {
-								// query the GUID in the trash folder
-								url = localhost + '/documents/web?IdcService=FLD_BROWSE_TRASH&fileCount=-1';
-								request.get(url, function (err, response, body) {
-									var data = JSON.parse(body);
-									if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-										console.log('ERROR: failed to browse trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-										_deleteDone(false, resolve);
-									} else {
-										var fields;
-										var rows;
-										if (isFile) {
-											fields = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.fields || [];
-											rows = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.rows;
-										} else {
-											fields = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.fields || [];
-											rows = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.rows;
-										}
-										var items = [];
-										for (var j = 0; j < rows.length; j++) {
-											items.push({});
-										}
-										for (var i = 0; i < fields.length; i++) {
-											var attr = fields[i].name;
-											for (var j = 0; j < rows.length; j++) {
-												items[j][attr] = rows[j][i];
-											}
-										}
-
-										for (var i = 0; i < items.length; i++) {
-											if (items[i]['fRealItemGUID'] === id) {
-												idInTrash = isFile ? items[i]['fFileGUID'] : items[i]['fFolderGUID'];
-												break;
-											}
-										}
-										// console.log(' - find ' + (isFile ? 'file' : 'folder ') + ' in trash ' + idInTrash);
-
-										url = localhost + '/documents/web?IdcService=FLD_DELETE_FROM_TRASH';
-
-										request.post(url, function (err, response, body) {
-											if (err) {
-												console.log('ERROR: Failed to delete from trash');
-												console.log(err);
-												_deleteDone(false, resolve);
-											}
-
-											var data;
-											try {
-												data = JSON.parse(body);
-											} catch (e) {}
-
-											if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-												console.log('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-												_deleteDone(false, resolve);
-											} else {
-												_deleteDone(true, resolve);
-											}
-										}); // delete from trash
-									}
-								}); // browse trash
+								fields = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.fields || [];
+								rows = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.rows;
 							}
-						}); // delete
-					}
-				}); // idc token request
+							var items = [];
+							for (var j = 0; j < rows.length; j++) {
+								items.push({});
+							}
+							for (var i = 0; i < fields.length; i++) {
+								var attr = fields[i].name;
+								for (var j = 0; j < rows.length; j++) {
+									items[j][attr] = rows[j][i];
+								}
+							}
 
-			}, 6000);
-		});
+							for (var i = 0; i < items.length; i++) {
+								if (items[i]['fRealItemGUID'] === id) {
+									idInTrash = isFile ? items[i]['fFileGUID'] : items[i]['fFolderGUID'];
+									break;
+								}
+							}
+							// console.log(' - find ' + (isFile ? 'file' : 'folder ') + ' in trash ' + idInTrash);
+
+							url = server.url + '/documents/integration?IdcService=FLD_DELETE_FROM_TRASH';
+							url = url + '&IsJson=1';
+							url = url + '&idcToken=' + idcToken;
+							url = url + '&item=' + (isFile ? 'fFileGUID:' : 'fFolderGUID:') + idInTrash;
+
+							options = {
+								method: 'POST',
+								url: url,
+								headers: headers
+							};
+							// console.log(options);
+
+							request.post(options, function (err, response, body) {
+								if (err) {
+									console.log('ERROR: Failed to delete from trash');
+									console.log(err);
+									_deleteDone(false, resolve);
+								}
+
+								var data;
+								try {
+									data = JSON.parse(body);
+								} catch (e) {}
+
+								if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+									console.log('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+									_deleteDone(false, resolve);
+								} else {
+									_deleteDone(true, resolve);
+								}
+							}); // delete from trash
+						}
+					}); // browse trash
+				}
+			}); // delete
+
+		}); // idc token request
 	});
 };
 
@@ -2393,7 +2318,7 @@ var _deleteFile = function (argv, server, toReject) {
 				}
 				fileId = result.id;
 
-				var deletePromise = permanent ? _deletePermanentSCS(request, server, fileId, true) : serverRest.deleteFile({
+				var deletePromise = permanent ? _deletePermanentSCS(server, fileId, true) : serverRest.deleteFile({
 					server: server,
 					fFileGUID: fileId
 				});

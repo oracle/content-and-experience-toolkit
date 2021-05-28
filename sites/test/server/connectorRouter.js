@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* globals app, module, __dirname */
 /* jshint esversion: 6 */
 /**
- * Router handling /pxysvs requests
+ * Router handling /connector requests
  */
 var express = require('express'),
 	fs = require('fs'),
@@ -24,8 +24,8 @@ var _setupSourceDir = function () {
 };
 
 router.get('/*', (req, res) => {
-	let app = req.app,
-		request = app.locals.request;
+
+	var request2 = require('./requestUtils.js').request;
 
 	_setupSourceDir();
 
@@ -59,10 +59,13 @@ router.get('/*', (req, res) => {
 		res.end();
 		return;
 	}
-	
+
 	var basicAuth = 'Basic ' + serverUtils.btoa(connector.user + ':' + connector.password);
-	var headers = {};
-	headers['Authorization'] = basicAuth;
+	var headers = {
+		'Authorization': basicAuth,
+		'Content-Type': 'application/json'
+	};
+
 	for (var i = 0; i < connector.fields.length; i++) {
 		headers[connector.fields[i].name] = connector.fields[i].value;
 	}
@@ -83,55 +86,54 @@ router.get('/*', (req, res) => {
 		if (!fs.existsSync(path.join(projectDir, 'dist'))) {
 			fs.mkdirSync(path.join(projectDir, 'dist'));
 		}
+		options.encoding = null;
+
 		var failed = false;
 		var result = {};
-		var responseHeaders = {}; 
+		var responseHeaders = {};
 		result['options'] = options;
 
-		request(options).on('response', function (response) {
-				// fix headers for cross-domain and capitalization issues
-				serverUtils.fixHeaders(response, res);
-				if (response && response.statusCode !== 200) {
-					failed = true;
-					result['err'] = 'err';
-					result['data'] = {
-						Error: 'Failed to get translated job: ' + response.statusCode
-					};
-					res.write(JSON.stringify(result));
-					res.status(response.statusCode).end();
-				}
-				// get the headers
-				if (response.headers['content-disposition']) {
-					responseHeaders['content-disposition'] = response.headers['content-disposition'];
-				}
-				if (response.headers['content-type']) {
-					responseHeaders['content-type'] = response.headers['content-type'];
-				}
-				if (response.headers['content-length']) {
-					responseHeaders['content-length'] = response.headers['content-length'];
-				}
-				console.log(response.headers);
-			})
-			.on('error', function (err) {
-				console.log(' - connector request error: ' + err);
+		// request(options).on('response', function (response) {
+		request2.get(options, function (error, response, body) {
+			// fix headers for cross-domain and capitalization issues
+			if (error) {
+				console.log(' - connector request error: ' + error);
 				result['err'] = 'err';
 				result['data'] = {
-					Error: err
+					Error: error
 				};
 				res.write(JSON.stringify(result));
 				res.end();
-			})
-			.pipe(fs.createWriteStream(targetFile))
-			.on('finish', function () {
-				if (!failed) {
-					responseHeaders.message = 'translation saved to ' + targetFile;
-					result['data'] = responseHeaders;
-					res.write(JSON.stringify(result));
-					res.end();
+			} else if (response && response.statusCode !== 200) {
+				failed = true;
+				result['err'] = 'err';
+				result['data'] = {
+					Error: 'Failed to get translated job: ' + response.statusCode
+				};
+				res.write(JSON.stringify(result));
+				res.status(response.statusCode).end();
+			} else {
+				// get the headers
+				if (response.headers.get('content-disposition')) {
+					responseHeaders['content-disposition'] = response.headers.get('content-disposition');
 				}
-			});
+				if (response.headers.get('content-type')) {
+					responseHeaders['content-type'] = response.headers['content-type'];
+				}
+				if (response.headers.get('content-length')) {
+					responseHeaders['content-length'] = response.headers.get('content-length');
+				}
+				console.log(response.headers);
+				fs.writeFileSync(targetFile, body);
+				responseHeaders.message = 'translation saved to ' + targetFile;
+				result['data'] = responseHeaders;
+				res.write(JSON.stringify(result));
+				res.end();
+			}
+		});
+
 	} else {
-		request(options, function (error, response, body) {
+		request2.get(options, function (error, response, body) {
 			var result = {};
 
 			if (error) {
@@ -152,12 +154,12 @@ router.get('/*', (req, res) => {
 });
 
 router.post('/*', (req, res) => {
-	let app = req.app,
-		request = app.locals.request;
 
 	_setupSourceDir();
 
 	console.log('$$$ Connector: POST: ' + req.url);
+
+	var request2 = require('./requestUtils.js').request;
 
 	var apiUrl;
 	var params;
@@ -188,11 +190,10 @@ router.post('/*', (req, res) => {
 		return;
 	}
 
-	var formData = {};
-
 	var basicAuth = 'Basic ' + serverUtils.btoa(connector.user + ':' + connector.password);
-	var headers = {};
-	headers['Authorization'] = basicAuth;
+	var headers = {
+		'Authorization': basicAuth
+	};
 	for (var i = 0; i < connector.fields.length; i++) {
 		headers[connector.fields[i].name] = connector.fields[i].value;
 	}
@@ -217,29 +218,36 @@ router.post('/*', (req, res) => {
 		// Create job
 		//formData['name'] = params.jobName;
 		//options['form'] = formData;
+		options.headers['Content-Type'] = 'application/json';
 		options.json = true;
-		options.body = {
+		options.body = JSON.stringify({
 			"name": params.jobName
-		};
+		});
 	}
 
 	// console.log(options);
-	request(options, function (error, response, body) {
+	request2.post(options, function (error, response, body) {
 		var result = {};
 		if (error) {
 			result['err'] = error;
 			result['data'] = error;
 		}
+		var data;
+		try {
+			data = JSON.parse(body);
+		} catch (e) {
+			data = {};
+		}
 		if (response && response.statusCode === 200) {
-			result['data'] = (body && typeof body === 'string') ? JSON.parse(body) : (body || {});
+			result.data = data;
 		} else {
-			result['err'] = 'Failed to get job: ' + (response ? (response.statusMessage || response.statusCode) : '');
+			result.err = 'Failed to get job: ' + (response ? (response.statusMessage || response.statusCode) : '');
 		}
 		if (sendTranslation) {
 			options['body'] = 'fs.readFileSync(\'' + filePath + '\')';
 		}
 
-		result['options'] = options;
+		result.options = options;
 
 		res.write(JSON.stringify(result));
 		res.end();
@@ -247,12 +255,12 @@ router.post('/*', (req, res) => {
 });
 
 router.delete('/*', (req, res) => {
-	let app = req.app,
-		request = app.locals.request;
 
 	_setupSourceDir();
 
 	console.log('$$$ Connector: DELETE: ' + req.url);
+
+	var request2 = require('./requestUtils.js').request;
 
 	var apiUrl;
 	var params;
@@ -261,7 +269,7 @@ router.delete('/*', (req, res) => {
 		params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
 	}
 	apiUrl = apiUrl.replace('/connector/rest/api', '');
-	
+
 	var connectionName = params.connection;
 	if (!connectionName) {
 		console.log(' - no connection is specified');
@@ -299,7 +307,7 @@ router.delete('/*', (req, res) => {
 		headers: headers
 	};
 
-	request(options, function (error, response, body) {
+	request2.delete(options, function (error, response, body) {
 		var result = {};
 
 		if (error) {

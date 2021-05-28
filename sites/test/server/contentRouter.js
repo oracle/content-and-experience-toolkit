@@ -166,7 +166,7 @@ router.get('/*', (req, res) => {
 			}
 		};
 		// console.log(options);
-		
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -176,8 +176,17 @@ router.get('/*', (req, res) => {
 				res.end();
 				return;
 			}
-			
+
 			if (response && response.statusCode === 200) {
+				var contentType = response.headers.get('Content-Type');
+				if (contentType) {
+					// console.log(' - content type: ' + contentType);
+					res.set('Content-Type', contentType);
+				}
+				var contentDeposition = response.headers.get('Content-Disposition');
+				if (contentDeposition) {
+					res.set('Content-Disposition', contentDeposition);
+				}
 				res.write(body);
 				res.end();
 				return;
@@ -747,7 +756,10 @@ router.get('/*', (req, res) => {
 			var assetjson = JSON.parse(fs.readFileSync(assetjsonfile)),
 				assetfile = assetjson && assetjson.name ? path.join(assetsdir, 'files', id, assetjson.name) : '';
 			if (fs.existsSync(assetfile)) {
-				console.log(' - asset file: ' + assetfile);
+				console.log(' - asset mime type: ' + (assetjson.fields && assetjson.fields.mimeType) + ' file: ' + assetfile);
+				if (assetjson.fields && assetjson.fields.mimeType) {
+					res.set('Content-Type', assetjson.fields.mimeType);
+				}
 				res.write(fs.readFileSync(assetfile));
 				res.end();
 				return;

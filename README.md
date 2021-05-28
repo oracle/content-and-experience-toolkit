@@ -15,6 +15,16 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.5.1
+
+**Added**
+
+- Add support for local components that render using a template
+- Add support for svg graphics
+
+- `cec transfer-content` and `cec transfer-site-content` - Now support much larger batch sizes
+
+
 # New in Release 21.2.2a
 
 **Fixed**

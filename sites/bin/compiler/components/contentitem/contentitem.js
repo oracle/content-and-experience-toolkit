@@ -225,7 +225,8 @@ ContentItem.prototype.compile = function (args) {
 								// we're done
 								return resolve({
 									content: compiledComp && compiledComp.content,
-									hydrate: compiledComp && compiledComp.hydrate
+									hydrate: compiledComp && compiledComp.hydrate,
+									contentType: content.type
 								});
 							}).catch(function (e) {
 								compilationReporter.error({

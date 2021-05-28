@@ -1290,11 +1290,7 @@ gulp.task('copy-libs', function (done) {
 	}
 	console.log("\nTo use the CEC command line util, add the following directory to your PATH:\n");
 	cec_path = path.resolve(__dirname + path.sep + '..');
-	if (/^darwin/.test(process.platform)) {
-		console.log("\t" + cec_path + "/node_modules/.bin\n");
-	} else {
-		console.log("\t" + cec_path + "\\node_modules\\.bin\n");
-	}
+	console.log('\t' + path.join(cec_path, 'node_modules', '.bin') + os.EOL);
 	done();
 });
 
