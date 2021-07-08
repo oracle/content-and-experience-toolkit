@@ -83,8 +83,6 @@ module.exports.createRSSFeed = function (argv, done) {
 
 var _createRSSFeed = function (server, argv, done) {
 
-	var request = serverUtils.getRequest();
-
 	var siteName = argv.site;
 
 	var tempPath = argv.template || path.join(rssDataDir, 'rss.xml');
@@ -120,7 +118,7 @@ var _createRSSFeed = function (server, argv, done) {
 
 	var newlink = typeof argv.newlink === 'string' && argv.newlink.toLowerCase() === 'true';
 
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -128,7 +126,7 @@ var _createRSSFeed = function (server, argv, done) {
 			return;
 		}
 
-		_createRSSFeedREST(request, server, siteName, argv.url, tempPath,
+		_createRSSFeedREST(server, siteName, argv.url, tempPath,
 			rssFile, query, limit, orderby, language, publish, argv.rsstitle,
 			argv.description, argv.ttl, newlink, javascript, done);
 
@@ -136,7 +134,7 @@ var _createRSSFeed = function (server, argv, done) {
 };
 
 
-var _getContentItems = function (request, host, channelToken, query, limit, orderby, language, server) {
+var _getContentItems = function (server, channelToken, query, limit, orderby, language) {
 	return new Promise(function (resolve, reject) {
 		var url = '/content/published/api/v1.1/items';
 		var q = language ? (query + ' and (language eq "' + language + '" or translatable eq "false")') : query;
@@ -148,11 +146,12 @@ var _getContentItems = function (request, host, channelToken, query, limit, orde
 
 		console.log(' - query: ' + url);
 		var options = {
-			url: host + url,
+			url: server.url + url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
-		if (server) {
-			options.auth = serverUtils.getRequestAuth(server);
-		}
+		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get content');
@@ -411,7 +410,7 @@ var _pubishRSSFile = function (server, siteUrl, siteName, rssFile, done) {
  * @param {*} publish 
  * @param {*} done 
  */
-var _createRSSFeedREST = function (request, server, siteName, url, tempPath, rssFile,
+var _createRSSFeedREST = function (server, siteName, url, tempPath, rssFile,
 	query, limit, orderby, language, publish, title, description, ttl, newlink, javascript, done) {
 	var site;
 	var channelId, channelToken;
@@ -455,7 +454,7 @@ var _createRSSFeedREST = function (request, server, siteName, url, tempPath, rss
 
 			console.log(' - get site (channelToken: ' + channelToken + ')');
 
-			return _getContentItems(request, server.url, channelToken, query, limit, orderby, language, server);
+			return _getContentItems(server, channelToken, query, limit, orderby, language);
 		})
 		.then(function (result) {
 			if (result.err) {

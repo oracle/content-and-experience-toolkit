@@ -79,9 +79,8 @@ var _cmdEnd = function (done, success) {
 var _createLocalTemplateFromSite = function (name, siteName, server, excludeContent, enterprisetemplate,
 	excludeComponents, excludeTheme, excludeType, publishedassets) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
-		serverUtils.loginToServer(server, request).then(function (result) {
+		serverUtils.loginToServer(server).then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
 				return resolve({
@@ -229,7 +228,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					}
 					themeId = result.id;
 
-					var downloadThemePromises = excludeTheme ? [] : [_downloadTheme(request, server, themeName, themeId, themeSrcPath)];
+					var downloadThemePromises = excludeTheme ? [] : [_downloadTheme(server, themeName, themeId, themeSrcPath)];
 
 					return Promise.all(downloadThemePromises);
 
@@ -258,7 +257,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						console.log(' - site has assets from other repositories and they will not be included in the template');
 					}
 
-					var downloadContentPromises = (excludeContent || !isEnterprise) ? [] : [_downloadContent(request, server, name, channelName, channelId, repositoryName, repositoryId, excludeType, publishedassets)];
+					var downloadContentPromises = (excludeContent || !isEnterprise) ? [] : [_downloadContent(server, name, channelName, channelId, repositoryName, repositoryId, excludeType, publishedassets)];
 
 					return Promise.all(downloadContentPromises);
 				})
@@ -435,7 +434,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 					console.log(' - ' + (excludeComponents ? 'exclude' : 'downloading') + ' components: ' + comps);
 
-					var downloadCompsPromises = excludeComponents ? [] : [_downloadSiteComponents(request, server, comps)];
+					var downloadCompsPromises = excludeComponents ? [] : [_downloadSiteComponents(server, comps)];
 
 					return Promise.all(downloadCompsPromises);
 
@@ -462,7 +461,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 	});
 };
 
-var _downloadTheme = function (request, server, themeName, themeId, themeSrcPath) {
+var _downloadTheme = function (server, themeName, themeId, themeSrcPath) {
 	return new Promise(function (resolve, reject) {
 		// download theme
 		var downloadArgv = {
@@ -496,7 +495,7 @@ var _downloadTheme = function (request, server, themeName, themeId, themeSrcPath
 	});
 };
 
-var _downloadSiteComponents = function (request, server, compNames) {
+var _downloadSiteComponents = function (server, compNames) {
 	return new Promise(function (resolve, reject) {
 		var comps = [];
 		var downloadedComps = [];
@@ -505,7 +504,7 @@ var _downloadSiteComponents = function (request, server, compNames) {
 				downloadedComps = result;
 
 				// query components to get ids
-				return _queryComponents(request, server, downloadedComps);
+				return _queryComponents(server, downloadedComps);
 			})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -577,7 +576,7 @@ var _createLocalTemplateFromSiteUtil = function (argv, name, siteName, server, e
 	return _createLocalTemplateFromSite(name, siteName, server, excludeContent, enterprisetemplate, excludeComponents, excludeTheme, excludeType, publishedassets);
 };
 
-var _downloadContent = function (request, server, name, channelName, channelId, repositoryName, repositoryId, excludeType, publishedassets) {
+var _downloadContent = function (server, name, channelName, channelId, repositoryName, repositoryId, excludeType, publishedassets) {
 	return new Promise(function (resolve, reject) {
 		var assetSummaryJson;
 		var assetContentTypes = [];
@@ -748,7 +747,7 @@ var _getCustomForms = function (tempContentPath) {
 };
 
 
-var _queryComponents = function (request, server, compNames) {
+var _queryComponents = function (server, compNames) {
 	return new Promise(function (resolve, reject) {
 		var comps = [];
 		var compsPromises = [];
@@ -1513,9 +1512,7 @@ module.exports.downloadTemplate = function (argv, done) {
 		fs.mkdirSync(destdir);
 	}
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -1554,9 +1551,7 @@ module.exports.deleteTemplate = function (argv, done) {
 		return;
 	}
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -2259,9 +2254,8 @@ var _exportTemplateUtil = function (argv, name, optimize, excludeContentTemplate
 var _importTemplate = function (server, name, folder, zipfile, done) {
 
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
-		serverUtils.loginToServer(server, request).then(function (result) {
+		serverUtils.loginToServer(server).then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
 				return resolve({
@@ -2729,8 +2723,8 @@ var _deleteTemplateREST = function (server, name, permanent, done) {
  */
 var _createTemplateFromSiteREST = function (server, name, siteName, includeUnpublishedAssets, enterprisetemplate) {
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
-		serverUtils.loginToServer(server, request).then(function (result) {
+
+		serverUtils.loginToServer(server).then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
 				return Promise.reject();
@@ -2996,9 +2990,8 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 	var templateZipFileGUID;
 	var zippath = path.join(destdir, templateZipFile);
 	return new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 
-		var loginPromise = serverUtils.loginToServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
@@ -3208,9 +3201,7 @@ module.exports.shareTemplate = function (argv, done) {
 		var users = [];
 		var groups = [];
 
-		var request = serverUtils.getRequest();
-
-		var loginPromise = serverUtils.loginToServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
@@ -3404,9 +3395,7 @@ module.exports.unshareTemplate = function (argv, done) {
 		var users = [];
 		var groups = [];
 
-		var request = serverUtils.getRequest();
-
-		var loginPromise = serverUtils.loginToServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');

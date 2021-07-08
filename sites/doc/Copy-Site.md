@@ -1,7 +1,7 @@
-# Copy a Large Site using OCE Toolkit
+# Copy a Large Site using OCM Toolkit
 
 # Setup
-[Install the OCE Toolkit](../README.MD)
+[Install the OCM Toolkit](../README.MD)
 ## Create Source in your Local File system
 In a directory inside a git / SVN repository, type the following:
 
@@ -11,7 +11,7 @@ cec install
 
 This will create a source tree, with a package.json, and do an `npm install` to fetch dependencies into the source tree.  Update `package.json` to include any further dependencies you may need for your resources.
 
-## Setup connections to your OCE instances
+## Setup connections to your OCM instances
 
 ```
 cec register-server DEV -e https://your-dev-instance.com -u user -p password

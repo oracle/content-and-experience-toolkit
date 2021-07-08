@@ -93,7 +93,6 @@ router.get('/*', (req, res) => {
 		var responseHeaders = {};
 		result['options'] = options;
 
-		// request(options).on('response', function (response) {
 		request2.get(options, function (error, response, body) {
 			// fix headers for cross-domain and capitalization issues
 			if (error) {

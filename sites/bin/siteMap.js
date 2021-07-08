@@ -529,7 +529,7 @@ var _getPageContentListQuery = function (pageData, locale) {
 	return pageContentListQueries;
 };
 
-var _getPageContent = function (server, request, channelToken, locale, q, pageId, detailPageId, queryType) {
+var _getPageContent = function (server, channelToken, locale, q, pageId, detailPageId, queryType) {
 	var pageContentPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/content/published/api/v1.1/items';
 		if (queryType === 'item') {
@@ -578,7 +578,7 @@ var _getPageContent = function (server, request, channelToken, locale, q, pageId
 
 };
 
-var _getPageContentPromise = function (server, request, channelToken, pageContentIds, pageContentListQueries, locale) {
+var _getPageContentPromise = function (server, channelToken, pageContentIds, pageContentListQueries, locale) {
 	var promises = [];
 	var limit = 30;
 	var num = 0;
@@ -602,7 +602,7 @@ var _getPageContentPromise = function (server, request, channelToken, pageConten
 					q = '(' + q + ')';
 				}
 
-				promises.push(_getPageContent(server, request, channelToken, locale, q, pageId, detailPageId, 'item'));
+				promises.push(_getPageContent(server, channelToken, locale, q, pageId, detailPageId, 'item'));
 
 				// another batch
 				q = '';
@@ -615,13 +615,13 @@ var _getPageContentPromise = function (server, request, channelToken, pageConten
 			} else {
 				q = '(' + q + ')';
 			}
-			promises.push(_getPageContent(server, request, channelToken, locale, q, pageId, detailPageId, 'item'));
+			promises.push(_getPageContent(server, channelToken, locale, q, pageId, detailPageId, 'item'));
 		}
 	}
 
 	// Content list queries
 	for (var i = 0; i < pageContentListQueries.length; i++) {
-		promises.push(_getPageContent(server, request, channelToken, locale,
+		promises.push(_getPageContent(server, channelToken, locale,
 			pageContentListQueries[i].queryString, pageContentListQueries[i].pageId, pageContentListQueries[i].detailPageId, 'list'));
 	}
 
@@ -1181,7 +1181,7 @@ var _prepareData = function (server, site, languages, done) {
 	return dataPromise;
 };
 
-var _getSiteDataWithLocale = function (server, request, site, locale, isMaster) {
+var _getSiteDataWithLocale = function (server, site, locale, isMaster) {
 	var sitePromise = new Promise(function (resolve, reject) {
 		var pages = [];
 		var items = [];
@@ -1229,7 +1229,7 @@ var _getSiteDataWithLocale = function (server, request, site, locale, isMaster) 
 						//
 						// Get content items on the pages
 						//
-						var pageContentPromise = _getPageContentPromise(server, request, _siteChannelToken, _pageContentIds, pageContentListQueries, locale);
+						var pageContentPromise = _getPageContentPromise(server, _siteChannelToken, _pageContentIds, pageContentListQueries, locale);
 						Promise.all(pageContentPromise).then(function (values) {
 							console.log(' - query content on the pages (' + locale + ')');
 
@@ -1275,7 +1275,7 @@ var _getSiteDataWithLocale = function (server, request, site, locale, isMaster) 
  * Main entry
  * 
  */
-var _createSiteMap = function (server, serverName, request, site, siteUrl, changefreq,
+var _createSiteMap = function (server, serverName, site, siteUrl, changefreq,
 	publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink, done) {
 
 	//
@@ -1294,10 +1294,10 @@ var _createSiteMap = function (server, serverName, request, site, siteUrl, chang
 
 			var isMaster = true;
 			var siteDataPromises = [];
-			siteDataPromises.push(_getSiteDataWithLocale(server, request, site, _SiteInfo.defaultLanguage, isMaster));
+			siteDataPromises.push(_getSiteDataWithLocale(server, site, _SiteInfo.defaultLanguage, isMaster));
 			for (var i = 0; i < _languages.length; i++) {
 				if (_languages[i] !== _SiteInfo.defaultLanguage) {
-					siteDataPromises.push(_getSiteDataWithLocale(server, request, site, _languages[i], false));
+					siteDataPromises.push(_getSiteDataWithLocale(server, site, _languages[i], false));
 				}
 			}
 
@@ -1556,9 +1556,7 @@ module.exports.createSiteMap = function (argv, done) {
 
 	var toppagepriority = argv.toppagepriority;
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -1566,7 +1564,7 @@ module.exports.createSiteMap = function (argv, done) {
 			return;
 		}
 
-		_createSiteMap(server, serverName, request, site, siteUrl, changefreq,
+		_createSiteMap(server, serverName, site, siteUrl, changefreq,
 			publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink, done);
 
 	}); // login

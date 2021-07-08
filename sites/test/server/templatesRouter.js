@@ -15,7 +15,8 @@ var express = require('express'),
 
 var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), ''),
 	defaultTestDir = cecDir + '/test',
-	defaultLibsDir = cecDir + '/src/libs';
+	defaultLibsDir = cecDir + '/src/libs',
+	compSiteDir = path.resolve(cecDir + '/test/sites/CompSite');
 var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
 
 var supportedLocales = ["af", "sq", "am", "ar", "ar-DZ", "ar-BH", "ar-EG", "ar-IQ", "ar-JO", "ar-KW", "ar-LB", "ar-LY", "ar-MA", "ar-OM", "ar-QA", "ar-SA", "ar-SY", "ar-TN", "ar-AE", "ar-YE", "hy", "as", "az", "az-AZ", "az-Cyrl-AZ", "az-Latn-AZ", "eu", "be", "bn", "bs", "bg", "my", "ca", "zh", "zh-CN", "zh-HK", "zh-MO", "zh-SG", "zh-TW", "hr", "cs", "da", "dv", "nl", "nl-BE", "nl-NL", "en", "en-CB", "en-AU", "en-BZ", "en-CA", "en-IN", "en-IE", "en-JM", "en-NZ", "en-PH", "en-ZA", "en-TT", "en-GB", "en-US", "et", "fo", "fi", "fr", "fr-BE", "fr-CA", "fr-FR", "fr-LU", "fr-CH", "gl", "ka", "de", "de-AT", "de-DE", "de-LI", "de-LU", "de-CH", "el", "gn", "gu", "he", "hi", "hu", "is", "id", "it", "it-IT", "it-CH", "ja", "kn", "ks", "kk", "km", "ko", "lo", "la", "lv", "lt", "mk", "ms", "ms-BN", "ms-MY", "ml", "mt", "mi", "mr", "mn", "ne", "zxx", "no", "no-NO", "nb", "nn", "or", "pa", "fa", "pl", "pt", "pt-BR", "pt-PT", "rm", "ro", "ro-MO", "ru", "ru-MO", "sa", "gd", "gd-IE", "sr", "sr-SP", "sr-RS", "sr-Cyrl-RS", "sr-Latn-RS", "sd", "si", "sk", "sl", "so", "es", "es-AR", "es-BO", "es-CL", "es-CO", "es-CR", "es-DO", "es-EC", "es-SV", "es-GT", "es-HN", "es-MX", "es-NI", "es-PA", "es-PY", "es-PE", "es-PR", "es-ES", "es-UY", "es-VE", "sw", "sv", "sv-FI", "sv-SE", "tg", "ta", "tt", "te", "th", "bo", "ts", "tn", "tr", "tk", "uk", "und", "ur", "uz", "uz-UZ", "uz-Cyrl-UZ", "uz-Latn-UZ", "vi", "cy", "xh", "yi", "zu"];
@@ -39,8 +40,9 @@ var _setupSourceDir = function () {
 //
 router.get('/*', (req, res) => {
 	let app = req.app,
-		request = app.locals.request,
 		contentType;
+
+	var request = require('./requestUtils.js').request;
 
 	_setupSourceDir();
 
@@ -211,7 +213,14 @@ router.get('/*', (req, res) => {
 			}
 		}
 	}
+
+	if (filePath.indexOf('controller.html') > 0 && !existsAndIsFile(filePath)) {
+		// use the default controller file
+		filePath = path.join(compSiteDir, 'controller.html');
+	}
+
 	console.log(' - filePath=' + filePath);
+
 	if (existsAndIsFile(filePath)) {
 		if (filePath.indexOf('controller.html') > 0) {
 			//
@@ -232,9 +241,12 @@ router.get('/*', (req, res) => {
 			}
 		} else if (filePath.indexOf('structure.json') > 0) {
 			var vbcsconn = '';
-			request('http://localhost:' + app.locals.port + '/getvbcsconnection', {
-				isJson: true
-			}, function (err, response, body) {
+
+			var options = {
+				method: 'GET',
+				url: 'http://localhost:' + app.locals.port + '/getvbcsconnection'
+			};
+			request.get(options, function (err, response, body) {
 				if (response && response.statusCode === 200) {
 					var data = JSON.parse(body);
 					vbcsconn = data ? data.VBCSConnection : '';

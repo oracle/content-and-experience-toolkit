@@ -15,6 +15,23 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.6.1
+
+**Added**
+
+- `cec create-digital-asset` - Creates new digital assets on an OCM server
+- `cec update-digital-asset` - Uploads a new version or updates attributes for a digital asset on an OCM server
+- `cec upload-compiled-content` - Uploads compiled content items to an OCM server
+
+**Updated**
+
+- `cec control-content` - Now supports a query parameter
+- `cec transfer-site-content` - No longer has a limit of 10k assets
+
+- Local server now supports `GET` on `/sites/management/api` and `/system/api/v1`
+- Starter-Blog-Post-Form in BlogTemplate supports create and edit referenced asset from the form
+
+
 # New in Release 21.5.1
 
 **Added**

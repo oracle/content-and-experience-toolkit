@@ -1,22 +1,22 @@
-# Content and Experience - Compilation Server Docker Image
+# Content Management - Compilation Server Docker Image
 
-The Compilation Server Docker Image provides a packaged build of the OCE Toolkit compilation server command: 
+The Compilation Server Docker Image provides a packaged build of the OCM Toolkit compilation server command: 
 ```
 cec compilation-server
 ```
-You can also run this command directly against your OCE Toolkit environment and you should continue to do so during the development of custom compilers. 
-The Docker image is simply a convenience container for hosting your local compilation server that can be registered with your OCE instance to allow for pre-compilation of sites during the site publish step. 
+You can also run this command directly against your OCM Toolkit environment and you should continue to do so during the development of custom compilers. 
+The Docker image is simply a convenience container for hosting your local compilation server that can be registered with your OCM instance to allow for pre-compilation of sites during the site publish step. 
 
 To learn about site pre-compilation, see the links below:
 
 [Site Pre-Compilation](../../doc/compiler.md) - Pre-Compile a site for faster rendition in the browser.
 
-[Configure Sites and Assets Settings](https://docs.oracle.com/en/cloud/paas/content-cloud/administer/configure-sites-and-assets-settings.html#GUID-15DDAEC8-4900-4CE6-B916-5BCD862340AE) - Register your compilation server with your OCE instance to pre-compile sites on publish.
+[Configure Sites and Assets Settings](https://docs.oracle.com/en/cloud/paas/content-cloud/administer/configure-sites-and-assets-settings.html#GUID-15DDAEC8-4900-4CE6-B916-5BCD862340AE) - Register your compilation server with your OCM instance to pre-compile sites on publish.
 
 ## Setup
 
 * Make sure `docker` is in your `PATH`.  
-* Download the OCE Toolkit - e.g. from GitHub - [link](https://github.com/oracle/content-and-experience-toolkit/archive/master.zip)
+* Download the OCM Toolkit - e.g. from GitHub - [link](https://github.com/oracle/content-and-experience-toolkit/archive/master.zip)
 
 ## Build 
 Go to the directory in the download containing the Dockerfile 
@@ -69,10 +69,10 @@ It will return the API versions supported by the compilation server:
 [ "v1" ]
 ```
 
-You should also confirm that the compilation server is available externally to your machine so that it can be registed with an Oracle Content and Experience instance. 
+You should also confirm that the compilation server is available externally to your machine so that it can be registed with an Oracle Content Management instance. 
 
 ## Register 
-To register your compilation server, you must have administration privilege on your OCE instance. 
+To register your compilation server, you must have administration privilege on your OCM instance. 
 * Go to: 
 	* http<span>://</span>{oce-server}/documents/administration/sites
 * Enter your compilation server "http<span>://</span>host:port" under:

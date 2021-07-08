@@ -219,7 +219,8 @@ var _findFolderItems = function (server, parentId, parentPath, _files) {
 						_files.push({
 							type: 'File',
 							id: items[i].id,
-							path: parentPath ? parentPath + '/' + items[i].name : items[i].name
+							path: parentPath ? parentPath + '/' + items[i].name : items[i].name,
+							size: items[i].size
 						});
 					} else {
 						_files.push({
@@ -410,7 +411,7 @@ var _getFolderMetadata = function (server, folderId) {
 	});
 };
 /**
- * Get a folder's metadata on OCE server
+ * Get a folder's metadata on OCM server
  * @param {object} args JavaScript object containing parameters. 
  * @param {object} args.server the server object
  * @param {string} args.folderId The DOCS GUID for the folder
@@ -1178,7 +1179,7 @@ module.exports.createItem = function (args) {
 };
 
 // Create digital item on server
-var _createDigitalItem = function (server, repositoryId, type, filename, contents) {
+var _createDigitalItem = function (server, repositoryId, type, filename, contents, fields, slug) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -1187,10 +1188,18 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 				var csrfToken = result && result.token;
 				var FormData = require('form-data');
 				var form = new FormData();
-				form.append('item', JSON.stringify({
+				var item = {
 					repositoryId: repositoryId,
 					type: type
-				}));
+				};
+				if (slug) {
+					item.slug = slug;
+				}
+				if (fields && Object.keys(fields).length > 0) {
+					item.fields = fields;
+				}
+
+				form.append('item', JSON.stringify(item));
 				form.append('file', contents);
 
 				var url = server.url + '/content/management/api/v1.1/items';
@@ -1224,8 +1233,15 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to create digital item for ' + filename + ' : ' + (response.statusMessage || response.statusCode));
-						console.log(data);
+						var msg = response.statusMessage || response.statusCode;
+						if (data && (data.detail || data.title)) {
+							msg = (data.detail || data.title);
+						}
+						console.log('Failed to create digital item for ' + filename + ' : ' + msg);
+						// console.log(data);
+						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
+							console.log(data['o:errorDetails']);
+						}
 						resolve({
 							err: 'err'
 						});
@@ -1244,7 +1260,90 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createDigitalItem = function (args) {
-	return _createDigitalItem(args.server, args.repositoryId, args.type, args.filename, args.contents);
+	return _createDigitalItem(args.server, args.repositoryId, args.type, args.filename, args.contents, args.fields, args.slug);
+};
+
+
+// Update digital item on server
+var _updateDigitalItem = function (server, item, contents) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+				var FormData = require('form-data');
+				var form = new FormData();
+
+				if (contents) {
+					form.append('item', JSON.stringify(item));
+					form.append('file', contents);
+				}
+
+				var url = server.url + '/content/management/api/v1.1/items/' + item.id;
+				var postData = {
+					method: 'PUT',
+					url: url,
+					headers: {
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					}
+				};
+				if (contents) {
+					postData.body = form;
+				} else {
+					postData.headers['Content-Type'] = 'application/json';
+					postData.body = JSON.stringify(item);
+				}
+				// console.log(postData);
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to update create digital item ' + item.id);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						var msg = response.statusMessage || response.statusCode;
+						if (data && (data.detail || data.title)) {
+							msg = (data.detail || data.title);
+						}
+						console.log('Failed to update digital item ' + item.id + ' : ' + msg);
+						// console.log(data);
+						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
+							console.log(data['o:errorDetails']);
+						}
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Update a digital item on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {string} args.server the server object
+ * @param {string} args.item the item object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.updateDigitalItem = function (args) {
+	return _updateDigitalItem(args.server, args.item, args.contents, args.fields);
 };
 
 // Create collection on server
@@ -1925,7 +2024,7 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 					}
 
 					if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
-						var statusId = response.headers && response.headers.location || '';
+						var statusId = response.location || '';
 						statusId = statusId.substring(statusId.lastIndexOf('/') + 1);
 						return resolve({
 							statusId: statusId,
@@ -2246,7 +2345,7 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 					}
 
 					if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
-						var statusId = response.headers && response.headers.location || '';
+						var statusId = response.location || '';
 						statusId = statusId.substring(statusId.lastIndexOf('/') + 1);
 
 						console.log(' - submit request');
@@ -2549,6 +2648,65 @@ var _updateLocalizationPolicy = function (server, id, name, data) {
  */
 module.exports.updateLocalizationPolicy = function (args) {
 	return _updateLocalizationPolicy(args.server, args.id, args.name, args.data);
+};
+
+// Delete localization policy on server
+var _deleteLocalizationPolicy = function (server, id) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+				var url = server.url + '/content/management/api/v1.1/localizationPolicies/' + id;
+				var postData = {
+					method: 'DELETE',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					}
+				};
+
+				var request = require('./requestUtils.js').request;
+				request.delete(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to delete localization policy ' + id);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						console.log('Failed to delete localization policy ' + id + ' : ' + (response.statusMessage || response.statusCode));
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Delete localization policy on server by channel id
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.id The id of the localization policy to delete
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteLocalizationPolicy = function (args) {
+	return _deleteLocalizationPolicy(args.server, args.id);
 };
 
 
@@ -4405,19 +4563,17 @@ var _createConnection = function (request, server) {
 
 		var url = server.url + '/osn/social/api/v1/connections';
 
-		var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
-			'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
-
 		var postData = {
 			method: 'POST',
 			url: url,
 			headers: {
-				Authorization: auth
+				Authorization: serverUtils.getRequestAuthorization(server)
 			},
 		};
+
 		// console.log(postData);
 
-		request(postData, function (error, response, body) {
+		request.post(postData, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: failed to create connection');
 				console.log(error);
@@ -4425,6 +4581,7 @@ var _createConnection = function (request, server) {
 					err: 'err'
 				});
 			}
+
 			var data;
 			try {
 				data = JSON.parse(body);
@@ -4433,7 +4590,12 @@ var _createConnection = function (request, server) {
 			}
 			// console.log(data);
 			if (response && response.statusCode === 200) {
-				resolve(data);
+				var apiRandomID = data && data.apiRandomID;
+				var cookies = response.headers.raw()['set-cookie'] || [];
+				resolve({
+					apiRandomID: apiRandomID,
+					cookies: cookies.length > 0 ? cookies.join(',') : ''
+				});
 			} else {
 				var msg = response.statusMessage || response.statusCode;
 				console.log('ERROR: failed to create connection' + ' : ' + msg);
@@ -4465,6 +4627,7 @@ var _getGroup = function (server, name) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
 		// console.log(options);
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -4504,9 +4667,9 @@ module.exports.getGroup = function (args) {
 	return _getGroup(args.server, args.name);
 };
 
-var _createGroup = function (request, server, name, type) {
+var _createGroup = function (server, name, type) {
 	return new Promise(function (resolve, reject) {
-
+		var request = require('./requestUtils.js').request;
 		_createConnection(request, server)
 			.then(function (result) {
 				if (result.err || !result.apiRandomID) {
@@ -4515,8 +4678,6 @@ var _createGroup = function (request, server, name, type) {
 					});
 				} else {
 					var url = server.url + '/osn/social/api/v1/groups';
-					var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
-						'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
 					var payload = {
 						name: name,
 						groupType: type
@@ -4525,14 +4686,17 @@ var _createGroup = function (request, server, name, type) {
 						method: 'POST',
 						url: url,
 						headers: {
-							Authorization: auth,
+							Authorization: serverUtils.getRequestAuthorization(server),
 							'X-Waggle-RandomID': result.apiRandomID
 						},
-						body: payload,
+						body: JSON.stringify(payload),
 						json: true
 					};
+					if (result.cookies) {
+						postData.headers.Cookie = result.cookies;
+					}
 					// console.log(postData);
-					request(postData, function (error, response, body) {
+					request.post(postData, function (error, response, body) {
 						if (error) {
 							console.log('ERROR: create group ' + name);
 							console.log(error);
@@ -4562,18 +4726,18 @@ var _createGroup = function (request, server, name, type) {
 	});
 };
 /**
- * Create an OCE group on server 
+ * Create an OCM group on server 
  * @param {object} args JavaScript object containing parameters. 
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createGroup = function (args) {
-	return _createGroup(args.request, args.server, args.name, args.type);
+	return _createGroup(args.server, args.name, args.type);
 };
 
-var _deleteGroup = function (request, server, id, name) {
+var _deleteGroup = function (server, id, name) {
 	return new Promise(function (resolve, reject) {
-
+		var request = require('./requestUtils.js').request;
 		_createConnection(request, server)
 			.then(function (result) {
 				if (result.err || !result.apiRandomID) {
@@ -4582,19 +4746,19 @@ var _deleteGroup = function (request, server, id, name) {
 					});
 				} else {
 					var url = server.url + '/osn/social/api/v1/groups/' + id;
-					var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
-						'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
 
 					var postData = {
 						method: 'DELETE',
 						url: url,
 						headers: {
-							Authorization: auth,
+							Authorization: serverUtils.getRequestAuthorization(server),
 							'X-Waggle-RandomID': result.apiRandomID
 						}
 					};
-
-					request(postData, function (error, response, body) {
+					if (result.cookies) {
+						postData.headers.Cookie = result.cookies;
+					}
+					request.delete(postData, function (error, response, body) {
 						if (error) {
 							console.log('ERROR: delete group ' + (name || id));
 							console.log(error);
@@ -4624,21 +4788,19 @@ var _deleteGroup = function (request, server, id, name) {
 	});
 };
 /**
- * Delete an OCE group on server 
+ * Delete an OCM group on server 
  * @param {object} args JavaScript object containing parameters. 
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.deleteGroup = function (args) {
-	return _deleteGroup(args.request, args.server, args.id, args.name);
+	return _deleteGroup(args.server, args.id, args.name);
 };
 
-var _addMemberToGroup = function (request, server, apiRandomID, id, name, memberId, memberName, role, isGroup) {
+var _addMemberToGroup = function (request, cookies, server, apiRandomID, id, name, memberId, memberName, role, isGroup) {
 	return new Promise(function (resolve, reject) {
 
 		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members';
-		var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
-			'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
 		var payload = {
 			member: memberName,
 			role: role,
@@ -4648,14 +4810,17 @@ var _addMemberToGroup = function (request, server, apiRandomID, id, name, member
 			method: 'POST',
 			url: url,
 			headers: {
-				Authorization: auth,
+				Authorization: serverUtils.getRequestAuthorization(server),
 				'X-Waggle-RandomID': apiRandomID
 			},
-			body: payload,
+			body: JSON.stringify(payload),
 			json: true
 		};
+		if (cookies) {
+			postData.headers.Cookie = cookies;
+		}
 		// console.log(JSON.stringify(postData, null, 4));
-		request(postData, function (error, response, body) {
+		request.post(postData, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: add member ' + (memberName || memberId) + ' to group ' + (name || id));
 				console.log(error);
@@ -4683,17 +4848,17 @@ var _addMemberToGroup = function (request, server, apiRandomID, id, name, member
 	});
 };
 /**
- * Add members to an OCE group on server 
+ * Add members to an OCM group on server 
  * @param {object} args JavaScript object containing parameters. 
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.addMembersToGroup = function (args) {
-	var request = args.request;
 	var server = args.server;
 	var id = args.id;
 	var name = args.name;
 	var members = args.members || [];
+	var request = require('./requestUtils.js').request;
 	return new Promise(function (resolve, reject) {
 		_createConnection(request, server)
 			.then(function (result) {
@@ -4703,9 +4868,10 @@ module.exports.addMembersToGroup = function (args) {
 					}]);
 				} else {
 					var apiRandomID = result.apiRandomID;
+					var cookies = result.cookies;
 					var memberPromises = [];
 					for (var i = 0; i < members.length; i++) {
-						memberPromises.push(_addMemberToGroup(request, server, apiRandomID, id, name, members[i].id,
+						memberPromises.push(_addMemberToGroup(request, cookies, server, apiRandomID, id, name, members[i].id,
 							members[i].name, members[i].role, members[i].isGroup));
 					}
 					Promise.all(memberPromises).then(function (results) {
@@ -4716,7 +4882,7 @@ module.exports.addMembersToGroup = function (args) {
 	});
 };
 
-var _removeMemberFromGroup = function (request, server, apiRandomID, id, name, memberId, memberName) {
+var _removeMemberFromGroup = function (request, cookies, server, apiRandomID, id, name, memberId, memberName) {
 	return new Promise(function (resolve, reject) {
 
 		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members/' + memberId;
@@ -4727,12 +4893,15 @@ var _removeMemberFromGroup = function (request, server, apiRandomID, id, name, m
 			method: 'DELETE',
 			url: url,
 			headers: {
-				Authorization: auth,
+				Authorization: serverUtils.getRequestAuthorization(server),
 				'X-Waggle-RandomID': apiRandomID
 			}
 		};
+		if (cookies) {
+			postData.headers.Cookie = cookies;
+		}
 		// console.log(postData);
-		request(postData, function (error, response, body) {
+		request.delete(postData, function (error, response, body) {
 			if (error) {
 				console.log('ERROR: remove member ' + (memberName || memberId) + ' from group ' + (name || id));
 				console.log(error);
@@ -4760,17 +4929,17 @@ var _removeMemberFromGroup = function (request, server, apiRandomID, id, name, m
 	});
 };
 /**
- * Remove members from an OCE group on server 
+ * Remove members from an OCM group on server 
  * @param {object} args JavaScript object containing parameters. 
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.removeMembersFromGroup = function (args) {
-	var request = args.request;
 	var server = args.server;
 	var id = args.id;
 	var name = args.name;
 	var members = args.members || [];
+	var request = require('./requestUtils.js').request;
 	return new Promise(function (resolve, reject) {
 		_createConnection(request, server)
 			.then(function (result) {
@@ -4780,9 +4949,10 @@ module.exports.removeMembersFromGroup = function (args) {
 					}]);
 				} else {
 					var apiRandomID = result.apiRandomID;
+					var cookies = result.cookies;
 					var memberPromises = [];
 					for (var i = 0; i < members.length; i++) {
-						memberPromises.push(_removeMemberFromGroup(request, server, apiRandomID, id, name,
+						memberPromises.push(_removeMemberFromGroup(request, cookies, server, apiRandomID, id, name,
 							members[i].id, members[i].name));
 					}
 					Promise.all(memberPromises).then(function (results) {
@@ -5188,7 +5358,7 @@ var _controlTaxonomy = function (server, id, name, action, isPublishable, channe
 					}
 					// console.log(data);
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
-						var statusUrl = response.headers && response.headers.location;
+						var statusUrl = response.location;
 						if (statusUrl) {
 							var jobId = statusUrl.substring(statusUrl.lastIndexOf('/') + 1);
 							console.log(' - submit request (job id: ' + jobId + ')');
@@ -5732,6 +5902,107 @@ module.exports.updateRenditionStatus = function (args) {
 	return _updateRenditionStatus(args.server, args.multipart, args.jobId, args.status, args.progress, args.compiledAt, args.filename, args.filePath);
 };
 
+
+var _importCompiledContent = function (server, filePath) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+				var url = server.url + '/content/management/api/v1.1/contentRenditionJobs';
+
+				var FormData = require('form-data');
+				var form = new FormData();
+				form.append('file', fs.createReadStream(filePath));
+
+				var options = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: form
+				};
+				// console.log(options);
+
+				var request = require('./requestUtils.js').request;
+				request.post(options, function (err, response, body) {
+					if (err) {
+						console.log('ERROR: Failed to import compiled content from ' + filePath);
+						console.log(err);
+						return resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					}
+
+					if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
+						var statusId = response.location || '';
+						statusId = statusId.substring(statusId.lastIndexOf('/') + 1);
+
+						console.log(' - submit request (job id: ' + statusId + ')');
+						var startTime = new Date();
+						var needNewLine = false;
+						var inter = setInterval(function () {
+							var jobPromise = _getItemOperationStatus(server, statusId);
+							jobPromise.then(function (data) {
+								// console.log(data);
+								if (!data || data.error || data.progress === 'failed') {
+									clearInterval(inter);
+									if (needNewLine) {
+										process.stdout.write(os.EOL);
+									}
+									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
+									console.log('ERROR: import compiled content failed: ' + msg);
+
+									return resolve({
+										err: 'err'
+									});
+								}
+								if (data.completed) {
+									clearInterval(inter);
+									process.stdout.write(' - import compiled content in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+									process.stdout.write(os.EOL);
+
+									return resolve({});
+								} else {
+									process.stdout.write(' - import compiled content in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+									readline.cursorTo(process.stdout, 0);
+									needNewLine = true;
+								}
+							});
+						}, 5000);
+					} else {
+						// console.log(data);
+						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
+						console.log('ERROR: failed to import compiled content : ' + msg);
+						return resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Import compiled content package to server
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.importCompiledContent = function (args) {
+	return _importCompiledContent(args.server, args.filePath);
+};
 
 var _publishLaterChannelItems = function (server, name, items, channelId, repositoryId, schedule) {
 

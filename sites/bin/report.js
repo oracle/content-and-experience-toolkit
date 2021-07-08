@@ -144,8 +144,6 @@ var _displayObject = function (format, obj) {
 
 var _createAssetReport = function (server, serverName, siteName, output, done) {
 
-	var request = serverUtils.getRequest();
-
 	var site, siteInfo;
 	var isEnterprise;
 	var templateName, template;
@@ -298,7 +296,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 
 	require('events').EventEmitter.prototype._maxListeners = 100;
 
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -611,8 +609,9 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 							var itemIds2 = [];
 							var typeNames2 = [];
 							var compNames2 = [];
+							var slots2 = pages[j].fileContent && pages[j].fileContent.slots;
 							var componentInstances2 = pages[j].fileContent && pages[j].fileContent.componentInstances;
-							var pageResult2 = _examPageSource(undefined, componentInstances2, links2, triggerActions2, fileIds2, itemIds2, typeNames2, compNames2);
+							var pageResult2 = _examPageSource(slots2, componentInstances2, links2, triggerActions2, fileIds2, itemIds2, typeNames2, compNames2);
 							var pageLinks2 = _processLinks(undefined, links2);
 							for (var k = 0; k < pageLinks2.length; k++) {
 								var value = pageLinks2[k].url;
@@ -1131,7 +1130,29 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 			if (slot.components && slot.components.length > 0) {
 				slotComponentIds = slotComponentIds.concat(slot.components);
 			}
+			// look for links used in the slot (e.g. background image)
+			var slotLinks = _getHrefLinks(JSON.stringify(slot));
+			var aTags = _getATagHrefs(JSON.stringify(slot));
+			for (var k = 0; k < aTags.length; k++) {
+				if (!slotLinks.includes(aTags[k])) {
+					slotLinks.push(aTags[k]);
+				}
+			}
+			var urlLinks = _getUrlLinks(JSON.stringify(slot));
+			for (var k = 0; k < urlLinks.length; k++) {
+				if (!slotLinks.includes(urlLinks[k])) {
+					slotLinks.push(urlLinks[k]);
+				}
+			}
+
+			for (var k = 0; k < slotLinks.length; k++) {
+				links.push({
+					url: slotLinks[k],
+					component: {}
+				});
+			}
 		});
+
 		checkOrphan = true;
 	}
 
@@ -1164,6 +1185,9 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 			}
 			if (comp.data.imageHref && !compLinks.includes(comp.data.imageHref)) {
 				compLinks.push(comp.data.imageHref);
+			}
+			if (comp.data.documentUrl && !compLinks.includes(comp.data.documentUrl)) {
+				compLinks.push(comp.data.documentUrl);
 			}
 			if (comp.id === 'scs-gallery' && comp.data.images) {
 				for (var k = 0; k < comp.data.images.length; k++) {
@@ -2252,8 +2276,6 @@ module.exports.createTemplateReport = function (argv, done) {
 
 	var includePageLinks = typeof argv.includepagelinks === 'string' && argv.includepagelinks.toLowerCase() === 'true';
 
-	var request = serverUtils.getRequest();
-
 	var structurePages;
 	var pages = [];
 	var fileIds = [];
@@ -2519,8 +2541,9 @@ module.exports.createTemplateReport = function (argv, done) {
 			var itemIds2 = [];
 			var typeNames2 = [];
 			var compNames2 = [];
+			var slots2 = page.fileContent && page.fileContent.slots;
 			var componentInstances2 = page.fileContent && page.fileContent.componentInstances;
-			var pageResult2 = _examPageSource(undefined, componentInstances2, links2, triggerActions2, fileIds2, itemIds2, typeNames2, compNames2);
+			var pageResult2 = _examPageSource(slots2, componentInstances2, links2, triggerActions2, fileIds2, itemIds2, typeNames2, compNames2);
 			var pageLinks2 = _processLinks(undefined, links2);
 			for (var i = 0; i < pageLinks2.length; i++) {
 				var value = pageLinks2[i].url;
@@ -2963,8 +2986,7 @@ module.exports.createAssetUsageReport = function (argv, done) {
 	var sites = [];
 	var sitesInfo = [];
 
-	var request = serverUtils.getRequest();
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');

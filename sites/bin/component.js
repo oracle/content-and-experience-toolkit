@@ -476,8 +476,7 @@ module.exports.deployComponent = function (argv, done) {
 			return;
 		}
 
-		var request = serverUtils.getRequest();
-		var loginPromise = serverUtils.loginToServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
@@ -713,9 +712,8 @@ module.exports.downloadComponent = function (argv, done) {
 };
 
 var _downloadComponents = function (serverName, server, componentNames, done) {
-	var request = serverUtils.getRequest();
 
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -897,9 +895,7 @@ module.exports.controlComponent = function (argv, done) {
 	var components = argv.components.split(',');
 	var action = argv.action;
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -1009,9 +1005,7 @@ module.exports.shareComponent = function (argv, done) {
 		var groups = [];
 		var osnConnection;
 
-		var request = serverUtils.getRequest();
-
-		var loginPromise = serverUtils.loginToServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
@@ -1207,9 +1201,7 @@ module.exports.unshareComponent = function (argv, done) {
 		var users = [];
 		var groups = [];
 
-		var request = serverUtils.getRequest();
-
-		var loginPromise = serverUtils.loginToServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');

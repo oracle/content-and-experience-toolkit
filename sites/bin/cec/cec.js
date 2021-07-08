@@ -34,7 +34,28 @@ var _getProjectRoot = function () {
 		var packageFile = path.join(projectRoot, 'package.json');
 		if (fs.existsSync(packageFile)) {
 			var packageJSON = JSON.parse(fs.readFileSync(packageFile));
-			if (packageJSON && (packageJSON.name === 'cec-sites-toolkit' || packageJSON.name === 'cec-sites-toolkit-source')) {
+			if (packageJSON && packageJSON.name === 'cec-sites-toolkit-source') {
+				isCEC = true;
+				break;
+			}
+		}
+		if (projectRoot.indexOf(path.sep) < 0) {
+			break;
+		}
+		// go 1 level up
+		projectRoot = projectRoot.substring(0, projectRoot.lastIndexOf(path.sep));
+	}
+	return (isCEC ? projectRoot : '');
+};
+
+var _getToolkitSource = function () {
+	var projectRoot = cwd;
+	var isCEC = false;
+	while (true) {
+		var packageFile = path.join(projectRoot, 'package.json');
+		if (fs.existsSync(packageFile)) {
+			var packageJSON = JSON.parse(fs.readFileSync(packageFile));
+			if (packageJSON && packageJSON.name === 'cec-sites-toolkit') {
 				isCEC = true;
 				break;
 			}
@@ -49,17 +70,22 @@ var _getProjectRoot = function () {
 };
 
 var _verifyCECProject = function () {
+	var toolkitSource = _getToolkitSource();
+	if (toolkitSource) {
+		console.log('Please install Content Management project in a different folder and run this command from there.');
+		return false;
+	}
 	var projectRoot = _getProjectRoot();
 	// console.log('projectRoot: ' + projectRoot);
 	if (projectRoot) {
 		if (projectRoot !== cwd) {
-			console.log(`${cwd} is not a Content and Experience project. Run this command from ${projectRoot}`);
+			console.log(`${cwd} is not a Content Management project. Run this command from ${projectRoot}.`);
 			return false;
 		} else {
 			return true;
 		}
 	} else {
-		console.log(`${cwd} is not a Content and Experience project. Run command cec install to set up first.`);
+		console.log(`${cwd} is not a Content Management project. Run command cec install to set up first.`);
 		return false;
 	}
 };
@@ -302,7 +328,7 @@ const createContentLayout = {
 	usage: {
 		'short': 'Creates a content layout based on a content type.',
 		'long': (function () {
-			let desc = 'Creates a content layout based on a content type from a local template or from OCE server. By default, an "overview" content layout is created. Optionally specify -s <style> to create in a different style. ' +
+			let desc = 'Creates a content layout based on a content type from a local template or from OCM server. By default, an "overview" content layout is created. Optionally specify -s <style> to create in a different style. ' +
 				os.EOL + os.EOL + 'Valid values for <style> are: ' + os.EOL +
 				'  detail' + os.EOL +
 				'  overview' + os.EOL;
@@ -352,9 +378,9 @@ const downloadComponent = {
 	alias: 'dlcp',
 	name: 'download-component',
 	usage: {
-		'short': 'Downloads the components <names> from the OCE server.',
+		'short': 'Downloads the components <names> from the OCM server.',
 		'long': (function () {
-			let desc = 'Downloads the components <names> from the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Downloads the components <names> from the Content Management server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -370,9 +396,9 @@ const deployComponent = {
 	alias: 'dc',
 	name: 'deploy-component',
 	usage: {
-		'short': 'Deploys the components <names> to the OCE server.',
+		'short': 'Deploys the components <names> to the OCM server.',
 		'long': (function () {
-			let desc = 'Deploys the components <names> to the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
+			let desc = 'Deploys the components <names> to the Content Management server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
 			return desc;
 		})()
 	},
@@ -389,9 +415,9 @@ const uploadComponent = {
 	alias: 'ulcp',
 	name: 'upload-component',
 	usage: {
-		'short': 'Uploads the components <names> to the OCE server.',
+		'short': 'Uploads the components <names> to the OCM server.',
 		'long': (function () {
-			let desc = 'Uploads the components <names> to the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
+			let desc = 'Uploads the components <names> to the Content Management server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to publish the component after deploy. Optionally specify -f <folder> to set the folder to upload the component zip file.';
 			return desc;
 		})()
 	},
@@ -409,9 +435,9 @@ const controlComponent = {
 	alias: 'ctcp',
 	name: 'control-component',
 	usage: {
-		'short': 'Performs action <action> on components on OCE server.',
+		'short': 'Performs action <action> on components on OCM server.',
 		'long': (function () {
-			let desc = 'Perform <action> on components on OCE server. Specify the components with -c <components>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on components on OCM server. Specify the components with -c <components>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
 			return getComponentActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -427,9 +453,9 @@ const shareComponent = {
 	alias: 'sc',
 	name: 'share-component',
 	usage: {
-		'short': 'Shares component with users and groups on OCE server.',
+		'short': 'Shares component with users and groups on OCM server.',
 		'long': (function () {
-			let desc = 'Shares component with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares component with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -446,9 +472,9 @@ const unshareComponent = {
 	alias: 'usc',
 	name: 'unshare-component',
 	usage: {
-		'short': 'Deletes user or group access to a component on OCE server.',
+		'short': 'Deletes user or group access to a component on OCM server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a component on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes user or group access to a component on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -469,17 +495,17 @@ const createTemplate = {
 		'long': (function () {
 			let desc = 'Creates the template <name>. By default, it creates a StarterTemplate. Optionally specify -f <source> to create from different source.\n\nValid values for <source> are: \n';
 			desc = getTemplateSources().reduce((acc, item) => acc + '  ' + item + '\n', desc);
-			desc = desc + os.EOL + ' To create template based on a site on OCE server, specify -s <site> and specify the server with -r <server> or use the one specified in cec.properties file.';
+			desc = desc + os.EOL + ' To create template based on a site on OCM server, specify -s <site> and specify the server with -r <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
 	example: [
 		['cec create-template Temp1'],
 		['cec create-template Temp2 -f CafeSupremoLite'],
-		['cec create-template Temp1 -s Site1', 'Create template Temp1 based on site Site1 on OCE server'],
-		['cec create-template Temp1 -s Site1 -x', 'Create template Temp1 based on site Site1 on OCE server and exclude the content in the site'],
+		['cec create-template Temp1 -s Site1', 'Create template Temp1 based on site Site1 on OCM server'],
+		['cec create-template Temp1 -s Site1 -x', 'Create template Temp1 based on site Site1 on OCM server and exclude the content in the site'],
 		['cec create-template Temp1 -s Site1 -r UAT', 'Create template Temp1 based on site Site1 on the registered server UAT'],
-		['cec create-template EnterpriseTemp1 -s StandardSite1 -e', 'Create enterprise template EnterpriseTemp1 based on standard site StandardSite1 on OCE server'],
+		['cec create-template EnterpriseTemp1 -s StandardSite1 -e', 'Create enterprise template EnterpriseTemp1 based on standard site StandardSite1 on OCM server'],
 	]
 };
 
@@ -531,9 +557,9 @@ const deployTemplate = {
 	alias: 'dt',
 	name: 'deploy-template',
 	usage: {
-		'short': 'Deploys the template <name> to the OCE server.',
+		'short': 'Deploys the template <name> to the OCM server.',
 		'long': (function () {
-			let desc = 'Deploys the template <name> to the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
+			let desc = 'Deploys the template <name> to the Content Management server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
 			return desc;
 		})()
 	},
@@ -551,9 +577,9 @@ const uploadTemplate = {
 	alias: 'ult',
 	name: 'upload-template',
 	usage: {
-		'short': 'Uploads the template <name> to the OCE server.',
+		'short': 'Uploads the template <name> to the OCM server.',
 		'long': (function () {
-			let desc = 'Uploads the template <name> to the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
+			let desc = 'Uploads the template <name> to the Content Management server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -f <folder> to set the folder to upload the template zip file.';
 			desc = desc + ' Optionally specify -p to publish theme and components after import.';
 			return desc;
 		})()
@@ -624,9 +650,9 @@ const createTemplateFromSite = {
 	alias: 'ctfs',
 	name: 'create-template-from-site',
 	usage: {
-		'short': 'Creates the template <name> from site <site> on the OCE server.',
+		'short': 'Creates the template <name> from site <site> on the OCM server.',
 		'long': (function () {
-			let desc = 'Creates the template <name> from site <site> on the Content and Experience server. Specify the server with -r <server> or use the one specified in cec.properties file. Optionally specify <includeunpublishedassets> to include unpublished content items and digital assets in your template.';
+			let desc = 'Creates the template <name> from site <site> on the Content Management server. Specify the server with -r <server> or use the one specified in cec.properties file. Optionally specify <includeunpublishedassets> to include unpublished content items and digital assets in your template.';
 			return desc;
 		})()
 	},
@@ -643,9 +669,9 @@ const downloadTemplate = {
 	alias: 'dlt',
 	name: 'download-template',
 	usage: {
-		'short': 'Downloads the template <name> from the OCE server.',
+		'short': 'Downloads the template <name> from the OCM server.',
 		'long': (function () {
-			let desc = 'Downloads the template <name> from the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Downloads the template <name> from the Content Management server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -712,14 +738,31 @@ const compileContent = {
 	]
 };
 
+const uploadCompiledContent = {
+	command: 'upload-compiled-content <path>',
+	alias: 'ulcc',
+	name: 'upload-compiled-content',
+	usage: {
+		'short': 'Uploads the compiled content to OCM server.',
+		'long': (function () {
+			let desc = 'Uploads the compiled content to OCM server. Specify the site <site> on the server. Specify the server with -r <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec upload-compiled-content dist/items.zip'],
+		['cec upload-compiled-content dist/items.zip -s UAT']
+	]
+};
+
 const deleteTemplate = {
 	command: 'delete-template <name>',
 	alias: '',
 	name: 'delete-template',
 	usage: {
-		'short': 'Deletes the template <name> on the OCE server.',
+		'short': 'Deletes the template <name> on the OCM server.',
 		'long': (function () {
-			let desc = 'Deletes the template <name> on the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to permanently delete the template.';
+			let desc = 'Deletes the template <name> on the Content Management server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to permanently delete the template.';
 			return desc;
 		})()
 	},
@@ -735,9 +778,9 @@ const shareTemplate = {
 	alias: 'stm',
 	name: 'share-template',
 	usage: {
-		'short': 'Shares template with users and groups on OCE server.',
+		'short': 'Shares template with users and groups on OCM server.',
 		'long': (function () {
-			let desc = 'Shares template with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares template with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -754,9 +797,9 @@ const unshareTemplate = {
 	alias: 'ustm',
 	name: 'unshare-template',
 	usage: {
-		'short': 'Deletes user or group access to a template on OCE server.',
+		'short': 'Deletes user or group access to a template on OCM server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a template on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes user or group access to a template on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -890,9 +933,9 @@ const downloadContent = {
 	alias: 'dlc',
 	name: 'download-content',
 	usage: {
-		'short': 'Downloads content from OCE server.',
+		'short': 'Downloads content from OCM server.',
 		'long': (function () {
-			let desc = 'Downloads content from OCE server. By default all assets are downloaded, optionally specify -p to download only published assets. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Downloads content from OCM server. By default all assets are downloaded, optionally specify -p to download only published assets. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -914,9 +957,9 @@ const uploadContent = {
 	alias: 'ulc',
 	name: 'upload-content',
 	usage: {
-		'short': 'Uploads local content to a repository on OCE server.',
+		'short': 'Uploads local content to a repository on OCM server.',
 		'long': (function () {
-			let desc = 'Uploads local content from channel <name>, template <name> or local file <name> to repository <repository> on OCE server. Specify -c <channel> to add the template content to channel. Optionally specify -l <collection> to add the content to collection. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Uploads local content from channel <name>, template <name> or local file <name> to repository <repository> on OCM server. Specify -c <channel> to add the template content to channel. Optionally specify -l <collection> to add the content to collection. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -936,9 +979,9 @@ const controlContent = {
 	alias: 'ctct',
 	name: 'control-content',
 	usage: {
-		'short': 'Performs action <action> on channel items on OCE server.',
+		'short': 'Performs action <action> on channel items on OCM server.',
 		'long': (function () {
-			let desc = 'Performs action <action> on channel items on OCE server. Specify the channel with -c <channel>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Performs action <action> on channel items on OCM server. Specify the channel with -c <channel>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
 			return getContentActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -948,6 +991,8 @@ const controlContent = {
 		['cec control-content publish -c Channel1 -s UAT', 'Publish all items in channel Channel1 on the registered server UAT'],
 		['cec control-content unpublish -c Channel1 -s UAT', 'Unpublish all items in channel Channel1 on the registered server UAT'],
 		['cec control-content add -c Channel1 -r Repo1 -s UAT', 'Add all items in repository Repo1 to channel Channel1 on the registered server UAT'],
+		['cec control-content add -c Channel1 -r Repo1 -q \'type eq "BlogType"\' -s UAT', 'Add all items in repository Repo1, matching the query to channel Channel1 on the registered server UAT'],
+		['cec control-content add -c Channel1 -r Repo1 -q \'channels co "CHANNELF43508F995FE582EC219EFEF03076128932B9A3F1DF6"\' -s UAT', 'Add all items in repository Repo1 and Channel2 to channel Channel1 on the registered server UAT'],
 		['cec control-content add -c Channel1 -r Repo1 -a GUID1,GUID2 -s UAT', 'Add asset GUID1 and GUID2 in repository Repo1 to channel Channel1'],
 		['cec control-content remove -c Channel1 -s UAT', 'Remove all items in channel Channel1 on the registered server UAT'],
 		['cec control-content add -l Collection1 -r Repo1 -s UAT', 'Add all items in repository Repo1 to collection Collection1 on the registered server UAT'],
@@ -961,9 +1006,9 @@ const transferContent = {
 	alias: 'tc',
 	name: 'transfer-content',
 	usage: {
-		'short': 'Creates scripts to transfer content from one OCE server to another.',
+		'short': 'Creates scripts to transfer content from one OCM server to another.',
 		'long': (function () {
-			let desc = 'Creates scripts to transfer content from one OCE server to another. This command is used to transfer large number of content items and the items are transferred in batches. By default the scripts will not be executed by this command. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>. ';
+			let desc = 'Creates scripts to transfer content from one OCM server to another. This command is used to transfer large number of content items and the items are transferred in batches. By default the scripts will not be executed by this command. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>. ';
 			desc = desc + 'Optionally specify -n for the number of items in each batch, defaults to 200. ';
 			return desc;
 		})()
@@ -977,14 +1022,65 @@ const transferContent = {
 	]
 };
 
+const createDigitalAsset = {
+	command: 'create-digital-asset',
+	alias: 'cda',
+	name: 'create-digital-asset',
+	usage: {
+		'short': 'Creates digital asset',
+		'long': (function () {
+			let desc = 'Creates digital asset on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			desc = desc + 'Specify the asset attributes in JSON file, e.g.' + os.EOL + os.EOL;
+			var example = {
+				imagetitle: 'Logo',
+				copyright: 'Copyright © 1995, 2021, Company and/or its affiliates'
+			};
+			desc = desc + JSON.stringify(example, null, 4);
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-digital-asset -f ~/Documents/logo.jpg -t Image -r Repo1', 'Create asset of type Image'],
+		['cec create-digital-asset -f ~/Documents/logo.jpg -t Image -r Repo1 -l company-logo', 'Create asset of type Image and set slug to company-logo'],
+		['cec create-digital-asset -f "~/Documents/demo.mp4,~/Documents/demo2.mp4" -t Video -r Repo1', 'Create two assets of type Video'],
+		['cec create-digital-asset -f ~/Documents/logo.jpg -t MyImage -r Repo1 -a ~/Documents/logoattrs.json', 'Create asset of type MyImage with attributes'],
+		['cec create-digital-asset -f ~/Documents/logo.jpg -t MyImage -r Repo1 -l company-logo -a ~/Documents/logoattrs.json', 'Create asset of type MyImage with slug and attributes'],
+		['cec create-digital-asset -f ~/Documents/images -t Image -r Repo1', 'Create assets for all images files from folder ~/Documents/images']
+	]
+};
+
+const updateDigitalAsset = {
+	command: 'update-digital-asset <id>',
+	alias: 'uda',
+	name: 'update-digital-asset',
+	usage: {
+		'short': 'Updates digital asset',
+		'long': (function () {
+			let desc = 'Uploads a new version or updates attributes for a digital asset on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			desc = desc + 'Specify the asset attributes in JSON file, e.g.' + os.EOL + os.EOL;
+			var example = {
+				imagetitle: 'Logo2',
+				copyright: 'Copyright © 1995, 2021, Company and/or its affiliates'
+			};
+			desc = desc + JSON.stringify(example, null, 4);
+			return desc;
+		})()
+	},
+	example: [
+		['cec update-digital-asset CORED129ACD36FCD42B1B38D22EEA5065F38 -l company-logo', 'Update asset slug'],
+		['cec update-digital-asset CORED129ACD36FCD42B1B38D22EEA5065F38 -f ~/Documents/logo2.jpg', 'Upload a new version'],
+		['cec update-digital-asset CORED129ACD36FCD42B1B38D22EEA5065F38 -f ~/Documents/logo2.jpg -l company-logo -a ~/Documents/logoattrs2.json', 'Upload a new version and update slug and attributes']
+	]
+};
+
 const copyAssets = {
 	command: 'copy-assets <repository>',
 	alias: 'ca',
 	name: 'copy-assets',
 	usage: {
-		'short': 'Copies assets to another repository on OCE server.',
+		'short': 'Copies assets to another repository on OCM server.',
 		'long': (function () {
-			let desc = 'Copies assets to another repository on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Copies assets to another repository on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1004,9 +1100,9 @@ const downloadTaxonomy = {
 	alias: 'dltx',
 	name: 'download-taxonomy',
 	usage: {
-		'short': 'Downloads a taxonomy from OCE server.',
+		'short': 'Downloads a taxonomy from OCM server.',
 		'long': (function () {
-			let desc = 'Downloads a taxonomy from OCE server. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Downloads a taxonomy from OCM server. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Specify the status of the taxonomy with -t and the valid values are\n\n';
 			return getTaxonomyStatus().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1023,9 +1119,9 @@ const uploadTaxonomy = {
 	alias: 'ultx',
 	name: 'upload-taxonomy',
 	usage: {
-		'short': 'Uploads a taxonomy to OCE server.',
+		'short': 'Uploads a taxonomy to OCM server.',
 		'long': (function () {
-			let desc = 'Uploads a taxonomy to OCE server. Specify -c <createnew> to create new taxonomy when one already exists. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Uploads a taxonomy to OCM server. Specify -c <createnew> to create new taxonomy when one already exists. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1043,9 +1139,9 @@ const controlTaxonomy = {
 	alias: 'cttx',
 	name: 'control-taxonomy',
 	usage: {
-		'short': 'Performs action on taxonomy on OCE server.',
+		'short': 'Performs action on taxonomy on OCM server.',
 		'long': (function () {
-			let desc = 'Perform <action> on taxonomy on OCE server. Specify the taxonomy with -n <name> or -i <id>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on taxonomy on OCM server. Specify the taxonomy with -n <name> or -i <id>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
 			return getTaxonomyActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1096,9 +1192,9 @@ const controlTheme = {
 	alias: 'ctt',
 	name: 'control-theme',
 	usage: {
-		'short': 'Performs action <action> on theme on OCE server.',
+		'short': 'Performs action <action> on theme on OCM server.',
 		'long': (function () {
-			let desc = 'Perform <action> on theme on OCE server. Specify the theme with -t <theme>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on theme on OCM server. Specify the theme with -t <theme>. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
 			return getThemeActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1113,9 +1209,9 @@ const shareTheme = {
 	alias: 'sth',
 	name: 'share-theme',
 	usage: {
-		'short': 'Shares theme with users and groups on OCE server.',
+		'short': 'Shares theme with users and groups on OCM server.',
 		'long': (function () {
-			let desc = 'Shares theme with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares theme with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1132,9 +1228,9 @@ const unshareTheme = {
 	alias: 'usth',
 	name: 'unshare-theme',
 	usage: {
-		'short': 'Deletes user or group access to a theme on OCE server.',
+		'short': 'Deletes user or group access to a theme on OCM server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a theme on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes user or group access to a theme on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1152,7 +1248,7 @@ const listResources = {
 	usage: {
 		'short': 'Lists local or server resources.',
 		'long': (function () {
-			let desc = 'Lists local or server resources such components and templates. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -t <types> to list specific types of resources on the OCE server. ' +
+			let desc = 'Lists local or server resources such components and templates. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -t <types> to list specific types of resources on the OCM server. ' +
 				os.EOL + os.EOL + 'Valid values for <types> on the server are: ' + os.EOL + os.EOL;
 			return getResourceTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1172,7 +1268,7 @@ const createSite = {
 	usage: {
 		'short': 'Creates Enterprise Site <name>.',
 		'long': (function () {
-			let desc = 'Create Enterprise Site on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Create Enterprise Site on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1192,7 +1288,7 @@ const copySite = {
 	usage: {
 		'short': 'Copies Enterprise Site <name>.',
 		'long': (function () {
-			let desc = 'Copy Enterprise Site on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Copy Enterprise Site on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			desc = desc + 'If the site uses more than one repository, only the assets from the default repository will be copied.';
 			return desc;
 		})()
@@ -1209,9 +1305,9 @@ const controlSite = {
 	alias: 'cts',
 	name: 'control-site',
 	usage: {
-		'short': 'Performs action <action> on site on OCE server.',
+		'short': 'Performs action <action> on site on OCM server.',
 		'long': (function () {
-			let desc = 'Perform <action> on site on OCE server. Specify the site with -s <site>. Specify the server with -r <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			let desc = 'Perform <action> on site on OCM server. Specify the site with -s <site>. Specify the server with -r <server> or use the one specified in cec.properties file. The valid actions are\n\n';
 			return getSiteActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -1233,9 +1329,9 @@ const transferSite = {
 	alias: 'ts',
 	name: 'transfer-site',
 	usage: {
-		'short': 'Transfers a site from one OCE server to another.',
+		'short': 'Transfers a site from one OCM server to another.',
 		'long': (function () {
-			let desc = 'Transfers a site from one OCE server to another. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>.';
+			let desc = 'Transfers a site from one OCM server to another. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>.';
 			desc = desc + ' If the site contains assets from other repositories, optionally provide the repository mapping otherwise those assets will not be transferred.';
 			return desc;
 		})()
@@ -1258,9 +1354,9 @@ const transferSiteContent = {
 	alias: 'tsc',
 	name: 'transfer-site-content',
 	usage: {
-		'short': 'Creates scripts to transfer site content from one OCE server to another.',
+		'short': 'Creates scripts to transfer site content from one OCM server to another.',
 		'long': (function () {
-			let desc = 'Creates scripts to transfer Enterprise Site content from one OCE server to another. This command is used to transfer large number of content items and the items are transferred in batches. By default the scripts will not be executed by this command. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>. ';
+			let desc = 'Creates scripts to transfer Enterprise Site content from one OCM server to another. This command is used to transfer large number of content items and the items are transferred in batches. By default the scripts will not be executed by this command. By default all assets are transferred, optionally specify -p to transfer only published assets. Specify the source server with -s <server> and the destination server with -d <destination>. ';
 			desc = desc + 'Optionally specify -n for the number of items in each batch, defaults to 500.';
 			desc = desc + ' If the site contains assets from other repositories, optionally provide the repository mapping otherwise those assets will not be transferred.';
 			return desc;
@@ -1281,9 +1377,9 @@ const shareSite = {
 	alias: 'ss',
 	name: 'share-site',
 	usage: {
-		'short': 'Shares site with users and groups on OCE server.',
+		'short': 'Shares site with users and groups on OCM server.',
 		'long': (function () {
-			let desc = 'Shares site with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares site with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1300,9 +1396,9 @@ const unshareSite = {
 	alias: 'uss',
 	name: 'unshare-site',
 	usage: {
-		'short': 'Deletes user or group access to a site on OCE server.',
+		'short': 'Deletes user or group access to a site on OCM server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a site on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes user or group access to a site on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1318,9 +1414,9 @@ const getSiteSecurity = {
 	alias: 'gss',
 	name: 'get-site-security',
 	usage: {
-		'short': 'Gets site security on OCE server.',
+		'short': 'Gets site security on OCM server.',
 		'long': (function () {
-			let desc = 'Gets site security on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Gets site security on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1335,7 +1431,7 @@ const setSiteSecurity = {
 	alias: 'sss',
 	name: 'set-site-security',
 	usage: {
-		'short': 'Sets site security on OCE server.',
+		'short': 'Sets site security on OCM server.',
 		'long': (function () {
 			let desc = 'Makes the site publicly available to anyone, restrict the site to registered users, or restrict the site to specific users.  ' +
 				'Specify the server with -r <server> or use the one specified in cec.properties file. ' +
@@ -1361,7 +1457,7 @@ const validateSite = {
 	usage: {
 		'short': 'Validates site <name>.',
 		'long': (function () {
-			let desc = 'Validates site <name> on OCE server before publish or view publishing failure. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Validates site <name> on OCM server before publish or view publishing failure. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1378,7 +1474,7 @@ const updateSite = {
 	usage: {
 		'short': 'Update Enterprise Site <name>.',
 		'long': (function () {
-			let desc = 'Update Enterprise Site on OCE server using the content from the template. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Update Enterprise Site on OCM server using the content from the template. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1394,7 +1490,7 @@ const indexSite = {
 	alias: 'is',
 	name: 'index-site',
 	usage: {
-		'short': 'Index the page content of site <site> on OCE server.',
+		'short': 'Index the page content of site <site> on OCM server.',
 		'long': (function () {
 			let desc = 'Creates content item for each page with all text on the page. If the page index content item already exists for a page, updated it with latest text on the page. Specify -c <contenttype> to set the page index content type. Optionally specify -p to publish the page index items after creation or update. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
@@ -1412,10 +1508,10 @@ const createSiteMap = {
 	alias: 'csm',
 	name: 'create-site-map',
 	usage: {
-		'short': 'Creates a site map for site <site> on OCE server.',
+		'short': 'Creates a site map for site <site> on OCM server.',
 		'long': (function () {
-			let desc = 'Creates a site map for site on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'Optionally specify -p to upload the site map to OCE server after creation. ' +
+			let desc = 'Creates a site map for site on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -p to upload the site map to OCM server after creation. ' +
 				'Optionally specify -c <changefreq> to define how frequently the page is likely to change. ' +
 				'Optionally specify -t <toppagepriority> as the priority for the top level pages. ' +
 				'Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
@@ -1438,9 +1534,9 @@ const createRSSFeed = {
 	alias: 'crf',
 	name: 'create-rss-feed',
 	usage: {
-		'short': 'Creates RSS feed for site <site> on OCE server.',
+		'short': 'Creates RSS feed for site <site> on OCM server.',
 		'long': (function () {
-			let desc = 'Creates RSS feed for site <site> on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -x <template> to specify the RSS template. Optionally specify -p to upload the RSS feed to OCE server after creation.';
+			let desc = 'Creates RSS feed for site <site> on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -x <template> to specify the RSS template. Optionally specify -p to upload the RSS feed to OCM server after creation.';
 			return desc;
 		})()
 	},
@@ -1456,9 +1552,9 @@ const createAssetReport = {
 	alias: 'car',
 	name: 'create-asset-report',
 	usage: {
-		'short': 'Generates an asset usage report for site <site> on OCE server.',
+		'short': 'Generates an asset usage report for site <site> on OCM server.',
 		'long': (function () {
-			let desc = 'Generates an asset usage report for site <site> on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Generates an asset usage report for site <site> on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -o to save the report to a json file.';
 			return desc;
 		})()
@@ -1477,9 +1573,9 @@ const uploadStaticSite = {
 	alias: 'ulss',
 	name: 'upload-static-site-files',
 	usage: {
-		'short': 'Uploads files to render statically from a site on OCE server.',
+		'short': 'Uploads files to render statically from a site on OCM server.',
 		'long': (function () {
-			let desc = 'Uploads files to render statically from a site on OCE server. Specify the site <site> on the server. Specify the server with -r <server> or use the one specified in cec.properties file. ';
+			let desc = 'Uploads files to render statically from a site on OCM server. Specify the site <site> on the server. Specify the server with -r <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1494,9 +1590,9 @@ const downloadStaticSite = {
 	alias: 'dlss',
 	name: 'download-static-site-files',
 	usage: {
-		'short': 'Downloads the static files from a site on OCE server.',
+		'short': 'Downloads the static files from a site on OCM server.',
 		'long': (function () {
-			let desc = 'Downloads the static files from a site on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Downloads the static files from a site on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			desc = desc + 'Optionally specify -f <folder> to save the files on the local system.';
 			return desc;
 		})()
@@ -1513,9 +1609,9 @@ const deleteStaticSite = {
 	alias: '',
 	name: 'delete-static-site-files',
 	usage: {
-		'short': 'Deletes the static files from a site on OCE server.',
+		'short': 'Deletes the static files from a site on OCM server.',
 		'long': (function () {
-			let desc = 'Deletes the static files from a site on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes the static files from a site on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1530,9 +1626,9 @@ const refreshPrerenderCache = {
 	alias: 'rpc',
 	name: 'refresh-prerender-cache',
 	usage: {
-		'short': 'Refreshes pre-render cache for a site on OCE server.',
+		'short': 'Refreshes pre-render cache for a site on OCM server.',
 		'long': (function () {
-			let desc = 'Refreshes pre-render cache for a site on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Refreshes pre-render cache for a site on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1600,9 +1696,9 @@ const createRepository = {
 	alias: 'cr',
 	name: 'create-repository',
 	usage: {
-		'short': 'Creates a repository on OCE server.',
+		'short': 'Creates a repository on OCM server.',
 		'long': (function () {
-			let desc = 'Creates a repository on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Creates a repository on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -d <description> to set the description. ' +
 				'Optionally specify -t <contenttypes> to set the content types. ' +
 				'Optionally specify -c <channels> to set the publishing channels. ' +
@@ -1624,9 +1720,9 @@ const controlRepository = {
 	alias: 'ctr',
 	name: 'control-repository',
 	usage: {
-		'short': 'Performs action <action> on repositories on OCE server.',
+		'short': 'Performs action <action> on repositories on OCM server.',
 		'long': (function () {
-			let desc = 'Performs action <action> on repositories on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Performs action <action> on repositories on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid actions are\n\n';
 			return getRepositoryActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1648,9 +1744,9 @@ const shareRepository = {
 	alias: 'sr',
 	name: 'share-repository',
 	usage: {
-		'short': 'Shares repository with users and groups on OCE server.',
+		'short': 'Shares repository with users and groups on OCM server.',
 		'long': (function () {
-			let desc = 'Shares repository with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares repository with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -t to also share the content types in the repository with the users. ' +
 				'Optionally specify -y <typerole> to share the types with different role. ' +
 				'The valid roles for a repository are' + os.EOL + os.EOL;
@@ -1674,9 +1770,9 @@ const unshareRepository = {
 	alias: 'usr',
 	name: 'unshare-repository',
 	usage: {
-		'short': 'Deletes user or group access to a repository on OCE server.',
+		'short': 'Deletes user or group access to a repository on OCM server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a repository on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Deletes user or group access to a repository on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -t to also delete the user or group access to the content types in the repository.';
 			return desc;
 		})()
@@ -1696,7 +1792,7 @@ const setEditorialPermission = {
 	usage: {
 		'short': 'Grants repository members Editorial Permissions on assets.',
 		'long': (function () {
-			let desc = 'Grants repository members Editorial Permissions on assets on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Grants repository members Editorial Permissions on assets on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid permission for assets are' + os.EOL + os.EOL;
 			desc = getAssetEditorialPermissions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			desc = desc + os.EOL + 'The valid permissions for taxonomies are ' + os.EOL + os.EOL;
@@ -1727,7 +1823,7 @@ const listEditorialPermission = {
 	usage: {
 		'short': 'Lists repository members Editorial Permissions on assets.',
 		'long': (function () {
-			let desc = 'Lists repository members Editorial Permissions on assets on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Lists repository members Editorial Permissions on assets on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 
 		})()
@@ -1743,9 +1839,9 @@ const shareType = {
 	alias: 'st',
 	name: 'share-type',
 	usage: {
-		'short': 'Shares type with users and groups on OCE server.',
+		'short': 'Shares type with users and groups on OCM server.',
 		'long': (function () {
-			let desc = 'Shares type with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares type with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getContentTypeRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1762,9 +1858,9 @@ const unshareType = {
 	alias: 'ust',
 	name: 'unshare-type',
 	usage: {
-		'short': 'Deletes user or group access to a type on OCE server.',
+		'short': 'Deletes user or group access to a type on OCM server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a type on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes user or group access to a type on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1780,9 +1876,9 @@ const downloadType = {
 	alias: 'dltp',
 	name: 'download-type',
 	usage: {
-		'short': 'Downloads types from OCE server.',
+		'short': 'Downloads types from OCM server.',
 		'long': (function () {
-			let desc = 'Downloads types from OCE server. The content field editors and forms for the types will also be downloaded. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Downloads types from OCM server. The content field editors and forms for the types will also be downloaded. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1798,9 +1894,9 @@ const uploadType = {
 	alias: 'ultp',
 	name: 'upload-type',
 	usage: {
-		'short': 'Uploads types to OCE server.',
+		'short': 'Uploads types to OCM server.',
 		'long': (function () {
-			let desc = 'Uploads types to OCE server. The content field editors and forms for the types will also be uploaded. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Uploads types to OCM server. The content field editors and forms for the types will also be uploaded. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1818,7 +1914,7 @@ const updateType = {
 	usage: {
 		'short': 'Performs action <action> on a type',
 		'long': (function () {
-			let desc = 'Performs action <action> on a type in a local template or on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Performs action <action> on a type in a local template or on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			desc = desc + 'The valid actions are\n\n';
 			return updateTypeActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1853,9 +1949,9 @@ const createWordTemplate = {
 	alias: 'cwt',
 	name: 'create-word-template',
 	usage: {
-		'short': 'Creates Microsoft Word template for a type on OCE server.',
+		'short': 'Creates Microsoft Word template for a type on OCM server.',
 		'long': (function () {
-			let desc = 'Creates Microsoft Word template for a type on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Creates Microsoft Word template for a type on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			desc = desc + 'Optionally specify format with -f <format>, defaults to form.' +
 				os.EOL + os.EOL + 'Valid values for <format> are: ' + os.EOL + os.EOL;
 			return getWordTemplateTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
@@ -1875,9 +1971,9 @@ const createContentItem = {
 	alias: 'cci',
 	name: 'create-content-item',
 	usage: {
-		'short': 'Creates content item in a repository on OCE server.',
+		'short': 'Creates content item in a repository on OCM server.',
 		'long': (function () {
-			let desc = 'Creates content item from a source file in a repository <repository> on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Creates content item from a source file in a repository <repository> on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			desc = desc + 'Specify the source type with -t <type>. ' +
 				os.EOL + os.EOL + 'Valid values for <type> are: ' + os.EOL + os.EOL;
 			return getContentItemSources().reduce((acc, item) => acc + '  ' + item + '\n', desc);
@@ -1895,9 +1991,9 @@ const createChannel = {
 	alias: 'cch',
 	name: 'create-channel',
 	usage: {
-		'short': 'Creates a channel on OCE server.',
+		'short': 'Creates a channel on OCM server.',
 		'long': (function () {
-			let desc = 'Creates a channel on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Creates a channel on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -t <type> to set the channel type [public | secure], defaults to public. ' +
 				'Optionally specify -p <publishpolicy> to set the publish policy [anythingPublished | onlyApproved], defaults to anythingPublished. ' +
 				'Optionally specify -l <localizationpolicy> to set the localization policy.';
@@ -1917,9 +2013,9 @@ const shareChannel = {
 	alias: 'sch',
 	name: 'share-channel',
 	usage: {
-		'short': 'Shares channel with users and groups on OCE server.',
+		'short': 'Shares channel with users and groups on OCM server.',
 		'long': (function () {
-			let desc = 'Shares channel with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Shares channel with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'The valid roles are\n\n';
 			return getResourceRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -1936,9 +2032,9 @@ const unshareChannel = {
 	alias: 'usch',
 	name: 'unshare-channel',
 	usage: {
-		'short': 'Deletes user or group access to a channel on OCE server.',
+		'short': 'Deletes user or group access to a channel on OCM server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a channel on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Deletes user or group access to a channel on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1954,9 +2050,9 @@ const createLocalizationPolicy = {
 	alias: 'clp',
 	name: 'create-localization-policy',
 	usage: {
-		'short': 'Creates a localization policy on OCE server.',
+		'short': 'Creates a localization policy on OCM server.',
 		'long': (function () {
-			let desc = 'Creates a localization policy on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Creates a localization policy on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Specify -r <requiredlanguages> to set the required languages. ' +
 				'Specify -l <defaultlanguage> to set the default language.' +
 				'Optionally specify -o <optionallanguages> to set the optional languages. ' +
@@ -1977,9 +2073,9 @@ const listAssets = {
 	alias: 'la',
 	name: 'list-assets',
 	usage: {
-		'short': 'Lists assets on OCE server.',
+		'short': 'Lists assets on OCM server.',
 		'long': (function () {
-			let desc = 'Lists assets on OCE server. Optionally specify -c <channel>, -r <repository>, -l <collection> or -q <query> to query assets. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Lists assets on OCM server. Optionally specify -c <channel>, -r <repository>, -l <collection> or -q <query> to query assets. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -1998,9 +2094,9 @@ const createAssetUsageReport = {
 	alias: 'caur',
 	name: 'create-asset-usage-report',
 	usage: {
-		'short': 'Generates an asset usage report for assets on OCE server.',
+		'short': 'Generates an asset usage report for assets on OCM server.',
 		'long': (function () {
-			let desc = 'Generates an asset usage report for assets on OCE server. Optionally specify -o to save the report to a json file. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Generates an asset usage report for assets on OCM server. Optionally specify -o to save the report to a json file. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -2020,7 +2116,7 @@ const listTranslationJobs = {
 	usage: {
 		'short': 'Lists translation jobs.',
 		'long': (function () {
-			let desc = 'Lists translation jobs from local or from OCE server.';
+			let desc = 'Lists translation jobs from local or from OCM server.';
 			return desc;
 		})()
 	},
@@ -2036,9 +2132,9 @@ const createTranslationJob = {
 	alias: 'ctj',
 	name: 'create-translation-job',
 	usage: {
-		'short': 'Creates a translation job <name> for a site on OCE server.',
+		'short': 'Creates a translation job <name> for a site on OCM server.',
 		'long': (function () {
-			let desc = 'Creates a translation job <name> for a site on OCE server. Specify the server with -r <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Creates a translation job <name> for a site on OCM server. Specify the server with -r <server> or use the one specified in cec.properties file. ' +
 				'Specify -l <languages> to set the target languages, use "all" to select all languages from the translation policy. ' +
 				'Optionally specify -c <connector> to set the translation connector. ' +
 				'Optionally specify -t <type> to set the content type. The valid values for <type> are:\n\n';
@@ -2059,9 +2155,9 @@ const downloadTranslationJob = {
 	alias: 'dtj',
 	name: 'download-translation-job',
 	usage: {
-		'short': 'Downloads translation job <name> from OCE server.',
+		'short': 'Downloads translation job <name> from OCM server.',
 		'long': (function () {
-			let desc = 'Downloads translation job <name> from OCE server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Downloads translation job <name> from OCM server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -2076,9 +2172,9 @@ const uploadTranslationJob = {
 	alias: 'utj',
 	name: 'upload-translation-job',
 	usage: {
-		'short': 'Uploads translation job <name> to OCE server.',
+		'short': 'Uploads translation job <name> to OCM server.',
 		'long': (function () {
-			let desc = 'Uploads translation <name> to OCE server, validate and then ingest the translations. Optionally specify -v to validate only. Optionally specify -f <folder> to set the folder to upload the translation zip file. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Uploads translation <name> to OCM server, validate and then ingest the translations. Optionally specify -v to validate only. Optionally specify -f <folder> to set the folder to upload the translation zip file. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -2197,9 +2293,9 @@ const createFolder = {
 	alias: 'cfd',
 	name: 'create-folder',
 	usage: {
-		'short': 'Creates a folder or folder hierarchy on OCE server.',
+		'short': 'Creates a folder or folder hierarchy on OCM server.',
 		'long': (function () {
-			let desc = 'Create a folder or folder hierarchy on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Create a folder or folder hierarchy on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -2215,9 +2311,9 @@ const shareFolder = {
 	alias: 'sfd',
 	name: 'share-folder',
 	usage: {
-		'short': 'Shares folder with users and groups on OCE server.',
+		'short': 'Shares folder with users and groups on OCM server.',
 		'long': (function () {
-			let desc = 'Shares folder with users and groups on OCE server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are\n\n';
+			let desc = 'Shares folder with users and groups on OCM server and assign a role. Specify the server with -s <server> or use the one specified in cec.properties file. The valid roles are\n\n';
 			return getFolderRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -2234,9 +2330,9 @@ const unshareFolder = {
 	alias: 'usfd',
 	name: 'unshare-folder',
 	usage: {
-		'short': 'Deletes user or group access to a shared folder on OCE server.',
+		'short': 'Deletes user or group access to a shared folder on OCM server.',
 		'long': (function () {
-			let desc = 'Deletes user or group access to a shared folder on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Deletes user or group access to a shared folder on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
@@ -2253,19 +2349,19 @@ const downloadFolder = {
 	alias: 'dlfd',
 	name: 'download-folder',
 	usage: {
-		'short': 'Downloads folder from OCE server.',
+		'short': 'Downloads folder from OCM server.',
 		'long': (function () {
-			let desc = 'Downloads folder and all its content from OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Downloads folder and all its content from OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -f <folder> to save the folder on the local system.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec download-folder Releases/1', 'Downloads folder Releases/1 from OCE server and save to local folder src/documents/'],
-		['cec download-folder /', 'Downloads all documents from OCE server and save to local folder src/documents/'],
+		['cec download-folder Releases/1', 'Downloads folder Releases/1 from OCM server and save to local folder src/documents/'],
+		['cec download-folder /', 'Downloads all documents from OCM server and save to local folder src/documents/'],
 		['cec download-folder Releases/1 -s UAT', 'Downloads folder Releases/1 from the registered server UAT and save to local folder src/documents/'],
-		['cec download-folder Releases/1 -f ~/Downloads', 'Downloads folder Releases/1 from OCE server and save to local folder ~/Download/'],
-		['cec download-folder Releases/1 -f .', 'Downloads folder Releases/1 from OCE server and save to the current local folder'],
+		['cec download-folder Releases/1 -f ~/Downloads', 'Downloads folder Releases/1 from OCM server and save to local folder ~/Download/'],
+		['cec download-folder Releases/1 -f .', 'Downloads folder Releases/1 from OCM server and save to the current local folder'],
 		['cec download-folder site:blog1 -f ~/Downloads/blog1Files', 'Downloads all files of site blog1 and save to local folder ~/Download/blog1Files'],
 		['cec download-folder theme:blog1Theme', 'Downloads all files of theme blog1Theme and save to local folder src/documents/blog1Theme/'],
 		['cec download-folder component:Comp1/assets', 'Downloads all files in folder assets of component Comp1 and save to local folder src/documents/Comp1/assets/']
@@ -2277,9 +2373,9 @@ const listFolder = {
 	alias: 'lfd',
 	name: 'list-folder',
 	usage: {
-		'short': 'Displays folder hierarchy on OCE server.',
+		'short': 'Displays folder hierarchy on OCM server.',
 		'long': (function () {
-			let desc = 'Displays folder and all its content on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Displays folder and all its content on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -2297,10 +2393,10 @@ const uploadFolder = {
 	alias: 'ulfd',
 	name: 'upload-folder',
 	usage: {
-		'short': 'Uploads folder to OCE server.',
+		'short': 'Uploads folder to OCM server.',
 		'long': (function () {
-			let desc = 'Uploads folder and all its content to OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'Optionally specify -f <folder> to set the parent folder on OCE server.';
+			let desc = 'Uploads folder and all its content to OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -f <folder> to set the parent folder on OCM server.';
 			return desc;
 		})()
 	},
@@ -2321,9 +2417,9 @@ const deleteFolder = {
 	alias: '',
 	name: 'delete-folder',
 	usage: {
-		'short': 'Deletes folder on OCE server.',
+		'short': 'Deletes folder on OCM server.',
 		'long': (function () {
-			let desc = 'Deletes folder and all its content on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Deletes folder and all its content on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -p to permanently delete the folder.';
 			return desc;
 		})()
@@ -2343,9 +2439,9 @@ const deleteFile = {
 	alias: '',
 	name: 'delete-file',
 	usage: {
-		'short': 'Deletes file on OCE server.',
+		'short': 'Deletes file on OCM server.',
 		'long': (function () {
-			let desc = 'Deletes file on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Deletes file on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -p to permanently delete the file.';
 			return desc;
 		})()
@@ -2365,10 +2461,10 @@ const uploadFile = {
 	alias: 'ulf',
 	name: 'upload-file',
 	usage: {
-		'short': 'Uploads file <file> to OCE server.',
+		'short': 'Uploads file <file> to OCM server.',
 		'long': (function () {
-			let desc = 'Uploads file <file> to OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
-				'Optionally specify -f <folder> to set the parent folder on OCE server.';
+			let desc = 'Uploads file <file> to OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -f <folder> to set the parent folder on OCM server.';
 			return desc;
 		})()
 	},
@@ -2387,18 +2483,18 @@ const downloadFile = {
 	alias: 'dlf',
 	name: 'download-file',
 	usage: {
-		'short': 'Downloads file <file> from OCE server.',
+		'short': 'Downloads file <file> from OCM server.',
 		'long': (function () {
-			let desc = 'Downloads file <file> from OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Downloads file <file> from OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
 				'Optionally specify -f <folder> to save the file on the local system.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec download-file Releases/Projects.pdf', 'Downloads the file from OCE server and save to local folder src/documents/'],
+		['cec download-file Releases/Projects.pdf', 'Downloads the file from OCM server and save to local folder src/documents/'],
 		['cec download-file Releases/Projects.pdf -s UAT', 'Downloads the file from the registered server UAT and save to local folder src/documents/'],
-		['cec download-file Releases/Projects.pdf -f ~/Downloads', 'Downloads the file from OCE server and save to local folder ~/Download/'],
-		['cec download-file Releases/Projects.pdf -f .', 'Downloads the file from OCE server and save to the current local folder'],
+		['cec download-file Releases/Projects.pdf -f ~/Downloads', 'Downloads the file from OCM server and save to local folder ~/Download/'],
+		['cec download-file Releases/Projects.pdf -f .', 'Downloads the file from OCM server and save to the current local folder'],
 		['cec download-file site:blog1/siteinfo.json', 'Downloads the file from folder blog1 and save to local folder src/documents/blog1'],
 		['cec download-file theme:blog1Theme/designs/default/design.css', 'Downloads the css file from folder designs/default of theme blog1Theme and save to local folder src/documents/blog1Theme/designs/default/'],
 		['cec download-file component:Comp1/assets/render.js', 'Downloads the js file from folder assets of component Comp1 and save to local folder src/documents/Comp1/assets/']
@@ -2410,9 +2506,9 @@ const downloadRecommendation = {
 	alias: 'dlr',
 	name: 'download-recommendation',
 	usage: {
-		'short': 'Downloads a recommendation from the OCE server.',
+		'short': 'Downloads a recommendation from the OCM server.',
 		'long': (function () {
-			let desc = 'Downloads a recommendation from the Content and Experience server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify repository with -r <repository>. Optionally specify -p to download the published version.';
+			let desc = 'Downloads a recommendation from the Content Management server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify repository with -r <repository>. Optionally specify -p to download the published version.';
 			return desc;
 		})()
 	},
@@ -2429,9 +2525,9 @@ const uploadRecommendation = {
 	alias: 'ulr',
 	name: 'upload-recommendation',
 	usage: {
-		'short': 'Uploads a recommendation to the OCE server.',
+		'short': 'Uploads a recommendation to the OCM server.',
 		'long': (function () {
-			let desc = 'Uploads a recommendation to repository <repository> on OCE server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Uploads a recommendation to repository <repository> on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -2462,9 +2558,9 @@ const registerServer = {
 	alias: 'rs',
 	name: 'register-server',
 	usage: {
-		'short': 'Registers a OCE server.',
+		'short': 'Registers a OCM server.',
 		'long': (function () {
-			let desc = 'Registers a OCE server. Specify -e <endpoint> for the server URL. ' +
+			let desc = 'Registers a OCM server. Specify -e <endpoint> for the server URL. ' +
 				'Specify -u <user> and -p <password> for connecting to the server. ' +
 				'Optionally specify -k <key> to encrypt the password. ' +
 				'Optionally specify -t <type> to set the server type. The valid values for <type> are:\n\n';
@@ -2613,9 +2709,9 @@ const createGroup = {
 	alias: 'cg',
 	name: 'create-group',
 	usage: {
-		'short': 'Creates an OCE group on OCE server.',
+		'short': 'Creates an OCM group on OCM server.',
 		'long': (function () {
-			let desc = 'Creates an OCE group on OCE server. Specify the server with -s <server>. ' +
+			let desc = 'Creates an OCM group on OCM server. Specify the server with -s <server>. ' +
 				'Set the group type with -t <type>. The valid group types are\n\n';
 			return getGroupTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -2633,9 +2729,9 @@ const deleteGroup = {
 	alias: '',
 	name: 'delete-group',
 	usage: {
-		'short': 'Deletes an OCE group on OCE server.',
+		'short': 'Deletes an OCM group on OCM server.',
 		'long': (function () {
-			let desc = 'Deletes an OCE group on OCE server. Specify the server with -s <server>. ';
+			let desc = 'Deletes an OCM group on OCM server. Specify the server with -s <server>. ';
 			return desc;
 		})()
 	},
@@ -2650,9 +2746,9 @@ const addMemberToGroup = {
 	alias: 'amtg',
 	name: 'add-member-to-group',
 	usage: {
-		'short': 'Adds users and groups to an OCE group on OCE server.',
+		'short': 'Adds users and groups to an OCM group on OCM server.',
 		'long': (function () {
-			let desc = 'Adds users and groups to an OCE group and assign a role on OCE server. Specify the server with -s <server>. ' +
+			let desc = 'Adds users and groups to an OCM group and assign a role on OCM server. Specify the server with -s <server>. ' +
 				'The valid roles are\n\n';
 			return getGroupMemberRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
@@ -2668,9 +2764,9 @@ const removeMemberFromGroup = {
 	alias: 'rmfg',
 	name: 'remove-member-from-group',
 	usage: {
-		'short': 'Removes users and groups from an OCE group on OCE server.',
+		'short': 'Removes users and groups from an OCM group on OCM server.',
 		'long': (function () {
-			let desc = 'Removes users and groups from an OCE group on OCE server. Specify the server with -s <server>. ';
+			let desc = 'Removes users and groups from an OCM group on OCM server. Specify the server with -s <server>. ';
 			return desc;
 		})()
 	},
@@ -2685,9 +2781,9 @@ const executeGet = {
 	alias: 'exeg',
 	name: 'execute-get',
 	usage: {
-		'short': 'Makes an HTTP GET request to a REST API endpoint on OCE server',
+		'short': 'Makes an HTTP GET request to a REST API endpoint on OCM server',
 		'long': (function () {
-			let desc = 'Makes an HTTP GET request to a REST API endpoint on OCE server. Specify the server with -s <server>. ';
+			let desc = 'Makes an HTTP GET request to a REST API endpoint on OCM server. Specify the server with -s <server>. ';
 			return desc;
 		})()
 	},
@@ -2799,6 +2895,8 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(controlContent) + os.EOL +
 	_getCmdHelp(transferContent) + os.EOL +
 	_getCmdHelp(listAssets) + os.EOL +
+	_getCmdHelp(createDigitalAsset) + os.EOL +
+	_getCmdHelp(updateDigitalAsset) + os.EOL +
 	_getCmdHelp(copyAssets) + os.EOL +
 	_getCmdHelp(createAssetUsageReport) + os.EOL;
 
@@ -2825,7 +2923,8 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(addFieldEditor) + os.EOL +
 	_getCmdHelp(removeFieldEditor) + os.EOL +
 	_getCmdHelp(migrateContent) + os.EOL +
-	_getCmdHelp(compileContent) + os.EOL;
+	_getCmdHelp(compileContent) + os.EOL +
+	_getCmdHelp(uploadCompiledContent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
 	_getCmdHelp(downloadTaxonomy) + os.EOL +
@@ -2894,7 +2993,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.option('style', {
 					alias: 's',
@@ -2945,7 +3044,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...downloadComponent.example[0])
 				.example(...downloadComponent.example[1])
@@ -2966,7 +3065,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...deployComponent.example[0])
 				.example(...deployComponent.example[1])
@@ -2989,7 +3088,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...uploadComponent.example[0])
 				.example(...uploadComponent.example[1])
@@ -3017,7 +3116,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...controlComponent.example[0])
 				.example(...controlComponent.example[1])
@@ -3043,7 +3142,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -3073,7 +3172,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -3108,7 +3207,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (argv.from && !getTemplateSources().includes(argv.from)) {
@@ -3146,7 +3245,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...createTemplateFromSite.example[0])
 				.example(...createTemplateFromSite.example[1])
@@ -3185,7 +3284,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...downloadTemplate.example[0])
 				.example(...downloadTemplate.example[1])
@@ -3197,7 +3296,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				}).option('channelToken', {
 					alias: 'c',
 					description: 'The channel access token to use for content URLs'
@@ -3276,7 +3375,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.option('permanent', {
 					alias: 'p',
@@ -3297,7 +3396,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.option('optimize', {
 					alias: 'o',
@@ -3324,7 +3423,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.option('optimize', {
 					alias: 'o',
@@ -3370,7 +3469,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -3400,7 +3499,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -3474,7 +3573,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...listServerContentTypes.example[0])
 				.example(...listServerContentTypes.example[1])
@@ -3503,11 +3602,11 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.template && !argv.server) {
-						throw new Error('Please specify either local template or OCE server');
+						throw new Error('Please specify either local template or OCM server');
 					}
 					return true;
 				})
@@ -3541,11 +3640,11 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.template && !argv.server) {
-						throw new Error('Please specify either local template or OCE server');
+						throw new Error('Please specify either local template or OCM server');
 					}
 					if (argv.server && !argv.contenttype) {
 						throw new Error(os.EOL + 'Please specify the content type');
@@ -3646,7 +3745,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.channel && argv._[1]) {
@@ -3705,7 +3804,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.option('update', {
 					alias: 'u',
@@ -3737,12 +3836,12 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered OCE server the content is from',
+					description: 'The registered OCM server the content is from',
 					demandOption: true,
 				})
 				.option('destination', {
 					alias: 'd',
-					description: 'The registered OCE server to transfer the content',
+					description: 'The registered OCM server to transfer the content',
 					demandOption: true
 				})
 				.option('channel', {
@@ -3794,13 +3893,17 @@ const argv = yargs.usage(_usage)
 					alias: 'l',
 					description: 'Collection'
 				})
+				.option('query', {
+					alias: 'q',
+					description: 'Query to fetch the assets'
+				})
 				.option('assets', {
 					alias: 'a',
 					description: 'The comma separated list of asset GUIDS'
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.option('date', {
 					alias: 'd',
@@ -3853,9 +3956,81 @@ const argv = yargs.usage(_usage)
 				.example(...controlContent.example[7])
 				.example(...controlContent.example[8])
 				.example(...controlContent.example[9])
+				.example(...controlContent.example[10])
+				.example(...controlContent.example[11])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlContent.command}\n\n${controlContent.usage.long}`);
+		})
+	.command([createDigitalAsset.command, createDigitalAsset.alias], false,
+		(yargs) => {
+			yargs.option('from', {
+					alias: 'f',
+					description: 'The digital asset source file',
+					demandOption: true
+				})
+				.option('type', {
+					alias: 't',
+					description: 'The digital asset type',
+					demandOption: true
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'The repository to add the asset',
+					demandOption: true
+				})
+				.option('slug', {
+					alias: 'l',
+					description: 'The slug for the asset when create a single asset'
+				})
+				.option('attributes', {
+					alias: 'a',
+					description: 'The JSON file of asset attributes'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...createDigitalAsset.example[0])
+				.example(...createDigitalAsset.example[1])
+				.example(...createDigitalAsset.example[2])
+				.example(...createDigitalAsset.example[3])
+				.example(...createDigitalAsset.example[4])
+				.example(...createDigitalAsset.example[5])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${createDigitalAsset.command}\n\n${createDigitalAsset.usage.long}`);
+		})
+	.command([updateDigitalAsset.command, updateDigitalAsset.alias], false,
+		(yargs) => {
+			yargs.option('from', {
+					alias: 'f',
+					description: 'The digital asset source file for the new version'
+				})
+				.option('slug', {
+					alias: 'l',
+					description: 'The slug for the asset'
+				})
+				.option('attributes', {
+					alias: 'a',
+					description: 'The JSON file of asset attributes'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (!argv.from && !argv.attributes && !argv.slug) {
+						throw new Error(os.EOL + 'Please specify source file, slug or attributes');
+					}
+					return true;
+				})
+				.example(...updateDigitalAsset.example[0])
+				.example(...updateDigitalAsset.example[1])
+				.example(...updateDigitalAsset.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${updateDigitalAsset.command}\n\n${updateDigitalAsset.usage.long}`);
 		})
 	.command([copyAssets.command, copyAssets.alias], false,
 		(yargs) => {
@@ -3882,7 +4057,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...copyAssets.example[0])
 				.example(...copyAssets.example[1])
@@ -3908,7 +4083,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (!getTaxonomyStatus().includes(argv.status)) {
@@ -3947,7 +4122,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (argv.abbreviation && argv.abbreviation.length > 3) {
@@ -3985,7 +4160,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.name && !argv.id) {
@@ -4025,7 +4200,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -4055,7 +4230,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -4116,7 +4291,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...controlTheme.example[0])
 				.example(...controlTheme.example[1])
@@ -4132,7 +4307,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...listResources.example[0])
 				.example(...listResources.example[1])
@@ -4175,7 +4350,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...createSite.example[0])
 				.example(...createSite.example[1])
@@ -4207,7 +4382,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...copySite.example[0])
 				.example(...copySite.example[1])
@@ -4220,12 +4395,12 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered OCE server the site is from',
+					description: 'The registered OCM server the site is from',
 					demandOption: true,
 				})
 				.option('destination', {
 					alias: 'd',
-					description: 'The registered OCE server to create or update the site',
+					description: 'The registered OCM server to create or update the site',
 					demandOption: true
 				})
 				.option('repository', {
@@ -4295,12 +4470,12 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered OCE server the site is from',
+					description: 'The registered OCM server the site is from',
 					demandOption: true,
 				})
 				.option('destination', {
 					alias: 'd',
-					description: 'The registered OCE server to transfer the content',
+					description: 'The registered OCM server to transfer the content',
 					demandOption: true
 				})
 				.option('repository', {
@@ -4380,7 +4555,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...controlSite.example[0])
 				.example(...controlSite.example[1])
@@ -4412,7 +4587,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -4442,7 +4617,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -4461,7 +4636,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...getSiteSecurity.example[0])
 				.example(...getSiteSecurity.example[1])
@@ -4490,7 +4665,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (argv.signin && !getSiteSignIn().includes(argv.signin)) {
@@ -4529,7 +4704,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...updateSite.example[0])
 				.example(...updateSite.example[1])
@@ -4541,7 +4716,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...validateSite.example[0])
 				.example(...validateSite.example[1])
@@ -4561,7 +4736,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.contenttype) {
@@ -4598,7 +4773,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('publish', {
 					alias: 'p',
-					description: 'Upload the site map to OCE server after creation'
+					description: 'Upload the site map to OCM server after creation'
 				})
 				.option('toppagepriority', {
 					alias: 't',
@@ -4606,7 +4781,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.option('newlink', {
 					alias: 'n',
@@ -4689,11 +4864,11 @@ const argv = yargs.usage(_usage)
 				})
 				.option('publish', {
 					alias: 'p',
-					description: 'Upload the RSS feed to OCE server after creation'
+					description: 'Upload the RSS feed to OCM server after creation'
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.option('newlink', {
 					alias: 'n',
@@ -4730,7 +4905,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...createAssetReport.example[0])
 				.example(...createAssetReport.example[1])
@@ -4745,12 +4920,12 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('site', {
 					alias: 's',
-					description: 'The site on OCE server',
+					description: 'The site on OCM server',
 					demandOption: true
 				})
 				.option('server', {
 					alias: 'r',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...uploadStaticSite.example[0])
 				.example(...uploadStaticSite.example[1])
@@ -4766,7 +4941,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...downloadStaticSite.example[0])
 				.example(...downloadStaticSite.example[1])
@@ -4779,7 +4954,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...deleteStaticSite.example[0])
 				.example(...deleteStaticSite.example[1])
@@ -4791,7 +4966,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...refreshPrerenderCache.example[0])
 				.example(...refreshPrerenderCache.example[1])
@@ -4880,7 +5055,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.option('assets', {
 					alias: 'a',
@@ -4926,6 +5101,18 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${compileContent.command}\n\n${compileContent.usage.long}`);
+		})
+	.command([uploadCompiledContent.command, uploadCompiledContent.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...uploadCompiledContent.example[0])
+				.example(...uploadCompiledContent.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${uploadCompiledContent.command}\n\n${uploadCompiledContent.usage.long}`);
 		})
 	.command([renameContentType.command, renameContentType.alias], false,
 		(yargs) => {
@@ -4973,7 +5160,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (argv.type && !getRepositoryTypes().includes(argv.type)) {
@@ -5025,7 +5212,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...controlRepository.example[0])
 				.example(...controlRepository.example[1])
@@ -5064,7 +5251,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -5106,7 +5293,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -5150,7 +5337,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -5203,7 +5390,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...listEditorialPermission.example[0])
 				.example(...listEditorialPermission.example[1])
@@ -5228,7 +5415,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -5258,7 +5445,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -5277,7 +5464,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...downloadType.example[0])
 				.example(...downloadType.example[1])
@@ -5308,11 +5495,11 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.template && !argv.server) {
-						throw new Error(os.EOL + 'Please specify either local template or OCE server');
+						throw new Error(os.EOL + 'Please specify either local template or OCM server');
 					}
 					if (argv.action && !updateTypeActions().includes(argv.action)) {
 						throw new Error(`${os.EOL}${argv.action} is not a valid value for <action>`);
@@ -5334,7 +5521,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...uploadType.example[0])
 				.example(...uploadType.example[1])
@@ -5355,7 +5542,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (argv.style && !getWordTemplateTypes().includes(argv.style)) {
@@ -5385,7 +5572,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (argv.type && !getContentItemSources().includes(argv.type)) {
@@ -5419,7 +5606,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (argv.type && argv.type !== 'public' && argv.type !== 'secure') {
@@ -5455,7 +5642,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -5485,7 +5672,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -5522,7 +5709,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...createLocalizationPolicy.example[0])
 				.example(...createLocalizationPolicy.example[1])
@@ -5557,7 +5744,7 @@ const argv = yargs.usage(_usage)
 				*/
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (argv.collection && !argv.repository) {
@@ -5583,7 +5770,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...createAssetUsageReport.example[0])
 				.example(...createAssetUsageReport.example[1])
@@ -5598,7 +5785,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...listTranslationJobs.example[0])
 				.example(...listTranslationJobs.example[1])
@@ -5629,7 +5816,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 'r',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (argv.type && !getTranslationJobExportTypes().includes(argv.type)) {
@@ -5651,7 +5838,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...downloadTranslationJob.example[0])
 				.example(...downloadTranslationJob.example[1])
@@ -5682,7 +5869,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...refreshTranslationJob.example[0])
 				.example(...refreshTranslationJob.example[1])
@@ -5694,7 +5881,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...ingestTranslationJob.example[0])
 				.example(...ingestTranslationJob.example[1])
@@ -5714,7 +5901,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...uploadTranslationJob.example[0])
 				.example(...uploadTranslationJob.example[1])
@@ -5807,7 +5994,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...createFolder.example[0])
 				.example(...createFolder.example[1])
@@ -5833,7 +6020,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -5864,7 +6051,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -5884,7 +6071,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...listFolder.example[0])
 				.example(...listFolder.example[1])
@@ -5899,11 +6086,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('folder', {
 					alias: 'f',
-					description: '<folder> Local folder to save the folder on OCE server'
+					description: '<folder> Local folder to save the folder on OCM server'
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...downloadFolder.example[0])
 				.example(...downloadFolder.example[1])
@@ -5921,11 +6108,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('folder', {
 					alias: 'f',
-					description: '<folder> The parent folder on OCE server'
+					description: '<folder> The parent folder on OCM server'
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...uploadFolder.example[0])
 				.example(...uploadFolder.example[1])
@@ -5943,7 +6130,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.option('permanent', {
 					alias: 'p',
@@ -5963,11 +6150,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('folder', {
 					alias: 'f',
-					description: '<folder> The parent folder on OCE server'
+					description: '<folder> The parent folder on OCM server'
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...uploadFile.example[0])
 				.example(...uploadFile.example[1])
@@ -5987,7 +6174,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...downloadFile.example[0])
 				.example(...downloadFile.example[1])
@@ -6004,7 +6191,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.option('permanent', {
 					alias: 'p',
@@ -6028,7 +6215,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (argv.type && !getGroupTypes().includes(argv.type)) {
@@ -6048,7 +6235,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...deleteGroup.example[0])
 				.example(...deleteGroup.example[1])
@@ -6073,7 +6260,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.users && !argv.groups) {
@@ -6099,7 +6286,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...removeMemberFromGroup.example[0])
 				.example(...removeMemberFromGroup.example[1])
@@ -6123,7 +6310,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
 					if (argv.published && !argv.channel) {
@@ -6148,7 +6335,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCE server'
+					description: '<server> The registered OCM server'
 				})
 				.example(...uploadRecommendation.example[0])
 				.example(...uploadRecommendation.example[1])
@@ -6245,7 +6432,7 @@ const argv = yargs.usage(_usage)
 			yargs
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server',
+					description: 'The registered OCM server',
 					demandOption: true
 				})
 				.example(...setOAuthToken.example[0])
@@ -6262,7 +6449,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.example(...executeGet.example[0])
 				.example(...executeGet.example[1])
@@ -6286,7 +6473,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server'
+					description: 'The registered OCM server'
 				})
 				.option('debug', {
 					alias: 'd',
@@ -6304,12 +6491,12 @@ const argv = yargs.usage(_usage)
 			yargs
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server for sync source',
+					description: 'The registered OCM server for sync source',
 					demandOption: true
 				})
 				.option('destination', {
 					alias: 'd',
-					description: 'The registered OCE server for sync destination',
+					description: 'The registered OCM server for sync destination',
 					demandOption: true
 				})
 				.option('authorization', {
@@ -6385,7 +6572,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCE server',
+					description: 'The registered OCM server',
 					demandOption: true
 				})
 				.option('port', {
@@ -6480,7 +6667,7 @@ console.log(d.toUTCString());
 if (fs.existsSync(path.join(appRoot, 'package.json'))) {
 	var packageJSON = JSON.parse(fs.readFileSync(path.join(appRoot, 'package.json')));
 	var cecVersion = packageJSON.version;
-	console.log('OCE Toolkit ' + cecVersion);
+	console.log('OCM Toolkit ' + cecVersion);
 }
 
 /*********************
@@ -6492,9 +6679,14 @@ if (fs.existsSync(path.join(appRoot, 'package.json'))) {
 var spawnCmd;
 
 if (argv._[0] === 'install' || argv._[0] === 'i') {
+	var toolkitSource = _getToolkitSource();
+	if (toolkitSource) {
+		console.log(`You cannot install Content Management project at ${toolkitSource}. Please install at a different location.`);
+		return;
+	}
 	var projectRoot = _getProjectRoot();
 	if (projectRoot && projectRoot !== cwd) {
-		console.log(`A Content and Experience project already installed at ${projectRoot}`);
+		console.log(`A Content Management project already installed at ${projectRoot}`);
 		return;
 	}
 
@@ -6502,7 +6694,7 @@ if (argv._[0] === 'install' || argv._[0] === 'i') {
 		var packageFile = path.join(projectRoot, 'package.json');
 		var packageJSON = JSON.parse(fs.readFileSync(packageFile));
 		if (packageJSON && packageJSON.name === 'cec-sites-toolkit') {
-			console.log(`You cannot install Content and Experience project at ${projectRoot}. Please install at a different location.`);
+			console.log(`You cannot install Content Management project at ${projectRoot}. Please install at a different location.`);
 			return;
 		}
 	}
@@ -7211,6 +7403,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.assets) {
 		controlContentArgs.push(...['--assets', argv.assets]);
 	}
+	if (argv.query) {
+		controlContentArgs.push(...['--query', argv.query]);
+	}
 	if (argv.date) {
 		controlContentArgs.push(...['--date', argv.date]);
 	}
@@ -7246,6 +7441,53 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		transferContentArgs.push(...['--execute', argv.execute]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, transferContentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createDigitalAsset.name || argv._[0] === createDigitalAsset.alias) {
+	let createDigitalAssetArgs = ['run', '-s', createDigitalAsset.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--from', argv.from,
+		'--repository', argv.repository,
+		'--type', argv.type
+	];
+	if (argv.slug) {
+		createDigitalAssetArgs.push(...['--slug', argv.slug]);
+	}
+	if (argv.attributes) {
+		createDigitalAssetArgs.push(...['--attributes', argv.attributes]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createDigitalAssetArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, createDigitalAssetArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === updateDigitalAsset.name || argv._[0] === updateDigitalAsset.alias) {
+	let updateDigitalAssetArgs = ['run', '-s', updateDigitalAsset.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--id', argv.id
+	];
+	if (argv.from) {
+		updateDigitalAssetArgs.push(...['--from', argv.from]);
+	}
+	if (argv.slug) {
+		updateDigitalAssetArgs.push(...['--slug', argv.slug]);
+	}
+	if (argv.attributes) {
+		updateDigitalAssetArgs.push(...['--attributes', argv.attributes]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		updateDigitalAssetArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, updateDigitalAssetArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -8038,6 +8280,21 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		compileContentArgs.push(...['--verbose', argv.verbose]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, compileContentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === uploadCompiledContent.name || argv._[0] === uploadCompiledContent.alias) {
+	let uploadCompiledContentArgs = ['run', '-s', uploadCompiledContent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--path', argv.path
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		uploadCompiledContentArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, uploadCompiledContentArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

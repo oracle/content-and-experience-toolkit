@@ -88,13 +88,13 @@
             }
             function r(e) {
                 isBrowser && each(scripts(), function(t) {
-                    if (t.getAttribute("data-requiremodule") === e && t.getAttribute("data-requirecontext") === b.contextName) return t.parentNode.removeChild(t), 
+                    if (t.getAttribute("data-requiremodule") === e && t.getAttribute("data-requirecontext") === w.contextName) return t.parentNode.removeChild(t), 
                     !0;
                 });
             }
             function i(e) {
                 var t = getOwn(E.paths, e);
-                if (t && isArray(t) && 1 < t.length) return t.shift(), b.require.undef(e), b.makeRequire(null, {
+                if (t && isArray(t) && 1 < t.length) return t.shift(), w.require.undef(e), w.makeRequire(null, {
                     skipMap: !0
                 })([ e ]), !0;
             }
@@ -108,7 +108,7 @@
                 s = getOwn(S, l)), e && (l ? h = i ? e : s && s.normalize ? s.normalize(e, function(e) {
                     return t(e, c, o);
                 }) : -1 === e.indexOf("!") ? t(e, c, o) : e : (l = (u = n(h = t(e, c, o)))[0], h = u[1], 
-                i = !0, a = b.nameToUrl(h))), {
+                i = !0, a = w.nameToUrl(h))), {
                     prefix: l,
                     name: h,
                     parentMap: r,
@@ -121,7 +121,7 @@
             }
             function a(e) {
                 var t = e.id, r = getOwn(x, t);
-                return r || (r = x[t] = new b.Module(e)), r;
+                return r || (r = x[t] = new w.Module(e)), r;
             }
             function s(e, t, r) {
                 var i = e.id, n = getOwn(x, i);
@@ -137,20 +137,20 @@
             function u() {
                 globalDefQueue.length && (each(globalDefQueue, function(e) {
                     var t = e[0];
-                    "string" == typeof t && (b.defQueueMap[t] = !0), I.push(e);
+                    "string" == typeof t && (w.defQueueMap[t] = !0), I.push(e);
                 }), globalDefQueue = []);
             }
             function l(e) {
                 delete x[e], delete k[e];
             }
             function c() {
-                var e, t, n = 1e3 * E.waitSeconds, o = n && b.startTime + n < new Date().getTime(), a = [], s = [], u = !1, l = !0;
+                var e, t, n = 1e3 * E.waitSeconds, o = n && w.startTime + n < new Date().getTime(), a = [], s = [], u = !1, l = !0;
                 if (!m) {
                     if (m = !0, eachProp(k, function(e) {
                         var n = e.map, d = n.id;
                         if (e.enabled && (n.isDefine || s.push(e), !e.error)) if (!e.inited && o) i(d) ? u = t = !0 : (a.push(d), 
                         r(d)); else if (!e.inited && e.fetched && n.isDefine && (u = !0, !n.prefix)) return l = !1;
-                    }), o && a.length) return (e = makeError("timeout", "Load timeout for modules: " + a, null, a)).contextName = b.contextName, 
+                    }), o && a.length) return (e = makeError("timeout", "Load timeout for modules: " + a, null, a)).contextName = w.contextName, 
                     d(e);
                     l && each(s, function(e) {
                         !function e(t, r, i) {
@@ -160,8 +160,8 @@
                                 !s || t.depMatched[o] || i[a] || (getOwn(r, a) ? (t.defineDep(o, S[a]), t.check()) : e(s, r, i));
                             }), i[n] = !0);
                         }(e, {}, {});
-                    }), o && !t || !u || !isBrowser && !isWebWorker || w || (w = setTimeout(function() {
-                        w = 0, c();
+                    }), o && !t || !u || !isBrowser && !isWebWorker || b || (b = setTimeout(function() {
+                        b = 0, c();
                     }, 50)), m = !1;
                 }
             }
@@ -173,7 +173,7 @@
             }
             function h(e) {
                 var t = e.currentTarget || e.srcElement;
-                return p(t, b.onScriptLoad, "load", "onreadystatechange"), p(t, b.onScriptError, "error"), 
+                return p(t, w.onScriptLoad, "load", "onreadystatechange"), p(t, w.onScriptError, "error"), 
                 {
                     node: t,
                     id: t && t.getAttribute("data-requiremodule")
@@ -185,9 +185,9 @@
                     if (null === (e = I.shift())[0]) return d(makeError("mismatch", "Mismatched anonymous define() module: " + e[e.length - 1]));
                     f(e);
                 }
-                b.defQueueMap = {};
+                w.defQueueMap = {};
             }
-            var m, v, b, y, w, E = {
+            var m, v, w, y, b, E = {
                 waitSeconds: 7,
                 baseUrl: "./",
                 paths: {},
@@ -198,7 +198,7 @@
             }, x = {}, k = {}, T = {}, I = [], S = {}, q = {}, A = {}, O = 1, C = 1;
             return y = {
                 require: function(e) {
-                    return e.require ? e.require : e.require = b.makeRequire(e.map);
+                    return e.require ? e.require : e.require = w.makeRequire(e.map);
                 },
                 exports: function(e) {
                     if (e.usingExports = !0, e.map.isDefine) return e.exports ? S[e.map.id] = e.exports : e.exports = S[e.map.id] = {};
@@ -229,10 +229,10 @@
                 },
                 fetch: function() {
                     if (!this.fetched) {
-                        this.fetched = !0, b.startTime = new Date().getTime();
+                        this.fetched = !0, w.startTime = new Date().getTime();
                         var e = this.map;
                         if (!this.shim) return e.prefix ? this.callPlugin() : this.load();
-                        b.makeRequire(this.map, {
+                        w.makeRequire(this.map, {
                             enableBuildCallback: !0
                         })(this.shim.deps || [], bind(this, function() {
                             return e.prefix ? this.callPlugin() : this.load();
@@ -241,7 +241,7 @@
                 },
                 load: function() {
                     var e = this.map.url;
-                    q[e] || (q[e] = !0, b.load(this.map.id, e));
+                    q[e] || (q[e] = !0, w.load(this.map.id, e));
                 },
                 check: function() {
                     if (this.enabled && !this.enabling) {
@@ -251,10 +251,10 @@
                                 if (this.defining = !0, this.depCount < 1 && !this.defined) {
                                     if (isFunction(o)) {
                                         if (this.events.error && this.map.isDefine || req.onError !== defaultOnError) try {
-                                            n = b.execCb(r, o, i, n);
+                                            n = w.execCb(r, o, i, n);
                                         } catch (t) {
                                             e = t;
-                                        } else n = b.execCb(r, o, i, n);
+                                        } else n = w.execCb(r, o, i, n);
                                         if (this.map.isDefine && void 0 === n && ((t = this.module) ? n = t.exports : this.usingExports && (n = this.exports)), 
                                         e) return e.requireMap = this.map, e.requireModules = this.map.isDefine ? [ this.map.id ] : null, 
                                         e.requireType = this.map.isDefine ? "define" : "require", d(this.error = e);
@@ -263,20 +263,20 @@
                                         var a = [];
                                         each(this.depMaps, function(e) {
                                             a.push(e.normalizedMap || e);
-                                        }), req.onResourceLoad(b, this.map, a);
+                                        }), req.onResourceLoad(w, this.map, a);
                                     }
                                     l(r), this.defined = !0;
                                 }
                                 this.defining = !1, this.defined && !this.defineEmitted && (this.defineEmitted = !0, 
                                 this.emit("defined", this.exports), this.defineEmitComplete = !0);
                             }
-                        } else hasProp(b.defQueueMap, r) || this.fetch();
+                        } else hasProp(w.defQueueMap, r) || this.fetch();
                     }
                 },
                 callPlugin: function() {
                     var e = this.map, r = e.id, i = o(e.prefix);
                     this.depMaps.push(i), s(i, "defined", bind(this, function(i) {
-                        var n, u, c, f = getOwn(A, this.map.id), p = this.map.name, h = this.map.parentMap ? this.map.parentMap.name : null, g = b.makeRequire(e.parentMap, {
+                        var n, u, c, f = getOwn(A, this.map.id), p = this.map.name, h = this.map.parentMap ? this.map.parentMap.name : null, g = w.makeRequire(e.parentMap, {
                             enableBuildCallback: !0
                         });
                         return this.map.unnormalized ? (i.normalize && (p = i.normalize(p, function(e) {
@@ -290,7 +290,7 @@
                             });
                         })), void ((c = getOwn(x, u.id)) && (this.depMaps.push(u), this.events.error && c.on("error", bind(this, function(e) {
                             this.emit("error", e);
-                        })), c.enable()))) : f ? (this.map.url = b.nameToUrl(f), void this.load()) : ((n = bind(this, function(e) {
+                        })), c.enable()))) : f ? (this.map.url = w.nameToUrl(f), void this.load()) : ((n = bind(this, function(e) {
                             this.init([], function() {
                                 return e;
                             }, null, {
@@ -308,9 +308,9 @@
                             } catch (t) {
                                 return d(makeError("fromtexteval", "fromText eval for " + r + " failed: " + t, t, [ r ]));
                             }
-                            l && (useInteractive = !0), this.depMaps.push(u), b.completeLoad(s), g([ s ], n);
+                            l && (useInteractive = !0), this.depMaps.push(u), w.completeLoad(s), g([ s ], n);
                         }), void i.load(e.name, g, n, E));
-                    })), b.enable(i, this), this.pluginMaps[i.id] = i;
+                    })), w.enable(i, this), this.pluginMaps[i.id] = i;
                 },
                 enable: function() {
                     (k[this.map.id] = this).enabled = !0, this.enabling = !0, each(this.depMaps, bind(this, function(e, t) {
@@ -324,10 +324,10 @@
                                 this.emit("error", e);
                             }));
                         }
-                        r = e.id, i = x[r], hasProp(y, r) || !i || i.enabled || b.enable(e, this);
+                        r = e.id, i = x[r], hasProp(y, r) || !i || i.enabled || w.enable(e, this);
                     })), eachProp(this.pluginMaps, bind(this, function(e) {
                         var t = getOwn(x, e.id);
-                        t && !t.enabled && b.enable(e, this);
+                        t && !t.enabled && w.enable(e, this);
                     })), this.enabling = !1, this.check();
                 },
                 on: function(e, t) {
@@ -339,7 +339,7 @@
                         e(t);
                     }), "error" === e && delete this.events[e];
                 }
-            }, (b = {
+            }, (w = {
                 config: E,
                 contextName: e,
                 registry: x,
@@ -374,7 +374,7 @@
                     }), e.shim && (eachProp(e.shim, function(e, t) {
                         isArray(e) && (e = {
                             deps: e
-                        }), !e.exports && !e.init || e.exportsFn || (e.exportsFn = b.makeShimExports(e)), 
+                        }), !e.exports && !e.init || e.exportsFn || (e.exportsFn = w.makeShimExports(e)), 
                         r[t] = e;
                     }), E.shim = r), e.packages && each(e.packages, function(e) {
                         var t;
@@ -383,7 +383,7 @@
                         } : e).name, e.location && (E.paths[t] = e.location), E.pkgs[t] = e.name + "/" + (e.main || "main").replace(currDirRegExp, "").replace(jsSuffixRegExp, "");
                     }), eachProp(x, function(e, t) {
                         e.inited || e.map.unnormalized || (e.map = o(t, null, !0));
-                    }), (e.deps || e.callback) && b.require(e.deps || [], e.callback);
+                    }), (e.deps || e.callback) && w.require(e.deps || [], e.callback);
                 },
                 makeShimExports: function(e) {
                     return function() {
@@ -395,9 +395,9 @@
                     function s(t, r, u) {
                         var l, f;
                         return n.enableBuildCallback && r && isFunction(r) && (r.__requireJsBuild = !0), 
-                        "string" == typeof t ? isFunction(r) ? d(makeError("requireargs", "Invalid require call"), u) : i && hasProp(y, t) ? y[t](x[i.id]) : req.get ? req.get(b, t, i, s) : (l = o(t, i, !1, !0).id, 
+                        "string" == typeof t ? isFunction(r) ? d(makeError("requireargs", "Invalid require call"), u) : i && hasProp(y, t) ? y[t](x[i.id]) : req.get ? req.get(w, t, i, s) : (l = o(t, i, !1, !0).id, 
                         hasProp(S, l) ? S[l] : d(makeError("notloaded", 'Module name "' + l + '" has not been loaded yet for context: ' + e + (i ? "" : ". Use require([])")))) : (g(), 
-                        b.nextTick(function() {
+                        w.nextTick(function() {
                             g(), (f = a(o(null, i))).skipMap = n.skipMap, f.init(t, r, u, {
                                 enabled: !0
                             }), c();
@@ -408,7 +408,7 @@
                         toUrl: function(e) {
                             var r, n = e.lastIndexOf("."), o = e.split("/")[0];
                             return -1 !== n && (!("." === o || ".." === o) || 1 < n) && (r = e.substring(n, e.length), 
-                            e = e.substring(0, n)), b.nameToUrl(t(e, i && i.id, !0), r, !0);
+                            e = e.substring(0, n)), w.nameToUrl(t(e, i && i.id, !0), r, !0);
                         },
                         defined: function(e) {
                             return hasProp(S, o(e, i, !1, !0).id);
@@ -421,7 +421,7 @@
                         var t = o(e, i, !0), n = getOwn(x, e);
                         n.undefed = !0, r(e), delete S[e], delete q[t.url], delete T[e], eachReverse(I, function(t, r) {
                             t[0] === e && I.splice(r, 1);
-                        }), delete b.defQueueMap[e], n && (n.events.defined && (T[e] = n.events), l(e));
+                        }), delete w.defQueueMap[e], n && (n.events.defined && (T[e] = n.events), l(e));
                     }), s;
                 },
                 enable: function(e) {
@@ -436,7 +436,7 @@
                         } else r[0] === e && (t = !0);
                         f(r);
                     }
-                    if (b.defQueueMap = {}, n = getOwn(x, e), !t && !hasProp(S, e) && n && !n.inited) {
+                    if (w.defQueueMap = {}, n = getOwn(x, e), !t && !hasProp(S, e) && n && !n.inited) {
                         if (!(!E.enforceDefine || a && getGlobal(a))) return i(e) ? void 0 : d(makeError("nodefine", "No define call for " + e, null, [ e ]));
                         f([ e, o.deps || [], o.exportsFn ]);
                     }
@@ -444,7 +444,7 @@
                 },
                 nameToUrl: function(e, t, r) {
                     var i, n, o, a, s, d, u = getOwn(E.pkgs, e);
-                    if (u && (e = u), d = getOwn(A, e)) return b.nameToUrl(d, t, r);
+                    if (u && (e = u), d = getOwn(A, e)) return w.nameToUrl(d, t, r);
                     if (req.jsExtRegExp.test(e)) a = e + (t || ""); else {
                         for (i = E.paths, o = (n = e.split("/")).length; 0 < o; o -= 1) if (s = getOwn(i, n.slice(0, o).join("/"))) {
                             isArray(s) && (s = s[0]), n.splice(0, o, s);
@@ -455,7 +455,7 @@
                     return E.urlArgs && !/^blob\:/.test(a) ? a + E.urlArgs(e, a) : a;
                 },
                 load: function(e, t) {
-                    req.load(b, e, t);
+                    req.load(w, e, t);
                 },
                 execCb: function(e, t, r, i) {
                     return t.apply(i, r);
@@ -464,7 +464,7 @@
                     if ("load" === e.type || readyRegExp.test((e.currentTarget || e.srcElement).readyState)) {
                         interactiveScript = null;
                         var t = h(e);
-                        b.completeLoad(t.id);
+                        w.completeLoad(t.id);
                     }
                 },
                 onScriptError: function(e) {
@@ -478,7 +478,7 @@
                         }), d(makeError("scripterror", 'Script error for "' + t.id + (r.length ? '", needed by: ' + r.join(", ") : '"'), e, [ t.id ]));
                     }
                 }
-            }).require = b.makeRequire(), b;
+            }).require = w.makeRequire(), w;
         }
         function getInteractiveScript() {
             return interactiveScript && "interactive" === interactiveScript.readyState || eachReverse(scripts(), function(e) {
@@ -820,12 +820,12 @@
                     var f = o(p, i.id), g = document.createElement("iframe"), m = "/_themes/_components/" + i.id + "/publish/assets/edit.html#" + f;
                     g.setAttribute("src", m), g.setAttribute("frameborder", 0), g.style.height = u, 
                     g.style.width = n;
-                    var b = void 0 === l || isNaN(l) ? c : c && c.length && c.length > l ? c[l] : void 0, y = new r({
+                    var w = void 0 === l || isNaN(l) ? c : c && c.length && c.length > l ? c[l] : void 0, y = new r({
                         frame: g,
                         frameId: f,
                         fieldId: p,
                         customEditor: i,
-                        editorValue: b
+                        editorValue: w
                     });
                     return s(f, p, g, l, y), d.debug("custom editor frame is built for editor " + e), 
                     y;
@@ -880,7 +880,12 @@
                 var r = "Unable to initialize Type - invalid  parameter: no name provided";
                 throw t.error(r), new Error(r);
             }
-            this.name = e.name, this.description = e.description, this.getSlug = function() {
+            if (!e.typeCategory) {
+                var r = "Unable to initialize Type - invalid  parameter: no typeCategory provided";
+                throw t.error(r), new Error(r);
+            }
+            this.name = e.name, this.description = e.description, this.typeCategory = e.typeCategory, 
+            this.getSlug = function() {
                 return Object.freeze(e.slug);
             }, this.getGroups = function() {
                 return Object.freeze(e.groups);
@@ -899,11 +904,11 @@
         return function(t) {
             function i(e) {
                 l = e.id, c = e.type, f = e.name, p = e.description, h = e.slug, g = e.language, 
-                m = e.translatable, v = e.languageIsMaster, b = e.version, y = e.isPublished, w = e.status, 
+                m = e.translatable, v = e.languageIsMaster, w = e.version, y = e.isPublished, b = e.status, 
                 E = e.createdDate, x = e.createdBy, k = e.updatedDate, T = e.updatedBy, I = e.repositoryId, 
                 S = e.latestVersion, q = e.currentVersion, A = e.mimeType, O = e.fileGroup, C = e.varSetId, 
-                N = e.versionInfo, M = e.publishInfo, R = e.tags, D = e.collections, P = e.channels, 
-                j = e.publishedChannels, F = e.taxonomies, z = e.isNew;
+                D = e.versionInfo, M = e.publishInfo, N = e.tags, F = e.collections, R = e.channels, 
+                P = e.publishedChannels, j = e.taxonomies, z = e.isNew;
             }
             function s() {
                 return {
@@ -919,10 +924,10 @@
                     repositoryId: I,
                     language: g,
                     translatable: m,
-                    status: w,
+                    status: b,
                     isPublished: y,
                     languageIsMaster: v,
-                    version: b,
+                    version: w,
                     currentVersion: q,
                     latestVersion: S,
                     mimeType: A,
@@ -934,7 +939,7 @@
                 a.debug("Item update recived data: ", e), i(e);
                 var t = e.fieldData;
                 t && Array.isArray(t) && t.forEach(function(e) {
-                    var t = e.definition.id, r = e.value, i = _.filter(function(e) {
+                    var t = e.definition.id, r = e.value, i = G.filter(function(e) {
                         return e.getDefinition().id === t;
                     }), n = i && i.length > 0 ? i[0] : null;
                     n && (a.debug("Syncing field value for field : " + e.definition.name + " with value " + r), 
@@ -950,33 +955,36 @@
             }
             if (!t.contentType) throw a.error("Type must be  provided"), new Error("Type must be  provided");
             r.on("update", d);
-            var l, c, f, p, h, g, m, v, b, y, w, E, x, k, T, I, S, q, A, O, C, N, M, R, D, P, j, F, z, B = t.contentType, V = B.getSlug(), L = (V && V.enabled, 
-            {}), U = t.itemData, W = U.fieldData, Q = U.languageOptions;
+            var l, c, f, p, h, g, m, v, w, y, b, E, x, k, T, I, S, q, A, O, C, D, M, N, F, R, P, j, z, B = t.contentType, V = B.getSlug(), L = (V && V.enabled, 
+            {}), U = t.itemData, W = U.fieldData, Q = t.formOptions, _ = U.languageOptions;
             i(U);
-            var _ = W.map(function(t) {
+            var G = W.map(function(t) {
                 return new e(t);
             });
-            this.get = function() {
+            this.getFormOptions = function() {
+                return Object.freeze(Q);
+            }, this.get = function() {
                 return s();
             }, this.on = function(e, t) {
                 L[e] = t;
             }, this.isNew = function() {
                 return z;
             }, this.getLanguageOptions = function() {
-                return Q;
-            }, this.getFields = function() {
                 return _;
+            }, this.getFields = function() {
+                return G;
             }, this.getFieldByName = function(e) {
-                var t = _.filter(function(t) {
+                var t = G.filter(function(t) {
                     return t.getDefinition().name === e;
                 });
                 return t && t.length > 0 ? t[0] : null;
             }, this.getFieldById = function(e) {
-                var t = _.filter(function(t) {
+                var t = G.filter(function(t) {
                     return t.getDefinition().id === e;
                 });
                 return t && t.length > 0 ? t[0] : null;
             }, this.setName = function(e, t) {
+                if (Q && !Q.supportsSetName) throw new Error("Form does not support changing name");
                 t = t || {}, f = e, n({
                     nodeName: "name",
                     value: f,
@@ -987,6 +995,7 @@
                     value: e
                 });
             }, this.setDescription = function(e, t) {
+                if (Q && !Q.supportsSetDescription) throw new Error("Form does not support changing description .");
                 t = t || {}, p = e, n({
                     nodeName: "description",
                     value: p,
@@ -997,6 +1006,7 @@
                     value: e
                 });
             }, this.setSlug = function(e, t) {
+                if (Q && !Q.supportsSetSlug) throw new Error("Form does not support changing slug.");
                 t = t || {}, h = e, n({
                     nodeName: "slug",
                     value: h,
@@ -1007,8 +1017,9 @@
                     value: e
                 });
             }, this.setLanguage = function(e, t) {
+                if (Q && !Q.supportsSetLanguage) throw new Error("Form does not support changing language.");
                 if (t = t || {}, !this.isNew()) throw new Error("Language cannot be modified for an existing item");
-                if (!o(Q, e)) throw new Error('Invalid Language "' + e + '" passed');
+                if (!o(_, e)) throw new Error('Invalid Language "' + e + '" passed');
                 g = e, n({
                     nodeName: "language",
                     value: g,
@@ -1019,6 +1030,7 @@
                     value: e
                 });
             }, this.setTranslatable = function(e, t) {
+                if (Q && !Q.supportsSetTranslatable) throw new Error("Form does not support changing translatable.");
                 if (t = t || {}, !this.isNew()) throw new Error("Translatbale property cannot be modified for an existing item");
                 if ("boolean" != typeof e) throw new Error("Translatbale property must be boolean");
                 e = e, n({
@@ -1027,20 +1039,21 @@
                     options: t
                 });
             }, this.getVersionInfo = function() {
-                return Promise.resolve(N);
+                return Promise.resolve(D);
             }, this.getPublishInfo = function() {
                 return Promise.resolve(M);
             }, this.getTags = function() {
-                return Promise.resolve(R);
+                return Promise.resolve(N);
             }, this.getCollections = function() {
-                return Promise.resolve(D);
-            }, this.getChannels = function() {
-                return Promise.resolve(P);
-            }, this.getPublishedChannels = function() {
-                return Promise.resolve(j);
-            }, this.getTaxonomies = function() {
                 return Promise.resolve(F);
+            }, this.getChannels = function() {
+                return Promise.resolve(R);
+            }, this.getPublishedChannels = function() {
+                return Promise.resolve(P);
+            }, this.getTaxonomies = function() {
+                return Promise.resolve(j);
             }, this.addChannels = function(e, t) {
+                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support adding channels.");
                 if (!Array.isArray(e)) throw new Error("Channels must be an array");
                 t = t || {}, n({
                     nodeName: "channels",
@@ -1051,6 +1064,7 @@
                     options: t
                 });
             }, this.removeChannels = function(e, t) {
+                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support removing channels.");
                 if (!Array.isArray(e)) throw new Error("Channels must be an array");
                 t = t || {}, n({
                     nodeName: "channels",
@@ -1061,6 +1075,7 @@
                     options: t
                 });
             }, this.addTags = function(e, t) {
+                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support adding tags.");
                 if (!Array.isArray(e)) throw new Error("Tags must be an array");
                 t = t || {}, n({
                     nodeName: "tags",
@@ -1071,6 +1086,7 @@
                     options: t
                 });
             }, this.removeTags = function(e, t) {
+                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support removing tags.");
                 if (!Array.isArray(e)) throw new Error("Tags must be an array");
                 t = t || {}, n({
                     nodeName: "tags",
@@ -1081,6 +1097,7 @@
                     options: t
                 });
             }, this.addCollections = function(e, t) {
+                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support adding collections.");
                 if (!Array.isArray(e)) throw new Error("Collections must be an array");
                 t = t || {}, n({
                     nodeName: "collections",
@@ -1091,6 +1108,7 @@
                     options: t
                 });
             }, this.removeCollections = function(e, t) {
+                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support removing collections.");
                 if (!Array.isArray(e)) throw new Error("Collections must be an array");
                 t = t || {}, n({
                     nodeName: "collections",
@@ -1101,6 +1119,7 @@
                     options: t
                 });
             }, this.addCategories = function(e, t, r) {
+                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support adding categories.");
                 if (!e) throw new Error("Taxonomy is missing");
                 if (Array.isArray(e)) throw new Error("Taxonomy must not be an array");
                 if (!Array.isArray(t)) throw new Error("Categories must be an array");
@@ -1114,6 +1133,7 @@
                     options: r
                 });
             }, this.removeCategories = function(e, t, r) {
+                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support removing categories.");
                 if (!e) throw new Error("Taxonomy is missing");
                 if (Array.isArray(e)) throw new Error("Taxonomy must not be an array");
                 if (!Array.isArray(t)) throw new Error("Categories must be an array");
@@ -1138,21 +1158,29 @@
             var d = document.querySelector("body");
             if (!n.contentItemData || !n.contentTypeData) throw s = 'Unable to initialize sdk - invalid  parameter: "contentItemData" and "contentTypeData', 
             o.error(s), new Error(s);
-            var u = n.contentItemData, l = n.contentTypeData, c = n.locale, f = n.repositoryDefaultLanguage, p = new t(l), h = new e({
+            var u = n.contentItemData, l = n.contentTypeData, c = n.formOptions, f = n.locale, p = n.repositoryId, h = n.repositoryDefaultLanguage, g = new t(l), m = new e({
                 itemData: u,
-                contentType: p
+                contentType: g,
+                formOptions: c
             });
             this.getType = function() {
-                return p;
+                return g;
             }, this.getItem = function() {
-                return h;
+                return m;
             }, this.getLocale = function() {
-                return c;
-            }, this.getRepositoryDefaultLanguage = function() {
                 return f;
+            }, this.getRepositoryId = function() {
+                return p;
+            }, this.getRepositoryDefaultLanguage = function() {
+                return h;
             }, this.previewAsset = function(e) {
                 if (!e || !e.id) throw new Error('Invalid params. {"id" : "<id of asset>" must be provided to open asset preview.');
                 return i.send("previewAsset", e);
+            }, this.editAsset = function(e) {
+                if (!e || !e.id) throw new Error('Invalid params. {"id" : "<id of asset>" must be provided to edit asset');
+                return i.sendAndWait("openEditItemDrawer", e);
+            }, this.createAsset = function(e) {
+                return i.sendAndWait("openCreateItemDrawer", e);
             }, this.resize = function(e) {
                 if (!e) {
                     var t = d.getBoundingClientRect();
@@ -1166,16 +1194,16 @@
                     height: e.height
                 });
             };
-            var g, m;
+            var v, w;
             this.registerFormValidation = function(e, t) {
-                g = e, t = t || {}, m = t.message || "";
+                v = e, t = t || {}, w = t.message || "";
             }, this.isFormValid = function() {
-                if ("function" != typeof g) return o.debug("Unable to validate value: no validation function has been registered"), 
+                if ("function" != typeof v) return o.debug("Unable to validate value: no validation function has been registered"), 
                 {
                     isValid: !0
                 };
                 try {
-                    return o.debug("Evaluating custom validation function for item :", h), Promise.resolve(g.call(this, h)).then(function(e) {
+                    return o.debug("Evaluating custom validation function for item :", m), Promise.resolve(v.call(this, m)).then(function(e) {
                         var t;
                         switch (o.debug("validation function returned:", e), typeof e) {
                           case "boolean":
@@ -1188,7 +1216,7 @@
                             e.hasOwnProperty("isValid") && "boolean" == typeof e.isValid && (t = {
                                 isValid: e.isValid,
                                 error: {
-                                    message: e.message || m
+                                    message: e.message || w
                                 }
                             });
                         }
@@ -1232,18 +1260,18 @@
                 g && void 0 !== a && a >= 0 && (g.index = a);
                 var m = l.widget;
                 if (!m) throw o.error("There is no custom editor widget for sender:", i), new Error("There is no custom editor widget for sender:", i);
-                var v = m.getCustomEditorInfo(), b = f.getDefinition().settings || {}, y = !!b.caas.editor.hasOwnProperty("isCustom") && b.caas.editor.hasOwnProperty("isCustom"), w = y ? b.caas.editor.options.settings || {} : {}, E = !!v.hasOwnProperty("autoresize") && v.autoresize;
+                var v = m.getCustomEditorInfo(), w = f.getDefinition().settings || {}, y = !!w.caas.editor.hasOwnProperty("isCustom") && w.caas.editor.hasOwnProperty("isCustom"), b = y ? w.caas.editor.options.settings || {} : {}, E = !!v.hasOwnProperty("autoresize") && v.autoresize;
                 (v.settings || []).filter(function(e) {
                     return "value" === e.type;
                 }).forEach(function(e) {
-                    w[e.id] = e.value;
+                    b[e.id] = e.value;
                 });
                 var x = {
                     locale: u,
                     fields: p,
                     field: g,
                     editor: {
-                        settings: w,
+                        settings: b,
                         autoresize: E,
                         parameters: {}
                     }

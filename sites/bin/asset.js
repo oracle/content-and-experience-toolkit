@@ -74,7 +74,7 @@ module.exports.createRepository = function (argv, done) {
 	var contentTypes = [];
 	var exitCode;
 
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -218,7 +218,7 @@ module.exports.controlRepository = function (argv, done) {
 	var finaleChannelNames = [];
 	var finalTaxNames = [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -533,7 +533,7 @@ module.exports.shareRepository = function (argv, done) {
 	var usersToGrant = [];
 	var groupsToGrant = [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -886,7 +886,7 @@ module.exports.unShareRepository = function (argv, done) {
 	var goodGroupNames = [];
 	var typeNames = [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1107,7 +1107,7 @@ module.exports.shareType = function (argv, done) {
 	var goodUserName = [];
 	var goodGroupNames = [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1305,7 +1305,7 @@ module.exports.unshareType = function (argv, done) {
 	var goodUserName = [];
 	var goodGroupNames = [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1451,7 +1451,7 @@ module.exports.downloadType = function (argv, done) {
 	var customEditors = [];
 	var customForms = [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1602,7 +1602,7 @@ module.exports.uploadType = function (argv, done) {
 
 	var hasError = false;
 
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1817,7 +1817,7 @@ module.exports.createChannel = function (argv, done) {
 
 	var localizationId;
 	var exitCode;
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1918,7 +1918,7 @@ module.exports.shareChannel = function (argv, done) {
 	var goodUserName = [];
 	var goodGroupNames = [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -2125,7 +2125,7 @@ module.exports.unshareChannel = function (argv, done) {
 	var goodUserName = [];
 	var goodGroupNames = [];
 
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -2277,7 +2277,7 @@ module.exports.listEditorialPermission = function (argv, done) {
 
 	var name = argv.name;
 
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -2449,7 +2449,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 	var categoryNames = argv.categories ? argv.categories.split(',') : [];
 	var categoryPermission = argv.categorypermission;
 
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -3055,7 +3055,7 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 	var defaultLanguage = argv.defaultlanguage;
 	var optionalLanguages = argv.optionallanguages ? argv.optionallanguages.split(',') : [];
 	var exitCode;
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -3138,7 +3138,7 @@ module.exports.listAssets = function (argv, done) {
 
 	var showURLS = typeof argv.urls === 'boolean' ? argv.urls : argv.urls === 'true';
 
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -3645,7 +3645,7 @@ module.exports.createMSWordTemplate = function (argv, done) {
 	}
 	var destFld = path.join(wordTemplatesSrcDir, templateName);
 
-	serverUtils.loginToServer(server, serverUtils.getRequest()).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -3814,8 +3814,7 @@ module.exports.createContentItem = function (argv, done) {
 	// local timezone
 	process.env.TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-	var request = serverUtils.getRequest();
-	serverUtils.loginToServer(server, request).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();

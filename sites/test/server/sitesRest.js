@@ -69,15 +69,15 @@ var _getAllResources = function (server, type, expand) {
 		var resources = [];
 
 		var doGetResources = groups.reduce(function (resPromise, offset) {
-				return resPromise.then(function (result) {
-					if (result && result.items && result.items.length > 0) {
-						resources = resources.concat(result.items);
-					}
-					if (result && result.hasMore) {
-						return _getResources(server, type, expand, offset);
-					}
-				});
-			},
+			return resPromise.then(function (result) {
+				if (result && result.items && result.items.length > 0) {
+					resources = resources.concat(result.items);
+				}
+				if (result && result.hasMore) {
+					return _getResources(server, type, expand, offset);
+				}
+			});
+		},
 			// Start with a previousPromise value that is a resolved promise 
 			_getResources(server, type, expand));
 
@@ -698,7 +698,7 @@ var _refreshSiteContent = function (server, id, name) {
 			}
 
 			if (response && response.statusCode < 300) {
-				var status = response.headers && response.headers.location;
+				var status = response.location;
 				var inter = setInterval(function () {
 					var jobPromise = _getBackgroundJobStatus(server, status);
 					jobPromise.then(function (data) {
@@ -787,7 +787,7 @@ var _exportResource = function (server, type, id, name) {
 			}
 
 			if (response && response.statusCode === 200) {
-				var fileLocation = response.headers && response.headers.location || response.url;
+				var fileLocation = response.location || response.url;
 				resolve({
 					id: id,
 					name: name,
@@ -858,7 +858,7 @@ var _exportResourceAsync = function (server, type, id, name) {
 			}
 
 			if (response && response.statusCode === 202) {
-				var statusLocation = response.headers && response.headers.location;
+				var statusLocation = response.location;
 				var jobId = statusLocation ? statusLocation.substring(statusLocation.lastIndexOf('/') + 1) : '';
 				console.log(' - job id: ' + jobId);
 				var startTime = new Date();
@@ -1052,7 +1052,7 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 			}
 
 			if (response && response.statusCode === 202) {
-				var statusLocation = response.headers && response.headers.location;
+				var statusLocation = response.location;
 				var jobId = statusLocation ? statusLocation.substring(statusLocation.lastIndexOf('/') + 1) : '';
 				console.log(' - job id: ' + jobId);
 				var needNewLine = false;
@@ -1462,6 +1462,21 @@ module.exports.deleteTemplate = function (args) {
 };
 
 /**
+ * Delete a site on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {string} id the id of the site or
+ * @param {string} name the name of the site
+ * @param {boolean} hard a flag to indicate delete the site permanently
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteSite = function (args) {
+	var server = args.server;
+	var showError = args.showError !== undefined ? args.showError : true;
+	return args.hard ? _hardDeleteResource(server, 'sites', args.id, args.name, showError) : _softDeleteResource(server, 'sites', args.id, args.name);
+};
+
+/**
  * Delete a theme on server 
  * @param {object} args JavaScript object containing parameters. 
  * @param {object} server the server object
@@ -1519,7 +1534,7 @@ var _importComponent = function (server, name, fileId) {
 
 			// console.log(response.statusCode);
 			if (response && response.statusCode >= 200 && response.statusCode <= 303) {
-				var statusLocation = response.headers && response.headers.location || response.url;
+				var statusLocation = response.location || response.url;
 				var itemId;
 				if (statusLocation && statusLocation.indexOf('/') > 0) {
 					itemId = statusLocation.substring(statusLocation.lastIndexOf('/') + 1);
@@ -1662,7 +1677,7 @@ var _createTemplateFromSite = function (server, name, siteName, includeUnpublish
 			}
 
 			if (response && response.statusCode === 202) {
-				var statusLocation = response.headers && response.headers.location;
+				var statusLocation = response.location;
 				var inter = setInterval(function () {
 					var jobPromise = _getBackgroundJobStatus(server, statusLocation);
 					jobPromise.then(function (data) {
@@ -1758,7 +1773,7 @@ var _importTemplate = function (server, name, fileId) {
 			}
 
 			if (response && response.statusCode === 202) {
-				var statusLocation = response.headers && response.headers.location;
+				var statusLocation = response.location;
 				console.log(' - import template (job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1) + ')');
 				var startTime = new Date();
 				var inter = setInterval(function () {
@@ -1882,7 +1897,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 			}
 
 			if (response && response.statusCode === 202) {
-				var statusLocation = response.headers && response.headers.location;
+				var statusLocation = response.location;
 				console.log(' - creating site (job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1) + ')');
 				var startTime = new Date();
 				var needNewLine = false;
@@ -1993,7 +2008,7 @@ var _copySite = function (server, sourceSiteName, name, description, sitePrefix,
 			}
 
 			if (response && response.statusCode === 202) {
-				var statusLocation = response.headers && response.headers.location;
+				var statusLocation = response.location;
 				console.log(' - copying site (job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1) + ')');
 				var startTime = new Date();
 				var needNewLine = false;
@@ -2120,4 +2135,79 @@ var _siteUpdated = function (server, name) {
  */
 module.exports.siteUpdated = function (args) {
 	return _siteUpdated(args.server, args.name);
+};
+
+var _createUpdate = function (server, siteId, name) {
+	return new Promise(function (resolve, reject) {
+
+		var url = '/documents/integration?IdcService=SCS_CREATE_EMPTY_VARIANT&IsJson=1';
+
+		var options = {
+			method: 'POST',
+			url: server.url + url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: serverUtils.getRequestAuthorization(server)
+
+			},
+			body: JSON.stringify({
+				'LocalData': {
+					'IdcService': 'SCS_CREATE_EMPTY_VARIANT',
+					siteId: siteId,
+					name: name,
+					isSiteUpdate: 1
+				}
+			}),
+			json: true
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (err, response, body) {
+			if (response && response.statusCode !== 200) {
+				console.log('ERROR: Failed to create the site update');
+				console.log('compilation server message: response status -', response.statusCode);
+			}
+			if (err) {
+				console.log('ERROR: Failed to create the site update');
+				console.log('compilation server message: error -', err);
+				return reject({
+					err: err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				if (typeof body === 'object') {
+					data = body;
+				}
+			}
+			// console.log(data);
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				// console.log('ERROR: failed to create the site update ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				var errorMsg = data && data.LocalData ? '- ' + data.LocalData.StatusMessage : "failed to create the site update";
+				return reject({
+					err: errorMsg
+				});
+			} else {
+				return resolve({
+					id: data.LocalData.fFolderGUID,
+					name: data.LocalData.variantName
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Create a site update
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {string} siteId the ID of the site
+ * @param {string} name the name of the new update
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createUpdate = function (args) {
+	return _createUpdate(args.server, args.siteId, args.name);
 };

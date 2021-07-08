@@ -50,6 +50,10 @@ Image.prototype.compile = function (args) {
 		this.componentTagAttribute = this.data.componentTagAttribute;
 	}
 
+	this.dataAnalyticsView = this.addAnalytics({
+		'view': this.contentId
+	});
+
 	// for content item links, the href can only be found asynchronously,
 	var getHref;
 	if (this.linkType === 'scs-link-item' && this.linkContentId) {
@@ -59,7 +63,7 @@ Image.prototype.compile = function (args) {
 				href: self.imageHref,
 				contentId: self.linkContentId,
 				contentType: self.linkContentType
-			}).then(function(url) {
+			}).then(function (url) {
 				self.imageHref = url;
 				resolve();
 			});
@@ -69,7 +73,7 @@ Image.prototype.compile = function (args) {
 	}
 
 	// render the content after getHref resolves
-	return getHref.then(function() {
+	return getHref.then(function () {
 		if (!(this.linkType === 'scs-link-lightbox' || this.imageHref)) {
 			if (this.data.clickHandler) {
 				this.hrefAttr = '';
@@ -81,6 +85,13 @@ Image.prototype.compile = function (args) {
 
 		if (this.linkType === 'scs-link-file') {
 			this.downloadFileName = 'download="' + encodeURI(this.getNameFromURL(this.imageHref, this.imageHrefName)) + '"';
+			var downloadContentId = this.getContentIdFromURL(this.imageHref);
+			if (downloadContentId) {
+				this.dataAnalyticsClick = this.addAnalytics({
+					'click': downloadContentId,
+					'operation': 'download'
+				});
+			}
 		}
 
 		// see if this image has a link (either click or href)

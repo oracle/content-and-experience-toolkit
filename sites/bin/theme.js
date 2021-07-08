@@ -56,9 +56,7 @@ module.exports.controlTheme = function (argv, done) {
 
 var _controlTheme = function (serverName, server, action, themeName, done) {
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -136,9 +134,7 @@ module.exports.shareTheme = function (argv, done) {
 		var users = [];
 		var groups = [];
 
-		var request = serverUtils.getRequest();
-
-		var loginPromise = serverUtils.loginToServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
@@ -334,9 +330,7 @@ module.exports.unshareTheme = function (argv, done) {
 		var users = [];
 		var groups = [];
 
-		var request = serverUtils.getRequest();
-
-		var loginPromise = serverUtils.loginToServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');

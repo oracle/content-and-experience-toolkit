@@ -15,10 +15,10 @@
  *       <li>For each job: 
  *         <ul>
  *           <li>Store metadata about the job and mapping it to the project in the Language Service Provider.</li>
- *           <li>Store/Unpack the zip file provided by the OCE translation job.</li>
+ *           <li>Store/Unpack the zip file provided by the OCM translation job.</li>
  *           <li>Store metadata about each file in the zip mapping the file to the entry in the Language Service Provider.</li>
  *           <li>Store all the translations for each of the files as they become available.</li>
- *           <li>Create a final zip of all the translated files in the format required for ingestion into the OCE translation jobs.</li>
+ *           <li>Create a final zip of all the translated files in the format required for ingestion into the OCM translation jobs.</li>
  *           <li>On job delete, remove all artifacts associated with the job.</li>
  *         </ul>
  *       </li>
@@ -47,7 +47,7 @@ PersistenceStoreInterface.prototype = {
      * Create a translation job<br/>
      * Create an entry for this translation job in the persistence store. 
      * @param {object} args JavaScript object containing the "createJob" parameters. 
-     * @param {string} args.jobName Name of the OCE translation job.
+     * @param {string} args.jobName Name of the OCM translation job.
      * @param {string} args.workflowId Language Service Provider workflow identifier to use to translate this job. 
      * @param {string} args.authToken Language Service Provider Authorization header to use to communicate with the LSP. 
      * @returns {Promise.<SampleJobManager.JobConfig>} The metadata created and stored for this job. 

@@ -22,8 +22,9 @@ var express = require('express'),
 	appsRouter = require('./server/appsRouter.js'),
 	templatesRouter = require('./server/templatesRouter.js'),
 	componentsRouter = require('./server/componentsRouter.js'),
-	proxyRouter = require('./server/proxyRouter.js'),
 	connectorRouter = require('./server/connectorRouter.js'),
+	sitesRouter = require('./server/sitesRouter.js'),
+	systemRouter = require('./server/systemRouter.js'),
 	serverUtils = require('./server/serverUtils.js');
 
 var cecDir = path.join(__dirname, ".."),
@@ -222,13 +223,16 @@ app.use('/renderer/app/sdk', express.static(testDir + '/sitescloud/renderer/app/
 app.use('/renderer/app/apps', appsRouter);
 app.use('/renderer/app/js', appsRouter);
 
-// All proxy requests are handled by proxyRouter
-app.use('/pxysvc', proxyRouter);
-
 // all /connector request are handled by connectorRouter
 app.get('/connector*', connectorRouter);
 app.post('/connector*', connectorRouter);
 app.delete('/connector*', connectorRouter);
+
+// all /sites request 
+app.use('/sites*', sitesRouter);
+
+// all /system request 
+app.use('/system*', systemRouter);
 
 app.get('/getsrcfolder', function (req, res) {
 	"use strict";

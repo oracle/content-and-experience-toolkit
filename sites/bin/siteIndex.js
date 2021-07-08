@@ -481,7 +481,7 @@ var _getPageContentTypes = function (pageData) {
 /**
  * 
  */
-var _getPageContent = function (server, request, channelToken, q, pageId, queryType) {
+var _getPageContent = function (server, channelToken, q, pageId, queryType) {
 	var pageContentPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/content/published/api/v1.1/items';
 		if (queryType === 'item') {
@@ -539,7 +539,7 @@ var _getPageContent = function (server, request, channelToken, q, pageId, queryT
 
 /**
  */
-var _getPageContentPromise = function (server, request, channelToken, pageContentIds, locale) {
+var _getPageContentPromise = function (server, channelToken, pageContentIds, locale) {
 	var promises = [];
 	var limit = 30;
 	var num = 0;
@@ -563,7 +563,7 @@ var _getPageContentPromise = function (server, request, channelToken, pageConten
 					q = '(' + q + ')';
 				}
 
-				promises.push(_getPageContent(server, request, channelToken, q, pageId, 'item'));
+				promises.push(_getPageContent(server, channelToken, q, pageId, 'item'));
 
 				// another batch
 				q = '';
@@ -576,7 +576,7 @@ var _getPageContentPromise = function (server, request, channelToken, pageConten
 			} else {
 				q = '(' + q + ')';
 			}
-			promises.push(_getPageContent(server, request, channelToken, q, pageId, 'item'));
+			promises.push(_getPageContent(server, channelToken, q, pageId, 'item'));
 		}
 	}
 
@@ -934,7 +934,7 @@ var _timeUsed = function (start, end) {
 	return seconds.toString() + 's';
 };
 
-var _createPageIndexItem = function (server, request, repositoryId, contenttype, dataIndex, locale, isMaster) {
+var _createPageIndexItem = function (server, repositoryId, contenttype, dataIndex, locale, isMaster) {
 	return new Promise(function (resolve, reject) {
 		// console.log(' - repositoryId: ' + repositoryId + ' contenttype: ' + contenttype + ' dataIndex: ' + dataIndex);
 		if (repositoryId && contenttype && dataIndex >= 0 && dataIndex < _pageIndexToCreate.length) {
@@ -961,21 +961,21 @@ var _createPageIndexItem = function (server, request, repositoryId, contenttype,
 				formData.sourceId = masterid;
 			}
 
-			var auth = serverUtils.getRequestAuth(server);
 			var postData = {
 				method: 'POST',
 				url: url,
-				auth: auth,
 				headers: {
 					'Content-Type': 'application/json',
 					'X-CSRF-TOKEN': _CSRFToken,
-					'X-REQUESTED-WITH': 'XMLHttpRequest'
+					'X-REQUESTED-WITH': 'XMLHttpRequest',
+					Authorization: serverUtils.getRequestAuthorization(server)
 				},
-				body: formData,
+				body: JSON.stringify(formData),
 				json: true
 			};
 			// console.log(JSON.stringify(postData));
 
+			var request = require('../test/server/requestUtils.js').request;
 			request.post(postData, function (err, response, body) {
 				if (err) {
 					console.log('ERROR: Failed to create page index item for page ' + pageName + localemsg);
@@ -1014,14 +1014,17 @@ var _createPageIndexItem = function (server, request, repositoryId, contenttype,
 };
 
 
-var _itemPublishInfo = function (server, request, itemId, pageName) {
+var _itemPublishInfo = function (server, itemId, pageName) {
 	infoPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/items/' + itemId + '/publishInfo';
 		var options = {
 			method: 'GET',
 			url: url,
-			auth: serverUtils.getRequestAuth(server)
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
 		};
+		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: Failed to get page index item publish info (' + pageName + ')');
@@ -1054,13 +1057,13 @@ var _itemPublishInfo = function (server, request, itemId, pageName) {
 };
 
 
-var _unpublishPageIndexItems = function (server, request, itemIds, pageNames, locale, isMaster) {
+var _unpublishPageIndexItems = function (server, itemIds, pageNames, locale, isMaster) {
 	var unpublishPromise = new Promise(function (resolve, reject) {
 		var localemsg = isMaster ? '' : ' (' + locale + ')';
 		// first check if the items are published
 		var ifPublishedPromise = [];
 		for (var i = 0; i < itemIds.length; i++) {
-			ifPublishedPromise.push(_itemPublishInfo(server, request, itemIds[i], pageNames[i]));
+			ifPublishedPromise.push(_itemPublishInfo(server, itemIds[i], pageNames[i]));
 		}
 		var publishedItemIds = [];
 		var publisedPageNames = [];
@@ -1140,7 +1143,7 @@ var _unpublishPageIndexItems = function (server, request, itemIds, pageNames, lo
 };
 
 
-var _updatePageIndexItem = function (server, request, dataIndex, locale, isMaster) {
+var _updatePageIndexItem = function (server, dataIndex, locale, isMaster) {
 	return new Promise(function (resolve, reject) {
 		if (dataIndex >= 0 && dataIndex < _pageIndexToUpdate.length) {
 			var pageName = _pageIndexToUpdate[dataIndex].fields.pagename;
@@ -1273,7 +1276,7 @@ var _getPageFromMastrStructure = function (pageid) {
  * @param {*} siteChannelToken 
  * @param {*} pageIndex 
  */
-var _indexSiteOnServer = function (server, request, siteInfo, siteChannelToken, contenttype, pageIndex, locale, isMaster) {
+var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contenttype, pageIndex, locale, isMaster) {
 	var indexSiteOnServerPromise = new Promise(function (resolve, reject) {
 		var siteChannelId = siteInfo.channelId;
 		var localemsg = isMaster ? '' : ' (' + locale + ')';
@@ -1348,7 +1351,7 @@ var _indexSiteOnServer = function (server, request, siteInfo, siteChannelToken, 
 			var createNewPageIndexPromises = [];
 			for (var i = 0; i < _pageIndexToCreate.length; i++) {
 				createNewPageIndexPromises.push(
-					_createPageIndexItem(server, request, siteInfo.repositoryId, contenttype, i, locale, isMaster)
+					_createPageIndexItem(server, siteInfo.repositoryId, contenttype, i, locale, isMaster)
 				);
 			}
 			Promise.all(createNewPageIndexPromises)
@@ -1392,7 +1395,7 @@ var _indexSiteOnServer = function (server, request, siteInfo, siteChannelToken, 
 					var updateExistingPageIndexPromises = [];
 					for (var i = 0; i < _pageIndexToUpdate.length; i++) {
 						updateExistingPageIndexPromises.push(
-							_updatePageIndexItem(server, request, i, locale, isMaster)
+							_updatePageIndexItem(server, i, locale, isMaster)
 						);
 					}
 					return Promise.all(updateExistingPageIndexPromises);
@@ -1433,7 +1436,7 @@ var _indexSiteOnServer = function (server, request, siteInfo, siteChannelToken, 
 
 					if (deleteItemIds.length > 0) {
 						var unpublishPromise = _unpublishPageIndexItems(
-							server, request, deleteItemIds, deleteItemPageNames, locale, isMaster);
+							server, deleteItemIds, deleteItemPageNames, locale, isMaster);
 						unpublishPromise.then(function (result) {
 							if (result.err) {
 								return resolve(result);
@@ -1476,7 +1479,7 @@ var _indexSiteOnServer = function (server, request, siteInfo, siteChannelToken, 
 };
 
 
-var _publishPageIndexItems = function (server, request, channelId, done) {
+var _publishPageIndexItems = function (server, channelId, done) {
 	if (_masterItems.length === 0) {
 		console.log(' - no item to publish');
 		return Promise.reject();
@@ -1787,7 +1790,7 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 	return dataPromise;
 };
 
-var _indexSiteWithLocale = function (server, request, site, contenttype, locale, isMaster, queriedStructure) {
+var _indexSiteWithLocale = function (server, site, contenttype, locale, isMaster, queriedStructure) {
 	var sitePromise = new Promise(function (resolve, reject) {
 		var pageData = [];
 		var msg = isMaster ? '' : ('(' + locale + ')');
@@ -1828,7 +1831,7 @@ var _indexSiteWithLocale = function (server, request, site, contenttype, locale,
 					var promises = [];
 					// Content list queries
 					for (var i = 0; i < pageContentListQueries.length; i++) {
-						promises.push(_getPageContent(server, request, _siteChannelToken, pageContentListQueries[i].queryString, pageContentListQueries[i].pageId, 'list'));
+						promises.push(_getPageContent(server, _siteChannelToken, pageContentListQueries[i].queryString, pageContentListQueries[i].pageId, 'list'));
 					}
 
 					return Promise.all(promises);
@@ -1851,7 +1854,7 @@ var _indexSiteWithLocale = function (server, request, site, contenttype, locale,
 						}
 					}
 
-					var pageContentPromise = _getPageContentPromise(server, request, _siteChannelToken, _pageContentIds, (isMaster ? undefined : locale));
+					var pageContentPromise = _getPageContentPromise(server, _siteChannelToken, _pageContentIds, (isMaster ? undefined : locale));
 					if (pageContentPromise && pageContentPromise.length > 0) {
 						Promise.all(pageContentPromise).then(function (values) {
 							console.log(' - query content on the pages ' + msg);
@@ -1865,7 +1868,7 @@ var _indexSiteWithLocale = function (server, request, site, contenttype, locale,
 
 							pageIndex = _generatePageIndex(site, pages, pageData, pageContent, _contentTextFields);
 							// console.log(pageIndex);
-							var indexSiteOnServerPromise = _indexSiteOnServer(server, request, _SiteInfo, _siteChannelToken, contenttype, pageIndex, locale, isMaster);
+							var indexSiteOnServerPromise = _indexSiteOnServer(server, _SiteInfo, _siteChannelToken, contenttype, pageIndex, locale, isMaster);
 							indexSiteOnServerPromise.then(function (values) {
 								return resolve(values);
 							});
@@ -1875,7 +1878,7 @@ var _indexSiteWithLocale = function (server, request, site, contenttype, locale,
 						// No content on the pages
 						console.log(' - no content on the pages');
 						pageIndex = _generatePageIndex(site, pages, pageData, []);
-						var indexSiteOnServerPromise = _indexSiteOnServer(server, request, _SiteInfo, _siteChannelToken, contenttype, pageIndex, locale, isMaster);
+						var indexSiteOnServerPromise = _indexSiteOnServer(server, _SiteInfo, _siteChannelToken, contenttype, pageIndex, locale, isMaster);
 						indexSiteOnServerPromise.then(function (values) {
 							return resolve(values);
 						});
@@ -1891,7 +1894,7 @@ var _indexSiteWithLocale = function (server, request, site, contenttype, locale,
  * Main entry
  * 
  */
-var _indexSite = function (server, request, site, contenttype, publish, done) {
+var _indexSite = function (server, site, contenttype, publish, done) {
 
 	//
 	// get site info and other metadata
@@ -1904,7 +1907,7 @@ var _indexSite = function (server, request, site, contenttype, publish, done) {
 
 			// index master site
 			var isMaster = true;
-			var indexSiteLocalePromise = _indexSiteWithLocale(server, request, site, contenttype,
+			var indexSiteLocalePromise = _indexSiteWithLocale(server, site, contenttype,
 				_SiteInfo.defaultLanguage, isMaster, _masterSiteStructure);
 			indexSiteLocalePromise.then(function (result) {
 				var locales = [];
@@ -1938,11 +1941,11 @@ var _indexSite = function (server, request, site, contenttype, publish, done) {
 						if (validLocales.length > 0) {
 							console.log(' - will create/update translate for ' + validLocales);
 
-							var initialTask = _indexSiteWithLocale(server, request, site, contenttype, validLocales[0], false);
+							var initialTask = _indexSiteWithLocale(server, site, contenttype, validLocales[0], false);
 							if (validLocales.length === 1) {
 								initialTask.then(function (result) {
 									if (publish) {
-										_publishPageIndexItems(server, request, _SiteInfo.channelId, done);
+										_publishPageIndexItems(server, _SiteInfo.channelId, done);
 									} else {
 										_indexSiteEnd(done, true);
 									}
@@ -1952,7 +1955,6 @@ var _indexSite = function (server, request, site, contenttype, publish, done) {
 								for (var i = 1; i < validLocales.length; i++) {
 									taskParams.push({
 										server: server,
-										request: request,
 										site: site,
 										contenttype: contenttype,
 										locale: validLocales[i]
@@ -1969,12 +1971,12 @@ var _indexSite = function (server, request, site, contenttype, publish, done) {
 										if (!param || param.done) {
 											// console.log(' - translation finishes');
 											if (publish) {
-												_publishPageIndexItems(server, request, _SiteInfo.channelId, done);
+												_publishPageIndexItems(server, _SiteInfo.channelId, done);
 											} else {
 												_indexSiteEnd(done, true);
 											}
 										} else {
-											return _indexSiteWithLocale(param.server, param.request, param.site, param.contenttype, param.locale, false);
+											return _indexSiteWithLocale(param.server, param.site, param.contenttype, param.locale, false);
 										}
 									});
 								}, initialTask);
@@ -1986,7 +1988,7 @@ var _indexSite = function (server, request, site, contenttype, publish, done) {
 							// page index items created/updated on the server
 							//
 							if (publish) {
-								_publishPageIndexItems(server, request, _SiteInfo.channelId, done);
+								_publishPageIndexItems(server, _SiteInfo.channelId, done);
 							} else {
 								_indexSiteEnd(done, true);
 							}
@@ -1998,7 +2000,7 @@ var _indexSite = function (server, request, site, contenttype, publish, done) {
 					// page index items created/updated on the server
 					//
 					if (publish) {
-						_publishPageIndexItems(server, request, _SiteInfo.channelId, done);
+						_publishPageIndexItems(server, _SiteInfo.channelId, done);
 					} else {
 						_indexSiteEnd(done, true);
 					}
@@ -2057,9 +2059,7 @@ module.exports.indexSite = function (argv, done) {
 
 	var publish = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
@@ -2075,7 +2075,7 @@ module.exports.indexSite = function (argv, done) {
 				}
 				console.log(' - get CSRF token');
 				_CSRFToken = csrfToken;
-				_indexSite(server, request, site, contenttype, publish, done);
+				_indexSite(server, site, contenttype, publish, done);
 			});
 
 		})

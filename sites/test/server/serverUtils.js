@@ -1460,11 +1460,12 @@ module.exports.getDocumentRendition = function (app, doc, callback) {
 	var docname = doc.name,
 		resturl = 'http://localhost:' + app.locals.port + '/documents/api/1.2/folders/search/items?fulltext=' + encodeURIComponent(docname);
 	// console.log(' -- get document id ');
-
-	var request = _getRequest();
-	request.get({
+	var options = {
+		method: 'GET',
 		url: resturl
-	}, function (err, response, body) {
+	};
+	var request = require('./requestUtils.js').request;
+	request.get(options, function (err, response, body) {
 		if (response && response.statusCode === 200) {
 			var data = JSON.parse(body);
 			if (data && data.totalCount > 0) {
@@ -1489,9 +1490,11 @@ module.exports.getDocumentRendition = function (app, doc, callback) {
 				var page = 'page1';
 				resturl = 'http://localhost:' + app.locals.port + '/documents/api/1.2/files/' + doc.id + '/data/rendition?rendition=' + page;
 				// console.log(' -- get document rendition');
-				request.get({
+				options = {
+					method: 'GET',
 					url: resturl
-				}, function (err, response, body) {
+				};
+				request.get(options, function (err, response, body) {
 					if (response && response.statusCode === 200) {
 						console.log(' -- rendition exists, doc: ' + docname + ' page: ' + page);
 						doc.renditionReady = true;
@@ -1500,17 +1503,11 @@ module.exports.getDocumentRendition = function (app, doc, callback) {
 						console.log(' -- no rendition for ' + docname + '/' + page + ' yet. Creating...');
 						// create redition
 						resturl = 'http://localhost:' + app.locals.port + '/documents/api/1.2/files/' + doc.id + '/pages';
-						var args = {
-							data: {
-								IsJson: 1
-							},
-							headers: {
-								'Authorization': "Basic " + _btoa(app.locals.server.username + ":" + app.locals.server.password)
-							}
-						};
-						request.post({
+						var postData = {
+							method: 'POST',
 							url: resturl
-						}, function (err, response, body) {
+						};
+						request.post(postData, function (err, response, body) {
 							doc.finished = true;
 							if (response && response.statusCode === 200) {
 								setTimeout(function () {
@@ -1583,9 +1580,48 @@ var _getThemeComponents = function (themeName) {
 };
 
 
-var _loginToDevServer = function (server, request) {
+var _loginToDevServer = function (server) {
 	var loginPromise = new Promise(function (resolve, reject) {
 		// open user session
+
+		var url = server.url + '/documents/integration?IdcService=SCS_GET_TENANT_CONFIG&IsJson=1';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.log(' - Failed to login to ' + server.url);
+				return resolve({
+					'status': false
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log(' - Failed to login to ' + server.url);
+				return resolve({
+					'status': false
+				});
+			} else {
+				if (!loginReported) {
+					console.log(' - Logged in to remote server: ' + server.url);
+					loginReported = true;
+				}
+				server.login = true;
+				return resolve({
+					'status': true
+				});
+			}
+		});
+		/*
 		request.post(server.url + '/cs/login/j_security_check', {
 			form: {
 				j_character_encoding: 'UTF-8',
@@ -1626,6 +1662,7 @@ var _loginToDevServer = function (server, request) {
 				});
 			}
 		});
+		*/
 	});
 	return loginPromise;
 };
@@ -2027,10 +2064,10 @@ var _loginToICServer = function (server) {
 };
 module.exports.loginToICServer = _loginToICServer;
 
-module.exports.loginToServer = function (server, request) {
-	return _loginToServer(server, request);
+module.exports.loginToServer = function (server) {
+	return _loginToServer(server);
 };
-var _loginToServer = function (server, request) {
+var _loginToServer = function (server) {
 	if (server.login) {
 		return Promise.resolve({
 			status: true
@@ -2059,7 +2096,7 @@ var _loginToServer = function (server, request) {
 					_clearOAuthToken(server.fileloc, server.name);
 
 					// open browser to obtain the token again
-					return _loginToServer(server, request);
+					return _loginToServer(server);
 				} else {
 					return Promise.resolve({
 						status: userId ? true : false
@@ -2073,7 +2110,7 @@ var _loginToServer = function (server, request) {
 
 	} else if (env === 'dev_ec') {
 
-		return _loginToDevServer(server, request);
+		return _loginToDevServer(server);
 
 	} else if (env === 'dev_pod') {
 
@@ -2156,11 +2193,6 @@ var _getRequest = function () {
 		headers: {
 			connection: 'keep-alive'
 		},
-		/*
-		pool: {
-			maxSockets: 50
-		},
-		*/
 		jar: true
 
 	});
@@ -2831,7 +2863,7 @@ module.exports.setSiteUsedData = function (server, idcToken, siteId, itemsUsedAd
 /**
  * Set metadata for a site using IdcService
  */
-module.exports.setSiteMetadata = function (request, server, idcToken, siteId, values) {
+module.exports.setSiteMetadata = function (server, idcToken, siteId, values) {
 	return new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
 			console.log('ERROR: no server is configured');
@@ -2938,80 +2970,6 @@ module.exports.templateHasContentItems = function (projectDir, templateName) {
 	return hasContent;
 };
 
-/**
- * Get the CEC server version
- */
-module.exports.getServerVersion = function (request, server) {
-	return new Promise(function (resolve, reject) {
-		var isPod = server.env !== 'dev_ec';
-		var url = server.url + (isPod ? '/content' : '/osn/social/api/v1/connections');
-		var options = {
-			method: 'GET',
-			url: url,
-			auth: _getRequestAuth(server)
-		};
-
-		request(options, function (error, response, body) {
-			if (error || !response || response.statusCode !== 200) {
-				// console.log('ERROR: failed to query CEC version: ' + (response && response.statusMessage));
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-
-			var cecVersion, cecVersion2;
-			if (isPod) {
-				cecVersion = data ? data.toString() : '';
-				if (!cecVersion) {
-					// console.log('ERROR: no value returned for CEC version');
-					return resolve({
-						err: 'err'
-					});
-				}
-
-				if (cecVersion.indexOf('Revision:') >= 0) {
-					cecVersion = cecVersion.substring(cecVersion.indexOf('Revision:') + 'Revision:'.length);
-				}
-				cecVersion = cecVersion.trim();
-
-				if (cecVersion.indexOf('/') > 0) {
-					cecVersion = cecVersion.substring(0, cecVersion.indexOf('/'));
-				}
-
-				var arr = cecVersion.split('.');
-				var versionstr = arr.length >= 2 ? arr[1] : '';
-
-				// the version is a string such as 1922ec
-				if (versionstr && versionstr.length >= 3) {
-					cecVersion2 = versionstr.charAt(0) + versionstr.charAt(1) + '.' + versionstr.charAt(2);
-					cecVersion = cecVersion2;
-					if (versionstr.length > 3) {
-						cecVersion = cecVersion + '.' + versionstr.charAt(3);
-					}
-				}
-			} else {
-				cecVersion = data && data.version;
-				if (!cecVersion) {
-					// console.log('ERROR: no value returned for CEC version');
-					return resolve({
-						err: 'err'
-					});
-				}
-			}
-			// console.log(' CEC server: ' + server.url + '  version: ' + cecVersion);
-			return resolve({
-				version: cecVersion
-			});
-		});
-	});
-};
 
 /**
  * Recursively get the files in a given directory
@@ -3103,4 +3061,3 @@ module.exports.stripTopDirectory = function (dir) {
 		});
 	});
 };
-

@@ -74,8 +74,6 @@ module.exports.createSite = function (argv, done) {
 		return;
 	}
 
-	var request = serverUtils.getRequest();
-
 	var name = argv.name;
 	var templateName = argv.template;
 	var repositoryName = argv.repository;
@@ -86,7 +84,7 @@ module.exports.createSite = function (argv, done) {
 	sitePrefix = sitePrefix.substring(0, 15);
 	var updateContent = typeof argv.update === 'string' && argv.update.toLowerCase() === 'true';
 
-	_createSiteREST(request, server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, updateContent, done);
+	_createSiteREST(server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, updateContent, done);
 
 };
 
@@ -104,14 +102,14 @@ module.exports.createSite = function (argv, done) {
  * @param {*} sitePrefix 
  * @param {*} done 
  */
-var _createSiteREST = function (request, server, name, templateName, repositoryName, localizationPolicyName,
+var _createSiteREST = function (server, name, templateName, repositoryName, localizationPolicyName,
 	defaultLanguage, description, sitePrefix, updateContent, done) {
 	var template, templateGUID;
 	var repositoryId, localizationPolicyId;
 	var createEnterprise;
 
 	var format = '   %-20s %-s';
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -326,12 +324,10 @@ module.exports.copySite = function (argv, done) {
 	var sitePrefix = argv.sitePrefix || targetName.toLowerCase();
 	sitePrefix = sitePrefix.substring(0, 15);
 
-	var request = serverUtils.getRequest();
-
 	var site;
 	var targetRepository;
 
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -442,7 +438,7 @@ module.exports.copySite = function (argv, done) {
 					});
 
 				} else {
-					return _copySite(argv, request, server, site, targetName, description, sitePrefix, targetRepository, otherItems);
+					return _copySite(argv, server, site, targetName, description, sitePrefix, targetRepository, otherItems);
 				}
 
 			})
@@ -480,7 +476,7 @@ module.exports.copySite = function (argv, done) {
 // copy site that uses assets from multiple repositories
 // Currently cannot use sites API to copy such sites
 //
-var _copySite = function (argv, request, server, site, targetName, description, sitePrefix, repository, otherItems) {
+var _copySite = function (argv, server, site, targetName, description, sitePrefix, repository, otherItems) {
 	return new Promise(function (resolve, reject) {
 		var templateName = site.name + serverUtils.createGUID();
 		var fileName = templateName + '.zip';
@@ -644,7 +640,7 @@ var _copySite = function (argv, request, server, site, targetName, description, 
 				var values = {
 					'scsSiteTheme': site.themeName
 				};
-				return serverUtils.setSiteMetadata(request, server, idcToken, templateId, values);
+				return serverUtils.setSiteMetadata(server, idcToken, templateId, values);
 
 			})
 			.then(function (result) {
@@ -871,7 +867,7 @@ var _createDefaultTheme = function () {
 
 var _transferSiteTemplateId;
 
-var _transferStandardSite = function (argv, request, server, destServer, site, excludecomponents, suppressgovernance) {
+var _transferStandardSite = function (argv, server, destServer, site, excludecomponents, suppressgovernance) {
 	return new Promise(function (resolve, reject) {
 		console.log(' - site ' + site.name + ' is a standard site');
 
@@ -1234,18 +1230,16 @@ module.exports.transferSite = function (argv, done) {
 
 	var actionSuccess = true;
 
-	var request = serverUtils.getRequest();
-
 	var startTime;
 
-	serverUtils.loginToServer(server, request)
+	serverUtils.loginToServer(server)
 		.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server ' + server.url);
 				return Promise.reject();
 			}
 
-			return serverUtils.loginToServer(destServer, request);
+			return serverUtils.loginToServer(destServer);
 		})
 		.then(function (result) {
 			if (!result.status) {
@@ -1276,7 +1270,7 @@ module.exports.transferSite = function (argv, done) {
 
 					if (!site.isEnterprise) {
 
-						_transferStandardSite(argv, request, server, destServer, site, excludecomponents, suppressgovernance)
+						_transferStandardSite(argv, server, destServer, site, excludecomponents, suppressgovernance)
 							.then(function (result) {
 								var success = result && !result.err;
 								_cmdEnd(done, success);
@@ -1652,7 +1646,7 @@ module.exports.transferSite = function (argv, done) {
 									var values = {
 										'scsSiteTheme': site.themeName
 									};
-									updateTemplatePromises.push(serverUtils.setSiteMetadata(request, destServer, idcToken, templateId, values));
+									updateTemplatePromises.push(serverUtils.setSiteMetadata(destServer, idcToken, templateId, values));
 
 								}
 
@@ -2348,16 +2342,14 @@ module.exports.controlSite = function (argv, done) {
 		var staticOnly = typeof argv.staticonly === 'string' && argv.staticonly.toLowerCase() === 'true';
 		var fullpublish = typeof argv.fullpublish === 'string' && argv.fullpublish.toLowerCase() === 'true';
 
-		var request = serverUtils.getRequest();
-
-		serverUtils.loginToServer(server, request).then(function (result) {
+		serverUtils.loginToServer(server).then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
 				done();
 				return;
 			}
 			// if (server.useRest) {
-			_controlSiteREST(request, server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish)
+			_controlSiteREST(server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish)
 				.then(function (result) {
 					if (result.err) {
 						done(result.exitCode);
@@ -2365,11 +2357,7 @@ module.exports.controlSite = function (argv, done) {
 						done(true);
 					}
 				});
-			/*
-						} else {
-							_controlSiteSCS(request, server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish, done);
-						}
-						*/
+
 		});
 
 	} catch (e) {
@@ -2388,7 +2376,7 @@ module.exports.controlSite = function (argv, done) {
  * @param {*} siteName 
  * @param {*} done 
  */
-var _controlSiteREST = function (request, server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish) {
+var _controlSiteREST = function (server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish) {
 
 	return new Promise(function (resolve, reject) {
 		var exitCode;
@@ -2518,9 +2506,7 @@ module.exports.shareSite = function (argv, done) {
 		var users = [];
 		var groups = [];
 
-		var request = serverUtils.getRequest();
-
-		var loginPromise = serverUtils.loginToServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
@@ -2716,9 +2702,7 @@ module.exports.unshareSite = function (argv, done) {
 		var users = [];
 		var groups = [];
 
-		var request = serverUtils.getRequest();
-
-		var loginPromise = serverUtils.loginToServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
@@ -2910,9 +2894,7 @@ module.exports.validateSite = function (argv, done) {
 
 		var siteName = argv.name;
 
-		var request = serverUtils.getRequest();
-
-		var loginPromise = serverUtils.loginToServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
@@ -2920,7 +2902,7 @@ module.exports.validateSite = function (argv, done) {
 				return;
 			}
 
-			_validateSiteREST(request, server, siteName, done);
+			_validateSiteREST(server, siteName, done);
 
 		}); // login
 	} catch (e) {
@@ -2994,7 +2976,7 @@ var _displayAssetValidation = function (validations) {
 
 };
 
-var _validateSiteREST = function (request, server, siteName, done) {
+var _validateSiteREST = function (server, siteName, done) {
 	var siteId;
 	var repositoryId, channelId, channelToken;
 	sitesRest.getSite({
@@ -3119,9 +3101,7 @@ module.exports.getSiteSecurity = function (argv, done) {
 	// console.log('server: ' + server.url);
 	var name = argv.name;
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -3250,9 +3230,9 @@ module.exports.setSiteSecurity = function (argv, done) {
 
 var _setSiteSecurityREST = function (server, name, signin, access, addUserNames, deleteUserNames, done) {
 	try {
-		var request = serverUtils.getRequest();
+
 		var exitCode;
-		var loginPromise = serverUtils.loginToServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');
@@ -3554,11 +3534,9 @@ module.exports.uploadStaticSite = function (argv, done) {
 
 	var siteName = argv.site;
 
-	var request = serverUtils.getRequest();
-
 	var siteId;
 
-	serverUtils.loginToServer(server, request).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -3773,10 +3751,8 @@ module.exports.downloadStaticSite = function (argv, done) {
 	}
 	console.log(' - local folder ' + targetPath);
 
-	var request = serverUtils.getRequest();
-
 	var siteId;
-	serverUtils.loginToServer(server, request).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -3917,10 +3893,8 @@ module.exports.deleteStaticSite = function (argv, done) {
 
 	var siteName = argv.site;
 
-	var request = serverUtils.getRequest();
-
 	var siteId;
-	serverUtils.loginToServer(server, request).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -3998,10 +3972,8 @@ module.exports.refreshPrerenderCache = function (argv, done) {
 
 	var siteName = argv.site;
 
-	var request = serverUtils.getRequest();
-
 	var siteId;
-	serverUtils.loginToServer(server, request).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -4241,14 +4213,13 @@ module.exports.migrateSite = function (argv, done) {
 	var sitePrefix = argv.sitePrefix || siteName.toLowerCase();
 	sitePrefix = sitePrefix.substring(0, 15);
 
-	var request = serverUtils.getRequest();
 
 	var folderId = 'self';
 	var repositoryId;
 	var fileName, fileId;
 	var cecVersion;
 
-	var loginPromise = serverUtils.loginToServer(destServer, request);
+	var loginPromise = serverUtils.loginToServer(destServer);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server ' + destServer.url);
@@ -4469,11 +4440,7 @@ module.exports.syncControlSiteSite = function (argv, done) {
 	var siteName = argv.name;
 	var action = argv.action || 'publish';
 
-	var siteName;
-
-	var request = serverUtils.getRequest();
-
-	serverUtils.loginToServer(srcServer, request).then(function (result) {
+	serverUtils.loginToServer(srcServer).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -4490,7 +4457,7 @@ module.exports.syncControlSiteSite = function (argv, done) {
 					return Promise.reject();
 				}
 
-				_controlSiteREST(request, destServer, action, siteName)
+				_controlSiteREST(destServer, action, siteName)
 					.then(function (result) {
 						if (result.err) {
 							done();

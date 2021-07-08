@@ -1,8 +1,8 @@
 # Overview
 
-## What is Compilation in OCE? 
+## What is Compilation in OCM? 
 
-The objective of OCE Compilation is to improve the runtime performance and behavior of OCE Sites pages. 
+The objective of OCM Compilation is to improve the runtime performance and behavior of OCM Sites pages. 
 
 Compilation achieves this by creating a static .html file for each page in the site that will behave EXACTLY as the original page.  The meta-data files that constitute a sites "page" are combined during compile avoiding the server requests that are normally required at runtime.  You're effectively moving the per-page-view render cost to a one-off compile-time cost. 
 
@@ -10,7 +10,7 @@ Performance improvements are achieved by reducing the number of runtime requests
 
 Behavioral improvements are achieved since the page will render immediately and you can therefore avoid issues such as "flash of un-styled content" or having components appear on the page in an indeterminate order - such as where the footer appears immediately and then moves down the page as the other items on the page render.
 
-To compile the pages within an OCE site, you will need to export the site as a template and then use the OCE Toolkit to compile the template and upload the static pages produced to the original site. The steps below walk you through template compilation process and then how to use this model to compile your sites.   
+To compile the pages within an OCM site, you will need to export the site as a template and then use the OCM Toolkit to compile the template and upload the static pages produced to the original site. The steps below walk you through template compilation process and then how to use this model to compile your sites.   
 
 ## Interaction with Prerender
 
@@ -20,40 +20,40 @@ The static pages created by Site Compilation, are expected to run in the browser
 
 When the Prerender solution is enabled by the tenant administrator, static pages may also be delivered via the Prerender Server.  This allows indexers and crawlers to handle portions of static pages that may still render dynamically, like content lists and recommendations.
 
-OCE Controller Site Page Rendering
+OCM Controller Site Page Rendering
 
-The "cec compile-template" command enables site pages to render directly in the browser without going OCE's site page controller.  Without using the compiler to create static .html pages, OCE Sites uses a controller model to render pages.  This involves a number of requests to get information about the site, the page within the site and templates used to render the page before it can actually display the page in the browser. 
+The "cec compile-template" command enables site pages to render directly in the browser without going OCM's site page controller.  Without using the compiler to create static .html pages, OCM Sites uses a controller model to render pages.  This involves a number of requests to get information about the site, the page within the site and templates used to render the page before it can actually display the page in the browser. 
 
-#### Figure 1. Typical OCE site requests to render a page 
+#### Figure 1. Typical OCM site requests to render a page 
 
 > Note:  There are more requests involved such as getting the controller.js file. This diagram simply provides an overview of the main phases. 
 
 ![](images/comp1.png)
 
-## OCE Compiled Site Page Rendering
+## OCM Compiled Site Page Rendering
 
 The "cec compile-template" command allows you to compile all these steps into a static .html file and improves performance of 
 runtime sites by reducing or eliminating these server requests.  In addition, you can further reduce requests for resources that need not change at runtime and have them compiled into the static pages. 
 
 The default compilation process does the work of the existing runtime controller, creating a physical .html page for each page.json file in the site. These pages can then be deployed to the site and will be published with the site and used when the corresponding page URL is hit. 
 
-#### Figure 2. Compiled OCE site page requests
+#### Figure 2. Compiled OCM site page requests
 
 ![](images/comp2.png)
 
 ## Template Compilation
 
-To compile a site, you need to have access to the theme's and components within the site.  The OCE Sites Template is the packaging model for site.  It contains all the required resources in order to migrate and run the site and so is used to export the site to the OCE Toolkit environment where the site within the template can be compiled.  
+To compile a site, you need to have access to the theme's and components within the site.  The OCM Sites Template is the packaging model for site.  It contains all the required resources in order to migrate and run the site and so is used to export the site to the OCM Toolkit environment where the site within the template can be compiled.  
 
-The following steps walk through the steps showing compilation of the site within the the BlogTemplate that is seeded in OCE toolkit.
+The following steps walk through the steps showing compilation of the site within the the BlogTemplate that is seeded in OCM toolkit.
 
 ### Setup
 
-The "cec compile-template" command is available via the OCE toolkit and is installed when the toolkit is installed.  Follow the standard instructions for installing the OCE toolkit. 
+The "cec compile-template" command is available via the OCM toolkit and is installed when the toolkit is installed.  Follow the standard instructions for installing the OCM toolkit. 
 
-Once you have the OCE toolkit installed, you can run the following command.  Note: The command is currently not listed when you display cec help. 
+Once you have the OCM toolkit installed, you can run the following command.  Note: The command is currently not listed when you display cec help. 
 
-#### Install an OCE Toolkit development directory
+#### Install an OCM Toolkit development directory
 
 ```
 mkdir cec-src
@@ -114,7 +114,7 @@ The `cec compile-template` command will do the following:
         * For each component within the slot
             * Apply any component compiler
             * Insert the generated component markup in the corresponding location within the slot
-        * Expand any macros in the compiled markup and insert the "SCS" JavaScript object that is used by the OCE renderer at runtime
+        * Expand any macros in the compiled markup and insert the "SCS" JavaScript object that is used by the OCM renderer at runtime
         * Save the compiled page markup under the `src/templates/<template>/static` folder
 
 To compile your site run: 
@@ -122,7 +122,7 @@ To compile your site run:
 ```
 $ cec compile-template BlogTemplate 
 Compile Template: compiling template BlogTemplate
-Oracle Content and Experience Site Compiler
+Oracle Content Management Site Compiler
 createPage: Processing pageId 100. Preview URL: http://localhost:8085/templates/BlogTemplate/index.html
 createPage: Processing pageId 105. Preview URL: http://localhost:8085/templates/BlogTemplate/post-detail.html
 createPage: Processing pageId 401. Preview URL: http://localhost:8085/templates/BlogTemplate/about.html
@@ -176,7 +176,7 @@ Compilation completed with 0 errors and 3 warnings.
 ```
 $ cec compile-template BlogTemplate --verbose
 Compile Template: compiling template BlogTemplate
-Oracle Content and Experience Site Compiler
+Oracle Content Management Site Compiler
 createPage: Processing pageId 100. Preview URL: http://localhost:8085/templates/BlogTemplate/index.html
 createPage: Processing pageId 105. Preview URL:
 http://localhost:8085/templates/BlogTemplate/post-detail.html
@@ -230,7 +230,7 @@ So, re-running compilation excluding detail page creation that use the "default 
 ```
 > cec compile-template BlogTemplate --noDefaultDetailPageLink
 Compile Template: compiling template BlogTemplate
-Oracle Content and Experience Site Compiler
+Oracle Content Management Site Compiler
 createPage: Processing pageId 100. Preview URL: http://localhost:8085/templates/BlogTemplate/index.html
 createPage: Processing pageId 105. Preview URL: http://localhost:8085/templates/BlogTemplate/post-detail.html
 createPage: Processing pageId 401. Preview URL: http://localhost:8085/templates/BlogTemplate/about.html
@@ -259,7 +259,7 @@ To compile specific pages use the --pages (-p) option followed by the list of pa
 ```
 $ cec compile-template BlogTemplate --pages 401,402
 Compile Template: compiling template BlogTemplate
-Oracle Content and Experience Site Compiler
+Oracle Content Management Site Compiler
 createPage: Processing pageId 401. Preview URL: http://localhost:8085/templates/BlogTemplate/about.html
 createPage: Processing pageId 402. Preview URL: http://localhost:8085/templates/BlogTemplate/search.html
 All page creation calls complete.
@@ -270,13 +270,13 @@ Compilation completed with no errors.
 
 ## Site Compilation
 
-The above steps give you an overview of how to create and compile a local template.  In general, you will be compiling your actual OCE sites. 
+The above steps give you an overview of how to create and compile a local template.  In general, you will be compiling your actual OCM sites. 
 
-To compile an OCE site, you need to export the site into a template and then compile the template. The template package will have the site as well as any custom code required to compile the site in the themes and components that are exported with the template. 
+To compile an OCM site, you need to export the site into a template and then compile the template. The template package will have the site as well as any custom code required to compile the site in the themes and components that are exported with the template. 
 
 ### Pre-requisites
 
-The following steps assume that you've created a site called BlogSite in your OCE server. You can upload the above BlogTemplate and then create this site from the template. 
+The following steps assume that you've created a site called BlogSite in your OCM server. You can upload the above BlogTemplate and then create this site from the template. 
 
 e.g.: 
 
@@ -675,7 +675,7 @@ The publishing operation takes the current set of static files and makes them av
 
 When a site has associated static files, those files are delivered for matching URLs coming into the server.  If an incoming URL does not match a static file, then the site's controller.html file is returned for the request.  (This follows the existing dynamic model for site delivery.)
 
-OCE Sites can also define 301 and 302 redirects through an associated JSON file.  When redirects have been configured these take priority over static files.  Thus, if a URL matches both a redirect rule and a static file, the redirect will be delivered from the server.
+OCM Sites can also define 301 and 302 redirects through an associated JSON file.  When redirects have been configured these take priority over static files.  Thus, if a URL matches both a redirect rule and a static file, the redirect will be delivered from the server.
 
 The URL evaluation for site delivery follows this flow:
 
@@ -702,7 +702,7 @@ The Edge-Control header helps to facilitate CDN caching behavior.
 
 #### Detail Pages
 
-Detail pages in OCE sites allow a single page to show information for a number of Content Items.  For example, the same detail page may be used to handle the following URLs: /detail/item1.html, /detail/item2.html, and /detail/item3.html.  Each of these URLs would display the same page structure, but show the content related to the Content Items whose slug values are item1.html, item2.html, and item3.html, respectively.  For this situation the cec template compiler might create four files:
+Detail pages in OCM sites allow a single page to show information for a number of Content Items.  For example, the same detail page may be used to handle the following URLs: /detail/item1.html, /detail/item2.html, and /detail/item3.html.  Each of these URLs would display the same page structure, but show the content related to the Content Items whose slug values are item1.html, item2.html, and item3.html, respectively.  For this situation the cec template compiler might create four files:
 
 * /detail/item1.html
 * /detail/item2.html

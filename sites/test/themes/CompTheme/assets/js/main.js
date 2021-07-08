@@ -61,9 +61,9 @@
 		// require in all the dependencies and run the JET code
 		jetRequireCtx(requireModules, function (require, ko, $, app, oj) {
 			var init = function () {
-				// NB: Content and Experience slots within the page will also want to call Knockout applyBindings() so only
+				// NB: Content Management slots within the page will also want to call Knockout applyBindings() so only
 				// apply the knockout bindings to your JET elements in the page layout
-				// The corollary of this is that you can't have Content and Experience scs-slots within JET DOM elements
+				// The corollary of this is that you can't have Content Management scs-slots within JET DOM elements
 				var jetElementIDs = [
 					/*
 					'navDrawer',

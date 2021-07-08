@@ -6,7 +6,7 @@
 /* jshint esversion: 6 */
 
 /**
- * webhook listener to handle events from OCE webhook
+ * webhook listener to handle events from OCM webhook
  */
 
 var express = require('express'),

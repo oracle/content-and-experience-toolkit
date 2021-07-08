@@ -1,4 +1,4 @@
-# OCE Toolkit: Theme Build/Test Process
+# OCM Toolkit: Theme Build/Test Process
 
 The "cec install" command now creates a number of resources in order to support optimize of themes and components during deployment as well as creating automated tests. 
 
@@ -14,9 +14,9 @@ The following additional files/folder are added the cec install folder with the 
 * src/                           - users source code
 * **test/                           - tests for any user source code**
 
-# Building Your OCE Resources
+# Building Your OCM Resources
 
-The default OCE JS build environment is gulp: [https://gulpjs.com/](https://gulpjs.com/) with some common packages:
+The default OCM JS build environment is gulp: [https://gulpjs.com/](https://gulpjs.com/) with some common packages:
 
 * gulp-sass: [https://github.com/dlmanning/gulp-sass](https://github.com/dlmanning/gulp-sass)
 * gulp-terser: [https://github.com/duan602728596/gulp-terser](https://github.com/duan602728596/gulp-terser)
@@ -53,19 +53,19 @@ There is also a default `build` npm script target in `package.json`:   `npm run 
 
 One obvious hole in the build/optimize cycle is the lack of ability to create, package and re-use shared resources. And this is really the meat of any build process. 
 
-Unfortunately, until shared resources are fully supported in OCE, there isn't any reasonable default to provide developers in the toolkit.  
+Unfortunately, until shared resources are fully supported in OCM, there isn't any reasonable default to provide developers in the toolkit.  
 
 The only option available is to place shared resources within another resource such as a common component or theme. The problem with placing them in a theme is that any component that relies on them are now tied to that theme. The alternative of placing the resources in a component does allow the component to be used across themes but the component will at least need to be added as a "themed component" to the theme that any components in your site depend upon.
 
 Once you have chosen an option, you can create `requireJS` optimizer to generate bundles as part of your build process that can then be included in your other components. However, this is a very bespoke solution and will vary depending on your requirements.
 
-# Testing Your OCE Resources
+# Testing Your OCM Resources
 
-The default OCE JS test environment is mocha: [https://mochajs.org/](https://mochajs.org/) running under nodeJS and puppeteer: [https://github.com/GoogleChrome/puppeteer](https://github.com/GoogleChrome/puppeteer)
+The default OCM JS test environment is mocha: [https://mochajs.org/](https://mochajs.org/) running under nodeJS and puppeteer: [https://github.com/GoogleChrome/puppeteer](https://github.com/GoogleChrome/puppeteer)
 
 > Note: As with the build frameworks, depending on your requirements, you may also consider other frameworks such as Jasmine/QUnit/... and integration with Karma.
 
-The OOTB test samples are focused on validating rendered templates and components in the browser. It is also intended to allow tests to be written against the local test server as well as against the remote OCE server. For tests that require validation in edit mode (when in the OCE Sites Builder), the only option will be to run the tests against the remote server as the local test server only contains the runtime code. 
+The OOTB test samples are focused on validating rendered templates and components in the browser. It is also intended to allow tests to be written against the local test server as well as against the remote OCM server. For tests that require validation in edit mode (when in the OCM Sites Builder), the only option will be to run the tests against the remote server as the local test server only contains the runtime code. 
 
 The following files are produced by `cec install`: 
 
@@ -162,7 +162,7 @@ As it's generic, all it does is wait for the "home" link to appear on the page. 
 
 There are currently no OOTB remote tests defined.  You can run with `--remote` and it will bring up the browser and logon but the `componentsSpec` and `templatesSpec` will simply state that there is a "ToDo" to write the remote tests and throw a test failure error.
 
-To write remote tests, you'll need to seed a site before running the tests (use the OCE CLI commands).  Once the site is seeded, you can have specific pages in the site for validating individual components on the remote server. 
+To write remote tests, you'll need to seed a site before running the tests (use the OCM CLI commands).  Once the site is seeded, you can have specific pages in the site for validating individual components on the remote server. 
 
 ## Jenkins Integration
 

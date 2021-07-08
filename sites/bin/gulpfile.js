@@ -725,7 +725,7 @@ gulp.task('create-contentlayout', function (done) {
 });
 
 /**
- * Add content layout mapping to a local template or a type on OCE server
+ * Add content layout mapping to a local template or a type on OCM server
  */
 gulp.task('add-contentlayout-mapping', function (done) {
 	'use strict';
@@ -744,7 +744,7 @@ gulp.task('add-contentlayout-mapping', function (done) {
 });
 
 /**
- * remove content layout mapping from a local template or a type on OCE server
+ * remove content layout mapping from a local template or a type on OCM server
  */
 gulp.task('remove-contentlayout-mapping', function (done) {
 	'use strict';
@@ -949,6 +949,17 @@ gulp.task('compile-content', function (done) {
 	});
 });
 
+/**
+ * Upload compiled content to server
+ */
+ gulp.task('upload-compiled-content', function (done) {
+	'use strict';
+
+	contentlib.uploadCompiledContent(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
 
 
 /**
@@ -1042,7 +1053,7 @@ gulp.task('control-content', function (done) {
 });
 
 /**
- * tranfer content from one OCE server to another
+ * tranfer content from one OCM server to another
  */
 gulp.task('transfer-content', function (done) {
 	'use strict';
@@ -1053,6 +1064,29 @@ gulp.task('transfer-content', function (done) {
 	});
 });
 
+/**
+ * Create digital asset
+ */
+ gulp.task('create-digital-asset', function (done) {
+	'use strict';
+
+	contentlib.createDigitalAsset(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Update digital asset
+ */
+ gulp.task('update-digital-asset', function (done) {
+	'use strict';
+
+	contentlib.updateDigitalAsset(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
 
 /**
  * Copy assets to another repository

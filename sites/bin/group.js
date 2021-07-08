@@ -39,10 +39,9 @@ module.exports.createGroup = function (argv, done) {
 	var name = argv.name;
 	var type = argv.type || 'PUBLIC_OPEN';
 
-	var request = serverUtils.getRequest();
 	var exitCode;
 
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -65,7 +64,6 @@ module.exports.createGroup = function (argv, done) {
 				}
 
 				return serverRest.createGroup({
-					request: request,
 					server: server,
 					name: name,
 					type: type
@@ -104,9 +102,7 @@ module.exports.deleteGroup = function (argv, done) {
 
 	var name = argv.name;
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -128,7 +124,6 @@ module.exports.deleteGroup = function (argv, done) {
 				}
 
 				return serverRest.deleteGroup({
-					request: request,
 					server: server,
 					id: groupId,
 					name: name
@@ -174,9 +169,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 	var users = [];
 	var groups = [];
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -294,7 +287,6 @@ module.exports.addMemberToGroup = function (argv, done) {
 				}
 
 				return serverRest.addMembersToGroup({
-					request: request,
 					server: server,
 					id: groupId,
 					name: name,
@@ -346,9 +338,7 @@ module.exports.removeMemberFromGroup = function (argv, done) {
 	var groupId;
 	var members = [];
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -371,7 +361,6 @@ module.exports.removeMemberFromGroup = function (argv, done) {
 				}
 
 				return serverRest.getGroupMembers({
-					request: request,
 					server: server,
 					id: groupId,
 					name: name
@@ -402,7 +391,6 @@ module.exports.removeMemberFromGroup = function (argv, done) {
 				}
 
 				return serverRest.removeMembersFromGroup({
-					request: request,
 					server: server,
 					id: groupId,
 					name: name,

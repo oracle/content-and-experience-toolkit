@@ -20,11 +20,11 @@
     </li>
     {{/markdownText}} {{#image}}
     <li>
-        <img src="{{image}}" alt="{{name}}" />
+        <img src="{{image}}" alt="{{name}}" {{{dataAnalyticsView}}}/>
     </li>
     {{/image}} {{#download}}
     <li>
-        <a _target_="_blank" download="{{name}}" linktype="scs-link-file"  href="{{url}}">{{displayName}} {{displayType}}</a>
+        <a _target_="_blank" download="{{name}}" linktype="scs-link-file"  href="{{url}}" {{{dataAnalyticsClick}}}>{{displayName}} {{displayType}}</a>
     </li>
     {{/download}} {{/render.items}} {{#scsData.detailPageLink}}
     <li>
@@ -32,4 +32,3 @@
     </li>
     {{/scsData.detailPageLink}}
 </ul>
-

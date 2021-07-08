@@ -4,7 +4,7 @@
 #
 # ORACLE DOCKERFILES PROJECT
 # --------------------------
-# This is the Dockerfile for Oracle OCE Compilation Server
+# This is the Dockerfile for Oracle OCM Compilation Server
 #
 # REQUIRED FILES TO BUILD THIS IMAGE
 # ----------------------------------
@@ -39,7 +39,7 @@ FROM container-registry.oracle.com/os/oraclelinux:7.8 as base
 MAINTAINER  Oracle Corporation
 
 
-# OCE Directories and resources
+# OCM Directories and resources
 # -----------------------------
 ENV CEC_COMPILATION_BASE_DIR=/u02/d01 \
     CEC_COMPILATION_DIR_NAME=compilation \
@@ -94,7 +94,7 @@ RUN node --version \
 # -------------------------------
 USER compileagent
 
-# Download the OCE toolkit
+# Download the OCM toolkit
 # ------------------------
 WORKDIR ${CEC_COMPILATION_HOME}
 RUN curl -L -o ${CEC_TOOLKIT_ZIP} ${CEC_TOOLKIT_DOWNLOAD}
@@ -102,7 +102,7 @@ RUN unzip -oq ${CEC_TOOLKIT_ZIP}
 RUN mv content-and-experience-toolkit-master/sites  ${CEC_TOOLKIT_DIR_NAME} \
   && chmod +x ${CEC_TOOLKIT_DIR_NAME}/test/job-manager/compileExec.sh
 
-# Build OCE Toolkit
+# Build OCM Toolkit
 # -----------------
 RUN cd ${CEC_TOOLKIT_DIR_NAME} \
   && pwd \
@@ -123,7 +123,7 @@ RUN cec --version
 # cleanup
 RUN rm ${CEC_COMPILATION_HOME}/${CEC_TOOLKIT_ZIP}
 
-# Build the OCE source folder for compilations
+# Build the OCM source folder for compilations
 # ----------------------------------------------
 RUN pwd \
   && export PATH=${PATH}:${CEC_TOOLKIT_BIN_DIR_NAME} \

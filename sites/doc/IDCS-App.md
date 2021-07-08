@@ -1,6 +1,6 @@
 # Setup for CLI to use IDCS App for connection instead of Headless Chrome
-OCE Toolkit supports connection via IDCS app, which removes the need to pop up Chromium to authenticate.
-The following instructions detail how the IDCS app can be created and registered for use with the OCE Toolkit CLI.
+OCM Toolkit supports connection via IDCS app, which removes the need to pop up Chromium to authenticate.
+The following instructions detail how the IDCS app can be created and registered for use with the OCM Toolkit CLI.
 
 ## Access your MyServices Dashboard
 Go to your MyServices Dashboard - the URL will be like this:
@@ -71,12 +71,12 @@ Copy down the **Scope** URL, it will be something like this:
 
 Click **Save** and Click **Activate**
 
-# Register your SERVER with the OCE Toolkit CLI
+# Register your SERVER with the OCM Toolkit CLI
 
 You will need your:
 
-* **OCE Instance URL**: e.g. https://ocepm-oce1234.cec.ocp.oraclecloud.com
-* **Username and Password** for your OCE Instance URL
+* **OCM Instance URL**: e.g. https://ocepm-oce1234.cec.ocp.oraclecloud.com
+* **Username and Password** for your OCM Instance URL
 * **Identity Service Instance URL**: e.g: https://idcs-1234123412341234123412341234.identity.oraclecloud.com
 * **Client ID**: idididididididididididididid
 * **Client Secret**: secret-secret-secret-secret-secret

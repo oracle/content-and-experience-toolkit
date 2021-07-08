@@ -1,8 +1,8 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "21.5.1",
+	"version": "21.6.1",
 	"license": "UPL-1.0",
-	"description": "Oracle Content and Experience Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content and Experience.",
+	"description": "Oracle Content Management Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content Management.",
 	"main": "index.js",
 	"directories": {
 		"test": "test"
@@ -45,6 +45,8 @@
 		"upload-content": "gulp -LL --gulpfile bin/gulpfile.js upload-content ",
 		"control-content": "gulp -LL --gulpfile bin/gulpfile.js control-content ",
 		"transfer-content": "gulp -LL --gulpfile bin/gulpfile.js transfer-content ",
+		"create-digital-asset": "gulp -LL --gulpfile bin/gulpfile.js create-digital-asset ",
+		"update-digital-asset": "gulp -LL --gulpfile bin/gulpfile.js update-digital-asset ",
 		"copy-assets": "gulp -LL --gulpfile bin/gulpfile.js copy-assets ",
 		"rename-content-type": "gulp -LL --gulpfile bin/gulpfile.js rename-content-type ",
 		"download-taxonomy": "gulp -LL --gulpfile bin/gulpfile.js download-taxonomy ",
@@ -60,6 +62,7 @@
 		"compile-template-debug": "node --inspect-brk node_modules/gulp/bin/gulp.js -LL --gulpfile bin/gulpfile.js compile-template ",
 		"compile-content": "gulp -LL --gulpfile bin/gulpfile.js compile-content ",
 		"compile-content-debug": "node --inspect-brk node_modules/gulp/bin/gulp.js -LL --gulpfile bin/gulpfile.js compile-content ",
+		"upload-compiled-content": "gulp -LL --gulpfile bin/gulpfile.js upload-compiled-content ",
 		"delete-template": "gulp -LL --gulpfile bin/gulpfile.js delete-template ",
 		"deploy-template": "gulp -LL --gulpfile bin/gulpfile.js deploy-template ",
 		"upload-template": "gulp -LL --gulpfile bin/gulpfile.js upload-template ",
@@ -174,7 +177,7 @@
 		"gulp-zip": "5.0.1",
 		"he": "1.2.0",
 		"htmllint": "0.8.0",
-		"marked": "0.7.0",
+		"marked": "2.1.2",
 		"mocha": "8.2.1",
 		"mustache": "3.1.0",
 		"node-fetch": "2.6.1",

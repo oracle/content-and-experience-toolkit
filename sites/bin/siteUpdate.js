@@ -606,9 +606,8 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 			return;
 		}
 		// console.log(' - server: ' + server.url);
-		var request = serverUtils.getRequest();
 
-		var loginPromise = serverUtils.loginToServer(server, request);
+		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
 				console.log(' - failed to connect to the server');

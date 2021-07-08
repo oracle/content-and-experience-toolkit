@@ -1259,8 +1259,7 @@ var _listServerTranslationJobs = function (argv, done) {
 		return data;
 	};
 
-	var request = serverUtils.getRequest();
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -1372,9 +1371,13 @@ var _listServerTranslationJobs = function (argv, done) {
 
 var _getconnectorServerInfo = function (connectorServer, user, password) {
 	var serverInfoPromise = new Promise(function (resolve, reject) {
-		var request = serverUtils.getRequest();
 		var url = connectorServer + '/v1/server';
-		request.get(url, function (err, response, body) {
+		var options = {
+			method: 'GET',
+			url: url
+		};
+		var request = require('../test/server/requestUtils.js').request;
+		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log('ERROR: failed to query translation connector: ' + err);
 				return resolve({
@@ -1478,8 +1481,7 @@ module.exports.downloadTranslationJob = function (argv, done) {
 		fs.mkdirSync(destdir);
 	}
 
-	var request = serverUtils.getRequest();
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -1631,9 +1633,7 @@ module.exports.uploadTranslationJob = function (argv, done) {
 			var zippath = path.join(projectDir, 'dist', name + '.zip');
 			console.log(' - created translation job zip file ' + zippath);
 
-			var request = serverUtils.getRequest();
-
-			var loginPromise = serverUtils.loginToServer(server, request);
+			var loginPromise = serverUtils.loginToServer(server);
 			loginPromise.then(function (result) {
 				if (!result.status) {
 					console.log(' - failed to connect to the server');
@@ -1693,9 +1693,7 @@ module.exports.createTranslationJob = function (argv, done) {
 	var exportType = argv.type || 'siteAll';
 	var connector = argv.connector;
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -2016,8 +2014,7 @@ var _ingestServerTranslationJob = function (argv, done) {
 
 	// console.log(' - server: ' + server.url);
 
-	var request = serverUtils.getRequest();
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -2227,8 +2224,7 @@ var _refreshServerTranslationJob = function (argv, done) {
 
 	// console.log(' - server: ' + server.url);
 
-	var request = serverUtils.getRequest();
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');

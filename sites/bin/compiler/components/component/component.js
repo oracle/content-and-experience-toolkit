@@ -29,6 +29,10 @@ var Component = function (compId, compInstance, componentsFolder) {
 	this.componentId = compId;
 	this.componentInstanceObject = compInstance;
 
+	this.dataAnalyticsView = this.addAnalytics({
+		'view': this.contentId
+	});
+
 	// note if this is a section layout and whether it has children
 	if (this.componentInstanceObject && this.componentInstanceObject.data && this.componentInstanceObject.data.components) {
 		this.isSectionLayout = true;
@@ -47,6 +51,12 @@ Component.prototype.compile = function (args) {
 
 	self.snippetOnly = args.SCSCompileAPI.snippetOnly; // handle Eloqua generation
 	self.outputChrome = !self.snippetOnly;
+
+	if (args.SCSCompileAPI.detailContentItem) {
+		self.dataAnalyticsView = self.addAnalytics({
+			'view': args.SCSCompileAPI.detailContentItem.id
+		});
+	}
 
 
 	// load the custom component's compile.js file

@@ -147,6 +147,14 @@ Gallery.prototype.computeImages = function () {
 			}
 		}
 
+		image.dataAnalyticsView = viewModel.addAnalytics({
+			'view': image.contentId
+		});
+		image.dataAnalyticsClick = viewModel.addAnalytics({
+			'click': image.linkContentId, 
+			'operation': 'download'
+		});
+
 		image.showCaption = viewModel.showCaption === 'true' && (image.title || image.description);
 
 		return image;

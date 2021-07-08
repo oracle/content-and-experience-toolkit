@@ -6,20 +6,20 @@ var mustache = require('mustache');
 var responses = {
         "GET": {
             "/v1.1/server": {
-              "name": "OCE Site Compilation",
+              "name": "OCM Site Compilation",
               "nameLocalizations": [
                 {
                   "locale": "en",
-                  "localizedString": "OCE Site Compilation"
+                  "localizedString": "OCM Site Compilation"
                 }
               ],
               "version": "v1",
               "serverVersion": "20.1.3",
-              "about": "OCE Site Compilation<br>Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.",
+              "about": "OCM Site Compilation<br>Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.",
               "aboutLocalizations": [
                 {
                     "locale": "en",
-                    "localizedString": "OCE Site Compilation<br>Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved."
+                    "localizedString": "OCM Site Compilation<br>Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved."
                 }
               ],
               "authenticationType": "{{authenticationType}}",

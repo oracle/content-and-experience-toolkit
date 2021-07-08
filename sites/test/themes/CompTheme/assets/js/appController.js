@@ -12,7 +12,7 @@ define(['require', 'ojs/ojcore', 'knockout', 'jquery', 'ojs/ojrouter', 'ojs/ojkn
 		function ControllerViewModel() {
 			var self = this;
 
-			// get the Content and Experience variables for the site/page
+			// get the Content Management variables for the site/page
 			var renderAPI = window.SCSRenderAPI,
 				siteStructure = window.SCS,
 				siteName = renderAPI.getSiteProperty('siteName'),
@@ -105,7 +105,7 @@ define(['require', 'ojs/ojcore', 'knockout', 'jquery', 'ojs/ojrouter', 'ojs/ojkn
 			});
 
 			// Header
-			// Content and Experience Name used in Branding Area
+			// Content Management Name used in Branding Area
 			self.appName = ko.observable(siteName);
 
 			// Use the DOCS logged in user info in Global Navigation area

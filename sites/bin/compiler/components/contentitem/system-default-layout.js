@@ -16,6 +16,7 @@
  */
 var fs = require('fs'),
 	path = require('path'),
+	BaseComp = require('../base/base'),
 	mustache = require('mustache'),
 	cheerio = require('cheerio'),
 	marked = require('marked');
@@ -99,6 +100,10 @@ var getMarkdownText = function (content) {
 	newVal = marked(newVal);
 
 	return newVal;
+};
+
+var addAnalytics = function (args) {
+	return BaseComp.prototype.addAnalytics(args);
 };
 
 var ContentLayout = function (params) {
@@ -205,20 +210,26 @@ ContentLayout.prototype = {
 				};
 				renditionURL = contentClient.getRenditionURL(params);
 				content.render.items.push({
-					'image': renditionURL
+					'image': renditionURL,
+					dataAnalyticsView: addAnalytics({
+						'view': p.id
+					})
 				});
 			} else if (typeof p === 'object' && p !== null) {
-				if (p.type === 'DigitalAsset' && p.id) {
+				if ((p.type === 'DigitalAsset' || p.type === 'Image' || p.typeCategory === 'DigitalAssetType') && p.id) {
 					params = {
 						'itemGUID': p.id,
 						'contentType': contentType,
 						'secureContent': secureContent
 					};
 					renditionURL = contentClient.getRenditionURL(params);
-					if (!(p.fields && p.fields.mimeType) || (p.fields && p.fields.mimeType.indexOf('image/') === 0)) {
+					if ((p.type !== 'File') && (!(p.fields && p.fields.mimeType) || (p.fields && p.fields.mimeType.indexOf('image/') === 0))) {
 						// render as image
 						content.render.items.push({
-							image: renditionURL
+							image: renditionURL,
+							dataAnalyticsView: addAnalytics({
+								'view': p.id
+							})
 						});
 					} else {
 						var daName = p.name || content.name,
@@ -232,7 +243,11 @@ ContentLayout.prototype = {
 								url: renditionURL,
 								name: daName,
 								displayName: displayName,
-								displayType: displayType
+								displayType: displayType,
+								dataAnalyticsClick: addAnalytics({
+									'click': p.id,
+									'operation': 'download'
+								})
 							}
 						});
 					}
@@ -252,18 +267,31 @@ ContentLayout.prototype = {
 				});
 			}
 		}
+		// Handling seeded Digital Asset
+		if (content.typeCategory === 'DigitalAssetType' && 
+			(content.type === 'Image' || 
+			 content.type === 'Video' || 
+			 content.type === 'Video-Plus' || 
+			 content.type === 'File')) {
+			// For seeded digital asset types, render the content list dynamically
+			return Promise.resolve({
+				content: ''
+			});
+		}
+		else { // ContentItem or Custom Digital Asset
+			content.isContentItem = true;
+			var fieldName = contentVersion === 'v1' ? 'data' : 'fields';
+			for (var property in content[fieldName]) {
+				if (content[fieldName].hasOwnProperty(property)) {
+					var p = content[fieldName][property];
 
-		var fieldName = contentVersion === 'v1' ? 'data' : 'fields';
-		for (var property in content[fieldName]) {
-			if (content[fieldName].hasOwnProperty(property)) {
-				var p = content[fieldName][property];
-
-				if (Array.isArray(p)) {
-					for (var i in p) {
-						addItem(p[i]);
+					if (Array.isArray(p)) {
+						for (var i in p) {
+							addItem(p[i]);
+						}
+					} else {
+						addItem(p);
 					}
-				} else {
-					addItem(p);
 				}
 			}
 		}

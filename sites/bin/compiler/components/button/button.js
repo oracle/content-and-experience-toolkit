@@ -93,6 +93,11 @@ Button.prototype.compile = function (args) {
 		getHref = Promise.resolve();
 	}
 
+	this.dataAnalyticsClick = this.addAnalytics({
+		'click': this.getContentIdFromURL(this.href),
+		'operation': 'download'
+	});
+
 	// render the content after getHref resolves
 	return getHref.then(function() {
 		var content = this.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'button.html'), 'utf8'));

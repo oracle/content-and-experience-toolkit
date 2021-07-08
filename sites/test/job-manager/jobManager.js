@@ -799,8 +799,7 @@ JobManager.prototype.getSiteMetadata = function (jobConfig) {
 		var server = serverUtils.verifyServer(self.serverName, projectDir);
 
 		// connect to the server
-		var request = serverUtils.getRequest();
-		serverUtils.loginToServer(server, request).then(function (loginStatus) {
+		serverUtils.loginToServer(server).then(function (loginStatus) {
 			if (loginStatus.status) {
 				// get the current site to get the siteId
 				sitesRest.getSite({
@@ -832,8 +831,7 @@ JobManager.prototype.getSiteMetadata = function (jobConfig) {
 						});
 					});
 				});
-			}
-			else {
+			} else {
 				reject({
 					err: FAILED_TO_CONNECT + 'login issues'
 				});
@@ -870,15 +868,14 @@ JobManager.prototype.updateSiteMetadata = function (jobConfig) {
 
 			console.log('updating site metadata with: ' + updateStatus);
 
-			var request = serverUtils.getRequest(),
-				server = serverUtils.verifyServer(self.serverName, projectDir),
+			var server = serverUtils.verifyServer(self.serverName, projectDir),
 				site = siteData.site,
 				idcToken = siteData.idcToken,
 				siteSettings = {
 					scsCompileStatus: updateStatus
 				};
 
-			return serverUtils.setSiteMetadata(request, server, idcToken, site.id, siteSettings, {});
+			return serverUtils.setSiteMetadata(server, idcToken, site.id, siteSettings, {});
 		});
 	} else {
 		return Promise.resolve();

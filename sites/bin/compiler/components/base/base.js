@@ -141,6 +141,36 @@ Base.prototype.computeVisibilty = function () {
 	return isVisible;
 };
 
+Base.prototype.getContentIdFromURL = function (href) {
+	if (!href) {
+		return '';
+	}
+
+	var regDigitalAsset   = /\[!--\$\s*SCS_DIGITAL_ASSET\s*--\]\s*(.*?)\s*\[\/!--\$\s*SCS_DIGITAL_ASSET\s*--\]/g;
+	var contentId = href.replace(regDigitalAsset, function( match, parameters ) {
+		return (parameters || '').split(',')[0];
+	});
+
+	return contentId !== href ? contentId : '';
+};
+
+Base.prototype.addAnalytics = function (args) {
+	var analytics = '';
+	if (args.view) {
+		analytics = 'data-asset-operation="view:' + args.view + '"'; 
+	}
+	if (args.click) {
+		analytics = 'data-asset-operation="click:' + args.click + (args.operation ? ':' + args.operation : '') + '"'; 
+	}
+
+	// wait until the "SitesConsumptionAnalytics" flag is turned on
+	if (false) {
+		return analytics;
+	} else {
+		return ''; 
+	}
+};
+
 Base.prototype.renderMustacheTemplate = function (template) {
 	var markup = '';
 	// if we can compile this component

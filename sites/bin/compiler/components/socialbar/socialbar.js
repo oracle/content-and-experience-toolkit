@@ -139,6 +139,10 @@ Socialbar.prototype.computeImages = function () {
 
 			image.style = 'width: ' + width + '; height: ' + height + '; display: ' + display + ';' +
 				(margin ? ' margin: ' + margin + ';' : '');
+
+			image.dataAnalyticsView = viewModel.addAnalytics({
+				'view': image.contentId
+			});
 		}
 
 		return image;

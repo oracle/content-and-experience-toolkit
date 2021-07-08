@@ -65,7 +65,7 @@ module.exports.listServerContentTypes = function (argv, done) {
 	}
 	console.log(' - server: ' + server.url);
 
-	serverUtils.loginToServer(server, serverUtils.getRequest(), true).then(function (result) {
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1363,7 +1363,7 @@ module.exports.addContentForm = function (argv, done) {
 };
 
 /**
- * Associate content form with a content type on OCE server
+ * Associate content form with a content type on OCM server
  */
 module.exports.addContentFormServer = function (argv, done) {
 	'use strict';
@@ -1382,8 +1382,8 @@ module.exports.addContentFormServer = function (argv, done) {
 		done();
 		return;
 	}
-	var request = serverUtils.getRequest();
-	serverUtils.loginToServer(server, request).then(function (result) {
+
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1544,7 +1544,7 @@ module.exports.removeContentForm = function (argv, done) {
 };
 
 /**
- * Remove content form from a content type on OCE server
+ * Remove content form from a content type on OCM server
  */
 module.exports.removeContentFormServer = function (argv, done) {
 	'use strict';
@@ -1563,8 +1563,8 @@ module.exports.removeContentFormServer = function (argv, done) {
 		done();
 		return;
 	}
-	var request = serverUtils.getRequest();
-	serverUtils.loginToServer(server, request).then(function (result) {
+
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1636,7 +1636,7 @@ module.exports.removeContentFormServer = function (argv, done) {
 
 
 /**
- * Add content layout mapping to a type on OCE server
+ * Add content layout mapping to a type on OCM server
  */
 module.exports.addContentLayoutMappingServer = function (argv, done) {
 	'use strict';
@@ -1663,8 +1663,8 @@ module.exports.addContentLayoutMappingServer = function (argv, done) {
 		done();
 		return;
 	}
-	var request = serverUtils.getRequest();
-	serverUtils.loginToServer(server, request).then(function (result) {
+
+	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();
@@ -1732,7 +1732,7 @@ module.exports.addContentLayoutMappingServer = function (argv, done) {
 };
 
 /**
- * Remove content layout mapping from a type on OCE server
+ * Remove content layout mapping from a type on OCM server
  */
 module.exports.removeContentLayoutMappingServer = function (argv, done) {
 	'use strict';
@@ -1759,8 +1759,8 @@ module.exports.removeContentLayoutMappingServer = function (argv, done) {
 		done();
 		return;
 	}
-	var request = serverUtils.getRequest();
-	serverUtils.loginToServer(server, request).then(function (result) {
+
+	serverUtils.loginToServer(server, ).then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
 			done();

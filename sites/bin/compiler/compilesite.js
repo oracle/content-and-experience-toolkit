@@ -2014,6 +2014,13 @@ function getWebAnalyticsMarkup(pageModel, context) {
 		markup = context.siteInfo.properties.webAnalyticsScript;
 	}
 
+	// If Asset Analytics Tracking is enabled, insert the relevant script
+	if( context.siteInfo && context.siteInfo.properties && ( context.siteInfo.properties.isAssetAnalyticsEnabled === true ) ) {
+		if (context.siteInfo.properties.assetAnalyticsScript) {
+			markup = context.siteInfo.properties.assetAnalyticsScript + (markup || '');
+		}
+	}
+
 	return markup;
 }
 
@@ -2641,7 +2648,7 @@ var compileSite = function (args) {
 	projectDir = args.currPath;
 	defaultContentType = args.type === 'published' ? 'published' : 'draft'; // default to draft content, URLs will still be published
 
-	console.log("Oracle Content and Experience Site Compiler");
+	console.log("Oracle Content Management Site Compiler");
 	console.log("");
 
 	if (logLevel !== 'log') {

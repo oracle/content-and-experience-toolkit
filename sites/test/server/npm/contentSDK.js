@@ -937,7 +937,7 @@
 	//
 
 	/**
-	 * Client content SDK object to interact with content published in Oracle Content and Experience:
+	 * Client content SDK object to interact with content published in Oracle Content Management:
 	 * <ul>
 	 * <li>Read the published content items</li>
 	 * <li>Render published content using named content layouts</li>
@@ -945,9 +945,9 @@
 	 * @constructor
 	 * @alias ContentDeliveryClient
 	 * @param {object} args - A JavaScript object containing the parameters to create the content delivery client instance.
-	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content and Experience instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
+	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content Management instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
 	 * @param {('v1' | 'v1.1')} [args.contentVersion='v1.1'] - The version of the content delivery REST API to use.
-	 * @param {string} args.channelToken - The Oracle Content and Experience instance token for accessing published content.
+	 * @param {string} args.channelToken - The Oracle Content Management instance token for accessing published content.
 	 * @param {string} [args.cacheBuster=''] - The URL parameter used to control whether or not content is fetched from the browser cache.
 	 * @param {boolean} [args.secureContent=false] - Content is secured and requires sign-in to view.
 	 * @param {string} [args.authorization] - Authorization header to include in the request.
@@ -1114,7 +1114,7 @@
 	/**
 	 * Retrieves the values stored as part of the client object and used on each call.<br/>
 	 * Once created, these values are immutable for the client instance.
-	 * @returns {ContentSDK.ContentInfo} The information the SDK is using to retrieve content from Oracle Content and Experience.
+	 * @returns {ContentSDK.ContentInfo} The information the SDK is using to retrieve content from Oracle Content Management.
 	 * @example
 	 * // get the information on the server and the state used by calls to this client
 	 * console.log(contentClient.getInfo());
@@ -1487,7 +1487,7 @@
 	 * Retrieve metadata information about the content layout. <br/>
 	 * <b>Note:</b> This method is isn't supported if the Content Delivery SDK is used in NodeJS.
 	 * @param {object} args - A JavaScript object containing the "getLayoutInfo" parameters.
-	 * @param {string} args.layout - Name of the layout in the component catalog for Oracle Content and Experience.
+	 * @param {string} args.layout - Name of the layout in the component catalog for Oracle Content Management.
 	 * @returns {Promise} JavaScript Promise object that is resolved when the metadata for the layout is retrieved.
 	 * @example
 	 * // get the Content REST API versions supported by the content layout
@@ -1607,7 +1607,7 @@
 	 * @param {DOMElement} args.container - Container DOMElement to append to.
 	 * @returns {Promise} JavaScript Promise object that is resolved when the layout is loaded and rendered into the container.
 	 * @example
-	 * // render the item into the DOM element with a custom content layout expecting data compatible with Oracle Content and Experience Sites
+	 * // render the item into the DOM element with a custom content layout expecting data compatible with Oracle Content Management Sites
 	 * contentClient.getItem({
 	 *     'id': contentId
 	 * }).then(
@@ -1802,7 +1802,7 @@
 	//
 
 	/**
-	 * Client content preview SDK object to interact with draft content in Oracle Content and Experience:
+	 * Client content preview SDK object to interact with draft content in Oracle Content Management:
 	 * <ul>
 	 * <li>Authenticated connection to the Content Server.</li>
 	 * <li>Read content types.</li>
@@ -1814,9 +1814,9 @@
 	 * @alias ContentPreviewClient
 	 * @augments ContentDeliveryClient
 	 * @param {object} args - A JavaScript object containing the parameters to create the content preview client instance.
-	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content and Experience instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
+	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content Management instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
 	 * @param {('v1' | 'v1.1')} [args.contentVersion='v1.1'] - The version of the content preview REST API to use.
-	 * @param {string} args.channelToken - The Oracle Content and Experience instance token for accessing published content.
+	 * @param {string} args.channelToken - The Oracle Content Management instance token for accessing published content.
 	 * @param {string} [args.cacheBuster=''] - The URL parameter used to control whether or not content is fetched from the browser cache.
 	 * @param {boolean} [args.secureContent=false] - Content is secured and requires sign-in to view.
 	 * @param {string} [args.authorization] - Authorization header to include in the request.
@@ -2040,16 +2040,16 @@
 
 
 	/**
-	 * Create a client content SDK object to interact with content published in Oracle Content and Experience:
+	 * Create a client content SDK object to interact with content published in Oracle Content Management:
 	 * <ul>
 	 * <li>Read the published content items</li>
 	 * <li>Render published content using named content layouts</li>
 	 * </ul
 	 * @memberof ContentSDK
 	 * @param {object} args - A JavaScript object containing the parameters to create the content delivery client instance.
-	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content and Experience instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
+	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content Management instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
 	 * @param {('v1' | 'v1.1')} [args.contentVersion='v1.1'] - The version of the content delivery REST API to use.
-	 * @param {string} args.channelToken - The Oracle Content and Experience instance token for accessing published content.
+	 * @param {string} args.channelToken - The Oracle Content Management instance token for accessing published content.
 	 * @param {string} [args.cacheBuster=''] - The URL parameter used to control whether or not content is fetched from the browser cache.
 	 * @param {boolean} [args.secureContent=false] - Content is secured and requires sign-in to view.
 	 * @param {string} [args.authorization] - Authorization header to include in the request.
@@ -2082,7 +2082,7 @@
 	};
 
 	/**
-	 * Create a client content preview SDK object to interact with draft content in Oracle Content and Experience:
+	 * Create a client content preview SDK object to interact with draft content in Oracle Content Management:
 	 * <ul>
 	 * <li>Authenticated connection to the Content Server.</li>
 	 * <li>Read content types.</li>
@@ -2092,9 +2092,9 @@
 	 * The content preview client SDK object uses the "/management/" Content REST API calls.  This requires the user to be logged in to the system. 
 	 * @memberof ContentSDK
 	 * @param {object} args - A JavaScript object containing the parameters to create the content delivery client instance.
-	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content and Experience instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
+	 * @param {string} [args.contentServer='protocol://host:port'] - URL to the Oracle Content Management instance providing content.  The default assumes the current '<i>protocol</i>://<i>host</i>:<i>port</i>'.
 	 * @param {('v1' | 'v1.1')} [args.contentVersion='v1.1'] - The version of the content delivery REST API to use.
-	 * @param {string} args.channelToken - The Oracle Content and Experience instance token for accessing published content.
+	 * @param {string} args.channelToken - The Oracle Content Management instance token for accessing published content.
 	 * @param {string} [args.cacheBuster=''] - The URL parameter used to control whether or not content is fetched from the browser cache.
 	 * @param {boolean} [args.secureContent=false] - Content is secured and requires sign-in to view.
 	 * @param {string} [args.authorization] - Authorization header to include in the request.
@@ -2134,7 +2134,7 @@
 	 * @property {string} clientType - The type of content client ['delivery' | 'preview'].
 	 * @property {string} contentType - Whether to access 'published' or 'draft' content.
 	 * @property {string} contentVersion - The version of the Content Delivery REST API to use.
-	 * @property {string} channelToken - The Oracle Content and Experience instance token for accessing published content.
+	 * @property {string} channelToken - The Oracle Content Management instance token for accessing published content.
 	 * @property {boolean} secureContent - Content is secured and requires sign-in to view.
 	 * @property {string} authorization - Authorization header to include in the request.
 	 * @property {string} beforeSend - Callback passing in the xhr (browser) or options (node) object before making the REST call.

@@ -4,6 +4,31 @@
 {{/copyright}}-->
 <{{componentWrapperTag}}  {{{nestedId}}}>
 	<script src="/_sitescloud/renderer/libs/scs-core/jssor-slider/js/jssor.slider.min.js" type="text/javascript"></script>
+	<style>
+		.jssora02l, .jssora02r { display: block; position: absolute; width: 55px; height: 55px; cursor: pointer; overflow: hidden; } 
+		.jssora02l , .jssora02l.jssora02ldn , .jssora02l.jssora02lds { background-position: -3px -33px; } 
+		.jssora02r , .jssora02r.jssora02rdn , .jssora02r.jssora02rds { background-position: -63px -33px; } 
+		.jssora02l:hover { background-position: -123px -33px; } 
+		.jssora02r:hover { background-position: -183px -33px; } 
+		.jssorb01 { position: absolute; } 
+		.jssorb01 div, .jssorb01 div:hover, .jssorb01 .av { position: absolute; width: 12px; height: 12px; filter: alpha(opacity=70); opacity: .7; overflow: hidden; cursor: pointer; border: #000 1px solid; } 
+		.jssorb01 div { background-color: gray; } 
+		.jssorb01 div:hover, .jssorb01 .av:hover { background-color: #d3d3d3; } 
+		.jssorb01 .av { background-color: #fff; } 
+		.jssorb01 .dn, .jssorb01 .dn:hover { background-color: #555555; } 
+		.jssorb02 { position: absolute; } 
+		.jssorb02 div, .jssorb02 div:hover, .jssorb02 .av { position: absolute; width: 21px; height: 21px; text-align: center; line-height: 21px; color: white; font-size: 12px; overflow: hidden; cursor: pointer; } 
+		.jssorb02 div { background-position: -5px -5px; } 
+		.jssorb02 div:hover, .jssorb02 .av:hover { background-position: -35px -5px; } 
+		.jssorb02 .av { background-position: -65px -5px; } 
+		.jssorb02 .dn, .jssorb02 .dn:hover { background-position: -95px -5px; } 
+		.jssorb14 { position: absolute; z-index: 1; } 
+		.jssorb14 div, .jssorb14 div:hover, .jssorb14 .av { position: absolute; width: 12px; height: 12px; overflow: hidden; cursor: pointer; } 
+		.jssorb14 div { background-position: -9px -9px; } 
+		.jssorb14 div:hover, .jssorb14 .av:hover { background-position: -39px -9px; } 
+		.jssorb14 .av { background-position: -69px -9px; } 
+		.jssorb14 .dn, .jssorb14 .dn:hover { background-position: -99px -9px; }
+	</style>
 	<div class="{{computedStyleClass}}" style="{{computedWrapperStyle}}">
 		<div class="scs-component-content" style="{{computedContentStyle}}">
 			<div class="scs-gallery-container" style="{{computedStyle}}">
@@ -20,11 +45,11 @@
 								data-google-maps-embed-api-key="googleMapsEmbedApiKey" style="display: block;">
 							{{/isMap}}
 							{{#isNotMap}}
-							<a href="{{linkURL}}" target="{{target}}" {{{downloadName}}} style="display: block;">
+							<a href="{{linkURL}}" target="{{target}}" {{{downloadName}}} style="display: block;" {{{dataAnalyticsClick}}}>
 							{{/isNotMap}}
 							{{/hasLink}}
 
-								<img data-u="image" src="{{imageURL}}" alt="{{altText}}" title="{{title}}" {{{dataIndex}}} />
+								<img data-u="image" src="{{imageURL}}" alt="{{altText}}" title="{{title}}" {{{dataIndex}}} {{{dataAnalyticsView}}}/>
 
 							{{#hasLink}}
 							</a>

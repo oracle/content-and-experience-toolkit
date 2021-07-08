@@ -94,9 +94,9 @@ module.exports = Object.freeze({
 
 	DESKTOP_CACHE: "data",
 
-	PROD_NAME: "Oracle Content and Experience",
+	PROD_NAME: "Oracle Content Management",
 
-	PROD_NAME_TRADEMARK: "Oracle® Content and Experience",
+	PROD_NAME_TRADEMARK: "Oracle® Content Management",
 
 	SHARED_FLD: "Oracle Content Extension for Adobe",
 

@@ -7,9 +7,9 @@
 		<div class="scs-component-content" style="{{computedContentStyle}}">
 			<div class="scs-image-container" style="{{computedStyle}}">
 				{{#linkHandler}}
-				<a {{{hrefAttr}}} class="{{computedLinkClass}}" target="{{computedTarget}}" {{{downloadFileName}}}">
+				<a {{{hrefAttr}}} class="{{computedLinkClass}}" target="{{computedTarget}}" {{{downloadFileName}}} {{{dataAnalyticsClick}}}>
 				{{/linkHandler}}
-					<img id="{{imageId}}" src="{{computedImageUrl}}" alt="{{altText}}" title="{{title}}" class="{{computedImgClass}}" />
+					<img id="{{imageId}}" src="{{computedImageUrl}}" alt="{{altText}}" title="{{title}}" class="{{computedImgClass}}" {{{dataAnalyticsView}}}/>
 				{{#linkHandler}}
 				</a>
 				{{/linkHandler}}

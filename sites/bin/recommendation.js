@@ -74,9 +74,7 @@ module.exports.downloadRecommendation = function (argv, done) {
 	var queryChannel = false;
 	var channel;
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -374,9 +372,7 @@ module.exports.uploadRecommendation = function (argv, done) {
 	var fileName = name + '_export.zip';
 	var fileId;
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');

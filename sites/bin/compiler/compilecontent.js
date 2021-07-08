@@ -769,7 +769,7 @@ var compileContent = function (args) {
     projectDir = args.currPath;
     itemsDir = path.join(projectDir, 'dist', 'items');
 
-    console.log("Oracle Content and Experience Content Compiler");
+    console.log("Oracle Content Management Content Compiler");
     console.log("");
 
     // setup the reporting level
@@ -784,14 +784,15 @@ var compileContent = function (args) {
         return compileContentItems(contentContext).then(function () {
             // upload the content items to the server
             return zipCompiledContent(contentContext).then(function () {
-                return updateStatus({
-                    status: 'COMPILED',
-                    progress: 100,
+                if (compilationReporter.hasErrors) {
+                    return Promise.reject();
+                } else {
+                    return updateStatus({
+                        status: 'COMPILED',
+                        progress: 100,
 
-                }).then(function () {
-                    reportRendered = true;
-                    return compilationReporter.hasErrors ? Promise.reject() : Promise.resolve();
-                });
+                    });
+                }
             });
         });
     }).catch(function (error) {
@@ -800,7 +801,7 @@ var compileContent = function (args) {
             reportRendered = true;
         }
         return updateStatus({
-            status: 'ERROR',
+            status: 'FAILED',
             progress: 100
         }).then(function () {
             return compilationReporter.hasErrors ? Promise.reject() : Promise.resolve();

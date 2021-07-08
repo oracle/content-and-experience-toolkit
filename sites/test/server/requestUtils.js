@@ -10,6 +10,9 @@
  */
 
 const fetch = require('node-fetch');
+const {
+	getLocalizationPolicies
+} = require('./serverRest');
 
 var _get = function (options, callback) {
 	var url = options.url;
@@ -46,9 +49,8 @@ var _post = function (options, callback) {
 					statusCode: response.status,
 					statusMessage: response.statusText,
 					url: response.url,
-					headers: {
-						location: location
-					}
+					location: location,
+					headers: response.headers
 				};
 				return callback(err, res, data);
 			});

@@ -61,9 +61,8 @@ module.exports.downloadTaxonomy = function (argv, done) {
 		fs.mkdirSync(taxonomiesSrcDir);
 	}
 
-	var request = serverUtils.getRequest();
 
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -157,15 +156,14 @@ module.exports.downloadTaxonomy = function (argv, done) {
 				if (downloadLink) {
 					var options = {
 						url: downloadLink,
-						auth: serverUtils.getRequestAuth(server),
 						headers: {
-							'Content-Type': 'application/json'
+							Authorization: serverUtils.getRequestAuthorization(server)
 						},
 						encoding: null
 					};
 					//
 					// Download the export zip
-					var request = serverUtils.getRequest();
+					var request = require('../test/server/requestUtils.js').request;
 					request.get(options, function (err, response, body) {
 						if (err) {
 							console.log('ERROR: Failed to download');
@@ -301,9 +299,7 @@ module.exports.uploadTaxonomy = function (argv, done) {
 	var fileId;
 	var taxonomy;
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
@@ -430,9 +426,7 @@ module.exports.controlTaxonomy = function (argv, done) {
 
 	var exitCode;
 
-	var request = serverUtils.getRequest();
-
-	var loginPromise = serverUtils.loginToServer(server, request);
+	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
 			console.log(' - failed to connect to the server');
