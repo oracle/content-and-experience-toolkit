@@ -63,7 +63,7 @@ cec develop
 
 * Your components, themes, templates, layouts can all be found in `src/`
  
-## Using a Content and Experience instance for local testing
+## Using a Content Management instance for local testing
 
 The CEC instance can be used for the following things:
 
@@ -72,7 +72,7 @@ The CEC instance can be used for the following things:
 * Rendering Content Layouts using content from CEC
 * Exporting and Importing templates, and components from / to CEC into local file system
  
-You can register one, two, or more OCE servers.
+You can register one, two, or more OCM servers.
  
 ```
 cec register-server DEV -e https://your-dev-instance.com -u user -p password
