@@ -1,24 +1,24 @@
-# Content and Experience - Component, Template, Theme and Content Layout Development
+# Content Management - Component, Template, Theme and Content Layout Development
 
-To learn about developing components for Content and Experience, see the links below:
+To learn about developing components for Content Management, see the links below:
 
-[Developing for Oracle Content and Experience](
+[Developing for Oracle Content Management](
 https://docs.oracle.com/en/cloud/paas/content-cloud/developer/develop-oracle-content-and-experience-toolkit.html )
 
-[Test to Production](doc/T2P.md) – Use the OCE toolkit for Test to Production
+[Test to Production](doc/T2P.md) – Use the OCM toolkit for Test to Production
 
 [Headless CLI](doc/IDCS-App.md) - Setup IDCS Application for headless CLI (No popup Chromium for authentication)
 
-[Build Test](doc/Build-Test.md) - Build, optimize and test updates for OCE source
+[Build Test](doc/Build-Test.md) - Build, optimize and test updates for OCM source
 
-[Asset Sync](doc/AssetSync.md) - Synchronize asset create, update, delete, publish across OCE servers
+[Asset Sync](doc/AssetSync.md) - Synchronize asset create, update, delete, publish across OCM servers
 
 [Site Pre-Compilation](doc/compiler.md) - Pre-Compile a site for faster rendition in the browser
 
 ## Setup
 
 * Make sure `node` and `npm` are in your `PATH`.  Use NodeJS 8.0.0 or later.
-* Download the OCE Toolkit - e.g. from GitHub - [link](https://github.com/oracle/content-and-experience-toolkit/archive/master.zip)
+* Download the OCM Toolkit - e.g. from GitHub - [link](https://github.com/oracle/content-and-experience-toolkit/archive/master.zip)
 * Install the dependencies
 
 ```
