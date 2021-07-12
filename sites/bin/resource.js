@@ -917,6 +917,13 @@ module.exports.executeGet = function (argv, done) {
 				done(true);
 			} else {
 				console.log('ERROR: Failed to execute');
+				var data;
+				try {
+					data = JSON.parse(body);
+					console.log(data);
+				} catch(e) {
+
+				}
 				done();
 			}
 		});

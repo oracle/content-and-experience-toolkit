@@ -85,12 +85,22 @@ module.exports.listServerContentTypes = function (argv, done) {
 					return (x < y ? -1 : x > y ? 1 : 0);
 				});
 				types = byName;
-				var typeFound = false;
+				var format = '   %-40s  %-20s';
+				var labelShown = false;
+				var count = 0;
 				for (var i = 0; i < types.length; i++) {
 					if (types[i].name !== 'DigitalAsset') {
-						console.log(' ' + types[i].name);
+						if (!labelShown) {
+							console.log(sprintf(format, 'Name', 'Type Category'));
+							labelShown = true;
+						}
+						console.log(sprintf(format, types[i].name, types[i].typeCategory));
 						typeFound = true;
+						count += 1;
 					}
+				}
+				if (count > 0) {
+					console.log('Total: ' + count);
 				}
 			}
 			if (!typeFound) {

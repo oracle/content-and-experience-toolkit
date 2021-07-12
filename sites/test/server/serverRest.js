@@ -987,6 +987,7 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 		if (includeAdditionalData) {
 			url = url + '&includeAdditionalData=true';
 		}
+
 		var options = {
 			method: 'GET',
 			url: url,
@@ -1868,59 +1869,6 @@ module.exports.getChannelWithName = function (args) {
 	});
 };
 
-
-// Get all items in a channel from server
-var _getChannelItems = function (server, channelToken, fields) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/items?limit=9999&channelToken=' + channelToken;
-		if (fields) {
-			url = url + '&fields=' + fields;
-		}
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-		var request = require('./requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to get channel items');
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				resolve(data && data.items);
-			} else {
-				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get channel items  : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
-/**
- * Get all items in a channel on server 
- * @param {object} args JavaScript object containing parameters. 
- * @param {string} args.server the server object
- * @param {string} args.channelToken The token of the channel to query.
- * @param {string} args.fields The extral fields returned from the query.
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.getChannelItems = function (args) {
-	return _getChannelItems(args.server, args.channelToken, args.fields);
-};
 
 // perform bulk operation on items in a channel from server
 var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString, async, collectionIds) {
@@ -4591,7 +4539,10 @@ var _createConnection = function (request, server) {
 			// console.log(data);
 			if (response && response.statusCode === 200) {
 				var apiRandomID = data && data.apiRandomID;
-				var cookies = response.headers.raw()['set-cookie'] || [];
+				var cookies = [];
+				if (response.headers && response.headers.raw && typeof response.headers.raw === 'function') {
+					cookies = response.headers.raw()['set-cookie'] || [];
+				}
 				resolve({
 					apiRandomID: apiRandomID,
 					cookies: cookies.length > 0 ? cookies.join(',') : ''

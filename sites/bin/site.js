@@ -3034,13 +3034,14 @@ var _validateSiteREST = function (server, siteName, done) {
 			_displaySiteValidation(siteValidation);
 
 			// query channel items
-			return serverRest.getChannelItems({
+			var q = 'channelToken eq "' + channelToken + '"';
+			return serverRest.queryItems({
 				server: server,
-				channelToken: channelToken
+				q: q
 			});
 		})
 		.then(function (result) {
-			var items = result || [];
+			var items = result && result.data || [];
 			if (items.length === 0) {
 				console.log('Assets Validation:');
 				console.log('  no assets');
@@ -3052,6 +3053,7 @@ var _validateSiteREST = function (server, siteName, done) {
 				var item = items[i];
 				itemIds.push(item.id);
 			}
+			// console.log(' - total items: ' + itemIds.length);
 
 			// validate assets
 			return serverRest.validateChannelItems({
