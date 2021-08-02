@@ -1,4 +1,4 @@
-# Oracle Content and Experience - Toolkit
+# Oracle Content Management Toolkit
 
 Templates and resources for development platforms.
 
