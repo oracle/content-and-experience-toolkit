@@ -5,7 +5,7 @@ To learn about developing components for Content Management, see the links below
 [Developing for Oracle Content Management](
 https://docs.oracle.com/en/cloud/paas/content-cloud/developer/develop-oracle-content-and-experience-toolkit.html )
 
-[Test to Production](doc/T2P.md) – Use the OCM toolkit for Test to Production
+[Test to Production](doc/T2P.md) – Use the Content Toolkit for Test to Production
 
 [Headless CLI](doc/IDCS-App.md) - Setup IDCS Application for headless CLI (No popup Chromium for authentication)
 
@@ -18,7 +18,7 @@ https://docs.oracle.com/en/cloud/paas/content-cloud/developer/develop-oracle-con
 ## Setup
 
 * Make sure `node` and `npm` are in your `PATH`.  Use NodeJS version between 10.22.0 and 14.17.3.
-* Download the OCM Toolkit - e.g. from GitHub - [link](https://github.com/oracle/content-and-experience-toolkit/archive/master.zip)
+* Download the Content Toolkit - e.g. from GitHub - [link](https://github.com/oracle/content-and-experience-toolkit/archive/master.zip)
 * Install the dependencies
 
 ```

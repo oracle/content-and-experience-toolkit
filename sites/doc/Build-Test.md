@@ -1,4 +1,4 @@
-# OCM Toolkit: Theme Build/Test Process
+# Content Toolkit: Theme Build/Test Process
 
 The "cec install" command now creates a number of resources in order to support optimize of themes and components during deployment as well as creating automated tests. 
 

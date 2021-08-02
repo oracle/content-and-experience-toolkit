@@ -13,6 +13,7 @@ var path = require('path'),
 	gulp = require('gulp'),
 	fs = require('fs'),
 	os = require('os'),
+	readline = require('readline'),
 	childProcess = require('child_process'),
 	sprintf = require('sprintf-js').sprintf,
 	zip = require('gulp-zip'),
@@ -694,22 +695,32 @@ var _execCreateTranslationJob = function (server, idcToken, name, siteInfo, targ
 			var jobId = result.LocalData.JobID;
 
 			// wait export to finish
+			var startTime = new Date();
+			var needNewLine = false;
 			var inter = setInterval(function () {
 				var jobPromise = _getImportValidateStatusSCS(server, idcToken, jobId);
 				jobPromise.then(function (data) {
 					if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
 						clearInterval(inter);
+						if (needNewLine) {
+							process.stdout.write(os.EOL);
+						}
 						console.log('ERROR: create translation job failed: ' + (data && data.JobMessage));
 						console.log(data);
 						_cmdEnd(done);
 					}
 					if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
 						clearInterval(inter);
+						process.stdout.write(' - creating: percentage ' + data.JobPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						readline.cursorTo(process.stdout, 0);
+						process.stdout.write(os.EOL);
 						console.log(' - translation job ' + name + ' created');
 						_cmdEnd(done, true);
 
 					} else {
-						console.log(' - creating: percentage ' + data.JobPercentage);
+						process.stdout.write(' - creating: percentage ' + data.JobPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						readline.cursorTo(process.stdout, 0);
+						needNewLine = true;
 					}
 				});
 			}, 5000);
@@ -722,64 +733,24 @@ var _execCreateTranslationJob = function (server, idcToken, name, siteInfo, targ
 		});
 };
 
-var _createTranslationJob = function (server, idcToken, site, name, langs, exportType, connectorName, done) {
+var _createTranslationJob = function (server, site, name, langs, exportType, connector, done) {
 	// console.log('site: ' + site + ' job name: ' + name + ' languages: ' + langs + ' export type: ' + exportType);
 	var allLangs = [];
 	var siteInfo;
-	var connector;
-
-	var connectorPromises = [];
-	if (connectorName) {
-		connectorPromises.push(serverUtils.browseTranslationConnectorsOnServer(server));
-	}
-	Promise.all(connectorPromises)
-		.then(function (results) {
-			if (connectorName) {
-				var connectors = results && results[0] && results[0].data || [];
-				for (var i = 0; i < connectors.length; i++) {
-					if (connectorName === connectors[i].connectorName) {
-						connector = connectors[i];
-						break;
-					}
-				}
-				if (!connector) {
-					console.log('ERROR: translation connector ' + connectorName + ' does not exist');
-					return Promise.reject();
-				} else if (!connector.isEnabled || connector.isEnabled.toLowerCase() !== 'true') {
-					console.log('ERROR: translation connector ' + connectorName + ' is disabled');
-					return Promise.reject();
-				}
-			}
-
-			// verify the name
-			var jobPromises = [_getTranslationJobs(server, 'assets'), _getTranslationJobs(server, 'sites')];
-			return Promise.all(jobPromises);
-		})
-		.then(function (values) {
-			var found = false;
-			for (var i = 0; i < values.length; i++) {
-				for (var j = 0; j < values[i].jobs.length; j++) {
-					if (values[i].jobs[j].name === name) {
-						found = true;
-						break;
-					}
-				}
-				if (found) {
-					break;
-				}
-			}
-			if (found) {
-				console.log('ERROR: job ' + name + ' already exists');
+	var idcToken;
+	serverUtils.getIdcToken(server)
+		.then(function (result) {
+			idcToken = result && result.idcToken;
+			if (!idcToken) {
+				console.log('ERROR: failed to get idcToken');
 				return Promise.reject();
 			}
-
 			// query site
 			return sitesRest.getSite({
 				server: server,
 				name: site,
 				expand: 'channel'
 			});
-
 		})
 		.then(function (result) {
 			if (!result || result.err) {
@@ -828,7 +799,7 @@ var _createTranslationJob = function (server, idcToken, site, name, langs, expor
 				//
 				// validate languages
 				//
-				langArr = langs.split(',');
+				var langArr = langs.split(',');
 				for (var i = 0; i < langArr.length; i++) {
 					if (langArr[i] === siteInfo.defaultLanguage) {
 						console.log('ERROR: language ' + langArr[i] + ' is the default language');
@@ -860,7 +831,7 @@ var _createTranslationJob = function (server, idcToken, site, name, langs, expor
 			if (error) {
 				console.log(error);
 			}
-			_cmdEnd(done);
+			done();
 		});
 
 };
@@ -1344,6 +1315,7 @@ var _listServerTranslationJobs = function (argv, done) {
 							console.log(sprintf(format, jobs[i].name, jobs[i].status, sourceLanguage, targetlanguages, jobs[i].assetPendingLanguages, connStr));
 						}
 					}
+					console.log('');
 				}
 
 				if (!type || type === 'sites') {
@@ -1412,6 +1384,23 @@ var _getJobType = function (jobName) {
 		jobType = 'sites';
 	}
 	return jobType;
+};
+
+var _getJob = function (jobName) {
+	var jobDir = path.join(transSrcDir, jobName);
+	var job = {};
+	var jobstr;
+	if (fs.existsSync(path.join(jobDir, 'site', 'job.json'))) {
+		jobstr = fs.readFileSync(path.join(jobDir, 'site', 'job.json'));
+		job = JSON.parse(jobstr);
+	} else if (fs.existsSync(path.join(jobDir, 'job.json'))) {
+		jobstr = fs.readFileSync(path.join(jobDir, 'job.json'));
+		job = JSON.parse(jobstr);
+	} else if (fs.existsSync(path.join(jobDir, 'assets', 'job.json'))) {
+		jobstr = fs.readFileSync(path.join(jobDir, 'assets', 'job.json'));
+		job = JSON.parse(jobstr);
+	}
+	return job;
 };
 
 /**
@@ -1644,10 +1633,113 @@ module.exports.uploadTranslationJob = function (argv, done) {
 				var tempDir = path.join(transBuildDir, name);
 				var jobType = _getJobType(name);
 				// console.log(' - job: ' + name + ' type: ' + jobType + ' zip: ' + zippath);
-				_execdeployTranslationJob(server, validateonly, folder, zippath, name, jobType, tempDir, done);
+				if (jobType === 'assets') {
+					_uploadAssetTranslationJob(server, validateonly, folder, zippath, name, tempDir)
+						.then(function (result) {
+							if (result.err) {
+								done();
+							} else {
+								done(true);
+							}
+						});
+				} else {
+					_execdeployTranslationJob(server, validateonly, folder, zippath, name, jobType, tempDir, done);
+				}
 
 			}); // login to server
 		});
+};
+
+var _uploadAssetTranslationJob = function (server, validateOnly, folder, filePath, name, tempDir) {
+	return new Promise(function (resolve, reject) {
+		var fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+
+		var folderPromises = [];
+		if (folder) {
+			folderPromises.push(serverRest.findFolderHierarchy({
+				server: server,
+				parentID: 'self',
+				folderPath: folder
+			}));
+		}
+		Promise.all(folderPromises)
+			.then(function (results) {
+				if (folder && (!results || results.length === 0 || !results[0] || !results[0].id)) {
+					return Promise.reject();
+				}
+
+				var folderId = folder ? results[0].id : 'self';
+
+				// upload file
+				return serverRest.createFile({
+					server: server,
+					parentID: folderId,
+					filename: fileName,
+					contents: fs.createReadStream(filePath)
+				});
+
+			}).then(function (result) {
+				if (!result || !result.id) {
+					return Promise.reject();
+				}
+				console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + result.version);
+
+				var file = result;
+
+				var jobjson = _getJob(name);
+				var job = {
+					name: name,
+					repositoryId: jobjson.repositoryId
+				};
+
+				return serverRest.importAssetTranslation({
+					server: server,
+					job: job,
+					fFileGUID: file.id,
+					validateOnly: validateOnly
+				});
+
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				if (validateOnly) {
+					var validateResult = result && result.result && result.result.body && result.result.body.validation;
+					if (validateResult) {
+						var format = '  %-30s  %-s';
+						console.log(sprintf(format, 'Job:', name));
+						console.log(sprintf(format, 'valid:', validateResult.valid));
+						console.log(sprintf(format, 'languagesReturnedComplete: ', (validateResult.languagesReturnedComplete || '')));
+						console.log(sprintf(format, 'languagesNotReturned: ', (validateResult.languagesNotReturned || '')));
+						console.log(sprintf(format, 'languagesReturnedIncomplete: ', (validateResult.languagesReturnedIncomplete || '')));
+						console.log(sprintf(format, 'itemsToBeImported: ', ''));
+						var format2 = '      %-36s  %-s';
+						console.log(sprintf(format2, 'Id', 'Name'));
+						for (var i = 0; i < validateResult.itemsToBeImported.length; i++) {
+							var item = validateResult.itemsToBeImported[i];
+							console.log(sprintf(format2, item.id, item.name));
+						}
+
+					} else {
+						console.log(' - no validation result returned');
+					}
+				} else {
+					console.log(' - translation job ' + name + ' imported');
+				}
+
+				return resolve({});
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				return resolve({
+					err: 'err'
+				});
+			});
+	});
 };
 
 /**
@@ -1669,29 +1761,20 @@ module.exports.createTranslationJob = function (argv, done) {
 	}
 
 	var name = argv.name;
-	var site = argv.site;
-
-	if (!name || !site) {
-		console.error('ERROR: please run as npm run create-translation-job -- --name <name> --site <site name>');
-		done();
-		return;
-	}
 
 	if (name.match(/[`/\\*\"\<\>\|\?\'\:]/)) {
 		console.error('ERROR: The job name should not contain the following characters: /\\*\"<>|?\':"');
 		done();
 		return;
 	}
-	if (!site) {
-		console.error('ERROR: please use --site to specify the site');
-		done();
-		return;
-	}
+
+	var site = argv.site;
+	var repositoryName = argv.repository;
 
 	var langs = argv.languages;
 
 	var exportType = argv.type || 'siteAll';
-	var connector = argv.connector;
+	var connectorName = argv.connector;
 
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
@@ -1702,18 +1785,288 @@ module.exports.createTranslationJob = function (argv, done) {
 		}
 
 		var idcToken;
+		var connector;
 
 		serverUtils.getIdcToken(server)
 			.then(function (result) {
 				idcToken = result && result.idcToken;
 				if (!idcToken) {
 					console.log('ERROR: failed to get idcToken');
-					done();
-				} else {
-
-					console.log(' - establish user session');
-					_createTranslationJob(server, idcToken, site, name, langs, exportType, connector, done);
+					return Promise.reject();
 				}
+
+				var connectorPromises = [];
+				if (connectorName) {
+					connectorPromises.push(serverUtils.browseTranslationConnectorsOnServer(server));
+				}
+				return Promise.all(connectorPromises);
+			})
+			.then(function (results) {
+				if (connectorName) {
+					var connectors = results && results[0] && results[0].data || [];
+					for (var i = 0; i < connectors.length; i++) {
+						if (connectorName === connectors[i].connectorName) {
+							connector = connectors[i];
+							break;
+						}
+					}
+					if (!connector) {
+						console.log('ERROR: translation connector ' + connectorName + ' does not exist');
+						return Promise.reject();
+					} else if (!connector.isEnabled || connector.isEnabled.toLowerCase() !== 'true') {
+						console.log('ERROR: translation connector ' + connectorName + ' is disabled');
+						return Promise.reject();
+					}
+				}
+
+				// verify the job name
+				var jobPromises = [_getTranslationJobs(server, 'assets'), _getTranslationJobs(server, 'sites')];
+				return Promise.all(jobPromises);
+			})
+			.then(function (values) {
+				var found = false;
+				for (var i = 0; i < values.length; i++) {
+					if (values[i].jobs) {
+						for (var j = 0; j < values[i].jobs.length; j++) {
+							if (values[i].jobs[j].name === name) {
+								found = true;
+								break;
+							}
+						}
+						if (found) {
+							break;
+						}
+					}
+				}
+				if (found) {
+					console.log('ERROR: job ' + name + ' already exists');
+					return Promise.reject();
+				}
+
+				if (site) {
+					_createTranslationJob(server, site, name, langs, exportType, connector, done);
+				} else {
+					_createAssetTranslationJob(server, repositoryName, name, langs, connector, argv.collection, argv.query, argv.assets)
+						.then(function (result) {
+							if (!result || result.err) {
+								done();
+							}
+
+							done(true);
+						});
+				}
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+
+};
+
+var _createAssetTranslationJob = function (server, repositoryName, name, langs, connector, collectionName, query, assetGUIDStr) {
+	return new Promise(function (resolve, reject) {
+		var repository;
+		var collection;
+		var allLangs = [];
+		var targetLanguages = [];
+		var assetGUIDs = assetGUIDStr ? assetGUIDStr.split(',') : [];
+		var validAssetGUIDs = [];
+
+		serverRest.getRepositoryWithName({
+				server: server,
+				name: repositoryName
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.data) {
+					console.log('ERROR: repository ' + repositoryName + ' does not exist');
+					return Promise.reject();
+				}
+
+				repository = result.data;
+				// console.log(repository);
+				console.log(' - repository (Id: ' + repository.id + ' defaultLanguage: ' + repository.defaultLanguage + ' configuredLanguages: ' + repository.configuredLanguages + ')');
+
+				if (repository.configuredLanguages.length <= 1) {
+					console.log('ERROR: repository ' + repositoryName + ' has no other assigned languages');
+					return Promise.reject();
+				}
+
+				allLangs = repository.configuredLanguages;
+
+				if (langs && langs.toLowerCase() !== 'all') {
+					//
+					// validate languages
+					//
+					var langArr = langs.split(',');
+					for (var i = 0; i < langArr.length; i++) {
+						if (langArr[i] === repository.defaultLanguage) {
+							console.log('WARNING: language ' + langArr[i] + ' is the default language');
+						} else if (!allLangs.includes(langArr[i])) {
+							console.log('WARNING: language ' + langArr[i] + ' is not configured for the repository');
+						} else {
+							targetLanguages.push(langArr[i]);
+						}
+					}
+				} else {
+					for (var i = 0; i < allLangs.length; i++) {
+						if (allLangs[i] !== repository.defaultLanguage) {
+							targetLanguages.push(allLangs[i]);
+						}
+					}
+				}
+				if (targetLanguages.length === 0) {
+					console.log('ERROR: no target language');
+					return Promise.reject();
+				}
+				console.log(' - target languages: ' + targetLanguages);
+
+				var queryCollectionPromises = [];
+				if (collectionName) {
+					queryCollectionPromises.push(serverRest.getCollections({
+						server: server,
+						repositoryId: repository.id
+					}));
+				}
+
+				return Promise.all(queryCollectionPromises);
+
+			})
+			.then(function (results) {
+
+				if (collectionName) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
+
+					var collections = results[0];
+					for (var i = 0; i < collections.length; i++) {
+						if (collections[i].name.toLowerCase() === collectionName.toLowerCase()) {
+							collection = collections[i];
+							break;
+						}
+					}
+
+					if (!collection) {
+						console.log('ERROR: collection ' + collectionName + ' not found in repository ' + repository.name);
+						return Promise.reject();
+					}
+
+					console.log(' - validate collection (Id: ' + collection.id + ')');
+				}
+
+				var queryItemPromises = [];
+				var q;
+				if (assetGUIDs && assetGUIDs.length > 0) {
+					q = '';
+					for (var i = 0; i < assetGUIDs.length; i++) {
+						if (q) {
+							q = q + ' or ';
+						}
+						q = q + 'id eq "' + assetGUIDs[i] + '"';
+					}
+					queryItemPromises.push(serverRest.queryItems({
+						server: server,
+						q: q
+					}));
+				}
+
+				return Promise.all(queryItemPromises);
+
+			})
+			.then(function (results) {
+				if (assetGUIDs && assetGUIDs.length > 0) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
+					var items = results[0].data || [];
+					for (var j = 0; j < assetGUIDs.length; j++) {
+						var found = false;
+						for (var i = 0; i < items.length; i++) {
+							if (items[i].id === assetGUIDs[j]) {
+								found = true;
+								validAssetGUIDs.push(assetGUIDs[j]);
+								break;
+							}
+						}
+						if (!found) {
+							console.log('ERROR: item with GUID ' + assetGUIDs[j] + ' not found');
+						}
+					}
+				}
+
+				var queryItemPromises = [];
+				var q;
+				if (query) {
+					q = '(repositoryId eq "' + repository.id + '") AND (' + query + ')';
+					console.log(' - query: ' + q);
+
+					queryItemPromises.push(serverRest.queryItems({
+						server: server,
+						q: q
+					}));
+				}
+
+				return Promise.all(queryItemPromises);
+			})
+			.then(function (results) {
+				var guids = [];
+				if (query) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
+					var items = results[0].data || [];
+					console.log(' - total items from query: ' + items.length);
+
+					// the copy items have to be in both query result and specified item list
+					for (var i = 0; i < items.length; i++) {
+						var add = true;
+						if (validAssetGUIDs.length > 0) {
+							add = false;
+							for (var j = 0; j < validAssetGUIDs.length; j++) {
+								if (items[i].id === validAssetGUIDs[j]) {
+									add = true;
+									break;
+								}
+							}
+						}
+
+						if (add) {
+							guids.push(items[i].id);
+						}
+					}
+				} else {
+					guids = validAssetGUIDs;
+				}
+
+				return serverRest.createAssetTranslation({
+					server: server,
+					name: name,
+					repositoryId: repository.id,
+					collectionId: collection ? collection.id : '',
+					contentIds: guids,
+					sourceLanguage: repository.defaultLanguage,
+					targetLanguages: targetLanguages,
+					connectorId: connector ? connector.connectorId : ''
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - translation job ' + name + ' created');
+				return resolve({});
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				return resolve({
+					err: 'err'
+				});
 			});
 	});
 };
@@ -1748,7 +2101,7 @@ module.exports.listTranslationJobs = function (argv, done) {
 	var jobs = [];
 	for (var i = 0; i < jobNames.length; i++) {
 		var jobpath = path.join(transSrcDir, jobNames[i]);
-		var jobjson;
+		var jobjson = undefined;
 		if (fs.existsSync(path.join(jobpath, 'site', 'job.json'))) {
 			var jobstr = fs.readFileSync(path.join(jobpath, 'site', 'job.json'));
 			jobjson = JSON.parse(jobstr);
@@ -1788,9 +2141,9 @@ module.exports.listTranslationJobs = function (argv, done) {
 
 	Promise.all(connectJobPromises).then(function (result) {
 		// console.log(result);
-		var format = '%-40s %-16s %-15s %-40s';
+		var format = '%-40s %-10s %-16s %-15s %-40s';
 		console.log('Local translation jobs:');
-		console.log(sprintf(format, 'Name', 'Status', 'Source Language', 'Target Languages'));
+		console.log(sprintf(format, 'Name', 'Type', 'Status', 'Source Language', 'Target Languages'));
 		for (var i = 0; i < jobs.length; i++) {
 			var connectionJobStatus = jobs[i]['connectionJobStatus'];
 			var connectionJobId = jobs[i]['connectionJobId'];
@@ -1806,7 +2159,8 @@ module.exports.listTranslationJobs = function (argv, done) {
 			if (connectionJobStatus) {
 				status = connectionJobStatus === 'INGESTED' ? 'TRANSLATED' : (connectionJobStatus === 'TRANSLATED' ? 'READY TO INGEST' : 'INPROGRESS');
 			}
-			console.log(sprintf(format, jobs[i].jobName, status, jobs[i].sourceLanguage, jobs[i].targetLanguages));
+			var typeLabel = jobs[i].siteGUID ? 'Site' : 'Asset';
+			console.log(sprintf(format, jobs[i].jobName, typeLabel, status, jobs[i].sourceLanguage, jobs[i].targetLanguages));
 		}
 
 		done(true);
@@ -1956,7 +2310,7 @@ module.exports.ingestTranslationJob = function (argv, done) {
 	var connectionJobId = jobConnectionInfo.jobId;
 
 	console.log(' - query translation connection to get job status');
-	
+
 	var connectionJobPromise = _getJobFromConnector(connectionjson, connectionJobId, name);
 	connectionJobPromise.then(function (result) {
 		if (result.err || !result.properties) {
@@ -2051,7 +2405,6 @@ var _ingestServerTranslationJob = function (argv, done) {
 					return Promise.reject();
 				}
 
-				// console.log(job);
 				if (!job.connectorId) {
 					console.log('ERROR: job ' + name + ' is not translated by translation connector');
 					return Promise.reject();
@@ -2071,52 +2424,32 @@ var _ingestServerTranslationJob = function (argv, done) {
 					console.log('ERROR: job ' + name + ' is not ready to ingest yet: ' + connJob.connectorJobStatus);
 					return Promise.reject();
 				}
-				console.log(' - verify job');
+				console.log(' - verify job (Id: ' + job.id + ' name: ' + job.name + ' type: ' + job.type + ')');
 
 				return serverUtils.getIdcToken(server);
 			})
 			.then(function (result) {
 				idcToken = result.idcToken;
 
-				return _ingestTranslationJobSCS(server, idcToken, job.id, job.connectorId);
+				return job.type === 'assets' ? serverRest.importAssetTranslation({
+					server: server,
+					job: job
+				}) : _ingestTranslationJobSCS(server, idcToken, job.id, job.connectorId);
 			})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
 				}
-
-				var jobId = result.LocalData.JobID;
-				idcToken = result.LocalData.idcToken;
-
-				// wait ingest to finish
-				var inter = setInterval(function () {
-					var jobPromise = _getImportValidateStatusSCS(server, idcToken, jobId);
-					jobPromise.then(function (data) {
-						if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
-							clearInterval(inter);
-							// try to get error message
-							var jobDataPromise = _getJobReponseDataSCS(server, idcToken, jobId);
-							jobDataPromise.then(function (data) {
-								console.log('ERROR: ingest failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
-								_cmdEnd(done);
-							});
-						}
-						if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
-							clearInterval(inter);
-							console.log(' - ingest ' + name + ' finished');
-							done(true);
-
-						} else {
-							console.log(' - ingesting: percentage ' + data.JobPercentage);
-						}
-					});
-				}, 5000);
+				console.log(' - ingest finished');
+				done(true);
 			})
 			.catch((error) => {
 				done();
 			});
 	});
 };
+
+
 var _ingestTranslationJobSCS = function (server, idcToken, jobId, connectorId) {
 	var importPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/documents/integration?IdcService=SCS_IMPORT_SITE_TRANS';
@@ -2156,9 +2489,45 @@ var _ingestTranslationJobSCS = function (server, idcToken, jobId, connectorId) {
 				return resolve({
 					err: 'err'
 				});
-			}
+			} else {
+				var jobId = data.LocalData.JobID;
+				idcToken = data.LocalData.idcToken;
 
-			return resolve(data);
+				// wait ingest to finish
+				var startTime = new Date();
+				var needNewLine = false;
+				var inter = setInterval(function () {
+					var jobPromise = _getImportValidateStatusSCS(server, idcToken, jobId);
+					jobPromise.then(function (data) {
+						if (!data || data.err || !data.JobStatus || data.JobStatus === 'FAILED') {
+							clearInterval(inter);
+							if (needNewLine) {
+								process.stdout.write(os.EOL);
+							}
+							// try to get error message
+							var jobDataPromise = _getJobReponseDataSCS(server, idcToken, jobId);
+							jobDataPromise.then(function (data) {
+								console.log('ERROR: ingest failed: ' + (data && data.LocalData && data.LocalData.StatusMessage));
+								return resolve({
+									err: 'err'
+								});
+							});
+						}
+						if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
+							clearInterval(inter);
+							process.stdout.write(' - ingesting: percentage  ' + data.JobPercentage + '% [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+							process.stdout.write(os.EOL);
+							return resolve({});
+
+						} else {
+							process.stdout.write(' - ingesting: percentage ' + data.JobPercentage + '% [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+							needNewLine = true;
+						}
+					});
+				}, 5000);
+			}
 
 		});
 	});

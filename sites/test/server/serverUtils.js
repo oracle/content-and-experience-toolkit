@@ -19,7 +19,6 @@ var express = require('express'),
 	he = require('he'),
 	path = require('path'),
 	readline = require('readline'),
-	uuid4 = require('uuid/v4'),
 	puppeteer = require('puppeteer'),
 	url = require('url'),
 	_ = require('underscore'),
@@ -248,7 +247,7 @@ module.exports.getRequestAuthorization = function (server) {
 	return _getRequestAuthorization(server);
 };
 var _getRequestAuthorization = function (server) {
-	var auth = server.env === 'dev_ec' || !server.oauthtoken ? ('Basic ' + _btoa(server.username + ':' + server.password)) : ((server.tokentype || 'Bearer') + ' ' + server.oauthtoken);
+	var auth = server.env === 'dev_ec' || !server.oauthtoken ? ('Basic ' + _btoa(server.username + ':' + server.password)) : ((server.tokentype || 'Bearer') + ' ' + server.oauthtoken);	
 
 	return auth;
 };
@@ -303,6 +302,17 @@ var _verifyServer = function (serverName, currPath, showError) {
 
 
 /**
+ * Use Node crypto to create UUID
+ * crypto.randomUUID() only available in 14.17.0
+ */
+var _uuid = function () {
+	const crypto = require("crypto");
+	const id = crypto.randomBytes(16).toString("hex");
+	// console.log(' - uuid: ' + id);
+	return id;
+};
+
+/**
  * Create a 44 char GUID
  * ‘C’ + 32 char complete UUID + 11 char from another UUID
  */
@@ -311,10 +321,10 @@ module.exports.createGUID = function () {
 };
 var _createGUID = function () {
 	'use strict';
-	let guid1 = uuid4();
-	let guid2 = uuid4();
-	guid1 = guid1.replace(/-/g, '').toUpperCase();
-	guid2 = guid2.replace(/-/g, '').toUpperCase();
+	let guid1 = _uuid();
+	let guid2 = _uuid();
+	guid1 = guid1.toUpperCase();
+	guid2 = guid2.toUpperCase();
 	const guid = 'C' + guid1 + guid2.substr(0, 11);
 	return guid;
 };
@@ -327,8 +337,8 @@ module.exports.createAssetGUID = function (isDigitalAsset) {
 };
 var _createAssetGUID = function (isDigitalAsset) {
 	'use strict';
-	var guid1 = uuid4();
-	guid1 = guid1.replace(/-/g, '').toUpperCase();
+	var guid1 = _uuid();
+	guid1 = guid1.toUpperCase();
 	return ((isDigitalAsset ? 'CONT' : 'CORE') + guid1);
 };
 
@@ -1286,6 +1296,57 @@ module.exports.getTenantConfig = function (server) {
 			resolve(config);
 		});
 	});
+};
+
+module.exports.setTenantConfig = function (server, localData, tenantOptionRows) {
+    return new Promise(function (resolve, reject) {
+		var payload = {
+			LocalData: localData
+		  };
+		  payload.ResultSets = {
+			TenantOptions: {
+			  fields: [{"name": "dTenantOptionName"}, {"name": "dTenantOptionValue"}, {"name": "dTenantOptionDataType"}],
+			  rows: tenantOptionRows
+			}
+		  };
+		_getIdcToken(server).then(function(result){
+			payload["LocalData"]["idcToken"] =  result.idcToken;
+            var url = server.url + '/documents/desktop?IdcService=SET_TENANT_CONFIG';
+            var options = {
+                method: 'POST',
+                url: url,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-REQUESTED-WITH': 'XMLHttpRequest',
+                    Authorization: _getRequestAuthorization(server)
+                },
+                body: JSON.stringify(payload),
+                json: true
+            };
+            var request = require('./requestUtils.js').request;
+            request.post(options, function (err, response, body) {
+                if (err) {
+                    return resolve({
+                        err: 'err'
+                    });
+                }
+                var data;
+                try {
+                    data = JSON.parse(body);
+                } catch (error) {
+                    data = body;
+                }
+				if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+					var errorMsg = data && data.LocalData ? '- ' + data.LocalData.StatusMessage : "failed to enable settings";
+					return reject({
+						err: errorMsg
+					});
+				} else {
+					return resolve({});
+				}
+            });
+		}); 
+    });
 };
 
 /**

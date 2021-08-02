@@ -745,7 +745,7 @@ const uploadCompiledContent = {
 	usage: {
 		'short': 'Uploads the compiled content to OCM server.',
 		'long': (function () {
-			let desc = 'Uploads the compiled content to OCM server. Specify the site <site> on the server. Specify the server with -r <server> or use the one specified in cec.properties file. ';
+			let desc = 'Uploads the compiled content to OCM server. Specify the server with -r <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -2132,12 +2132,12 @@ const createTranslationJob = {
 	alias: 'ctj',
 	name: 'create-translation-job',
 	usage: {
-		'short': 'Creates a translation job <name> for a site on OCM server.',
+		'short': 'Creates a translation job <name> for a site or assets on OCM server.',
 		'long': (function () {
-			let desc = 'Creates a translation job <name> for a site on OCM server. Specify the server with -r <server> or use the one specified in cec.properties file. ' +
+			let desc = 'Creates a translation job <name> for a site or assets on OCM server. Specify the server with -r <server> or use the one specified in cec.properties file. ' +
 				'Specify -l <languages> to set the target languages, use "all" to select all languages from the translation policy. ' +
 				'Optionally specify -c <connector> to set the translation connector. ' +
-				'Optionally specify -t <type> to set the content type. The valid values for <type> are:\n\n';
+				'Optionally specify -t <type> to set the content type when create translation job for a site. The valid values for <type> are:\n\n';
 			return getTranslationJobExportTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 		})()
 	},
@@ -2147,6 +2147,9 @@ const createTranslationJob = {
 		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT'],
 		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT, -t siteItems'],
 		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT -c Lingotek'],
+		['cec create-translation-job job1 -p Repo1 -o collection1 -l all -r UAT'],
+		['cec create-translation-job job1 -p Repo1 -a GUID1,GUID2 -l all -r UAT'],
+		['cec create-translation-job job1 -p Repo1 -q \'type eq "BlogType"\' -l all -c Lingotek -r UAT']
 	]
 };
 
@@ -2163,7 +2166,8 @@ const downloadTranslationJob = {
 	},
 	example: [
 		['cec download-translation-job Site1Job'],
-		['cec download-translation-job Site1Job -s UAT']
+		['cec download-translation-job Site1Job -s UAT'],
+		['cec download-translation-job AssetsJob -s UAT']
 	]
 };
 
@@ -2182,7 +2186,9 @@ const uploadTranslationJob = {
 		['cec upload-translation-job Site1Job', 'File will be uploaded to the Home folder.'],
 		['cec upload-translation-job Site1Job -s UAT', 'File will be uploaded to the Home folder on registered server UAT'],
 		['cec upload-translation-job Site1Job -f Import/TranslationJobs', 'File will be uploaded to folder Import/TranslationJobs.'],
-		['cec upload-translation-job Site1Job -v', 'Validate the translation job without import.']
+		['cec upload-translation-job Site1Job -v', 'Validate the translation job without import.'],
+		['cec upload-translation-job AssetsJob -f -s UAT Import/TranslationJobs', 'File will be uploaded to folder Import/TranslationJobs.'],
+		['cec upload-translation-job AssetsJob -v -s UAT', 'Validate the translation job without import.']
 	]
 };
 
@@ -2198,7 +2204,8 @@ const submitTranslationJob = {
 		})()
 	},
 	example: [
-		['cec submit-translation-job Site1Job1 -c connector1-auto']
+		['cec submit-translation-job Site1Job1 -c connector1-auto'],
+		['cec submit-translation-job AssetsJob1 -c connector1-auto']
 	]
 };
 
@@ -2215,7 +2222,8 @@ const refreshTranslationJob = {
 	},
 	example: [
 		['cec refresh-translation-job Site1Job1'],
-		['cec refresh-translation-job Site1Job1 -s UAT', 'Refresh translation job Site1Job1 on the registered server UAT']
+		['cec refresh-translation-job Site1Job1 -s UAT', 'Refresh translation job Site1Job1 on the registered server UAT'],
+		['cec refresh-translation-job AssetsJob1 -s UAT', 'Refresh translation job AssetsJob1 on the registered server UAT']
 	]
 };
 
@@ -2232,7 +2240,9 @@ const ingestTranslationJob = {
 	},
 	example: [
 		['cec ingest-translation-job Site1Job1', 'Ingest local translation job'],
-		['cec ingest-translation-job Site1Job1 -s DEV', 'Ingest translation job Site1Job1 on the registered server DEV']
+		['cec ingest-translation-job Site1Job1 -s DEV', 'Ingest translation job Site1Job1 on the registered server DEV'],
+		['cec ingest-translation-job AssetsJob1', 'Ingest local translation job'],
+		['cec ingest-translation-job AssetsJob1 -s DEV', 'Ingest translation job AssetsJob1 on the registered server DEV']
 	]
 };
 
@@ -2905,6 +2915,8 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(controlRepository) + os.EOL +
 	_getCmdHelp(shareRepository) + os.EOL +
 	_getCmdHelp(unshareRepository) + os.EOL +
+	_getCmdHelp(setEditorialPermission) + os.EOL +
+	_getCmdHelp(listEditorialPermission) + os.EOL +
 	_getCmdHelp(createChannel) + os.EOL +
 	_getCmdHelp(shareChannel) + os.EOL +
 	_getCmdHelp(unshareChannel) + os.EOL +
@@ -5798,12 +5810,27 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('site', {
 					alias: 's',
-					description: '<site> Site',
-					demandOption: true
+					description: 'The site'
+				})
+				.option('repository', {
+					alias: 'p',
+					description: 'The repository'
+				})
+				.option('collection', {
+					alias: 'o',
+					description: 'The collection'
+				})
+				.option('query', {
+					alias: 'q',
+					description: 'Query to fetch the assets'
+				})
+				.option('assets', {
+					alias: 'a',
+					description: 'The comma separated list of asset GUIDS'
 				})
 				.option('languages', {
 					alias: 'l',
-					description: '<languages> The comma separated list of languages used to create the translation job',
+					description: 'The comma separated list of languages used to create the translation job',
 					demandOption: true
 				})
 				.option('connector', {
@@ -5819,17 +5846,31 @@ const argv = yargs.usage(_usage)
 					description: 'The registered OCM server'
 				})
 				.check((argv) => {
-					if (argv.type && !getTranslationJobExportTypes().includes(argv.type)) {
-						throw new Error(`${argv.type} is not a valid value for <type>`);
-					} else {
-						return true;
+					if (!argv.site && !argv.repository) {
+						throw new Error(os.EOL + 'Please specify site or repository');
 					}
+					if (argv.site && argv.repository) {
+						throw new Error(os.EOL + 'Please specify either site or repository');
+					}
+					if (argv.repository && !argv.collection && !argv.assets && !argv.query) {
+						throw new Error(os.EOL + 'Please specify collection, query or assets');
+					}
+					if (argv.collection && (argv.assets || argv.query)) {
+						throw new Error(os.EOL + 'Collection and assets are mutually exclusive and only one of them should be provided');
+					}
+					if (argv.type && !getTranslationJobExportTypes().includes(argv.type)) {
+						throw new Error(`${os.EOL}${argv.type} is not a valid value for <type>`);
+					}
+					return true;
 				})
 				.example(...createTranslationJob.example[0])
 				.example(...createTranslationJob.example[1])
 				.example(...createTranslationJob.example[2])
 				.example(...createTranslationJob.example[3])
 				.example(...createTranslationJob.example[4])
+				.example(...createTranslationJob.example[5])
+				.example(...createTranslationJob.example[6])
+				.example(...createTranslationJob.example[7])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createTranslationJob.command}\n\n${createTranslationJob.usage.long}`);
@@ -5842,6 +5883,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...downloadTranslationJob.example[0])
 				.example(...downloadTranslationJob.example[1])
+				.example(...downloadTranslationJob.example[2])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadTranslationJob.command}\n\n${downloadTranslationJob.usage.long}`);
@@ -5861,6 +5903,7 @@ const argv = yargs.usage(_usage)
 					}
 				})
 				.example(...submitTranslationJob.example[0])
+				.example(...submitTranslationJob.example[1])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${submitTranslationJob.command}\n\n${submitTranslationJob.usage.long}`);
@@ -5873,6 +5916,7 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...refreshTranslationJob.example[0])
 				.example(...refreshTranslationJob.example[1])
+				.example(...refreshTranslationJob.example[2])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${refreshTranslationJob.command}\n\n${refreshTranslationJob.usage.long}`);
@@ -5885,6 +5929,8 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...ingestTranslationJob.example[0])
 				.example(...ingestTranslationJob.example[1])
+				.example(...ingestTranslationJob.example[2])
+				.example(...ingestTranslationJob.example[3])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${ingestTranslationJob.command}\n\n${ingestTranslationJob.usage.long}`);
@@ -5907,6 +5953,8 @@ const argv = yargs.usage(_usage)
 				.example(...uploadTranslationJob.example[1])
 				.example(...uploadTranslationJob.example[2])
 				.example(...uploadTranslationJob.example[3])
+				.example(...uploadTranslationJob.example[4])
+				.example(...uploadTranslationJob.example[5])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadTranslationJob.command}\n\n${uploadTranslationJob.usage.long}`);
@@ -6667,7 +6715,7 @@ console.log(d.toUTCString());
 if (fs.existsSync(path.join(appRoot, 'package.json'))) {
 	var packageJSON = JSON.parse(fs.readFileSync(path.join(appRoot, 'package.json')));
 	var cecVersion = packageJSON.version;
-	console.log('OCM Toolkit ' + cecVersion);
+	console.log('Content Toolkit ' + cecVersion);
 }
 
 /*********************
@@ -8697,9 +8745,23 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--',
 		'--projectDir', cwd,
 		'--name', argv.name,
-		'--site', argv.site,
 		'--languages', argv.languages
 	];
+	if (argv.site) {
+		createTranslationJobArgs.push(...['--site', argv.site]);
+	}
+	if (argv.repository) {
+		createTranslationJobArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.collection) {
+		createTranslationJobArgs.push(...['--collection', argv.collection]);
+	}
+	if (argv.query) {
+		createTranslationJobArgs.push(...['--query', argv.query]);
+	}
+	if (argv.assets) {
+		createTranslationJobArgs.push(...['--assets', argv.assets]);
+	}
 	if (argv.connector) {
 		createTranslationJobArgs.push(...['--connector', argv.connector]);
 	}

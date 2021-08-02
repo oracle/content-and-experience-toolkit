@@ -94,7 +94,7 @@ RUN node --version \
 # -------------------------------
 USER compileagent
 
-# Download the OCM toolkit
+# Download the Content Toolkit
 # ------------------------
 WORKDIR ${CEC_COMPILATION_HOME}
 RUN curl -L -o ${CEC_TOOLKIT_ZIP} ${CEC_TOOLKIT_DOWNLOAD}
@@ -102,7 +102,7 @@ RUN unzip -oq ${CEC_TOOLKIT_ZIP}
 RUN mv content-and-experience-toolkit-master/sites  ${CEC_TOOLKIT_DIR_NAME} \
   && chmod +x ${CEC_TOOLKIT_DIR_NAME}/test/job-manager/compileExec.sh
 
-# Build OCM Toolkit
+# Build Content Toolkit
 # -----------------
 RUN cd ${CEC_TOOLKIT_DIR_NAME} \
   && pwd \

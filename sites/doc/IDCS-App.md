@@ -1,6 +1,6 @@
 # Setup for CLI to use IDCS App for connection instead of Headless Chrome
-OCM Toolkit supports connection via IDCS app, which removes the need to pop up Chromium to authenticate.
-The following instructions detail how the IDCS app can be created and registered for use with the OCM Toolkit CLI.
+Content Toolkit supports connection via IDCS app, which removes the need to pop up Chromium to authenticate.
+The following instructions detail how the IDCS app can be created and registered for use with the Content Toolkit CLI.
 
 ## Access your MyServices Dashboard
 Go to your MyServices Dashboard - the URL will be like this:
@@ -71,7 +71,7 @@ Copy down the **Scope** URL, it will be something like this:
 
 Click **Save** and Click **Activate**
 
-# Register your SERVER with the OCM Toolkit CLI
+# Register your SERVER with the Content Toolkit CLI
 
 You will need your:
 

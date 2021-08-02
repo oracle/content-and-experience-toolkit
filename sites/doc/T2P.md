@@ -1,13 +1,13 @@
-# Setup for Test to Production (T2P) using OCM Toolkit
-OCM Toolkit supports test to production for Sites and Content via Git/SVN repository.
+# Setup for Test to Production (T2P) using Content Toolkit
+Content Toolkit supports test to production for Sites and Content via Git/SVN repository.
 
 ![](https://github.com/oracle/content-and-experience-toolkit/blob/master/sites/doc/images/T2P-Graphic.jpg?raw=true)
 
-Resources are created / edited in a Development OCM server, exported to the local file system using OCM Toolkit CLI, and propagated to a Test or Production OCM server using OCM Toolkit CLI.
+Resources are created / edited in a Development OCM server, exported to the local file system using Content Toolkit CLI, and propagated to a Test or Production OCM server using Content Toolkit CLI.
 Some resources, like components, content layouts can be developed directly into the local file system and tested using a local server, and deployed to the DEV instance.  Also, the CLI commands are bi-directional, so updates can be moved from TEST back to DEV instance. 
 
 # Setup
-[Install the OCM Toolkit](../README.MD)
+[Install the Content Toolkit](../README.MD)
 ## Create Source in your Local File system
 In a directory inside a git / SVN repository, type the following:
 
@@ -18,7 +18,7 @@ cec install
 This will create a source tree, with a package.json, and do an `npm install` to fetch dependencies into the source tree.  Update `package.json` to include any further dependencies you may need for your resources.
 
 ## Setup connections to your Source and Target OCM instances
-You can have one, two, or more registered servers, based on your scenario.  It could be for example, DEV, TEST, PROD, or DEV, PROD.  You can test in a PROD server, and then use OCM Toolkit CLI to publish and go-live.
+You can have one, two, or more registered servers, based on your scenario.  It could be for example, DEV, TEST, PROD, or DEV, PROD.  You can test in a PROD server, and then use Content Toolkit CLI to publish and go-live.
 
 ```
 cec register-server DEV -e https://your-dev-instance.com -u user -p password

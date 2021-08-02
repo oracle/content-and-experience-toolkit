@@ -15,6 +15,19 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.7.1
+
+**Added**
+
+- `cec set-editorial-permission` - Grants repository members Editorial Permissions on assets
+- `cec list-editorial-permission` - Lists repository members Editorial Permissions on assets
+- `cec create-translation-job` - Creates a translation job for assets on an OCM server
+- `cec ingest-translation-job` - Ingests a translation job for assets on an OCM server
+- `cec upload-translation-job` - Uploads a translation job for assets to an OCM server
+
+- Updated the Starter-Blog-Post-Form in the BlogTemplate to support a sidebar in the content editor on an OCM server
+
+
 # New in Release 21.6.1a
 
 **Fixed**

@@ -10,7 +10,7 @@ Performance improvements are achieved by reducing the number of runtime requests
 
 Behavioral improvements are achieved since the page will render immediately and you can therefore avoid issues such as "flash of un-styled content" or having components appear on the page in an indeterminate order - such as where the footer appears immediately and then moves down the page as the other items on the page render.
 
-To compile the pages within an OCM site, you will need to export the site as a template and then use the OCM Toolkit to compile the template and upload the static pages produced to the original site. The steps below walk you through template compilation process and then how to use this model to compile your sites.   
+To compile the pages within an OCM site, you will need to export the site as a template and then use the Content Toolkit to compile the template and upload the static pages produced to the original site. The steps below walk you through template compilation process and then how to use this model to compile your sites.   
 
 ## Interaction with Prerender
 
@@ -43,17 +43,17 @@ The default compilation process does the work of the existing runtime controller
 
 ## Template Compilation
 
-To compile a site, you need to have access to the theme's and components within the site.  The OCM Sites Template is the packaging model for site.  It contains all the required resources in order to migrate and run the site and so is used to export the site to the OCM Toolkit environment where the site within the template can be compiled.  
+To compile a site, you need to have access to the theme's and components within the site.  The OCM Sites Template is the packaging model for site.  It contains all the required resources in order to migrate and run the site and so is used to export the site to the Content Toolkit environment where the site within the template can be compiled.  
 
-The following steps walk through the steps showing compilation of the site within the the BlogTemplate that is seeded in OCM toolkit.
+The following steps walk through the steps showing compilation of the site within the the BlogTemplate that is seeded in Content Toolkit.
 
 ### Setup
 
-The "cec compile-template" command is available via the OCM toolkit and is installed when the toolkit is installed.  Follow the standard instructions for installing the OCM toolkit. 
+The "cec compile-template" command is available via the Content Toolkit and is installed when the toolkit is installed.  Follow the standard instructions for installing the Content Toolkit. 
 
-Once you have the OCM toolkit installed, you can run the following command.  Note: The command is currently not listed when you display cec help. 
+Once you have the Content Toolkit installed, you can run the following command.  Note: The command is currently not listed when you display cec help. 
 
-#### Install an OCM Toolkit development directory
+#### Install an Content Toolkit development directory
 
 ```
 mkdir cec-src

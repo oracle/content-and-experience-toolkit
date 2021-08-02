@@ -14,8 +14,7 @@ var express = require('express'),
 	fs = require('fs'),
 	argv = require('yargs').argv,
 	path = require('path'),
-	url = require('url'),
-	uuid4 = require('uuid/v4');
+	url = require('url');
 
 var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), ''),
 	defaultTestDir = cecDir + '/test',
@@ -359,7 +358,7 @@ router.get('/*', (req, res) => {
 					newGUIDS = [];
 
 				for (var i = 0; i < components.length; i++) {
-					newGUIDS[i] = createGUID();
+					newGUIDS[i] = serverUtils.createGUID();
 				}
 				// create new instance id
 
@@ -482,7 +481,7 @@ router.get('/*', (req, res) => {
 		} else if (filePathSuffix.indexOf('render.js') > 0 && apptype === 'fieldeditor') {
 			filePath = path.join(componentsDir, compName, 'assets', 'view.html');
 		} else if (filePathSuffix.indexOf('render.js') > 0 && apptype === 'contentform') {
-			
+
 			filePath = path.join(componentsDir, compName, 'assets', 'edit.html');
 
 		} else if (filePathSuffix.indexOf('edit.html') > 0 && apptype === 'contentform') {
@@ -799,15 +798,6 @@ var existsAndIsFile = function (filePath) {
 	return ok;
 };
 
-var createGUID = function () {
-	'use strict';
-	let guid1 = uuid4();
-	let guid2 = uuid4();
-	guid1 = guid1.replace(/-/g, '').toUpperCase();
-	guid2 = guid2.replace(/-/g, '').toUpperCase();
-	const guid = 'C' + guid1 + guid2.substr(0, 11);
-	return guid;
-};
 
 // Export the router
 module.exports = router;

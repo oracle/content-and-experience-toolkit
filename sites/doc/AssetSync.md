@@ -1,10 +1,10 @@
-# Setup for Asset Synchronization (T2P) using OCM Toolkit
-OCM Toolkit support synchronizing Asset: create, update, delete, publish, unpublish within Repositories, between SOURCE and DESTINATION OCM servers in the same or different Region.
+# Setup for Asset Synchronization (T2P) using Content Toolkit
+Content Toolkit support synchronizing Asset: create, update, delete, publish, unpublish within Repositories, between SOURCE and DESTINATION OCM servers in the same or different Region.
 
 ![](https://github.com/oracle/content-and-experience-toolkit/blob/master/sites/doc/images/AS-ov.png?raw=true)
 
 # Setup
-[Install the OCM Toolkit](../README.MD)
+[Install the Content Toolkit](../README.MD)
 ## Create Source in your Local File system
 In a directory inside a git / SVN repository, type the following:
 
@@ -33,7 +33,7 @@ cec list --server DEST
 In SOURCE instance, create a channel - e.g. channel1, and create a repository, e.g. repository1, and assign channel1 to repository1.
 Do the same thing in the DEST instance.  The names of the repository and channel must match that of the SOURCE instance.
 
-Note: you can use the OCM Toolkit to create the repositories and channels, however the Web UI must be used to associate the channel to the repository on both SOURCE and DEST instances.
+Note: you can use the Content Toolkit to create the repositories and channels, however the Web UI must be used to associate the channel to the repository on both SOURCE and DEST instances.
 
 ```
 cec create-repository repository1 --server SOURCE

@@ -163,12 +163,7 @@ Base.prototype.addAnalytics = function (args) {
 		analytics = 'data-asset-operation="click:' + args.click + (args.operation ? ':' + args.operation : '') + '"'; 
 	}
 
-	// wait until the "SitesConsumptionAnalytics" flag is turned on
-	if (false) {
-		return analytics;
-	} else {
-		return ''; 
-	}
+	return analytics;
 };
 
 Base.prototype.renderMustacheTemplate = function (template) {

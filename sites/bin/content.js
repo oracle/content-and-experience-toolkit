@@ -3798,6 +3798,7 @@ var _getMasterItems = function (server, items) {
 				end: total - 1
 			});
 		}
+		var startTime = new Date();
 		var doQueryItems = groups.reduce(function (itemPromise, param) {
 				return itemPromise.then(function (result) {
 					var idq = '';
@@ -3818,6 +3819,8 @@ var _getMasterItems = function (server, items) {
 					}).then(function (result) {
 						if (result && result.data && result.data.length > 0) {
 							masterItems = masterItems.concat(result.data);
+							process.stdout.write(' - fetching master items ' + masterItems.length + ' [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
+							readline.cursorTo(process.stdout, 0);
 						}
 					});
 
@@ -3827,6 +3830,9 @@ var _getMasterItems = function (server, items) {
 			Promise.resolve({}));
 
 		doQueryItems.then(function (result) {
+			if (masterItems.length > 0) {
+				process.stdout.write(os.EOL);
+			}
 			resolve(masterItems);
 		});
 

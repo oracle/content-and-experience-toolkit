@@ -23,6 +23,7 @@ var express = require('express'),
 	templatesRouter = require('./server/templatesRouter.js'),
 	componentsRouter = require('./server/componentsRouter.js'),
 	connectorRouter = require('./server/connectorRouter.js'),
+	proxyRouter = require('./server/proxyRouter.js'),
 	sitesRouter = require('./server/sitesRouter.js'),
 	systemRouter = require('./server/systemRouter.js'),
 	serverUtils = require('./server/serverUtils.js');
@@ -222,6 +223,9 @@ app.use('/renderer/app/sdk/css/app-settings.css', appsRouter);
 app.use('/renderer/app/sdk', express.static(testDir + '/sitescloud/renderer/app/sdk'));
 app.use('/renderer/app/apps', appsRouter);
 app.use('/renderer/app/js', appsRouter);
+
+// All proxy requests are handled by proxyRouter
+app.use('/pxysvc', proxyRouter);
 
 // all /connector request are handled by connectorRouter
 app.get('/connector*', connectorRouter);

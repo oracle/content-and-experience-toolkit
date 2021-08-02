@@ -1,10 +1,10 @@
 # Content Management - Compilation Server Docker Image
 
-The Compilation Server Docker Image provides a packaged build of the OCM Toolkit compilation server command: 
+The Compilation Server Docker Image provides a packaged build of the Content Toolkit compilation server command: 
 ```
 cec compilation-server
 ```
-You can also run this command directly against your OCM Toolkit environment and you should continue to do so during the development of custom compilers. 
+You can also run this command directly against your Content Toolkit environment and you should continue to do so during the development of custom compilers. 
 The Docker image is simply a convenience container for hosting your local compilation server that can be registered with your OCM instance to allow for pre-compilation of sites during the site publish step. 
 
 To learn about site pre-compilation, see the links below:
@@ -16,7 +16,7 @@ To learn about site pre-compilation, see the links below:
 ## Setup
 
 * Make sure `docker` is in your `PATH`.  
-* Download the OCM Toolkit - e.g. from GitHub - [link](https://github.com/oracle/content-and-experience-toolkit/archive/master.zip)
+* Download the Content Toolkit - e.g. from GitHub - [link](https://github.com/oracle/content-and-experience-toolkit/archive/master.zip)
 
 ## Build 
 Go to the directory in the download containing the Dockerfile 

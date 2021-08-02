@@ -1,7 +1,7 @@
-# Copy a Large Site using OCM Toolkit
+# Copy a Large Site using Content Toolkit
 
 # Setup
-[Install the OCM Toolkit](../README.MD)
+[Install the Content Toolkit](../README.MD)
 ## Create Source in your Local File system
 In a directory inside a git / SVN repository, type the following:
 

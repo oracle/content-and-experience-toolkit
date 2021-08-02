@@ -239,14 +239,15 @@ module.exports.downloadRecommendation = function (argv, done) {
 								if (downloadLink) {
 									var options = {
 										url: downloadLink,
-										auth: serverUtils.getRequestAuth(server),
 										headers: {
-											'Content-Type': 'application/zip'
+											'Content-Type': 'application/zip',
+											Authorization: serverUtils.getRequestAuthorization(server)
 										},
 										encoding: null
 									};
 									//
 									// Download the export zip
+									var request = require('../test/server/requestUtils.js').request;
 									request.get(options, function (err, response, body) {
 										if (err) {
 											console.log('ERROR: Failed to download');

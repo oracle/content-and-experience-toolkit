@@ -24,7 +24,6 @@ var _createFolder = function (server, parentID, foldername) {
 		var options = {
 			method: 'POST',
 			url: server.url + '/documents/api/1.2/folders/' + parentID,
-			auth: serverUtils.getRequestAuth(server),
 			headers: {
 				'Content-Type': 'application/json',
 				Authorization: serverUtils.getRequestAuthorization(server)
@@ -63,7 +62,7 @@ var _createFolder = function (server, parentID, foldername) {
 
 /**
  * Create folder on server by folder name
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.parentID The DOCS GUID for the folder where the new file should be created.
  * @param {string} args.foldername The name of the folder to create.
@@ -97,7 +96,7 @@ var _findOrCreateFolder = function (server, parentID, foldername) {
 
 /**
  * Find or Create folder on server by folder name
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.parentID The DOCS GUID for the folder where the new file should be created.
  * @param {string} args.foldername The name of the folder to create.
@@ -130,7 +129,7 @@ var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
 						}
 						parentGUID = folderDetails.id;
 
-						// wait for the previous promise to complete and then return a new promise for the next 
+						// wait for the previous promise to complete and then return a new promise for the next
 						return nextPromise(parentGUID);
 					}
 				});
@@ -152,7 +151,7 @@ var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
 };
 /**
  * Find folder hierarchy on server by folder name
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.parentID The DOCS GUID for the folder where the new file should be created.
  * @param {string} args.folderPath The path of the folder.
@@ -242,7 +241,7 @@ var _findFolderItems = function (server, parentId, parentPath, _files) {
 };
 /**
  * Find all items of a folder (folder tree)on server by folder name
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.parentID The DOCS GUID for the folder where the new file should be created.
  * @param {string} args.folderPath The path of the folder.
@@ -293,7 +292,7 @@ var _deleteFolder = function (server, fFolderGUID, folderPath) {
 };
 /**
  * Delete Folder from server by folder GUID
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.fFolderGUID The DOCS GUID for the folder to delete
  * @returns {Promise.<object>} The data object returned by the server.
@@ -349,7 +348,7 @@ var _getChildItems = function (server, parentID, limit, offset) {
 };
 /**
  * Get child items from server under the given parent
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.parentID The DOCS GUID for the folder to search
  * @param {string} args.limit the maximum number of items to return
@@ -412,7 +411,7 @@ var _getFolderMetadata = function (server, folderId) {
 };
 /**
  * Get a folder's metadata on OCM server
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.folderId The DOCS GUID for the folder
  * @returns {array} The array of data object returned by the server.
@@ -471,7 +470,7 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 };
 /**
  * Find the file from server under the given parent
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.parentID The DOCS GUID for the folder to search
  * @param {string} args.filename The name of the folder to find
@@ -541,7 +540,7 @@ var _createFile = function (server, parentID, filename, contents, filepath) {
 };
 /**
  * Create file from server by file name
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.parentID The DOCS GUID for the folder where the new file should be created.
  * @param {string} args.filename The name of the file to create.
@@ -593,7 +592,7 @@ var _readFile = function (server, fFileGUID) {
 };
 /**
  * Read file from server by file name
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.fFileGUID The DOCS GUID for the file to update
  * @returns {Promise.<object>} The data object returned by the server.
@@ -642,7 +641,7 @@ var _getFile = function (server, id) {
 };
 /**
  * Read file from server by file name
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.id The DOCS GUID for the file
  * @returns {Promise.<object>} The data object returned by the server.
@@ -688,7 +687,7 @@ var _downloadFile = function (server, fFileGUID) {
 
 /**
  * Download file from server by file id
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.fFileGUID The DOCS GUID for the file to update
  * @returns {Promise.<object>} The data object returned by the server.
@@ -735,7 +734,7 @@ var _deleteFile = function (server, fFileGUID, filePath) {
 };
 /**
  * Delete file from server by file GUID
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.fFileGUID The DOCS GUID for the file to delete
  * @returns {Promise.<object>} The data object returned by the server.
@@ -781,7 +780,7 @@ var _getFileVersions = function (server, fFileGUID) {
 };
 /**
  * Get file versions from server by file id
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.fFileGUID The DOCS GUID for the file to query
  * @returns {Promise.<object>} The data object returned by the server.
@@ -835,8 +834,8 @@ var _getItem = function (server, id, expand) {
 	});
 };
 /**
- * Get an item on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get an item on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {string} args.server the server object
  * @param {string} args.id The id of the item to query.
  * @returns {Promise.<object>} The data object returned by the server.
@@ -900,8 +899,8 @@ var _getItemRelationships = function (server, id) {
 	});
 };
 /**
- * Get an item's relationships on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get an item's relationships on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {string} args.server the server object
  * @param {string} args.id The id of the item to query.
  * @param {string} args.expand The comma-separated list of field names or all to get child resources.
@@ -953,8 +952,8 @@ var _getItemVariations = function (server, id) {
 	});
 };
 /**
- * Get an item's variations on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get an item's variations on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {string} args.server the server object
  * @param {string} args.id The id of the item to query.
  * @returns {Promise.<object>} The data object returned by the server.
@@ -963,7 +962,7 @@ module.exports.getItemVariations = function (args) {
 	return _getItemVariations(args.server, args.id);
 };
 
-var _queryItems = function (server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData) {
+var _queryItems = function (server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, aggregationResults) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/items';
 		var sep = '?';
@@ -987,7 +986,9 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 		if (includeAdditionalData) {
 			url = url + '&includeAdditionalData=true';
 		}
-
+		if (aggregationResults) {
+			url = url + '&aggs={"name":"item_count_per_category","field":"id"}';
+		}
 		var options = {
 			method: 'GET',
 			url: url,
@@ -1018,7 +1019,8 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 					data: data && data.items,
 					query: query,
 					hasMore: data && data.hasMore,
-					limit: data && data.limit
+					limit: data && data.limit,
+					aggregationResults: data && data.aggregationResults
 				});
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
@@ -1030,15 +1032,157 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 		});
 	});
 };
+
+var _scrollItems = function (server, url) {
+	return new Promise(function (resolve, reject) {
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		var query = url.substring(url.indexOf('?') + 1);
+		// console.log(query);
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to scroll items with ' + query);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 200) {
+				return resolve(data);
+			} else {
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to scroll items with ' + query + ' : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+var _scrollAllItems = function (server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData) {
+	var SCROLL_SIZE = 4000;
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/items';
+		var sep = '?';
+		if (q) {
+			url = url + sep + 'q=' + q;
+			sep = '&';
+		}
+		url = url + sep + 'limit=' + SCROLL_SIZE;
+		if (orderBy) {
+			url = url + '&orderBy=' + orderBy;
+		}
+		if (channelToken) {
+			url = url + '&channelToken=' + channelToken;
+		}
+		if (fields) {
+			url = url + '&fields=' + fields;
+		}
+		if (includeAdditionalData) {
+			url = url + '&includeAdditionalData=true';
+		}
+		url = url + '&scroll=true';
+
+		var groups = [];
+		// 4000 * 1000 = 4,000,000 should be enough for now
+		for (var i = 1; i < 1000; i++) {
+			groups.push(1);
+		}
+
+		var items = [];
+
+		var startTime = new Date();
+		var doGetItems = groups.reduce(function (itemPromise) {
+				return itemPromise.then(function (result) {
+					if (result) {
+						if (result.items && result.items.length > 0) {
+							items = items.concat(result.items);
+							process.stdout.write(' - fetching items ' + items.length +
+								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+						}
+						// console.log(' - count: ' + result.count + ' limit: ' + result.limit);
+						if (result.count > 0 && result.scrollId) {
+							// continue to next scroll
+							return _scrollItems(server, url + '&scrollId=' + result.scrollId);
+						}
+					}
+				});
+			},
+			// first scroll
+			_scrollItems(server, url));
+
+		doGetItems.then(function (result) {
+			if (items.length > 0) {
+				process.stdout.write(os.EOL);
+			}
+			if (offset && limit) {
+				return resolve(items.slice(offset, offset + limit));
+			} else if (offset) {
+				return resolve(items.slice(offset, items.length));
+			} else if (limit) {
+				return resolve(items.slice(0, items.length));
+			} else {
+				return resolve(items);
+			}
+		});
+
+	});
+};
 /**
- * Get an item on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get an item on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {string} args.server the server object
  * @param {string} args.q The query expression
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.queryItems = function (args) {
-	return _queryItems(args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken, args.includeAdditionalData);
+	return new Promise(function (resolve, reject) {
+		// find out the total first
+		_queryItems(args.server, args.q, args.fields, args.orderBy, 1, 0, args.channelToken, args.includeAdditionalData)
+			.then(function (result) {
+				items = result && result.data || [];
+				if (items.length == 0 || result.limit === args.limit) {
+					return resolve(result);
+				}
+
+				var totalCount = result.limit;
+				// console.log(' - total items: ' + totalCount);
+				var offset = args.offset ? args.offset : 0;
+				if (totalCount < 10000 || (args.limit && (offset + args.limit < 10000))) {
+					_queryItems(args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken, args.includeAdditionalData, args.aggregationResults)
+						.then(function (result) {
+							return resolve(result);
+						});
+				} else {
+					// console.log(' - scrolling items...');
+					_scrollAllItems(args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken, args.includeAdditionalData)
+						.then(function (result) {
+							var items = result;
+							return resolve({
+								data: items,
+								hasMore: false,
+								limit: items.length,
+								aggregationResults: items.aggregationResults
+							});
+						});
+				}
+
+			});
+	});
 };
 
 var _getAllItemIds = function (server, repositoryId, channelId, publishedassets) {
@@ -1095,7 +1239,7 @@ var _getAllItemIds = function (server, repositoryId, channelId, publishedassets)
 };
 /**
  * Get Id of all items
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {string} args.server the server object
  * @param {string} args.repositoryId the repository
  * @returns {Promise.<object>} The data object returned by the server.
@@ -1168,8 +1312,8 @@ var _createItem = function (server, repositoryId, type, name, desc, fields, lang
 };
 
 /**
- * create an item on server 
- * @param {object} args JavaScript object containing parameters. 
+ * create an item on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {string} args.server the server object
  * @param {string} args.item the item object
  * @returns {Promise.<object>} The data object returned by the server.
@@ -1254,8 +1398,8 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 };
 
 /**
- * create a digital item on server 
- * @param {object} args JavaScript object containing parameters. 
+ * create a digital item on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {string} args.server the server object
  * @param {string} args.item the item object
  * @returns {Promise.<object>} The data object returned by the server.
@@ -1337,8 +1481,8 @@ var _updateDigitalItem = function (server, item, contents) {
 };
 
 /**
- * Update a digital item on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Update a digital item on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {string} args.server the server object
  * @param {string} args.item the item object
  * @returns {Promise.<object>} The data object returned by the server.
@@ -1410,7 +1554,7 @@ var _createCollection = function (server, repositoryId, name, channels) {
 
 /**
  * Create channel on server by channel name
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of the channel to create.
  * @param {string} args.repositoryId The id of the repository
@@ -1486,7 +1630,7 @@ var _createChannel = function (server, name, channelType, description, publishPo
 
 /**
  * Create channel on server by channel name
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of the channel to create.
  * @param {string} args.description The description of the channel to create.
@@ -1550,7 +1694,7 @@ var _deleteChannel = function (server, id) {
 };
 /**
  * Delete channel on server by channel id
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.id The id of the channel to delete
  * @returns {Promise.<object>} The data object returned by the server.
@@ -1607,15 +1751,75 @@ var _deleteRepository = function (server, id) {
 		});
 	});
 };
+
 /**
  * Delete repository on server by channel id
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.id The id of the repository to delete
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.deleteRepository = function (args) {
 	return _deleteRepository(args.server, args.id);
+};
+
+// Delete content type on server
+var _deleteContentType = function (server, id) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+				var url = server.url + '/content/management/api/v1.1/types/' + id;
+				var postData = {
+					method: 'DELETE',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					}
+				};
+
+				var request = require('./requestUtils.js').request;
+				request.delete(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to delete contennt type ' + id);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						console.log('Failed to delete content type ' + id + ' : ' + (response.statusMessage || response.statusCode));
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Delete cotent type on server 
+ * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args.server the server object
+ * @param {string} args.name Name of the content type to delete
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteContentType = function (args) {
+	return _deleteContentType(args.server, args.name);
 };
 
 // Add channel to repository
@@ -1685,8 +1889,8 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 };
 
 /**
- * Add channel to repository on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Add channel to repository on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.id The id of the channel to add.
  * @param {string} args.name The naem of the channel.
@@ -1738,8 +1942,8 @@ var _getChannels = function (server) {
 	});
 };
 /**
- * Get all channels on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get all channels on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -1786,8 +1990,8 @@ var _getChannel = function (server, channelId) {
 	});
 };
 /**
- * Get a channel on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get a channel on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.id The id of the channel to query.
  * @returns {Promise.<object>} The data object returned by the server.
@@ -1798,8 +2002,8 @@ module.exports.getChannel = function (args) {
 
 
 /**
- * Get a channel with name on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get a channel with name on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of the channel to query.
  * @returns {Promise.<object>} The data object returned by the server.
@@ -1871,7 +2075,7 @@ module.exports.getChannelWithName = function (args) {
 
 
 // perform bulk operation on items in a channel from server
-var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString, async, collectionIds) {
+var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString, async, collectionIds, actOnDependencies) {
 	// console.log('_bulkOpItems: ' + operation);
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
@@ -1920,6 +2124,10 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 					operations[operation] = {
 						collections: collections
 					};
+				} else if (operation === 'lock' || operation === 'unlock') {
+					operations[operation] = {
+						dependencies: !!actOnDependencies
+					}
 				} else {
 					operations[operation] = {
 						channels: channels
@@ -1992,8 +2200,8 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 	});
 };
 /**
- * Publish items in a channel on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Publish items in a channel on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.channelId The id of the channel to publish items.
  * @param {array} args.itemIds The id of items to publish
@@ -2004,8 +2212,8 @@ module.exports.publishChannelItems = function (args) {
 };
 
 /**
- * Unpublish items in a channel on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Unpublish items in a channel on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.channelId The id of the channel to publish items.
  * @param {array} args.itemIds The id of items to publish
@@ -2017,8 +2225,8 @@ module.exports.unpublishChannelItems = function (args) {
 };
 
 /**
- * Remove items from a channel on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Remove items from a channel on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.channelId The id of the channel to publish items.
  * @param {array} args.itemIds The id of items to publish
@@ -2030,11 +2238,11 @@ module.exports.removeItemsFromChanel = function (args) {
 };
 
 /**
- * Add items to a channel on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Add items to a channel on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.channelId The id of the channel to add items.
- * @param {array} args.itemIds The id of items 
+ * @param {array} args.itemIds The id of items
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.addItemsToChanel = function (args) {
@@ -2043,8 +2251,8 @@ module.exports.addItemsToChanel = function (args) {
 };
 
 /**
- * Remove items from a collection on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Remove items from a collection on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.collectionId The id of the collection to remove items.
  * @param {array} args.itemIds The id of items to remove
@@ -2056,11 +2264,11 @@ module.exports.removeItemsFromCollection = function (args) {
 };
 
 /**
- * Add items to a collection on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Add items to a collection on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.channelId The id of the collection to add items.
- * @param {array} args.itemIds The id of items 
+ * @param {array} args.itemIds The id of items
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.addItemsToCollection = function (args) {
@@ -2069,10 +2277,10 @@ module.exports.addItemsToCollection = function (args) {
 };
 
 /**
- * Delete items (translatable items with all tts variations) on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Delete items (translatable items with all tts variations) on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
- * @param {array} args.itemIds The id of items 
+ * @param {array} args.itemIds The id of items
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.deleteItems = function (args) {
@@ -2080,10 +2288,10 @@ module.exports.deleteItems = function (args) {
 };
 
 /**
- * Approve items on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Approve items on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
- * @param {array} args.itemIds The id of items 
+ * @param {array} args.itemIds The id of items
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.approveItems = function (args) {
@@ -2091,8 +2299,32 @@ module.exports.approveItems = function (args) {
 };
 
 /**
- * Validate items from a channel on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Lock items on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {array} args.itemIds The id of items
+ * @param {array} args.actOnDependencies Whether to unlock dependencies, too
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.lockItems = function (args) {
+	return _bulkOpItems(args.server, 'lock', [], args.itemIds, undefined, undefined, undefined, args.actOnDependencies);
+};
+
+/**
+ * Unlock items on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {array} args.itemIds The id of items
+ * @param {array} args.actOnDependencies Whether to unlock dependencies, too
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.unlockItems = function (args) {
+	return _bulkOpItems(args.server, 'unlock', [], args.itemIds, undefined, undefined, undefined, args.actOnDependencies);
+};
+
+/**
+ * Validate items from a channel on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.channelId The id of the channel to validate items.
  * @param {array} args.itemIds The id of items to publish
@@ -2103,8 +2335,8 @@ module.exports.validateChannelItems = function (args) {
 };
 
 /**
- * Set items as translated on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Set items as translated on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {array} args.itemIds The id of items to publish
  * @returns {Promise.<object>} The data object returned by the server.
@@ -2150,7 +2382,7 @@ var _getPublishingJobItems = function (server, jobId) {
 };
 /**
  * Get the items that will be published in the referenced publishing job
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {array} args.jobId The id of items to publish
  * @returns {Promise.<object>} The data object returned by the server.
@@ -2199,7 +2431,7 @@ var _getItemOperationStatus = function (server, statusId) {
 };
 /**
  * Get item bulk operation status
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.statusId The id of operation status
  * @returns {Promise.<object>} The data object returned by the server.
@@ -2297,7 +2529,7 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 						statusId = statusId.substring(statusId.lastIndexOf('/') + 1);
 
 						console.log(' - submit request');
-						var count = [];
+						var startTime = new Date();
 						var needNewLine = false;
 						var inter = setInterval(function () {
 							var jobPromise = _getItemOperationStatus(server, statusId);
@@ -2322,8 +2554,7 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 									}
 									return resolve({});
 								} else {
-									count.push('.');
-									process.stdout.write(' - copy assets in process ' + count.join(''));
+									process.stdout.write(' - copy assets in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 									readline.cursorTo(process.stdout, 0);
 									needNewLine = true;
 								}
@@ -2344,7 +2575,7 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 };
 /**
  * Copy assets
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -2392,8 +2623,8 @@ var _getLocalizationPolicies = function (server) {
 	});
 };
 /**
- * Get all localization policies on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get all localization policies on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -2441,8 +2672,8 @@ var _getLocalizationPolicy = function (server, id) {
 	});
 };
 /**
- * Get a localization policy on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get a localization policy on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.id The id of the localization policy to query
  * @returns {Promise.<object>} The data object returned by the server.
@@ -2512,7 +2743,7 @@ var _createLocalizationPolicy = function (server, name, description, requiredLan
 };
 /**
  * Create localization policy on server by channel name
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of the localization policy to create.
  * @param {string} args.description The description of the localization policy.
@@ -2541,11 +2772,9 @@ var _updateLocalizationPolicy = function (server, id, name, data) {
 				payload.name = name;
 
 				var url = server.url + '/content/management/api/v1.1/localizationPolicies/' + id;
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'PUT',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
@@ -2587,7 +2816,7 @@ var _updateLocalizationPolicy = function (server, id, name, data) {
 };
 /**
  * Update localization policy on server
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.id The id of the localization policy to update.
  * @param {string} args.name The name of the localization policy.
@@ -2699,8 +2928,8 @@ var _getRepositories = function (server) {
 	});
 };
 /**
- * Get all repositories on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get all repositories on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -2748,8 +2977,8 @@ var _getRepository = function (server, repoId) {
 	});
 };
 /**
- * Get a repository on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get a repository on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.id The id of the repository to query.
  * @returns {Promise.<object>} The data object returned by the server.
@@ -2759,8 +2988,8 @@ module.exports.getRepository = function (args) {
 };
 
 /**
- * Get a repository with name on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get a repository with name on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of the repository to query.
  * @returns {Promise.<object>} The data object returned by the server.
@@ -2868,8 +3097,8 @@ var _getCollections = function (server, repositoryId) {
 	});
 };
 /**
- * Get all collections of a repository on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get all collections of a repository on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.repositoryId the id of the repository
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
@@ -2879,8 +3108,8 @@ module.exports.getCollections = function (args) {
 };
 
 /**
- * Get a collection with name on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get a collection with name on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of the collection to query.
  * @returns {Promise.<object>} The data object returned by the server.
@@ -2983,7 +3212,7 @@ var _getAllTaxonomies = function (server) {
 					}
 				});
 			},
-			// Start with a previousPromise value that is a resolved promise 
+			// Start with a previousPromise value that is a resolved promise
 			_getTaxonomies(server));
 
 		doGetResources.then(function (result) {
@@ -2993,8 +3222,8 @@ var _getAllTaxonomies = function (server) {
 	});
 };
 /**
- * Get all taxonomies on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get all taxonomies on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -3003,8 +3232,8 @@ module.exports.getTaxonomies = function (args) {
 };
 
 /**
- * Get a taxonomy with name on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get a taxonomy with name on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of the taxonomy to query.
  * @returns {Promise.<object>} The data object returned by the server.
@@ -3118,8 +3347,8 @@ var _getCategories = function (server, taxonomyId, taxonomyName) {
 	});
 };
 /**
- * Get all categories of a taxonomy on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get all categories of a taxonomy on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -3172,8 +3401,8 @@ var _getResourcePermissions = function (server, id, type) {
 	});
 };
 /**
- * Get all permissions of a resource on a ron server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get all permissions of a resource on a ron server
+ * @param {object} args JavaScript object containing parameters.
  * @param {string} server the server object
  * @param {string} args.id The id of the resource to query.
  * @param {string} args.type The type of the resource to query [repository | type]
@@ -3225,8 +3454,8 @@ var _getPermissionSets = function (server, id, name) {
 	});
 };
 /**
- * Get all permission sets of repository  on a oce server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get all permission sets of repository  on a oce server
+ * @param {object} args JavaScript object containing parameters.
  * @param {string} server the server object
  * @param {string} args.id The id of the repository to query.
  * @returns {Promise.<object>} The data object returned by the server.
@@ -3292,8 +3521,8 @@ var _setPermissionSets = function (server, id, name, action, permissions) {
 	});
 };
 /**
- * Set editorial permissions for arepository on a oce server 
- * @param {object} args JavaScript object containing parameters. 
+ * Set editorial permissions for arepository on a oce server
+ * @param {object} args JavaScript object containing parameters.
  * @param {string} server the server object
  * @param {string} args.id The id of the repository to query.
  * @returns {Promise.<object>} The data object returned by the server.
@@ -3374,7 +3603,7 @@ var _createRepository = function (server, name, description, contentTypes, chann
 };
 /**
  * Create channel on server by channel name
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of the repository to create.
  * @param {string} args.description The description of the repository.
@@ -3389,7 +3618,7 @@ module.exports.createRepository = function (args) {
 };
 
 // Update repository
-var _updateRepository = function (server, repository, contentTypes, channels, taxonomies) {
+var _updateRepository = function (server, repository, contentTypes, channels, taxonomies, autoTagEnabled) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -3407,6 +3636,7 @@ var _updateRepository = function (server, repository, contentTypes, channels, ta
 				if (taxonomies) {
 					data.taxonomies = taxonomies;
 				}
+				data.autoTagEnabled = autoTagEnabled || false;
 
 				var url = server.url + '/content/management/api/v1.1/repositories/' + repository.id;
 				var postData = {
@@ -3454,16 +3684,17 @@ var _updateRepository = function (server, repository, contentTypes, channels, ta
 	});
 };
 /**
- * Update repository on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Update repository on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {object} repository JavaScript object containing repository
  * @param {array} args.contentTypes The list of content types.
  * @param {array} args.channels The list of channels.
+ * @param {array} args.taxonomies The list of taxonomies.
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.updateRepository = function (args) {
-	return _updateRepository(args.server, args.repository, args.contentTypes, args.channels, args.taxonomies);
+	return _updateRepository(args.server, args.repository, args.contentTypes, args.channels, args.taxonomies, args.autoTagEnabled);
 };
 
 var _performPermissionOperation = function (server, operation, resourceId, resourceName, resourceType, role, users, groups) {
@@ -3478,7 +3709,6 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 				var csrfToken = result && result.token;
 
 				var url = server.url + '/content/management/api/v1.1/permissionOperations';
-				var auth = serverUtils.getRequestAuth(server);
 
 				var userArr = [];
 				for (var i = 0; i < users.length; i++) {
@@ -3525,7 +3755,6 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 				var postData = {
 					method: 'POST',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
@@ -3585,14 +3814,14 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 };
 /**
  * Share/Unshare a resource
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {String} operation share | unshare
  * @param {String} args.resourceId the id of the resource
  * @param {String} args.resourceType the type of the resource
  * @param {String} args.resourceName the name of the resource
  * @param {String} args.role manager | contributor | viewer
- * @param {array} args.users The list of the users 
+ * @param {array} args.users The list of the users
  * @param {array} args.groups The list of the groups
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -3645,8 +3874,8 @@ var _getContentTypes = function (server) {
 	});
 };
 /**
- * Get all types on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get all types on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -3701,8 +3930,8 @@ var _getContentType = function (server, typeName, expand, showError) {
 	});
 };
 /**
- * Get a content type on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get a content type on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of the type to query.
  * @returns {Promise.<object>} The data object returned by the server.
@@ -3725,11 +3954,9 @@ var _createContentType = function (server, typeObj) {
 				payload.id = '';
 
 				var url = server.url + '/content/management/api/v1.1/types';
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'POST',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
@@ -3770,8 +3997,8 @@ var _createContentType = function (server, typeObj) {
 	});
 };
 /**
- * Create a content type on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Create a content type on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.type the type to create
  * @returns {Promise.<object>} The data object returned by the server.
@@ -3792,11 +4019,9 @@ var _updateContentType = function (server, typeObj) {
 				var payload = typeObj;
 
 				var url = server.url + '/content/management/api/v1.1/types/' + name;
-				var auth = serverUtils.getRequestAuth(server);
 				var postData = {
 					method: 'PUT',
 					url: url,
-					auth: auth,
 					headers: {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
@@ -3837,8 +4062,8 @@ var _updateContentType = function (server, typeObj) {
 	});
 };
 /**
- * Create a content type on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Create a content type on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.type the type to update
  * @returns {Promise.<object>} The data object returned by the server.
@@ -3848,8 +4073,8 @@ module.exports.updateContentType = function (args) {
 };
 
 /**
- * Add content layout mapping to a content type on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Add content layout mapping to a content type on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.type the type to update
  * @returns {Promise.<object>} The data object returned by the server.
@@ -3916,8 +4141,8 @@ module.exports.addContentTypeLayoutMapping = function (args) {
 };
 
 /**
- * Remove content layout mapping from a content type on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Remove content layout mapping from a content type on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.type the type to update
  * @returns {Promise.<object>} The data object returned by the server.
@@ -4019,8 +4244,8 @@ var _getUser = function (server, userName) {
 	});
 };
 /**
- * Get user info on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get user info on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of user.
  * @returns {Promise.<object>} The data object returned by the server.
@@ -4081,8 +4306,8 @@ var _getFolderUsers = function (server, folderId) {
 	});
 };
 /**
- * Get shared folder users on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get shared folder users on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.id The id of the folder
  * @returns {Promise.<object>} The data object returned by the server.
@@ -4104,7 +4329,6 @@ var _shareFolder = function (server, folderId, userId, role, createNew) {
 		var options = {
 			method: createNew ? 'POST' : 'PUT',
 			url: url,
-			auth: serverUtils.getRequestAuth(server),
 			headers: {
 				'Content-Type': 'application/json',
 				Authorization: serverUtils.getRequestAuthorization(server)
@@ -4142,8 +4366,8 @@ var _shareFolder = function (server, folderId, userId, role, createNew) {
 	});
 };
 /**
- * Share folder with a user on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Share folder with a user on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.id The id of the folder
  * @param {string} args.userId the user id
@@ -4164,7 +4388,6 @@ var _unshareFolder = function (server, folderId, userId) {
 		var options = {
 			method: 'DELETE',
 			url: url,
-			auth: serverUtils.getRequestAuth(server),
 			headers: {
 				'Content-Type': 'application/json',
 				Authorization: serverUtils.getRequestAuthorization(server)
@@ -4199,8 +4422,8 @@ var _unshareFolder = function (server, folderId, userId) {
 	});
 };
 /**
- * Unshare folder with a user on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Unshare folder with a user on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.id The id of the folder
  * @param {string} args.userId the user id
@@ -4253,8 +4476,8 @@ var _getGroups = function (server, count, offset) {
 	});
 };
 /**
- * Get CEC groups on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get CEC groups on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -4497,8 +4720,8 @@ var _getGroupMembers = function (server, id, name) {
 	});
 };
 /**
- * Get members of a group on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get members of a group on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -4558,8 +4781,8 @@ var _createConnection = function (request, server) {
 	});
 };
 /**
- * Establish OSN connection on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Establish OSN connection on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -4609,8 +4832,8 @@ var _getGroup = function (server, name) {
 	});
 };
 /**
- * Get CEC group with name on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get CEC group with name on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -4677,8 +4900,8 @@ var _createGroup = function (server, name, type) {
 	});
 };
 /**
- * Create an OCM group on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Create an OCM group on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -4739,8 +4962,8 @@ var _deleteGroup = function (server, id, name) {
 	});
 };
 /**
- * Delete an OCM group on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Delete an OCM group on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -4799,8 +5022,8 @@ var _addMemberToGroup = function (request, cookies, server, apiRandomID, id, nam
 	});
 };
 /**
- * Add members to an OCM group on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Add members to an OCM group on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -4880,8 +5103,8 @@ var _removeMemberFromGroup = function (request, cookies, server, apiRandomID, id
 	});
 };
 /**
- * Remove members from an OCM group on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Remove members from an OCM group on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -5063,7 +5286,7 @@ var _exportTaxonomy = function (server, id, name, status) {
 };
 /**
  * Export taxonomy from server
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of the taxonomy
  * @param {string} args.id The id of the taxonomy
@@ -5215,7 +5438,7 @@ var _importTaxonomy = function (server, fileId, name, isNew, hasNewIds, taxonomy
 };
 /**
  * Import taxonomy to server
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.fileId The file id
  * @returns {Promise.<object>} The data object returned by the server.
@@ -5365,7 +5588,7 @@ var _controlTaxonomy = function (server, id, name, action, isPublishable, channe
 };
 /**
  * Control taxonomy on server by channel name
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of the taxonomy
  * @param {string} args.id The id of the taxonomy
@@ -5376,6 +5599,212 @@ var _controlTaxonomy = function (server, id, name, action, isPublishable, channe
  */
 module.exports.controlTaxonomy = function (args) {
 	return _controlTaxonomy(args.server, args.id, args.name, args.action, args.isPublishable, args.channels);
+};
+// create taxonomy
+var _createTaxonomy = function (server, name, description, shortName) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var payload = {
+					name: name,
+					description: description || '',
+					shortName: shortName || ''
+				};
+
+				var url = server.url + '/content/management/api/v1.1/taxonomies?fields=all';
+				var postData = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: JSON.stringify(payload),
+					json: true
+				};
+				// console.log(postData);
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to create taxonomy ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					// console.log(data);
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						console.log('Failed to create taxonomy ' + name + ' : ' + (response.statusMessage || response.statusCode));
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Create an OCM group on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the taxonomy
+ * @param {string} args.description The description of the taxonomy
+ * @param {string} args.shortName The shortName of the taxonomy
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createTaxonomy = function (args) {
+	return _createTaxonomy(args.server, args.name, args.description, args.shortName);
+};
+
+// add category to taxonomy
+var _addCategorytoTaxonomy = function (server, taxonomyId, name, description, parentId, position) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var payload = {
+					name: name,
+					description: description || '',
+					parentId: parentId,
+					position: position || 0
+				};
+
+				var url = server.url + '/content/management/api/v1.1/taxonomies/' + taxonomyId + '/categories';
+				var postData = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: JSON.stringify(payload),
+					json: true
+				};
+				// console.log(postData);
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to add category sibling ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					// console.log(data);
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						console.log('Failed to add category sibling ' + name + ' : ' + (response.statusMessage || response.statusCode));
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Create an OCM group on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.taxonomyId The id of the taxonomy
+ * @param {string} args.name The name of the taxonomy
+ * @param {string} args.description The description of the taxonomy
+ * @param {string} args.parentId The parentId of the taxonomy
+ * @param {string} args.position The position of the taxonomy
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.addCategorytoTaxonomy = function (args) {
+	return _addCategorytoTaxonomy(args.server, args.taxonomyId, args.name, args.description, args.parentId, args.position);
+};
+// delete taxonomy
+var _deleteTaxonomy = function (server, id, name, status) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var url = server.url + '/content/management/api/v1.1/taxonomies/' + id + '?q=(status%20eq%20%22' + status + '%22)';
+				var postData = {
+					method: 'DELETE',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+				};
+				// console.log(postData);
+				var request = require('./requestUtils.js').request;
+				request.delete(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to delete taxonomy ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					// console.log(data);
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						console.log('Failed to delete taxonomy ' + name + ' : ' + (response.statusMessage || response.statusCode));
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Create an OCM group on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.id The id of the taxonomy
+ * @param {string} args.name The name of the taxonomy
+ * @param {string} args.status The status of the taxonomy [drafted | promoted | published]
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteTaxonomy = function (args) {
+	return _deleteTaxonomy(args.server, args.id, args.name, args.status);
 };
 
 // Get recommendations from server
@@ -5422,8 +5851,8 @@ var _getRecommendations = function (server, repositoryId, repositoryName) {
 	});
 };
 /**
- * Get all recommendations on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get all recommendations on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -5465,8 +5894,8 @@ var _getContentJobStatus = function (server, jobId) {
 	});
 };
 /**
- * Check export/import status on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Check export/import status on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -5552,8 +5981,8 @@ var _exportRecommendation = function (server, id, name, published, publishedChan
 	});
 };
 /**
- * Export a recommendation on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Export a recommendation on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -5634,12 +6063,73 @@ var _importContent = function (server, fileId, repositoryId, channelId, update) 
 
 /**
  * Import content package to server
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.importContent = function (args) {
-	return _importContent(args.server, args.fileId, args.repositoryId, args.channelId, args.update);
+	if (args.waitForImport) {
+		return new Promise(function (resolve, reject) {
+			_importContent(args.server, args.fileId, args.repositoryId, args.channelId, args.update)
+				.then(function (result) {
+					if (!result || result.err || !result.jobId) {
+						return resolve(result);
+					}
+
+					var jobId = result.jobId;
+					console.log(' - submit import job (' + jobId + ')' + (args.update ? ', updating content' : ''));
+
+					// Wait for job to finish
+					var startTime = new Date();
+					var needNewline = false;
+					var inter = setInterval(function () {
+						_getContentJobStatus(args.server, jobId)
+							.then(function (result) {
+								if (result.status !== 'success') {
+									clearInterval(inter);
+									if (needNewline) {
+										process.stdout.write(os.EOL);
+									}
+									return resolve({
+										err: 'err'
+									});
+								}
+
+								var data = result.data;
+								var status = data.status;
+
+								if (status && status === 'SUCCESS') {
+									clearInterval(inter);
+									if (needNewline) {
+										process.stdout.write(os.EOL);
+									}
+									console.log(' - content imported');
+									return resolve({});
+								} else if (!status || status === 'FAILED') {
+									clearInterval(inter);
+									if (needNewline) {
+										process.stdout.write(os.EOL);
+									}
+									console.log('ERROR: import failed: ' + data.errorDescription);
+									if (!data.errorDescription) {
+										console.log(data);
+									}
+									return resolve({
+										err: 'err'
+									});
+								} else if (status && status === 'INPROGRESS') {
+									needNewline = true;
+									process.stdout.write(' - import job in progress [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
+									readline.cursorTo(process.stdout, 0);
+								}
+							});
+
+					}, 5000);
+				});
+		});
+	} else {
+		return _importContent(args.server, args.fileId, args.repositoryId, args.channelId, args.update);
+	}
 };
 
 var _exportContentItem = function (server, id, name, published) {
@@ -5717,8 +6207,8 @@ var _exportContentItem = function (server, id, name, published) {
 	});
 };
 /**
- * Export a content item on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Export a content item on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -5731,7 +6221,7 @@ module.exports.exportContentItem = function (args) {
 // Update the rendition status for a publishing job on server
 var _updateRenditionStatus = function (server, isMultiPart, jobId, status, progress, compiledAt, filename, filepath) {
 	// ToDo:  Currently a placeholder waiting on the correct server API
-	// This will POST the "status" as well as a file in a multi-part form.  
+	// This will POST the "status" as well as a file in a multi-part form.
 	// If the file isn't there, only the status will be passed
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
@@ -5842,7 +6332,7 @@ var _updateRenditionStatus = function (server, isMultiPart, jobId, status, progr
 
 /**
  * Update rendition generation status for publishing job
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.parentID The DOCS GUID for the folder where the new file should be created.
  * @param {string} args.filename The name of the file to create.
@@ -5947,7 +6437,7 @@ var _importCompiledContent = function (server, filePath) {
 
 /**
  * Import compiled content package to server
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -5969,7 +6459,7 @@ var _publishLaterChannelItems = function (server, name, items, channelId, reposi
 				var postData = {
 					'name': name,
 					'items': items,
-					'channels': [channelId],
+					'channels': channelId ? [channelId] : [],
 					'repositoryId': repositoryId,
 					'schedule': schedule
 				};
@@ -6010,7 +6500,7 @@ var _publishLaterChannelItems = function (server, name, items, channelId, reposi
 								err: 'err'
 							});
 						} else {
-							var scheduledRunTime = Array.isArray(data.scheduledRunTime) ? data.scheduledRunTime[0].value : 'unknown';
+							var scheduledRunTime = data.nextRunTime && data.nextRunTime.value || 'unknown';
 							console.log(' - Scheduled run time: ' + scheduledRunTime);
 							return resolve({
 								jobId: jobId
@@ -6032,7 +6522,7 @@ var _publishLaterChannelItems = function (server, name, items, channelId, reposi
 
 /**
  * Publish items in a channel on server at a later date
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of the scheduling job to create
  * @param {string} args.channelId The id of the channel to publish items.
@@ -6043,4 +6533,681 @@ var _publishLaterChannelItems = function (server, name, items, channelId, reposi
  */
 module.exports.publishLaterChannelItems = function (args) {
 	return _publishLaterChannelItems(args.server, args.name, args.itemIds, args.channelId, args.repositoryId, args.schedule);
+};
+
+
+var _queryScheduledJobs = function (server, repositoryId, startDate, endDate) {
+	var formatDate = function (date) {
+		// iso returns in the format: "2021-12-26T20:25:00.000Z"
+		// server API expects UTC dates in the format: "2021-12-26T20:25UTC"
+		return date.toISOString().replace(/:\d+\.\d+Z$/g, "UTC");
+	};
+
+	return new Promise(function (resolve, reject) {
+		var pastDate = formatDate(new Date(startDate));
+		var futureDate = formatDate(new Date(endDate));
+
+		var url = server.url + '/content/management/api/v1.1/publish/scheduledJobs?repositoryId=' + repositoryId + '&limit=10000&q=nextRunTime gt "' + pastDate + '" and nextRunTime lt "' + futureDate + '"';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to query scheduled jobs for: ' + repositoryId);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				console.log('ERROR: failed to query scheduled jobs for: ' + repositoryId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Publish items in a channel on server at a later date
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.repositoryId The id of the repository to schedule publish items.
+ * @param {Date} args.startDate Jobs scheduled after this date
+ * @param {Date} args.endDate Jobs scheduled before this date
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.queryScheduledJobs = function (args) {
+	return _queryScheduledJobs(args.server, args.repositoryId, args.startDate, args.endDate);
+};
+
+
+var _cancelScheduledJob = function (server, id) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var url = server.url + '/content/management/api/v1.1/publish/scheduledJobs/' + id;
+				var postData = {
+					method: 'PUT',
+					url: url,
+					headers: {
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server),
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						status: 'Cancelled'
+					})
+				};
+
+				// console.log(postData);
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to cancel scheduled job: ' + id);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						var msg = response.statusMessage || response.statusCode;
+						if (data && (data.detail || data.title)) {
+							msg = (data.detail || data.title);
+						}
+						console.log('Failed to cancel scheduled job: ' + id + ' : ' + msg);
+						// console.log(data);
+						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
+							console.log(data['o:errorDetails']);
+						}
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+
+var _createAssetTranslation = function (server, name, repositoryId, collectionId, contentIds, sourceLanguage, targetLanguages, connectorId) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var url = server.url + '/content/management/api/v1.1/translationJobs';
+				var payload = {
+					jobType: 'export',
+					properties: {
+						jobName: name,
+						repositoryId: repositoryId,
+						contentIds: contentIds,
+						sourceLanguage: sourceLanguage,
+						targetLanguages: targetLanguages,
+						connectorId: connectorId
+					}
+				};
+				if (collectionId) {
+					payload.properties.collectionId = collectionId;
+				}
+				// console.log(payload);
+
+				var postData = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: JSON.stringify(payload),
+					json: true
+				};
+
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.log('ERROR: failed to create translation job ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					// console.log(data);
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						var statusUrl = response.location;
+						if (statusUrl) {
+							console.log(' - create translation job submitted, status: ' + serverUtils.replaceAll(statusUrl, server.url, ''));
+							var needNewLine = false;
+							var startTime = new Date();
+							var inter = setInterval(function () {
+								var jobPromise = _getTranslationStatus(server, statusUrl, 'export');
+								jobPromise.then(function (data) {
+									if (!data || data.progress === 'failed') {
+										clearInterval(inter);
+										if (needNewLine) {
+											process.stdout.write(os.EOL);
+										}
+										var msg = data && data.message ? data.message : '';
+										console.log('ERROR: create translation failed: ' + msg);
+
+										return resolve({
+											err: 'err'
+										});
+									}
+									if (data.progress === 'succeeded') {
+										clearInterval(inter);
+										process.stdout.write(' - creating: percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+										readline.cursorTo(process.stdout, 0);
+										process.stdout.write(os.EOL);
+										return resolve(data);
+
+									} else {
+										process.stdout.write(' - creating: percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+										readline.cursorTo(process.stdout, 0);
+										needNewLine = true;
+									}
+								});
+							}, 5000);
+						} else {
+							console.log('ERROR: no job Id is found');
+							resolve({
+								err: 'err'
+							});
+						}
+					} else {
+						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
+						console.log('ERROR: failed to create tanslation job ' + name + ' - ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Create asset translation
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The translation job name
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createAssetTranslation = function (args) {
+	return _createAssetTranslation(args.server, args.name, args.repositoryId, args.collectionId, args.contentIds,
+		args.sourceLanguage, args.targetLanguages, args.connectorId);
+};
+/**
+ * Publish items in a channel on server at a later date
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.id job to cancel
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.cancelScheduledJob = function (args) {
+	return _cancelScheduledJob(args.server, args.id);
+};
+
+var _cancelScheduledJobs = function (server, ids) {
+
+	// create Promises to cancel each job
+	var cancelPromises = [];
+	ids.forEach(function (id) {
+		cancelPromises.push(function () {
+			return _cancelScheduledJob(server, id);
+		});
+	});
+
+	// return the sequence of cancalled promises
+	return cancelPromises.reduce(function (previousPromise, nextPromise) {
+			return previousPromise.then(function () {
+				// wait for the previous promise to complete and then call the function to start executing the next promise
+				return nextPromise();
+			});
+		},
+		// Start with a previousPromise value that is a resolved promise 
+		Promise.resolve());
+};
+
+/**
+ * Publish items in a channel on server at a later date
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {array|string} args.ids jobs to cancel
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.cancelScheduledJobs = function (args) {
+	return _cancelScheduledJobs(args.server, args.ids);
+};
+
+
+
+var _createTaxonomy = function (server, name, shortName) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+				var url = server.url + '/content/management/api/v1.1/taxonomies';
+
+				var postData = {
+					'name': name,
+					'shortName': shortName
+				};
+
+				var options = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: JSON.stringify(postData)
+				};
+
+				var request = require('./requestUtils.js').request;
+				request.post(options, function (err, response, body) {
+					if (err) {
+						console.log('ERROR: Failed to create taxonomy ' + name);
+						console.log(err);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					}
+
+					if (response && response.statusCode === 201) {
+						return resolve(data);
+					} else {
+						var msg = data && (data.detail || data.title) || response.statusCode;
+						console.log('ERROR: Failed to create taxonomy ' + name + ' : ' + msg);
+						return resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Create a taxonomy
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the taxonomy to create
+ * @param {string} args.shortName The shortName of the taxonomy
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createTaxonomy = function (args) {
+	return _createTaxonomy(args.server, args.name, args.shortName);
+};
+
+// Delete taxonomy
+var _deleteTaxonomy = function (server, id, status) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+				var url = server.url + '/content/management/api/v1.1/taxonomies/' + id;
+				if (status === 'promoted') {
+					url += '?q=(status eq "promoted")';
+				} else {
+					url += '?q=(status eq "draft")';
+				}
+
+				var postData = {
+					method: 'DELETE',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					}
+				};
+
+				var request = require('./requestUtils.js').request;
+				request.delete(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to delete taxonomy ' + id);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						console.log('Failed to delete taxonomy ' + id + ' : ' + (response.statusMessage || response.statusCode));
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Delete taxonomy on server by taxonomy id
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.id The id of the taxonomy to delete
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteTaxonomy = function (args) {
+	return _deleteTaxonomy(args.server, args.id, args.status);
+};
+
+// Create category
+var _createCategory = function (server, name, parentId, position) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+				var url = server.url + '/content/management/api/v1.1/taxonomies/' + parentId + '/categories';
+				var postData = {
+					name: name,
+					parentId: parentId,
+					position: position || 0
+				};
+
+				var options = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: JSON.stringify(postData)
+				};
+
+				var request = require('./requestUtils.js').request;
+				request.post(options, function (error, response, body) {
+					if (error) {
+						console.log('Failed to create category ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						console.log('Failed to create category ' + name + ' : ' + (response.statusMessage || response.statusCode));
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Create Category
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the category to create
+ * @param {string} args.parentId The parentId of the category to create
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createCategory = function (args) {
+	return _createCategory(args.server, args.name, args.parentId, args.position);
+};
+
+var _getTranslationStatus = function (server, statusUrl, action) {
+	return new Promise(function (resolve, reject) {
+		var url = statusUrl;
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: get ' + action + ' translation status');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
+				resolve(data);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get ' + action + ' translation status' + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
+var _importAssetTranslation = function (server, csrfToken, action, job, fFileGUID) {
+	return new Promise(function (resolve, reject) {
+
+		var url = server.url + '/content/management/api/v1.1/translationJobs';
+		var payload = {
+			jobType: 'import',
+			properties: {
+				repositoryId: job.repositoryId,
+				validationMode: action === 'validate' ? 'validateOnly' : 'validateAndImport',
+				jobName: job.name,
+				connectorId: job.connectorId
+			}
+		};
+		if (job.id) {
+			payload.properties.jobId = job.id;
+		}
+		if (fFileGUID) {
+			payload.properties.fFileGUID = fFileGUID;
+		}
+		// console.log(payload);
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-CSRF-TOKEN': csrfToken,
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(payload),
+			json: true
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.post(postData, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to ' + action + ' translation job ' + job.name);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (err) {
+				data = body;
+			}
+			// console.log(data);
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				var statusUrl = response.location;
+				if (statusUrl) {
+					console.log(' - ' + action + ' translation job submitted, status: ' + serverUtils.replaceAll(statusUrl, server.url, ''));
+					var needNewLine = false;
+					var startTime = new Date();
+					var actionLabel = action === 'import' ? 'importing' : 'validating';
+					var inter = setInterval(function () {
+						var jobPromise = _getTranslationStatus(server, statusUrl, action);
+						jobPromise.then(function (data) {
+							if (!data || data.progress === 'failed') {
+								clearInterval(inter);
+								if (needNewLine) {
+									process.stdout.write(os.EOL);
+								}
+								var msg = data && data.message ? data.message : '';
+								console.log('ERROR: ' + action + ' translation failed: ' + msg);
+
+								return resolve({
+									err: 'err'
+								});
+							}
+							if (data.progress === 'succeeded') {
+								clearInterval(inter);
+								process.stdout.write(' - ' + actionLabel + ': percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								readline.cursorTo(process.stdout, 0);
+								process.stdout.write(os.EOL);
+								return resolve(data);
+
+							} else {
+								process.stdout.write(' - ' + actionLabel + ': percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								readline.cursorTo(process.stdout, 0);
+								needNewLine = true;
+							}
+						});
+					}, 5000);
+				} else {
+					console.log('ERROR: no job Id is found');
+					resolve({
+						err: 'err'
+					});
+				}
+			} else {
+				var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to ' + action + ' tanslation job ' + job.name + ' - ' + msg);
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Import asset translation
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.job The translation job
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.importAssetTranslation = function (args) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(args.server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+				_importAssetTranslation(args.server, csrfToken, 'validate', args.job, args.fFileGUID)
+					.then(function (result) {
+						if (!result || result.err) {
+							return resolve(result);
+						}
+
+						if (args.validateOnly) {
+							return resolve(result);
+						} else {
+
+							// console.log(result);
+							var fFileGUID = result.result && result.result.body && result.result.body.fFileGUID;
+							if (!fFileGUID) {
+								console.log('ERROR: failed to get translation file');
+								return resolve({
+									err: 'err'
+								});
+							}
+
+							_importAssetTranslation(args.server, csrfToken, 'import', args.job, fFileGUID)
+								.then(function (result) {
+									return resolve(result);
+								});
+						}
+					});
+			}
+		});
+	});
 };
