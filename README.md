@@ -6,11 +6,11 @@ Templates and resources for development platforms.
 
 [Pre-Compile Sites](sites/doc/compiler.md) - Pre-compile site pages into HTML for faster rendition in the browser
 
-[Test to Production](sites/doc/T2P.md) – Use the OCE toolkit for Test to Production
+[Test to Production](sites/doc/T2P.md) – Use the OCM toolkit for Test to Production
 
-[Build Test](sites/doc/Build-Test.md) - Build, optimize and test updates for OCE source
+[Build Test](sites/doc/Build-Test.md) - Build, optimize and test updates for OCM source
 
-[Asset Sync](sites/doc/AssetSync.md) - Synchronize asset create, update, delete, publish across OCE servers
+[Asset Sync](sites/doc/AssetSync.md) - Synchronize asset create, update, delete, publish across OCM servers
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
