@@ -2871,6 +2871,86 @@ module.exports.unshareSite = function (argv, done) {
 	}
 };
 
+/**
+ * Delete a site
+ */
+module.exports.deleteSite = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+
+	var permanent = typeof argv.permanent === 'string' && argv.permanent.toLowerCase() === 'true';
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var loginPromise = serverUtils.loginToServer(server);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		var exitCode;
+
+		sitesRest.getSite({
+				server: server,
+				name: name,
+				includeDeleted: true
+			}).then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				var site = result;
+
+				console.log(' - site GUID: ' + site.id);
+				if (site.isDeleted) {
+					console.log(' - site is already in the trash');
+
+					if (!permanent) {
+						console.log(' - run the command with parameter --permanent to delete permanently');
+						exitCode = 2;
+						return Promise.reject();
+					}
+				}
+
+				return sitesRest.deleteSite({
+					server: server,
+					name: name,
+					hard: permanent
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				if (permanent) {
+					console.log(' - site ' + name + ' deleted permanently');
+				} else {
+					console.log(' - site ' + name + ' deleted');
+				}
+
+				done(true);
+			})
+			.catch((error) => {
+				done(exitCode);
+			});
+
+	}); // login
+};
+
 
 /**
  * validate site

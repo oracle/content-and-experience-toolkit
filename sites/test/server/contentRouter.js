@@ -296,14 +296,21 @@ router.get('/*', (req, res) => {
 			language = '',
 			otherConditions = [],
 			ids = [],
+			contentItemTypes = [],
 			slug;
 
+		if (contentItemType) {
+			contentItemType.push(contentItemType);
+		}
 		if (q) {
 			var conds = q.indexOf(' and ') > 0 ? q.split(' and ') : [q];
 			for (var i = 0; i < conds.length; i++) {
 				var cond = conds[i];
+
 				cond = serverUtils.replaceAll(cond, '(', '');
 				cond = serverUtils.replaceAll(cond, ')', '');
+				cond = serverUtils.replaceAll(cond, '{', '');
+				cond = serverUtils.replaceAll(cond, '}', '');
 
 				if (cond.indexOf(' or ') > 0) {
 					var orConds = cond.split(' or ');
@@ -312,6 +319,13 @@ router.get('/*', (req, res) => {
 						if (namevalue && namevalue.length === 2 && namevalue[0] && namevalue[1]) {
 							if (namevalue[0] === 'id') {
 								ids[ids.length] = serverUtils.replaceAll(namevalue[1], '"');
+							} else if (namevalue[0] === 'type') {
+								contentItemType = serverUtils.replaceAll(namevalue[1], '"');
+								if (contentItemType && !contentItemTypes.includes(contentItemType)) {
+									contentItemTypes.push(contentItemType);
+								}
+							} else {
+								console.log(' - query not supported : ' + orConds[j]);
 							}
 						} else {
 							console.log(' - invalid query parameter : ' + orConds[j]);
@@ -325,6 +339,9 @@ router.get('/*', (req, res) => {
 							ids[ids.length] = serverUtils.replaceAll(namevalue[1], '"');
 						} else if (namevalue[0] === 'type') {
 							contentItemType = serverUtils.replaceAll(namevalue[1], '"');
+							if (contentItemType && !contentItemTypes.includes(contentItemType)) {
+								contentItemTypes.push(contentItemType);
+							}
 						} else if (namevalue[0] === 'language') {
 							language = serverUtils.replaceAll(namevalue[1], '"');
 						} else if (namevalue[0] === 'slug') {
@@ -358,7 +375,7 @@ router.get('/*', (req, res) => {
 		console.log(' - fields=' + fields + ' field={' + fieldName + ':' + fieldValue + '}' +
 			' default="' + defaultValue + '"' +
 			' orderBy=' + orderBy + ' limit=' + limit +
-			' offset=' + offset + ' contentItemType=' + contentItemType +
+			' offset=' + offset + ' contentItemTypes=' + contentItemTypes +
 			' ids=' + JSON.stringify(ids) +
 			' slug=' + slug +
 			' language=' + language +
@@ -407,160 +424,163 @@ router.get('/*', (req, res) => {
 			return;
 		} else if (slug) {
 			return _returnSlugItems(res, slug);
-		} else if (contentItemType) {
-			var itemsdir = path.join(contentdir, 'ContentItems', contentItemType);
-			if (fs.existsSync(itemsdir)) {
-				var itemfiles = fs.readdirSync(itemsdir),
-					items = [];
-				for (var i = 0; i < itemfiles.length; i++) {
-					var itemjson = JSON.parse(fs.readFileSync(path.join(itemsdir, itemfiles[i]))),
-						qualified = true;
+		} else if (contentItemTypes.length > 0) {
+			var items = [];
+			contentItemTypes.forEach(function (contentItemType) {
+				var itemsdir = path.join(contentdir, 'ContentItems', contentItemType);
+				if (fs.existsSync(itemsdir)) {
+					var itemfiles = fs.readdirSync(itemsdir);
+					for (var i = 0; i < itemfiles.length; i++) {
+						var itemjson = JSON.parse(fs.readFileSync(path.join(itemsdir, itemfiles[i]))),
+							qualified = true;
 
-					var data = itemjson.fields || itemjson.data;
+						var data = itemjson.fields || itemjson.data;
 
-					if (!itemjson.fields && itemjson.data) {
-						itemjson.fields = itemjson.data;
-					} else if (itemjson.fields && !itemjson.data) {
-						itemjson.data = itemjson.fields;
-					}
-
-					// check translation
-					if (language && itemjson.language) {
-						if (language !== itemjson.language) {
-							continue;
-						}
-					}
-
-					// check query conditions if there are
-					for (var j = 0; j < otherConditions.length; j++) {
-						var otherFieldName = otherConditions[j].field;
-						if (otherFieldName.indexOf('fields.') === 0) {
-							otherFieldName = otherFieldName.substring(7);
+						if (!itemjson.fields && itemjson.data) {
+							itemjson.fields = itemjson.data;
+						} else if (itemjson.fields && !itemjson.data) {
+							itemjson.data = itemjson.fields;
 						}
 
-						if (!data.hasOwnProperty(otherFieldName) ||
-							!data[otherFieldName]) {
-							// the item does not have the field or field value
-							qualified = false;
-							break;
-						} else {
-							var itemfieldvalue = data[otherFieldName];
-							if (typeof itemfieldvalue === 'object') {
-								var found = false;
-								Object.keys(itemfieldvalue).forEach(function (key) {
-									var value = itemfieldvalue[key];
-									if (value === otherConditions[j].value) {
-										found = true;
-										console.log(' - match ' + otherConditions[j].field + '/' + key + ' with value ' + value);
-									}
-								});
-								if (!found) {
-									qualified = false;
-									break;
-								}
+						// check translation
+						if (language && itemjson.language) {
+							if (language !== itemjson.language) {
+								continue;
+							}
+						}
+
+						// check query conditions if there are
+						for (var j = 0; j < otherConditions.length; j++) {
+							var otherFieldName = otherConditions[j].field;
+							if (otherFieldName.indexOf('fields.') === 0) {
+								otherFieldName = otherFieldName.substring(7);
+							}
+
+							if (!data.hasOwnProperty(otherFieldName) ||
+								!data[otherFieldName]) {
+								// the item does not have the field or field value
+								qualified = false;
+								break;
 							} else {
-								if (itemfieldvalue !== otherConditions[j].value) {
-									qualified = false;
-									break;
+								var itemfieldvalue = data[otherFieldName];
+								if (typeof itemfieldvalue === 'object') {
+									var found = false;
+									Object.keys(itemfieldvalue).forEach(function (key) {
+										var value = itemfieldvalue[key];
+										if (value === otherConditions[j].value) {
+											found = true;
+											console.log(' - match ' + otherConditions[j].field + '/' + key + ' with value ' + value);
+										}
+									});
+									if (!found) {
+										qualified = false;
+										break;
+									}
+								} else {
+									if (itemfieldvalue !== otherConditions[j].value) {
+										qualified = false;
+										break;
+									}
 								}
 							}
 						}
-					}
 
-					if (qualified) {
-						// search fields
-						if (fieldName && fieldValue) {
-							var itemfieldvalue = data[fieldName];
-							if (itemfieldvalue && itemfieldvalue === fieldValue) {
-								if (!defaultValue || itemfieldvalue.toLowerCase().indexOf(defaultValue.toLowerCase()) >= 0) {
+						if (qualified) {
+							// search fields
+							if (fieldName && fieldValue) {
+								var itemfieldvalue = data[fieldName];
+								if (itemfieldvalue && itemfieldvalue === fieldValue) {
+									if (!defaultValue || itemfieldvalue.toLowerCase().indexOf(defaultValue.toLowerCase()) >= 0) {
+										items[items.length] = itemjson;
+									}
+								}
+							} else {
+								if (!defaultValue || JSON.stringify(itemjson).toLowerCase().indexOf(defaultValue.toLowerCase()) >= 0) {
 									items[items.length] = itemjson;
 								}
 							}
-						} else {
-							if (!defaultValue || JSON.stringify(itemjson).toLowerCase().indexOf(defaultValue.toLowerCase()) >= 0) {
-								items[items.length] = itemjson;
-							}
 						}
+					}
+				} else {
+					console.log(' - content item directory ' + itemsdir + ' does not exist');
+				}
+			});
+			// sort 
+			if (orderBy === 'name:asc' || orderBy === 'name:des') {
+				var byName = items.slice(0);
+				byName.sort(function (a, b) {
+					var x = a.name;
+					var y = b.name;
+					return orderBy === 'name:des' ? (x < y ? 1 : x > y ? -1 : 0) : (x < y ? -1 : x > y ? 1 : 0);
+				});
+				items = byName;
+			} else if (orderBy === 'updateddate:des' || orderBy === 'updateddate:asc') {
+				var byDate = items.slice(0);
+				byDate.sort(function (a, b) {
+					var x = new Date(a.updatedDate ? a.updatedDate.value : a.updateddate.value);
+					var y = new Date(b.updatedDate ? b.updatedDate.value : b.updateddate.value);
+					return orderBy === 'updateddate:des' ? y - x : x - y;
+				});
+				items = byDate;
+			} else if (orderBy.startsWith('fields.')) {
+				var orderArr = orderBy.substring(7).split(':');
+				var customOrderByField = orderArr[0];
+				var customOrderByOrder = orderArr[1];
+
+				if (items.length > 0) {
+					if (items[0].fields.hasOwnProperty(customOrderByField)) {
+						var fieldType = typeof items[0].fields[customOrderByField];
+						console.log(' - custom orderBy: field: ' + customOrderByField + '(' + fieldType + ') order: ' + customOrderByOrder);
+						if (fieldType === 'object') {
+							var byDate = items.slice(0);
+							byDate.sort(function (a, b) {
+								var x = new Date(a.fields[customOrderByField] ? a.fields[customOrderByField].value : a.fields[customOrderByField].value);
+								var y = new Date(b.fields[customOrderByField] ? b.fields[customOrderByField].value : b.fields[customOrderByField].value);
+								return customOrderByOrder === 'des' ? y - x : x - y;
+							});
+							items = byDate;
+						} else {
+							var byNumber = items.slice(0);
+							byNumber.sort(function (a, b) {
+								var x = a.fields[customOrderByField];
+								var y = b.fields[customOrderByField];
+								return customOrderByOrder === 'des' ? (x < y ? 1 : x > y ? -1 : 0) : (x < y ? -1 : x > y ? 1 : 0);
+							});
+							items = byNumber;
+						}
+					} else {
+						console.log(' - item does not have field ' + customOrderByField);
 					}
 				}
 
-				// sort 
-				if (orderBy === 'name:asc' || orderBy === 'name:des') {
-					var byName = items.slice(0);
-					byName.sort(function (a, b) {
-						var x = a.name;
-						var y = b.name;
-						return orderBy === 'name:des' ? (x < y ? 1 : x > y ? -1 : 0) : (x < y ? -1 : x > y ? 1 : 0);
-					});
-					items = byName;
-				} else if (orderBy === 'updateddate:des' || orderBy === 'updateddate:asc') {
-					var byDate = items.slice(0);
-					byDate.sort(function (a, b) {
-						var x = new Date(a.updatedDate ? a.updatedDate.value : a.updateddate.value);
-						var y = new Date(b.updatedDate ? b.updatedDate.value : b.updateddate.value);
-						return orderBy === 'updateddate:des' ? y - x : x - y;
-					});
-					items = byDate;
-				} else if (orderBy.startsWith('fields.')) {
-					var orderArr = orderBy.substring(7).split(':');
-					var customOrderByField = orderArr[0];
-					var customOrderByOrder = orderArr[1];
-
-					if (items.length > 0) {
-						if (items[0].fields.hasOwnProperty(customOrderByField)) {
-							var fieldType = typeof items[0].fields[customOrderByField];
-							console.log(' - custom orderBy: field: ' + customOrderByField + '(' + fieldType + ') order: ' + customOrderByOrder);
-							if (fieldType === 'object') {
-								var byDate = items.slice(0);
-								byDate.sort(function (a, b) {
-									var x = new Date(a.fields[customOrderByField] ? a.fields[customOrderByField].value : a.fields[customOrderByField].value);
-									var y = new Date(b.fields[customOrderByField] ? b.fields[customOrderByField].value : b.fields[customOrderByField].value);
-									return customOrderByOrder === 'des' ? y - x : x - y;
-								});
-								items = byDate;
-							} else {
-								var byNumber = items.slice(0);
-								byNumber.sort(function (a, b) {
-									var x = a.fields[customOrderByField];
-									var y = b.fields[customOrderByField];
-									return customOrderByOrder === 'des' ? (x < y ? 1 : x > y ? -1 : 0) : (x < y ? -1 : x > y ? 1 : 0);
-								});
-								items = byNumber;
-							}
-						} else {
-							console.log(' - item does not have field ' + customOrderByField);
-						}
-					}
-
-				} else {
-					console.log(' - invalid orderBy ' + orderBy);
-				}
-
-				// check limit and offset
-				var total = items.length - offset,
-					count = total < limit ? total : limit,
-					items2 = offset < items.length ? items.slice(offset, offset + count) : [],
-					hasMore = offset + count < items.length;
-				if (count < items.length) {
-					console.log(' - pagination: items ' + offset + ' - ' + (offset + count - 1) + ' has more: ' + hasMore);
-				} else {
-					console.log(' - returned items: ' + items.length);
-				}
-				var results = {
-					hasMore: hasMore,
-					limit: items.length,
-					count: count,
-					items: items2,
-					totalResults: items.length,
-					offset: offset
-				};
-				// return the result
-				res.write(JSON.stringify(results));
-				res.end();
-				return;
 			} else {
-				console.log(' - content item directory ' + itemsdir + ' does not exist');
+				console.log(' - invalid orderBy ' + orderBy);
 			}
+
+
+			// check limit and offset
+			var total = items.length - offset,
+				count = total < limit ? total : limit,
+				items2 = offset < items.length ? items.slice(offset, offset + count) : [],
+				hasMore = offset + count < items.length;
+			if (count < items.length) {
+				console.log(' - pagination: items ' + offset + ' - ' + (offset + count - 1) + ' has more: ' + hasMore);
+			} else {
+				console.log(' - returned items: ' + items.length);
+			}
+			var results = {
+				hasMore: hasMore,
+				limit: items.length,
+				count: count,
+				items: items2,
+				totalResults: items.length,
+				offset: offset
+			};
+			// return the result
+			res.write(JSON.stringify(results));
+			res.end();
+			return;
+
 		} else {
 			console.log(' - no content item is specified, no item is returned')
 		}

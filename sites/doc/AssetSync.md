@@ -51,7 +51,7 @@ To start the sync server using basic auth.  The username and password you provid
 cec sync-server -s UAT -d DEV -u admin -w welcome1
 ```
 
-The sync server will start, and listen on port 8086.  You can change the port with the -p option.
+The sync server will start, and listen on port 8086.  You can change the port with the -p option. Note that for production environments we recommend using https on port 443.
 
 Test the server is running - find out your IP address or public hostname for your VM where the sync server is running, and type something like this:
 

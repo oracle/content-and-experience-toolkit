@@ -51,7 +51,7 @@ The following steps walk through the steps showing compilation of the site withi
 
 The "cec compile-template" command is available via the Content Toolkit and is installed when the toolkit is installed.  Follow the standard instructions for installing the Content Toolkit. 
 
-Once you have the Content Toolkit installed, you can run the following command.  Note: The command is currently not listed when you display cec help. 
+Once you have the Content Toolkit installed, you can run the following command.
 
 #### Install an Content Toolkit development directory
 
@@ -281,7 +281,7 @@ The following steps assume that you've created a site called BlogSite in your OC
 e.g.: 
 
 ```
-$ cec upload-template BlogTemplate --sever UAT  
+$ cec upload-template BlogTemplate --server UAT  
 > cec create-site BlogSite --template BlogTemplate --repository <yourRepository> --localizationPolicy <yourLocalizationPolicy> --defaultLanguage en-US --server UAT
 ```
 
@@ -317,7 +317,7 @@ $ cec compile-template BlogTemplate --noDefaultDetailPageLink --verbose --server
 Copy the compiled static files into the static folder for the site:
 
 ```
-$ cec upload-static-site src/templates/BlogTemplate/static --site BlogSite --server UAT
+$ cec upload-static-site-files src/templates/BlogTemplate/static --site BlogSite --server UAT
 ```
 
 #### Revert to Non-compiled Behavior
@@ -325,7 +325,7 @@ $ cec upload-static-site src/templates/BlogTemplate/static --site BlogSite --ser
 To revert to non-compiled behavior, you need to remove the static files that you uploaded into the site:
 
 ```
-$ cec delete-static-site BlogSite --server UAT
+$ cec delete-static-site-files BlogSite --server UAT
 ```
 
 And, if the site is currently published, re-publish the site. 
@@ -563,7 +563,7 @@ You can insert a `<script>` tag directly into the returned compiled markup, whic
 
 #### Hydrate Function
 
-Instead of in-lining the JavaScript, you can include a hydrate function in your render.js file and note that the component requires "hydration" at runtime when you return the compiled markup. This avoids repetitious <script> tags as well as enabling you to leverage existing JavaScript code to managing eventing. 
+Instead of in-lining the JavaScript, you can include a hydrate function in your render.js file and note that the component requires "hydration" at runtime when you return the compiled markup. This avoids repetitious tags as well as enabling you to leverage existing JavaScript code to managing eventing. 
 
 > Note: Even though the render.js file is loaded, the render() function is NOT called during hydrate, only the hydrate() function is called. 
 

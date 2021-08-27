@@ -15,6 +15,22 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.8.1
+
+**Added**
+
+- `cec delete-site` - Deletes a Site from an OCM server
+- `cec control-recommendation` with `add-channel` or `remove-channel` - Adds or removes a Channel from a Recommendation
+- `cec create-collection` - Allows creation of a new Collection on an OCM server
+- `cec control-collection` with `add-channel` or `remove-channel` - Adds or removes a Channel from a Collection
+- `cec control-repository` with `add-language` or `remove-language` - Adds or removes a language from a Repository
+
+- Updated the local server to support basic DynamicLists queries
+
+**Fixed**
+- `cec compile-template` - Fixed a high memory usage isse
+
+
 # New in Release 21.7.1
 
 **Added**

@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "21.7.1",
+	"version": "21.8.1",
 	"license": "UPL-1.0",
 	"description": "Oracle Content Management Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content Management.",
 	"main": "index.js",
@@ -86,6 +86,7 @@
 		"control-site": "gulp -LL --gulpfile bin/gulpfile.js control-site ",
 		"share-site": "gulp -LL --gulpfile bin/gulpfile.js share-site ",
 		"unshare-site": "gulp -LL --gulpfile bin/gulpfile.js unshare-site ",
+		"delete-site": "gulp -LL --gulpfile bin/gulpfile.js delete-site ",
 		"get-site-security": "gulp -LL --gulpfile bin/gulpfile.js get-site-security ",
 		"set-site-security": "gulp -LL --gulpfile bin/gulpfile.js set-site-security ",
 		"update-site": "gulp -LL --gulpfile bin/gulpfile.js update-site ",
@@ -112,8 +113,8 @@
 		"download-type": "gulp -LL --gulpfile bin/gulpfile.js download-type ",
 		"upload-type": "gulp -LL --gulpfile bin/gulpfile.js upload-type ",
 		"update-type": "gulp -LL --gulpfile bin/gulpfile.js update-type ",
-		"create-word-template": "gulp -LL --gulpfile bin/gulpfile.js create-word-template ",
-		"create-content-item": "gulp -LL --gulpfile bin/gulpfile.js create-content-item ",
+		"create-collection": "gulp -LL --gulpfile bin/gulpfile.js create-collection ",
+		"control-collection": "gulp -LL --gulpfile bin/gulpfile.js control-collection ",
 		"create-channel": "gulp -LL --gulpfile bin/gulpfile.js create-channel ",
 		"share-channel": "gulp -LL --gulpfile bin/gulpfile.js share-channel ",
 		"unshare-channel": "gulp -LL --gulpfile bin/gulpfile.js unshare-channel ",
@@ -137,6 +138,7 @@
 		"remove-member-from-group": "gulp -LL --gulpfile bin/gulpfile.js remove-member-from-group ",
 		"download-recommendation": "gulp -LL --gulpfile bin/gulpfile.js download-recommendation ",
 		"upload-recommendation": "gulp -LL --gulpfile bin/gulpfile.js upload-recommendation ",
+		"control-recommendation": "gulp -LL --gulpfile bin/gulpfile.js control-recommendation ",
 		"create-encryption-key": "gulp -LL --gulpfile bin/gulpfile.js create-encryption-key ",
 		"register-server": "gulp -LL --gulpfile bin/gulpfile.js register-server ",
 		"set-oauth-token": "gulp -LL --gulpfile bin/gulpfile.js set-oauth-token ",
@@ -188,7 +190,6 @@
 		"sprintf-js": "1.1.2",
 		"uglify-js": "3.13.5",
 		"underscore": "1.13.1",
-		"xmldom": "0.5.0",
 		"yargs": "17.0.1"
 	}
 }

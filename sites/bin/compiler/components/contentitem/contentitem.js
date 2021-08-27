@@ -123,6 +123,11 @@ ContentItem.prototype.getContentLayout = function (SCSCompileAPI, args) {
 		compVM = args.compVM,
 		defaultContentLayoutCategory = args.defaultContentLayoutCategory;
 
+	// if no contentType, we are dealing with dynamiclist, so defer loading content layout until query resuls are fetched
+	if (!contentType) {
+		return Promise.resolve('');
+	}
+
 	return self.getContentLayoutName(SCSCompileAPI, {
 		contentType: contentType,
 		contentLayoutCategory: contentLayoutCategory,

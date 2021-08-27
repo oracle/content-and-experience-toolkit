@@ -554,7 +554,7 @@ gulp.task('unshare-folder', function (done) {
 /**
  * List folder
  */
- gulp.task('list-folder', function (done) {
+gulp.task('list-folder', function (done) {
 	'use strict';
 
 	doclib.listFolder(argv, function (success) {
@@ -952,7 +952,7 @@ gulp.task('compile-content', function (done) {
 /**
  * Upload compiled content to server
  */
- gulp.task('upload-compiled-content', function (done) {
+gulp.task('upload-compiled-content', function (done) {
 	'use strict';
 
 	contentlib.uploadCompiledContent(argv, function (success) {
@@ -1067,7 +1067,7 @@ gulp.task('transfer-content', function (done) {
 /**
  * Create digital asset
  */
- gulp.task('create-digital-asset', function (done) {
+gulp.task('create-digital-asset', function (done) {
 	'use strict';
 
 	contentlib.createDigitalAsset(argv, function (success) {
@@ -1079,7 +1079,7 @@ gulp.task('transfer-content', function (done) {
 /**
  * Update digital asset
  */
- gulp.task('update-digital-asset', function (done) {
+gulp.task('update-digital-asset', function (done) {
 	'use strict';
 
 	contentlib.updateDigitalAsset(argv, function (success) {
@@ -1296,6 +1296,18 @@ gulp.task('upload-recommendation', function (done) {
 });
 
 /**
+ * Perform action on recommendation to server
+ */
+gulp.task('control-recommendation', function (done) {
+	'use strict';
+
+	recommendationlib.controlRecommendation(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Copy the configured libraries from node_modules into library folder
  */
 gulp.task('copy-libs', function (done) {
@@ -1451,6 +1463,18 @@ gulp.task('unshare-site', function (done) {
 	'use strict';
 
 	sitelib.unshareSite(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Delete site
+ */
+ gulp.task('delete-site', function (done) {
+	'use strict';
+
+	sitelib.deleteSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -1765,7 +1789,7 @@ gulp.task('update-type', function (done) {
 
 /**
  * Create MS word template
- */
+ * 2021-08-20 removed
 gulp.task('create-word-template', function (done) {
 	'use strict';
 
@@ -1774,14 +1798,40 @@ gulp.task('create-word-template', function (done) {
 		done();
 	});
 });
+*/
 
 /**
  * Create content item
- */
+ * 2021-08-20 removed
 gulp.task('create-content-item', function (done) {
 	'use strict';
 
 	assetlib.createContentItem(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+*/
+
+/**
+ * Create a collection
+ */
+gulp.task('create-collection', function (done) {
+	'use strict';
+
+	assetlib.createCollection(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Perform action on a collection
+ */
+gulp.task('control-collection', function (done) {
+	'use strict';
+
+	assetlib.controlCollection(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -2044,7 +2094,7 @@ gulp.task('check-version', function (done) {
 	// check if the message already shown 
 	var msgFile = path.join(os.tmpdir(), 'cec_sitestoolkit_message');
 	// console.log(msgFile);
-	
+
 	if (fs.existsSync(msgFile)) {
 		var statInfo = fs.statSync(msgFile);
 		var lastModifiedTime = statInfo.mtimeMs;

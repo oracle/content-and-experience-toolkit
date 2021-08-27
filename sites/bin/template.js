@@ -2678,9 +2678,11 @@ module.exports.compileContent = function (argv, done) {
  */
 var _deleteTemplateREST = function (server, name, permanent, done) {
 
+	var exitCode;
 	sitesRest.getTemplate({
 			server: server,
-			name: name
+			name: name,
+			includeDeleted: true
 		}).then(function (result) {
 			if (result.err) {
 				return Promise.reject();
@@ -2688,6 +2690,15 @@ var _deleteTemplateREST = function (server, name, permanent, done) {
 
 			var template = result;
 			console.log(' - template GUID: ' + template.id);
+			if (template.isDeleted) {
+				console.log(' - template is already in the trash');
+
+				if (!permanent) {
+					console.log(' - run the command with parameter --permanent to delete permanently');
+					exitCode = 2;
+					return Promise.reject();
+				}
+			}
 
 			return sitesRest.deleteTemplate({
 				server: server,
@@ -2709,7 +2720,7 @@ var _deleteTemplateREST = function (server, name, permanent, done) {
 			done(true);
 		})
 		.catch((error) => {
-			done();
+			done(exitCode);
 		});
 };
 

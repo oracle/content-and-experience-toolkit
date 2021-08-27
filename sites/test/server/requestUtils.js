@@ -10,16 +10,42 @@
  */
 
 const fetch = require('node-fetch');
+const process = require('process');
 const {
 	getLocalizationPolicies
 } = require('./serverRest');
 
+var logRequest = function(request) {
+	if (process.env.FETCH_LOG) {
+		console.log('Request: ', request);
+	}
+}
+
+var logResponseHeaders = function(response) {
+	if (process.env.FETCH_LOG) {
+		console.log('Response Headers: ' + JSON.stringify(response.headers.raw(), null, '  '));
+	}
+}
+
+var logResponseBody = function(response, body) {
+	if (process.env.FETCH_LOG) {
+		if (response.headers.get('content-type') === 'application/json') {
+			console.log('Response Body: ' + JSON.stringify(JSON.parse(body), null, '  '))
+		}
+		else {
+			console.log('Response Body: ' + body.toString());
+		}
+	}
+}
+
 var _get = function (options, callback) {
+	logRequest(options);
 	var url = options.url;
 	return fetch(url, options)
 		.then(function (response) {
-			// console.log(response);
+			logResponseHeaders(response);
 			return response.buffer().then(function (data) {
+				logResponseBody(response, data);
 				var err = response.error;
 				var res = {
 					statusCode: response.status,
@@ -36,13 +62,13 @@ var _get = function (options, callback) {
 };
 
 var _post = function (options, callback) {
-	// console.log(options);
+	logRequest(options);
 	var url = options.url;
 	return fetch(url, options)
 		.then(function (response) {
-			// console.log(response);
-			// console.log(response.headers);
+			logResponseHeaders(response);
 			return response.buffer().then(function (data) {
+				logResponseBody(response, data);
 				var err = response.error;
 				var location = response.headers.get('location');
 				var res = {

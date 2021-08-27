@@ -962,7 +962,7 @@ module.exports.getItemVariations = function (args) {
 	return _getItemVariations(args.server, args.id);
 };
 
-var _queryItems = function (server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, aggregationResults) {
+var _queryItems = function (server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, aggregationResults, defaultQuery) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/items';
 		var sep = '?';
@@ -985,6 +985,9 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 		}
 		if (includeAdditionalData) {
 			url = url + '&includeAdditionalData=true';
+		}
+		if (defaultQuery) {
+			url = url + '&default="' + defaultQuery + '"';
 		}
 		if (aggregationResults) {
 			url = url + '&aggs={"name":"item_count_per_category","field":"id"}';
@@ -1163,7 +1166,7 @@ module.exports.queryItems = function (args) {
 				// console.log(' - total items: ' + totalCount);
 				var offset = args.offset ? args.offset : 0;
 				if (totalCount < 10000 || (args.limit && (offset + args.limit < 10000))) {
-					_queryItems(args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken, args.includeAdditionalData, args.aggregationResults)
+					_queryItems(args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken, args.includeAdditionalData, args.aggregationResults, args.defaultQuery)
 						.then(function (result) {
 							return resolve(result);
 						});
@@ -1553,16 +1556,159 @@ var _createCollection = function (server, repositoryId, name, channels) {
 };
 
 /**
- * Create channel on server by channel name
+ * Create collection on server
  * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
- * @param {string} args.name The name of the channel to create.
+ * @param {string} args.name The name of the repository to create.
  * @param {string} args.repositoryId The id of the repository
  * @param {string} args.channels the list of channels, e.g [{id: id1}, {id: id2}]
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createCollection = function (args) {
 	return _createCollection(args.server, args.repositoryId, args.name, args.channels);
+};
+
+var _updateCollection = function (server, repositoryId, collection) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+
+				var csrfToken = result && result.token;
+
+				var url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections/' + collection.id;
+				var postData = {
+					method: 'PUT',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: JSON.stringify(collection),
+					json: true
+				};
+				// console.log(postData);
+
+				var request = require('./requestUtils.js').request;
+				request.put(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to update collection ' + collection.name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+
+					if (response && response.statusCode === 200) {
+						resolve(data);
+					} else {
+						var msg = response.statusMessage || response.statusCode;
+						console.log('Failed to update collection ' + collection.name + ' : ' + msg);
+						if (data) {
+							console.log(JSON.stringify(data, null, 4));
+						}
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Update a collection
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.repositoryId The id of the repository
+ * @param {string} args.collection The collection object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.updateCollection = function (args) {
+	return _updateCollection(args.server, args.repositoryId, args.collection);
+};
+
+/**
+ * Delete a collection
+ * @param {object} args.server the server object
+ * @param {string} args.repositoryId The id of the repository
+ * @param {object} args.collection The collection object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+
+var _deleteCollection = function (server, repositoryId, collection) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+
+				var csrfToken = result && result.token;
+
+				var url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections/' + collection.id;
+				var postData = {
+					method: 'DELETE',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					}
+				};
+
+				var request = require('./requestUtils.js').request;
+				request.delete(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to delete collection ' + collection.name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+
+					if (response && response.statusCode === 200) {
+						resolve(data);
+					} else {
+						var msg = response.statusMessage || response.statusCode;
+						console.log('Failed to delete collection ' + collection.name + ' : ' + msg);
+						if (data) {
+							console.log(JSON.stringify(data, null, 4));
+						}
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Delete a collection
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.repositoryId The id of the repository
+ * @param {object} args.collection The collection object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteCollection = function (args) {
+	return _deleteCollection(args.server, args.repositoryId, args.collection);
 };
 
 // Create channel on server
@@ -2143,6 +2289,7 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 					q: q,
 					operations: operations
 				};
+				// console.log(q);
 				// console.log(JSON.stringify(formData));
 
 				var headers = {
@@ -3061,7 +3208,7 @@ module.exports.getRepositoryWithName = function (args) {
 // Get collections of a repository from server
 var _getCollections = function (server, repositoryId) {
 	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections?limit=9999';
+		var url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections?limit=9999&fields=all';
 		var options = {
 			method: 'GET',
 			url: url,
@@ -3357,10 +3504,15 @@ module.exports.getCategories = function (args) {
 };
 
 
-var _getResourcePermissions = function (server, id, type) {
+var _getResourcePermissions = function (server, id, type, repositoryId) {
 	return new Promise(function (resolve, reject) {
-		var resourceType = type === 'repository' ? 'repositories' : (type + 's'),
+		var resourceType = type === 'repository' ? 'repositories' : (type + 's');
+		var url;
+		if (type === 'collection') {
+			url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections/' + id + '/permissions';
+		} else {
 			url = server.url + '/content/management/api/v1.1/' + resourceType + '/' + id + '/permissions';
+		}
 		// console.log(url);
 		var options = {
 			method: 'GET',
@@ -3405,11 +3557,12 @@ var _getResourcePermissions = function (server, id, type) {
  * @param {object} args JavaScript object containing parameters.
  * @param {string} server the server object
  * @param {string} args.id The id of the resource to query.
- * @param {string} args.type The type of the resource to query [repository | type]
+ * @param {string} args.type The type of the resource to query [repository | type | collection]
+ * @param {string} args.repositoryId The id of the repository of the collection
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getResourcePermissions = function (args) {
-	return _getResourcePermissions(args.server, args.id, args.type);
+	return _getResourcePermissions(args.server, args.id, args.type, args.repositoryId);
 };
 
 var _getPermissionSets = function (server, id, name) {
@@ -3618,7 +3771,7 @@ module.exports.createRepository = function (args) {
 };
 
 // Update repository
-var _updateRepository = function (server, repository, contentTypes, channels, taxonomies, autoTagEnabled) {
+var _updateRepository = function (server, repository, contentTypes, channels, taxonomies, autoTagEnabled, languages) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -3635,6 +3788,9 @@ var _updateRepository = function (server, repository, contentTypes, channels, ta
 				}
 				if (taxonomies) {
 					data.taxonomies = taxonomies;
+				}
+				if (languages && languages.length > 0) {
+					data.languageOptions = languages;
 				}
 				data.autoTagEnabled = autoTagEnabled || false;
 
@@ -3672,8 +3828,15 @@ var _updateRepository = function (server, repository, contentTypes, channels, ta
 					if (response && response.statusCode === 200) {
 						resolve(data);
 					} else {
-						var msg = data ? JSON.stringify(data) : (response.statusMessage || response.statusCode);
+						var msg = response.statusMessage || response.statusCode;
+						if (data && (data.detail || data.title)) {
+							msg = (data.detail || data.title);
+						}
 						console.log('Failed to update repository ' + repository.name + ' - ' + msg);
+						// console.log(data);
+						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
+							console.log(data['o:errorDetails']);
+						}
 						resolve({
 							err: 'err'
 						});
@@ -3694,7 +3857,7 @@ var _updateRepository = function (server, repository, contentTypes, channels, ta
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.updateRepository = function (args) {
-	return _updateRepository(args.server, args.repository, args.contentTypes, args.channels, args.taxonomies, args.autoTagEnabled);
+	return _updateRepository(args.server, args.repository, args.contentTypes, args.channels, args.taxonomies, args.autoTagEnabled, args.languages);
 };
 
 var _performPermissionOperation = function (server, operation, resourceId, resourceName, resourceType, role, users, groups) {
@@ -5659,7 +5822,7 @@ var _createTaxonomy = function (server, name, description, shortName) {
 	});
 };
 /**
- * Create an OCM group on server
+ * Create a taxonomy on server
  * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of the taxonomy
@@ -5731,7 +5894,7 @@ var _addCategorytoTaxonomy = function (server, taxonomyId, name, description, pa
 	});
 };
 /**
- * Create an OCM group on server
+ * Add a category to a taxonomy on server
  * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.taxonomyId The id of the taxonomy
@@ -5795,7 +5958,7 @@ var _deleteTaxonomy = function (server, id, name, status) {
 	});
 };
 /**
- * Create an OCM group on server
+ * Delete a taxonomy on server
  * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.id The id of the taxonomy
@@ -5988,6 +6151,132 @@ var _exportRecommendation = function (server, id, name, published, publishedChan
  */
 module.exports.exportRecommendation = function (args) {
 	return _exportRecommendation(args.server, args.id, args.name, args.published, args.publishedChannelId);
+};
+
+var _updateRecommendation = function (server, recommendation) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+
+				var csrfToken = result && result.token;
+
+				var url = server.url + '/content/management/api/v1.1/personalization/recommendations/' + recommendation.id;
+				var recommendation2 = {};
+				var allowedFields = ['apiName', 'channels', 'contentTypes', 'defaults', 'description',
+					'main', 'name', 'repositoryId'
+				];
+				Object.keys(recommendation).forEach(function (key) {
+					if (allowedFields.includes(key)) {
+						recommendation2[key] = recommendation[key];
+					}
+				});
+
+				var postData = {
+					method: 'PUT',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: JSON.stringify(recommendation2),
+					json: true
+				};
+				// console.log(postData);
+
+				var request = require('./requestUtils.js').request;
+				request.put(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to update recommendation ' + recommendation.name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+
+					if (response && response.statusCode === 200) {
+						resolve(data);
+					} else {
+						var msg = response.statusMessage || response.statusCode;
+						console.log('Failed to update recommendation ' + recommendation.name + ' : ' + msg);
+						if (data) {
+							console.log(JSON.stringify(data, null, 4));
+						}
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Add channels to recommendation on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.channelIds the array of channel ids
+ * @param {object} args.recommendation JavaScript object containing recommendation
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.addChannelToRecommendation = function (args) {
+	var recommendation = args.recommendation;
+	var channels = recommendation.channels || [];
+	args.channelIds.forEach(function (id) {
+		var found = false;
+		for (var i = 0; i < channels.length; i++) {
+			if (channels[i].id === id) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			channels.push({
+				id: id
+			});
+		}
+	});
+	recommendation.channels = channels;
+
+	return _updateRecommendation(args.server, args.recommendation);
+};
+
+/**
+ * remove channels from recommendation on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.channelIds the array of channel ids
+ * @param {object} args.recommendation JavaScript object containing recommendation
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.removeChannelFromRecommendation = function (args) {
+	var recommendation = args.recommendation;
+	var channels = recommendation.channels || [];
+	args.channelIds.forEach(function (id) {
+		idx = undefined;
+		for (var i = 0; i < channels.length; i++) {
+			if (channels[i].id === id) {
+				idx = i;
+				break;
+			}
+		}
+		if (idx !== undefined) {
+			channels.splice(idx, 1);
+		}
+	});
+	recommendation.channels = channels;
+
+	return _updateRecommendation(args.server, args.recommendation);
 };
 
 var _importContent = function (server, fileId, repositoryId, channelId, update) {
@@ -7210,4 +7499,202 @@ module.exports.importAssetTranslation = function (args) {
 			}
 		});
 	});
+};
+
+var _createConversation = function (server, name, isDiscoverable) {
+	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/conversations';
+					var payload = {
+						name: name,
+						discoverable: isDiscoverable
+					};
+					var postData = {
+						method: 'POST',
+						url: url,
+						headers: {
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID
+						},
+						body: JSON.stringify(payload),
+						json: true
+					};
+					if (result.cookies) {
+						postData.headers.Cookie = result.cookies;
+					}
+					// console.log(postData);
+					request.post(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: create conversation ' + name);
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+
+						if (response && response.statusCode === 200) {
+							resolve(data);
+						} else {
+							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
+							console.log('ERROR: failed to create conversation ' + name + ' : ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+/**
+ * Create a conversation on the server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name Name of the conversation
+ * @param {boolean} args.isDiscoverable true if conversation is discoverable
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createConversation = function (args) {
+	return _createConversation(args.server, args.name, args.isDiscoverable);
+};
+
+var _removeMemberFromConversation = function (server, conversationId, memberId) {
+	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/conversations/' + conversationId + '/members/' + memberId;
+
+					var postData = {
+						method: 'DELETE',
+						url: url,
+						headers: {
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID
+						}
+					};
+					if (result.cookies) {
+						postData.headers.Cookie = result.cookies;
+					}
+					request.delete(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: remove conversation member ' + memberId);
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+
+						if (response && response.statusCode === 200) {
+							resolve({});
+						} else {
+							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
+							console.log('ERROR: failed to remove conversation member ' + memberId + ' : ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+/**
+ * Remove a member from a conversation.
+ * If removing self as the last member of the conversation, that will discard the conversation.
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.conversationId the conversation id
+ * @param {string} args.memberId the member id to remove from conversation
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.removeMemberFromConversation = function (args) {
+	return _removeMemberFromConversation(args.server, args.conversationId, args.memberId);
+};
+
+var _getConversationMembers = function (server, id) {
+	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/conversations/' + id + '/members';
+
+					var postData = {
+						method: 'GET',
+						url: url,
+						headers: {
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID
+						}
+					};
+					if (result.cookies) {
+						postData.headers.Cookie = result.cookies;
+					}
+					request.post(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: get conversation members ' + id);
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+
+						if (response && response.statusCode === 200) {
+							resolve(data);
+						} else {
+							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
+							console.log('ERROR: failed to get conversation members ' + id + ' : ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+/**
+ * Fetch conversation members
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.id conversation id
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getConversationMembers = function (args) {
+	return _getConversationMembers(args.server, args.id);
 };

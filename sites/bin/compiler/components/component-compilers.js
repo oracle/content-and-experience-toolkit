@@ -68,6 +68,11 @@ var componentCompilers = [{
 		canNest: true
 	},
 	{
+		type: 'scs-dynamiclist',
+		compiler: 'contentlist/contentlist',
+		canNest: true
+	},
+	{
 		type: 'scs-socialbar',
 		compiler: 'socialbar/socialbar',
 		canNest: true

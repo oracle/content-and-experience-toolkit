@@ -30,7 +30,7 @@ var contentItem = new ContentItem(),
 	siteURLPrefix = serverURL + '/templates';
 
 var ContentList = function (compId, compInstance, componentsFolder) {
-	this.init('scs-contentlist', compId, compInstance);
+	this.init(compInstance.type, compId, compInstance);
 	this.componentsFolder = componentsFolder;
 
 	// default the layout category to the content list default
@@ -55,7 +55,7 @@ ContentList.prototype.compile = function (args) {
 		// can't compile if it requires pagination or is a recommendation
 		if ((self.loadType === 'showPagination') || (self.isRecommendation)) {
 			compilationReporter.warn({
-				message: 'Cannot compile content lists that leverage pagination or use recommendations.'
+				message: 'Cannot compile content/dynamic lists that leverage pagination or use recommendations.'
 			});
 			return resolve({
 				hydrate: true,
@@ -65,18 +65,19 @@ ContentList.prototype.compile = function (args) {
 
 		// check if there is a compiler for the content item
 		contentItem.getContentLayout(SCSCompileAPI, {
-			contentType: self.contentTypes[0],
+			contentType: Array.isArray(self.contentTypes) && self.contentTypes.length > 0 ? self.contentTypes[0] : undefined, // no contentTypes for dynamiclist
 			contentLayoutCategory: self.layoutCategory,
 			compVM: self,
 			defaultContentLayoutCategory: 'Content List Default'
 		}).then(function (compileFile) {
-			if (!compileFile) {
+			if (!compileFile && self.type !== 'scs-dynamiclist') {
 				// if no compiler exists for the content layout, then can't compile content list into the page
 				return resolve({
 					hydrate: true,
 					content: ''
 				});
 			}
+			self.compileFiles = []; // (array) object of content layout compile filenames with content types as named indexes
 
 			self.fetchData(args).then(function (results) {
 				// compile all the content items
@@ -318,7 +319,7 @@ ContentList.prototype.fetchData = function (args) {
 			'types': viewModel.contentTypes,
 			'search': getQueryString({
 				searchOptions: {
-					'fields': 'ALL',
+					'fields': viewModel.computedFieldsString(viewModel),
 					'offset': viewModel.firstItem,
 					'limit': viewModel.maxResults,
 					'orderBy': viewModel.computeSortOrder(viewModel),
@@ -337,6 +338,11 @@ ContentList.prototype.scimQueryString = function (viewModel) {
 		// where property is used by triggers. If value is not empty, use it to override all query related properties.
 		queryString = viewModel.where;
 	} else {
+		if (viewModel.compType === 'scs-dynamiclist') {
+			var sqr = viewModel.searchQueryString.trim();
+			// ToDo: Support macro expansions
+			queryString = "(" + sqr + ")"; // group (in paren) the multi-type search query as it'll be "AND" with site language
+		}
 		// Add contentType
 		var contentType = viewModel.contentTypes && viewModel.contentTypes.length > 0 ? viewModel.contentTypes[0] : undefined;
 		if (contentType) {
@@ -411,6 +417,10 @@ ContentList.prototype.computeDefaultString = function (viewModel) {
 
 ContentList.prototype.computeSortOrder = function (viewModel) {
 	// ToDo: support macro replacement
+	if (viewModel.compType === 'scs-dynamiclist') {
+		return viewModel.orderByString;
+	} 
+
 	//var sortOrder = viewModel.sortOrder && viewModel.replaceMacros(viewModel.sortOrder);
 	var sortOrder = viewModel.sortOrder;
 
@@ -430,6 +440,13 @@ ContentList.prototype.computeSortOrder = function (viewModel) {
 		return null;
 	}
 };
+
+ContentList.prototype.computedFieldsString = function (viewModel) {
+	// ToDo: support macro replacement
+	// if content list, return ALL fields
+	return viewModel.compType === 'scs-dynamiclist' ? viewModel.fieldsString || 'ALL' : 'ALL';
+};
+
 
 ContentList.prototype.computedQueryString = function () {
 	// apply any macro expansion to the query string

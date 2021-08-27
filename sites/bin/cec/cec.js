@@ -173,7 +173,17 @@ var getThemeActions = function () {
 };
 
 var getRepositoryActions = function () {
-	const actions = ['add-type', 'remove-type', 'add-channel', 'remove-channel', 'add-taxonomy', 'remove-taxonomy'];
+	const actions = ['add-type', 'remove-type', 'add-channel', 'remove-channel', 'add-taxonomy', 'remove-taxonomy', 'add-language', 'remove-language'];
+	return actions;
+};
+
+var getRecommendationActions = function () {
+	const actions = ['add-channel', 'remove-channel'];
+	return actions;
+};
+
+var getCollectionActions = function () {
+	const actions = ['add-channel', 'remove-channel', 'share', 'unshare'];
 	return actions;
 };
 
@@ -189,6 +199,11 @@ var getFolderRoles = function () {
 
 var getResourceRoles = function () {
 	const roles = ['manager', 'contributor', 'viewer'];
+	return roles;
+};
+
+var getCollectionRoles = function () {
+	const roles = ['manager', 'contributor'];
 	return roles;
 };
 
@@ -1409,6 +1424,24 @@ const unshareSite = {
 	]
 };
 
+const deleteSite = {
+	command: 'delete-site <name>',
+	alias: '',
+	name: 'delete-site',
+	usage: {
+		'short': 'Deletes site on the OCM server.',
+		'long': (function () {
+			let desc = 'Deletes site on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. Optionally specify -p to permanently delete the site.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec delete-site BlogSite'],
+		['cec delete-site BlogSite -p'],
+		['cec delete-site BlogSite -s UAT']
+	]
+};
+
 const getSiteSecurity = {
 	command: 'get-site-security <name>',
 	alias: 'gss',
@@ -1735,7 +1768,9 @@ const controlRepository = {
 		['cec control-repository add-channel -r Repo1 -c channel1,channel2'],
 		['cec control-repository remove-channel -r Repo1 -c channel1,channel2'],
 		['cec control-repository add-taxonomy -r Repo1 -x Taxonomy1,Taxonomy2'],
-		['cec control-repository remove-taxonomy -r Repo1 -x Taxonomy1,Taxonomy2']
+		['cec control-repository remove-taxonomy -r Repo1 -x Taxonomy1,Taxonomy2'],
+		['cec control-repository add-language -r Repo1 -l fr-FR,de-DE'],
+		['cec control-repository remove-language -r Repo1 -l fr-FR,de-DE']
 	]
 };
 
@@ -1944,6 +1979,8 @@ const updateType = {
 	]
 };
 
+/** 
+ * 2021-08-20 removed
 const createWordTemplate = {
 	command: 'create-word-template <type>',
 	alias: 'cwt',
@@ -1966,6 +2003,7 @@ const createWordTemplate = {
 	]
 };
 
+
 const createContentItem = {
 	command: 'create-content-item <file>',
 	alias: 'cci',
@@ -1983,6 +2021,50 @@ const createContentItem = {
 	example: [
 		['create-content-item /Documents/item1.docx -t word -r Repo1'],
 		['create-content-item /Documents/item1.docx -t word -r Repo1 -s UAT'],
+	]
+};
+*/
+
+const createCollection = {
+	command: 'create-collection <name>',
+	alias: 'ccol',
+	name: 'create-collection',
+	usage: {
+		'short': 'Creates a collection on OCM server.',
+		'long': (function () {
+			let desc = 'Creates a collection on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -c <channels> to set the default channels for the collection. ';
+
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-collection collection1 -r Repo1', 'Create collection collection1 in repository Repository1'],
+		['cec create-collection collection1 -r Repo1 -s UAT', 'On registered server UAT, create collection collection1 in repository Repository1'],
+		['cec create-collection collection1 -r Repo1 -c channel1,channel2', 'Create collection collection1 in repository Repository1 and set channel channel1 and channel2 as the default channels']
+	]
+};
+
+const controlCollection = {
+	command: 'control-collection <action>',
+	alias: 'ctcl',
+	name: 'control-collection',
+	usage: {
+		'short': 'Performs action on collections on OCM server.',
+		'long': (function () {
+			let desc = 'Performs action on collections on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'The valid actions are\n\n';
+			desc = getCollectionActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + 'The valid roles for a collection are ' + os.EOL + os.EOL;
+			desc = getCollectionRoles().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return desc;
+		})()
+	},
+	example: [
+		['cec control-collection add-channel -r Repo1 -l Collection1 -c channel1,channel2 -s UAT'],
+		['cec control-collection remove-channel -r Repo1 -l Collection1 -c channel1,channel2 -s UAT'],
+		['cec control-collection share -r Repo1 -l Collection1 -u user1,user2 -g group1,group2 -o manager -s UAT'],
+		['cec control-collection unshare -r Repo1 -l Collection1 -u user1,user2 -g group1,group2 -s UAT']
 	]
 };
 
@@ -2547,6 +2629,23 @@ const uploadRecommendation = {
 	]
 };
 
+const controlRecommendation = {
+	command: 'control-recommendation <action>',
+	alias: 'ctre',
+	name: 'control-recommendation',
+	usage: {
+		'short': 'Performs action on recommendations on OCM server.',
+		'long': (function () {
+			let desc = 'Perform action on recommendations on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. The valid actions are\n\n';
+			return getRecommendationActions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+		})()
+	},
+	example: [
+		['cec control-recommendation add-channel -r Repo1 -m Recommendation1 -c channel1,channel2 -s UAT'],
+		['cec control-recommendation remove-channel -r Repo1 -m Recommendation1 -c channel1,channel2 -s UAT']
+	]
+};
+
 const createEncryptionKey = {
 	command: 'create-encryption-key <file>',
 	alias: 'cek',
@@ -2887,6 +2986,7 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(controlSite) + os.EOL +
 	_getCmdHelp(shareSite) + os.EOL +
 	_getCmdHelp(unshareSite) + os.EOL +
+	_getCmdHelp(deleteSite) + os.EOL +
 	_getCmdHelp(getSiteSecurity) + os.EOL +
 	_getCmdHelp(setSiteSecurity) + os.EOL +
 	_getCmdHelp(indexSite) + os.EOL +
@@ -2917,6 +3017,8 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(unshareRepository) + os.EOL +
 	_getCmdHelp(setEditorialPermission) + os.EOL +
 	_getCmdHelp(listEditorialPermission) + os.EOL +
+	_getCmdHelp(createCollection) + os.EOL +
+	_getCmdHelp(controlCollection) + os.EOL +
 	_getCmdHelp(createChannel) + os.EOL +
 	_getCmdHelp(shareChannel) + os.EOL +
 	_getCmdHelp(unshareChannel) + os.EOL +
@@ -2929,6 +3031,7 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(updateType) + os.EOL +
 	_getCmdHelp(downloadRecommendation) + os.EOL +
 	_getCmdHelp(uploadRecommendation) + os.EOL +
+	_getCmdHelp(controlRecommendation) + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
 	_getCmdHelp(addContentLayoutMapping) + os.EOL +
 	_getCmdHelp(removeContentLayoutMapping) + os.EOL +
@@ -4644,6 +4747,23 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${unshareSite.command}\n\n${unshareSite.usage.long}`);
 		})
+	.command([deleteSite.command, deleteSite.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.option('permanent', {
+					alias: 'p',
+					description: 'Delete the site permanently'
+				})
+				.example(...deleteSite.example[0])
+				.example(...deleteSite.example[1])
+				.example(...deleteSite.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${deleteSite.command}\n\n${deleteSite.usage.long}`);
+		})
 	.command([getSiteSecurity.command, getSiteSecurity.alias], false,
 		(yargs) => {
 			yargs.option('server', {
@@ -5194,13 +5314,15 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.check((argv) => {
 					if (argv.action && !getRepositoryActions().includes(argv.action)) {
-						throw new Error(`${argv.action} is not a valid value for <action>`);
+						throw new Error(`${os.EOL}${argv.action} is not a valid value for <action>`);
 					} else if ((argv.action === 'add-type' || argv.action === 'remove-type') && !argv.contenttypes) {
-						throw new Error(`<contenttypes> is required for ${argv.action}`);
+						throw new Error(`${os.EOL}<contenttypes> is required for ${argv.action}`);
 					} else if ((argv.action === 'add-channel' || argv.action === 'remove-channel') && !argv.channels) {
-						throw new Error(`<channels> is required for ${argv.action}`);
+						throw new Error(`${os.EOL}<channels> is required for ${argv.action}`);
 					} else if ((argv.action === 'add-taxonomy' || argv.action === 'remove-taxonomy') && !argv.taxonomies) {
-						throw new Error(`<taxonomies> is required for ${argv.action}`);
+						throw new Error(`${os.EOL}<taxonomies> is required for ${argv.action}`);
+					} else if ((argv.action === 'add-language' || argv.action === 'remove-language') && !argv.languages) {
+						throw new Error(`${os.EOL}<languages> is required for ${argv.action}`);
 					} else {
 						return true;
 					}
@@ -5222,6 +5344,10 @@ const argv = yargs.usage(_usage)
 					alias: 'x',
 					description: 'The comma separated list of promoted taxonomies'
 				})
+				.option('languages', {
+					alias: 'l',
+					description: 'The comma separated list of languages'
+				})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -5234,6 +5360,8 @@ const argv = yargs.usage(_usage)
 				.example(...controlRepository.example[5])
 				.example(...controlRepository.example[6])
 				.example(...controlRepository.example[7])
+				.example(...controlRepository.example[8])
+				.example(...controlRepository.example[9])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlRepository.command}\n\n${controlRepository.usage.long}`);
@@ -5542,6 +5670,8 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${uploadType.command}\n\n${uploadType.usage.long}`);
 		})
+	/** 
+ 	* 2021-08-20 removed
 	.command([createWordTemplate.command, createWordTemplate.alias], false,
 		(yargs) => {
 			yargs.option('name', {
@@ -5597,6 +5727,87 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createContentItem.command}\n\n${createContentItem.usage.long}`);
+		})
+		*/
+	.command([createCollection.command, createCollection.alias], false,
+		(yargs) => {
+			yargs.option('repository', {
+					alias: 'r',
+					description: 'The repository',
+					demandOption: true
+				})
+				.option('channels', {
+					alias: 'c',
+					description: 'The comma separated list of channels'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...createCollection.example[0])
+				.example(...createCollection.example[1])
+				.example(...createCollection.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${createCollection.command}\n\n${createCollection.usage.long}`);
+		})
+	.command([controlCollection.command, controlCollection.alias], false,
+		(yargs) => {
+			yargs.option('repository', {
+					alias: 'r',
+					description: 'The repository of the collections',
+					demandOption: true
+				})
+				.option('collections', {
+					alias: 'l',
+					description: 'The comma separated list of collections',
+					demandOption: true
+				})
+				.option('channels', {
+					alias: 'c',
+					description: 'The comma separated list of channels'
+				})
+				.option('users', {
+					alias: 'u',
+					description: 'The comma separated list of user names'
+				})
+				.option('groups', {
+					alias: 'g',
+					description: 'The comma separated list of group names'
+				})
+				.option('role', {
+					alias: 'o',
+					description: 'The role [' + getCollectionRoles().join(' | ') + '] to assign to the users or groups',
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (argv.action && !getCollectionActions().includes(argv.action)) {
+						throw new Error(`${os.EOL}${argv.action} is not a valid value for <action>`);
+					}
+					if ((argv.action === 'add-channel' || argv.action === 'remove-channel') && !argv.channels) {
+						throw new Error(`${os.EOL}<channels> is required for ${argv.action}`);
+					}
+					if ((argv.action === 'share' || argv.action === 'unshare') && !argv.users && !argv.groups) {
+						throw new Error(`${os.EOL}Please specify users or groups for action ${argv.action}`);
+					}
+					if (argv.action === 'share' && !argv.role) {
+						throw new Error(`${os.EOL}<role> is required for action ${argv.action}`);
+					}
+					if (argv.role && !getCollectionRoles().includes(argv.role)) {
+						throw new Error(`${os.EOL}${argv.role} is not a valid value for <role>`);
+					}
+					return true;
+				})
+				.example(...controlCollection.example[0])
+				.example(...controlCollection.example[1])
+				.example(...controlCollection.example[2])
+				.example(...controlCollection.example[3])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${controlCollection.command}\n\n${controlCollection.usage.long}`);
 		})
 	.command([createChannel.command, createChannel.alias], false,
 		(yargs) => {
@@ -6390,6 +6601,42 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadRecommendation.command}\n\n${uploadRecommendation.usage.long}`);
+		})
+	.command([controlRecommendation.command, controlRecommendation.alias], false,
+		(yargs) => {
+			yargs.option('repository', {
+					alias: 'r',
+					description: 'The repository',
+					demandOption: true
+				})
+				.option('recommendations', {
+					alias: 'm',
+					description: 'The comma separated list of recommendations',
+					demandOption: true
+				})
+				.option('channels', {
+					alias: 'c',
+					description: 'The comma separated list of channels',
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (argv.action && !getRecommendationActions().includes(argv.action)) {
+						throw new Error(`${os.EOL}${argv.action} is not a valid value for <action>`);
+					}
+					if ((argv.action === 'add-channel' || argv.action === 'remove-channel') && !argv.channels) {
+						throw new Error(`${os.EOL}<channels> is required for ${argv.action}`);
+					}
+
+					return true;
+				})
+				.example(...controlRecommendation.example[0])
+				.example(...controlRecommendation.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${controlRecommendation.command}\n\n${controlRecommendation.usage.long}`);
 		})
 	.command([createEncryptionKey.command, createEncryptionKey.alias], false,
 		(yargs) => {
@@ -8004,6 +8251,24 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === deleteSite.name) {
+	let deleteSiteArgs = ['run', '-s', deleteSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		deleteSiteArgs.push(...['--server', argv.server]);
+	}
+	if (argv.permanent) {
+		deleteSiteArgs.push(...['--permanent', argv.permanent]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, deleteSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === getSiteSecurity.name || argv._[0] === getSiteSecurity.alias) {
 	let getSiteSecurityArgs = ['run', '-s', getSiteSecurity.name, '--prefix', appRoot,
 		'--',
@@ -8410,6 +8675,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.taxonomies) {
 		controlRepositoryArgs.push(...['--taxonomies', argv.taxonomies]);
 	}
+	if (argv.languages) {
+		controlRepositoryArgs.push(...['--languages', argv.languages]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlRepositoryArgs.push(...['--server', argv.server]);
 	}
@@ -8598,7 +8866,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
-} else if (argv._[0] === createWordTemplate.name || argv._[0] === createWordTemplate.alias) {
+}
+/** 
+* 2021-08-20 removedelse if (argv._[0] === createWordTemplate.name || argv._[0] === createWordTemplate.alias) {
 	let createWordTemplateArgs = ['run', '-s', createWordTemplate.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -8619,7 +8889,8 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
-} else if (argv._[0] === createContentItem.name || argv._[0] === createContentItem.alias) {
+} 
+else if (argv._[0] === createContentItem.name || argv._[0] === createContentItem.alias) {
 	let createContentItemArgs = ['run', '-s', createContentItem.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -8636,7 +8907,8 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
-} else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
+} */
+else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	let uploadTypeArgs = ['run', '-s', uploadType.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
@@ -8647,6 +8919,52 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		uploadTypeArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, uploadTypeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createCollection.name || argv._[0] === createCollection.alias) {
+	let createCollectionArgs = ['run', '-s', createCollection.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--repository', argv.repository
+	];
+	if (argv.channels) {
+		createCollectionArgs.push(...['--channels', argv.channels]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createCollectionArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createCollectionArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === controlCollection.name || argv._[0] === controlCollection.alias) {
+	let controlCollectionArgs = ['run', '-s', controlCollection.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--action', argv.action,
+		'--repository', argv.repository,
+		'--collections', argv.collections
+	];
+	if (argv.channels) {
+		controlCollectionArgs.push(...['--channels', argv.channels]);
+	}
+	if (argv.users) {
+		controlCollectionArgs.push(...['--users', argv.users]);
+	}
+	if (argv.groups) {
+		controlCollectionArgs.push(...['--groups', argv.groups]);
+	}
+	if (argv.role) {
+		controlCollectionArgs.push(...['--role', argv.role]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		controlCollectionArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, controlCollectionArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -9124,6 +9442,27 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, uploadRecommendationArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === controlRecommendation.name || argv._[0] === controlRecommendation.alias) {
+	let controlRecommendationArgs = ['run', '-s', controlRecommendation.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--action', argv.action,
+		'--repository', argv.repository,
+		'--recommendations', argv.recommendations
+	];
+
+	if (argv.channels) {
+		controlRecommendationArgs.push(...['--channels', argv.channels]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		controlRecommendationArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, controlRecommendationArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

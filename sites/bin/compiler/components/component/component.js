@@ -272,6 +272,12 @@ Component.prototype.compileComponent = function (args) {
 							try {
 								// render in the nested components into the custom component
 								var customContent = mustache.render(compiledComp.content, compiledComps);
+
+								// remove any cached entry from the mustache object, this was causing memory issues with large templates
+								if (typeof mustache.clearCache === 'function') {
+									mustache.clearCache();
+								}
+
 								return resolve({
 									customContent: customContent,
 									hydrate: compiledComp.hydrate,

@@ -313,40 +313,46 @@ var compileContentItemLayout = function (contentContext, contentItem, componentN
                 custComp = new CustomLayoutCompiler(compileArgs);
 
             return custComp.compile().then(function (compiledComp) {
-                // write out the HTML in the structure
-                // +- items
-                //    +- <id1>
-                //       +- <version>
-                //          +- formats
-                //             +- <format1>
-                //                +- desktop
-                //                   +- index.html
-                //                +- mobile
-                //                   +- index.html
-                //             +- <format2>
-                //             ...
-                //    +- <id2>
-                //       +- ...
+                if (compiledComp && compiledComp.content) {
+                    // write out the HTML in the structure
+                    // +- items
+                    //    +- <id1>
+                    //       +- <version>
+                    //          +- formats
+                    //             +- <format1>
+                    //                +- desktop
+                    //                   +- index.html
+                    //                +- mobile
+                    //                   +- index.html
+                    //             +- <format2>
+                    //             ...
+                    //    +- <id2>
+                    //       +- ...
 
-                // create a clean ".../items/<id>/<version>/formats/<format>/<device>" folder 
-                var deviceDir = path.join(contentContext.itemsDir, 'items', contentItem.id, contentItem.version, 'formats', format, isMobile ? 'mobile' : 'desktop');
-                if (!fs.existsSync(deviceDir)) {
-                    fs.mkdirSync(deviceDir, {
-                        recursive: true
+                    // create a clean ".../items/<id>/<version>/formats/<format>/<device>" folder 
+                    var deviceDir = path.join(contentContext.itemsDir, 'items', contentItem.id, contentItem.version, 'formats', format, isMobile ? 'mobile' : 'desktop');
+                    if (!fs.existsSync(deviceDir)) {
+                        fs.mkdirSync(deviceDir, {
+                            recursive: true
+                        });
+                    }
+
+                    // write the "index.html" file if not already created
+                    var indexFile = path.join(deviceDir, 'index.html');
+                    if (!fs.existsSync(indexFile)) {
+                        fs.writeFileSync(indexFile, compiledComp.content);
+                    }
+                } else {
+                    compilationReporter.error({
+                        message: 'no rendition created when compiling component: ' + contentItem.id,
                     });
-                }
-
-                // write the "index.html" file if not already created
-                var indexFile = path.join(deviceDir, 'index.html');
-                if (!fs.existsSync(indexFile)) {
-                    fs.writeFileSync(indexFile, compiledComp.content);
                 }
 
                 // we're done
                 return Promise.resolve();
             }).catch(function (e) {
                 compilationReporter.error({
-                    message: 'failed to compile component: ' + contentItem,
+                    message: 'failed to compile component: ' + contentItem.id,
                     error: e
                 });
                 return Promise.resolve({

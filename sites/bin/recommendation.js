@@ -495,3 +495,215 @@ module.exports.uploadRecommendation = function (argv, done) {
 			});
 	});
 };
+
+module.exports.controlRecommendation = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	console.log(' - server: ' + server.url);
+
+	var action = argv.action;
+	var repositoryName = argv.repository;
+	var recommendationNames = argv.recommendations ? argv.recommendations.split(',') : [];
+	var channelNames = argv.channels ? argv.channels.split(',') : [];
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		var repository;
+		var recommendations = [];
+
+		serverRest.getRepositoryWithName({
+				server: server,
+				name: repositoryName
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				repository = result.data;
+				if (!repository || !repository.id) {
+					console.log('ERROR: repository ' + repositoryName + ' does not exist');
+					return Promise.reject();
+				}
+
+				console.log(' - get repository (Id: ' + repository.id + ')');
+
+				return serverRest.getRecommendations({
+					server: server,
+					repositoryId: repository.id,
+					repositoryName: repository.name
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var repoRecommendations = result.data || [];
+				// console.log(repoRecommendations);
+				recommendationNames.forEach(function (name) {
+					var found = false;
+					for (var i = 0; i < repoRecommendations.length; i++) {
+						if (name.toLowerCase() === repoRecommendations[i].name.toLowerCase()) {
+							found = true;
+							recommendations.push(repoRecommendations[i]);
+							break;
+						}
+					}
+					if (!found) {
+						console.log('ERROR: recommendation ' + name + ' does not exist');
+					}
+				});
+
+				if (recommendations.length === 0) {
+					return Promise.reject();
+				}
+
+				return _updateRecommendation(server, repository, recommendations, channelNames, action);
+			})
+			.then(function (result) {
+				if (result.err) {
+					done();
+				} else {
+					done(true);
+				}
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
+// update recommendation to add/remove channels
+var _updateRecommendation = function (server, repository, recommendations, channelNames, action) {
+	return new Promise(function (resolve, reject) {
+		var channelIds = [];
+		var goodChannelNames = [];
+		
+		var channelPromises = [];
+		channelNames.forEach(function (channelName) {
+			channelPromises.push(serverRest.getChannelWithName({
+				server: server,
+				name: channelName
+			}));
+		});
+
+		Promise.all(channelPromises)
+			.then(function (results) {
+				// console.log(results);
+				channelNames.forEach(function (channelName) {
+					var channel;
+					var channelExist = false;
+					for (var i = 0; i < results.length; i++) {
+						channel = results[i] && results[i].data;
+						if (channel && channel.name && channel.name.toLowerCase() === channelName.toLowerCase()) {
+							channelExist = true;
+							break;
+						}
+					}
+
+					if (!channelExist) {
+						console.log('ERROR: channel ' + channelName + ' does not exist');
+					} else {
+						// check if the channel is added to the repository
+						var channelInRepo = false;
+						for (var i = 0; i < repository.channels.length; i++) {
+							if (channel.id === repository.channels[i].id) {
+								channelInRepo = true;
+								break;
+							}
+						}
+						if (!channelInRepo) {
+							console.log('ERROR: channel ' + channelName + ' is not a publishing channel for repository ' + repository.name);
+						} else {
+							channelIds.push(channel.id);
+							goodChannelNames.push(channel.name);
+						}
+					}
+				});
+
+				console.log(' - channels to ' + action.substring(0, action.indexOf('-')) + ': ' + goodChannelNames);
+
+				var updateRecommendationPromises = [];
+
+				if (channelIds.length === 0) {
+					console.log('ERROR: no valid channel to add or remove');
+					return Promise.reject();
+
+				} else {
+
+					recommendations.forEach(function (recommendation) {
+
+						if (action === 'add-channel') {
+							updateRecommendationPromises.push(serverRest.addChannelToRecommendation({
+								server: server,
+								recommendation: recommendation,
+								channelIds: channelIds
+							}));
+						} else if (action === 'remove-channel') {
+							updateRecommendationPromises.push(serverRest.removeChannelFromRecommendation({
+								server: server,
+								recommendation: recommendation,
+								channelIds: channelIds
+							}));
+						}
+
+					});
+				}
+
+				return Promise.all(updateRecommendationPromises);
+			})
+			.then(function (results) {
+				var err;
+				recommendations.forEach(function (recommendation) {
+					var found = false;
+					for (var i = 0; i < results.length; i++) {
+						if (results[i] && results[i].id === recommendation.id) {
+							found = true;
+							break;
+						}
+					}
+					
+					if (found) {
+						console.log(' - channel ' + goodChannelNames + ' ' +
+							(action === 'add-channel' ? 'added to recommendation ' : 'removed from recommendation ') + recommendation.name);
+					} else {
+						err = 'err';
+					}
+				});
+
+				resolve({
+					err: err
+				});
+
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				resolve({
+					err: 'err'
+				});
+			});
+	});
+};

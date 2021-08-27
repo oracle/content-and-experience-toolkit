@@ -121,7 +121,7 @@ module.exports.getSites = function (args) {
 	return _getAllResources(server, 'sites', args.expand);
 };
 
-var _getResource = function (server, type, id, name, expand, showError) {
+var _getResource = function (server, type, id, name, expand, showError, includeDeleted) {
 	return new Promise(function (resolve, reject) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
@@ -130,11 +130,15 @@ var _getResource = function (server, type, id, name, expand, showError) {
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
+		
 		console.log(' - get ' + url);
 
 		url = url + '?links=none';
 		if (expand) {
 			url = url + '&expand=' + expand;
+		}
+		if (includeDeleted) {
+			url = url + '&includeDeleted=true';
 		}
 
 		var options = {
@@ -190,7 +194,7 @@ var _getResource = function (server, type, id, name, expand, showError) {
  */
 module.exports.getSite = function (args) {
 	var server = args.server;
-	return _getResource(server, 'sites', args.id, args.name, args.expand, true);
+	return _getResource(server, 'sites', args.id, args.name, args.expand, true, args.includeDeleted);
 };
 
 /**
@@ -203,7 +207,7 @@ module.exports.getSite = function (args) {
  */
 module.exports.getTemplate = function (args) {
 	var server = args.server;
-	return _getResource(server, 'templates', args.id, args.name, args.expand, true);
+	return _getResource(server, 'templates', args.id, args.name, args.expand, true, args.includeDeleted);
 };
 
 /**
@@ -872,7 +876,10 @@ var _exportResourceAsync = function (server, type, id, name) {
 							if (needNewLine) {
 								process.stdout.write(os.EOL);
 							}
-							var msg = data && data.error ? (data.error.detail || data.error.title) : '';
+							var msg = data && data.message;
+							if (data && data.error) {
+								msg = msg + ' ' + (data.error.detail || data.error.title);
+							}
 							console.log('ERROR: export ' + resource + ' failed: ' + msg);
 							return resolve({
 								err: 'err'
@@ -1066,7 +1073,10 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 							if (needNewLine) {
 								process.stdout.write(os.EOL);
 							}
-							var msg = data && data.error ? (data.error.detail || data.error.title) : '';
+							var msg = data && data.message;
+							if (data && data.error) {
+								msg = msg + ' ' + (data.error.detail || data.error.title);
+							}
 							console.log('ERROR: failed to publish ' + resTitle + ' ' + (name || id) + ' : ' + msg);
 							return resolve({
 								err: 'err'
