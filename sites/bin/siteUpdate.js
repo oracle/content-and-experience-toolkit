@@ -576,6 +576,7 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 				server: server,
 				siteInfo: siteInfo,
 				templateName: argv.template,
+				reuseContent: argv.reuseContent,
 				updateContent: true
 			}).then(function (result) {
 				numErrors += (result.error ? 1 : 0);

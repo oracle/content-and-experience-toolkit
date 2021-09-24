@@ -15,6 +15,20 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.9.1
+
+**Added**
+
+- `cec control-recommendation` with `publish` or `unpublish`
+- `cec upload-content` - Added parameter `--reuse` to update only the existing content that is older than the content being imported
+- `cec transfer-content` - Added parameter `--reuse` to update only the existing content that is older than the content being imported
+- `cec transfer-site-content` - Added parameter `--reuse` to update only the existing content that is older than the content being imported
+- `cec create-site` - Added parameter `--reuse` to keep the existing id for assets and only update the assets that are older than those from the template
+- `cec transfer-site` - Added parameter `--reuse` to update only the existing content that is older than the content being transferred
+- `cec upload-type` - Now accepts a path to a json file containing a type definition
+- `cec create-site` - Now supports working with governance enabled
+
+
 # New in Release 21.8.1
 
 **Added**

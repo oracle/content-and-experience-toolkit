@@ -19,6 +19,7 @@ var serverUtils = require('../test/server/serverUtils.js'),
 
 var projectDir,
 	buildDir,
+	componentsSrcDir,
 	contentSrcDir,
 	templatesSrcDir,
 	typesSrcDir,
@@ -36,6 +37,7 @@ var verifyRun = function (argv) {
 
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
 
+	componentsSrcDir = path.join(srcfolder, 'components');
 	contentSrcDir = path.join(srcfolder, 'content');
 	templatesSrcDir = path.join(srcfolder, 'templates');
 	typesSrcDir = path.join(srcfolder, 'types');
@@ -1484,6 +1486,8 @@ module.exports.downloadType = function (argv, done) {
 
 	var customEditors = [];
 	var customForms = [];
+	var contentLayouts = [];
+	var comps = [];
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
@@ -1541,12 +1545,22 @@ module.exports.downloadType = function (argv, done) {
 					for (var i = 0; i < typeCustomEditors.length; i++) {
 						if (!customEditors.includes(typeCustomEditors[i])) {
 							customEditors.push(typeCustomEditors[i]);
+							comps.push(typeCustomEditors[i]);
 						}
 					}
 					var typeCustomForms = typeObj.properties && typeObj.properties.customForms || [];
 					for (var i = 0; i < typeCustomForms.length; i++) {
 						if (!customForms.includes(typeCustomForms[i])) {
 							customForms.push(typeCustomForms[i]);
+							comps.push(typeCustomForms[i]);
+						}
+					}
+
+					var typeContentLayouts = serverUtils.getTypeContentLayouts(typeObj);
+					for (var i = 0; i < typeContentLayouts.length; i++) {
+						if (!contentLayouts.includes(typeContentLayouts[i])) {
+							contentLayouts.push(typeContentLayouts[i]);
+							comps.push(typeContentLayouts[i]);
 						}
 					}
 
@@ -1558,11 +1572,14 @@ module.exports.downloadType = function (argv, done) {
 				if (customForms.length > 0) {
 					console.log(' - will download content form ' + customForms.join(', '));
 				}
+				if (contentLayouts.length > 0) {
+					console.log(' - will download content layout ' + contentLayouts.join(', '));
+				}
 
-				if (customEditors.length === 0 && customForms.length === 0) {
+				if (comps.length === 0) {
 					done(true);
 				} else {
-					componentUtils.downloadComponents(server, customEditors.concat(customForms), argv)
+					componentUtils.downloadComponents(server, comps, argv)
 						.then(function (result) {
 							done(result.err ? false : true);
 						});
@@ -1593,36 +1610,55 @@ module.exports.uploadType = function (argv, done) {
 	}
 
 	console.log(' - server: ' + server.url);
-
+	var isFile = typeof argv.file === 'string' && argv.file.toLowerCase() === 'true';
 	var allNames = argv.name.split(',');
 	var names = [];
+	var typePaths = [];
 	var comps = [];
 	var customEditors = [];
 	var customForms = [];
+	var contentLayouts = [];
 
 	// varify the types on local
 	allNames.forEach(function (name) {
-		var filePath = path.join(typesSrcDir, name, name + '.json');
-		if (!fs.existsSync(filePath)) {
-			console.log('ERROR: type ' + name + ' does not exist');
-		} else if (!names.includes(name)) {
-			names.push(name);
-			var typeObj = JSON.parse(fs.readFileSync(filePath));
-			var typeCustomEditors = typeObj.properties && typeObj.properties.customEditors || [];
-			for (var i = 0; i < typeCustomEditors.length; i++) {
-				if (!customEditors.includes(typeCustomEditors[i])) {
-					customEditors.push(typeCustomEditors[i]);
-					comps.push(typeCustomEditors[i]);
+		var filePath;
+		if (isFile) {
+			filePath = name;
+
+			if (!path.isAbsolute(filePath)) {
+				filePath = path.join(projectDir, filePath);
+			}
+			filePath = path.resolve(filePath);
+
+			if (!fs.existsSync(filePath)) {
+				console.log('ERROR: file ' + filePath + ' does not exist');
+			} else {
+				var typeObj;
+				try {
+					typeObj = JSON.parse(fs.readFileSync(filePath));
+				} catch (e) {
+
+				}
+				if (!typeObj || !typeObj.id || !typeObj.name || !typeObj.typeCategory) {
+					console.log('ERROR: file ' + filePath + ' is not a valid type definition');
+				} else {
+					if (!names.includes(typeObj.name)) {
+						names.push(typeObj.name);
+						typePaths.push(filePath);
+					}
 				}
 			}
-			var typeCustomForms = typeObj.properties && typeObj.properties.customForms || [];
-			for (var i = 0; i < typeCustomForms.length; i++) {
-				if (!customForms.includes(typeCustomForms[i])) {
-					customForms.push(typeCustomForms[i]);
-					comps.push(typeCustomForms[i]);
-				}
+
+		} else {
+			filePath = path.join(typesSrcDir, name, name + '.json');
+			if (!fs.existsSync(filePath)) {
+				console.log('ERROR: type ' + name + ' does not exist');
+			} else if (!names.includes(name)) {
+				names.push(name);
+				typePaths.push(filePath);
 			}
 		}
+
 	});
 
 	if (names.length === 0) {
@@ -1631,8 +1667,39 @@ module.exports.uploadType = function (argv, done) {
 		return;
 	}
 
+	// get all editors and content forms in the type files
+	typePaths.forEach(function (filePath) {
+		var i;
+		var typeObj = JSON.parse(fs.readFileSync(filePath));
+
+		var typeCustomEditors = typeObj.properties && typeObj.properties.customEditors || [];
+		for (i = 0; i < typeCustomEditors.length; i++) {
+			if (!customEditors.includes(typeCustomEditors[i])) {
+				customEditors.push(typeCustomEditors[i]);
+				comps.push(typeCustomEditors[i]);
+			}
+		}
+		var typeCustomForms = typeObj.properties && typeObj.properties.customForms || [];
+		for (i = 0; i < typeCustomForms.length; i++) {
+			if (!customForms.includes(typeCustomForms[i])) {
+				customForms.push(typeCustomForms[i]);
+				comps.push(typeCustomForms[i]);
+			}
+		}
+
+		var typeContentLayouts = serverUtils.getTypeContentLayouts(typeObj);
+		for (i = 0; i < typeContentLayouts.length; i++) {
+			if (!contentLayouts.includes(typeContentLayouts[i])) {
+				contentLayouts.push(typeContentLayouts[i]);
+				comps.push(typeContentLayouts[i]);
+			}
+		}
+	});
+
 	var typesToCreate = [];
+	var typeNamesToCreate = [];
 	var typesToUpdate = [];
+	var typeNamesToUpdate = [];
 
 	var hasError = false;
 
@@ -1648,6 +1715,9 @@ module.exports.uploadType = function (argv, done) {
 		}
 		if (customForms.length > 0) {
 			console.log(' - will upload content form ' + customForms.join(', '));
+		}
+		if (contentLayouts.length > 0) {
+			console.log(' - will upload content layout ' + contentLayouts.join(', '));
 		}
 
 		_uploadTypeComponents(server, comps)
@@ -1676,17 +1746,19 @@ module.exports.uploadType = function (argv, done) {
 						}
 					}
 					if (found) {
-						typesToUpdate.push(names[i]);
+						typeNamesToUpdate.push(names[i]);
+						typesToUpdate.push(typePaths[i]);
 					} else {
-						typesToCreate.push(names[i]);
+						typeNamesToCreate.push(names[i]);
+						typesToCreate.push(typePaths[i]);
 					}
 				}
 
 				if (typesToCreate.length > 0) {
-					console.log(' - will create type ' + typesToCreate.join(', '));
+					console.log(' - will create type ' + typeNamesToCreate.join(', '));
 				}
 				if (typesToUpdate.length > 0) {
-					console.log(' - will update type ' + typesToUpdate.join(', '));
+					console.log(' - will update type ' + typeNamesToUpdate.join(', '));
 				}
 
 				return _createContentTypes(server, typesToCreate);
@@ -1704,8 +1776,7 @@ module.exports.uploadType = function (argv, done) {
 				});
 
 				var updateTypePromises = [];
-				typesToUpdate.forEach(function (name) {
-					var filePath = path.join(typesSrcDir, name, name + '.json');
+				typesToUpdate.forEach(function (filePath) {
 					var typeObj;
 					try {
 						typeObj = JSON.parse(fs.readFileSync(filePath));
@@ -1742,7 +1813,15 @@ module.exports.uploadType = function (argv, done) {
 
 };
 
-var _uploadTypeComponents = function (server, comps) {
+var _uploadTypeComponents = function (server, allcomps) {
+	var comps = [];
+	allcomps.forEach(function (comp) {
+		if (fs.existsSync(path.join(componentsSrcDir, comp))) {
+			comps.push(comp);
+		} else {
+			console.log('ERROR: component ' + comp + ' does not exist');
+		}
+	});
 
 	return new Promise(function (resolve, reject) {
 		if (comps.length === 0) {
@@ -1795,12 +1874,11 @@ var _uploadTypeComponents = function (server, comps) {
 	});
 };
 
-var _createContentTypes = function (server, names) {
+var _createContentTypes = function (server, typePaths) {
 	return new Promise(function (resolve, reject) {
 		var results = [];
-		var doCreateType = names.reduce(function (typePromise, name) {
+		var doCreateType = typePaths.reduce(function (typePromise, filePath) {
 				return typePromise.then(function (result) {
-					var filePath = path.join(typesSrcDir, name, name + '.json');
 					var typeObj;
 					try {
 						typeObj = JSON.parse(fs.readFileSync(filePath));
@@ -4013,8 +4091,8 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 		});
 
 	} else {
-		format2 = '   %-38s %-38s %-11s %-10s %-s';
-		console.log(sprintf(format2, 'Type', 'Id', 'Status', 'Size', 'Name'));
+		format2 = '   %-38s %-38s %-7s %-11s %-10s %-s';
+		console.log(sprintf(format2, 'Type', 'Id', 'Version', 'Status', 'Size', 'Name'));
 
 		var totalSize = 0;
 		for (var i = 0; i < list.length; i++) {
@@ -4026,7 +4104,7 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 				// console.log(item);
 				var typeLabel = j === 0 ? item.type : '';
 				var sizeLabel = item.fields && item.fields.size ? item.fields.size : '';
-				console.log(sprintf(format2, typeLabel, item.id, item.status, sizeLabel, item.name));
+				console.log(sprintf(format2, typeLabel, item.id, item.latestVersion, item.status, sizeLabel, item.name));
 			}
 		}
 

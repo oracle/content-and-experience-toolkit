@@ -884,11 +884,13 @@
                 var r = "Unable to initialize Type - invalid  parameter: no typeCategory provided";
                 throw t.error(r), new Error(r);
             }
-            this.name = e.name, this.description = e.description, this.typeCategory = e.typeCategory, 
-            this.getSlug = function() {
+            this.name = e.name, this.description = e.description, this.displayName = e.displayName, 
+            this.typeCategory = e.typeCategory, this.getSlug = function() {
                 return Object.freeze(e.slug);
             }, this.getGroups = function() {
                 return Object.freeze(e.groups);
+            }, this.getCaasTranslations = function() {
+                return Object.freeze(e["caas-translations"]);
             };
         };
     }), define("sdk/Item", [ "sdk/Field", "sdk/Type", "sdk/dispatcher", "sdk/logger" ], function(e, t, r, i) {

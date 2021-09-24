@@ -576,7 +576,11 @@ module.exports.controlRecommendation = function (argv, done) {
 					return Promise.reject();
 				}
 
-				return _updateRecommendation(server, repository, recommendations, channelNames, action);
+				var actionPromise = action === 'publish' || action === 'unpublish' ?
+					_publishUnpublishRecommendation(server, recommendations, channelNames, action) :
+					_updateRecommendation(server, repository, recommendations, channelNames, action);
+
+				return actionPromise;
 			})
 			.then(function (result) {
 				if (result.err) {
@@ -599,7 +603,7 @@ var _updateRecommendation = function (server, repository, recommendations, chann
 	return new Promise(function (resolve, reject) {
 		var channelIds = [];
 		var goodChannelNames = [];
-		
+
 		var channelPromises = [];
 		channelNames.forEach(function (channelName) {
 			channelPromises.push(serverRest.getChannelWithName({
@@ -642,15 +646,14 @@ var _updateRecommendation = function (server, repository, recommendations, chann
 					}
 				});
 
-				console.log(' - channels to ' + action.substring(0, action.indexOf('-')) + ': ' + goodChannelNames);
-
 				var updateRecommendationPromises = [];
 
 				if (channelIds.length === 0) {
-					console.log('ERROR: no valid channel to add or remove');
+					console.log('ERROR: no channel to ' + (action === 'add-channel' ? 'add' : 'remove'));
 					return Promise.reject();
 
 				} else {
+					console.log(' - channels to ' + action.substring(0, action.indexOf('-')) + ': ' + goodChannelNames);
 
 					recommendations.forEach(function (recommendation) {
 
@@ -683,7 +686,7 @@ var _updateRecommendation = function (server, repository, recommendations, chann
 							break;
 						}
 					}
-					
+
 					if (found) {
 						console.log(' - channel ' + goodChannelNames + ' ' +
 							(action === 'add-channel' ? 'added to recommendation ' : 'removed from recommendation ') + recommendation.name);
@@ -696,6 +699,158 @@ var _updateRecommendation = function (server, repository, recommendations, chann
 					err: err
 				});
 
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				resolve({
+					err: 'err'
+				});
+			});
+	});
+};
+
+// update recommendation to add/remove channels
+var _publishUnpublishRecommendation = function (server, recommendations, channelNames, action) {
+	return new Promise(function (resolve, reject) {
+		var channels = [];
+		var recommendationsToAct = [];
+
+		var channelPromises = [];
+		channelNames.forEach(function (channelName) {
+			channelPromises.push(serverRest.getChannelWithName({
+				server: server,
+				name: channelName
+			}));
+		});
+
+		Promise.all(channelPromises)
+			.then(function (results) {
+				channelNames.forEach(function (channelName) {
+					var channel;
+					var channelExist = false;
+					for (var i = 0; i < results.length; i++) {
+						channel = results[i] && results[i].data;
+						if (channel && channel.name && channel.name.toLowerCase() === channelName.toLowerCase()) {
+							channelExist = true;
+							break;
+						}
+					}
+
+					if (!channelExist) {
+						console.log('ERROR: channel ' + channelName + ' does not exist');
+					} else {
+						channels.push(channel);
+					}
+				});
+
+				if (channelNames.length > 0 && channels.length === 0) {
+					// no valid channel
+					console.log('ERROR: no channel to ' + action);
+					return Promise.reject();
+				}
+
+				// check if the channels are added to the recommendations
+				recommendations.forEach(function (recommendation) {
+					var recoChannels = recommendation.channels || [];
+					var channelsToAct = [];
+					var goodChannelNames = [];
+
+					if (channelNames.length > 0) {
+						for (var i = 0; i < channels.length; i++) {
+							var found = false;
+							for (var j = 0; j < recoChannels.length; j++) {
+								if (channels[i].id === recoChannels[j].id) {
+									found = true;
+									break;
+								}
+							}
+							if (!found) {
+								console.log('ERROR: channel ' + channels[i].name + ' is not a publishing channel for recommendation ' + recommendation.name);
+							} else {
+								channelsToAct.push({
+									id: channels[i].id
+								});
+								goodChannelNames.push(channels[i].name);
+							}
+						}
+					} else {
+						// no channel specified, action on all channels added to the recommendation
+						channelsToAct = recoChannels;
+					}
+
+					if (channelsToAct.length === 0) {
+						console.log('ERROR: no channel to ' + action + ' recommendation ' + recommendation.name);
+					} else {
+						recommendation.channelsToAct = channelsToAct;
+						recommendation.goodChannelNames = goodChannelNames;
+						recommendationsToAct.push(recommendation);
+					}
+				});
+
+				if (recommendationsToAct.length === 0) {
+					return Promise.reject();
+				}
+
+				var err;
+				var doRecommendationAction = recommendationsToAct.reduce(function (recoPromise, recommendation) {
+						return recoPromise.then(function (result) {
+							var channelPromises = [];
+							for (var i = 0; i < recommendation.channelsToAct.length; i++) {
+								channelPromises.push(serverRest.getChannel({
+									server: server,
+									id: recommendation.channels[i].id
+								}));
+							}
+							Promise.all(channelPromises)
+								.then(function (results) {
+									// get the name of channels to act on (in case of all recommendation channels)
+									for (var i = 0; i < recommendation.channelsToAct.length; i++) {
+										for (var j = 0; j < results.length; j++) {
+											if (results[j] && results[j].name && recommendation.channelsToAct[i].id === results[j].id) {
+												if (!recommendation.goodChannelNames.includes(results[j].name)) {
+													recommendation.goodChannelNames.push(results[j].name);
+												}
+											}
+										}
+									}
+
+									var actionPromise = action === 'publish' ?
+										serverRest.publishRecommendation({
+											server: server,
+											id: recommendation.id,
+											name: recommendation.name,
+											channels: recommendation.channelsToAct
+										}) : serverRest.unpublishRecommendation({
+											server: server,
+											id: recommendation.id,
+											name: recommendation.name,
+											channels: recommendation.channelsToAct
+										});
+
+									actionPromise.then(function (result) {
+										if (result.err) {
+											err = 'err';
+										} else {
+											if (action === 'publish') {
+												console.log(' - recommendation ' + recommendation.name + ' published to channel ' + recommendation.goodChannelNames.sort());
+											} else {
+												console.log(' - recommendation ' + recommendation.name + ' unpublished from channel ' + recommendation.goodChannelNames.sort());
+											}
+										}
+									});
+								});
+						});
+					},
+					// Start with a previousPromise value that is a resolved promise 
+					Promise.resolve({}));
+
+				doRecommendationAction.then(function (result) {
+					resolve({
+						err: err
+					});
+				});
 			})
 			.catch((error) => {
 				if (error) {

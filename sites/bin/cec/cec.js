@@ -178,7 +178,7 @@ var getRepositoryActions = function () {
 };
 
 var getRecommendationActions = function () {
-	const actions = ['add-channel', 'remove-channel'];
+	const actions = ['add-channel', 'remove-channel', 'publish', 'unpublish'];
 	return actions;
 };
 
@@ -981,6 +981,7 @@ const uploadContent = {
 	example: [
 		['cec upload-content Site1Channel -r Repo1', 'Upload content to repository Repo1, creating new items, and add to channel Site1Channel'],
 		['cec upload-content Site1Channel -r Repo1 -u', 'Upload content to repository Repo1, updating existing content to create new versions, and add to channel Site1Channel'],
+		['cec upload-content Site1Channel -r Repo1 -e', 'Upload content to repository Repo1, does not update existing content if the content in Repo1 is newer than content being imported, and add to channel Site1Channel'],
 		['cec upload-content Site1Channel -r Repo1 -l Site1Collection', 'Upload content to repository Repo1 and add to collection Site1Collection and channel Site1Channel'],
 		['cec upload-content Site1Channel -r Repo1 -p', 'Upload content types from content SiteChannel to the server'],
 		['cec upload-content Site1Channel -r Repo1 -s UAT', 'Upload content to repository Repo1 on server UAT and add to channel Site1Channel'],
@@ -1033,7 +1034,8 @@ const transferContent = {
 		['cec transfer-content Repository1 -s DEV -d UAT -e', 'Generate script Repository1_downloadcontent and Repository1_uploadcontent and execute them'],
 		['cec transfer-content Repository1 -s DEV -d UAT -n 1000', 'Set the number of items in each batch to 1000'],
 		['cec transfer-content Repository1 -s DEV -d UAT -c Channel1', 'Transfer the items added to channel Channel1 in repository Repository1'],
-		['cec transfer-content Repository1 -s DEV -d UAT -c Channel1 -p', 'Transfer the items published to channel Channel1 in repository Repository1']
+		['cec transfer-content Repository1 -s DEV -d UAT -c Channel1 -p', 'Transfer the items published to channel Channel1 in repository Repository1'],
+		['cec transfer-content Repository1 -s DEV -d UAT -u', 'Only import the content that is newer than the content in Repository1 on server UAT']
 	]
 };
 
@@ -1292,7 +1294,8 @@ const createSite = {
 		['cec create-site Site1 -t Template1 -r Repository1 -l L10NPolicy1 -d en-US', 'Creates an enterprise site with localization policy L10NPolicy1'],
 		['cec create-site Site1 -t Template1 -r Repository1 -d en-US', 'Creates an enterprise site and uses the localization policy in Template1'],
 		['cec create-site Site1 -t Template1 -r Repository1 -d en-US -s UAT', 'Creates an enterprise site on server UAT'],
-		['cec create-site Site1 -t Template1 -u -r Repository1 -d en-US -s UAT', 'Creates an enterprise site on server UAT and keep the existing id for assets']
+		['cec create-site Site1 -t Template1 -u -r Repository1 -d en-US -s UAT', 'Creates an enterprise site on server UAT and keep the existing id for assets'],
+		['cec create-site Site1 -t Template1 -e -r Repository1 -d en-US -s UAT', 'Creates an enterprise site on server UAT and keep the existing id for assets and only update the assets that are older than those from the template']
 	]
 };
 
@@ -1354,6 +1357,7 @@ const transferSite = {
 	example: [
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1', 'Creates site Site1 on server UAT based on site Site1 on server DEV'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -p', 'Creates site Site1 on server UAT based on site Site1 on server DEV with published assets'],
+		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -u', 'Creates site Site1 on server UAT based on site Site1 on server DEV and only update the content that is older than the content being transferred'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -x', 'Creates site Site1 on server UAT based on site Site1 on server DEV without content'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -e', 'Creates site Site1 on server UAT based on site Site1 on server DEV without transferring components to server UAT'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -e -c', 'Creates site Site1 on server UAT based on site Site1 on server DEV without transferring components and theme to server UAT'],
@@ -1382,6 +1386,7 @@ const transferSiteContent = {
 		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -e', 'Generate script Site1_downloadcontent and Site1_uploadcontent and execute them'],
 		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -n 200', 'Set batch size to 200 items'],
 		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -p', 'Only the published assets will be transferred'],
+		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -u', 'Only import the content that is newer than the content in site repository on server UAT'],
 		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -l', 'The assets from the site repository will be added to site default collection on destination server'],
 		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -m "Shared Images:Shared Images,Shared Video:Shared Video"']
 	]
@@ -1913,7 +1918,7 @@ const downloadType = {
 	usage: {
 		'short': 'Downloads types from OCM server.',
 		'long': (function () {
-			let desc = 'Downloads types from OCM server. The content field editors and forms for the types will also be downloaded. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Downloads types from OCM server. The content field editors, content forms and content layouts for the types will also be downloaded. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1931,14 +1936,15 @@ const uploadType = {
 	usage: {
 		'short': 'Uploads types to OCM server.',
 		'long': (function () {
-			let desc = 'Uploads types to OCM server. The content field editors and forms for the types will also be uploaded. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Uploads types to OCM server. The content field editors, content forms and content layouts for the types will also be uploaded. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
 	example: [
 		['cec upload-type BlogType'],
 		['cec upload-type BlogType -s UAT'],
-		['cec upload-type BlogAuthor,BlogType', 'Place the referenced types first']
+		['cec upload-type BlogAuthor,BlogType', 'Place the referenced types first'],
+		['cec upload-type ~/Downloads/BlogType.json -f -s UAT']
 	]
 };
 
@@ -2641,8 +2647,12 @@ const controlRecommendation = {
 		})()
 	},
 	example: [
-		['cec control-recommendation add-channel -r Repo1 -m Recommendation1 -c channel1,channel2 -s UAT'],
-		['cec control-recommendation remove-channel -r Repo1 -m Recommendation1 -c channel1,channel2 -s UAT']
+		['cec control-recommendation add-channel -r Repo1 -m Recommendation1 -c channel1,channel2 -s UAT', 'Add channel channel1 and channel2 to Recommendation1'],
+		['cec control-recommendation remove-channel -r Repo1 -m Recommendation1 -c channel1,channel2 -s UAT', 'Remove channel channel1 and channel2 from Recommendation1'],
+		['cec control-recommendation publish -r Repo1 -m Recommendation1 -s UAT', 'Publish Recommendation1 to all channels added to Recommendation1'],
+		['cec control-recommendation publish -r Repo1 -m Recommendation1 -c channel1,channel2 -s UAT', 'Publish Recommendation1 to channel channel1 and channel2'],
+		['cec control-recommendation unpublish -r Repo1 -m Recommendation1 -s UAT', 'Unpublish Recommendation1 from all channels added to Recommendation1'],
+		['cec control-recommendation unpublish -r Repo1 -m Recommendation1 -c channel1,channel2 -s UAT', 'Unpublish Recommendation1 from channel channel1,channel2']
 	]
 };
 
@@ -3029,9 +3039,6 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(downloadType) + os.EOL +
 	_getCmdHelp(uploadType) + os.EOL +
 	_getCmdHelp(updateType) + os.EOL +
-	_getCmdHelp(downloadRecommendation) + os.EOL +
-	_getCmdHelp(uploadRecommendation) + os.EOL +
-	_getCmdHelp(controlRecommendation) + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
 	_getCmdHelp(addContentLayoutMapping) + os.EOL +
 	_getCmdHelp(removeContentLayoutMapping) + os.EOL +
@@ -3040,6 +3047,11 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(migrateContent) + os.EOL +
 	_getCmdHelp(compileContent) + os.EOL +
 	_getCmdHelp(uploadCompiledContent) + os.EOL;
+
+_usage = _usage + os.EOL + 'Recommendations' + os.EOL +
+	_getCmdHelp(downloadRecommendation) + os.EOL +
+	_getCmdHelp(uploadRecommendation) + os.EOL +
+	_getCmdHelp(controlRecommendation) + os.EOL;
 
 _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
 	_getCmdHelp(downloadTaxonomy) + os.EOL +
@@ -3925,16 +3937,22 @@ const argv = yargs.usage(_usage)
 					alias: 'u',
 					description: 'Update any existing content instead of creating new items'
 				})
+				.option('reuse', {
+					alias: 'e',
+					description: 'Only update the existing content that is older than the content being imported'
+				})
 				.option('types', {
 					alias: 'p',
 					description: 'Upload content types and taxonomies only'
 				})
 				.check((argv) => {
 					if (argv.template && !argv.channel) {
-						throw new Error('Please specify channel to add template content');
-					} else {
-						return true;
+						throw new Error(os.EOL + 'Please specify channel to add template content');
 					}
+					if (argv.update && argv.reuse) {
+						throw new Error(os.EOL + 'Set either update or reuse');
+					}
+					return true;
 				})
 				.example(...uploadContent.example[0])
 				.example(...uploadContent.example[1])
@@ -3943,6 +3961,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadContent.example[4])
 				.example(...uploadContent.example[5])
 				.example(...uploadContent.example[6])
+				.example(...uploadContent.example[7])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadContent.command}\n\n${uploadContent.usage.long}`);
@@ -3967,6 +3986,10 @@ const argv = yargs.usage(_usage)
 					alias: 'p',
 					description: 'The flag to indicate published assets only'
 				})
+				.option('reuse', {
+					alias: 'u',
+					description: 'Only update the content that is older than the content being transferred'
+				})
 				.option('number', {
 					alias: 'n',
 					description: 'The number of items in each batch, defaults to 200'
@@ -3989,6 +4012,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferContent.example[2])
 				.example(...transferContent.example[3])
 				.example(...transferContent.example[4])
+				.example(...transferContent.example[5])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${transferContent.command}\n\n${transferContent.usage.long}`);
@@ -4463,15 +4487,26 @@ const argv = yargs.usage(_usage)
 					alias: 'u',
 					description: 'Keep the existing id for assets'
 				})
+				.option('reuse', {
+					alias: 'e',
+					description: 'Keep the existing id for assets and only update the assets that are older than those from the template'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
+				})
+				.check((argv) => {
+					if (argv.update && argv.reuse) {
+						throw new Error(os.EOL + 'Set either update or reuse');
+					}
+					return true;
 				})
 				.example(...createSite.example[0])
 				.example(...createSite.example[1])
 				.example(...createSite.example[2])
 				.example(...createSite.example[3])
 				.example(...createSite.example[4])
+				.example(...createSite.example[5])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createSite.command}\n\n${createSite.usage.long}`);
@@ -4542,6 +4577,10 @@ const argv = yargs.usage(_usage)
 					alias: 'x',
 					description: 'Exclude content'
 				})
+				.option('reuse', {
+					alias: 'u',
+					description: 'Only update the content that is older than the content being transferred'
+				})
 				.option('excludecomponents', {
 					alias: 'e',
 					description: 'Exclude components'
@@ -4610,6 +4649,10 @@ const argv = yargs.usage(_usage)
 					alias: 'm',
 					description: 'The repositories for assets from other repositories '
 				})
+				.option('reuse', {
+					alias: 'u',
+					description: 'Only update the content that is older than the content being transferred'
+				})
 				.option('number', {
 					alias: 'n',
 					description: 'The number of items in each batch, defaults to 500'
@@ -4633,6 +4676,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferSiteContent.example[3])
 				.example(...transferSiteContent.example[4])
 				.example(...transferSiteContent.example[5])
+				.example(...transferSiteContent.example[6])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${transferSiteContent.command}\n\n${transferSiteContent.usage.long}`);
@@ -5659,13 +5703,18 @@ const argv = yargs.usage(_usage)
 		})
 	.command([uploadType.command, uploadType.alias], false,
 		(yargs) => {
-			yargs.option('server', {
+			yargs.option('file', {
+					alias: 'f',
+					description: 'Flag to indicate the type is from file'
+				})
+				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
 				})
 				.example(...uploadType.example[0])
 				.example(...uploadType.example[1])
 				.example(...uploadType.example[2])
+				.example(...uploadType.example[3])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadType.command}\n\n${uploadType.usage.long}`);
@@ -6634,6 +6683,10 @@ const argv = yargs.usage(_usage)
 				})
 				.example(...controlRecommendation.example[0])
 				.example(...controlRecommendation.example[1])
+				.example(...controlRecommendation.example[2])
+				.example(...controlRecommendation.example[3])
+				.example(...controlRecommendation.example[4])
+				.example(...controlRecommendation.example[5])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlRecommendation.command}\n\n${controlRecommendation.usage.long}`);
@@ -7672,6 +7725,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.update) {
 		uploadContentArgs.push(...['--update', argv.update]);
 	}
+	if (argv.reuse) {
+		uploadContentArgs.push(...['--reuse', argv.reuse]);
+	}
 	if (argv.types) {
 		uploadContentArgs.push(...['--types', argv.types]);
 	}
@@ -7728,6 +7784,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.publishedassets) {
 		transferContentArgs.push(...['--publishedassets', argv.publishedassets]);
+	}
+	if (argv.reuse) {
+		transferContentArgs.push(...['--reuse', argv.reuse]);
 	}
 	if (argv.number) {
 		transferContentArgs.push(...['--number', argv.number]);
@@ -8076,6 +8135,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.update) {
 		createSiteArgs.push(...['--update', argv.update]);
 	}
+	if (argv.reuse) {
+		createSiteArgs.push(...['--reuse', argv.reuse]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createSiteArgs.push(...['--server', argv.server]);
 	}
@@ -8134,6 +8196,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.excludecontent) {
 		transferSiteArgs.push(...['--excludecontent', argv.excludecontent]);
 	}
+	if (argv.reuse) {
+		transferSiteArgs.push(...['--reuse', argv.reuse]);
+	}
 	if (argv.excludecomponents) {
 		transferSiteArgs.push(...['--excludecomponents', argv.excludecomponents]);
 	}
@@ -8165,6 +8230,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	];
 	if (argv.publishedassets) {
 		transferSiteContentArgs.push(...['--publishedassets', argv.publishedassets]);
+	}
+	if (argv.reuse) {
+		transferSiteContentArgs.push(...['--reuse', argv.reuse]);
 	}
 	if (argv.addtositecollection) {
 		transferSiteContentArgs.push(...['--addtositecollection', argv.addtositecollection]);
@@ -8914,7 +8982,9 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		'--projectDir', cwd,
 		'--name', argv.name
 	];
-
+	if (argv.file) {
+		uploadTypeArgs.push(...['--file', argv.file]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		uploadTypeArgs.push(...['--server', argv.server]);
 	}

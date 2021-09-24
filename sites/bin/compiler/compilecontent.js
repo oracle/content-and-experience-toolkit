@@ -56,7 +56,8 @@ var channelAccessToken = '', // channel access token for the site
     zipFileName = "items.zip",
     zipFile, // the complete path to the zip file
     installedNodePackages = [],
-    failedItems = []; // items that failed to compile
+    itemResults = {}, // results of compilation for each item
+    systemFormats = ['contentlistdefault', 'contentplaceholderdefault', 'default', 'emptycontentlistdefault'];
 
 
 var compiler = {
@@ -342,9 +343,12 @@ var compileContentItemLayout = function (contentContext, contentItem, componentN
                     if (!fs.existsSync(indexFile)) {
                         fs.writeFileSync(indexFile, compiledComp.content);
                     }
+
+                    // note that item was successfully compiled
+                    itemResults[contentItem.id][contentItem.version].formats[format][isMobile ? 'mobile' : 'desktop'].status = 'success';
                 } else {
                     compilationReporter.error({
-                        message: 'no rendition created when compiling component: ' + contentItem.id,
+                        message: 'no rendition created when compiling component: ' + contentItem.id + ' for: "' + format + '" on ' + (isMobile ? 'mobile' : 'desktop')
                     });
                 }
 
@@ -386,33 +390,54 @@ var compileContentItem = function (contentContext, item, index) {
 
                     // for each entry in the content layout map that needs to be compiled for this type
                     (contentLayoutMap && contentLayoutMap.data || []).forEach(function (layoutMap) {
-                        if (layoutMap.generateRendition) {
-                            // add in the desktop version
-                            if (!layoutMap.formats.desktop) {
-                                compilationReporter.warn({
-                                    message: 'compileContentItem: no layout map for "' + contentItem.type + ':' + layoutMap.apiName + '" asset type on desktop. Will not be compiled'
-                                });
-                            } else {
-                                compileLayoutPromises.push(function () {
-                                    return compileContentItemLayout(contentContext, contentItem, layoutMap.formats.desktop, false, layoutMap.apiName);
-                                });
-                            }
-
-                            // add in the mobile version
-                            if (!layoutMap.formats.mobile) {
-                                compilationReporter.warn({
-                                    message: 'compileContentItem: no layout map for "' + contentItem.type + ':' + layoutMap.apiName + '" asset type on mobile. Will not be compiled'
-                                });
-                            } else {
-                                compileLayoutPromises.push(function () {
-                                    // use desktop for mobile, if no mobile option specified
-                                    return compileContentItemLayout(contentContext, contentItem, layoutMap.formats.mobile, true, layoutMap.apiName);
-                                });
-                            }
+                        if (systemFormats.indexOf(layoutMap.apiName) !== -1) {
+                            // system format, currently don't support compiling these, so ignore
                         } else {
-                            compilationReporter.info({
-                                message: 'compileContentItem: generateRendition set to false for: "' + contentItem.type + ':' + layoutMap.apiName + '". Will not be compiled'
-                            });
+                            // default rendition status to "failed"
+                            // items that fail to render will cause the server to remove any existing renditions
+                            itemResults[item.id] = itemResults[item.id] || {
+                                version: contentItem.version
+                            };
+                            itemResults[item.id][contentItem.version] = itemResults[item.id][contentItem.version] || {
+                                formats: {}
+                            };
+                            itemResults[item.id][contentItem.version].formats[layoutMap.apiName] = {
+                                'desktop': {
+                                    status: 'failed'
+                                },
+                                'mobile': {
+                                    status: 'failed'
+                                },
+                            };
+
+                            if (layoutMap.generateRendition) {
+                                // add in the desktop version
+                                if (!layoutMap.formats.desktop) {
+                                    compilationReporter.warn({
+                                        message: 'compileContentItem: no layout map for "' + contentItem.type + ':' + layoutMap.apiName + '" asset type on desktop. Will not be compiled'
+                                    });
+                                } else {
+                                    compileLayoutPromises.push(function () {
+                                        return compileContentItemLayout(contentContext, contentItem, layoutMap.formats.desktop, false, layoutMap.apiName);
+                                    });
+                                }
+
+                                // add in the mobile version
+                                if (!layoutMap.formats.mobile) {
+                                    compilationReporter.warn({
+                                        message: 'compileContentItem: no layout map for "' + contentItem.type + ':' + layoutMap.apiName + '" asset type on mobile. Will not be compiled'
+                                    });
+                                } else {
+                                    compileLayoutPromises.push(function () {
+                                        // use desktop for mobile, if no mobile option specified
+                                        return compileContentItemLayout(contentContext, contentItem, layoutMap.formats.mobile, true, layoutMap.apiName);
+                                    });
+                                }
+                            } else {
+                                compilationReporter.info({
+                                    message: 'compileContentItem: generateRendition set to false for: "' + contentItem.type + ':' + layoutMap.apiName + '". Will not be compiled'
+                                });
+                            }
                         }
                     });
 
@@ -525,6 +550,83 @@ var zipCompiledContent = function (contentContext) {
                 // insert the version 
                 if (compiledItem && item[compiledItem.id]) {
                     item[compiledItem.id].version = compiledItem && compiledItem.version || '';
+                }
+            });
+
+            // add in the rendition result status for each item
+            Object.keys(itemResults).forEach(function (itemId) {
+                var itemResult = itemResults[itemId];
+                var version = itemResult.version;
+                var compiledItem = (metadata.items || []).find(function (item) {
+                    return Object.keys(item).indexOf(itemId) !== -1;
+                });
+
+                // if a compiled item doesn't exist, create it
+                if (!compiledItem) {
+                    // create a new item with all the failed formats
+                    compiledItem = {};
+                    compiledItem[itemId] = {};
+                    compiledItem[itemId][version] = itemResult[version];
+                    Object.keys(compiledItem[itemId][version].formats).forEach(function (format) {
+                        compiledItem[itemId][version].formats[format] = [compiledItem[itemId][version].formats[format]];
+                    });
+                    compiledItem[itemId].version = version;
+
+                    // add it to the metadata
+                    metadata.items.push(compiledItem);
+                } else {
+                    compiledItem[itemId][version] = compiledItem[itemId][version] || {};
+                    compiledItem[itemId].version = compiledItem[itemId].version || version || '';
+
+                    // merge the formats with the item results
+                    var updateDevice = function (format, device, formatEntry, resultStatus) {
+                        var deviceEntry = formatEntry[format].find(function (entry) {
+                            return Object.keys(entry)[0] === device;
+                        });
+
+                        if (deviceEntry) {
+                            deviceEntry[device].status = resultStatus;
+                        } else {
+                            deviceEntry = {};
+                            deviceEntry[device] = {
+                                status: resultStatus
+                            };
+                            formatEntry[format].push(deviceEntry);
+                        }
+                    };
+
+                    // make sure the formats entry is always an array
+                    if (!Array.isArray(compiledItem[itemId][version].formats)) {
+                        compiledItem[itemId][version].formats = [compiledItem[itemId][version].formats];
+                    }
+
+                    var compiledFormats = compiledItem[itemId][version].formats;
+                    Object.keys(itemResult[version].formats).forEach(function (format) {
+                        var formatEntry = compiledFormats.find(function (entry) {
+                            return entry[format];
+                        });
+
+                        // if no entry exists for this format, create one
+                        if (!formatEntry) {
+                            formatEntry = {};
+                            formatEntry[format] = [{
+                                    'desktop': {}
+                                },
+                                {
+                                    'mobile': {}
+                                },
+                            ];
+                            compiledFormats.push(formatEntry);
+                        }
+
+                        // if format for desktop/mobile isn't an array, make it one
+                        if (!Array.isArray(formatEntry[format])) {
+                            formatEntry[format] = [formatEntry[format]];
+                        }
+
+                        updateDevice(format, 'desktop', formatEntry, itemResult[version].formats[format].desktop.status);
+                        updateDevice(format, 'mobile', formatEntry, itemResult[version].formats[format].mobile.status);
+                    });
                 }
             });
 

@@ -789,6 +789,50 @@ module.exports.getFileVersions = function (args) {
 	return _getFileVersions(args.server, args.fFileGUID);
 };
 
+// Create folder public link on server
+var _createFolderPublicLink = function (server, folderId, role) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/api/1.2/publiclinks/folder/' + folderId;
+		var payload = {
+			roleName: role,
+			assignedUsers: '@everybody'
+		};
+		var options = {
+			method: 'POST',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(payload)
+		};
+		// console.log(options);
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to create folder public link ' + folderId);
+				console.log(error);
+				resolve();
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve(data && data.id);
+			} else {
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to create folder public link ' + folderId + ' : ' + msg);
+				resolve();
+			}
+		});
+	});
+};
+module.exports.createFolderPublicLink = function (args) {
+	return _createFolderPublicLink(args.server, args.folderId, args.role);
+}
+
 ///////////////////////////////////////////////////////////
 //                  Content Management APIs
 ///////////////////////////////////////////////////////////
@@ -1958,8 +2002,8 @@ var _deleteContentType = function (server, id) {
 	});
 };
 /**
- * Delete cotent type on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Delete content type on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name Name of the content type to delete
  * @returns {Promise.<object>} The data object returned by the server.
@@ -4170,6 +4214,42 @@ module.exports.createContentType = function (args) {
 	return _createContentType(args.server, args.type);
 };
 
+var _getUpdateTypeStatus = function (server, statusUrl) {
+	return new Promise(function (resolve, reject) {
+		var options = {
+			method: 'GET',
+			url: statusUrl,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: get update type status');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
+				resolve(data);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get update type status' + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
 var _updateContentType = function (server, typeObj) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
@@ -4189,6 +4269,7 @@ var _updateContentType = function (server, typeObj) {
 						'Content-Type': 'application/json',
 						'X-CSRF-TOKEN': csrfToken,
 						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Prefer: 'respond-async',
 						Authorization: serverUtils.getRequestAuthorization(server)
 					},
 					body: JSON.stringify(payload),
@@ -4210,8 +4291,42 @@ var _updateContentType = function (server, typeObj) {
 					} catch (err) {
 						data = body;
 					}
-					if (response && response.statusCode >= 200 && response.statusCode < 300) {
-						resolve(data);
+
+					var statusUrl = response.location;
+					if (response && response.statusCode >= 200 && response.statusCode < 300 && statusUrl) {
+						console.log(' - submit request to update ' + name);
+						var startTime = new Date();
+						var needNewLine = false;
+						var inter = setInterval(function () {
+							var jobPromise = _getUpdateTypeStatus(server, statusUrl);
+							jobPromise.then(function (data) {
+								// console.log(data);
+								if (!data || data.error || data.progress === 'failed') {
+									clearInterval(inter);
+									if (needNewLine) {
+										process.stdout.write(os.EOL);
+									}
+									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
+									console.log('ERROR: update type ' + name + ' failed: ' + msg);
+
+									return resolve({
+										err: 'err'
+									});
+								}
+								if (data.completed) {
+									clearInterval(inter);
+									process.stdout.write(' - update type ' + name + ' in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+									process.stdout.write(os.EOL);
+
+									// return the type itself
+									return resolve(typeObj);
+								} else {
+									process.stdout.write(' - update type ' + name + ' in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+									readline.cursorTo(process.stdout, 0);
+									needNewLine = true;
+								}
+							});
+						}, 5000);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
 						console.log('Failed to update type ' + name + ' - ' + msg);
@@ -4894,6 +5009,13 @@ module.exports.getGroupMembers = function (args) {
 
 var _createConnection = function (request, server) {
 	return new Promise(function (resolve, reject) {
+		// If apiRandomID and cookies have already been cached, then just use them.
+		if (server.apiRandomID && server.cookies) {
+			return resolve({
+				apiRandomID: server.apiRandomID,
+				cookies: server.cookies
+			});
+		}
 
 		var url = server.url + '/osn/social/api/v1/connections';
 
@@ -4929,9 +5051,13 @@ var _createConnection = function (request, server) {
 				if (response.headers && response.headers.raw && typeof response.headers.raw === 'function') {
 					cookies = response.headers.raw()['set-cookie'] || [];
 				}
+				// Cache apiRandomID and cookies for re-use, so that we don't need to create a
+				// connection for each API request.
+				server.apiRandomID = apiRandomID;
+				server.cookies = cookies.length > 0 ? cookies.join(',') : '';
 				resolve({
 					apiRandomID: apiRandomID,
-					cookies: cookies.length > 0 ? cookies.join(',') : ''
+					cookies: server.cookies
 				});
 			} else {
 				var msg = response.statusMessage || response.statusCode;
@@ -6279,6 +6405,166 @@ module.exports.removeChannelFromRecommendation = function (args) {
 	return _updateRecommendation(args.server, args.recommendation);
 };
 
+var _getRecommendationActionStatus = function (server, url, action) {
+	return new Promise(function (resolve, reject) {
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: get ' + action + ' recommendation status');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
+				resolve(data);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get ' + action + ' recommendation status' + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+// Publish/Unpublish a recommendation
+var _publishUnpublishRecommendation = function (server, id, name, channels, action) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var url = server.url + '/content/management/api/v1.1/personalization/recommendations/' + id + '/' + action;
+				var payload = {
+					channels: channels
+				};
+				var postData = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: JSON.stringify(payload),
+					json: true
+				};
+				// console.log(postData);
+
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.log('ERROR: failed to ' + action + ' recommendation ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					}
+					// console.log(data);
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						var statusUrl = response.location;
+						if (statusUrl) {
+							var jobId = statusUrl.substring(statusUrl.lastIndexOf('/') + 1);
+							console.log(' - submit request (job id: ' + jobId + ')');
+							var startTime = new Date();
+							var needNewLine = false;
+							var inter = setInterval(function () {
+								var jobPromise = _getRecommendationActionStatus(server, statusUrl, action);
+								jobPromise.then(function (data) {
+									if (!data || data.progress === 'failed' || data.progress === 'aborted') {
+										clearInterval(inter);
+										if (needNewLine) {
+											process.stdout.write(os.EOL);
+										}
+										var msg = data && data.summary ? data.summary : '';
+										console.log('ERROR: ' + action + ' recommendation failed: ' + msg);
+
+										return resolve({
+											err: 'err'
+										});
+									}
+									if (data.completed && data.progress === 'succeeded') {
+										clearInterval(inter);
+										process.stdout.write(' - ' + action + ' recommendation ' + name + ' in process [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
+										readline.cursorTo(process.stdout, 0);
+										process.stdout.write(os.EOL);
+										return resolve({});
+
+									} else {
+										process.stdout.write(' - ' + action + ' recommendation in process [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
+										readline.cursorTo(process.stdout, 0);
+										needNewLine = true;
+									}
+								});
+							}, 5000);
+						} else {
+							console.log('ERROR: no job info is found');
+							resolve({
+								err: 'err'
+							});
+						}
+					} else {
+						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
+						console.log('ERROR: failed to ' + action + ' recommendation ' + name + ' - ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Publish recommendation on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {object} args.id the id of the recommendation
+ * @param {object} args.name the name of the recommendation
+ * @param {string} args.channels the array of channels
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.publishRecommendation = function (args) {
+	return _publishUnpublishRecommendation(args.server, args.id, args.name, args.channels, 'publish');
+};
+
+/**
+ * Unpublish recommendation on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {object} args.id the id of the recommendation
+ * @param {object} args.name the name of the recommendation
+ * @param {string} args.channels the array of channels
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+ module.exports.unpublishRecommendation = function (args) {
+	return _publishUnpublishRecommendation(args.server, args.id, args.name, args.channels, 'unpublish');
+};
+
 var _importContent = function (server, fileId, repositoryId, channelId, update) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
@@ -7096,7 +7382,7 @@ var _cancelScheduledJobs = function (server, ids) {
 				return nextPromise();
 			});
 		},
-		// Start with a previousPromise value that is a resolved promise 
+		// Start with a previousPromise value that is a resolved promise
 		Promise.resolve());
 };
 

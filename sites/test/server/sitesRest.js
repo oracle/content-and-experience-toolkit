@@ -69,15 +69,15 @@ var _getAllResources = function (server, type, expand) {
 		var resources = [];
 
 		var doGetResources = groups.reduce(function (resPromise, offset) {
-			return resPromise.then(function (result) {
-				if (result && result.items && result.items.length > 0) {
-					resources = resources.concat(result.items);
-				}
-				if (result && result.hasMore) {
-					return _getResources(server, type, expand, offset);
-				}
-			});
-		},
+				return resPromise.then(function (result) {
+					if (result && result.items && result.items.length > 0) {
+						resources = resources.concat(result.items);
+					}
+					if (result && result.hasMore) {
+						return _getResources(server, type, expand, offset);
+					}
+				});
+			},
 			// Start with a previousPromise value that is a resolved promise 
 			_getResources(server, type, expand));
 
@@ -130,7 +130,7 @@ var _getResource = function (server, type, id, name, expand, showError, includeD
 		} else if (name) {
 			url = url + 'name:' + name;
 		}
-		
+
 		console.log(' - get ' + url);
 
 		url = url + '?links=none';
@@ -1501,6 +1501,21 @@ module.exports.deleteTheme = function (args) {
 	return args.hard ? _hardDeleteResource(server, 'themes', args.id, args.name, showError) : _softDeleteResource(server, 'themes', args.id, args.name);
 };
 
+/**
+ * Delete a component on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {string} id the id of the component or
+ * @param {string} name the name of the component
+ * @param {boolean} hard a flag to indicate delete the component permanently
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+ module.exports.deleteComponent = function (args) {
+	var server = args.server;
+	var showError = args.showError !== undefined ? args.showError : true;
+	return args.hard ? _hardDeleteResource(server, 'components', args.id, args.name, showError) : _softDeleteResource(server, 'components', args.id, args.name);
+};
+
 var _importComponent = function (server, name, fileId) {
 	return new Promise(function (resolve, reject) {
 
@@ -1846,7 +1861,8 @@ module.exports.importTemplate = function (args) {
 	return _importTemplate(server, args.name, args.fileId);
 };
 
-var _createSite = function (server, name, description, sitePrefix, templateName, templateId, repositoryId, localizationPolicyId, defaultLanguage, updateContent, suppressgovernance) {
+var _createSite = function (server, name, description, sitePrefix, templateName, templateId, repositoryId, localizationPolicyId, defaultLanguage,
+	updateContent, reuseContent, suppressgovernance) {
 	return new Promise(function (resolve, reject) {
 
 		var url = '/sites/management/api/v1/sites';
@@ -1874,12 +1890,18 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 			'Content-Type': 'application/json',
 			Authorization: serverUtils.getRequestAuthorization(server)
 		};
-		if (updateContent) {
+		if (reuseContent) {
+			headers['X-Preserve-Guids'] = true;
+			headers['X-Reuse-Existing-Content'] = true;
+		} else if (updateContent) {
 			headers['X-Preserve-Guids'] = true;
 		}
 		if (suppressgovernance) {
 			headers['X-Suppress-Site-Governance'] = true;
 		}
+		// this will be ignored if governance is not on or the user is not a sitesadmin
+		headers['X-Auto-Approve-Request'] = true;
+
 		var options = {
 			method: 'POST',
 			url: server.url + url,
@@ -1908,37 +1930,81 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.location;
-				console.log(' - creating site (job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1) + ')');
+				var governanceEnabled = false;
+				if (statusLocation.indexOf('/requests/') > 0) {
+					governanceEnabled = true;
+					console.log(' - sending request');
+				} else {
+					console.log(' - creating site (job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1) + ')');
+				}
 				var startTime = new Date();
 				var needNewLine = false;
 				var inter = setInterval(function () {
 					var jobPromise = _getBackgroundJobStatus(server, statusLocation);
 					jobPromise.then(function (data) {
 						// console.log(data);
-						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
-							clearInterval(inter);
-							if (needNewLine) {
+						if (governanceEnabled) {
+							if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+								clearInterval(inter);
+								if (needNewLine) {
+									process.stdout.write(os.EOL);
+								}
+								var msg = data && data.message ? data.message : (data && data.error ? (data.error.detail || data.error.title) : '');
+								console.log('ERROR: create site failed: ' + msg);
+								// console.log(data);
+								return resolve({
+									err: 'err'
+								});
+							} else if (data.progress === 'blocked') {
+								clearInterval(inter);
+								console.log(' - the request is awaiting approval');
+								return resolve({
+									status: 'pending'
+								});
+
+							} else if (data.completed && data.progress === 'succeeded') {
+								clearInterval(inter);
+								process.stdout.write(' - creating site in process: percentage ' + data.completedPercentage +
+									' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+
 								process.stdout.write(os.EOL);
+
+								return resolve({
+									status: 'created'
+								});
+							} else {
+								process.stdout.write(' - creating site in process: percentage ' + data.completedPercentage +
+									' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								readline.cursorTo(process.stdout, 0);
+								needNewLine = true;
 							}
-							var msg = data && data.message ? data.message : (data && data.error ? (data.error.detail || data.error.title) : '');
-							console.log('ERROR: create site failed: ' + msg);
-							// console.log(data);
-							return resolve({
-								err: 'err'
-							});
-						} else if (data.completed && data.progress === 'succeeded') {
-							clearInterval(inter);
-							process.stdout.write(' - creating site in process: percentage ' + data.completedPercentage +
-								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 
-							process.stdout.write(os.EOL);
-
-							return resolve({});
 						} else {
-							process.stdout.write(' - creating site in process: percentage ' + data.completedPercentage +
-								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-							readline.cursorTo(process.stdout, 0);
-							needNewLine = true;
+							if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+								clearInterval(inter);
+								if (needNewLine) {
+									process.stdout.write(os.EOL);
+								}
+								var msg = data && data.message ? data.message : (data && data.error ? (data.error.detail || data.error.title) : '');
+								console.log('ERROR: create site failed: ' + msg);
+								// console.log(data);
+								return resolve({
+									err: 'err'
+								});
+							} else if (data.completed && data.progress === 'succeeded') {
+								clearInterval(inter);
+								process.stdout.write(' - creating site in process: percentage ' + data.completedPercentage +
+									' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+
+								process.stdout.write(os.EOL);
+
+								return resolve({});
+							} else {
+								process.stdout.write(' - creating site in process: percentage ' + data.completedPercentage +
+									' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								readline.cursorTo(process.stdout, 0);
+								needNewLine = true;
+							}
 						}
 					});
 				}, 5000);
@@ -1966,7 +2032,7 @@ module.exports.createSite = function (args) {
 	return _createSite(server, args.name, args.description, args.sitePrefix,
 		args.templateName, args.templateId, args.repositoryId,
 		args.localizationPolicyId, args.defaultLanguage,
-		args.updateContent, args.suppressgovernance);
+		args.updateContent, args.reuseContent, args.suppressgovernance);
 };
 
 var _copySite = function (server, sourceSiteName, name, description, sitePrefix, repositoryId) {

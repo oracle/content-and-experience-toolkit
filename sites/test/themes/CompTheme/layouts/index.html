@@ -278,24 +278,36 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 						}
 
 					}
-				}
 				
-				var params = {
-      				locale: 'en-us',
-      				contentTypeData: contentTypeData,
-      				contentItemData: contentItemData
-   				};
-				var msg = {
-            		type: 'init',
-           			payload: params
-				};
+				
+					var formOptions =  {
+  						placement: "drawer",
+						supportsRequiredValidation: true,
+						supportsSetDescription: true,
+						supportsSetLanguage: true,
+						supportsSetMetaData: true,
+						supportsSetName: true,
+						supportsSetSlug: true,
+						supportsSetTranslatable: false
+					};
+					var params = {
+      					locale: 'en-us',
+      					contentTypeData: contentTypeData,
+      					contentItemData: contentItemData,
+					  	formOptions: formOptions
+					};
+					var msg = {
+            			type: 'init',
+           				payload: params
+					};
 
-				var editFrame = document.getElementById('editFrame');
-				var editWindow = editFrame && editFrame.contentWindow;
-				if (editWindow) {
-					editWindow.postMessage(msg, window.origin); 
-				}
+					var editFrame = document.getElementById('editFrame');
+					var editWindow = editFrame && editFrame.contentWindow;
+					if (editWindow) {
+						editWindow.postMessage(msg, window.origin); 
+					}
 				
+				} // formReady
 
 			} else {
 

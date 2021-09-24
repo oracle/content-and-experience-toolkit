@@ -247,7 +247,7 @@ module.exports.getRequestAuthorization = function (server) {
 	return _getRequestAuthorization(server);
 };
 var _getRequestAuthorization = function (server) {
-	var auth = server.env === 'dev_ec' || !server.oauthtoken ? ('Basic ' + _btoa(server.username + ':' + server.password)) : ((server.tokentype || 'Bearer') + ' ' + server.oauthtoken);	
+	var auth = server.env === 'dev_ec' || !server.oauthtoken ? ('Basic ' + _btoa(server.username + ':' + server.password)) : ((server.tokentype || 'Bearer') + ' ' + server.oauthtoken);
 
 	return auth;
 };
@@ -344,7 +344,7 @@ var _createAssetGUID = function (isDigitalAsset) {
 
 
 /**
- * Utility check if a string ends with 
+ * Utility check if a string ends with
  */
 module.exports.endsWith = (str, end) => {
 	return _endsWith(str, end);
@@ -892,7 +892,7 @@ var _getTemplateIcon = function (templateName) {
 };
 
 /**
- * Get all content items (across templates) that use this content layout 
+ * Get all content items (across templates) that use this content layout
  * @param layoutName
  */
 module.exports.getContentLayoutItems = function (projectDir, layoutName) {
@@ -997,7 +997,7 @@ module.exports.getContentLayoutItems = function (projectDir, layoutName) {
 };
 
 /**
- * Get all content items (across templates) that use this content form 
+ * Get all content items (across templates) that use this content form
  * @param formName
  */
 module.exports.getContentFormItems = function (projectDir, formName) {
@@ -1150,6 +1150,29 @@ module.exports.getContentType = function (projectDir, typeName, templateName) {
 	return contenttype;
 };
 
+/**
+ * Get content layout components from type definition
+ */
+module.exports.getTypeContentLayouts = function (typeObj) {
+	var mapping = typeObj && typeObj.layoutMapping;
+	var contentLayouts = [];
+	if (mapping && mapping.data && mapping.data.length > 0) {
+		var typeMappings = mapping.data || [];
+		for (var j = 0; j < typeMappings.length; j++) {
+			if (typeMappings[j].label) {
+				var desktopLayout = typeMappings[j].formats && typeMappings[j].formats.desktop;
+				var mobileLayout = typeMappings[j].formats && typeMappings[j].formats.mobile;
+				if (desktopLayout && !contentLayouts.includes(desktopLayout)) {
+					contentLayouts.push(desktopLayout);
+				}
+				if (mobileLayout && !contentLayouts.includes(mobileLayout)) {
+					contentLayouts.push(mobileLayout);
+				}
+			}
+		}
+	}
+	return contentLayouts;
+};
 
 module.exports.getCaasCSRFToken = function (server) {
 	var csrfTokenPromise = new Promise(function (resolve, reject) {
@@ -1249,6 +1272,43 @@ var _getIdcToken = function (server) {
 	return idcTokenPromise;
 };
 
+module.exports.getSitesGovernance = function (server) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/integration?IdcService=SCS_GET_TENANT_CONFIG&IsJson=1';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+		if (server.cookies) {
+			options.headers.Cookie = server.cookies;
+		}
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log(' - failed to call SCS_GET_TENANT_CONFIG ' + error);
+				return resolve({
+					err: 'err'
+				});
+			} else if (response.statusCode !== 200) {
+				console.log(' - failed to call SCS_GET_TENANT_CONFIG: ' + (response.statusMessage || response.statusCode));
+				return resolve({
+					err: 'err'
+				});
+			} else {
+				var data = JSON.parse(body);
+				var sitesGovernanceEnabled = data && data.LocalData && data.LocalData.IsSitesGovernanceEnabled === '1';
+				resolve({
+					sitesGovernanceEnabled: sitesGovernanceEnabled
+				});
+			}
+		});
+	});
+};
+
 /**
  * Requires login first
  */
@@ -1299,43 +1359,49 @@ module.exports.getTenantConfig = function (server) {
 };
 
 module.exports.setTenantConfig = function (server, localData, tenantOptionRows) {
-    return new Promise(function (resolve, reject) {
+	return new Promise(function (resolve, reject) {
 		var payload = {
 			LocalData: localData
-		  };
-		  payload.ResultSets = {
+		};
+		payload.ResultSets = {
 			TenantOptions: {
-			  fields: [{"name": "dTenantOptionName"}, {"name": "dTenantOptionValue"}, {"name": "dTenantOptionDataType"}],
-			  rows: tenantOptionRows
+				fields: [{
+					"name": "dTenantOptionName"
+				}, {
+					"name": "dTenantOptionValue"
+				}, {
+					"name": "dTenantOptionDataType"
+				}],
+				rows: tenantOptionRows
 			}
-		  };
-		_getIdcToken(server).then(function(result){
-			payload["LocalData"]["idcToken"] =  result.idcToken;
-            var url = server.url + '/documents/desktop?IdcService=SET_TENANT_CONFIG';
-            var options = {
-                method: 'POST',
-                url: url,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-REQUESTED-WITH': 'XMLHttpRequest',
-                    Authorization: _getRequestAuthorization(server)
-                },
-                body: JSON.stringify(payload),
-                json: true
-            };
-            var request = require('./requestUtils.js').request;
-            request.post(options, function (err, response, body) {
-                if (err) {
-                    return resolve({
-                        err: 'err'
-                    });
-                }
-                var data;
-                try {
-                    data = JSON.parse(body);
-                } catch (error) {
-                    data = body;
-                }
+		};
+		_getIdcToken(server).then(function (result) {
+			payload["LocalData"]["idcToken"] = result.idcToken;
+			var url = server.url + '/documents/desktop?IdcService=SET_TENANT_CONFIG';
+			var options = {
+				method: 'POST',
+				url: url,
+				headers: {
+					'Content-Type': 'application/json',
+					'X-REQUESTED-WITH': 'XMLHttpRequest',
+					Authorization: _getRequestAuthorization(server)
+				},
+				body: JSON.stringify(payload),
+				json: true
+			};
+			var request = require('./requestUtils.js').request;
+			request.post(options, function (err, response, body) {
+				if (err) {
+					return resolve({
+						err: 'err'
+					});
+				}
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (error) {
+					data = body;
+				}
 				if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 					var errorMsg = data && data.LocalData ? '- ' + data.LocalData.StatusMessage : "failed to enable settings";
 					return reject({
@@ -1344,9 +1410,9 @@ module.exports.setTenantConfig = function (server, localData, tenantOptionRows) 
 				} else {
 					return resolve({});
 				}
-            });
-		}); 
-    });
+			});
+		});
+	});
 };
 
 /**
@@ -1602,7 +1668,7 @@ module.exports.getDocumentRendition = function (app, doc, callback) {
 
 /**
  * Get custom components associated with a theme
- * @param {*} themeName 
+ * @param {*} themeName
  */
 module.exports.getThemeComponents = function (projectDir, themeName) {
 	_setupSourceDir(projectDir);
@@ -2234,14 +2300,14 @@ var _timeUsed = function (start, end) {
 	// strip the ms
 	timeDiff /= 1000;
 
-	// get seconds 
+	// get seconds
 	var seconds = Math.round(timeDiff);
 	return seconds.toString() + 's';
 };
 
 
 /**
- * get request 
+ * get request
  */
 module.exports.getRequest = function () {
 	"use strict";
@@ -2263,7 +2329,7 @@ var _getRequest = function () {
 
 /**
  * Get the site info return the data as API SCS_GET_SITE_INFO_FILE
- * @param {*} server 
+ * @param {*} server
  * @param {*} site the site name
  */
 var _getSiteInfo = function (server, site) {
@@ -3119,6 +3185,85 @@ module.exports.stripTopDirectory = function (dir) {
 					});
 				});
 			});
+		});
+	});
+};
+
+module.exports.getAdminSettings = function (server) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/system/api/v1/configurations/settings';
+
+		var postData = {
+			method: 'GET',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+		// console.log(postData);
+
+		var request = require('./requestUtils.js').request;
+		request.get(postData, function (err, response, body) {
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				if (typeof body === 'object') {
+					data = body;
+				}
+			}
+
+			if (response && response.statusCode === 200) {
+				return resolve(data.items);
+			} else if (response && response.statusCode !== 200) {
+				console.log('ERROR: Failed to get admin settings -', response.statusCode);
+				return reject({
+					err: err
+				});
+			}
+		});
+	});
+};
+
+module.exports.updateAdminSettings = function (server, settings) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/system/api/v1/configurations/settings/.bulk/update';
+		var configRequest = {
+			settings: settings
+		};
+
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: _getRequestAuthorization(server)
+			},
+			body: JSON.stringify(configRequest),
+			json: true
+		};
+		// console.log(postData);
+
+		var request = require('./requestUtils.js').request;
+		request.post(postData, function (err, response, body) {
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				if (typeof body === 'object') {
+					data = body;
+				}
+			}
+
+			if (response && response.statusCode === 200) {
+				return resolve(data);
+			} else if (response && response.statusCode !== 200) {
+				console.log('ERROR: Failed to update admin settings -', response.statusCode);
+				return reject({
+					err: err
+				});
+			}
 		});
 	});
 };

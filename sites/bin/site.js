@@ -83,8 +83,9 @@ module.exports.createSite = function (argv, done) {
 	var sitePrefix = argv.sitePrefix || name.toLowerCase();
 	sitePrefix = sitePrefix.substring(0, 15);
 	var updateContent = typeof argv.update === 'string' && argv.update.toLowerCase() === 'true';
+	var reuseContent = typeof argv.reuse === 'string' && argv.reuse.toLowerCase() === 'true';
 
-	_createSiteREST(server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, updateContent, done);
+	_createSiteREST(server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, updateContent, reuseContent, done);
 
 };
 
@@ -103,10 +104,13 @@ module.exports.createSite = function (argv, done) {
  * @param {*} done 
  */
 var _createSiteREST = function (server, name, templateName, repositoryName, localizationPolicyName,
-	defaultLanguage, description, sitePrefix, updateContent, done) {
+	defaultLanguage, description, sitePrefix, updateContent, reuseContent, done) {
 	var template, templateGUID;
 	var repositoryId, localizationPolicyId;
 	var createEnterprise;
+	var governanceEnabled;
+	var localizationPolicyAllowed;
+	var sitePrefixAllowed;
 
 	var format = '   %-20s %-s';
 	var loginPromise = serverUtils.loginToServer(server);
@@ -117,11 +121,24 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 			return;
 		}
 
-		sitesRest.resourceExist({
-				server: server,
-				type: 'sites',
-				name: name
-			}).then(function (result) {
+		serverUtils.getSitesGovernance(server)
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				governanceEnabled = result.sitesGovernanceEnabled;
+				if (governanceEnabled) {
+					console.log(' - governance for sites is enabled');
+				}
+
+				return sitesRest.resourceExist({
+					server: server,
+					type: 'sites',
+					name: name
+				});
+			})
+			.then(function (result) {
 				if (!result.err) {
 					console.log('ERROR: site ' + name + ' already exists');
 					return Promise.reject();
@@ -130,7 +147,7 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 				return sitesRest.getTemplate({
 					server: server,
 					name: templateName,
-					expand: 'localizationPolicy'
+					expand: 'localizationPolicy,policy'
 				});
 			})
 			.then(function (result) {
@@ -140,12 +157,21 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 
 				template = result;
 
+				sitePrefixAllowed = template.policy && template.policy.sitePrefixAllowed;
+				localizationPolicyAllowed = template.policy && template.policy.localizationPolicyAllowed;
+
+				if (governanceEnabled && (!template.policy || !template.policy.status || template.policy.status !== 'active')) {
+					console.log('ERROR: the template is not active');
+					return Promise.reject();
+				}
+
 				if (template.isEnterprise && !repositoryName) {
 					console.log('ERROR: repository is required to create enterprise site');
 					return Promise.reject();
 				}
 
-				createEnterprise = repositoryName ? true : false;
+				// When governance is on, standard template can only creates standard site
+				createEnterprise = repositoryName && (!governanceEnabled || template.isEnterprise) ? true : false;
 
 				if (createEnterprise && !template.localizationPolicy && !localizationPolicyName) {
 					console.log('ERROR: localization policy is required to create enterprise site');
@@ -171,8 +197,22 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 						.then(function (result) {
 							if (result.err) {
 								done();
-							} else {
+							}
+							if (!result.status || result.status !== 'pending') {
 								console.log(' - site created');
+
+								sitesRest.getSite({
+									server: server,
+									name: name
+								}).then(function (result) {
+									if (result.err) {
+										done();
+									} else {
+										console.log(' - site id: ' + (result && result.id));
+										done(true);
+									}
+								});
+							} else {
 								done(true);
 							}
 						});
@@ -251,22 +291,27 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 							console.log(' - creating enterprise site ...');
 							console.log(sprintf(format, 'name', name));
 							console.log(sprintf(format, 'template', templateName));
-							console.log(sprintf(format, 'site prefix', sitePrefix));
+							if (!governanceEnabled || sitePrefixAllowed) {
+								console.log(sprintf(format, 'site prefix', sitePrefix));
+							}
 							console.log(sprintf(format, 'repository', repositoryName));
-							console.log(sprintf(format, 'localization policy', policy.name));
+							if (!governanceEnabled && localizationPolicyAllowed) {
+								console.log(sprintf(format, 'localization policy', policy.name));
+							}
 							console.log(sprintf(format, 'default language', defaultLanguage));
 
 							return sitesRest.createSite({
 								server: server,
 								name: name,
 								description: description,
-								sitePrefix: sitePrefix,
+								sitePrefix: !governanceEnabled || sitePrefixAllowed ? sitePrefix : '',
 								templateName: templateName,
 								templateId: template.id,
 								repositoryId: repositoryId,
-								localizationPolicyId: localizationPolicyId,
+								localizationPolicyId: !governanceEnabled || localizationPolicyAllowed ? localizationPolicyId : '',
 								defaultLanguage: defaultLanguage,
-								updateContent: updateContent
+								updateContent: updateContent,
+								reuseContent: reuseContent
 							});
 						})
 						.then(function (result) {
@@ -274,18 +319,23 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 								return Promise.reject();
 							}
 
-							console.log(' - site created');
+							if (!result.status || result.status !== 'pending') {
+								console.log(' - site created');
 
-							return sitesRest.getSite({
-								server: server,
-								name: name
-							});
-
-						})
-						.then(function (result) {
-							console.log(' - site id: ' + (result && result.id));
-
-							done(true);
+								sitesRest.getSite({
+									server: server,
+									name: name
+								}).then(function (result) {
+									if (!result || result.err) {
+										done();
+									} else {
+										console.log(' - site id: ' + result.id + ' prefix: ' + result.sitePrefix);
+										done(true);
+									}
+								});
+							} else {
+								done(true);
+							}
 						})
 						.catch((error) => {
 							done();
@@ -1175,6 +1225,7 @@ module.exports.transferSite = function (argv, done) {
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
 	var includestaticfiles = typeof argv.includestaticfiles === 'string' && argv.includestaticfiles.toLowerCase() === 'true';
 	var suppressgovernance = typeof argv.suppressgovernance === 'string' && argv.suppressgovernance.toLowerCase() === 'true';
+	var reuseContent = typeof argv.reuse === 'string' && argv.reuse.toLowerCase() === 'true';
 
 	var repositorymappings = argv.repositorymappings ? argv.repositorymappings.split(',') : [];
 
@@ -1674,6 +1725,7 @@ module.exports.transferSite = function (argv, done) {
 										localizationPolicyId: policy.id,
 										defaultLanguage: site.defaultLanguage,
 										updateContent: true,
+										reuseContent: reuseContent,
 										suppressgovernance: suppressgovernance
 									}));
 
@@ -1820,7 +1872,7 @@ module.exports.transferSite = function (argv, done) {
 										console.log(' - site ' + siteName + ' created on ' + destServer.url);
 									}
 
-									_transferOtherAssets(argv, server, destServer, site, destSite, repoMappings, excludecontent, publishedassets).then(function (result) {
+									_transferOtherAssets(argv, server, destServer, site, destSite, repoMappings, excludecontent, publishedassets, reuseContent).then(function (result) {
 
 										// update the localization policy
 										serverRest.updateLocalizationPolicy({
@@ -1846,7 +1898,8 @@ module.exports.transferSite = function (argv, done) {
 										name: siteName,
 										template: templateName,
 										server: destServerName,
-										excludecontenttemplate: excludecontent ? 'true' : 'false'
+										excludecontenttemplate: excludecontent ? 'true' : 'false',
+										reuseContent: reuseContent
 									};
 									siteUpdateLib.updateSite(updateSiteArgs, function (success) {
 										console.log(' - update site finished');
@@ -1885,7 +1938,7 @@ module.exports.transferSite = function (argv, done) {
 												})
 												.then(function (result) {
 
-													return _transferOtherAssets(argv, server, destServer, site, destSite, repoMappings, excludecontent, publishedassets);
+													return _transferOtherAssets(argv, server, destServer, site, destSite, repoMappings, excludecontent, publishedassets, reuseContent);
 
 												})
 												.then(function (result) {
@@ -1949,7 +2002,7 @@ module.exports.transferSite = function (argv, done) {
 		}); // login
 };
 
-var _transferOtherAssets = function (argv, server, destServer, site, destSite, repoMappings, excludecontent, publishedassets) {
+var _transferOtherAssets = function (argv, server, destServer, site, destSite, repoMappings, excludecontent, publishedassets, reuseContent) {
 	return new Promise(function (resolve, reject) {
 		if (repoMappings.length === 0 || excludecontent) {
 			return resolve({});
@@ -1984,7 +2037,7 @@ var _transferOtherAssets = function (argv, server, destServer, site, destSite, r
 			.then(function (result) {
 
 				// transfer assets from other repositories
-				return _transferRepoAssets(argv, repoMappings, server, destServer, site, destSite, publishedassets);
+				return _transferRepoAssets(argv, repoMappings, server, destServer, site, destSite, publishedassets, reuseContent);
 
 			})
 			.then(function (result) {
@@ -2032,7 +2085,7 @@ var _removeRepoAssetsFromChannel = function (server, channelId, repoIds) {
 	});
 };
 
-var _transferRepoAssets = function (argv, repoMappings, server, destServer, site, destSite, publishedassets) {
+var _transferRepoAssets = function (argv, repoMappings, server, destServer, site, destSite, publishedassets, reuseContent) {
 	return new Promise(function (resolve, reject) {
 		var total = repoMappings.length;
 		var destdir = path.join(projectDir, 'dist');
@@ -2065,6 +2118,7 @@ var _transferRepoAssets = function (argv, repoMappings, server, destServer, site
 									isFile: true,
 									repositoryName: mapping.destName,
 									channelName: destSite.name,
+									reuseContent: reuseContent,
 									updateContent: true,
 									contentpath: destdir,
 									contentfilename: fileName

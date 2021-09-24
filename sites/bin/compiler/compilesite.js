@@ -630,12 +630,21 @@ function parsePageIdAndParams(linkText) {
 
 	// check for additional parameters
 	// "100|a=b&c=d" or "|a=b&c=d" so extract the page ID (may be an empty string)
+	// anchor text comes after the second |. E.g.
+	// "140|k1=v1&amp;k2=v2|bottom"
+	// "150||requestQuote"
+	// Just need to change second | to #.
 	if (pageLink && pageLink.indexOf('|') !== -1) {
 		// get the pageId (may be empty)
 		pageValues.pageId = pageLink.substr(0, pageLink.indexOf('|'));
 
 		// add in anything else
 		pageValues.pageParams = pageLink.substr(pageLink.indexOf('|') + 1) || '';
+
+		// Change second | to #.
+		if (pageValues.pageParams.indexOf('|') !== -1) {
+			pageValues.pageParams = pageValues.pageParams.replace('|', '#');
+		}
 	}
 
 	return pageValues;
@@ -687,8 +696,13 @@ function getPageLinkData(pageEntry, sitePrefix, structureMap, pageLocale, locale
 
 	// add in any parameters
 	if (pageValues.pageParams) {
-		var joinChar = url.indexOf('?') === -1 ? '?' : '&';
-		url += (joinChar + pageValues.pageParams);
+		if (pageValues.pageParams.indexOf('#') === 0) {
+			url += pageValues.pageParams;
+		}
+		else {
+			var joinChar = url.indexOf('?') === -1 ? '?' : '&';
+			url += (joinChar + pageValues.pageParams);
+		}
 	}
 
 	if (url) {

@@ -883,6 +883,7 @@ var _uploadContentFromZipFile = function (args) {
 		collectionName = args.collectionName,
 		collectionId = args.collectionId,
 		updateContent = args.updateContent,
+		reuseContent = args.reuseContent,
 		typesOnly = args.typesOnly,
 		hasTax = args.hasTax,
 		errorMessage;
@@ -929,7 +930,7 @@ var _uploadContentFromZipFile = function (args) {
 				console.log(' - get CSRF token');
 
 				var importTypes = typesOnly || hasTax;
-				return _importContent(server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent, importTypes);
+				return _importContent(server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent, importTypes, reuseContent);
 
 			}).then(function (result) {
 
@@ -957,7 +958,7 @@ var _uploadContentFromZipFile = function (args) {
 					importTypes = false;
 					importSuccess = false;
 					importAgainPromises.push(
-						_importContent(server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent, importTypes));
+						_importContent(server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent, importTypes, reuseContent));
 				}
 
 				return Promise.all(importAgainPromises);
@@ -1071,6 +1072,7 @@ module.exports.uploadContent = function (argv, done) {
 	var channelName = argv.channel || (isFile ? '' : name);
 	var collectionName = argv.collection;
 	var updateContent = typeof argv.update === 'string' && argv.update.toLowerCase() === 'true';
+	var reuseContent = typeof argv.reuse === 'string' && argv.reuse.toLowerCase() === 'true';
 	var typesOnly = typeof argv.types === 'string' && argv.types.toLowerCase() === 'true';
 
 	var createZip = isFile ? false : true;
@@ -1107,7 +1109,7 @@ module.exports.uploadContent = function (argv, done) {
 					.then(function (result) {
 						var hasTax = result && result.hasTax;
 
-						_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax)
+						_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax, reuseContent)
 							.then(function (result) {
 								if (result && result.err) {
 									done();
@@ -1133,6 +1135,7 @@ var _uploadContentUtil = function (args) {
 		var collectionName = args.collectionName;
 		var channelName = args.channelName;
 		var updateContent = args.updateContent;
+		var reuseContent = args.reuseContent;
 		var contentpath = args.contentpath;
 		var contentfilename = args.contentfilename;
 		var typesOnly = args.typesOnly;
@@ -1143,7 +1146,7 @@ var _uploadContentUtil = function (args) {
 			.then(function (result) {
 				var hasTax = result && result.hasTax;
 
-				_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax)
+				_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax, reuseContent)
 					.then(function (result) {
 						return resolve(result);
 					});
@@ -1152,7 +1155,7 @@ var _uploadContentUtil = function (args) {
 	});
 };
 
-var _uploadContent = function (server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax) {
+var _uploadContent = function (server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax, reuseContent) {
 	return new Promise(function (resolve, reject) {
 
 		var repository, repositoryId;
@@ -1314,6 +1317,7 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 					collectionName: collectionName,
 					collectionId: collectionId,
 					updateContent: updateContent,
+					reuseContent: reuseContent,
 					typesOnly: typesOnly,
 					hasTax: hasTax
 				};
@@ -1341,7 +1345,7 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 	});
 };
 
-var _importContent = function (server, csrfToken, contentZipFileId, repositoryId, channelId, collectionId, updateContent, typesOnly) {
+var _importContent = function (server, csrfToken, contentZipFileId, repositoryId, channelId, collectionId, updateContent, typesOnly, reuseContent) {
 	var importPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/content-templates/importjobs';
 
@@ -1351,9 +1355,12 @@ var _importContent = function (server, csrfToken, contentZipFileId, repositoryId
 			'channelIds': channelId ? [channelId] : []
 		};
 
-		if (updateContent) {
+		if (reuseContent) {
+			// does not update existing content if the content in repo is newer than content being imported
+			postData.source = 'reuseExisting';
+		} else if (updateContent) {
 			// update the existing content items (if any) instead of creating new ones
-			postData.source = 'sites';
+			postData.source = 'alwaysUpdate';
 		}
 
 		if (collectionId) {
@@ -1397,11 +1404,10 @@ var _importContent = function (server, csrfToken, contentZipFileId, repositoryId
 						err: 'err'
 					});
 				}
-				console.log(' - submit import job (' + jobId + ')' + (updateContent ? ', updating content' : ''));
+				console.log(' - submit import job (' + jobId + ')' + (reuseContent ? ', reuse existing content' : (updateContent ? ', updating content' : '')));
 
 				// Wait for job to finish
 				var startTime = new Date();
-				var count = [];
 				var needNewline = false;
 				var inter = setInterval(function () {
 					var checkImportStatusPromise = serverRest.getContentJobStatus({
@@ -1465,6 +1471,7 @@ module.exports.uploadContentFromTemplate = function (args) {
 		server = args.server,
 		siteInfo = args.siteInfo,
 		templateName = args.templateName,
+		reuseContent = args.reuseContent,
 		updateContent = args.updateContent;
 
 	verifyRun({
@@ -1516,6 +1523,7 @@ module.exports.uploadContentFromTemplate = function (args) {
 				channelId: siteInfo.channelId,
 				collectionId: siteInfo.arCollectionId,
 				updateContent: updateContent,
+				reuseContent: reuseContent,
 				hasTax: hasTax
 			}).then(function (result) {
 				if (result.err) {
@@ -3132,6 +3140,7 @@ module.exports.transferSiteContent = function (argv, done) {
 
 	var executeScripts = typeof argv.execute === 'string' && argv.execute.toLowerCase() === 'true';
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
+	var reuseContent = typeof argv.reuse === 'string' && argv.reuse.toLowerCase() === 'true';
 	var addtositecollection = typeof argv.addtositecollection === 'string' && argv.addtositecollection.toLowerCase() === 'true';
 	var siteName = argv.name;
 	var repositoryName = argv.repository;
@@ -3400,7 +3409,14 @@ module.exports.transferSiteContent = function (argv, done) {
 
 				// upload command for this group
 				zipPath = path.join(distFolder, groupName + '_export.zip');
-				cmd = winCall + 'cec upload-content "' + zipPath + '" -f -u';
+				cmd = winCall + 'cec upload-content "' + zipPath + '" -f';
+				if (reuseContent) {
+					// update older content only
+					cmd += ' --reuse';
+				} else {
+					// update all content
+					cmd += ' --update';
+				}
 				cmd += ' -r "' + repositoryName + '"';
 				cmd += ' -c ' + channelName;
 				if (addtositecollection) {
@@ -3435,7 +3451,14 @@ module.exports.transferSiteContent = function (argv, done) {
 					downloadScript += cmd + os.EOL + os.EOL;
 
 					zipPath = path.join(distFolder, groupName + '_export.zip');
-					cmd = winCall + 'cec upload-content "' + zipPath + '" -f -u';
+					cmd = winCall + 'cec upload-content "' + zipPath + '" -f';
+					if (reuseContent) {
+						// update older content only
+						cmd += ' --reuse';
+					} else {
+						// update all content
+						cmd += ' --update';
+					}
 					cmd += ' -r "' + repoMappings[i].destName + '"';
 					cmd += ' -c ' + channelName;
 					cmd += ' -s ' + destServerName;
@@ -3523,6 +3546,7 @@ module.exports.transferContent = function (argv, done) {
 
 	var executeScripts = typeof argv.execute === 'string' && argv.execute.toLowerCase() === 'true';
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
+	var reuseContent = typeof argv.reuse === 'string' && argv.reuse.toLowerCase() === 'true';
 
 	var repositoryName = argv.repository;
 	var channelName = argv.channel;
@@ -3681,7 +3705,14 @@ module.exports.transferContent = function (argv, done) {
 
 				// upload command for this group
 				zipPath = path.join(distFolder, groupName + '_export.zip');
-				cmd = winCall + 'cec upload-content "' + zipPath + '" -f -u';
+				cmd = winCall + 'cec upload-content "' + zipPath + '" -f';
+				if (reuseContent) {
+					// update older content only
+					cmd += ' --reuse';
+				} else {
+					// update all content
+					cmd += ' --update';
+				}
 				cmd += ' -r "' + repositoryName + '"';
 				if (channelName) {
 					cmd += ' -c "' + channelName + '"';
