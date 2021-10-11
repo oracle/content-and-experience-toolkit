@@ -97,7 +97,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 			var isEnterprise;
 			var templateIsEnterprise = 'true';
-			var themeName, themeId;
+			var themeName, themeId, themeInfo;
 			var channelId;
 			var channelName;
 			var repositoryId;
@@ -234,6 +234,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 				})
 				.then(function (results) {
+					themeInfo = results && results[0] || {};
 
 					// check if the site has any asset
 					return contentUtils.siteHasAssets(server, channelId, repositoryId, publishedassets);
@@ -439,12 +440,15 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					return Promise.all(downloadCompsPromises);
 
 				})
-				.then(function (result) {
-
+				.then(function (results) {
+					var compsInfo = results && results[0] || [];
 					console.log(' - create ' + (templateIsEnterprise === 'true' ? 'enterprise template' : 'standard template'));
 					console.log('*** template is ready to test: http://localhost:8085/templates/' + name);
+					
 					return resolve({
-						contentLayouts: contentLayoutNames
+						contentLayouts: contentLayoutNames,
+						theme: themeInfo,
+						components: compsInfo
 					});
 
 				})
@@ -473,16 +477,12 @@ var _downloadTheme = function (server, themeName, themeId, themeSrcPath) {
 			.then(function (result) {
 				console.log(' - download theme files');
 
-				return serverRest.getFolderMetadata({
-					server: server,
-					folderId: themeId
-				});
+				return serverUtils.getThemeMetadata(server, themeId, themeName);
 
 			}).then(function (result) {
-
 				// get the theme identity in folder info
-				var itemGUID = result && result.metadata && result.metadata.xScsItemGUID || themeId;
-
+				var itemGUID = result && result.metadata && result.metadata.scsItemGUID || themeId;
+				// console.log(' - theme ' + themeName + ' itemGUID: ' + itemGUID + ' id: ' + themeId);
 				// create _folder.json for theme
 				var folderJson = {
 					themeName: themeName,
@@ -490,7 +490,7 @@ var _downloadTheme = function (server, themeName, themeId, themeSrcPath) {
 				};
 				fs.writeFileSync(path.join(themeSrcPath, '_folder.json'), JSON.stringify(folderJson));
 
-				return resolve({});
+				return resolve(folderJson);
 			});
 	});
 };
@@ -499,6 +499,7 @@ var _downloadSiteComponents = function (server, compNames) {
 	return new Promise(function (resolve, reject) {
 		var comps = [];
 		var downloadedComps = [];
+		var returnComps = [];
 		_downloadComponents(compNames, server)
 			.then(function (result) {
 				downloadedComps = result;
@@ -515,10 +516,7 @@ var _downloadSiteComponents = function (server, compNames) {
 
 				var compFolderInfoPromises = [];
 				for (var i = 0; i < comps.length; i++) {
-					compFolderInfoPromises.push(serverRest.getFolderMetadata({
-						server: server,
-						folderId: comps[i].id
-					}));
+					compFolderInfoPromises.push(serverUtils.getComponentMetadata(server, comps[i].id, comps[i].name));
 				}
 
 				return Promise.all(compFolderInfoPromises);
@@ -533,11 +531,13 @@ var _downloadSiteComponents = function (server, compNames) {
 					// get the component's identity 
 					for (var j = 0; j < compFolderInfo.length; j++) {
 						var compInfo = compFolderInfo[j];
-						if (compInfo && compInfo.folderId === comps[i].id && compInfo.metadata.xScsItemGUID) {
-							itemGUID = compInfo.metadata.xScsItemGUID;
+						if (compInfo && compInfo.folderId === comps[i].id && compInfo.metadata.scsItemGUID) {
+							itemGUID = compInfo.metadata.scsItemGUID;
 							break;
 						}
 					}
+					// console.log(' - component ' + comps[i].name + ' itemGUID: ' + itemGUID + ' id: ' + comps[i].id);
+
 					// get the component's appType from appinfo.json
 					// currently API /sites/management/api/v1/components does not return appType
 					var appType = comps[i].appType;
@@ -563,9 +563,13 @@ var _downloadSiteComponents = function (server, compNames) {
 					} else {
 						console.log('ERROR: component ' + comps[i].name + ' not downloaded');
 					}
+					returnComps.push({
+						name: comps[i].name,
+						itemGUID: itemGUID
+					});
 				}
 
-				return resolve({});
+				return resolve(returnComps);
 			});
 	});
 };
@@ -755,7 +759,8 @@ var _queryComponents = function (server, compNames) {
 
 			compsPromises.push(sitesRest.getComponent({
 				server: server,
-				name: compName
+				name: compName,
+				showInfo: false
 			}));
 
 		});

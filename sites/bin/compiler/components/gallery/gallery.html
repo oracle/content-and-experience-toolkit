@@ -41,11 +41,11 @@
 						<div>
 							{{#hasLink}}
 							{{#isMap}}
-							<a target="{{target}}" data-target-scs="{{target}}" data-href="{{linkURL}}"
+							<a target="{{target}}" data-target-scs="{{target}}" data-href="{{linkURL}}" {{{ariaLabelValue}}}
 								data-google-maps-embed-api-key="googleMapsEmbedApiKey" style="display: block;">
 							{{/isMap}}
 							{{#isNotMap}}
-							<a href="{{linkURL}}" target="{{target}}" {{{downloadName}}} style="display: block;" {{{dataAnalyticsClick}}}>
+							<a href="{{linkURL}}" target="{{target}}" {{{downloadName}}} style="display: block;" {{{dataAnalyticsClick}}} {{{ariaLabelValue}}}>
 							{{/isNotMap}}
 							{{/hasLink}}
 

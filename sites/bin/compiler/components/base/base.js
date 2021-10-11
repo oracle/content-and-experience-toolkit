@@ -77,6 +77,9 @@ Base.prototype.init = function (compType, compId, compInstance) {
 		this[propName] = initialValue;
 	}
 
+	// add in any aria-label - encode the value
+	this.ariaLabelValue = this.ariaLabel ? 'aria-label="' + mustache.render('{{ariaLabel}}', this) + '"' : '';
+
 	// validation function for file extensions
 	if (compConfig.supportedFileExtensions) {
 		this.supportedFileExtensions = compConfig.supportedFileExtensions;

@@ -936,6 +936,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 		var destSiteUsedData;
 		var templateId;
 		var contentLayoutNames = [];
+		var compsToVerify = [];
 
 		var destdir = path.join(projectDir, 'dist');
 		var startTime;
@@ -977,6 +978,29 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 				if (!result || result.err) {
 					return Promise.reject();
 				}
+
+				// the result contains theme and components (itemGUID)
+
+				compsToVerify = result.components || [];
+
+				var verifyThemePromises = [];
+				if (result.theme && result.theme.themeName && result.theme.itemGUID) {
+					verifyThemePromises.push(_verifyThemeItemGUID(destServer, result.theme.themeName, result.theme.itemGUID));
+				}
+
+				return Promise.all(verifyThemePromises);
+			})
+			.then(function (results) {
+
+				var verifyCompPromises = [];
+				if (!excludecomponents && compsToVerify && compsToVerify.length > 0) {
+					verifyCompPromises.push(_verifyComponentItemGUID(destServer, compsToVerify));
+				}
+
+				return Promise.all(verifyCompPromises);
+
+			})
+			.then(function (results) {
 
 				// zip up the template
 				var optimize = false;
@@ -1271,6 +1295,7 @@ module.exports.transferSite = function (argv, done) {
 	var newThemeName;
 	var newThemeGUID;
 	var newThemePath;
+	var compsToVerify = [];
 
 	var cecVersion, idcToken;
 
@@ -1564,6 +1589,30 @@ module.exports.transferSite = function (argv, done) {
 								if (!result || result.err) {
 									return Promise.reject();
 								}
+
+								// console.log(result);
+								// the result contains theme and components (itemGUID)
+
+								compsToVerify = result.components || [];
+
+								var verifyThemePromises = [];
+								if (!excludetheme && result.theme && result.theme.themeName && result.theme.itemGUID) {
+									verifyThemePromises.push(_verifyThemeItemGUID(destServer, result.theme.themeName, result.theme.itemGUID));
+								}
+
+								return Promise.all(verifyThemePromises);
+							})
+							.then(function (results) {
+
+								var verifyCompPromises = [];
+								if (!excludecomponents && compsToVerify && compsToVerify.length > 0) {
+									verifyCompPromises.push(_verifyComponentItemGUID(destServer, compsToVerify));
+								}
+
+								return Promise.all(verifyCompPromises);
+
+							})
+							.then(function (results) {
 
 								if (excludecontent) {
 									contentLayoutNames = result.contentLayouts;
@@ -2140,6 +2189,117 @@ var _transferRepoAssets = function (argv, repoMappings, server, destServer, site
 			resolve({});
 		});
 
+	});
+};
+
+// to make sure the itemGUID of the theme on the target server is the same as the source
+var _verifyThemeItemGUID = function (server, themeName, itemGUID) {
+	return new Promise(function (resolve, reject) {
+		sitesRest.resourceExist({
+				server: server,
+				type: 'themes',
+				name: themeName
+			})
+			.then(function (result) {
+				if (result && result.id) {
+
+					var themeId = result.id;
+
+					// get the theme metadata
+					serverUtils.getThemeMetadata(server, themeId, themeName)
+						.then(function (result) {
+							var targetItemGUID = result && result.metadata && result.metadata.scsItemGUID;
+							if (targetItemGUID === itemGUID) {
+								console.log(' - theme ' + themeName + ' itemGUID ' + targetItemGUID + ' is in sync');
+								return resolve({});
+							} else {
+								serverUtils.setThemeMetadata(server, result && result.idcToken, themeId, {
+										scsItemGUID: itemGUID
+									})
+									.then(function (result) {
+										if (!result.err) {
+											console.log(' - update theme ' + themeName + ' itemGUID to ' + itemGUID);
+											return resolve({});
+										} else {
+											resolve({
+												err: 'err'
+											});
+										}
+									});
+							}
+
+						});
+				} else {
+					return resolve({});
+				}
+			});
+	});
+};
+
+var _verifyOneComponentItemGUID = function (server, compName, itemGUID) {
+	return new Promise(function (resolve, reject) {
+		sitesRest.resourceExist({
+				server: server,
+				type: 'components',
+				name: compName,
+				showInfo: false
+			})
+			.then(function (result) {
+				if (result && result.id) {
+					// component exists
+					// get its metadata 
+					var compId = result.id;
+					serverUtils.getComponentMetadata(server, compId, compName)
+						.then(function (result) {
+							var targetItemGUID = result && result.metadata && result.metadata.scsItemGUID;
+							if (targetItemGUID === itemGUID) {
+								// console.log(' - component ' + compName + ' itemGUID ' + targetItemGUID + ' is in sync');
+								return resolve({});
+							} else {
+								// console.log(' - component ' + compName + ' itemGUID ' + targetItemGUID + ' needs update');
+								serverUtils.setComponentMetadata(server, result && result.idcToken, compId, {
+										scsItemGUID: itemGUID
+									})
+									.then(function (result) {
+										if (!result.err) {
+											console.log(' - update component ' + compName + ' itemGUID to ' + itemGUID);
+											return resolve({});
+										} else {
+											resolve({
+												err: 'err'
+											});
+										}
+									});
+							}
+						});
+				} else {
+					// console.log(' - component ' + comp.name + ' does not exist');
+					return resolve({});
+				}
+			});
+	});
+};
+
+// to make sure the itemGUID of the components on the target server is the same as the source
+var _verifyComponentItemGUID = function (server, comps) {
+	return new Promise(function (resolve, reject) {
+
+		console.log(' - verify component itemGUID ...');
+		var doUpdate = comps.reduce(function (compPromise, comp) {
+				return compPromise.then(function (result) {
+					return _verifyOneComponentItemGUID(server, comp.name, comp.itemGUID)
+						.then(function (result) {
+							// console.log(' - verify component ' + comp.name);
+						});
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({})
+		);
+
+		doUpdate.then(function (result) {
+			return resolve({});
+		});
 	});
 };
 

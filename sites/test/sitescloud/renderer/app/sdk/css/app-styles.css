@@ -168,10 +168,39 @@
 	border-color: rgb(4, 97, 176);
 }
 
+/**
+ * ---------------------------------------
+ * Watermarks
+ * ---------------------------------------
+ */
+
+.scs-watermark {
+    border: 1px solid #d7d7d7;
+    background-color: #f1f2f2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+	text-align: center;
+    padding-top: 64px;
+    padding-bottom: 64px;
+    color: #6A6A6A;
+    font-size: 14px;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.scs-watermark .scs-watermark-image {
+	font-size: 48px;
+	width: 48px;
+	height: 48px;
+	margin-bottom: 4px;
+}
 
 /**
  * ---------------------------------------
  * folder-list App
+ *
+ * This is a public API
+ * https://docs.oracle.com/en/cloud/paas/content-cloud/creating-experiences/customize-folder-list-and-file-list-styles.html
  * ---------------------------------------
  */
 
@@ -181,16 +210,7 @@
 }
 
 .scs-folder-list-header {
-	background-color: #f2f2f2;
-	height: 66px;
-	margin-bottom: 5px;
-}
-
-@media (max-device-width: 767px) {
-	.scs-folder-list-header{
-		 height: 58px;
-		 margin-bottom: 2px;
-	}
+	background-color: #fcfcfc;
 }
 
 .scs-folder-list-folder-title {
@@ -198,9 +218,12 @@
 	line-height: 66px;
 	font-style: normal;
 	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	font-weight: lighter;
-	color: #333;
+	color: #313131; /* embed-170 */
 	margin-left: 20px;
+	display: block;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 @media (max-device-width: 767px) {
@@ -212,32 +235,32 @@
 }
 
 .scs-folder-list-line-separator {
-	border-bottom: solid thin #f5f5f5;
+	border-bottom: 1px solid rgba(49,49,49,0.04);
 }
 
-.scs-folder-list-row:hover{
-	background-color: #f2f2f2;
+li:not(:last-child) .scs-folder-list-row {
+	border-bottom: 1px solid rgba(49,49,49,0.1);
 }
 
-.scs-folder-list-row-active{
-	background-color:#D9D9D9;
+.scs-folder-list-row:hover {
+	background-color: rgba(49,49,49,0.04);
 }
 
-.scs-folder-list-file-separator {
-	border-bottom: 1px solid #f5f5f5;
+.scs-folder-list-row-active {
+	background-color: rgba(49,49,49,0.08);
 }
 
 .scs-folder-list-sub-folder-title,
 .scs-folder-list-sub-folder-title-active {
-	font-size: 24px;
+	font-size: 16px;
 	font-family: 'Helvetica Neue','Segoe UI',sans-serif-regular,Helvetica,Arial,sans-serif;
-	color: #000;
+	color: #313131;
 	white-space: nowrap;
 	width: 95%;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	display: inline-block;
-	font-weight: lighter;
+	font-weight: normal;
 	margin-left:20px;
 	margin-top:15px;
 	margin-bottom:15px;
@@ -246,7 +269,7 @@
 @media (max-device-width: 767px) {
 	.scs-folder-list-sub-folder-title,
 	.scs-folder-list-sub-folder-title-active {
-		font-size: 20px;
+		font-size: 14px;
 		margin-left:10px;
 		margin-top:10px;
 		margin-bottom:10px;
@@ -276,30 +299,6 @@
 	text-align: center;
 }
 
-
-/* watermark position */
-
-.scs-folder-list-watermark {
-	border-width: 1px;
-	border-style: solid;
-	border-color: #d7d7d7;
-	background-color: #f1f2f2;
-	min-width: 48px;
-}
-
-.scs-folder-list-watermark .scs-folder-list-watermark-image {
-	color: #6A6A6A;
-	font-size: 12px;
-	background-repeat: no-repeat;
-	background-position: center top;
-	min-width: 48px;
-	padding-top: 40px;
-	margin: 64px auto;
-	text-align: center;
-	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	background-image: url('../images/folst-wm.svg');
-}
-
 .scs-folder-list-container ul {
 	margin: 0px;
 	padding: 0px;
@@ -315,6 +314,9 @@
 /**
  * ---------------------------------------
  * file-list App
+ *
+ * This is a public API
+ * https://docs.oracle.com/en/cloud/paas/content-cloud/creating-experiences/customize-folder-list-and-file-list-styles.html
  * ---------------------------------------
  */
 
@@ -324,16 +326,7 @@
 }
 
 .scs-file-list-header {
-	background-color: #f2f2f2;
-	height: 66px;
-	margin-bottom: 5px;
-}
-
-@media (max-device-width: 767px) {
-	.scs-file-list-header {
-		 height: 58px;
-		 margin-bottom: 2px;
-	}
+	background-color: #fcfcfc;
 }
 
 .scs-file-list-folder-title {
@@ -341,9 +334,12 @@
 	line-height: 66px;
 	font-style: normal;
 	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	font-weight: lighter;
-	color: #333;
+	color: #313131;
 	margin-left: 20px;
+	display: block;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 @media (max-device-width: 767px) {
@@ -355,23 +351,22 @@
 }
 
 .scs-file-list-line-separator {
-	border-bottom: solid thin #f5f5f5;
+	border-bottom: 1px solid rgba(49,49,49,0.04);
 }
 
 .scs-file-list-file-title {
-	font-size: 24px;
+	display: block;
+	font-size: 16px;
 	font-family: 'Helvetica Neue','Segoe UI',sans-serif-regular,Helvetica,Arial,sans-serif;
-	color: #000;
+	color: #313131;
 	white-space: nowrap;
-	width: 95%;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	font-weight: lighter;
 }
 
 @media (max-device-width: 767px) {
 	.scs-file-list-file-title{
-		 font-size: 20px;
+		 font-size: 14px;
 	}
 }
 
@@ -418,10 +413,10 @@
 }
 
 .scs-file-list-row {
-	display: -webkit-flex;
 	display: flex;
-	vertical-align: top;
-	margin-top: 5px;
+	align-items: center;
+	padding-top: 6px;
+	padding-bottom: 6px;
 }
 
 .scs-file-list-left-col {
@@ -464,8 +459,9 @@
 .scs-file-list-right-col {
 	flex: 1 auto;
 	width: 16px;
-	margin-right: 35px;
-	margin-left: 30px;
+	align-self: center;
+	margin-right: 16px;
+	margin-left: 16px;
 }
 
 @media (max-device-width: 767px) {
@@ -476,23 +472,29 @@
 }
 
 .scs-file-list-file-separator {
-	border-bottom: 1px solid #f5f5f5;
-	margin-top: 5px;
+	border-bottom: 1px solid rgba(49,49,49,0.1);
 }
 
 .scs-file-list-file-download-icon {
-	vertical-align: middle;
 	background-image: url('../images/func_arrowboxdown_16_ena.png');
 	width: 16px;
 	height: 16px;
 }
 
+/* CCS-71097 - workaround failure to load state background image on iPhone
+ * by including base64 encoded image data directly via data URIs.
+ *   background-image: url('../images/func_arrowboxdown_16_hov.png');
+ */
 .scs-file-list-file-download-icon:hover {
-	background-image: url('../images/func_arrowboxdown_16_hov.png');
+	background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAZElEQVQ4y2NgoCVo3f18PxDvosSA/0D8j1ID/g8hA4CK7YD4J0wjFgySsyNkiD8OQ0Bi/sS6xBfNkB8gMVL97wnE34H4KxC7kxVQQHEnILbHq4/cqKK+AeRikAE3KDDgBsU5FgDWtABM3qzo8AAAAABJRU5ErkJggg==');
 }
 
+/* CCS-71097 - workaround failure to load state background image on iPhone
+ * by including base64 encoded image data directly via data URIs.
+ *   background-image: url('../images/func_arrowboxdown_16_onb.png');
+ */
 .scs-file-list-file-download-icon:active {
-	background-image: url('../images/func_arrowboxdown_16_onb.png');
+	background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAAWklEQVR4AbWOMQqAMBAE92URbMQi5L82fiMfEU3j2FjcQUxQcLYd2NFLWFmQnfCDsyfwlxAoWArBCyIZpZBqF/FWDuJTw8zOxuQbfNbI4JJr3Z+EBiLTIovOLq4HM5frygqGAAAAAElFTkSuQmCC');
 }
 
 .scs-file-list-no-file-msg {
@@ -514,40 +516,13 @@
 	text-align: center;
 }
 
-
-/* watermark position */
-
-.scs-file-list-watermark {
-	border-width: 1px;
-	border-style: solid;
-	border-color: #d7d7d7;
-	background-color: #f1f2f2;
-	min-width: 48px;
-}
-
-.scs-file-list-watermark .scs-file-list-watermark-image {
-	color: #6A6A6A;
-	font-size: 12px;
-	background-repeat: no-repeat;
-	background-position: center top;
-	min-width: 48px;
-	padding-top: 40px;
-	margin: 64px auto;
-	text-align: center;
-	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	background-image: url('../images/filst-wm.svg');
-}
-
 .scs-file-list-container ul {
 	margin: 0px;
 	padding: 0px;
 }
 
-.scs-file-list-container li {
-}
-
 .scs-file-list-container li:hover {
-	background-color: #f2f2f2;
+	background-color: rgba(49,49,49,0.04);
 }
 
 .scs-file-list-container a:hover {
@@ -561,26 +536,11 @@
  * --------------------------------------
  */
 
-.scs-docs-mgr-watermark {
-	border-width: 1px;
-	border-style: solid;
-	border-color: #d7d7d7;
-	background-color: #f1f2f2;
-	min-width: 48px;
-}
-
-.scs-docs-mgr-watermark .scs-docs-mgr-watermark-image {
-	color: #6A6A6A;
-	font-size: 12px;
-	background-repeat: no-repeat;
-	background-position: center top;
-	min-width: 48px;
-	padding-top: 40px;
-	background-size: 32px 32px;
-	margin: 64px auto;
-	text-align: center;
-	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	background-image: url('../images/docs-mgr-wm.svg');
+.scs-docs-mgr-frame-wrapper iframe {
+	display: block;
+	width: 100%;
+	height: 100%;
+	border: none;
 }
 
 
@@ -596,31 +556,7 @@
 	color: #333333;
 	font-weight: normal;
 	text-decoration: none;
-}
-
-.scs-convo-center {
 	text-align: center;
-}
-
-.scs-convo-watermark {
-	border-width: 1px;
-	border-style: solid;
-	border-color: #d7d7d7;
-	background-color: #f1f2f2;
-	min-width: 48px;
-}
-
-.scs-convo-watermark .scs-convo-watermark-image {
-	color: #6A6A6A;
-	font-size: 12px;
-	background-repeat: no-repeat;
-	background-position: center top;
-	min-width: 48px;
-	padding-top: 40px;
-	margin: 64px auto;
-	text-align: center;
-	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	background-image: url('../images/convo-wm.svg');
 }
 
 
@@ -639,16 +575,12 @@
 	background-color: #ffffff;
 }
 
-.scs-convo-list-translight .scs-convo-list-container {
-	background-color: rgba(0, 0, 0, 0.05);
-}
-
 .scs-convo-list-dark .scs-convo-list-container {
 	background-color: #3c3e40;
 }
 
-.scs-convo-list-transdark .scs-convo-list-container {
-	background-color: rgba(0, 0, 0, 0.1);
+.scs-convo-list-redwood .scs-convo-list-container {
+	background-color: #ffffff;
 }
 
 .scs-convo-list-no-auth-msg {
@@ -657,6 +589,7 @@
 	color: #333;
 	font-weight: normal;
 	text-decoration: none;
+	text-align: center;
 }
 
 .scs-convo-list-no-convo-msg {
@@ -665,9 +598,6 @@
 	color: #333;
 	font-weight: normal;
 	text-decoration: none;
-}
-
-.scs-convo-list-center {
 	text-align: center;
 }
 
@@ -678,32 +608,30 @@
 }
 
 .scs-convo-list-header {
-  height: 66px;
-  margin-bottom: 5px;
-  background-color: #f2f2f2;
-}
-
-@media (max-device-width: 767px) {
-	.scs-convo-list-header{
-		 height: 58px;
-		 margin-bottom: 2px;
-	}
+	background-color: #fcfcfc;
 }
 
 .scs-convo-list-light .scs-convo-list-header {
-	background-color: #f2f2f2;
-}
-
-.scs-convo-list-translight .scs-convo-list-header {
-	background-color: rgba(0,0,0,0.1);
+	background-color: #fcfcfc;
 }
 
 .scs-convo-list-dark .scs-convo-list-header {
 	background-color: #3c3e40;
 }
 
-.scs-convo-list-transdark .scs-convo-list-header {
-	background-color: transparent;
+.scs-convo-list-redwood .scs-convo-list-header {
+	background-color: #f5f4f2;
+}
+
+.scs-convo-list-container ul {
+	margin: 0px;
+	padding: 0px;
+}
+
+.scs-convo-list-container li {
+	display: list-item;
+	margin: 0px;
+	padding: 15px 0px 15px 20px;
 }
 
 .scs-convo-list-title {
@@ -711,9 +639,11 @@
 	line-height: 66px;
 	font-style: normal;
 	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	font-weight: lighter;
-	color: #333;
+	color: #313131;
 	margin-left:20px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 @media (max-device-width: 767px) {
@@ -725,258 +655,139 @@
 }
 
 .scs-convo-list-light .scs-convo-list-title {
-	color: #333;
-}
-
-.scs-convo-list-translight .scs-convo-list-title {
-	color: #000;
+	color: #313131;
 }
 
 .scs-convo-list-dark .scs-convo-list-title {
 	color: #C0C4C8;
 }
 
-.scs-convo-list-transdark .scs-convo-list-title {
-	color: #fff;
-}
-
-.scs-convo-list-line-separator {
+.scs-convo-list-redwood .scs-convo-list-title {
+	font-family: 'Oracle Sans',-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+	color: #161513;
 }
 
 .scs-convo-list-light .scs-convo-list-line-separator {
-	border-bottom: solid thin #f5f5f5;
-}
-
-.scs-convo-list-translight .scs-convo-list-line-separator {
-	border-bottom: solid thin rgba(0,0,0,0.15);
+	border-bottom: 1px solid rgba(49,49,49,0.04);
 }
 
 .scs-convo-list-dark .scs-convo-list-line-separator {
 	border-bottom: solid thin #47494c;
 }
 
-.scs-convo-list-transdark .scs-convo-list-line-separator {
-	border-bottom: solid thin rgba(255,255,255,0.15);
+.scs-convo-list-redwood .scs-convo-list-line-separator {
+	border-bottom: solid thin rgba(22,21,19,0.1);
 }
 
-.scs-convo-list-light .scs-convo-list-convo-line-separator {
+.scs-convo-list-light .scs-convo-list-row:not(:last-child)  {
 	border-bottom: 1px solid #dfe4e7;
 }
 
-.scs-convo-list-translight .scs-convo-list-convo-line-separator {
-	border-bottom: 1px solid rgba(0, 0, 0, 0.15);
-}
-
-.scs-convo-list-dark .scs-convo-list-convo-line-separator {
+.scs-convo-list-dark .scs-convo-list-row:not(:last-child) {
 	border-bottom: 1px solid #47494c;
 }
 
-.scs-convo-list-transdark .scs-convo-list-convo-line-separator {
-	border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+.scs-convo-list-redwood .scs-convo-list-row:not(:last-child) {
+	border-bottom: 1px solid rgba(22,21,19,0.1);
 }
-
-.scs-convo-list-row {}
 
 .scs-convo-list-light .scs-convo-list-row:hover {
-	background-color: #f2f2f2;
-}
-
-.scs-convo-list-translight .scs-convo-list-row:hover {
-	background-color: rgba(0, 0, 0, 0.05);
+	background-color: rgba(49,49,49,0.04);
 }
 
 .scs-convo-list-dark .scs-convo-list-row:hover {
 	background-color: #4f5254;
 }
 
-.scs-convo-list-transdark .scs-convo-list-row:hover {
-	background-color: rgba(0, 0, 0, 0.1);
+.scs-convo-list-redwood .scs-convo-list-row:hover {
+	background-color: rgba(22,21,19,0.04);
 }
 
 .scs-convo-list-light .scs-convo-list-row-active{
-	background-color: #D9D9D9;
-}
-
-.scs-convo-list-translight .scs-convo-list-row-active {
-	background-color: rgba(0,0,0,0.1);
+	background-color: rgba(49,49,49,0.08);
 }
 
 .scs-convo-list-dark .scs-convo-list-row-active {
 	background-color: #313334;
 }
 
-.scs-convo-list-transdark .scs-convo-list-row-active {
-	background-color: #e3effb;
+.scs-convo-list-redwood .scs-convo-list-row-active {
+	background-color: #e5f4dc;
 }
 
 .scs-convo-list-convo-title {
-	font-size: 24px;
+	font-size: 16px;
 	font-family: 'Helvetica Neue','Segoe UI',sans-serif-regular,Helvetica,Arial,sans-serif;
-	color: #000;
+	color: #313131;
 	white-space: nowrap;
 	width: 95%;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	display: inline-block;
-	font-weight: lighter;
-	margin-left:20px;
-	margin-top:10px;
+	font-weight: normal;
 }
 
 @media (max-device-width: 767px) {
 	.scs-convo-list-convo-title {
-		font-size: 20px;
+		font-size: 14px;
 		margin-left:10px;
 	}
 }
 
 .scs-convo-list-light .scs-convo-list-convo-title {
-	color: #000;
-}
-
-.scs-convo-list-translight .scs-convo-list-convo-title {
-	color: #000;
+	color: #313131;
 }
 
 .scs-convo-list-dark .scs-convo-list-convo-title {
 	color: #fff;
 }
 
-.scs-convo-list-transdark .scs-convo-list-convo-title {
-	color: #fff;
+.scs-convo-list-redwood .scs-convo-list-convo-title {
+	color: #161513;
 }
 
 .scs-convo-list-convo-title:hover {
 	cursor: pointer;
 }
 
-.scs-convo-list-active {
-	cursor: pointer;
-}
-
 .scs-convo-list-convo-detail{
-	margin-left:20px;
-}
-
-@media (max-device-width: 767px) {
-	.scs-convo-list-convo-detail{
-		margin-left:10px;
-	}
-}
-
-.scs-convo-list-convo-posts {
 	font-size: 12px;
 	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 	font-weight: normal;
 	color: #666;
 	line-height: 16px;
+	padding-top: 6px;
+}
+
+.scs-convo-list-convo-posts {
 	width: 100px;
 	float: left;
 }
 
 .scs-convo-list-convo-unread {
-	font-size: 12px;
-	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	font-weight: normal;
-	color: #666;
-	line-height: 16px;
 	width: 100px;
 }
 
 .scs-convo-list-convo-updated {
-	font-size: 12px;
-	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	font-weight: normal;
-	color: #666;
-	line-height: 16px;
 	clear: both;
 	display: block;
 }
 
-.scs-convo-list-light .scs-convo-list-convo-posts {
+.scs-convo-list-light .scs-convo-list-convo-detail {
 	color: #666;
 }
 
-.scs-convo-list-translight .scs-convo-list-convo-posts {
-	color: #666;
-}
-
-.scs-convo-list-dark .scs-convo-list-convo-posts {
+.scs-convo-list-dark .scs-convo-list-convo-detail {
 	color: #b3b3b3;
 }
 
-.scs-convo-list-transdark .scs-convo-list-convo-posts {
-	color: #b3b3b3;
-}
-
-.scs-convo-list-light .scs-convo-list-convo-unread {
-	color: #666;
-}
-
-.scs-convo-list-translight .scs-convo-list-convo-unread {
-	color: #666;
-}
-
-.scs-convo-list-dark .scs-convo-list-convo-unread {
-	color: #b3b3b3;
-}
-
-.scs-convo-list-transdark .scs-convo-list-convo-unread {
-	color: #b3b3b3;
-}
-
-.scs-convo-list-light .scs-convo-list-convo-updated {
-	color: #666;
-}
-
-.scs-convo-list-translight .scs-convo-list-convo-updated {
-	color: #666;
-}
-
-.scs-convo-list-dark .scs-convo-list-convo-updated {
-	color: #b3b3b3;
-}
-
-.scs-convo-list-transdark .scs-convo-list-convo-updated {
-	color: #b3b3b3;
+.scs-convo-list-redwood .scs-convo-list-convo-detail {
+	color: rgba(22,21,19,0.6);
 }
 
 .scs-convo-list-convo-newline {
 	clear: both;
 }
-
-.scs-convo-list-container ul {
-	margin: 0px;
-	padding: 0px;
-}
-
-.scs-convo-list-container li {
-	display: list-item;
-	margin: 0px;
-	padding: 0px;
-}
-
-.scs-convo-list-watermark {
-	border-width: 1px;
-	border-style: solid;
-	border-color: #d7d7d7;
-	background-color: #f1f2f2;
-	min-width: 48px;
-}
-
-.scs-convo-list-watermark .scs-convo-list-watermark-image {
-	color: #6A6A6A;
-	font-size: 12px;
-	background-repeat: no-repeat;
-	background-position: center top;
-	min-width: 48px;
-	padding-top: 40px;
-	margin: 64px auto;
-	text-align: center;
-	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	background-image: url('../images/convo-list-wm.svg');
-}
-
 
 /* end of conversation list */
 
@@ -1059,62 +870,18 @@
 	text-align: center;
 }
 
-.scs-start-form-watermark {
-	border-width: 1px;
-	border-style: solid;
-	border-color: #d7d7d7;
-	background-color: #f1f2f2;
-	min-width: 48px;
-}
-
-.scs-start-form-submit-conform-close-icon {}
-
-.scs-start-form-watermark .scs-start-form-watermark-image {
-	color: #6A6A6A;
-	font-size: 12px;
-	background-repeat: no-repeat;
-	background-position: center top;
-	min-width: 48px;
-	padding-top: 40px;
-	margin: 64px auto;
-	text-align: center;
-	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	background-image: url('../images/start-form-wm.svg');
-}
-
-
 /* end of start form */
 
 
 /**
- * PCS Task Details app
+ * ---------------------------------------
+ * PCS task details app
+ * ---------------------------------------
  */
 
 .scs-task-details-container {
 	padding: 0.0rem;
 	margin: 0px;
-}
-
-.scs-task-details-watermark {
-	border-width: 1px;
-	border-style: solid;
-	border-color: #d7d7d7;
-	background-color: #f1f2f2;
-	min-width: 48px;
-}
-
-.scs-task-details-watermark .scs-task-details-watermark-image {
-	color: #6A6A6A;
-	font-size: 12px;
-	background-repeat: no-repeat;
-	background-position: center top;
-	min-width: 48px;
-	padding-top: 40px;
-	background-size: 32px 32px;
-	margin: 64px auto;
-	text-align: center;
-	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	background-image: url('../images/task-details-wm.svg');
 }
 
 .scs-task-details-no-auth-msg {
@@ -1137,28 +904,6 @@
 .scs-task-list-container {
 	padding: 0.0rem;
 	margin: 0px;
-}
-
-.scs-task-list-watermark {
-	border-width: 1px;
-	border-style: solid;
-	border-color: #d7d7d7;
-	background-color: #f1f2f2;
-	min-width: 48px;
-}
-
-.scs-task-list-watermark .scs-task-list-watermark-image {
-	color: #6A6A6A;
-	font-size: 12px;
-	background-repeat: no-repeat;
-	background-position: center top;
-	min-width: 48px;
-	padding-top: 40px;
-	background-size: 32px 32px;
-	margin: 64px auto;
-	text-align: center;
-	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	background-image: url('../images/task-list-wm.svg');
 }
 
 .scs-task-list-no-auth-msg {
@@ -1198,16 +943,12 @@
 	background-color: #ffffff;
 }
 
-.scs-project-library-translight .scs-project-library-container {
-	background-color: rgba(0, 0, 0, 0.05);
-}
-
 .scs-project-library-dark .scs-project-library-container {
 	background-color: #3c3e40;
 }
 
-.scs-project-library-transdark .scs-project-library-container {
-	background-color: rgba(0, 0, 0, 0.1);
+.scs-project-library-redwood .scs-project-library-container {
+	background-color: #ffffff;
 }
 
 .scs-project-library-no-folder-msg {
@@ -1244,16 +985,12 @@
 	background-color: #f2f2f2;
 }
 
-.scs-project-library-translight .scs-project-library-header {
-	background-color: rgba(0,0,0,0.1);
-}
-
 .scs-project-library-dark .scs-project-library-header {
 	background-color: #3c3e40;
 }
 
-.scs-project-library-transdark .scs-project-library-header {
-	background-color: transparent;
+.scs-project-library-redwood .scs-project-library-header {
+	background-color: #f5f4f2;
 }
 
 .scs-project-library-notitle {
@@ -1283,82 +1020,61 @@
 	color: #333;
 }
 
-.scs-project-library-translight .scs-project-library-title {
-	color: #000;
-}
-
 .scs-project-library-dark .scs-project-library-title {
 	color: #C0C4C8;
 }
 
-.scs-project-library-transdark .scs-project-library-title {
-	color: #fff;
+.scs-project-library-redwood .scs-project-library-title {
+	font-family: 'Oracle Sans',-apple-system,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,sans-serif;
+	color: #161513;
 }
 
 .scs-project-library-light .scs-project-library-line-separator {
 	border-bottom: solid thin #f5f5f5;
 }
 
-.scs-project-library-translight .scs-project-library-line-separator {
-	border-bottom: solid thin rgba(0,0,0,0.15);
-}
-
 .scs-project-library-dark .scs-project-library-line-separator {
 	border-bottom: solid thin #47494c;
 }
 
-.scs-project-library-transdark .scs-project-library-line-separator {
-	border-bottom: solid thin rgba(255,255,255,0.15);
+.scs-project-library-redwood .scs-project-library-line-separator {
+	border-bottom: solid thin rgba(22,21,19,0.1);
 }
 
 .scs-project-library-light .scs-project-library-folder-line-separator {
 	border-bottom: 1px solid #f5f5f5;
 }
 
-.scs-project-library-translight .scs-project-library-folder-line-separator {
-	border-bottom: 1px solid rgba(0, 0, 0, 0.15);
-}
-
 .scs-project-library-dark .scs-project-library-folder-line-separator {
 	border-bottom: 1px solid #47494c;
 }
 
-.scs-project-library-transdark .scs-project-library-folder-line-separator {
-	border-bottom: 1px solid rgba(255,255,255,0.15);
+.scs-project-library-redwood .scs-project-library-folder-line-separator {
+	border-bottom: 1px solid rgba(22,21,19,0.1);
 }
-
-.scs-project-library-row {}
 
 .scs-project-library-light .scs-project-library-row:hover {
 	background-color:#f2f2f2;
-}
-
-.scs-project-library-translight .scs-project-library-row:hover {
-	background-color: rgba(0, 0, 0, 0.05);
 }
 
 .scs-project-library-dark .scs-project-library-row:hover {
 	background-color: #4f5254;
 }
 
-.scs-project-library-transdark .scs-project-library-row:hover {
-	background-color: rgba(0, 0, 0, 0.1);
+.scs-project-library-redwood .scs-project-library-row:hover {
+	background-color: rgba(22,21,19,0.04);
 }
 
 .scs-project-library-light .scs-project-library-active .scs-project-library-row {
 	background-color:#D9D9D9;
 }
 
-.scs-project-library-translight .scs-project-library-active .scs-project-library-row {
-	background-color: rgba(0,0,0,0.1);
-}
-
 .scs-project-library-dark .scs-project-library-active .scs-project-library-row {
 	background-color: #313334;
 }
 
-.scs-project-library-transdark .scs-project-library-active .scs-project-library-row {
-	background-color: #e3effb;
+.scs-project-library-redwood .scs-project-library-active .scs-project-library-row {
+	background-color: #e5f4dc;
 }
 
 .scs-project-library-folder-title {
@@ -1390,16 +1106,12 @@
 	color: #000;
 }
 
-.scs-project-library-translight .scs-project-library-folder-title {
-	color: #000;
-}
-
 .scs-project-library-dark .scs-project-library-folder-title {
 	color: #fff;
 }
 
-.scs-project-library-transdark .scs-project-library-folder-title {
-	color: #fff;
+.scs-project-library-redwood .scs-project-library-folder-title {
+	color: #161513;
 }
 
 .scs-project-library-folder-title:hover {
@@ -1428,78 +1140,20 @@
 	padding: 0px;
 }
 
-.scs-project-library-watermark {
-	border-width: 1px;
-	border-style: solid;
-	border-color: #d7d7d7;
-	background-color: #f1f2f2;
-	min-width: 48px;
-}
-
-.scs-project-library-watermark .scs-project-library-watermark-image {
-	color: #6A6A6A;
-	font-size: 12px;
-	background-repeat: no-repeat;
-	background-position: center top;
-	min-width: 48px;
-	padding-top: 40px;
-	margin: 64px auto;
-	text-align: center;
-	font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	background-image: url('../images/project-library-wm.svg');
-}
-
-
 /* end of project-library */
 
-.scs-twitter-watermark {
-	padding-top: 4px;
-	padding-bottom: 4px;
-	border-width: 1px;
-	border-style: solid;
-	border-color: #d7d7d7;
-	background-color: #f1f2f2;
-	min-width: 48px;
-}
 
-.scs-twitter-watermark .scs-twitter-follow-watermark {
-	color: #6A6A6A;
-	font-weight: bold;
-	font-size: 0.857rem;
-	text-transform: uppercase;
-	min-width: 48px;
-	text-align: center;
-}
-
+/**
+ * ---------------------------------------
+ * twitter-share App
+ * ---------------------------------------
+ */
 
 /* hide the twitter button until fully rendered.  NB: These are Twitter supplied class names */
-
 .twitter-follow-button {
 	display: none
 }
 
 .twitter-follow-button-rendered {
 	display: block
-}
-
-
-/* Facebook on IE fix (24402730) */
-
-#outerdiv .fb_iframe_widget {
-	display: block;
-}
-
-#outerdiv .fb_iframe_widget span {
-	display: block;
-}
-
-/* field editor */
-
-.fieldeditordiv {
-	padding-bottom: 20px;
-}
-
-.fieldeditorbutton {
-	padding-top: 30px;
-	text-align: center;
 }

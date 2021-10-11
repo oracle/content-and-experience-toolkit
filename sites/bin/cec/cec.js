@@ -1258,6 +1258,23 @@ const unshareTheme = {
 	]
 };
 
+const describeTheme = {
+	command: 'describe-theme <name>',
+	alias: 'dsth',
+	name: 'describe-theme',
+	usage: {
+		'short': 'Displays the properties of a theme on OCM server',
+		'long': (function () {
+			let desc = 'Displays the properties of a theme on OCM server. Theme components and the sites that use the theme will also be displayed. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-theme Theme1'],
+		['cec describe-theme Theme1 -s UAT']
+	]
+};
+
 const listResources = {
 	command: 'list',
 	alias: 'l',
@@ -2984,7 +3001,8 @@ _usage = _usage + os.EOL + 'Themes' + os.EOL +
 	_getCmdHelp(removeComponentFromTheme) + os.EOL +
 	_getCmdHelp(controlTheme) + os.EOL +
 	_getCmdHelp(shareTheme) + os.EOL +
-	_getCmdHelp(unshareTheme) + os.EOL;
+	_getCmdHelp(unshareTheme) + os.EOL +
+	_getCmdHelp(describeTheme) + os.EOL;
 
 _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(createSite) + os.EOL +
@@ -4383,6 +4401,18 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${unshareTheme.command}\n\n${unshareTheme.usage.long}`);
+		})
+	.command([describeTheme.command, describeTheme.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: '<server> The registered OCM server'
+				})
+				.example(...describeTheme.example[0])
+				.example(...describeTheme.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeTheme.command}\n\n${describeTheme.usage.long}`);
 		})
 	.command([addComponentToTheme.command, addComponentToTheme.alias], false,
 		(yargs) => {
@@ -8027,6 +8057,21 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		unshareThemeArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, unshareThemeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeTheme.name || argv._[0] === describeTheme.alias) {
+	let describeThemeArgs = ['run', '-s', describeTheme.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeThemeArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, describeThemeArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

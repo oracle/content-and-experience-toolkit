@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global console, __dirname, process, console */
@@ -8,6 +8,7 @@
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
+	sprintf = require('sprintf-js').sprintf,
 	path = require('path');
 
 
@@ -500,4 +501,147 @@ module.exports.unshareTheme = function (argv, done) {
 	} catch (e) {
 		done();
 	}
+};
+
+/**
+ * Describe theme
+ */
+module.exports.describeTheme = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	// console.log('server: ' + server.url);
+	var name = argv.name;
+
+	var loginPromise = serverUtils.loginToServer(server);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.log(' - failed to connect to the server');
+			done();
+			return;
+		}
+
+		var theme;
+		var comps = [];
+		var format1 = '%-38s  %-s';
+
+		sitesRest.getTheme({
+				server: server,
+				name: name,
+				expand: 'all'
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				theme = result;
+
+				console.log('');
+				console.log(sprintf(format1, 'Id', theme.id));
+				console.log(sprintf(format1, 'Name', theme.name));
+				console.log(sprintf(format1, 'Description', theme.description || ''));
+				console.log(sprintf(format1, 'Owner', theme.ownedBy ? (theme.ownedBy.displayName || theme.ownedBy.name) : ''));
+				console.log(sprintf(format1, 'Created', theme.createdAt + ' by ' + (theme.createdBy ? (theme.createdBy.displayName || theme.createdBy.name) : '')));
+				console.log(sprintf(format1, 'Updated', theme.lastModifiedAt + ' by ' + (theme.lastModifiedBy ? (theme.lastModifiedBy.displayName || theme.lastModifiedBy.name) : '')));
+				console.log(sprintf(format1, 'Theme Status', theme.publishStatus));
+
+				// get the theme metadata
+				return serverUtils.getThemeMetadata(server, theme.id, theme.name);
+
+			})
+			.then(function (result) {
+
+				console.log(sprintf(format1, 'itemGUID', (result && result.metadata && result.metadata.scsItemGUID || '')));
+
+				// get the theme components
+				return serverRest.findFile({
+					server: server,
+					parentID: theme.id,
+					filename: 'components.json',
+					showError: false
+				});
+
+			})
+			.then(function (result) {
+				var filePromises = [];
+				if (result && result.id) {
+					filePromises.push(serverRest.readFile({
+						server: server,
+						fFileGUID: result.id
+					}));
+				}
+
+				return Promise.all(filePromises);
+
+			})
+			.then(function (results) {
+				if (results && results[0]) {
+					comps = typeof results[0] === 'string' ? JSON.parse(results[0]) : results[0];
+				}
+				// console.log(JSON.stringify(comps, null, 4));
+
+				var compNames = [];
+				if (comps.length > 0) {
+					comps.forEach(function (cat) {
+						if (cat.list) {
+							for (var i = 0; i < cat.list.length; i++) {
+								if (cat.list[i].themed && cat.list[i].id) {
+									compNames.push(cat.list[i].id);
+								}
+							}
+						}
+					});
+				}
+				console.log(sprintf(format1, 'Theme Components', compNames.sort()));
+
+				// get all sites that use the theme
+				return sitesRest.getSites({
+					server: server
+				});
+
+			})
+			.then(function (result) {
+				var sites = result;
+				// console.log(' - total sites: ' + sites.length);
+				var themeSites = [];
+				var enterpriseLiveSites = [];
+				var autoCompileSites = [];
+				sites.forEach(function (site) {
+					if (site.themeName === name) {
+						themeSites.push(site.name);
+						if (site.isEnterprise && site.runtimeStatus === 'online') {
+							enterpriseLiveSites.push(site.name);
+							if (site.staticSiteDeliveryOptions && site.staticSiteDeliveryOptions.compileSite) {
+								autoCompileSites.push(site.name);
+							}
+						}
+					}
+				});
+
+				console.log(sprintf(format1, 'Sites using the theme', themeSites.sort()));
+				console.log(sprintf(format1, 'Enterprise live sites', enterpriseLiveSites.sort()));
+				console.log(sprintf(format1, 'Enterprise live auto compilation sites', autoCompileSites.sort()));
+
+				console.log('');
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
 };

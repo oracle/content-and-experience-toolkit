@@ -129,6 +129,7 @@ Gallerygrid.prototype.computeImages = function (args) {
 					useStyleClass: viewModel.useStyleClass,
 					styleClass: viewModel.styleClass,
 					imageUrl: image.source,
+					ariaLabel: image.ariaLabel,
 					contentId: image.contentId,
 					contentViewing: image.contentViewing,
 					rendition: image.rendition || '',

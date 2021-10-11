@@ -1217,6 +1217,17 @@ gulp.task('unshare-theme', function (done) {
 	});
 });
 
+/**
+ * describe theme
+ */
+ gulp.task('describe-theme', function (done) {
+	'use strict';
+
+	themelib.describeTheme(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
 
 /**
  * Export a component zip
@@ -2102,8 +2113,8 @@ gulp.task('check-version', function (done) {
 		var oneDay = 1000 * 60 * 60 * 24;
 		var diffDays = Math.round((currTime - lastModifiedTime) / oneDay);
 		// console.log(' - file ' + msgFile + ' last updated on ' + statInfo.mtime + ' days passed: ' + diffDays);
-		// warn every 30 days :-)
-		if (diffDays < 30) {
+		// warn every 14 days :-)
+		if (diffDays < 14) {
 			done();
 			return;
 		}

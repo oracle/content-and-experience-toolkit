@@ -17,6 +17,7 @@
 
 var fs = require('fs'),
 	path = require('path'),
+	mustache = require('mustache'),
 	compReg = require('../component-registration')['component-registration'],
 	Base = require('../base/base');
 
@@ -156,6 +157,8 @@ Gallery.prototype.computeImages = function () {
 		});
 
 		image.showCaption = viewModel.showCaption === 'true' && (image.title || image.description);
+
+		image.ariaLabelValue = image.ariaLabel ? 'aria-label="' + mustache.render('{{ariaLabel}}', image) + '"' : '';
 
 		return image;
 	});

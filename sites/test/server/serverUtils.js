@@ -2806,6 +2806,141 @@ module.exports.getTranslationConnectorJobOnServer = function (server, jobId) {
 };
 
 
+/**
+ * Get theme metadata
+ */
+module.exports.getThemeMetadata = function (server, themeId, themeName) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var url = server.url + '/documents/integration?IdcService=SCS_GET_THEME_METADATA&item=fFolderGUID:' + themeId;
+		url = url + '&IsJson=1';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get theme metadata');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get theme metadata ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.ThemeMetadata && data.ResultSets.ThemeMetadata.fields || [];
+			var rows = data.ResultSets && data.ResultSets.ThemeMetadata && data.ResultSets.ThemeMetadata.rows || [];
+			var metadata = {};
+
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				metadata[attr] = rows[0][i];
+			}
+
+			resolve({
+				folderId: themeId,
+				metadata: metadata,
+				idcToken: data.LocalData.idcToken
+			});
+		});
+	});
+};
+
+/**
+ * Get component metadata
+ */
+module.exports.getComponentMetadata = function (server, compId, compName) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var url = server.url + '/documents/integration?IdcService=SCS_GET_COMPONENT_METADATA&item=fFolderGUID:' + compId;
+		url = url + '&IsJson=1';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get component metadata');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get component metadata ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.ComponentMetadata && data.ResultSets.ComponentMetadata.fields || [];
+			var rows = data.ResultSets && data.ResultSets.ComponentMetadata && data.ResultSets.ComponentMetadata.rows || [];
+			var metadata = {};
+
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				metadata[attr] = rows[0][i];
+			}
+
+			resolve({
+				folderId: compId,
+				metadata: metadata,
+				idcToken: data.LocalData.idcToken
+			});
+		});
+	});
+};
 
 /**
  * Get the used components, content items and content types of a site
@@ -3069,6 +3204,157 @@ module.exports.setSiteMetadata = function (server, idcToken, siteId, values) {
 
 };
 
+/**
+ * Set metadata for a theme using IdcService
+ */
+module.exports.setThemeMetadata = function (server, idcToken, themeId, values) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var url = server.url + '/documents/integration?IdcService=SCS_SET_THEME_METADATA&IsJson=1';
+
+		var formData = {
+			'idcToken': idcToken,
+			'LocalData': {
+				'IdcService': 'SCS_SET_THEME_METADATA',
+				item: 'fFolderGUID:' + themeId
+			}
+		};
+		if (values) {
+			Object.keys(values).forEach(function (key) {
+				formData.LocalData[key] = values[key];
+			});
+		}
+
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: _getRequestAuthorization(server)
+			},
+			body: JSON.stringify(formData),
+			json: true
+		};
+		// console.log(postData);
+
+		var request = require('./requestUtils.js').request;
+		request.post(postData, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to set theme metadata');
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				if (typeof body === 'object') {
+					data = body;
+				}
+			}
+			// console.log(data);
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: failed to set theme metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				return resolve({
+					err: 'err'
+				});
+			} else {
+				return resolve({});
+			}
+		});
+	});
+
+};
+
+/**
+ * Set metadata for a theme using IdcService
+ */
+module.exports.setComponentMetadata = function (server, idcToken, compId, values) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var url = server.url + '/documents/integration?IdcService=SCS_SET_COMPONENT_METADATA&IsJson=1';
+
+		var formData = {
+			'idcToken': idcToken,
+			'LocalData': {
+				'IdcService': 'SCS_SET_COMPONENT_METADATA',
+				item: 'fFolderGUID:' + compId
+			}
+		};
+		if (values) {
+			Object.keys(values).forEach(function (key) {
+				formData.LocalData[key] = values[key];
+			});
+		}
+
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: _getRequestAuthorization(server)
+			},
+			body: JSON.stringify(formData),
+			json: true
+		};
+		// console.log(postData);
+
+		var request = require('./requestUtils.js').request;
+		request.post(postData, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to set component metadata');
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				if (typeof body === 'object') {
+					data = body;
+				}
+			}
+			// console.log(data);
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: failed to set component metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				return resolve({
+					err: 'err'
+				});
+			} else {
+				return resolve({});
+			}
+		});
+	});
+
+};
 
 module.exports.templateHasContentItems = function (projectDir, templateName) {
 	_setupSourceDir(projectDir);
@@ -3267,3 +3553,87 @@ module.exports.updateAdminSettings = function (server, settings) {
 		});
 	});
 };
+
+/**
+ * View group members using IdcService
+ */
+module.exports.viewGroupMembers = function (server, groupId) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var url = server.url + '/documents/integration?IdcService=VIEW_GROUP_MEMBERS&IsJson=1';
+
+		var formData = {
+			'LocalData': {
+				item: 'dGroupID:' + groupId
+			}
+		};
+
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: _getRequestAuthorization(server)
+			},
+			body: JSON.stringify(formData),
+			json: true
+		};
+		// console.log(postData);
+
+		var request = require('./requestUtils.js').request;
+		request.post(postData, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: Failed to view group members');
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to view group members' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var members = module.exports.convertResultSetToJson(data.ResultSets.GroupMembers);
+			return resolve(members);
+		});
+	});
+};
+
+/**
+ * Convert HDA resultset into more usable JSON array
+ */
+module.exports.convertResultSetToJson = function (resultSet) {
+	let fields = resultSet.fields || [];
+	let rows = resultSet.rows || [];
+	let items = [];
+	rows.forEach(() => items.push({}));
+	for (var i = 0; i < fields.length; i++) {
+		var attr = fields[i].name;
+		for (var j = 0; j < rows.length; j++) {
+			items[j][attr] = rows[j][i];
+		}
+	}
+	return items;
+}

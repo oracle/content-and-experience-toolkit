@@ -1544,6 +1544,9 @@ var _uploadFolder = function (argv, server) {
 		var srcPath = argv.path;
 		var contentOnly = serverUtils.endsWith(srcPath, path.sep) || serverUtils.endsWith(srcPath, '/');
 
+		var retry = argv.retry === undefined ? true : argv.retry;
+		var excludeFiles = argv.excludeFiles || [];
+
 		if (!path.isAbsolute(srcPath)) {
 			srcPath = path.join(projectDir, srcPath);
 		}
@@ -1632,7 +1635,14 @@ var _uploadFolder = function (argv, server) {
 				// group files under the same folder
 				for (var i = 0; i < files.length; i++) {
 					var src = files[i];
-					if (src.indexOf('_scs_theme_root_') < 0 && src.indexOf('_scs_design_name_') < 0) {
+					var excluded = false;
+					for (var j = 0; j < excludeFiles.length; j++) {
+						if (src.indexOf(excludeFiles[j]) >= 0) {
+							excluded = true;
+							break;
+						}
+					}
+					if (!excluded && src.indexOf('_scs_theme_root_') < 0 && src.indexOf('_scs_design_name_') < 0) {
 						src = src.substring(srcPath.length + 1);
 						var fileFolder = src.indexOf(path.sep) > 0 ? src.substring(0, src.lastIndexOf(path.sep)) : '';
 
@@ -1717,7 +1727,7 @@ var _uploadFolder = function (argv, server) {
 								});
 							}
 						});
-						if (failedFolderContent.length > 0) {
+						if (failedFolderContent.length > 0 && retry) {
 							console.log(' - try to upload failed files again ...');
 							// console.log(failedFolderContent);
 							_createFolderUploadFiles(server, rootParentId, folderPath, failedFolderContent, rootParentFolderLabel).then(function (result) {
@@ -1725,8 +1735,10 @@ var _uploadFolder = function (argv, server) {
 							});
 
 						} else {
-							// no failure
-							return resolve(true);
+							if (failedFolderContent.length > 0)
+								return resolve(false);
+							else
+								return resolve(true);
 						}
 					})
 					.catch((error) => {

@@ -186,12 +186,7 @@ var _findFolderItems = function (server, parentId, parentPath, _files) {
 				var extra = 1;
 				while (remaining > 0) {
 					var offset = size * extra;
-					queryAgainPromises.push(_.getChildItems({
-						server: server,
-						parentID: parentId,
-						limit: size,
-						offset: offset
-					}));
+					queryAgainPromises.push(_getChildItems(server, parentId, size, offset));
 					remaining = remaining - size;
 					extra = extra + 1;
 				}
@@ -318,6 +313,7 @@ var _getChildItems = function (server, parentID, limit, offset) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		// console.log(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -424,6 +420,7 @@ module.exports.getFolderMetadata = function (args) {
 var _findFile = function (server, parentID, filename, showError, itemtype) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/documents/api/1.2/folders/' + parentID + '/items?limit=9999';
+		url = url + '&filterName=' + encodeURIComponent(filename);
 		var options = {
 			method: 'GET',
 			url: url,
@@ -431,6 +428,8 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		// console.log(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -6561,7 +6560,7 @@ module.exports.publishRecommendation = function (args) {
  * @param {string} args.channels the array of channels
  * @returns {Promise.<object>} The data object returned by the server.
  */
- module.exports.unpublishRecommendation = function (args) {
+module.exports.unpublishRecommendation = function (args) {
 	return _publishUnpublishRecommendation(args.server, args.id, args.name, args.channels, 'unpublish');
 };
 
@@ -7857,6 +7856,77 @@ module.exports.createConversation = function (args) {
 	return _createConversation(args.server, args.name, args.isDiscoverable);
 };
 
+
+var _deleteConversation = function (server, conversationId) {
+	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/conversations/' + conversationId;
+					var payload = {
+						updater: {
+							State: "CLOSED_DROPPED"
+						}
+					};
+					var postData = {
+						method: 'PATCH',
+						url: url,
+						headers: {
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID
+						},
+						body: JSON.stringify(payload),
+						json: true
+					};
+					if (result.cookies) {
+						postData.headers.Cookie = result.cookies;
+					}
+					// console.log(postData);
+					request.patch(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: delete conversation ' + conversationId);
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+
+						if (response && response.statusCode === 200) {
+							resolve(data);
+						} else {
+							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
+							console.log('ERROR: failed to delete conversation ' + conversationId + ' : ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+/**
+ * Delete a conversation by setting its state to CLOSED_DROPPED.
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.id ID of the conversation
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteConversation = function (args) {
+	return _deleteConversation(args.server, args.id);
+};
+
 var _removeMemberFromConversation = function (server, conversationId, memberId) {
 	return new Promise(function (resolve, reject) {
 		var request = require('./requestUtils.js').request;
@@ -7922,6 +7992,75 @@ module.exports.removeMemberFromConversation = function (args) {
 	return _removeMemberFromConversation(args.server, args.conversationId, args.memberId);
 };
 
+/**
+ * Adds a member to a conversation.
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.conversationId the conversation id
+ * @param {string} args.memberId the member id to add to conversation
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.addMemberToConversation = function (args) {
+	return _addMemberToConversation(args.server, args.conversationId, args.memberId);
+};
+
+var _addMemberToConversation = function (server, conversationId, memberId) {
+	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/conversations/' + conversationId + '/members';
+					var body = {
+						'member': memberId
+					};
+					var postData = {
+						method: 'POST',
+						url: url,
+						headers: {
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID
+						},
+						body: JSON.stringify(body),
+						json: true
+					};
+					if (result.cookies) {
+						postData.headers.Cookie = result.cookies;
+					}
+					request.post(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: add conversation member ' + memberId);
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+
+						if (response && response.statusCode === 200) {
+							resolve({});
+						} else {
+							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
+							console.log('ERROR: failed to add conversation member ' + memberId + ' : ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+
 var _getConversationMembers = function (server, id) {
 	return new Promise(function (resolve, reject) {
 		var request = require('./requestUtils.js').request;
@@ -7983,4 +8122,258 @@ var _getConversationMembers = function (server, id) {
  */
 module.exports.getConversationMembers = function (args) {
 	return _getConversationMembers(args.server, args.id);
+};
+
+var _addMemberToConversation = function (server, conversationId, memberId) {
+	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/conversations/' + conversationId + '/members/' + memberId;
+
+					var postData = {
+						method: 'POST',
+						url: url,
+						headers: {
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID
+						},
+						body: JSON.stringify({})
+					};
+					if (result.cookies) {
+						postData.headers.Cookie = result.cookies;
+					}
+					request.post(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: add conversation member ' + memberId);
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+
+						if (response && response.statusCode === 200) {
+							resolve(data);
+						} else {
+							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
+							console.log('ERROR: failed to add conversation member ' + memberId + ' : ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+/**
+ * Add a member to a conversation.
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.conversationId the conversation id
+ * @param {string} args.memberId the member id to add to conversation
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.addMemberToConversation = function (args) {
+	return _addMemberToConversation(args.server, args.conversationId, args.memberId);
+};
+
+var _postMessageToConversation = function (server, conversationId, text) {
+	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/conversations/' + conversationId + '/messages/';
+
+					var postData = {
+						method: 'POST',
+						url: url,
+						headers: {
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID
+						},
+						body: JSON.stringify({
+							message: text
+						})
+					};
+					if (result.cookies) {
+						postData.headers.Cookie = result.cookies;
+					}
+					request.post(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: post conversation message ' + conversationId);
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+
+						if (response && response.statusCode === 200) {
+							resolve(data);
+						} else {
+							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
+							console.log('ERROR: failed to post conversation message ' + conversationId + ' : ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+/**
+ * Post a message to a conversation.
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.conversationId the conversation id
+ * @param {string} args.text the text to post to conversation
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.postMessageToConversation = function (args) {
+	return _postMessageToConversation(args.server, args.conversationId, args.text);
+};
+
+var _postReplyToMessage = function (server, messageId, text) {
+	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/messages/' + messageId;
+
+					var postData = {
+						method: 'POST',
+						url: url,
+						headers: {
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID
+						},
+						body: JSON.stringify({
+							message: text
+						})
+					};
+					if (result.cookies) {
+						postData.headers.Cookie = result.cookies;
+					}
+					request.post(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: post message reply ' + messageId);
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+
+						if (response && response.statusCode === 200) {
+							resolve(data);
+						} else {
+							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
+							console.log('ERROR: failed to post message reply ' + messageId + ' : ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+/**
+ * Post a reply to a message.
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.messageId the message id
+ * @param {string} args.text the text to post in the reply to the message
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.postReplyToMessage = function (args) {
+	return _postReplyToMessage(args.server, args.messageId, args.text);
+};
+
+var _createFolderConversation = function (server, folderId, name) {
+	return new Promise(function (resolve, reject) {
+		var payload = {
+			conversationName: name
+		}
+		var options = {
+			method: 'POST',
+			url: server.url + '/documents/api/1.2/folders/' + folderId + '/conversation',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			json: true,
+			body: JSON.stringify(payload)
+		};
+		// console.log(options);
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to create conversation for folder ' + folderId);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (e) {}
+				resolve(data);
+			} else {
+				console.log('ERROR: failed to create conversation for folder ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Create a conversation associated with a folder.
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.folderId the folder id to create and associate a conversation with.
+ * @param {string} args.name the conversation name.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createFolderConversation = function (args) {
+	return _createFolderConversation(args.server, args.folderId, args.name);
 };

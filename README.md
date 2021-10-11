@@ -15,6 +15,18 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.10.1
+
+**Added**
+
+- `cec describe-theme` - Shows theme properties including components used in theme and list of Sites using the theme
+
+**Fixed**
+
+- `cec list-folder` - Can now handle large size of sub folders and files (10000+)
+- `cec transfer-site` - Now handles an issue where a theme conflict was previously reported
+
+
 # New in Release 21.9.1
 
 **Added**

@@ -83,6 +83,7 @@
 					'properties': [
 						'alignment',
 						'altText',
+						'ariaLabel',
 						'borderColor',
 						'borderRadius',
 						'borderStyle',
@@ -606,6 +607,7 @@
 					'properties': [
 						'actions',
 						'alignment',
+						'ariaLabel',
 						'backgroundColor',
 						'backgroundColorHover',
 						'borderColor',

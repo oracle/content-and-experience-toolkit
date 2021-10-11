@@ -78,7 +78,7 @@ var _getAllResources = function (server, type, expand) {
 					}
 				});
 			},
-			// Start with a previousPromise value that is a resolved promise 
+			// Start with a previousPromise value that is a resolved promise
 			_getResources(server, type, expand));
 
 		doGetResources.then(function (result) {
@@ -89,8 +89,8 @@ var _getAllResources = function (server, type, expand) {
 };
 
 /**
- * Get all templates on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get all templates on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -100,8 +100,8 @@ module.exports.getTemplates = function (args) {
 };
 
 /**
- * Get all components on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get all components on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -111,8 +111,8 @@ module.exports.getComponents = function (args) {
 };
 
 /**
- * Get all sites on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get all sites on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
@@ -121,7 +121,7 @@ module.exports.getSites = function (args) {
 	return _getAllResources(server, 'sites', args.expand);
 };
 
-var _getResource = function (server, type, id, name, expand, showError, includeDeleted) {
+var _getResource = function (server, type, id, name, expand, showError, includeDeleted, showInfo) {
 	return new Promise(function (resolve, reject) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
@@ -131,7 +131,9 @@ var _getResource = function (server, type, id, name, expand, showError, includeD
 			url = url + 'name:' + name;
 		}
 
-		console.log(' - get ' + url);
+		if (showInfo === undefined || showInfo) {
+			console.log(' - get ' + url);
+		}
 
 		url = url + '?links=none';
 		if (expand) {
@@ -185,8 +187,8 @@ var _getResource = function (server, type, id, name, expand, showError, includeD
 };
 
 /**
- * Get a site on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get a site on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the site or
  * @param {string} name the name of the site
@@ -198,8 +200,8 @@ module.exports.getSite = function (args) {
 };
 
 /**
- * Get a template on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get a template on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the template or
  * @param {string} name the name of the template
@@ -211,8 +213,8 @@ module.exports.getTemplate = function (args) {
 };
 
 /**
- * Get a theme on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get a theme on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the theme or
  * @param {string} name the name of the theme
@@ -224,8 +226,8 @@ module.exports.getTheme = function (args) {
 };
 
 /**
- * Get a component on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get a component on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the component or
  * @param {string} name the name of the component
@@ -234,12 +236,14 @@ module.exports.getTheme = function (args) {
 module.exports.getComponent = function (args) {
 	var server = args.server;
 	var showError = args.showError !== undefined ? args.showError : true;
-	return _getResource(server, 'components', args.id, args.name, args.expand, showError);
+	var includeDeleted = false;
+	var showInfo = args.showInfo !== undefined ? args.showInfo : true;
+	return _getResource(server, 'components', args.id, args.name, args.expand, showError, includeDeleted, showInfo);
 };
 
 /**
- * Check if a resource exists on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Check if a resource exists on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} type templates/sites/themes/components
  * @param {string} id the id of the resource or
@@ -248,7 +252,10 @@ module.exports.getComponent = function (args) {
  */
 module.exports.resourceExist = function (args) {
 	var server = args.server;
-	return _getResource(server, args.type, args.id, args.name, args.expand, false);
+	var showError = false;
+	var includeDeleted = false;
+	var showInfo = args.showInfo !== undefined ? args.showInfo : true;
+	return _getResource(server, args.type, args.id, args.name, args.expand, showError, includeDeleted, showInfo);
 };
 
 var _getSiteContentTypes = function (server, id, name) {
@@ -315,7 +322,7 @@ var _getSiteContentTypes = function (server, id, name) {
 };
 /**
  * Get asset types used by a site
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the site or
  * @param {string} name the name of the site
@@ -378,8 +385,8 @@ var _getSiteAccess = function (server, id, name) {
 	});
 };
 /**
- * Get a secure site's access on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Get a secure site's access on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the site or
  * @param {string} name the name of the site
@@ -440,8 +447,8 @@ var _removeSiteAccess = function (server, id, name, member) {
 	});
 };
 /**
- * Remove a user from a site's access list on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Remove a user from a site's access list on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the site or
  * @param {string} name the name of the site
@@ -508,8 +515,8 @@ var _grantSiteAccess = function (server, id, name, member) {
 	});
 };
 /**
- * Grant a user access to a site server 
- * @param {object} args JavaScript object containing parameters. 
+ * Grant a user access to a site server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the site or
  * @param {string} name the name of the site
@@ -580,7 +587,7 @@ var _setSiteRuntimeAccess = function (server, id, name, accessList) {
 };
 /**
  * Update site's access at runtime
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the site or
  * @param {string} name the name of the site
@@ -650,7 +657,7 @@ var _setSiteStaticDeliveryOptions = function (server, id, name, staticDeliveryOp
 };
 /**
  * Update site's static delivery options
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the site or
  * @param {string} name the name of the site
@@ -742,7 +749,7 @@ var _refreshSiteContent = function (server, id, name) {
 };
 /**
  * Update site's access at runtime
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the site or
  * @param {string} name the name of the site
@@ -809,8 +816,8 @@ var _exportResource = function (server, type, id, name) {
 	});
 };
 /**
- * Export a component on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Export a component on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the component or
  * @param {string} name the name of the component
@@ -915,8 +922,8 @@ var _exportResourceAsync = function (server, type, id, name) {
 	});
 };
 /**
- * Export a template on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Export a template on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the template or
  * @param {string} name the name of the template
@@ -986,8 +993,8 @@ var _publishResource = function (server, type, id, name, hideAPI) {
 	});
 };
 /**
- * Publish a component on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Publish a component on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the component or
  * @param {string} name the name of the component
@@ -1107,8 +1114,8 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 	});
 };
 /**
- * Publish a theme on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Publish a theme on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the theme or
  * @param {string} name the name of the theme
@@ -1120,8 +1127,8 @@ module.exports.publishTheme = function (args) {
 };
 
 /**
- * Publish a site on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Publish a site on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the site or
  * @param {string} name the name of the site
@@ -1188,8 +1195,8 @@ var _unpublishResource = function (server, type, id, name) {
 	});
 };
 /**
- * Unpublish a site on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Unpublish a site on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the site or
  * @param {string} name the name of the site
@@ -1257,8 +1264,8 @@ var _setSiteOnlineStatus = function (server, id, name, status) {
 	});
 };
 /**
- * Activate a site on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Activate a site on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the site or
  * @param {string} name the name of the site
@@ -1270,8 +1277,8 @@ module.exports.activateSite = function (args) {
 };
 
 /**
- * Deactivate a site on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Deactivate a site on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the site or
  * @param {string} name the name of the site
@@ -1334,8 +1341,8 @@ var _validateSite = function (server, id, name) {
 	});
 };
 /**
- * Validate a site on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Validate a site on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the site or
  * @param {string} name the name of the site
@@ -1457,8 +1464,8 @@ var _hardDeleteResource = function (server, type, id, name, showError) {
 	});
 };
 /**
- * Delete a template on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Delete a template on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the template or
  * @param {string} name the name of the template
@@ -1487,8 +1494,8 @@ module.exports.deleteSite = function (args) {
 };
 
 /**
- * Delete a theme on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Delete a theme on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} id the id of the theme or
  * @param {string} name the name of the theme
@@ -1510,7 +1517,7 @@ module.exports.deleteTheme = function (args) {
  * @param {boolean} hard a flag to indicate delete the component permanently
  * @returns {Promise.<object>} The data object returned by the server.
  */
- module.exports.deleteComponent = function (args) {
+module.exports.deleteComponent = function (args) {
 	var server = args.server;
 	var showError = args.showError !== undefined ? args.showError : true;
 	return args.hard ? _hardDeleteResource(server, 'components', args.id, args.name, showError) : _softDeleteResource(server, 'components', args.id, args.name);
@@ -1601,8 +1608,8 @@ var _importComponent = function (server, name, fileId) {
 	});
 };
 /**
- * Import a component on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Import a component on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} name the name of the component
  * @param {string} fileId the file id of the zip file
@@ -1736,11 +1743,11 @@ var _createTemplateFromSite = function (server, name, siteName, includeUnpublish
 };
 /**
  * Create template from a site
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} name the name of the template
  * @param {string} siteName the name of the site
- * @param {boolean} exportPublishedAssets 
+ * @param {boolean} exportPublishedAssets
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createTemplateFromSite = function (args) {
@@ -1849,8 +1856,8 @@ var _importTemplate = function (server, name, fileId) {
 	});
 };
 /**
- * Import a template on server 
- * @param {object} args JavaScript object containing parameters. 
+ * Import a template on server
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} name the name of the component
  * @param {string} fileId the file id of the zip file
@@ -1914,7 +1921,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to create site ' + name + ' from template ' + templateName);
+				console.log('ERROR: failed to create site ' + name + ' from template ' + (templateName || templateId));
 				console.log(error);
 				resolve({
 					err: error
@@ -2020,11 +2027,11 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 };
 /**
  * Create site from a template
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} name the name of the site
  * @param {string} templateName the name of the site
- * @param {boolean} exportPublishedAssets 
+ * @param {boolean} exportPublishedAssets
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createSite = function (args) {
@@ -2129,8 +2136,8 @@ var _copySite = function (server, sourceSiteName, name, description, sitePrefix,
 	});
 };
 /**
- * Copy a site 
- * @param {object} args JavaScript object containing parameters. 
+ * Copy a site
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} sourceSite the name of the source site
  * @param {string} name the name of the copied site
@@ -2204,7 +2211,7 @@ var _siteUpdated = function (server, name) {
 
 /**
  * Mark a site as updated
- * @param {object} args JavaScript object containing parameters. 
+ * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object
  * @param {string} name the name of the site
  * @returns {Promise.<object>} The data object returned by the server.
@@ -2286,4 +2293,73 @@ var _createUpdate = function (server, siteId, name) {
  */
 module.exports.createUpdate = function (args) {
 	return _createUpdate(args.server, args.siteId, args.name);
+};
+
+var _shareSite = function (server, id, name, member, role) {
+	return new Promise(function (resolve, reject) {
+
+		var url = '/sites/management/api/v1/sites/';
+		if (id) {
+			url = url + id;
+		} else if (name) {
+			url = url + 'name:' + name;
+		}
+		url = url + '/members';
+		console.log(' - post ' + url);
+
+		var body = {
+			id: member,
+			role: role
+		};
+		var options = {
+			method: 'POST',
+			url: server.url + url,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(body),
+			json: true
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to share site ' + (name || id) + ' with ' + member + ' : ');
+				console.log(error);
+				resolve({
+					err: error
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode <= 300) {
+				resolve(data);
+			} else {
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to share site ' + (name || id) + ' with ' + member + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Share a site with a user/group.
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {string} id the id of the site or
+ * @param {string} name the name of the site
+ * @param {string} member in the form of user:<user id>
+ * @param {string} role the role to give the user/group
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.shareSite = function (args) {
+	return _shareSite(args.server, args.id, args.name, args.member, args.role);
 };

@@ -6,6 +6,7 @@
 /* jshint esversion: 6 */
 
 var serverUtils = require('../test/server/serverUtils.js'),
+	documentUtils = require('./document.js').utils,
 	fileUtils = require('../test/server/fileUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
@@ -577,39 +578,88 @@ var unzipComponent = function (compName, compPath) {
 
 var _deployOneComponentREST = function (server, folder, folderId, zipfile, name, publish) {
 	return new Promise(function (resolve, reject) {
-		var fileName = name + '.zip';
-		// upload file
 		var fileId;
+		var fileName = name + '.zip';
 		var startTime;
-		serverRest.createFile({
+
+		// check if component exist on the server
+		var compExist = false;
+		sitesRest.resourceExist({
 				server: server,
-				parentID: folderId,
-				filename: fileName,
-				contents: fs.createReadStream(zipfile)
-			}).then(function (result) {
-				if (!result || !result.id) {
-					return Promise.reject();
-				}
-				console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + result.version);
-				fileId = result.id;
-				startTime = new Date();
-				return sitesRest.importComponent({
-					server: server,
-					name: name,
-					fileId: fileId
-				});
+				type: 'components',
+				name: name
 			})
 			.then(function (result) {
-				if (result.err) {
+				if (!result || result.err) {
+					compExist = false;
+				} else {
+					compExist = true;
+				}
+
+				var createFilePromises = [];
+				if (!compExist) {
+					createFilePromises.push(serverRest.createFile({
+						server: server,
+						parentID: folderId,
+						filename: fileName,
+						contents: fs.createReadStream(zipfile)
+					}));
+				}
+
+				return Promise.all(createFilePromises);
+
+			})
+			.then(function (results) {
+
+				if (!compExist) {
+					if (!results || !results[0] || !results[0].id) {
+						return Promise.reject();
+					}
+					console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + results[0].version);
+					fileId = results[0].id;
+				}
+
+				startTime = new Date();
+				var uploadPromise;
+				if (!compExist) {
+					uploadPromise = sitesRest.importComponent({
+						server: server,
+						name: name,
+						fileId: fileId
+					});
+				} else {
+					// Do not upload file _folder.json, otherwise will fail to export
+					var uploadArgv = {
+						path: path.join(componentsBuildDir, name) + path.sep,
+						folder: 'component:' + name,
+						retry: false,
+						excludeFiles: ['_folder.json']
+					};
+					uploadPromise = documentUtils.uploadFolder(uploadArgv, server);
+				}
+
+				return uploadPromise;
+
+			})
+			.then(function (result) {
+				if (result.err || !result) {
+					if (compExist) {
+						console.log('ERROR: failed to update component ' + name);
+					}
 					return Promise.reject();
 				}
 				// console.log(result);
-				if (result.newName && result.newName !== name) {
-					console.log(' - component imported and renamed to ' + result.newName + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-					name = result.newName;
+				if (!compExist) {
+					if (result.newName && result.newName !== name) {
+						console.log(' - component imported and renamed to ' + result.newName + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						name = result.newName;
+					} else {
+						console.log(' - component ' + name + ' imported [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+					}
 				} else {
-					console.log(' - component ' + name + ' imported [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+					console.log(' - component ' + name + ' updated');
 				}
+
 				var publishpromises = [];
 				if (publish) {
 					publishpromises.push(sitesRest.publishComponent({
@@ -638,6 +688,9 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 				}
 			})
 			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
 				resolve({
 					err: 'err',
 					name: name
