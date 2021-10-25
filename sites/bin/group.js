@@ -44,7 +44,7 @@ module.exports.createGroup = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -105,7 +105,7 @@ module.exports.deleteGroup = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -172,7 +172,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -300,7 +300,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 						success = false;
 					} else {
 						var member = results[i];
-						var typeLabel = userNames.includes(member.name) ? 'user' : 'group';
+						var typeLabel = serverUtils.includes(userNames, member.name) ? 'user' : 'group';
 						console.log(' - ' + typeLabel + ' ' + member.name + ' added to group ' + name);
 					}
 				}
@@ -341,7 +341,7 @@ module.exports.removeMemberFromGroup = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}

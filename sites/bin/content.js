@@ -137,7 +137,7 @@ module.exports.downloadContent = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1079,7 +1079,7 @@ module.exports.uploadContent = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1562,7 +1562,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				done();
 				return;
 			}
@@ -2131,7 +2131,7 @@ module.exports.createDigitalAsset = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -2300,7 +2300,7 @@ module.exports.updateDigitalAsset = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -2396,7 +2396,7 @@ module.exports.copyAssets = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -2676,7 +2676,7 @@ module.exports.migrateContent = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -3178,7 +3178,7 @@ module.exports.transferSiteContent = function (argv, done) {
 	serverUtils.loginToServer(server)
 		.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server ' + server.url);
+				console.log(result.statusMessage + ' ' + server.url);
 				return Promise.reject();
 			}
 
@@ -3186,7 +3186,7 @@ module.exports.transferSiteContent = function (argv, done) {
 		})
 		.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server ' + destServer.url);
+				console.log(result.statusMessage + ' ' + destServer.url);
 				return Promise.reject();
 			}
 
@@ -3573,7 +3573,7 @@ module.exports.transferContent = function (argv, done) {
 	serverUtils.loginToServer(server)
 		.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server ' + server.url);
+				console.log(result.statusMessage + ' ' + server.url);
 				return Promise.reject();
 			}
 
@@ -3581,7 +3581,7 @@ module.exports.transferContent = function (argv, done) {
 		})
 		.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server ' + destServer.url);
+				console.log(result.statusMessage + ' ' + destServer.url);
 				return Promise.reject();
 			}
 
@@ -3906,7 +3906,7 @@ module.exports.uploadCompiledContent = function (argv, done) {
 	serverUtils.loginToServer(server)
 		.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server ' + server.url);
+				console.log(result.statusMessage + ' ' + server.url);
 				return Promise.reject();
 			}
 

@@ -10,6 +10,7 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	crypto = require('crypto'),
 	fs = require('fs'),
+	os = require('os'),
 	path = require('path'),
 	sprintf = require('sprintf-js').sprintf;
 
@@ -449,7 +450,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -872,7 +873,7 @@ module.exports.executeGet = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server ' + server.url);
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -921,7 +922,7 @@ module.exports.executeGet = function (argv, done) {
 				try {
 					data = JSON.parse(body);
 					console.log(data);
-				} catch(e) {
+				} catch (e) {
 
 				}
 				done();
@@ -930,6 +931,203 @@ module.exports.executeGet = function (argv, done) {
 
 	});
 };
+
+module.exports.executePost = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var bodyPath = argv.body;
+	var body;
+	if (bodyPath) {
+
+		if (!path.isAbsolute(bodyPath)) {
+			bodyPath = path.join(projectDir, bodyPath);
+		}
+		bodyPath = path.resolve(bodyPath);
+
+		if (!fs.existsSync(bodyPath)) {
+			console.log('ERROR: file ' + bodyPath + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(bodyPath).isFile()) {
+			console.log('ERROR: ' + bodyPath + ' is not a file');
+			done();
+			return;
+		}
+
+
+		try {
+			body = JSON.parse(fs.readFileSync(bodyPath));
+		} catch (e) {
+			console.log('ERROR: file ' + bodyPath + ' is not a valid JSON file');
+			done();
+			return;
+		}
+	}
+
+	var output = argv.file;
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+		if (!fs.existsSync(outputFolder)) {
+			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(outputFolder).isDirectory()) {
+			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			done();
+			return;
+		}
+	}
+
+	var endpoint = argv.endpoint;
+	var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
+	var isSites = endpoint.indexOf('/sites/management/api/') === 0;
+
+	var async = typeof argv.async === 'string' && argv.async.toLowerCase() === 'true';
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		var caasTokenPromises = [];
+		if (isCAAS) {
+			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
+		}
+
+		Promise.all(caasTokenPromises)
+			.then(function (results) {
+				var csrfToken = results && results[0] && results[0].token;
+
+				var url = server.url + endpoint;
+				var postData = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					}
+				};
+				if (csrfToken) {
+					postData.headers['X-CSRF-TOKEN'] = csrfToken;
+				}
+				if (async) {
+					postData.headers['Prefer'] = 'respond-async';
+				}
+				if (body && Object.keys(body).length > 0) {
+					postData.headers['Content-Type'] = 'application/json';
+					postData.body = JSON.stringify(body);
+				}
+				// console.log(postData);
+
+				console.log(' - executing endpoint: POST ' + endpoint);
+				var request = require('../test/server/requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to post ' + endpoint);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {}
+					if (async) {
+						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+						var statusUrl = response.location;
+						if (statusUrl) {
+							console.log(' - submit background job');
+							console.log(' - job status: ' + statusUrl);
+							var startTime = new Date();
+							var needNewLine = false;
+							var inter = setInterval(function () {
+								var jobPromise = sitesRest.getBackgroundJobStatus({
+									server: server,
+									url: statusUrl
+								});
+								jobPromise.then(function (data) {
+									// console.log(data);
+									if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+										clearInterval(inter);
+										if (needNewLine) {
+											process.stdout.write(os.EOL);
+										}
+										var msg = data && data.error ? (data.error.detail || data.error.title) : '';
+										console.log('ERROR: request failed: ' + msg);
+										done();
+									} else if (data.completed && data.progress === 'succeeded') {
+										clearInterval(inter);
+										if (data.completedPercentage) {
+											process.stdout.write(' - request in process percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+										}
+										process.stdout.write(os.EOL);
+										console.log(' - request finished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+										// console.log(data);
+										done(true);
+									} else {
+										process.stdout.write(' - request in process' + (data.completedPercentage !== undefined ? ' percentage ' + data.completedPercentage : '') + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+										readline.cursorTo(process.stdout, 0);
+										needNewLine = true;
+									}
+								});
+							}, 5000);
+						} else {
+							if (data) {
+								console.log('Result:');
+								console.log(JSON.stringify(data, null, 4));
+								if (output) {
+									fs.writeFileSync(output, JSON.stringify(data, null, 4));
+									console.log(' - result saved to ' + output);
+								}
+							}
+							done();
+						}
+
+					} else {
+						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+						if (response.location || response.url) {
+							console.log('Result URL: ' + (response.location || response.url));
+						}
+						// console.log(response);
+						if (data) {
+							console.log('Result:');
+							console.log(JSON.stringify(data, null, 4));
+							if (output) {
+								fs.writeFileSync(output, JSON.stringify(data, null, 4));
+								console.log(' - result saved to ' + output);
+							}
+						}
+						done(true);
+					}
+				});
+			});
+	});
+};
+
 
 module.exports.renameContentType = function (argv, done) {
 	'use strict';

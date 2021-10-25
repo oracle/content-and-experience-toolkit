@@ -937,6 +937,22 @@ gulp.task('compile-template', function (done) {
 });
 
 /**
+ * Compile site
+ * download a site to a local template, compile it and upload the compiled pages to the site
+ */
+ gulp.task('compile-site', function (done) {
+	'use strict';
+	projectDir = argv.projectDir;
+
+	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
+
+	sitelib.compileSite(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Compile content
  * compile content items and place compiles pages under the content assets
  */
@@ -2087,12 +2103,24 @@ gulp.task('remove-member-from-group', function (done) {
 });
 
 /**
- * Execute
+ * Execute GET
  */
 gulp.task('execute-get', function (done) {
 	'use strict';
 
 	resourcelib.executeGet(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Execute POST
+ */
+ gulp.task('execute-post', function (done) {
+	'use strict';
+
+	resourcelib.executePost(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});

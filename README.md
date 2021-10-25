@@ -15,6 +15,16 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.10.2
+
+**NOTE**
+ - This version requires a 21.10.2 server so please do not update if your OCM server is not version 21.10.2
+
+**Added**
+- `cec control-repository` - Added `add-translation-connector` and `remove-translation-connector`
+- `cec execute-post` - Makes an HTTP POST request to a REST API endpoint on the OCM server
+
+
 # New in Release 21.10.1
 
 **Added**

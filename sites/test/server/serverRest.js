@@ -214,7 +214,8 @@ var _findFolderItems = function (server, parentId, parentPath, _files) {
 							type: 'File',
 							id: items[i].id,
 							path: parentPath ? parentPath + '/' + items[i].name : items[i].name,
-							size: items[i].size
+							size: items[i].size,
+							version: items[i].version
 						});
 					} else {
 						_files.push({
@@ -3814,7 +3815,8 @@ module.exports.createRepository = function (args) {
 };
 
 // Update repository
-var _updateRepository = function (server, repository, contentTypes, channels, taxonomies, autoTagEnabled, languages) {
+var _updateRepository = function (server, repository, contentTypes, channels,
+	taxonomies, autoTagEnabled, languages, connectors) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -3834,6 +3836,9 @@ var _updateRepository = function (server, repository, contentTypes, channels, ta
 				}
 				if (languages && languages.length > 0) {
 					data.languageOptions = languages;
+				}
+				if (connectors && connectors.length > 0) {
+					data.connectors = connectors;
 				}
 				data.autoTagEnabled = autoTagEnabled || false;
 
@@ -3900,7 +3905,8 @@ var _updateRepository = function (server, repository, contentTypes, channels, ta
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.updateRepository = function (args) {
-	return _updateRepository(args.server, args.repository, args.contentTypes, args.channels, args.taxonomies, args.autoTagEnabled, args.languages);
+	return _updateRepository(args.server, args.repository, args.contentTypes, args.channels,
+		args.taxonomies, args.autoTagEnabled, args.languages, args.connectors);
 };
 
 var _performPermissionOperation = function (server, operation, resourceId, resourceName, resourceType, role, users, groups) {
@@ -5321,6 +5327,7 @@ module.exports.addMembersToGroup = function (args) {
 	var name = args.name;
 	var members = args.members || [];
 	var request = require('./requestUtils.js').request;
+	var results = [];
 	return new Promise(function (resolve, reject) {
 		_createConnection(request, server)
 			.then(function (result) {
@@ -5331,13 +5338,22 @@ module.exports.addMembersToGroup = function (args) {
 				} else {
 					var apiRandomID = result.apiRandomID;
 					var cookies = result.cookies;
-					var memberPromises = [];
-					for (var i = 0; i < members.length; i++) {
-						memberPromises.push(_addMemberToGroup(request, cookies, server, apiRandomID, id, name, members[i].id,
-							members[i].name, members[i].role, members[i].isGroup));
-					}
-					Promise.all(memberPromises).then(function (results) {
-						return resolve(results);
+
+					var doAddMember = members.reduce(function (addPromise, member) {
+							return addPromise.then(function (result) {
+								return _addMemberToGroup(request, cookies, server, apiRandomID, id, name, member.id,
+										member.name, member.role, member.isGroup)
+									.then(function (result) {
+										results.push(result);
+									});
+							});
+						},
+						// Start with a previousPromise value that is a resolved promise
+						Promise.resolve({}));
+
+					doAddMember.then(function (result) {
+						// console.log(resources.length);
+						resolve(results);
 					});
 				}
 			});
@@ -7602,6 +7618,75 @@ module.exports.createCategory = function (args) {
 	return _createCategory(args.server, args.name, args.parentId, args.position);
 };
 
+/**
+ * Get a translation connector with name on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the translation connector to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getTranslationConnector = function (args) {
+	return new Promise(function (resolve, reject) {
+		if (!args.name) {
+			return resolve({});
+		}
+		var connectorName = args.name;
+		var server = args.server;
+
+		var url = server.url + '/content/management/api/v1.1/connectors';
+		url = url + '?q=(name mt "' + encodeURIComponent(connectorName) + '") AND (connectorType eq "translation")';
+		url = url + '&fields=all&links=none';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		// console.log(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get translation connector ' + connectorName);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 200) {
+				var connectors = data && data.items || [];
+				var connector;
+				for (var i = 0; i < connectors.length; i++) {
+					if (connectors[i].connectorName && connectors[i].connectorName === connectorName) {
+						connector = connectors[i];
+						break;
+					}
+				}
+				if (connector) {
+					resolve(connector);
+				} else {
+					return resolve({});
+				}
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get translation connector ' + connectorlName + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
 var _getTranslationStatus = function (server, statusUrl, action) {
 	return new Promise(function (resolve, reject) {
 		var url = statusUrl;
@@ -8376,4 +8461,68 @@ var _createFolderConversation = function (server, folderId, name) {
  */
 module.exports.createFolderConversation = function (args) {
 	return _createFolderConversation(args.server, args.folderId, args.name);
+};
+var _createHybridLinkForConversation = function (server, conversationId, siteId) {
+	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/conversations/' + conversationId + '/hybridlinks';
+					var payload = {
+						'applicationInstanceID': siteId
+					};
+					var options = {
+						method: 'POST',
+						url: url,
+						headers: {
+							'Authorization': serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID
+						},
+						body: JSON.stringify(payload)
+					};
+					if (result.cookies) {
+						options.headers.Cookie = result.cookies;
+					}
+					request.post(options, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: failed to create Hybrid Link for the conversation ' + conversationId);
+							console.log(error);
+							resolve({
+								err: 'err'
+							});
+						}
+						if (response && response.statusCode >= 200 && response.statusCode < 300) {
+							var data;
+							try {
+								data = JSON.parse(body);
+							} catch (e) {
+								data = body;
+							}
+							resolve(data.hybridLinkID);
+						} else {
+							console.log('ERROR: failed to create Hybrid Link for conversation ' + conversationId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+							resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+/**
+ * Create a Hybrid Link for a conversation.
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.conversationId the conversation id for which hybrid link needs to be generated.
+ * @param {string} args.siteId the site id with which hybrid link for a conversation gets associated.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createHybridLinkForConversation = function (args) {
+	return _createHybridLinkForConversation(args.server, args.conversationId, args.siteId);
 };

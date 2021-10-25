@@ -20,6 +20,7 @@ var express = require('express'),
 	path = require('path'),
 	readline = require('readline'),
 	puppeteer = require('puppeteer'),
+	semver = require('semver'),
 	url = require('url'),
 	_ = require('underscore'),
 	sitesRest = require('./sitesRest.js');
@@ -405,6 +406,13 @@ var _lpad = function (s, char, width) {
 	return (s.length >= width) ? s : (new Array(width).join(char) + s).slice(-width);
 };
 
+/**
+ * Check if array contains case insensitive
+ */
+module.exports.includes = function (array, query) {
+	var index = array.findIndex(item => query.toLowerCase() === item.toLowerCase());
+	return index >= 0;
+};
 
 module.exports.fixHeaders = (origResponse, response) => {
 	_fixHeaders(origResponse, response);
@@ -1815,7 +1823,7 @@ var _loginToPODServer = function (server) {
 			try {
 				browser = await puppeteer.launch({
 					ignoreHTTPSErrors: true,
-					headless: false
+					headless: !!server.headless
 				});
 				const page = await browser.newPage();
 				await page.setViewport({
@@ -1939,7 +1947,7 @@ var _loginToSSOServer = function (server) {
 			try {
 				browser = await puppeteer.launch({
 					ignoreHTTPSErrors: true,
-					headless: false
+					headless: !!server.headless
 				});
 				const page = await browser.newPage();
 				await page.setViewport({
@@ -2065,7 +2073,7 @@ var _loginToICServer = function (server) {
 			try {
 				browser = await puppeteer.launch({
 					ignoreHTTPSErrors: true,
-					headless: false
+					headless: !!server.headless
 				});
 				const page = await browser.newPage();
 				await page.setViewport({
@@ -2189,10 +2197,98 @@ var _loginToICServer = function (server) {
 	});
 	return loginPromise;
 };
+
+var _getToolkitVersion = function () {
+	// get the toolkit version
+	var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), '');
+	// console.log(' - cecDir: ' + cecDir);
+	var packagejsonpath = path.join(cecDir, 'package.json');
+	var toolkitVersion;
+	if (fs.existsSync(packagejsonpath)) {
+		var str = fs.readFileSync(packagejsonpath);
+		var packagejson = JSON.parse(str);
+		toolkitVersion = packagejson && packagejson.version;
+	}
+	// console.log(' - toolkit version ' + toolkitVersion);
+	return toolkitVersion;
+};
+
+// Get OCM server version
+var _getServerVersion = function (server) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/osn/social/api/v1/connections';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+		// console.log(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error || !response || response.statusCode !== 200) {
+				// console.log('ERROR: failed to query  version: ' + (response && response.statusMessage));
+				done();
+				return;
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			// console.log(data);
+
+			return resolve({
+				serverUrl: server.url,
+				version: data && data.version
+			});
+		});
+	});
+};
+
 module.exports.loginToICServer = _loginToICServer;
 
 module.exports.loginToServer = function (server) {
-	return _loginToServer(server);
+	return new Promise(function (resolve, reject) {
+		_loginToServer(server).then(function (result) {
+			if (result.status) {
+				var loginResult = result;
+				// get the server
+				_getServerVersion(server).then(function (result) {
+					server.version = result && result.version;
+					// console.log(' - server ' + server.url + ' type ' + server.env + ' version ' + server.version);
+
+					var versionResult = loginResult;
+					// Dev, webclient servers and QA PODs, the verison is 1.0.0 and won't check
+					if (server.version && server.version !== '1.0.0') {
+						var toolkitVersion = _getToolkitVersion();
+						var serverVersion = server.version;
+						if (serverVersion && toolkitVersion &&
+							semver.valid(semver.coerce(toolkitVersion)) &&
+							semver.valid(semver.coerce(serverVersion)) &&
+							semver.gt(semver.coerce(toolkitVersion), semver.coerce(serverVersion))) {
+							var msg = 'ERROR: Toolkit is version ' + toolkitVersion + ' and cannot use against a version ' + serverVersion + ' OCM server';
+							versionResult = {
+								status: false,
+								statusMessage: msg
+							};
+						}
+					}
+
+					return resolve(versionResult);
+				});
+			} else {
+				return resolve({
+					status: result.status,
+					statusMessage: 'ERROR: failed to connect to the server'
+				});
+			}
+		});
+	});
 };
 var _loginToServer = function (server) {
 	if (server.login) {
@@ -2727,6 +2823,177 @@ module.exports.browseTranslationConnectorsOnServer = function (server) {
 					connectors[j][attr] = rows[j][i];
 				}
 			}
+
+			resolve({
+				data: connectors
+			});
+		});
+	});
+	return transPromise;
+};
+
+var _parseConnectorsResultSets = function (data) {
+	var fields = data.ResultSets && data.ResultSets.ConnectorInstanceInfo && data.ResultSets.ConnectorInstanceInfo.fields || [];
+	var rows = data.ResultSets && data.ResultSets.ConnectorInstanceInfo && data.ResultSets.ConnectorInstanceInfo.rows || [];
+
+	// Server response returns an array but only one row is expected.
+	var connectors = [];
+	rows.forEach(function (row) {
+		connectors.push({});
+	});
+	for (var i = 0; i < fields.length; i++) {
+		var attr = fields[i].name;
+		for (var j = 0; j < rows.length; j++) {
+			connectors[j][attr] = rows[j][i];
+		}
+	}
+
+	var customFields = data.ResultSets && data.ResultSets.CustomField && data.ResultSets.CustomField.fields || [];
+	var customRows = data.ResultSets && data.ResultSets.CustomField && data.ResultSets.CustomField.rows || [];
+
+	var connector = connectors.length > 0 ? connectors[0] : {};
+	connector.customFields = [];
+
+	for (var k = 0; k < customRows.length; k++) {
+		var customField = {};
+		for (var l = 0; l < customFields.length; l++) {
+			attr = customFields[l].name;
+			customField[attr] = customRows[k][l];
+		}
+		connector.customFields.push(customField);
+	}
+
+	return connectors;
+};
+
+/**
+ * Get translation connector from server using IdcService
+ */
+module.exports.getTranslationConnectorOnServer = function (server, connectorId) {
+	var transPromise = new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var url = server.url + '/documents/integration?IdcService=GET_CONNECTOR_INSTANCE&connectorId=' + connectorId + '&IsJson=1';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to get translation connector');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to get translation connector ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var connectors = _parseConnectorsResultSets(data);
+
+			resolve({
+				data: connectors
+			});
+		});
+	});
+	return transPromise;
+};
+
+/**
+ * Set translation connector from server using IdcService
+ */
+module.exports.updateTranslationConnectorOnServer = function (server, connector) {
+	var transPromise = new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var url = server.url + '/documents/integration?IdcService=UPDATE_CONNECTOR_INSTANCE&IsJson=1';
+
+		var connectorIDStr = '&connectorId=' + String(connector.connectorId);
+		url += connectorIDStr;
+		url += '&connectorName=' + connector.connectorName;
+		url += '&connectorDescription=' + encodeURIComponent(connector.description);
+		url += '&IsEnabled=' + (connector.isEnabled ? 1 : 0);
+		url += '&connectorUserName=' + (connector.userName || '');
+		url += '&connectorUserPass=' + (connector.connectorUserPass || '');
+		url += '&IsAcceptSelfSignedCertificate=' + (connector.acceptSelfSignedCertificate ? 1 : 0);
+
+		var cfStr = '';
+		connector.customFields.map(function (cf) {
+			cfStr += cf.fID + ':' + cf.fValue + ',';
+		});
+
+		cfStr = cfStr.substring(0, cfStr.length - 1);
+
+		url += '&connectorFields=' + encodeURIComponent(cfStr);
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to update translation connector');
+				console.log(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to update translation connector ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var connectors = _parseConnectorsResultSets(data);
 
 			resolve({
 				data: connectors
@@ -3553,6 +3820,74 @@ module.exports.updateAdminSettings = function (server, settings) {
 		});
 	});
 };
+
+/**
+ * View group info using IdcService
+ */
+module.exports.viewGroupInfo = function (server, groupId) {
+	return new Promise(function (resolve, reject) {
+		if (!server.url || !server.username || !server.password) {
+			console.log('ERROR: no server is configured');
+			resolve({
+				err: 'no server'
+			});
+		}
+		if (server.env !== 'dev_ec' && !server.oauthtoken) {
+			console.log('ERROR: OAuth token');
+			resolve({
+				err: 'no OAuth token'
+			});
+		}
+
+		var url = server.url + '/documents/integration?IdcService=VIEW_GROUP_INFO&IsJson=1';
+
+		var formData = {
+			'LocalData': {
+				item: 'dGroupID:' + groupId
+			}
+		};
+
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: _getRequestAuthorization(server)
+			},
+			body: JSON.stringify(formData),
+			json: true
+		};
+		// console.log(postData);
+
+		var request = require('./requestUtils.js').request;
+		request.post(postData, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: Failed to view group info');
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.log('ERROR: Failed to view group info' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var groupInfo = module.exports.convertResultSetToJson(data.ResultSets.GroupInfo);
+			return resolve(groupInfo);
+		});
+	});
+};
+
 
 /**
  * View group members using IdcService

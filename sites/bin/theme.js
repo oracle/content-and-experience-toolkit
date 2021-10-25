@@ -60,7 +60,7 @@ var _controlTheme = function (serverName, server, action, themeName, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -138,7 +138,7 @@ module.exports.shareTheme = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				done();
 				return;
 			}
@@ -334,7 +334,7 @@ module.exports.unshareTheme = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				done();
 				return;
 			}
@@ -527,7 +527,7 @@ module.exports.describeTheme = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}

@@ -1521,6 +1521,7 @@ function resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, conte
 	var commonSiteInfoStr = '';
 	if (!useInlineSiteInfo) {
 		commonSiteInfoStr = '<script type="text/javascript" src="[!--$SCS_SITE_PATH--]/siteinfo-common.js" charset="utf-8"></script>';
+		commonSiteInfoStr += '<script type="text/javascript" src="' + sitePrefix + 'siteinfo-dynamic.js"></script>';
 		commonSiteInfoStr = resolveLinks(commonSiteInfoStr, context, sitePrefix);
 	} else {
 		SCSInfo.siteId = (context.siteInfo && context.siteInfo.properties && context.siteInfo.properties.siteName) ? context.siteInfo.properties.siteName : null;

@@ -116,7 +116,7 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -380,7 +380,7 @@ module.exports.copySite = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1311,7 +1311,7 @@ module.exports.transferSite = function (argv, done) {
 	serverUtils.loginToServer(server)
 		.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server ' + server.url);
+				console.log(result.statusMessage + ' ' + server.url);
 				return Promise.reject();
 			}
 
@@ -1319,7 +1319,7 @@ module.exports.transferSite = function (argv, done) {
 		})
 		.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server ' + destServer.url);
+				console.log(result.statusMessage + ' ' + destServer.url);
 				return Promise.reject();
 			}
 
@@ -2047,8 +2047,13 @@ module.exports.transferSite = function (argv, done) {
 					}
 					_cmdEnd(done);
 				}); // get site
-
-		}); // login
+		}) // login
+		.catch((error) => {
+			if (error) {
+				console.log(error);
+			}
+			_cmdEnd(done);
+		});
 };
 
 var _transferOtherAssets = function (argv, server, destServer, site, destSite, repoMappings, excludecontent, publishedassets, reuseContent) {
@@ -2558,7 +2563,7 @@ module.exports.controlSite = function (argv, done) {
 
 		serverUtils.loginToServer(server).then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				done();
 				return;
 			}
@@ -2723,7 +2728,7 @@ module.exports.shareSite = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				done();
 				return;
 			}
@@ -2919,7 +2924,7 @@ module.exports.unshareSite = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				done();
 				return;
 			}
@@ -3110,7 +3115,7 @@ module.exports.deleteSite = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -3191,7 +3196,7 @@ module.exports.validateSite = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				done();
 				return;
 			}
@@ -3400,7 +3405,7 @@ module.exports.getSiteSecurity = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -3531,7 +3536,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				done();
 				return;
 			}
@@ -3834,7 +3839,7 @@ module.exports.uploadStaticSite = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -4050,7 +4055,7 @@ module.exports.downloadStaticSite = function (argv, done) {
 	var siteId;
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -4192,7 +4197,7 @@ module.exports.deleteStaticSite = function (argv, done) {
 	var siteId;
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -4271,7 +4276,7 @@ module.exports.refreshPrerenderCache = function (argv, done) {
 	var siteId;
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -4518,7 +4523,7 @@ module.exports.migrateSite = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(destServer);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server ' + destServer.url);
+			console.log(result.statusMessage + ' ' + destServer.url);
 			done();
 			return;
 		}
@@ -4738,7 +4743,7 @@ module.exports.syncControlSiteSite = function (argv, done) {
 
 	serverUtils.loginToServer(srcServer).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -4885,5 +4890,54 @@ var _doGet = function (url) {
 				});
 			}
 		});
+	});
+};
+
+module.exports.compileSite = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var jobParams = {
+		compileContentJob: false,
+		compileOnly: '1',
+		publishUsedContentOnly: '0',
+		doForceActivate: '0',
+		status: 'CREATED',
+		doForceActivate: '0',
+		progress: 0
+	};
+	jobParams.name = 'Compile' + argv.siteName;
+	jobParams.siteName = argv.siteName;
+	jobParams.serverEndpoint = argv.endpoint;
+	jobParams.serverUser = argv.user;
+	jobParams.serverPass = argv.password;
+	jobParams.serverName = argv.server;
+	jobParams.token = argv.token;
+
+	console.log(jobParams);
+
+
+	var persistenceStore = require('../test/job-manager/sampleFilePersistenceStore.js');
+	var ps = persistenceStore();
+	var jobManager = require('../test/job-manager/jobManager.js');
+	var jm = jobManager({
+		ps: ps
+	});
+
+	var jobId;
+	ps.createJob(jobParams).then(function (config) {
+		jobId = config.id;
+		// we start from CREATE_TEMPLATE for compiling the site
+		return jm.updateStatus(config, "CREATE_TEMPLATE").then(function (updatedConfig) {
+			return jm.compileJob(updatedConfig).then(function (result) {
+				_cmdEnd(done, true);
+			});
+		});
+	}).catch(function (e) {
+		_cmdEnd(done);
 	});
 };

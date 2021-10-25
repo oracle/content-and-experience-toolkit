@@ -1233,7 +1233,7 @@ var _listServerTranslationJobs = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1473,7 +1473,7 @@ module.exports.downloadTranslationJob = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1625,7 +1625,7 @@ module.exports.uploadTranslationJob = function (argv, done) {
 			var loginPromise = serverUtils.loginToServer(server);
 			loginPromise.then(function (result) {
 				if (!result.status) {
-					console.log(' - failed to connect to the server');
+					console.log(result.statusMessage);
 					done();
 					return;
 				}
@@ -1779,7 +1779,7 @@ module.exports.createTranslationJob = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -2371,7 +2371,7 @@ var _ingestServerTranslationJob = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -2596,7 +2596,7 @@ var _refreshServerTranslationJob = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}

@@ -101,6 +101,7 @@
 						'initialized',
 						'linkContentId',
 						'linkContentType',
+						'linkContentTypeDisplayName', // CCS-88683 Use type display name in seeded Content components
 						'linkContentViewing',
 						'linkContentName',
 						'linkType',
@@ -626,6 +627,7 @@
 						'isCobrowse',
 						'linkContentId',
 						'linkContentType',
+						'linkContentTypeDisplayName', // CCS-88683 Use type display name in seeded Content components
 						'linkContentViewing',
 						'linkContentName',
 						'linkType',
@@ -867,6 +869,7 @@
 						'contentLayoutCategory',
 						'contentPlaceholder',
 						'contentTypes',
+						'contentTypeDisplayName', // CCS-88683 Use type display name in seeded Content components
 						'contentTypeCategory', // 'DigitalAssetType' or 'ContentType' CCS-76377 - support Custom Digital Asset in Content Item component
 						'contentViewing',
 						'customRenderComplete',
@@ -1634,6 +1637,7 @@
 					},
 					'properties': [
 						'attr_src',
+						'attr_data-asset-operation',
 						'attr_alt',
 						'attr_title',
 						'imageName',
@@ -1716,6 +1720,7 @@
 						'borderWidth',
 						'categoryFilters',
 						'contentTypes',
+						'contentTypeDisplayName', // CCS-88683 Use type display name in seeded Content components
 						'customSettingsData',
 						'dateFilter',
 						'dateFilterBegin',

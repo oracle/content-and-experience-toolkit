@@ -173,7 +173,9 @@ var getThemeActions = function () {
 };
 
 var getRepositoryActions = function () {
-	const actions = ['add-type', 'remove-type', 'add-channel', 'remove-channel', 'add-taxonomy', 'remove-taxonomy', 'add-language', 'remove-language'];
+	const actions = ['add-type', 'remove-type', 'add-channel', 'remove-channel', 'add-taxonomy', 'remove-taxonomy', 'add-language', 'remove-language',
+		'add-translation-connector', 'remove-translation-connector'
+	];
 	return actions;
 };
 
@@ -724,6 +726,26 @@ const compileTemplate = {
 		['cec compile-template Temp1 -c channelToken -s UAT -t draft', 'Compiles the site in template Temp1 retrieving draft content from the specified server.'],
 		['cec compile-template Temp1 -p 104,112,183 -r', 'Compiles the specified pages in the site in template Temp1 including all child pages.'],
 		['cec compile-template Temp1 -d', 'Waits for the debugger to be attached.  Once attached, compiles the site in template Temp1.']
+	]
+};
+
+const compileSite = {
+	command: 'compile-site <site>',
+	alias: 'cmps',
+	name: 'compile-site',
+	debugName: 'compile-site-debug',
+	usage: {
+		'short': 'Compile the site on a remote server',
+		'long': (function () {
+			let desc = 'Downloads a site as a template, compiles all the pages within the site of the template and uploads the compiled pages to the server.\n' +
+				'Specify -s <server> or -u <user> and -p <password> or -t <token> for connecting to the server.\n' +
+				'Specify -e <endpoint> for the server URL.\n' +
+				'Optionally specify -d <debug> to start the compilation with --inspect-brk flag.\n';
+			return desc;
+		})()
+	},
+	example: [
+		['cec compile-site Site1 -u <user> -p <password> -e <endpoint>', 'Compiles the site Site1 in the specified server.']
 	]
 };
 
@@ -1529,13 +1551,14 @@ const updateSite = {
 	usage: {
 		'short': 'Update Enterprise Site <name>.',
 		'long': (function () {
-			let desc = 'Update Enterprise Site on OCM server using the content from the template. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Update Enterprise Site on OCM server using the content from the template or with metadata. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
 	example: [
 		['cec update-site Site1 -t Template1', 'Updates site Site1 using the content from template Template1'],
-		['cec update-site Site1 -t Template1 -x', 'Updates site Site1 using the content from template Template1 excluding the "Content Template"']
+		['cec update-site Site1 -t Template1 -x', 'Updates site Site1 using the content from template Template1 excluding the "Content Template"'],
+		['cec update-site Site1 -m metadata', 'Updates site Site1 metadata using the JSON provided']
 	]
 };
 
@@ -1792,7 +1815,9 @@ const controlRepository = {
 		['cec control-repository add-taxonomy -r Repo1 -x Taxonomy1,Taxonomy2'],
 		['cec control-repository remove-taxonomy -r Repo1 -x Taxonomy1,Taxonomy2'],
 		['cec control-repository add-language -r Repo1 -l fr-FR,de-DE'],
-		['cec control-repository remove-language -r Repo1 -l fr-FR,de-DE']
+		['cec control-repository remove-language -r Repo1 -l fr-FR,de-DE'],
+		['cec control-repository add-translation-connector -r Repo1 -n "Lingotek,My Lingotek Connector"'],
+		['cec control-repository remove-translation-connector -r Repo1 -n "Lingotek,My Lingotek Connector"']
 	]
 };
 
@@ -2930,6 +2955,26 @@ const executeGet = {
 	]
 };
 
+const executePost = {
+	command: 'execute-post <endpoint>',
+	alias: 'exeo',
+	name: 'execute-post',
+	usage: {
+		'short': 'Makes an HTTP POST request to a REST API endpoint on OCM server',
+		'long': (function () {
+			let desc = 'Makes an HTTP POST request to a REST API endpoint on OCM server. Specify the server with -s <server>. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec exeo "/content/management/api/v1.1/channels" -b channel.json -f result.json -s DEV', 'Create a channel and save the result to result.json'],
+		['cec exeo "/sites/management/api/v1/components/name:Comp1/export" -s DEV', 'Export component Comp1'],
+		['cec exeo "/sites/management/api/v1/components/name:Comp1/hardDelete" -s DEV', 'Permanently delete component Comp1'],
+		['cec exeo "/sites/management/api/v1/templates/name:BlogTemplate/export" -a -s DEV', 'Export template BlogTemplate asynchronously'],
+		['cec exeo "/documents/api/1.2/files/fileGUID/copy"  -b ~/Downloads/copyfile.json -s DEV', 'Copy a file to a folder']
+	]
+};
+
 /*********************
  * Setup yargs
  **********************/
@@ -3021,6 +3066,7 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(createSiteMap) + os.EOL +
 	_getCmdHelp(createRSSFeed) + os.EOL +
 	_getCmdHelp(createAssetReport) + os.EOL +
+	//	_getCmdHelp(compileSite) + os.EOL +
 	_getCmdHelp(uploadStaticSite) + os.EOL +
 	_getCmdHelp(downloadStaticSite) + os.EOL +
 	_getCmdHelp(deleteStaticSite) + os.EOL +
@@ -3100,6 +3146,7 @@ _usage = _usage + os.EOL + 'Local Environment' + os.EOL +
 	_getCmdHelp(setOAuthToken) + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
 	_getCmdHelp(executeGet) + os.EOL +
+	_getCmdHelp(executePost) + os.EOL +
 	_getCmdHelp(install) + os.EOL +
 	_getCmdHelp(develop) + os.EOL +
 	_getCmdHelp(syncServer) + os.EOL +
@@ -3515,6 +3562,46 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${compileTemplate.command}\n\n${compileTemplate.usage.long}`);
+		})
+	.command([compileSite.command, compileSite.alias], false,
+		(yargs) => {
+			yargs.option('user', {
+					alias: 'u',
+					description: '<user> User name'
+				})
+				.option('password', {
+					alias: 'p',
+					description: '<password> password',
+				})
+				.option('token', {
+					alias: 't',
+					description: '<token> token',
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.option('endpoint', {
+					alias: 'e',
+					description: '<endpoint> Server endpoint'
+				})
+				.option('debug', {
+					alias: 'd',
+					description: 'Start the compiler with "--inspect-brk" option to debug compilation'
+				})
+				.check((argv) => {
+					if (!((argv.user && argv.password) || argv.token || argv.server)) {
+						throw new Error(`Compile site requires <user> and <password> or <token> or <server> to be specified.`);
+					} else if (((argv.user && argv.password) || argv.token) && !argv.endpoint) {
+						throw new Error(`Compile site requires <endpoint> to be specified when using <user> and <password> or <token>.`);
+					} else {
+						return true;
+					}
+				})
+				.example(...compileSite.example[0])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${compileSite.command}\n\n${compileSite.usage.long}`);
 		})
 	.command([deleteTemplate.command, deleteTemplate.alias], false,
 		(yargs) => {
@@ -4901,19 +4988,30 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('template', {
 					alias: 't',
-					description: '<template> Template',
-					demandOption: true
+					description: '<template> Template'
 				})
 				.option('excludecontenttemplate', {
 					alias: 'x',
 					description: 'Exclude content template'
 				})
+				.option('metadata', {
+					alias: 'm',
+					description: 'JSON metadata properties to update within the site'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
 				})
+				.check((argv) => {
+					if (!argv.template && !argv.metadata) {
+						throw new Error('Please provide <template> or <metadata> arguments');
+					} else {
+						return true;
+					}
+				})
 				.example(...updateSite.example[0])
 				.example(...updateSite.example[1])
+				.example(...updateSite.example[2])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${updateSite.command}\n\n${updateSite.usage.long}`);
@@ -5397,6 +5495,8 @@ const argv = yargs.usage(_usage)
 						throw new Error(`${os.EOL}<taxonomies> is required for ${argv.action}`);
 					} else if ((argv.action === 'add-language' || argv.action === 'remove-language') && !argv.languages) {
 						throw new Error(`${os.EOL}<languages> is required for ${argv.action}`);
+					} else if ((argv.action === 'add-translation-connector' || argv.action === 'remove-translation-connector') && !argv.translationconnectors) {
+						throw new Error(`${os.EOL}<translationconnectors> is required for ${argv.action}`);
 					} else {
 						return true;
 					}
@@ -5422,6 +5522,10 @@ const argv = yargs.usage(_usage)
 					alias: 'l',
 					description: 'The comma separated list of languages'
 				})
+				.option('translationconnectors', {
+					alias: 'n',
+					description: 'The comma separated list of translation connectors'
+				})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -5436,6 +5540,8 @@ const argv = yargs.usage(_usage)
 				.example(...controlRepository.example[7])
 				.example(...controlRepository.example[8])
 				.example(...controlRepository.example[9])
+				.example(...controlRepository.example[10])
+				.example(...controlRepository.example[11])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlRepository.command}\n\n${controlRepository.usage.long}`);
@@ -6836,6 +6942,33 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${executeGet.command}\n\n${executeGet.usage.long}`);
 		})
+	.command([executePost.command, executePost.alias], false,
+		(yargs) => {
+			yargs.option('body', {
+					alias: 'b',
+					description: 'The JSON file for the request payload'
+				})
+				.option('file', {
+					alias: 'f',
+					description: 'The file to save the result'
+				})
+				.option('async', {
+					alias: 'a',
+					description: 'Send asynchronous request'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...executePost.example[0])
+				.example(...executePost.example[1])
+				.example(...executePost.example[2])
+				.example(...executePost.example[3])
+				.example(...executePost.example[4])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${executePost.command}\n\n${executePost.usage.long}`);
+		})
 	.command([install.command, install.alias], false,
 		(yargs) => {
 			yargs.example(...install.example[0])
@@ -7486,6 +7619,32 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === compileSite.name || argv._[0] === compileSite.alias) {
+	let runCommand = argv.debug ? compileSite.debugName : compileSite.name
+	let compileSiteArgs = ['run', '-s', runCommand, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--siteName', argv.site
+	];
+	if (argv.user && typeof argv.user !== 'boolean') {
+		compileSiteArgs.push(...['--user', argv.user]);
+	}
+	if (argv.endpoint) {
+		compileSiteArgs.push(...['--endpoint', argv.endpoint]);
+	}
+	if (argv.password) {
+		compileSiteArgs.push(...['--password', argv.password]);
+	}
+	if (argv.token) {
+		compileSiteArgs.push(...['--token', argv.token]);
+	}
+	if (argv.server) {
+		compileSiteArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, compileSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
 } else if (argv._[0] === deleteTemplate.name) {
 	let deleteTemplateArgs = ['run', '-s', deleteTemplate.name, '--prefix', appRoot,
 		'--',
@@ -8424,14 +8583,19 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	let updateSiteArgs = ['run', '-s', updateSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
-		'--name', argv.name,
-		'--template', argv.template
+		'--name', argv.name
 	];
+	if (argv.template && typeof argv.template !== 'boolean') {
+		updateSiteArgs.push(...['--template', argv.template]);
+	}
 	if (argv.excludecontenttemplate) {
 		updateSiteArgs.push(...['--excludecontenttemplate', argv.excludecontenttemplate]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		updateSiteArgs.push(...['--server', argv.server]);
+	}
+	if (argv.metadata && typeof argv.metadata !== 'boolean') {
+		updateSiteArgs.push(...['--metadata', argv.metadata]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, updateSiteArgs, {
 		cwd,
@@ -8790,6 +8954,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.languages) {
 		controlRepositoryArgs.push(...['--languages', argv.languages]);
+	}
+	if (argv.translationconnectors) {
+		controlRepositoryArgs.push(...['--translationconnectors', argv.translationconnectors]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlRepositoryArgs.push(...['--server', argv.server]);
@@ -9818,6 +9985,28 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		executeGetArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, executeGetArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+} else if (argv._[0] === executePost.name || argv._[0] === executePost.alias) {
+	let executePostArgs = ['run', '-s', executePost.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--endpoint', argv.endpoint
+	];
+	if (argv.body && typeof argv.body !== 'boolean') {
+		executePostArgs.push(...['--body', argv.body]);
+	}
+	if (argv.file && typeof argv.file !== 'boolean') {
+		executePostArgs.push(...['--file', argv.file]);
+	}
+	if (argv.async) {
+		executePostArgs.push(...['--async', argv.async]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		executePostArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, executePostArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

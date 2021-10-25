@@ -480,7 +480,7 @@ module.exports.deployComponent = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				done();
 				return;
 			}
@@ -769,7 +769,7 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -951,7 +951,7 @@ module.exports.controlComponent = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1061,7 +1061,7 @@ module.exports.shareComponent = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				done();
 				return;
 			}
@@ -1257,7 +1257,7 @@ module.exports.unshareComponent = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				done();
 				return;
 			}

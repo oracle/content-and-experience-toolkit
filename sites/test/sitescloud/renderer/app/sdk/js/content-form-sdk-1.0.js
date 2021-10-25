@@ -137,7 +137,7 @@
             function u() {
                 globalDefQueue.length && (each(globalDefQueue, function(e) {
                     var t = e[0];
-                    "string" == typeof t && (w.defQueueMap[t] = !0), I.push(e);
+                    "string" == typeof t && (w.defQueueMap[t] = !0), T.push(e);
                 }), globalDefQueue = []);
             }
             function l(e) {
@@ -160,8 +160,8 @@
                                 !s || t.depMatched[o] || i[a] || (getOwn(r, a) ? (t.defineDep(o, S[a]), t.check()) : e(s, r, i));
                             }), i[n] = !0);
                         }(e, {}, {});
-                    }), o && !t || !u || !isBrowser && !isWebWorker || b || (b = setTimeout(function() {
-                        b = 0, c();
+                    }), o && !t || !u || !isBrowser && !isWebWorker || y || (y = setTimeout(function() {
+                        y = 0, c();
                     }, 50)), m = !1;
                 }
             }
@@ -181,13 +181,13 @@
             }
             function g() {
                 var e;
-                for (u(); I.length; ) {
-                    if (null === (e = I.shift())[0]) return d(makeError("mismatch", "Mismatched anonymous define() module: " + e[e.length - 1]));
+                for (u(); T.length; ) {
+                    if (null === (e = T.shift())[0]) return d(makeError("mismatch", "Mismatched anonymous define() module: " + e[e.length - 1]));
                     f(e);
                 }
                 w.defQueueMap = {};
             }
-            var m, v, w, y, b, E = {
+            var m, v, w, b, y, E = {
                 waitSeconds: 7,
                 baseUrl: "./",
                 paths: {},
@@ -195,8 +195,8 @@
                 pkgs: {},
                 shim: {},
                 config: {}
-            }, x = {}, k = {}, T = {}, I = [], S = {}, q = {}, A = {}, O = 1, C = 1;
-            return y = {
+            }, x = {}, k = {}, I = {}, T = [], S = {}, q = {}, A = {}, O = 1, C = 1;
+            return b = {
                 require: function(e) {
                     return e.require ? e.require : e.require = w.makeRequire(e.map);
                 },
@@ -214,7 +214,7 @@
                     };
                 }
             }, (v = function(e) {
-                this.events = getOwn(T, e.id) || {}, this.map = e, this.shim = getOwn(E.shim, e.id), 
+                this.events = getOwn(I, e.id) || {}, this.map = e, this.shim = getOwn(E.shim, e.id), 
                 this.depExports = [], this.depMaps = [], this.depMatched = [], this.pluginMaps = {}, 
                 this.depCount = 0;
             }).prototype = {
@@ -317,14 +317,14 @@
                         var r, i, n;
                         if ("string" == typeof e) {
                             if (e = o(e, this.map.isDefine ? this.map : this.map.parentMap, !1, !this.skipMap), 
-                            this.depMaps[t] = e, n = getOwn(y, e.id)) return void (this.depExports[t] = n(this));
+                            this.depMaps[t] = e, n = getOwn(b, e.id)) return void (this.depExports[t] = n(this));
                             this.depCount += 1, s(e, "defined", bind(this, function(e) {
                                 this.undefed || (this.defineDep(t, e), this.check());
                             })), this.errback ? s(e, "error", bind(this, this.errback)) : this.events.error && s(e, "error", bind(this, function(e) {
                                 this.emit("error", e);
                             }));
                         }
-                        r = e.id, i = x[r], hasProp(y, r) || !i || i.enabled || w.enable(e, this);
+                        r = e.id, i = x[r], hasProp(b, r) || !i || i.enabled || w.enable(e, this);
                     })), eachProp(this.pluginMaps, bind(this, function(e) {
                         var t = getOwn(x, e.id);
                         t && !t.enabled && w.enable(e, this);
@@ -345,7 +345,7 @@
                 registry: x,
                 defined: S,
                 urlFetched: q,
-                defQueue: I,
+                defQueue: T,
                 defQueueMap: {},
                 Module: v,
                 makeModuleMap: o,
@@ -395,7 +395,7 @@
                     function s(t, r, u) {
                         var l, f;
                         return n.enableBuildCallback && r && isFunction(r) && (r.__requireJsBuild = !0), 
-                        "string" == typeof t ? isFunction(r) ? d(makeError("requireargs", "Invalid require call"), u) : i && hasProp(y, t) ? y[t](x[i.id]) : req.get ? req.get(w, t, i, s) : (l = o(t, i, !1, !0).id, 
+                        "string" == typeof t ? isFunction(r) ? d(makeError("requireargs", "Invalid require call"), u) : i && hasProp(b, t) ? b[t](x[i.id]) : req.get ? req.get(w, t, i, s) : (l = o(t, i, !1, !0).id, 
                         hasProp(S, l) ? S[l] : d(makeError("notloaded", 'Module name "' + l + '" has not been loaded yet for context: ' + e + (i ? "" : ". Use require([])")))) : (g(), 
                         w.nextTick(function() {
                             g(), (f = a(o(null, i))).skipMap = n.skipMap, f.init(t, r, u, {
@@ -419,9 +419,9 @@
                     }), i || (s.undef = function(e) {
                         u();
                         var t = o(e, i, !0), n = getOwn(x, e);
-                        n.undefed = !0, r(e), delete S[e], delete q[t.url], delete T[e], eachReverse(I, function(t, r) {
-                            t[0] === e && I.splice(r, 1);
-                        }), delete w.defQueueMap[e], n && (n.events.defined && (T[e] = n.events), l(e));
+                        n.undefed = !0, r(e), delete S[e], delete q[t.url], delete I[e], eachReverse(T, function(t, r) {
+                            t[0] === e && T.splice(r, 1);
+                        }), delete w.defQueueMap[e], n && (n.events.defined && (I[e] = n.events), l(e));
                     }), s;
                 },
                 enable: function(e) {
@@ -429,8 +429,8 @@
                 },
                 completeLoad: function(e) {
                     var t, r, n, o = getOwn(E.shim, e) || {}, a = o.exports;
-                    for (u(); I.length; ) {
-                        if (null === (r = I.shift())[0]) {
+                    for (u(); T.length; ) {
+                        if (null === (r = T.shift())[0]) {
                             if (r[0] = e, t) break;
                             t = !0;
                         } else r[0] === e && (t = !0);
@@ -820,15 +820,15 @@
                     var f = o(p, i.id), g = document.createElement("iframe"), m = "/_themes/_components/" + i.id + "/publish/assets/edit.html#" + f;
                     g.setAttribute("src", m), g.setAttribute("frameborder", 0), g.style.height = u, 
                     g.style.width = n;
-                    var w = void 0 === l || isNaN(l) ? c : c && c.length && c.length > l ? c[l] : void 0, y = new r({
+                    var w = void 0 === l || isNaN(l) ? c : c && c.length && c.length > l ? c[l] : void 0, b = new r({
                         frame: g,
                         frameId: f,
                         fieldId: p,
                         customEditor: i,
                         editorValue: w
                     });
-                    return s(f, p, g, l, y), d.debug("custom editor frame is built for editor " + e), 
-                    y;
+                    return s(f, p, g, l, b), d.debug("custom editor frame is built for editor " + e), 
+                    b;
                 } catch (t) {
                     throw d.debug("Failed to build custom editor frame for editor " + e), new Error("Failed to build custom editor frame for editor :" + t.message);
                 } else new Error("No custom editor named " + e + " applicable for field " + h);
@@ -906,11 +906,11 @@
         return function(t) {
             function i(e) {
                 l = e.id, c = e.type, f = e.name, p = e.description, h = e.slug, g = e.language, 
-                m = e.translatable, v = e.languageIsMaster, w = e.version, y = e.isPublished, b = e.status, 
-                E = e.createdDate, x = e.createdBy, k = e.updatedDate, T = e.updatedBy, I = e.repositoryId, 
-                S = e.latestVersion, q = e.currentVersion, A = e.mimeType, O = e.fileGroup, C = e.varSetId, 
-                D = e.versionInfo, M = e.publishInfo, N = e.tags, F = e.collections, R = e.channels, 
-                P = e.publishedChannels, j = e.taxonomies, z = e.isNew;
+                m = e.translatable, v = e.languageIsMaster, w = e.version, b = e.isPublished, y = e.scheduled, 
+                E = e.status, x = e.createdDate, k = e.createdBy, I = e.updatedDate, T = e.updatedBy, 
+                S = e.repositoryId, q = e.latestVersion, A = e.currentVersion, O = e.mimeType, C = e.fileGroup, 
+                D = e.varSetId, M = e.versionInfo, N = e.publishInfo, F = e.tags, R = e.collections, 
+                P = e.channels, j = e.publishedChannels, z = e.taxonomies, B = e.isNew;
             }
             function s() {
                 return {
@@ -918,75 +918,76 @@
                     type: c,
                     name: f,
                     description: p,
-                    createdBy: x,
-                    createdDate: E,
+                    createdBy: k,
+                    createdDate: x,
                     updatedBy: T,
-                    updatedDate: k,
+                    updatedDate: I,
                     slug: h,
-                    repositoryId: I,
+                    repositoryId: S,
                     language: g,
                     translatable: m,
-                    status: b,
-                    isPublished: y,
+                    status: E,
+                    isPublished: b,
+                    scheduled: y,
                     languageIsMaster: v,
                     version: w,
-                    currentVersion: q,
-                    latestVersion: S,
-                    mimeType: A,
-                    fileGroup: O,
-                    varSetId: C
+                    currentVersion: A,
+                    latestVersion: q,
+                    mimeType: O,
+                    fileGroup: C,
+                    varSetId: D
                 };
             }
             function d(e) {
                 a.debug("Item update recived data: ", e), i(e);
                 var t = e.fieldData;
                 t && Array.isArray(t) && t.forEach(function(e) {
-                    var t = e.definition.id, r = e.value, i = G.filter(function(e) {
+                    var t = e.definition.id, r = e.value, i = K.filter(function(e) {
                         return e.getDefinition().id === t;
                     }), n = i && i.length > 0 ? i[0] : null;
                     n && (a.debug("Syncing field value for field : " + e.definition.name + " with value " + r), 
                     n.setValue(r, {
                         notifyForm: !0
                     }));
-                }), L.update && (a.debug("Notifying the form to update the item with itemData:" + s()), 
-                L.update.call(null, s()));
+                }), U.update && (a.debug("Notifying the form to update the item with itemData:" + s()), 
+                U.update.call(null, s()));
             }
             if (!t) {
-                var u = "Unable to initialize Type - invalid  parameter:" + t;
+                var u = "Unable to initialize Item - invalid  parameter:" + t;
                 throw a.error(u), new Error(u);
             }
             if (!t.contentType) throw a.error("Type must be  provided"), new Error("Type must be  provided");
             r.on("update", d);
-            var l, c, f, p, h, g, m, v, w, y, b, E, x, k, T, I, S, q, A, O, C, D, M, N, F, R, P, j, z, B = t.contentType, V = B.getSlug(), L = (V && V.enabled, 
-            {}), U = t.itemData, W = U.fieldData, Q = t.formOptions, _ = U.languageOptions;
-            i(U);
-            var G = W.map(function(t) {
+            var l, c, f, p, h, g, m, v, w, b, y, E, x, k, I, T, S, q, A, O, C, D, M, N, F, R, P, j, z, B, V = t.contentType, L = V.getSlug(), U = (L && L.enabled, 
+            {}), W = t.itemData, Q = W.fieldData, _ = t.formOptions, G = W.languageOptions;
+            i(W);
+            var K = Q.map(function(t) {
                 return new e(t);
             });
             this.getFormOptions = function() {
-                return Object.freeze(Q);
+                return Object.freeze(_);
             }, this.get = function() {
                 return s();
             }, this.on = function(e, t) {
-                L[e] = t;
+                U[e] = t;
             }, this.isNew = function() {
-                return z;
+                return B;
             }, this.getLanguageOptions = function() {
-                return _;
-            }, this.getFields = function() {
                 return G;
+            }, this.getFields = function() {
+                return K;
             }, this.getFieldByName = function(e) {
-                var t = G.filter(function(t) {
+                var t = K.filter(function(t) {
                     return t.getDefinition().name === e;
                 });
                 return t && t.length > 0 ? t[0] : null;
             }, this.getFieldById = function(e) {
-                var t = G.filter(function(t) {
+                var t = K.filter(function(t) {
                     return t.getDefinition().id === e;
                 });
                 return t && t.length > 0 ? t[0] : null;
             }, this.setName = function(e, t) {
-                if (Q && !Q.supportsSetName) throw new Error("Form does not support changing name");
+                if (_ && !_.supportsSetName) throw new Error("Form does not support changing name");
                 t = t || {}, f = e, n({
                     nodeName: "name",
                     value: f,
@@ -997,7 +998,7 @@
                     value: e
                 });
             }, this.setDescription = function(e, t) {
-                if (Q && !Q.supportsSetDescription) throw new Error("Form does not support changing description .");
+                if (_ && !_.supportsSetDescription) throw new Error("Form does not support changing description .");
                 t = t || {}, p = e, n({
                     nodeName: "description",
                     value: p,
@@ -1008,7 +1009,7 @@
                     value: e
                 });
             }, this.setSlug = function(e, t) {
-                if (Q && !Q.supportsSetSlug) throw new Error("Form does not support changing slug.");
+                if (_ && !_.supportsSetSlug) throw new Error("Form does not support changing slug.");
                 t = t || {}, h = e, n({
                     nodeName: "slug",
                     value: h,
@@ -1019,9 +1020,9 @@
                     value: e
                 });
             }, this.setLanguage = function(e, t) {
-                if (Q && !Q.supportsSetLanguage) throw new Error("Form does not support changing language.");
-                if (t = t || {}, !this.isNew()) throw new Error("Language cannot be modified for an existing item");
-                if (!o(_, e)) throw new Error('Invalid Language "' + e + '" passed');
+                if (_ && !_.supportsSetLanguage) throw new Error("Form does not support changing language.");
+                if (t = t || {}, b || y) throw new Error("Form does not support changing language as the asset is either published or scheduled for publish.");
+                if (!o(G, e)) throw new Error('Invalid Language "' + e + '" passed');
                 g = e, n({
                     nodeName: "language",
                     value: g,
@@ -1032,7 +1033,7 @@
                     value: e
                 });
             }, this.setTranslatable = function(e, t) {
-                if (Q && !Q.supportsSetTranslatable) throw new Error("Form does not support changing translatable.");
+                if (_ && !_.supportsSetTranslatable) throw new Error("Form does not support changing translatable.");
                 if (t = t || {}, !this.isNew()) throw new Error("Translatbale property cannot be modified for an existing item");
                 if ("boolean" != typeof e) throw new Error("Translatbale property must be boolean");
                 e = e, n({
@@ -1041,21 +1042,21 @@
                     options: t
                 });
             }, this.getVersionInfo = function() {
-                return Promise.resolve(D);
-            }, this.getPublishInfo = function() {
                 return Promise.resolve(M);
-            }, this.getTags = function() {
+            }, this.getPublishInfo = function() {
                 return Promise.resolve(N);
-            }, this.getCollections = function() {
+            }, this.getTags = function() {
                 return Promise.resolve(F);
-            }, this.getChannels = function() {
+            }, this.getCollections = function() {
                 return Promise.resolve(R);
-            }, this.getPublishedChannels = function() {
+            }, this.getChannels = function() {
                 return Promise.resolve(P);
-            }, this.getTaxonomies = function() {
+            }, this.getPublishedChannels = function() {
                 return Promise.resolve(j);
+            }, this.getTaxonomies = function() {
+                return Promise.resolve(z);
             }, this.addChannels = function(e, t) {
-                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support adding channels.");
+                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support adding channels.");
                 if (!Array.isArray(e)) throw new Error("Channels must be an array");
                 t = t || {}, n({
                     nodeName: "channels",
@@ -1066,7 +1067,7 @@
                     options: t
                 });
             }, this.removeChannels = function(e, t) {
-                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support removing channels.");
+                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support removing channels.");
                 if (!Array.isArray(e)) throw new Error("Channels must be an array");
                 t = t || {}, n({
                     nodeName: "channels",
@@ -1077,7 +1078,7 @@
                     options: t
                 });
             }, this.addTags = function(e, t) {
-                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support adding tags.");
+                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support adding tags.");
                 if (!Array.isArray(e)) throw new Error("Tags must be an array");
                 t = t || {}, n({
                     nodeName: "tags",
@@ -1088,7 +1089,7 @@
                     options: t
                 });
             }, this.removeTags = function(e, t) {
-                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support removing tags.");
+                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support removing tags.");
                 if (!Array.isArray(e)) throw new Error("Tags must be an array");
                 t = t || {}, n({
                     nodeName: "tags",
@@ -1099,7 +1100,7 @@
                     options: t
                 });
             }, this.addCollections = function(e, t) {
-                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support adding collections.");
+                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support adding collections.");
                 if (!Array.isArray(e)) throw new Error("Collections must be an array");
                 t = t || {}, n({
                     nodeName: "collections",
@@ -1110,7 +1111,7 @@
                     options: t
                 });
             }, this.removeCollections = function(e, t) {
-                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support removing collections.");
+                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support removing collections.");
                 if (!Array.isArray(e)) throw new Error("Collections must be an array");
                 t = t || {}, n({
                     nodeName: "collections",
@@ -1121,7 +1122,7 @@
                     options: t
                 });
             }, this.addCategories = function(e, t, r) {
-                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support adding categories.");
+                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support adding categories.");
                 if (!e) throw new Error("Taxonomy is missing");
                 if (Array.isArray(e)) throw new Error("Taxonomy must not be an array");
                 if (!Array.isArray(t)) throw new Error("Categories must be an array");
@@ -1135,7 +1136,7 @@
                     options: r
                 });
             }, this.removeCategories = function(e, t, r) {
-                if (Q && !Q.supportsSetMetaData) throw new Error("Form does not support removing categories.");
+                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support removing categories.");
                 if (!e) throw new Error("Taxonomy is missing");
                 if (Array.isArray(e)) throw new Error("Taxonomy must not be an array");
                 if (!Array.isArray(t)) throw new Error("Categories must be an array");
@@ -1262,18 +1263,18 @@
                 g && void 0 !== a && a >= 0 && (g.index = a);
                 var m = l.widget;
                 if (!m) throw o.error("There is no custom editor widget for sender:", i), new Error("There is no custom editor widget for sender:", i);
-                var v = m.getCustomEditorInfo(), w = f.getDefinition().settings || {}, y = !!w.caas.editor.hasOwnProperty("isCustom") && w.caas.editor.hasOwnProperty("isCustom"), b = y ? w.caas.editor.options.settings || {} : {}, E = !!v.hasOwnProperty("autoresize") && v.autoresize;
+                var v = m.getCustomEditorInfo(), w = f.getDefinition().settings || {}, b = !!w.caas.editor.hasOwnProperty("isCustom") && w.caas.editor.hasOwnProperty("isCustom"), y = b ? w.caas.editor.options.settings || {} : {}, E = !!v.hasOwnProperty("autoresize") && v.autoresize;
                 (v.settings || []).filter(function(e) {
                     return "value" === e.type;
                 }).forEach(function(e) {
-                    b[e.id] = e.value;
+                    y[e.id] = e.value;
                 });
                 var x = {
                     locale: u,
                     fields: p,
                     field: g,
                     editor: {
-                        settings: b,
+                        settings: y,
                         autoresize: E,
                         parameters: {}
                     }

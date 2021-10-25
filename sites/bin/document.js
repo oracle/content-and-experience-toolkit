@@ -51,7 +51,7 @@ module.exports.createFolder = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -143,7 +143,7 @@ module.exports.uploadFile = function (argv, done) {
 	}
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -213,7 +213,7 @@ var _uploadFile = function (argv, server) {
 
 	return Promise.all(loginPromises).then(function (results) {
 		if (resourceFolder && (!results || results.length === 0 || !results[0].status)) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			return Promise.reject();
 		}
 
@@ -363,7 +363,7 @@ module.exports.downloadFile = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -558,7 +558,7 @@ module.exports.shareFolder = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -739,7 +739,7 @@ module.exports.unshareFolder = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -958,7 +958,7 @@ module.exports.listFolder = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1066,8 +1066,13 @@ module.exports.listFolder = function (argv, done) {
 				console.log(sprintf(format, 'Type', 'Id', 'Path'));
 				items.forEach(function (item) {
 					var itemPath = item.path;
-					if (item.size) {
-						itemPath = itemPath + ' (' + item.size + ' bytes)';
+					if (item.version) {
+						itemPath = itemPath + ' (';
+						if (item.size) {
+							itemPath = itemPath + item.size + ' bytes ';
+						}
+						itemPath = itemPath + 'version ' + item.version;
+						itemPath = itemPath + ')';
 					}
 					console.log(sprintf(format, item.type, item.id, itemPath));
 				});
@@ -1108,7 +1113,7 @@ module.exports.downloadFolder = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1188,7 +1193,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 
 		Promise.all(loginPromises).then(function (results) {
 			if (resourceFolder && (!results || results.length === 0 || !results[0].status)) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				return reject();
 			}
 
@@ -1527,7 +1532,7 @@ module.exports.uploadFolder = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1882,7 +1887,7 @@ module.exports.deleteFolder = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1946,7 +1951,7 @@ var _deleteFolder = function (argv, server) {
 
 	return Promise.all(loginPromises).then(function (results) {
 		if ((resourceFolder || permanent) && (!results || results.length === 0 || !results[0].status)) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			return Promise.reject();
 		}
 
@@ -2181,7 +2186,7 @@ module.exports.deleteFile = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -2248,7 +2253,7 @@ var _deleteFile = function (argv, server, toReject) {
 
 	return Promise.all(loginPromises).then(function (results) {
 		if ((resourceFolder || permanent) && (!results || results.length === 0 || !results[0].status)) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			if (toReject) {
 				return Promise.reject();
 			} else {

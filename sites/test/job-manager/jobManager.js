@@ -36,7 +36,8 @@ JobManager.prototype.compileJob = function (jobConfig) {
 		secureSite = false,
 		publishUsedContentOnly = jobConfig.publishUsedContentOnly,
 		doForceActivate = jobConfig.doForceActivate,
-		serverName = 'serverForCompilation',
+		DEFAULT_SERVER_NAME = 'serverForCompilation',
+		serverName = jobConfig.serverName || DEFAULT_SERVER_NAME,
 		serverEndpoint = jobConfig.serverEndpoint,
 		serverUser = jobConfig.serverUser,
 		serverPass = jobConfig.serverPass,
@@ -219,6 +220,13 @@ JobManager.prototype.compileJob = function (jobConfig) {
 			registerServerStep = function () {
 				return new Promise(function (resolveStep, rejectStep) {
 					var startTime = Date.now();
+
+					// if server supplied, use it
+					if (serverName !== DEFAULT_SERVER_NAME) {
+						console.log('register server step: using supplied command line server: ' + serverName);
+						return resolveStep(0);
+					}
+
 					// Server is a dev instance. For internal development use only.
 					var serverType = 'dev_ec';
 

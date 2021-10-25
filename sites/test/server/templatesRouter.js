@@ -208,8 +208,17 @@ router.get('/*', (req, res) => {
 			// not a page, try to access it directly
 			filePath = path.resolve(templatesDir + '/' + filePathSuffix);
 			if (!existsAndIsFile(filePath)) {
-				// can't find it, return the controller
-				filePath = path.resolve(templatesDir + '/' + tempName + '/controller.html');
+				if (filePathSuffix.indexOf('siteinfo-dynamic.js') > 0) {
+					// The siteinfo-dynamic.js is a special JavaScript file that
+					// can cause update cache keys in compiled sites.
+					res.setHeader("Content-Type", 'text/javascript');
+					res.write("(function(){})()");
+					res.end();
+					return;
+				} else {
+					// can't find it, return the controller
+					filePath = path.resolve(templatesDir + '/' + tempName + '/controller.html');
+				}
 			}
 		}
 	}

@@ -135,6 +135,7 @@ SampleFilePersistenceStore.prototype.createJob = function (args) {
 				repositoryId = args.repositoryId,
 				compileContentJob = !!publishingJobId || !!contentType,
 				doForceActivate = args.doForceActivate,
+				serverName = args.serverName,
 				serverEndpoint = args.serverEndpoint,
 				serverUser = args.serverUser || '', // Optional
 				serverPass = args.serverPass || '', // Optional
@@ -164,6 +165,7 @@ SampleFilePersistenceStore.prototype.createJob = function (args) {
 					compileOnly: compileOnly,
 					publishUsedContentOnly: publishUsedContentOnly,
 					doForceActivate: doForceActivate,
+					serverName: serverName,
 					serverEndpoint: serverEndpoint,
 					serverUser: serverUser,
 					serverPass: serverPass,

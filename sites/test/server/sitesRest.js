@@ -1665,6 +1665,16 @@ var _getBackgroundJobStatus = function (server, url) {
 		});
 	});
 };
+/**
+ * Get background job status
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {string} url the status url
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getBackgroundJobStatus = function (args) {
+	return _getBackgroundJobStatus(args.server, args.url);
+};
 
 var _createTemplateFromSite = function (server, name, siteName, includeUnpublishedAssets, enterprisetemplate) {
 	return new Promise(function (resolve, reject) {

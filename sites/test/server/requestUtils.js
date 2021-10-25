@@ -13,27 +13,37 @@ const fs = require('fs');
 const fetch = require('node-fetch');
 const process = require('process');
 
+fetchLog = function(message) {
+	if (process.env.FETCH_LOG === 'console') {
+		console.log(message);
+	}
+	else if (process.env.FETCH_LOG) {
+		fs.appendFileSync(process.env.FETCH_LOG, message);
+	}
+}
+
 var logRequest = function(request) {
 	if (process.env.FETCH_LOG) {
-		fs.appendFileSync(process.env.FETCH_LOG, '\n-------------------------------------------\n');
-		fs.appendFileSync(process.env.FETCH_LOG, new Date().toLocaleString() + '\n\n');
-		fs.appendFileSync(process.env.FETCH_LOG, 'Request: ' + JSON.stringify(request, null, '  ')+ '\n');
+		fetchLog('\n-------------------------------------------\n');
+		fetchLog(new Date().toLocaleString() + '\n\n');
+		fetchLog('Request: ' + JSON.stringify(request, null, '  ')+ '\n');
 	}
 }
 
 var logResponseHeaders = function(response) {
 	if (process.env.FETCH_LOG) {
-		fs.appendFileSync(process.env.FETCH_LOG, 'Response Headers: ' + JSON.stringify(response.headers.raw(), null, '  ') + '\n');
+		fetchLog('Response Status: ' + response.status + ': ' + response.statusText + '\n');
+		fetchLog('Response Headers: ' + JSON.stringify(response.headers.raw(), null, '  ') + '\n');
 	}
 }
 
 var logResponseBody = function(response, body) {
 	if (process.env.FETCH_LOG) {
 		if (response.headers.get('content-type') === 'application/json') {
-			fs.appendFileSync(process.env.FETCH_LOG, 'Response Body: ' + JSON.stringify(JSON.parse(body), null, '  ') + '\n');
+			fetchLog('Response Body: ' + JSON.stringify(JSON.parse(body), null, '  ') + '\n');
 		}
 		else {
-			fs.appendFileSync(process.env.FETCH_LOG, 'Response Body: ' + body.toString() + '\n');
+			fetchLog('Response Body: ' + body.toString() + '\n');
 		}
 	}
 }

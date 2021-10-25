@@ -78,7 +78,7 @@ module.exports.createRepository = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -211,6 +211,7 @@ module.exports.controlRepository = function (argv, done) {
 	var channelNames = argv.channels ? argv.channels.split(',') : [];
 	var taxNames = argv.taxonomies ? argv.taxonomies.split(',') : [];
 	var languages = argv.languages ? argv.languages.split(',') : [];
+	var connectorNames = argv.translationconnectors ? argv.translationconnectors.split(',') : [];
 
 	var allRepos = [];
 	var allRepoNames = [];
@@ -220,10 +221,12 @@ module.exports.controlRepository = function (argv, done) {
 	var finalTypeNames = [];
 	var finaleChannelNames = [];
 	var finalTaxNames = [];
+	var connectors = [];
+	var finalConnectorNames = [];
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -387,8 +390,48 @@ module.exports.controlRepository = function (argv, done) {
 					return Promise.reject();
 				}
 
+				// get translation connectors
+				var connectorPromises = [];
+				for (var i = 0; i < connectorNames.length; i++) {
+					connectorPromises.push(serverRest.getTranslationConnector({
+						server: server,
+						name: connectorNames[i]
+					}));
+				}
+
+				return Promise.all(connectorPromises);
+
+			})
+			.then(function (results) {
+
+				var allConnectors = results || [];
+				connectorNames.forEach(function (connectorName) {
+					var connectorExist = false;
+					for (var i = 0; i < allConnectors.length; i++) {
+						var connector = allConnectors[i];
+						if (connector && connector.connectorId && connector.connectorName === connectorName) {
+							connectors.push({
+								connectorId: connector.connectorId
+							});
+							finalConnectorNames.push(connector.connectorName);
+							connectorExist = true;
+							break;
+						}
+					}
+					if (!connectorExist) {
+						console.log('ERROR: translation connector ' + connectorName + ' does not exist or is not enabled');
+					}
+				});
+				if (connectorNames.length > 0) {
+					if (finalConnectorNames.length > 0) {
+						console.log(' - verify translation connector' + (finalConnectorNames.length > 1 ? 's' : ''));
+					} else {
+						return Promise.reject();
+					}
+				}
+
 				return _controlRepositories(server, allRepos, action, types, finalTypeNames,
-					channels, finaleChannelNames, taxonomies, finalTaxNames, languages);
+					channels, finaleChannelNames, taxonomies, finalTaxNames, languages, connectors, finalConnectorNames);
 
 			})
 			.then(function (result) {
@@ -408,7 +451,8 @@ module.exports.controlRepository = function (argv, done) {
 };
 
 var _controlRepositories = function (server, repositories, action, types, typeNames,
-	channels, channelNames, taxonomies, taxonomyNames, languages) {
+	channels, channelNames, taxonomies, taxonomyNames, languages,
+	connectors, connectorNames) {
 	return new Promise(function (resolve, reject) {
 		var err;
 		var doUpdateRepos = repositories.reduce(function (updatePromise, repository) {
@@ -419,6 +463,7 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 					var finalChannels = repository.channels;
 					var finalTaxonomies = repository.taxonomies;
 					var finalLanguages = repository.languageOptions;
+					var finalConnectors = repository.connectors;
 					var idx;
 					var i, j;
 
@@ -484,6 +529,21 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 								finalLanguages.splice(idx, 1);
 							}
 						}
+					} else if (action === 'add-translation-connector') {
+						finalConnectors = finalChannels.concat(connectors);
+					} else if (action === 'remove-translation-connector') {
+						for (i = 0; i < connectors.length; i++) {
+							idx = undefined;
+							for (j = 0; j < finalConnectors.length; j++) {
+								if (connectors[i].connectorId === finalConnectors[j].connectorId) {
+									idx = j;
+									break;
+								}
+							}
+							if (idx !== undefined) {
+								finalConnectors.splice(idx, 1);
+							}
+						}
 					}
 
 					return serverRest.updateRepository({
@@ -492,7 +552,8 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 						contentTypes: finalTypes,
 						channels: finalChannels,
 						taxonomies: finalTaxonomies,
-						languages: finalLanguages
+						languages: finalLanguages,
+						connectors: finalConnectors
 					}).then(function (result) {
 
 						if (result.err) {
@@ -515,6 +576,10 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 								console.log(' - added language ' + languages + ' to repository ' + name);
 							} else if (action === 'remove-language') {
 								console.log(' - removed language ' + languages + ' from repository ' + name);
+							} else if (action === 'add-translation-connector') {
+								console.log(' - added translation connector ' + connectorNames + ' to repository ' + name);
+							} else if (action === 'remove-translation-connector') {
+								console.log(' - removed translation connector ' + connectorNames + ' from repository ' + name);
 							}
 						}
 					});
@@ -571,7 +636,7 @@ module.exports.shareRepository = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -924,7 +989,7 @@ module.exports.unShareRepository = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1145,7 +1210,7 @@ module.exports.shareType = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1343,7 +1408,7 @@ module.exports.unshareType = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1491,7 +1556,7 @@ module.exports.downloadType = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1705,7 +1770,7 @@ module.exports.uploadType = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1926,7 +1991,7 @@ module.exports.createCollection = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -2081,7 +2146,7 @@ module.exports.controlCollection = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -2549,7 +2614,7 @@ module.exports.createChannel = function (argv, done) {
 	var exitCode;
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -2650,7 +2715,7 @@ module.exports.shareChannel = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -2857,7 +2922,7 @@ module.exports.unshareChannel = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -3009,7 +3074,7 @@ module.exports.listEditorialPermission = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -3181,7 +3246,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -3787,7 +3852,7 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 	var exitCode;
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -3870,7 +3935,7 @@ module.exports.listAssets = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -4378,7 +4443,7 @@ module.exports.createMSWordTemplate = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -4536,7 +4601,7 @@ module.exports.createContentItem = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}

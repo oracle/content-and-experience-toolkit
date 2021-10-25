@@ -82,7 +82,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 		serverUtils.loginToServer(server).then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				return resolve({
 					err: 'err'
 				});
@@ -1520,7 +1520,7 @@ module.exports.downloadTemplate = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -1559,7 +1559,7 @@ module.exports.deleteTemplate = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(' - failed to connect to the server');
+			console.log(result.statusMessage);
 			done();
 			return;
 		}
@@ -2262,7 +2262,7 @@ var _importTemplate = function (server, name, folder, zipfile, done) {
 
 		serverUtils.loginToServer(server).then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				return resolve({
 					err: 'err'
 				});
@@ -2742,7 +2742,7 @@ var _createTemplateFromSiteREST = function (server, name, siteName, includeUnpub
 
 		serverUtils.loginToServer(server).then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				return Promise.reject();
 			}
 
@@ -3010,7 +3010,7 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				return resolve({
 					err: 'err'
 				});
@@ -3220,7 +3220,7 @@ module.exports.shareTemplate = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				done();
 				return;
 			}
@@ -3414,7 +3414,7 @@ module.exports.unshareTemplate = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				done();
 				return;
 			}

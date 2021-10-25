@@ -590,6 +590,46 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 	});
 };
 
+SiteUpdate.prototype.updateMetadata = function (server, siteResults, metadata) {
+	if (!metadata) {
+		return Promise.resolve();
+	}
+
+	var siteSettings,
+		siteId = siteResults.siteId;
+
+	try {
+		siteSettings = JSON.parse(metadata);
+	} catch (e) {
+		console.log('Error: failed to update site with metadata: ' + metadata);
+		return Promise.reject();
+	}
+
+	// update the site metadata property values to be "strings"
+	Object.keys(siteSettings).forEach(function (key) {
+		if (siteSettings[key] === null) {
+			siteSettings[key] = "";
+		} else if (typeof siteSettings[key] === 'object') {
+			siteSettings[key] = JSON.stringify(siteSettings[key]);
+		}
+	});
+	console.log('updating site metadata with: ' + metadata);
+
+	return serverUtils.getIdcToken(server).then(function (idcToken) {
+		return serverUtils.setSiteMetadata(server, idcToken, siteId, siteSettings, {}).then(function (result) {
+			if (!result || result.err) {
+				console.log('ERROR: failed to update site metadata');
+				if (result.err) {
+					console.log(result.err);
+				}
+				return Promise.reject();
+			} else {
+				console.log('successfully updated site metadata');
+				return Promise.resolve();
+			}
+		});
+	});
+};
 
 SiteUpdate.prototype.updateSite = function (argv, done) {
 	try {
@@ -611,7 +651,7 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(' - failed to connect to the server');
+				console.log(result.statusMessage);
 				done();
 				return;
 			}
@@ -623,97 +663,110 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 			var serverInfoPromise = serverUtils.getSiteInfo(server, siteName);
 
 			serverInfoPromise.then(function (siteResult) {
-				// console.log(siteResult);
-				var siteEntry = {
-						siteGUID: siteResult.siteId
-					},
-					siteInfo = siteResult.siteInfo;
-				// console.log(siteInfo);
+				// handle metadat updates
+				self.updateMetadata(server, siteResult, argv.metadata).then(function () {
+					// handle template updates
+					if (!argv.template) {
+						// no template, we're done
+						done();
+						return;
+					} else {
+						// console.log(siteResult);
+						var siteEntry = {
+								siteGUID: siteResult.siteId
+							},
+							siteInfo = siteResult.siteInfo;
+						// console.log(siteInfo);
 
-				// if can't locate the site, return
-				if (!(siteEntry && siteEntry.siteGUID)) {
-					console.log('Error: failed to locate site: ' + siteName);
-					done();
-					return;
-				}
-
-				// add in the site name
-				siteEntry.site = siteName;
-
-				//
-				// Include all the steps to update the site
-				// Note: Running steps serially to avoid overloading the server.  Could be run in parallel depending on performance/load impact.
-				// 
-				updateSitePromises.push(function () {
-					return self.updatePages(argv, siteEntry);
-				});
-				updateSitePromises.push(function () {
-					return self.updateStaticFiles(argv, siteEntry);
-				});
-				updateSitePromises.push(function () {
-					return self.updateContent(argv, siteEntry);
-				});
-				updateSitePromises.push(function () {
-					return self.updateSystemFiles(argv, siteEntry);
-				});
-				updateSitePromises.push(function () {
-					return self.updateSettingsFiles(argv, siteEntry);
-				});
-				if (!excludeContentTemplate) {
-					updateSitePromises.push(function () {
-						return self.updateSiteContent(argv, siteInfo);
-					});
-				}
-
-				// run through the update steps
-				var doUpdateSteps = updateSitePromises.reduce(function (previousPromise, nextPromise) {
-						return previousPromise.then(function (result) {
-							// store the result of this step
-							if (result) {
-								results.push(result);
-							}
-
-							// wait for the previous promise to complete and then return a new promise for the next 
-							return nextPromise();
-						});
-					},
-					// Start with a previousPromise value that is a resolved promise 
-					Promise.resolve());
-
-				// once all files are downloaded, can continue
-				doUpdateSteps.then(function (finalResult) {
-					// add in the final result
-					results.push(finalResult);
-
-					// output the results
-					console.log('Update Site Results:');
-					var totalErr = 0;
-					results.forEach(function (result) {
-						if (result) {
-							totalErr = totalErr + result.errors;
-							console.log(' - ' + result.name.padEnd(20) + ': completed with ' + result.errors + ' errors.');
+						// if can't locate the site, return
+						if (!(siteEntry && siteEntry.siteGUID)) {
+							console.log('Error: failed to locate site: ' + siteName);
+							done();
+							return;
 						}
-					});
-					if (totalErr === 0) {
-						// mark the site as updated
-						sitesRest.siteUpdated({
-								server: server,
-								name: siteName
-							})
-							.then(function (result) {
-								if (result.err) {
-									done();
-								} else {
-									console.log(' - update site timestamp');
-									done(true);
+
+						// add in the site name
+						siteEntry.site = siteName;
+
+						//
+						// Include all the steps to update the site
+						// Note: Running steps serially to avoid overloading the server.  Could be run in parallel depending on performance/load impact.
+						// 
+						updateSitePromises.push(function () {
+							return self.updatePages(argv, siteEntry);
+						});
+						updateSitePromises.push(function () {
+							return self.updateStaticFiles(argv, siteEntry);
+						});
+						updateSitePromises.push(function () {
+							return self.updateContent(argv, siteEntry);
+						});
+						updateSitePromises.push(function () {
+							return self.updateSystemFiles(argv, siteEntry);
+						});
+						updateSitePromises.push(function () {
+							return self.updateSettingsFiles(argv, siteEntry);
+						});
+						if (!excludeContentTemplate) {
+							updateSitePromises.push(function () {
+								return self.updateSiteContent(argv, siteInfo);
+							});
+						}
+
+						// run through the update steps
+						var doUpdateSteps = updateSitePromises.reduce(function (previousPromise, nextPromise) {
+								return previousPromise.then(function (result) {
+									// store the result of this step
+									if (result) {
+										results.push(result);
+									}
+
+									// wait for the previous promise to complete and then return a new promise for the next 
+									return nextPromise();
+								});
+							},
+							// Start with a previousPromise value that is a resolved promise 
+							Promise.resolve());
+
+						// once all files are downloaded, can continue
+						doUpdateSteps.then(function (finalResult) {
+							// add in the final result
+							results.push(finalResult);
+
+							// output the results
+							console.log('Update Site Results:');
+							var totalErr = 0;
+							results.forEach(function (result) {
+								if (result) {
+									totalErr = totalErr + result.errors;
+									console.log(' - ' + result.name.padEnd(20) + ': completed with ' + result.errors + ' errors.');
 								}
 							});
-					} else {
-						done();
+							if (totalErr === 0) {
+								// mark the site as updated
+								sitesRest.siteUpdated({
+										server: server,
+										name: siteName
+									})
+									.then(function (result) {
+										if (result.err) {
+											done();
+										} else {
+											console.log(' - update site timestamp');
+											done(true);
+										}
+									});
+							} else {
+								done();
+							}
+						}).catch(function (err) {
+							console.log('Error: failed to update site: ');
+							console.log(err);
+						});
 					}
 				}).catch(function (err) {
-					console.log('Error: failed to update site: ');
-					console.log(err);
+					console.log('Error: failed to update site metadata');
+					done();
 				});
 			});
 
