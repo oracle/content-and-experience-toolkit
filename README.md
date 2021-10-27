@@ -15,6 +15,12 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.10.2a
+
+**Fixed**
+- Removed dependency on specific server version
+
+
 # New in Release 21.10.2
 
 **NOTE**

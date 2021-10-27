@@ -2256,6 +2256,8 @@ module.exports.loginToServer = function (server) {
 	return new Promise(function (resolve, reject) {
 		_loginToServer(server).then(function (result) {
 			if (result.status) {
+				return resolve(result);
+				/* Do not check version for now
 				var loginResult = result;
 				// get the server
 				_getServerVersion(server).then(function (result) {
@@ -2281,6 +2283,7 @@ module.exports.loginToServer = function (server) {
 
 					return resolve(versionResult);
 				});
+				*/
 			} else {
 				return resolve({
 					status: result.status,

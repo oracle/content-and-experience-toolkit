@@ -8526,3 +8526,68 @@ var _createHybridLinkForConversation = function (server, conversationId, siteId)
 module.exports.createHybridLinkForConversation = function (args) {
 	return _createHybridLinkForConversation(args.server, args.conversationId, args.siteId);
 };
+
+var _getRankingPolicyEndpoint = function(server) {
+	return `${server.url}/content/management/api/v1.1/search/rankingPolicies`;
+};
+module.exports.getRankingPolicyEndpoint = function (server) {
+	return _getRankingPolicyEndpoint(server);
+};
+
+var _sendRankingPolicyRequest = function(server, method, url, payload, requestUtils) {
+	return new Promise(function(resolve/*, reject*/) {
+		var postData = {
+			method: method,
+			url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			json: true
+		};
+		if (server.cookies) {
+			postData.headers.Cookie = server.cookies;
+		}
+
+		if (payload) {
+			postData.body = JSON.stringify(payload);
+		}
+		
+		requestUtils.request.post(postData, function(error, response, body) {
+			if (error) {
+				console.log(`Failed to ${method} ${url}`);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (err) {
+				data = body;
+			}
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve(data);
+			} else {
+				var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
+				console.log(`Failed to ${method} ${url} - ${msg}`);
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Send different Ranking policy requests
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.method method name
+ * @param {object} args.payload payload of Ranking policy for different actions like create, promote and publish
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.sendRankingPolicyRequest = function (args) {
+	return _sendRankingPolicyRequest(args.server, args.method, args.url, args.payload, args.requestUtils);
+}

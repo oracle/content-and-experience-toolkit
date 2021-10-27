@@ -11,6 +11,7 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	crypto = require('crypto'),
 	fs = require('fs'),
 	os = require('os'),
+	readline = require('readline'),
 	path = require('path'),
 	sprintf = require('sprintf-js').sprintf;
 
