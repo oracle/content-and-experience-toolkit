@@ -581,6 +581,7 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 		var fileId;
 		var fileName = name + '.zip';
 		var startTime;
+		var componentId;
 
 		// check if component exist on the server
 		var compExist = false;
@@ -595,6 +596,7 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 				} else {
 					compExist = true;
 				}
+				componentId = result && result.id;
 
 				var createFilePromises = [];
 				if (!compExist) {
@@ -656,14 +658,17 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 					} else {
 						console.log(' - component ' + name + ' imported [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 					}
+					componentId = result && result.id;
 				} else {
 					console.log(' - component ' + name + ' updated');
 				}
 
+				// console.log(' - component id: ' + componentId);
 				var publishpromises = [];
 				if (publish) {
 					publishpromises.push(sitesRest.publishComponent({
 						server: server,
+						id: componentId,
 						name: name
 					}));
 				}

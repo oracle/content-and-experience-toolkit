@@ -15,6 +15,15 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 21.11.1
+
+**Updated**
+
+- Now requires Node.js version 14+
+
+- `cec upload-component` - Performance and reliability improvements
+
+
 # New in Release 21.10.2a
 
 **Fixed**

@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "21.10.2a",
+	"version": "21.11.1",
 	"license": "UPL-1.0",
 	"description": "Oracle Content Management Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content Management.",
 	"main": "index.js",
@@ -8,7 +8,7 @@
 		"test": "test"
 	},
 	"scripts": {
-		"postinstall": "gulp --gulpfile bin/gulpfile.js copy-libs && npm install bin/cec --no-save || npm install bin\\cec --no-save",
+		"postinstall": "gulp --gulpfile bin/gulpfile.js copy-libs && npm install bin/cec/ --no-save || npm install bin\\cec\\ --no-save",
 		"start": "node test/server.js",
 		"start-sync": "node test/sync-server.js",
 		"start-webhook": "node test/webhook-server.js",

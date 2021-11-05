@@ -81,7 +81,6 @@ var rootSiteInfo;
 var defaultLocale; // set if required by command line parameter
 var outputAlternateHierarchy = true; // Emit to /folder/_files/<filename> structure
 var pagesToCompile; // list of pages that will be compiled
-var siteInfoCommonHasBeenWritten = false; // Determines if the siteinfo-common.js file has already been written
 var installedNodePackages = [];
 
 
@@ -1520,7 +1519,8 @@ function resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, conte
 	// Either reference the common site-level properties from an external JS file, or add the site properties into the SCSInfo.
 	var commonSiteInfoStr = '';
 	if (!useInlineSiteInfo) {
-		commonSiteInfoStr = '<script type="text/javascript" src="[!--$SCS_SITE_PATH--]/siteinfo-common.js" charset="utf-8"></script>';
+		var siteInfoCommonFile = 'siteinfo-common' + (context.pageLocale ? ('-' + context.pageLocale) : '') + '.js';
+		commonSiteInfoStr = '<script type="text/javascript" src="[!--$SCS_SITE_PATH--]/' + siteInfoCommonFile + '" charset="utf-8"></script>';
 		commonSiteInfoStr += '<script type="text/javascript" src="' + sitePrefix + 'siteinfo-dynamic.js"></script>';
 		commonSiteInfoStr = resolveLinks(commonSiteInfoStr, context, sitePrefix);
 	} else {
@@ -2503,9 +2503,8 @@ function setupContext(language) {
 	}
 
 	// Write common SCSInfo if needed
-	if (!useInlineSiteInfo && !siteInfoCommonHasBeenWritten) {
+	if (!useInlineSiteInfo) {
 		writeCommonSiteInfo(context);
-		siteInfoCommonHasBeenWritten = true;
 	}
 
 	return context;
@@ -2552,8 +2551,9 @@ function writeCommonSiteInfo(context) {
 	js += '})()';
 
 	// Write the common-siteinfo.js script to disk
-	console.log("writeCommonSiteInfo: Generating shared siteinfo-common.js")
-	writePage("siteinfo-common.js", js);
+	var fileName = 'siteinfo-common' + (context.pageLocale ? ('-' + context.pageLocale) : '') + '.js';
+	console.log('writeCommonSiteInfo: Generating shared ' + fileName);
+	writePage(fileName, js);
 };
 
 var compilePages = function (compileTargetDevice) {
