@@ -14,6 +14,15 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 21.11.2
+
+**Added**
+
+- `cec create-digital-asset` - Added options `--language` and `--nontranslatable`
+- `cec update-digital-asset` - Added option `--language` to change the asset’s language
+- `cec download-type` - Added option `--excludecomponents` to not download the content field editors, content forms and content layouts
+- `cec upload-type` - Added option `--excludecomponents` to not upload the content field editors, content forms and content layouts
+
 
 # New in Release 21.11.1
 

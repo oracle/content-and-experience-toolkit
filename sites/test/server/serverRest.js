@@ -1371,7 +1371,8 @@ module.exports.createItem = function (args) {
 };
 
 // Create digital item on server
-var _createDigitalItem = function (server, repositoryId, type, filename, contents, fields, slug) {
+var _createDigitalItem = function (server, repositoryId, type, filename, contents,
+	fields, slug, translatable, language) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -1386,6 +1387,12 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 				};
 				if (slug) {
 					item.slug = slug;
+				}
+				if (translatable !== undefined) {
+					item.translatable = translatable;
+				}
+				if (language) {
+					item.language = language;
 				}
 				if (fields && Object.keys(fields).length > 0) {
 					item.fields = fields;
@@ -1409,7 +1416,7 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create create digital item for ' + filename);
+						console.log('ERROR: Failed to create create digital item for ' + filename);
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -1429,7 +1436,7 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 						if (data && (data.detail || data.title)) {
 							msg = (data.detail || data.title);
 						}
-						console.log('Failed to create digital item for ' + filename + ' : ' + msg);
+						console.log('ERROR: Failed to create digital item for ' + filename + ' : ' + msg);
 						// console.log(data);
 						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
 							console.log(data['o:errorDetails']);
@@ -1452,7 +1459,8 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createDigitalItem = function (args) {
-	return _createDigitalItem(args.server, args.repositoryId, args.type, args.filename, args.contents, args.fields, args.slug);
+	return _createDigitalItem(args.server, args.repositoryId, args.type, args.filename, args.contents,
+		args.fields, args.slug, args.translatable, args.language);
 };
 
 
@@ -1492,7 +1500,7 @@ var _updateDigitalItem = function (server, item, contents) {
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to update create digital item ' + item.id);
+						console.log('ERROR: Failed to update create digital item ' + item.id);
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -1512,7 +1520,7 @@ var _updateDigitalItem = function (server, item, contents) {
 						if (data && (data.detail || data.title)) {
 							msg = (data.detail || data.title);
 						}
-						console.log('Failed to update digital item ' + item.id + ' : ' + msg);
+						console.log('ERROR: Failed to update digital item ' + item.id + ' : ' + msg);
 						// console.log(data);
 						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
 							console.log(data['o:errorDetails']);
@@ -2306,10 +2314,14 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 				var url = server.url + '/content/management/api/v1.1/bulkItemsOperations';
 
 				var operations = {};
-				if (operation === 'deleteItems' || operation === 'approve' || operation === 'setAsTranslated') {
+				if (operation === 'deleteItems' || operation === 'approve' || operation === 'setAsTranslated' || operation === 'submitForApproval') {
 					operations[operation] = {
 						value: 'true'
 					};
+				} else if (operation === 'reject') {
+					operations['approve'] = {
+						value: false
+					}
 				} else if (operation === 'addCollections' || operation === 'removeCollections') {
 					operations[operation] = {
 						collections: collections
@@ -2487,6 +2499,28 @@ module.exports.deleteItems = function (args) {
  */
 module.exports.approveItems = function (args) {
 	return _bulkOpItems(args.server, 'approve', [], args.itemIds);
+};
+
+/**
+ * Reject items on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {array} args.itemIds The id of items
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+ module.exports.rejectItems = function(args) {
+  return _bulkOpItems(args.server, 'reject', [], args.itemIds);
+};
+
+/**
+ * submit items on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {array} args.itemIds The id of items
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.submitItemsForApproval = function(args) {
+  return _bulkOpItems(args.server, 'submitForApproval', [], args.itemIds);
 };
 
 /**
@@ -5014,11 +5048,12 @@ module.exports.getGroupMembers = function (args) {
 
 var _createConnection = function (request, server) {
 	return new Promise(function (resolve, reject) {
-		// If apiRandomID and cookies have already been cached, then just use them.
-		if (server.apiRandomID && server.cookies) {
+		// If apiRandomID and cookieStore have already been cached, then just use them.
+		if (server.apiRandomID && server.cookieStore) {
 			return resolve({
 				apiRandomID: server.apiRandomID,
-				cookies: server.cookies
+				cookieStore: server.cookieStore,
+				socialUser: server.socialUser
 			});
 		}
 
@@ -5051,18 +5086,16 @@ var _createConnection = function (request, server) {
 			}
 			// console.log(data);
 			if (response && response.statusCode === 200) {
-				var apiRandomID = data && data.apiRandomID;
-				var cookies = [];
-				if (response.headers && response.headers.raw && typeof response.headers.raw === 'function') {
-					cookies = response.headers.raw()['set-cookie'] || [];
-				}
-				// Cache apiRandomID and cookies for re-use, so that we don't need to create a
+				// Cache apiRandomID and cookieStore for re-use, so that we don't need to create a
 				// connection for each API request.
+				var apiRandomID = data && data.apiRandomID;
+				cacheCookiesFromResponse(server, response);
 				server.apiRandomID = apiRandomID;
-				server.cookies = cookies.length > 0 ? cookies.join(',') : '';
+				server.socialUser = data.user;
 				resolve({
 					apiRandomID: apiRandomID,
-					cookies: server.cookies
+					cookieStore: server.cookieStore,
+					socialUser: data.user
 				});
 			} else {
 				var msg = response.statusMessage || response.statusCode;
@@ -5160,9 +5193,7 @@ var _createGroup = function (server, name, type) {
 						body: JSON.stringify(payload),
 						json: true
 					};
-					if (result.cookies) {
-						postData.headers.Cookie = result.cookies;
-					}
+					addCachedCookiesForRequest(server, postData);
 					// console.log(postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
@@ -5179,6 +5210,7 @@ var _createGroup = function (server, name, type) {
 							data = body;
 						}
 
+						cacheCookiesFromResponse(server, response);
 						if (response && response.statusCode === 200) {
 							resolve(data);
 						} else {
@@ -5193,6 +5225,25 @@ var _createGroup = function (server, name, type) {
 			});
 	});
 };
+
+function cacheCookiesFromResponse(server, response) {
+	server.cookieStore = server.cookieStore || {};
+	if (response.headers && response.headers.raw && typeof response.headers.raw === 'function') {
+		let setCookie = response.headers.raw()['set-cookie'] || [];
+		setCookie.forEach(cookie => {
+			let nameValue = cookie.split(";")[0].split("=");
+			server.cookieStore[nameValue[0]] = nameValue[1];
+		});
+	}
+}
+
+function addCachedCookiesForRequest(server, request) {
+	if (server.cookieStore) {
+		let cookieHeader = Object.keys(server.cookieStore).map(cookieName => cookieName + '=' + server.cookieStore[cookieName]).join("; ");
+		request.headers.Cookie = cookieHeader;
+	}
+}
+
 /**
  * Create an OCM group on server
  * @param {object} args JavaScript object containing parameters.
@@ -5223,9 +5274,7 @@ var _deleteGroup = function (server, id, name) {
 							'X-Waggle-RandomID': result.apiRandomID
 						}
 					};
-					if (result.cookies) {
-						postData.headers.Cookie = result.cookies;
-					}
+					addCachedCookiesForRequest(server, postData);
 					request.delete(postData, function (error, response, body) {
 						if (error) {
 							console.log('ERROR: delete group ' + (name || id));
@@ -5241,6 +5290,7 @@ var _deleteGroup = function (server, id, name) {
 							data = body;
 						}
 
+						cacheCookiesFromResponse(server, response);
 						if (response && response.statusCode === 200) {
 							resolve({});
 						} else {
@@ -5265,7 +5315,7 @@ module.exports.deleteGroup = function (args) {
 	return _deleteGroup(args.server, args.id, args.name);
 };
 
-var _addMemberToGroup = function (request, cookies, server, apiRandomID, id, name, memberId, memberName, role, isGroup) {
+var _addMemberToGroup = function (request, cookieStore, server, apiRandomID, id, name, memberId, memberName, role, isGroup) {
 	return new Promise(function (resolve, reject) {
 
 		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members';
@@ -5284,9 +5334,7 @@ var _addMemberToGroup = function (request, cookies, server, apiRandomID, id, nam
 			body: JSON.stringify(payload),
 			json: true
 		};
-		if (cookies) {
-			postData.headers.Cookie = cookies;
-		}
+		addCachedCookiesForRequest(server, postData);
 		// console.log(JSON.stringify(postData, null, 4));
 		request.post(postData, function (error, response, body) {
 			if (error) {
@@ -5303,6 +5351,7 @@ var _addMemberToGroup = function (request, cookies, server, apiRandomID, id, nam
 				data = body;
 			}
 			// console.log(data);
+			cacheCookiesFromResponse(server, response);
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
@@ -5337,11 +5386,11 @@ module.exports.addMembersToGroup = function (args) {
 					}]);
 				} else {
 					var apiRandomID = result.apiRandomID;
-					var cookies = result.cookies;
+					var cookieStore = result.cookieStore;
 
 					var doAddMember = members.reduce(function (addPromise, member) {
 							return addPromise.then(function (result) {
-								return _addMemberToGroup(request, cookies, server, apiRandomID, id, name, member.id,
+								return _addMemberToGroup(request, cookieStore, server, apiRandomID, id, name, member.id,
 										member.name, member.role, member.isGroup)
 									.then(function (result) {
 										results.push(result);
@@ -5360,7 +5409,7 @@ module.exports.addMembersToGroup = function (args) {
 	});
 };
 
-var _removeMemberFromGroup = function (request, cookies, server, apiRandomID, id, name, memberId, memberName) {
+var _removeMemberFromGroup = function (request, cookieStore, server, apiRandomID, id, name, memberId, memberName) {
 	return new Promise(function (resolve, reject) {
 
 		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members/' + memberId;
@@ -5375,9 +5424,7 @@ var _removeMemberFromGroup = function (request, cookies, server, apiRandomID, id
 				'X-Waggle-RandomID': apiRandomID
 			}
 		};
-		if (cookies) {
-			postData.headers.Cookie = cookies;
-		}
+		addCachedCookiesForRequest(server, postData);
 		// console.log(postData);
 		request.delete(postData, function (error, response, body) {
 			if (error) {
@@ -5394,6 +5441,7 @@ var _removeMemberFromGroup = function (request, cookies, server, apiRandomID, id
 				data = body;
 			}
 			// console.log(data);
+			cacheCookiesFromResponse(server, response);
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
@@ -5427,10 +5475,10 @@ module.exports.removeMembersFromGroup = function (args) {
 					}]);
 				} else {
 					var apiRandomID = result.apiRandomID;
-					var cookies = result.cookies;
+					var cookieStore = result.cookieStore;
 					var memberPromises = [];
 					for (var i = 0; i < members.length; i++) {
-						memberPromises.push(_removeMemberFromGroup(request, cookies, server, apiRandomID, id, name,
+						memberPromises.push(_removeMemberFromGroup(request, cookieStore, server, apiRandomID, id, name,
 							members[i].id, members[i].name));
 					}
 					Promise.all(memberPromises).then(function (results) {
@@ -7896,9 +7944,7 @@ var _createConversation = function (server, name, isDiscoverable) {
 						body: JSON.stringify(payload),
 						json: true
 					};
-					if (result.cookies) {
-						postData.headers.Cookie = result.cookies;
-					}
+					addCachedCookiesForRequest(server, postData);
 					// console.log(postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
@@ -7915,6 +7961,7 @@ var _createConversation = function (server, name, isDiscoverable) {
 							data = body;
 						}
 
+						cacheCookiesFromResponse(server, response);
 						if (response && response.statusCode === 200) {
 							resolve(data);
 						} else {
@@ -7968,9 +8015,7 @@ var _deleteConversation = function (server, conversationId) {
 						body: JSON.stringify(payload),
 						json: true
 					};
-					if (result.cookies) {
-						postData.headers.Cookie = result.cookies;
-					}
+					addCachedCookiesForRequest(server, postData);
 					// console.log(postData);
 					request.patch(postData, function (error, response, body) {
 						if (error) {
@@ -7987,6 +8032,7 @@ var _deleteConversation = function (server, conversationId) {
 							data = body;
 						}
 
+						cacheCookiesFromResponse(server, response);
 						if (response && response.statusCode === 200) {
 							resolve(data);
 						} else {
@@ -8032,9 +8078,7 @@ var _removeMemberFromConversation = function (server, conversationId, memberId) 
 							'X-Waggle-RandomID': result.apiRandomID
 						}
 					};
-					if (result.cookies) {
-						postData.headers.Cookie = result.cookies;
-					}
+					addCachedCookiesForRequest(server, postData);
 					request.delete(postData, function (error, response, body) {
 						if (error) {
 							console.log('ERROR: remove conversation member ' + memberId);
@@ -8050,6 +8094,7 @@ var _removeMemberFromConversation = function (server, conversationId, memberId) 
 							data = body;
 						}
 
+						cacheCookiesFromResponse(server, response);
 						if (response && response.statusCode === 200) {
 							resolve({});
 						} else {
@@ -8113,9 +8158,7 @@ var _addMemberToConversation = function (server, conversationId, memberId) {
 						body: JSON.stringify(body),
 						json: true
 					};
-					if (result.cookies) {
-						postData.headers.Cookie = result.cookies;
-					}
+					addCachedCookiesForRequest(server, postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
 							console.log('ERROR: add conversation member ' + memberId);
@@ -8131,6 +8174,7 @@ var _addMemberToConversation = function (server, conversationId, memberId) {
 							data = body;
 						}
 
+						cacheCookiesFromResponse(server, response);
 						if (response && response.statusCode === 200) {
 							resolve({});
 						} else {
@@ -8166,9 +8210,7 @@ var _getConversationMembers = function (server, id) {
 							'X-Waggle-RandomID': result.apiRandomID
 						}
 					};
-					if (result.cookies) {
-						postData.headers.Cookie = result.cookies;
-					}
+					addCachedCookiesForRequest(server, postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
 							console.log('ERROR: get conversation members ' + id);
@@ -8184,6 +8226,7 @@ var _getConversationMembers = function (server, id) {
 							data = body;
 						}
 
+						cacheCookiesFromResponse(server, response);
 						if (response && response.statusCode === 200) {
 							resolve(data);
 						} else {
@@ -8230,9 +8273,7 @@ var _addMemberToConversation = function (server, conversationId, memberId) {
 						},
 						body: JSON.stringify({})
 					};
-					if (result.cookies) {
-						postData.headers.Cookie = result.cookies;
-					}
+					addCachedCookiesForRequest(server, postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
 							console.log('ERROR: add conversation member ' + memberId);
@@ -8248,6 +8289,7 @@ var _addMemberToConversation = function (server, conversationId, memberId) {
 							data = body;
 						}
 
+						cacheCookiesFromResponse(server, response);
 						if (response && response.statusCode === 200) {
 							resolve(data);
 						} else {
@@ -8297,9 +8339,7 @@ var _postMessageToConversation = function (server, conversationId, text) {
 							message: text
 						})
 					};
-					if (result.cookies) {
-						postData.headers.Cookie = result.cookies;
-					}
+					addCachedCookiesForRequest(server, postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
 							console.log('ERROR: post conversation message ' + conversationId);
@@ -8315,6 +8355,7 @@ var _postMessageToConversation = function (server, conversationId, text) {
 							data = body;
 						}
 
+						cacheCookiesFromResponse(server, response);
 						if (response && response.statusCode === 200) {
 							resolve(data);
 						} else {
@@ -8364,9 +8405,7 @@ var _postReplyToMessage = function (server, messageId, text) {
 							message: text
 						})
 					};
-					if (result.cookies) {
-						postData.headers.Cookie = result.cookies;
-					}
+					addCachedCookiesForRequest(server, postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
 							console.log('ERROR: post message reply ' + messageId);
@@ -8382,6 +8421,7 @@ var _postReplyToMessage = function (server, messageId, text) {
 							data = body;
 						}
 
+						cacheCookiesFromResponse(server, response);
 						if (response && response.statusCode === 200) {
 							resolve(data);
 						} else {
@@ -8485,9 +8525,7 @@ var _createHybridLinkForConversation = function (server, conversationId, siteId)
 						},
 						body: JSON.stringify(payload)
 					};
-					if (result.cookies) {
-						options.headers.Cookie = result.cookies;
-					}
+					addCachedCookiesForRequest(server, options);
 					request.post(options, function (error, response, body) {
 						if (error) {
 							console.log('ERROR: failed to create Hybrid Link for the conversation ' + conversationId);
@@ -8496,6 +8534,7 @@ var _createHybridLinkForConversation = function (server, conversationId, siteId)
 								err: 'err'
 							});
 						}
+						cacheCookiesFromResponse(server, response);
 						if (response && response.statusCode >= 200 && response.statusCode < 300) {
 							var data;
 							try {
@@ -8527,15 +8566,15 @@ module.exports.createHybridLinkForConversation = function (args) {
 	return _createHybridLinkForConversation(args.server, args.conversationId, args.siteId);
 };
 
-var _getRankingPolicyEndpoint = function(server) {
+var _getRankingPolicyEndpoint = function (server) {
 	return `${server.url}/content/management/api/v1.1/search/rankingPolicies`;
 };
 module.exports.getRankingPolicyEndpoint = function (server) {
 	return _getRankingPolicyEndpoint(server);
 };
 
-var _sendRankingPolicyRequest = function(server, method, url, payload, requestUtils) {
-	return new Promise(function(resolve/*, reject*/) {
+var _sendRankingPolicyRequest = function (server, method, url, payload, requestUtils) {
+	return new Promise(function (resolve /*, reject*/ ) {
 		var postData = {
 			method: method,
 			url,
@@ -8546,15 +8585,13 @@ var _sendRankingPolicyRequest = function(server, method, url, payload, requestUt
 			},
 			json: true
 		};
-		if (server.cookies) {
-			postData.headers.Cookie = server.cookies;
-		}
+		addCachedCookiesForRequest(server, postData);
 
 		if (payload) {
 			postData.body = JSON.stringify(payload);
 		}
-		
-		requestUtils.request.post(postData, function(error, response, body) {
+
+		requestUtils.request.post(postData, function (error, response, body) {
 			if (error) {
 				console.log(`Failed to ${method} ${url}`);
 				console.log(error);
@@ -8568,6 +8605,7 @@ var _sendRankingPolicyRequest = function(server, method, url, payload, requestUt
 			} catch (err) {
 				data = body;
 			}
+			cacheCookiesFromResponse(server, response);
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
 			} else {
@@ -8590,4 +8628,30 @@ var _sendRankingPolicyRequest = function(server, method, url, payload, requestUt
  */
 module.exports.sendRankingPolicyRequest = function (args) {
 	return _sendRankingPolicyRequest(args.server, args.method, args.url, args.payload, args.requestUtils);
+}
+
+var _getMe = function(server) {
+	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID || !result.socialUser) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					return resolve(result.socialUser);
+				}
+			});
+	});
+}
+
+/**
+ * Get social user information about the user associated with the given server object.
+ * @param {object} args Javascript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The social user data object.
+ */
+module.exports.getMe = function (args) {
+	return _getMe(args.server);
 }

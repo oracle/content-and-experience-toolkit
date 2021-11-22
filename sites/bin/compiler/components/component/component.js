@@ -69,6 +69,13 @@ Component.prototype.compile = function (args) {
 			self.customHydration = compiledComponent.hydrate ? 'data-scs-hydrate="true"' : '';
 			self.contentType = compiledComponent.contentType ? 'data-scs-contenttype="' + compiledComponent.contentType + '"' : '';
 
+			// Recompute the dataAnalyticsView if the component has rendered a variant of the asset we originally computed.
+			if (compiledComponent.contentId) {
+				self.dataAnalyticsView = self.addAnalytics({
+					'view': compiledComponent.contentId
+				});
+			}
+
 			content = self.renderMustacheTemplate(fs.readFileSync(path.join(__dirname, 'component.html'), 'utf8'));
 		}
 
@@ -201,27 +208,42 @@ Component.prototype.compileComponent = function (args) {
 		});
 	}
 
-	return new Promise(function (resolve, reject) {
+	return new Promise(async function (resolve, reject) {
 		//
 		// compile in the referenced component
 		//
 		var custCompEntry = viewModel.custComp === 'scs-component' && viewModel.contentPlaceholder ? 'scs-contentplaceholder' : viewModel.custComp;
 		var compileFile = viewModel.getSeededCompFile(custCompEntry);
+		var moduleFile; 
 		if (compileFile) {
 			isSeeded = true;
 		} else {
 			compileFile = path.normalize(viewModel.componentsFolder + '/' + viewModel.custComp + '/assets/compile');
+			moduleFile = compileFile + '.mjs';
 		}
 
 		var foundComponentFile = false;
 		try {
-			// verify if we can load the file
-			require.resolve(compileFile);
-			foundComponentFile = true;
+			var custComp,
+				CustCompImpl;
 
-			// ok, file's there, load it in
-			var CustCompImpl = require(compileFile);
-			var custComp = new CustCompImpl({
+			// see if the JavaScript modele based custom component
+			if (moduleFile && fs.existsSync(moduleFile)) {
+				foundComponentFile = true;
+
+				// JavaScript module based custom component, import it
+				const { default: importModule } = await import(moduleFile);
+				CustCompImpl = importModule;
+			} else {
+				// verify if we can load the file
+				require.resolve(compileFile);
+				foundComponentFile = true;
+
+				// ok, file's there, load it in
+				CustCompImpl = require(compileFile);
+			}
+
+			custComp = new CustCompImpl({
 				componentId: self.componentId,
 				componentInstanceObject: self.componentInstanceObject,
 				componentsFolder: self.componentsFolder,
@@ -281,6 +303,7 @@ Component.prototype.compileComponent = function (args) {
 								return resolve({
 									customContent: customContent,
 									hydrate: compiledComp.hydrate,
+									contentId: compiledComp && compiledComp.contentId,
 									contentType: compiledComp.contentType
 								});
 							} catch (e) {
@@ -339,7 +362,7 @@ Component.prototype.compileComponent = function (args) {
 			// unable to compile the custom component, js
 			if (foundComponentFile) {
 				compilationReporter.error({
-					message: 'require failed to load: "' + compileFile + '.js"',
+					message: 'require failed to load: "' + (moduleFile || (compileFile + '.js"')),
 					error: e
 				});
 			} else {

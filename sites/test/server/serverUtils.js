@@ -1808,6 +1808,52 @@ var _loginToPODServer = function (server) {
 		return _loginToSSOServer(server);
 	}
 
+	if (server.useSecurityTokenAPI) {
+		return new Promise(function(resolve, reject) {
+			var url = server.url + '/system/api/v1/security/token';
+			var options = {
+				method: 'POST',
+				url: url,
+				headers: {
+					Authorization: _getRequestAuthorization(server)
+				}
+			};
+
+			var request = require('./requestUtils.js').request;
+			request.post(options, function (error, response, body) {
+				if (error || !response || response.statusCode !== 200) {
+					console.log('ERROR: failed to get the OAuth token');
+					return resolve({
+						'status': false
+					});
+				}
+
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (e) {
+					data = body;
+				}
+
+				if (!data.accessToken) {
+					console.log('ERROR: failed to get the OAuth token');
+					return resolve({
+						'status': false
+					});
+				}
+
+				server.oauthtoken = data.accessToken;
+				server.login = true;
+				// Save the token and use till it expires
+				_saveOAuthToken(server.fileloc, server.name, server.oauthtoken);
+
+				return resolve({
+					'status': true
+				});
+			});
+		});
+	}
+
 	var loginPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/documents',
 			usernameid = '#idcs-signin-basic-signin-form-username',

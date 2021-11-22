@@ -1554,6 +1554,8 @@ module.exports.downloadType = function (argv, done) {
 	var contentLayouts = [];
 	var comps = [];
 
+	var excludeComponents = typeof argv.excludecomponents === 'string' && argv.excludecomponents.toLowerCase() === 'true';
+
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(result.statusMessage);
@@ -1606,26 +1608,28 @@ module.exports.downloadType = function (argv, done) {
 
 					console.log(' - save type ' + filePath);
 
-					var typeCustomEditors = typeObj.properties && typeObj.properties.customEditors || [];
-					for (var i = 0; i < typeCustomEditors.length; i++) {
-						if (!customEditors.includes(typeCustomEditors[i])) {
-							customEditors.push(typeCustomEditors[i]);
-							comps.push(typeCustomEditors[i]);
+					if (!excludeComponents) {
+						var typeCustomEditors = typeObj.properties && typeObj.properties.customEditors || [];
+						for (var i = 0; i < typeCustomEditors.length; i++) {
+							if (!customEditors.includes(typeCustomEditors[i])) {
+								customEditors.push(typeCustomEditors[i]);
+								comps.push(typeCustomEditors[i]);
+							}
 						}
-					}
-					var typeCustomForms = typeObj.properties && typeObj.properties.customForms || [];
-					for (var i = 0; i < typeCustomForms.length; i++) {
-						if (!customForms.includes(typeCustomForms[i])) {
-							customForms.push(typeCustomForms[i]);
-							comps.push(typeCustomForms[i]);
+						var typeCustomForms = typeObj.properties && typeObj.properties.customForms || [];
+						for (var i = 0; i < typeCustomForms.length; i++) {
+							if (!customForms.includes(typeCustomForms[i])) {
+								customForms.push(typeCustomForms[i]);
+								comps.push(typeCustomForms[i]);
+							}
 						}
-					}
 
-					var typeContentLayouts = serverUtils.getTypeContentLayouts(typeObj);
-					for (var i = 0; i < typeContentLayouts.length; i++) {
-						if (!contentLayouts.includes(typeContentLayouts[i])) {
-							contentLayouts.push(typeContentLayouts[i]);
-							comps.push(typeContentLayouts[i]);
+						var typeContentLayouts = serverUtils.getTypeContentLayouts(typeObj);
+						for (var i = 0; i < typeContentLayouts.length; i++) {
+							if (!contentLayouts.includes(typeContentLayouts[i])) {
+								contentLayouts.push(typeContentLayouts[i]);
+								comps.push(typeContentLayouts[i]);
+							}
 						}
 					}
 
@@ -1649,6 +1653,7 @@ module.exports.downloadType = function (argv, done) {
 							done(result.err ? false : true);
 						});
 				}
+
 			})
 			.catch((error) => {
 				done();
@@ -1683,6 +1688,8 @@ module.exports.uploadType = function (argv, done) {
 	var customEditors = [];
 	var customForms = [];
 	var contentLayouts = [];
+
+	var excludeComponents = typeof argv.excludecomponents === 'string' && argv.excludecomponents.toLowerCase() === 'true';
 
 	// varify the types on local
 	allNames.forEach(function (name) {
@@ -1733,33 +1740,35 @@ module.exports.uploadType = function (argv, done) {
 	}
 
 	// get all editors and content forms in the type files
-	typePaths.forEach(function (filePath) {
-		var i;
-		var typeObj = JSON.parse(fs.readFileSync(filePath));
+	if (!excludeComponents) {
+		typePaths.forEach(function (filePath) {
+			var i;
+			var typeObj = JSON.parse(fs.readFileSync(filePath));
 
-		var typeCustomEditors = typeObj.properties && typeObj.properties.customEditors || [];
-		for (i = 0; i < typeCustomEditors.length; i++) {
-			if (!customEditors.includes(typeCustomEditors[i])) {
-				customEditors.push(typeCustomEditors[i]);
-				comps.push(typeCustomEditors[i]);
+			var typeCustomEditors = typeObj.properties && typeObj.properties.customEditors || [];
+			for (i = 0; i < typeCustomEditors.length; i++) {
+				if (!customEditors.includes(typeCustomEditors[i])) {
+					customEditors.push(typeCustomEditors[i]);
+					comps.push(typeCustomEditors[i]);
+				}
 			}
-		}
-		var typeCustomForms = typeObj.properties && typeObj.properties.customForms || [];
-		for (i = 0; i < typeCustomForms.length; i++) {
-			if (!customForms.includes(typeCustomForms[i])) {
-				customForms.push(typeCustomForms[i]);
-				comps.push(typeCustomForms[i]);
+			var typeCustomForms = typeObj.properties && typeObj.properties.customForms || [];
+			for (i = 0; i < typeCustomForms.length; i++) {
+				if (!customForms.includes(typeCustomForms[i])) {
+					customForms.push(typeCustomForms[i]);
+					comps.push(typeCustomForms[i]);
+				}
 			}
-		}
 
-		var typeContentLayouts = serverUtils.getTypeContentLayouts(typeObj);
-		for (i = 0; i < typeContentLayouts.length; i++) {
-			if (!contentLayouts.includes(typeContentLayouts[i])) {
-				contentLayouts.push(typeContentLayouts[i]);
-				comps.push(typeContentLayouts[i]);
+			var typeContentLayouts = serverUtils.getTypeContentLayouts(typeObj);
+			for (i = 0; i < typeContentLayouts.length; i++) {
+				if (!contentLayouts.includes(typeContentLayouts[i])) {
+					contentLayouts.push(typeContentLayouts[i]);
+					comps.push(typeContentLayouts[i]);
+				}
 			}
-		}
-	});
+		});
+	}
 
 	var typesToCreate = [];
 	var typeNamesToCreate = [];
@@ -1903,32 +1912,31 @@ var _uploadTypeComponents = function (server, allcomps) {
 					var folderId = 'self';
 					var publish = true;
 
-					var importsPromise = [];
-					for (var i = 0; i < comps.length; i++) {
-						var name = comps[i];
-						var zipfile = path.join(projectDir, "dist", name) + ".zip";
+					var doUploadComp = comps.reduce(function (compPromise, comp) {
+							return compPromise.then(function (result) {
+								var name = comp;
+								var zipfile = path.join(projectDir, "dist", name) + ".zip";
+								return componentUtils.uploadComponent(server, folder, folderId, zipfile, name, publish)
+									.then(function (result) {
+										if (result && result.fileId) {
+											// delete the zip file
+											return serverRest.deleteFile({
+												server: server,
+												fFileGUID: result.fileId
+											}).then(function (result) {
+												// done
+											});
+										}
 
-						importsPromise.push(componentUtils.uploadComponent(server, folder, folderId, zipfile, name, publish));
-					}
-					return Promise.all(importsPromise);
-				})
-				.then(function (results) {
-					// console.log(results);
-					var files = results || [];
-					var deleteFilePromises = [];
-					for (var i = 0; i < files.length; i++) {
-						if (files[i].fileId) {
-							deleteFilePromises.push(serverRest.deleteFile({
-								server: server,
-								fFileGUID: files[i].fileId
-							}));
-						}
-					}
+									});
+							});
+						},
+						// Start with a previousPromise value that is a resolved promise 
+						Promise.resolve({}));
 
-					return Promise.all(deleteFilePromises);
-				})
-				.then(function (results) {
-					resolve({});
+					doUploadComp.then(function (result) {
+						resolve({});
+					});
 				})
 				.catch((error) => {
 					resolve({
@@ -4054,7 +4062,7 @@ module.exports.listAssets = function (argv, done) {
 				return serverRest.queryItems({
 					server: server,
 					q: q,
-					fields: 'name,status,slug,publishedChannels',
+					fields: 'name,status,slug,language,publishedChannels',
 					includeAdditionalData: true
 				});
 			})
@@ -4156,8 +4164,8 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 		});
 
 	} else {
-		format2 = '   %-38s %-38s %-7s %-11s %-10s %-s';
-		console.log(sprintf(format2, 'Type', 'Id', 'Version', 'Status', 'Size', 'Name'));
+		format2 = '   %-38s %-38s %-7s %-10s %-8s %-10s %-s';
+		console.log(sprintf(format2, 'Type', 'Id', 'Version', 'Status', 'Language', 'Size', 'Name'));
 
 		var totalSize = 0;
 		for (var i = 0; i < list.length; i++) {
@@ -4169,7 +4177,8 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 				// console.log(item);
 				var typeLabel = j === 0 ? item.type : '';
 				var sizeLabel = item.fields && item.fields.size ? item.fields.size : '';
-				console.log(sprintf(format2, typeLabel, item.id, item.latestVersion, item.status, sizeLabel, item.name));
+				var languageLabel = item.language ? item.language : '';
+				console.log(sprintf(format2, typeLabel, item.id, item.latestVersion, item.status, languageLabel, sizeLabel, item.name));
 			}
 		}
 

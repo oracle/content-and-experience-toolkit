@@ -1084,6 +1084,8 @@ const createDigitalAsset = {
 		['cec create-digital-asset -f "~/Documents/demo.mp4,~/Documents/demo2.mp4" -t Video -r Repo1', 'Create two assets of type Video'],
 		['cec create-digital-asset -f ~/Documents/logo.jpg -t MyImage -r Repo1 -a ~/Documents/logoattrs.json', 'Create asset of type MyImage with attributes'],
 		['cec create-digital-asset -f ~/Documents/logo.jpg -t MyImage -r Repo1 -l company-logo -a ~/Documents/logoattrs.json', 'Create asset of type MyImage with slug and attributes'],
+		['cec create-digital-asset -f ~/Documents/logo.jpg -t MyImage -r Repo1 -g fr-FR', 'Create asset of type MyImage in language fr-FR'],
+		['cec create-digital-asset -f ~/Documents/logo.jpg -t MyImage -r Repo1 -n', 'Create non-translatable asset of type MyImage'],
 		['cec create-digital-asset -f ~/Documents/images -t Image -r Repo1', 'Create assets for all images files from folder ~/Documents/images']
 	]
 };
@@ -1107,6 +1109,7 @@ const updateDigitalAsset = {
 	},
 	example: [
 		['cec update-digital-asset CORED129ACD36FCD42B1B38D22EEA5065F38 -l company-logo', 'Update asset slug'],
+		['cec update-digital-asset CORED129ACD36FCD42B1B38D22EEA5065F38 -g fr-FR', 'Update asset language'],
 		['cec update-digital-asset CORED129ACD36FCD42B1B38D22EEA5065F38 -f ~/Documents/logo2.jpg', 'Upload a new version'],
 		['cec update-digital-asset CORED129ACD36FCD42B1B38D22EEA5065F38 -f ~/Documents/logo2.jpg -l company-logo -a ~/Documents/logoattrs2.json', 'Upload a new version and update slug and attributes']
 	]
@@ -1960,13 +1963,14 @@ const downloadType = {
 	usage: {
 		'short': 'Downloads types from OCM server.',
 		'long': (function () {
-			let desc = 'Downloads types from OCM server. The content field editors, content forms and content layouts for the types will also be downloaded. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Downloads types from OCM server. By default, the content field editors, content forms and content layouts for the types will also be downloaded. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
 	example: [
 		['cec download-type BlogType', 'Download content type BlogType and save to local folder src/types/BlogType'],
 		['cec download-type BlogType,BlogAuthor', 'Download content type BlogType and BlogAuthor and save to local folder'],
+		['cec download-type BlogType -x', 'Do not download the content field editors, content forms and content layouts'],
 		['cec download-type BlogType -s UAT']
 	]
 };
@@ -1978,12 +1982,13 @@ const uploadType = {
 	usage: {
 		'short': 'Uploads types to OCM server.',
 		'long': (function () {
-			let desc = 'Uploads types to OCM server. The content field editors, content forms and content layouts for the types will also be uploaded. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Uploads types to OCM server. By default, the content field editors, content forms and content layouts for the types will also be uploaded. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
 	example: [
 		['cec upload-type BlogType'],
+		['cec upload-type BlogType -x', 'Do not upload the content field editors, content forms and content layouts'],
 		['cec upload-type BlogType -s UAT'],
 		['cec upload-type BlogAuthor,BlogType', 'Place the referenced types first'],
 		['cec upload-type ~/Downloads/BlogType.json -f -s UAT']
@@ -4227,6 +4232,14 @@ const argv = yargs.usage(_usage)
 					alias: 'l',
 					description: 'The slug for the asset when create a single asset'
 				})
+				.option('language', {
+					alias: 'g',
+					description: 'The language for the asset. Only applicable for Custom Digital Asset type'
+				})
+				.option('nontranslatable', {
+					alias: 'n',
+					description: 'Create non-translatable asset'
+				})
 				.option('attributes', {
 					alias: 'a',
 					description: 'The JSON file of asset attributes'
@@ -4241,6 +4254,8 @@ const argv = yargs.usage(_usage)
 				.example(...createDigitalAsset.example[3])
 				.example(...createDigitalAsset.example[4])
 				.example(...createDigitalAsset.example[5])
+				.example(...createDigitalAsset.example[6])
+				.example(...createDigitalAsset.example[7])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createDigitalAsset.command}\n\n${createDigitalAsset.usage.long}`);
@@ -4255,6 +4270,10 @@ const argv = yargs.usage(_usage)
 					alias: 'l',
 					description: 'The slug for the asset'
 				})
+				.option('language', {
+					alias: 'g',
+					description: 'The language for the asset. Only applicable for Custom Digital Asset type'
+				})
 				.option('attributes', {
 					alias: 'a',
 					description: 'The JSON file of asset attributes'
@@ -4264,14 +4283,15 @@ const argv = yargs.usage(_usage)
 					description: 'The registered OCM server'
 				})
 				.check((argv) => {
-					if (!argv.from && !argv.attributes && !argv.slug) {
-						throw new Error(os.EOL + 'Please specify source file, slug or attributes');
+					if (!argv.from && !argv.attributes && !argv.slug && !argv.language) {
+						throw new Error(os.EOL + 'Please specify source file, slug, language or attributes');
 					}
 					return true;
 				})
 				.example(...updateDigitalAsset.example[0])
 				.example(...updateDigitalAsset.example[1])
 				.example(...updateDigitalAsset.example[2])
+				.example(...updateDigitalAsset.example[3])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${updateDigitalAsset.command}\n\n${updateDigitalAsset.usage.long}`);
@@ -5782,13 +5802,18 @@ const argv = yargs.usage(_usage)
 		})
 	.command([downloadType.command, downloadType.alias], false,
 		(yargs) => {
-			yargs.option('server', {
+			yargs.option('excludecomponents', {
+					alias: 'x',
+					description: 'Exclude content field editors, content forms and content layouts'
+				})
+				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
 				})
 				.example(...downloadType.example[0])
 				.example(...downloadType.example[1])
 				.example(...downloadType.example[2])
+				.example(...downloadType.example[3])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadType.command}\n\n${downloadType.usage.long}`);
@@ -5843,6 +5868,10 @@ const argv = yargs.usage(_usage)
 					alias: 'f',
 					description: 'Flag to indicate the type is from file'
 				})
+				.option('excludecomponents', {
+					alias: 'x',
+					description: 'Exclude content field editors, content forms and content layouts'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -5851,6 +5880,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadType.example[1])
 				.example(...uploadType.example[2])
 				.example(...uploadType.example[3])
+				.example(...uploadType.example[4])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadType.command}\n\n${uploadType.usage.long}`);
@@ -7999,6 +8029,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.slug) {
 		createDigitalAssetArgs.push(...['--slug', argv.slug]);
 	}
+	if (argv.language) {
+		createDigitalAssetArgs.push(...['--language', argv.language]);
+	}
+	if (argv.nontranslatable) {
+		createDigitalAssetArgs.push(...['--nontranslatable', argv.nontranslatable]);
+	}
 	if (argv.attributes) {
 		createDigitalAssetArgs.push(...['--attributes', argv.attributes]);
 	}
@@ -8022,6 +8058,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.slug) {
 		updateDigitalAssetArgs.push(...['--slug', argv.slug]);
+	}
+	if (argv.language) {
+		updateDigitalAssetArgs.push(...['--language', argv.language]);
 	}
 	if (argv.attributes) {
 		updateDigitalAssetArgs.push(...['--attributes', argv.attributes]);
@@ -9113,7 +9152,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--name', argv.name
 	];
-
+	if (argv.excludecomponents) {
+		downloadTypeArgs.push(...['--excludecomponents', argv.excludecomponents]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		downloadTypeArgs.push(...['--server', argv.server]);
 	}
@@ -9196,6 +9237,9 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	];
 	if (argv.file) {
 		uploadTypeArgs.push(...['--file', argv.file]);
+	}
+	if (argv.excludecomponents) {
+		uploadTypeArgs.push(...['--excludecomponents', argv.excludecomponents]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		uploadTypeArgs.push(...['--server', argv.server]);

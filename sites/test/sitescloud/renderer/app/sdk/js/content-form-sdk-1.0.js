@@ -860,7 +860,7 @@
             }, this.openAssetPicker = function(t) {
                 var r = g;
                 if (r !== i.REFERENCE && r !== i.LARGETEXT) throw new Error("Opening asset picker is not supported for field with data type " + r);
-                return t = t || {}, e.sendAndWait("openAssetPicker", {
+                return t = t || void 0, e.sendAndWait("openAssetPicker", {
                     options: t,
                     fieldName: h
                 });

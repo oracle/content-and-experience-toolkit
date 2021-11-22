@@ -2125,6 +2125,9 @@ module.exports.createDigitalAsset = function (argv, done) {
 	var repositoryName = argv.repository;
 	var typeName = argv.type;
 	var slug = argv.slug;
+	var language = argv.language;
+	var nontranslatable = typeof argv.nontranslatable === 'string' && argv.nontranslatable.toLowerCase() === 'true';
+	const isBuiltinDT = ['Image', 'Video', 'File'].includes(typeName);
 
 	var repository;
 	var contentType;
@@ -2153,6 +2156,12 @@ module.exports.createDigitalAsset = function (argv, done) {
 				}
 
 				console.log(' - verify repository (Id: ' + repository.id + ')');
+				console.log(' - repository configured languages: ' + repository.configuredLanguages);
+
+				if (language && !repository.configuredLanguages.includes(language)) {
+					console.log('ERROR: repository is not configured with language ' + language);
+					return Promise.reject();
+				}
 
 				return serverRest.getContentType({
 					server: server,
@@ -2186,7 +2195,13 @@ module.exports.createDigitalAsset = function (argv, done) {
 
 				console.log(' - verify type (allowed file types: ' + contentType.allowedFileTypes + ')');
 
-				return _createDigitalAssets(server, repository.id, typeName, srcFiles, attributes, slug);
+				if (isBuiltinDT && language) {
+					console.log(' - cannot set language for type ' + typeName);
+				}
+
+				var translatable = isBuiltinDT || repository.repositoryType === 'Business' ? undefined : !nontranslatable;
+				var langToUse = isBuiltinDT || repository.repositoryType === 'Business' ? undefined : language;
+				return _createDigitalAssets(server, repository.id, typeName, srcFiles, attributes, slug, translatable, langToUse);
 			})
 			.then(function (result) {
 
@@ -2202,7 +2217,7 @@ module.exports.createDigitalAsset = function (argv, done) {
 
 };
 
-var _createDigitalAssets = function (server, repositoryId, type, srcFiles, attributes, slug) {
+var _createDigitalAssets = function (server, repositoryId, type, srcFiles, attributes, slug, translatable, language) {
 
 	return new Promise(function (resolve, reject) {
 		var created = [];
@@ -2216,11 +2231,14 @@ var _createDigitalAssets = function (server, repositoryId, type, srcFiles, attri
 						filename: fileName,
 						contents: fs.createReadStream(file),
 						fields: attributes,
-						slug: (srcFiles.length === 1 ? slug : '')
+						slug: (srcFiles.length === 1 ? slug : ''),
+						translatable: translatable,
+						language: language
 					}).then(function (result) {
 						if (result && result.id) {
 							created.push(result);
-							console.log(' - created ' + type + ' asset (name: ' + result.name + ' Id: ' + result.id + ' slug: ' + result.slug + ')');
+							console.log(' - created ' + type + ' asset (name: ' + result.name + ' Id: ' + result.id + ' slug: ' + result.slug +
+								' translatable: ' + result.translatable + ' language: ' + result.language + ')');
 						}
 					});
 				});
@@ -2297,6 +2315,7 @@ module.exports.updateDigitalAsset = function (argv, done) {
 	}
 
 	var slug = argv.slug;
+	var language = argv.language;
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
@@ -2324,7 +2343,11 @@ module.exports.updateDigitalAsset = function (argv, done) {
 					exitCode = 2;
 					return Promise.reject();
 				}
-				console.log(' - verify item (name: ' + item.name + ' slug: ' + item.slug + ')');
+				console.log(' - verify item (type: ' + item.type + ' name: ' + item.name + ' slug: ' + item.slug + ')');
+
+				if (language) {
+					item.language = language;
+				}
 
 				if (slug) {
 					item.slug = slug;
@@ -2351,7 +2374,16 @@ module.exports.updateDigitalAsset = function (argv, done) {
 					return Promise.reject();
 				}
 				var updated = result;
-				console.log(' - asset updated (id: ' + updated.id + ' name: ' + updated.name + ' slug: ' + updated.slug + ' version: ' + updated.version + ')');
+				var format = '   %-12s  %-s';
+				console.log(' - asset updated');
+				console.log(sprintf(format, 'Id', updated.id));
+				console.log(sprintf(format, 'Type', updated.type));
+				console.log(sprintf(format, 'Name', updated.name));
+				console.log(sprintf(format, 'Slug', updated.slug));
+				console.log(sprintf(format, 'Version', updated.version));
+				console.log(sprintf(format, 'Translatable', updated.translatable));
+				console.log(sprintf(format, 'Language', updated.language));
+
 				done(true);
 			})
 			.catch((error) => {

@@ -231,6 +231,7 @@ ContentItem.prototype.compile = function (args) {
 								return resolve({
 									content: compiledComp && compiledComp.content,
 									hydrate: compiledComp && compiledComp.hydrate,
+									contentId: content && content.id, // If we compiled a different variant of the asset, inform the caller
 									contentType: content.type
 								});
 							}).catch(function (e) {
