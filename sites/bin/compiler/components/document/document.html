@@ -1,7 +1,8 @@
 <!-- {{#copyright}}
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2021 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
 {{/copyright}}-->
+{{#useJssor}}
 <{{componentWrapperTag}} {{{nestedId}}}>
 	<script src="/_sitescloud/renderer/libs/scs-core/jssor-slider/js/jssor.slider.min.js" type="text/javascript"></script>
 	<div class="{{computedStyleClass}}" style="{{computedWrapperStyle}}">
@@ -106,3 +107,121 @@
 		})();
 	</script>
 </{{componentWrapperTag}}>
+{{/useJssor}}
+
+{{#useSwiper}}
+<{{componentWrapperTag}}  {{{nestedId}}}>
+	<script src="/_sitescloud/renderer/libs/scs-core/swiper/swiper-bundle.min.js" type="text/javascript"></script>
+	<link href="/_sitescloud/renderer/libs/scs-core/swiper/swiper-bundle.min.css" rel="stylesheet">
+	<div class="{{computedStyleClass}}" style="{{computedWrapperStyle}}">
+		<div class="scs-component-content" style="{{computedContentStyle}}">
+			<div class="scs-swiper {{computedClass}}" style="background-color:{{computedBackgroundColor}}; {{computedStyle}}">
+				<!-- Slider main container -->
+				<div class="scs-swiper-main" style="{{computedRatio}}">
+					<div class="swiper swiperMain" id="{{sliderContainerId}}">
+						<div class="swiper-wrapper">
+							{{#computedImages}}
+							<!-- Slides -->
+							<div class="swiper-slide">
+								<div class="scs-swiper-slide {{computedSlideClass}}">
+									<img id="{{id}}" src="{{documentRenditionURL}}" alt="{{altText}}" style="object-fit:contain"/>
+								</div>
+
+								<!-- caption -->
+								{{#showCaption}}
+								<div class="scs-swiper-caption">
+									{{#title}}
+									<span class="scs-swiper-caption-title">{{title}}</span>
+									{{/title}}
+									{{#showPages}}
+									<span class="scs-swiper-caption-desc">{{pageDescription}}</span>
+									{{/showPages}}
+								</div>
+								{{/showCaption}}
+							</div>
+							{{/computedImages}}
+						</div>
+
+						{{#hasIndexer}}
+						<div class="swiper-pagination"></div>
+						{{/hasIndexer}}
+
+						{{#hasPrevNext}}
+						<div class="swiper-button-prev"></div>
+						<div class="swiper-button-next"></div>
+						{{/hasPrevNext}}
+					</div>
+				</div>
+
+				<!-- Thumbnails -->
+				{{#hasThumbnails}}
+				<div class="scs-swiper-thumb">
+					<div class="swiper swiperThumb">
+						<div class="swiper-wrapper">
+							{{#computedImages}}
+							<!-- Slides -->
+							<div class="swiper-slide">
+								<div>
+									<img src="{{documentRenditionURL}}" alt="{{altText}}"/>
+								</div>
+							</div>
+							{{/computedImages}}
+						</div>
+					</div>
+				</div>
+				{{/hasThumbnails}}
+			</div>
+		</div>
+	</div>
+	<script>
+		(function () {
+			// Build swiper options
+			var swiperOptions = {
+				loop: true,
+				keyboard: {
+					enabled: true,
+				}
+			};
+
+			if ('{{showIndexer}}' === 'true') {
+				swiperOptions.pagination = {
+					el: '.swiper-pagination',
+					clickable: true
+				}
+			}
+
+			if ('{{showPrevNext}}' === 'true') {
+				swiperOptions.navigation = {
+					nextEl: '.swiper-button-next',
+					prevEl: '.swiper-button-prev'
+				}
+			}
+
+			if ('{{showThumbnails}}' === 'true') {
+				var swiperThumbElement = document.getElementById('{{id}}').querySelector('.swiperThumb');
+
+				// instantiate a thumb swiper
+				var swiperThumb = new Swiper(swiperThumbElement, {
+					spaceBetween: 10,
+					slidesPerView: 5,
+					freeMode: true,
+					watchSlidesProgress: true
+				});
+
+				// associate the thumb swiper with the main swiper
+				swiperOptions.thumbs = {
+					swiper: swiperThumb
+				}
+			}
+
+			// Instantiate the main swiper object
+			var swiperElement = document.getElementById('{{id}}').querySelector('.swiperMain');
+			var swiper = new Swiper(swiperElement, swiperOptions);
+
+			// store swiper against the global for access during hydration
+			window.SCSHydrateObjects = window.SCSHydrateObjects || {};
+			window.SCSHydrateObjects['{{hydrateId}}'] = swiper;
+		})();
+	</script>
+</{{componentWrapperTag}}>
+{{/useSwiper}}

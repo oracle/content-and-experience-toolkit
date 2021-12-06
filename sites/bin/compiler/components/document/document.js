@@ -4,15 +4,8 @@
  * This computer program contains valuable, confidential, and
  * proprietary information. Disclosure, use, or reproduction
  * without the written authorization of Oracle is prohibited.
- * This unpublished work by Oracle is protected by the laws
- * of the United States and other countries. If publication
- * of this computer program should occur, the following notice
- * shall apply:
  *
- * Copyright (c) 2019 Oracle Corp.
- * All rights reserved.
- *
- * $Id: document.js 166460 2018-12-17 21:50:21Z muralik $
+ * Copyright (c) 2019, 2021, Oracle and/or its affiliates.
  */
 
 var fs = require('fs'),
@@ -40,10 +33,15 @@ Document.prototype.compile = function () {
 	}
 
 	return new Promise(function (resolve, reject) {
+		self.useSwiper = false; // JSON.parse(localStorage.getItem('CCS-92041'));
+		self.useJssor = !self.useSwiper;
+
 		// extend the model with any values specific to this component type
 		self.computedStyle = self.encodeCSS(self.computeStyle());
 		self.computedContentStyle = self.encodeCSS(self.computeContentStyle());
 		self.computedImages = self.computeImages();
+		self.computedClass = self.computeClass();
+		self.computedRatio = self.encodeCSS(self.computeRatio());
 
 		self.sliderContainerId = 'slider_container_' + self.id;
 		self.computedWidth = self.computeWidth();
@@ -51,6 +49,10 @@ Document.prototype.compile = function () {
 		self.computedContainerHeight = self.computeContainerHeight();
 		self.computedBackgroundColor = self.computeBackgroundColor();
 		self.computedOptions = self.computeOptions();
+
+		self.hasThumbnails = self.showThumbnails === 'true';
+		self.hasIndexer = self.showIndexer === 'true';
+		self.hasPrevNext = self.showPrevNext === 'true';
 
 		if (self.documentRatio !== '' && self.documentRatio > 1) {
 			self.thumbHeight = '100%';
@@ -119,6 +121,30 @@ Document.prototype.computeContentStyle = function () {
 
 	return computedContentStyle;
 };
+
+// Calculate the aspect ratio, including in the auto case where
+// it is dictated by the aspect ratio of the document's first page
+Document.prototype.computeRatio = function() {
+	if (this.aspectRatio !== 'auto') {
+		return 'padding-top:' + (100 * this.aspectRatio.split(':')[1] / this.aspectRatio.split(':')[0] + '%;');
+	} else if (typeof this.documentRatio === 'number' && this.documentRatio !== 0) {
+		return 'padding-top:' + (100 * this.documentRatio) + '%;';
+	} else {
+		return '';
+	}
+};
+
+Document.prototype.computeClass = function() {
+	var computedClasses = [];
+	if (this.showThumbnails === 'true') {
+		computedClasses.push('scs-swiper-has-thumbs');
+	}
+	if (this.documentTitle || this.showPages) {
+		computedClasses.push('scs-swiper-has-caption');
+	}
+	return computedClasses.join(' ');
+};
+
 Document.prototype.computeImages = function () {
 	var viewModel = this,
 		imageIdRoot = 'document-' + viewModel.id + '-page';
@@ -221,6 +247,9 @@ Document.prototype.computeOptions = function () {
 	return JSON.stringify(options);
 };
 
+Document.computedSlideClass = function() {
+	return this.hasScrollbar ? 'scs-swiper-slide-scroll' :  '';
+};
 
 // compute the background color
 Document.prototype.computeBackgroundColor = function () {

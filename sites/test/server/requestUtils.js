@@ -22,28 +22,31 @@ fetchLog = function(message) {
 	}
 }
 
+let requestNumber = 0;
 var logRequest = function(request) {
 	if (process.env.FETCH_LOG) {
 		fetchLog('\n-------------------------------------------\n');
 		fetchLog(new Date().toLocaleString() + '\n\n');
-		fetchLog('Request: ' + JSON.stringify(request, null, '  ')+ '\n');
+		fetchLog('Request #' + requestNumber + ': ' + JSON.stringify(request, null, '  ')+ '\n');
+		request._requestNumber = requestNumber;
+		requestNumber++;
 	}
 }
 
-var logResponseHeaders = function(response) {
+var logResponseHeaders = function(request, response) {
 	if (process.env.FETCH_LOG) {
-		fetchLog('Response Status: ' + response.status + ': ' + response.statusText + '\n');
-		fetchLog('Response Headers: ' + JSON.stringify(response.headers.raw(), null, '  ') + '\n');
+		fetchLog('Response #' + request._requestNumber + ' Status: ' + response.status + ': ' + response.statusText + '\n');
+		fetchLog('Response #' + request._requestNumber + ' Headers: ' + JSON.stringify(response.headers.raw(), null, '  ') + '\n');
 	}
 }
 
-var logResponseBody = function(response, body) {
+var logResponseBody = function(request, response, body) {
 	if (process.env.FETCH_LOG) {
 		if (response.headers.get('content-type') === 'application/json') {
-			fetchLog('Response Body: ' + JSON.stringify(JSON.parse(body), null, '  ') + '\n');
+			fetchLog('Response #' + request._requestNumber + ' Body: ' + JSON.stringify(JSON.parse(body), null, '  ') + '\n');
 		}
 		else {
-			fetchLog('Response Body: ' + body.toString() + '\n');
+			fetchLog('Response #' + request._requestNumber + ' Body: ' + body.toString() + '\n');
 		}
 	}
 }
@@ -53,9 +56,9 @@ var _get = function (options, callback) {
 	var url = options.url;
 	return fetch(url, options)
 		.then(function (response) {
-			logResponseHeaders(response);
+			logResponseHeaders(options, response);
 			return response.buffer().then(function (data) {
-				logResponseBody(response, data);
+				logResponseBody(options, response, data);
 				var err = response.error;
 				var res = {
 					statusCode: response.status,
@@ -76,9 +79,9 @@ var _post = function (options, callback) {
 	var url = options.url;
 	return fetch(url, options)
 		.then(function (response) {
-			logResponseHeaders(response);
+			logResponseHeaders(options, response);
 			return response.buffer().then(function (data) {
-				logResponseBody(response, data);
+				logResponseBody(options, response, data);
 				var err = response.error;
 				var location = response.headers.get('location');
 				var res = {

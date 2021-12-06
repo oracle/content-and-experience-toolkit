@@ -2647,6 +2647,10 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 						staticOnly: staticOnly,
 						fullpublish: fullpublish
 					});
+				} else if (action === 'publish-internal') {
+					console.log(' - publish site using Idc service');
+					actionPromise = _publishSiteInternal(server, site.id, site.name, usedContentOnly, compileSite, staticOnly, fullpublish);
+
 				} else if (action === 'unpublish') {
 					actionPromise = sitesRest.unpublishSite({
 						server: server,
@@ -2694,6 +2698,140 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 				});
 			});
 	});
+};
+
+
+/**
+ * Publish a site using IdcService (compile site workaround)
+ */
+var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, compileSite, staticOnly, fullpublish) {
+	return new Promise(function (resolve, reject) {
+
+		serverUtils.getIdcToken(server)
+			.then(function (result) {
+				var idcToken = result && result.idcToken;
+				if (!idcToken) {
+					console.log('ERROR: failed to get idcToken');
+					return Promise.reject();
+				}
+				var url = server.url + '/documents/integration?IdcService=SCS_PUBLISH_SITE&IsJson=1';
+
+				var body = {
+					'idcToken': idcToken,
+					'LocalData': {
+						'IdcService': 'SCS_PUBLISH_SITE',
+						item: 'fFolderGUID:' + siteId
+					}
+				};
+
+				if (usedContentOnly) {
+					body.LocalData.publishUsedContentOnly = true;
+				}
+				if (compileSite) {
+					body.LocalData.skipCompileSiteCheck = false;
+				}
+				if (staticOnly) {
+					body.LocalData.doStaticFilePublishOnly = true;
+				}
+				if (fullpublish) {
+					body.LocalData.type = 'full';
+				}
+
+				var postData = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: JSON.stringify(body),
+					json: true
+				};
+				// console.log(postData);
+
+				var request = require('../test/server/requestUtils.js').request;
+				request.post(postData, function (err, response, body) {
+					if (response && response.statusCode !== 200) {
+						console.log('ERROR: Failed to publish site: ' + response.statusCode);
+					}
+					if (err) {
+						console.log('ERROR: Failed to publish site');
+						console.log(err);
+						return reject({
+							err: err
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						if (typeof body === 'object') {
+							data = body;
+						}
+					}
+					// console.log(data);
+					if (!data || !data.LocalData || data.LocalData.StatusCode !== '0' || !data.LocalData.JobID) {
+						// console.log('ERROR: failed to set site metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+						var errorMsg = data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '';
+						console.log('ERROR: failed to publish site ' + errorMsg);
+						return resolve({
+							err: 'err'
+						});
+					} else {
+						var jobId = data.LocalData.JobID;
+						// console.log(' - job id: ' + jobId);
+						var statusUrl = '/sites/management/api/v1/sites/_status/' + jobId;
+						console.log(' - job status: ' + statusUrl);
+						statusUrl = server.url + statusUrl + '?expand=site&links=none';
+						var startTime = new Date();
+						var inter = setInterval(function () {
+							var jobPromise = sitesRest.getBackgroundJobStatus({
+								server: server,
+								url: statusUrl
+							});
+							jobPromise.then(function (data) {
+								// console.log(data);
+								if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+									clearInterval(inter);
+									if (needNewLine) {
+										process.stdout.write(os.EOL);
+									}
+									var msg = data && data.message;
+									if (data && data.error) {
+										msg = msg + ' ' + (data.error.detail || data.error.title);
+									}
+									console.log('ERROR: failed to publish site ' + siteName + ' : ' + msg);
+									return resolve({
+										err: 'err'
+									});
+								} else if (data.completed && data.progress === 'succeeded') {
+									clearInterval(inter);
+									process.stdout.write(' - publish in process: percentage ' + data.completedPercentage +
+										' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+									process.stdout.write(os.EOL);
+									return resolve({});
+								} else {
+									process.stdout.write(' - publish in process: percentage ' + data.completedPercentage +
+										' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+									readline.cursorTo(process.stdout, 0);
+									needNewLine = true;
+								}
+							});
+						}, 5000);
+					}
+				});
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				return ({
+					err: 'err'
+				});
+			});
+	});
+
 };
 
 /**

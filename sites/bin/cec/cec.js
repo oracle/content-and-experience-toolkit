@@ -4822,7 +4822,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs
 				.check((argv) => {
-					if (argv.action && !getSiteActions().includes(argv.action)) {
+					if (argv.action && !getSiteActions().includes(argv.action) && argv.action !== 'publish-internal') {
 						throw new Error(`${argv.action} is not a valid value for <action>`);
 					} else {
 						return true;

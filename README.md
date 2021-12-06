@@ -14,6 +14,13 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 21.12.1
+
+**Added**
+
+- `cec compile-template` - Added support for JavaScript modules when compiling pages and components
+
+
 # New in Release 21.11.2
 
 **Added**

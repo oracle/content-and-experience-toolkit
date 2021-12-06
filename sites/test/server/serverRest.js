@@ -8448,6 +8448,74 @@ module.exports.postReplyToMessage = function (args) {
 	return _postReplyToMessage(args.server, args.messageId, args.text);
 };
 
+var _assignFlagOnMessage = function (server, messageId, assigneeId, flagType) {
+	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/messages/' + messageId + '/followups';
+
+					var postData = {
+						method: 'POST',
+						url: url,
+						headers: {
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID
+						},
+						body: JSON.stringify({
+							assignee: assigneeId,
+							followupType: flagType
+						})
+					};
+					addCachedCookiesForRequest(server, postData);
+					request.post(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: assign flag to message ' + messageId);
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+
+						cacheCookiesFromResponse(server, response);
+						if (response && response.statusCode === 200) {
+							resolve(data);
+						} else {
+							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
+							console.log('ERROR: failed to assign flag to message ' + messageId + ' : ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+/**
+ * Assign a flag to someone on a message in a conversation.
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.messageId the message id
+ * @param {string} args.assigneeId the id of the user to assign the flag to
+ * @param {string} args.flagType the type of flag to assign (one of "FOR_YOUR_INFORMATION", "PLEASE_REPLY", "PLEASE_REPLY_URGENT")
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.assignFlagOnMessage = function (args) {
+	return _assignFlagOnMessage(args.server, args.messageId, args.assigneeId, args.flagType);
+};
+
 var _createFolderConversation = function (server, folderId, name) {
 	return new Promise(function (resolve, reject) {
 		var payload = {

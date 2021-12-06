@@ -128,13 +128,14 @@ SectionLayout.prototype = {
 		var self = this;
 		var instanceObject = this.componentInstanceObject || {};
 
-		return new Promise(function (resolve, reject) {
+		return new Promise(async function (resolve, reject) {
 			try {
 				if (instanceObject && instanceObject.id) {
 					var sectionLayoutName = instanceObject.id;
 					var compileFile;
 					var directoryName;
 					var ootbSectionLayout = false;
+					var moduleFile;
 
 					if (instanceObject.data.componentFactory) {
 						// Compute the path to the out-of-the-box or custom section layout
@@ -146,32 +147,49 @@ SectionLayout.prototype = {
 					} else {
 						// Compute the path to the custom section layout
 						compileFile = self.componentsFolder + '/' + sectionLayoutName + '/assets/compile';
+						moduleFile = compileFile + '.mjs';
 					}
 
 					if (compileFile) {
 						var SectionLayoutImpl;
 						var foundComponentFile = false;
-						try {
-							compileFile = path.normalize(compileFile);
+						if (fs.existsSync(moduleFile)) {
+							try {
+								foundComponentFile = true;
 
-							// verify if we can load the file
-							require.resolve(compileFile);
-							foundComponentFile = true;
-
-							// ok, file's there, load it in
-							SectionLayoutImpl = require(compileFile);
-						} catch (e) {
-							if (foundComponentFile) {
+								// JavaScript module based section layout, import it
+								const { default: importModule } = await import(moduleFile);
+								SectionLayoutImpl = importModule;
+							} catch (e) {
 								compilationReporter.error({
-									message: 'require failed to load: "' + compileFile + '.js"',
+									message: 'failed to import: "' + moduleFile,
 									error: e
 								});
-							} else {
-								compilationReporter.warn({
-									message: 'no custom section layout compiler for: "' + compileFile + '.js"'
-								});
+								return resolve({});
 							}
-							return resolve({});
+						} else {
+							try {
+								compileFile = path.normalize(compileFile);
+
+								// verify if we can load the file
+								require.resolve(compileFile);
+								foundComponentFile = true;
+
+								// ok, file's there, load it in
+								SectionLayoutImpl = require(compileFile);
+							} catch (e) {
+								if (foundComponentFile) {
+									compilationReporter.error({
+										message: 'require failed to load: "' + compileFile + '.js"',
+										error: e
+									});
+								} else {
+									compilationReporter.warn({
+										message: 'no custom section layout compiler for: "' + compileFile + '.js"'
+									});
+								}
+								return resolve({});
+							}
 						}
 
 						var logic;

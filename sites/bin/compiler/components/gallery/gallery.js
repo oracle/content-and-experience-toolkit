@@ -4,15 +4,8 @@
  * This computer program contains valuable, confidential, and
  * proprietary information. Disclosure, use, or reproduction
  * without the written authorization of Oracle is prohibited.
- * This unpublished work by Oracle is protected by the laws
- * of the United States and other countries. If publication
- * of this computer program should occur, the following notice
- * shall apply:
  *
- * Copyright (c) 2019 Oracle Corp.
- * All rights reserved.
- *
- * $Id: gallerygrid.js 166460 2018-12-17 21:50:21Z muralik $
+ * Copyright (c) 2019, 2021, Oracle and/or its affiliates.
  */
 
 var fs = require('fs'),
@@ -42,9 +35,13 @@ Gallery.prototype.compile = function (args) {
 	this.SCSCompileAPI = args && args.SCSCompileAPI;
 
 	return new Promise(function (resolve, reject) {
+		self.useSwiper = false; // JSON.parse(localStorage.getItem('CCS-92041'));
+		self.useJssor = !self.useSwiper;
+
 		// extend the model with any values specific to this component type
 		self.computedStyle = self.encodeCSS(self.computeStyle());
 		self.computedContentStyle = self.encodeCSS(self.computeContentStyle());
+		self.computedClass = self.computeClass();
 		self.computedImages = self.computeImages();
 
 		self.sliderContainerId = 'slider_container_' + self.id;
@@ -53,6 +50,11 @@ Gallery.prototype.compile = function (args) {
 		self.computedContainerHeight = self.computeContainerHeight();
 		self.computedBackgroundColor = self.computeBackgroundColor();
 		self.computedOptions = self.computeOptions();
+		self.computedObjectFit = self.computeObjectFit();
+
+		self.hasThumbnails = self.showThumbnails === 'true';
+		self.hasIndexer = self.showIndexer === 'true';
+		self.hasPrevNext = self.showPrevNext === 'true';
 
 		// create an hydrate ID for adding handlers to the slider
 		self.hydrateId = 'slider_hydrate_' + self.id;
@@ -104,6 +106,18 @@ Gallery.prototype.computeContentStyle = function () {
 
 	return computedContentStyle;
 };
+
+Gallery.prototype.computeClass = function() {
+	var computedClasses = [];
+	if (this.showThumbnails === 'true') {
+		computedClasses.push('scs-swiper-has-thumbs');
+	}
+	if (this.showCaption === 'true') {
+		computedClasses.push('scs-swiper-has-caption');
+	}
+	return computedClasses.join(' ');
+};
+
 Gallery.prototype.computeImages = function () {
 	var viewModel = this;
 
@@ -216,6 +230,18 @@ Gallery.prototype.computeOptions = function () {
 	return JSON.stringify(options);
 };
 
+Gallery.prototype.computeObjectFit = function() {
+	switch (this.scaling) {
+		case 'stretch':
+			return 'fill';
+		case 'fit':
+			return 'contain';
+		case 'crop':
+			return 'cover';
+		default:
+			return 'none';
+	}
+};
 
 // compute the background color
 Gallery.prototype.computeBackgroundColor = function () {

@@ -142,11 +142,23 @@ ContentItem.prototype.getContentLayout = function (SCSCompileAPI, args) {
 					compileFile = path.normalize(compVM.componentsFolder + '/' + contentLayoutName + '/assets/compile');
 				}
 
-				// verify if we can load the file
-				require.resolve(compileFile);
-				foundComponentFile = true;
+				// check for .mjs file
+				var moduleFile = compileFile + '.mjs';
+				if (fs.existsSync(moduleFile)) {
+					foundComponentFile = true;
 
-				return Promise.resolve(compileFile);
+					return Promise.resolve({
+						moduleFile: moduleFile
+					});
+				} else {
+					// verify if we can load the file
+					require.resolve(compileFile);
+					foundComponentFile = true;
+
+					return Promise.resolve({
+						compileFile: compileFile
+					});
+				}
 			} catch (e) {
 				compilationReporter.warn({
 					message: 'no custom content layout compiler for: "' + (compileFile ? compileFile + '.js' : contentLayoutName) + '"'
@@ -179,10 +191,18 @@ ContentItem.prototype.compile = function (args) {
 			contentLayoutCategory: args.compVM.contentLayoutCategory,
 			compVM: args.compVM,
 			defaultContentLayoutCategory: args.defaultContentLayoutCategory
-		}).then(function (compileFile) {
-			if (compileFile) {
+		}).then(async function (component) {
+			if (component) {
 				// ok, file's there, load it in
-				var CustomLayoutCompiler = require(compileFile);
+				var CustomLayoutCompiler;
+				if (component.moduleFile) {
+					// JavaScript Module
+					const { default: importModule } = await import(component.moduleFile);
+					CustomLayoutCompiler = importModule;
+				} else {
+					// CommonJS Module
+					CustomLayoutCompiler = require(component.compileFile);
+				}
 
 				// now get the content 
 				SCSCompileAPI.getContentClient().then(function (contentClient) {
@@ -248,10 +268,10 @@ ContentItem.prototype.compile = function (args) {
 							if (e && e.statusCode) {
 								error = e ? 'statusCode: ' + e.statusCode + '. statusMessage: ' + e.statusMessage + '. ' : '';
 							} else {
-								error = 'failed in:  ' + compileFile + ' - ' + e.toString();
+								error = 'failed in:  ' + component.compileFile + ' - ' + e.toString();
 							}
 							compilationReporter.error({
-								message: 'failed to compile content item: ' + contentId + ' with layout: ' + compileFile + '. The component will render in the client.',
+								message: 'failed to compile content item: ' + contentId + ' with layout: ' + component.compileFile + '. The component will render in the client.',
 								error: error
 							});
 							return resolve({

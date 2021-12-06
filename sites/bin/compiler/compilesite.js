@@ -395,7 +395,7 @@ function getPageData(context, pageId) {
 	};
 }
 
-function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
+async function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 	trace('compileThemeLayout: themeName=' + themeName + ', layoutName=' + layoutName);
 
 	var filePath = path.join(themesFolder, themeName, "layouts", layoutName);
@@ -407,22 +407,39 @@ function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 	trace('compileThemeLayout: layoutMarkup=' + layoutMarkup);
 
 	// now compile the page if compiler supplied
-	var compilerName = layoutName.replace(/\.(htm|html)$/i, '') + '-compile.js',
-		compileFile = path.join(themesFolder, themeName, "layouts", compilerName);
+	var baseName = layoutName.replace(/\.(htm|html)$/i, '') + '-compile';
+		compileFile = path.join(themesFolder, themeName, "layouts", baseName + '.js'),
+		moduleFile = path.join(themesFolder, themeName, "layouts", baseName + '.mjs'),
+		useModuleCompiler = fs.existsSync(moduleFile);
 
-	try {
-		// verify if file exists
-		require.resolve(compileFile);
-	} catch (e) {
-		compilationReporter.warn({
-			message: 'compileThemeLayout: no page compiler found: ' + compilerName
-		});
-		return Promise.resolve(layoutMarkup);
+	if (!useModuleCompiler) {
+		try { 
+			// verify if file exists for CommonJS
+			require.resolve(compileFile); 
+		} catch (e) { 
+			compilationReporter.warn({ 
+				message: 'compileThemeLayout: no page compiler found: ' + moduleFile
+			}); 
+			return Promise.resolve(layoutMarkup);
+		}
 	}
 
 	try {
 		// ok, file's there, load it in
-		var pageCompiler = require(compileFile);
+		var pageCompiler = {};
+		if (useModuleCompiler) {
+			const { default: PageCompiler} = await import(moduleFile);
+			if (PageCompiler) {
+				pageCompiler = new PageCompiler();
+			} else {
+				compilationReporter.error({
+					message: 'failed to import: "' + moduleFile,
+					error: e
+				});
+			}
+		} else {
+			pageCompiler = require(compileFile);
+		}
 
 		// make sure there is a compiler
 		if (typeof pageCompiler.compile === 'function') {
