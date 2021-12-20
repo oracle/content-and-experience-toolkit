@@ -1728,6 +1728,54 @@ gulp.task('list-editorial-permission', function (done) {
 });
 
 /**
+ * List Editorial Roles
+ */
+ gulp.task('list-editorial-role', function (done) {
+	'use strict';
+
+	assetlib.listEditorialRole(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Create an Editorial Role
+ */
+ gulp.task('create-editorial-role', function (done) {
+	'use strict';
+
+	assetlib.createEditorialRole(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Set editorial permission for an Editorial Role
+ */
+ gulp.task('set-editorial-role', function (done) {
+	'use strict';
+
+	assetlib.setEditorialRole(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Delete an Editorial Role
+ */
+ gulp.task('delete-editorial-role', function (done) {
+	'use strict';
+
+	assetlib.deleteEditorialRole(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Share a type
  */
 gulp.task('share-type', function (done) {

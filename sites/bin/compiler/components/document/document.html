@@ -115,7 +115,7 @@
 	<link href="/_sitescloud/renderer/libs/scs-core/swiper/swiper-bundle.min.css" rel="stylesheet">
 	<div class="{{computedStyleClass}}" style="{{computedWrapperStyle}}">
 		<div class="scs-component-content" style="{{computedContentStyle}}">
-			<div class="scs-swiper {{computedClass}}" style="background-color:{{computedBackgroundColor}}; {{computedStyle}}">
+			<div class="scs-swiper {{computedClass}}" style="background-color:{{computedBackgroundColor}};{{computedStyle}}">
 				<!-- Slider main container -->
 				<div class="scs-swiper-main" style="{{computedRatio}}">
 					<div class="swiper swiperMain" id="{{sliderContainerId}}">
@@ -124,7 +124,7 @@
 							<!-- Slides -->
 							<div class="swiper-slide">
 								<div class="scs-swiper-slide {{computedSlideClass}}">
-									<img id="{{id}}" src="{{documentRenditionURL}}" alt="{{altText}}" style="object-fit:contain"/>
+									<img id="{{id}}" src="{{documentRenditionURL}}" alt="{{altText}}" style="object-fit:contain;"/>
 								</div>
 
 								<!-- caption -->
@@ -177,10 +177,7 @@
 		(function () {
 			// Build swiper options
 			var swiperOptions = {
-				loop: true,
-				keyboard: {
-					enabled: true,
-				}
+				loop: true
 			};
 
 			if ('{{showIndexer}}' === 'true') {
@@ -194,6 +191,12 @@
 				swiperOptions.navigation = {
 					nextEl: '.swiper-button-next',
 					prevEl: '.swiper-button-prev'
+				}
+			}
+
+			if ('{{useKeyboard}}' === 'true') {
+				swiperOptions.keyboard = {
+					enabled: true,
 				}
 			}
 

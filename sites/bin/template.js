@@ -77,7 +77,7 @@ var _cmdEnd = function (done, success) {
 
 
 var _createLocalTemplateFromSite = function (name, siteName, server, excludeContent, enterprisetemplate,
-	excludeComponents, excludeTheme, excludeType, publishedassets) {
+	excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets) {
 	return new Promise(function (resolve, reject) {
 
 		serverUtils.loginToServer(server).then(function (result) {
@@ -110,6 +110,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 			var otherAssets = [];
 			var hasAssets = false;
+			var referenceAssetIds = [];
 
 			sitesRest.getSite({
 					server: server,
@@ -258,7 +259,18 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						console.log(' - site has assets from other repositories and they will not be included in the template');
 					}
 
-					var downloadContentPromises = (excludeContent || !isEnterprise) ? [] : [_downloadContent(server, name, channelName, channelId, repositoryName, repositoryId, excludeType, publishedassets)];
+					if (referencedassets && !excludeContent) {
+						// get all asset IDs on site pages
+						referenceAssetIds = serverUtils.getReferencedAssets(path.join(tempSrcPath, 'pages'));
+						console.log(' - referenced items: ' + referenceAssetIds.length);
+						if (referenceAssetIds.length === 0) {
+							// no content to include
+							excludeContent = true;
+							hasAssets = false;
+						}
+					}
+
+					var downloadContentPromises = (excludeContent || !isEnterprise) ? [] : [_downloadContent(server, name, channelName, channelId, repositoryName, repositoryId, excludeType, publishedassets, referenceAssetIds)];
 
 					return Promise.all(downloadContentPromises);
 				})
@@ -444,7 +456,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					var compsInfo = results && results[0] || [];
 					console.log(' - create ' + (templateIsEnterprise === 'true' ? 'enterprise template' : 'standard template'));
 					console.log('*** template is ready to test: http://localhost:8085/templates/' + name);
-					
+
 					return resolve({
 						contentLayouts: contentLayoutNames,
 						theme: themeInfo,
@@ -575,12 +587,12 @@ var _downloadSiteComponents = function (server, compNames) {
 };
 
 var _createLocalTemplateFromSiteUtil = function (argv, name, siteName, server, excludeContent, enterprisetemplate,
-	excludeComponents, excludeTheme, excludeType, publishedassets) {
+	excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets) {
 	verifyRun(argv);
-	return _createLocalTemplateFromSite(name, siteName, server, excludeContent, enterprisetemplate, excludeComponents, excludeTheme, excludeType, publishedassets);
+	return _createLocalTemplateFromSite(name, siteName, server, excludeContent, enterprisetemplate, excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets);
 };
 
-var _downloadContent = function (server, name, channelName, channelId, repositoryName, repositoryId, excludeType, publishedassets) {
+var _downloadContent = function (server, name, channelName, channelId, repositoryName, repositoryId, excludeType, publishedassets, assetGUIDS) {
 	return new Promise(function (resolve, reject) {
 		var assetSummaryJson;
 		var assetContentTypes = [];
@@ -596,6 +608,7 @@ var _downloadContent = function (server, name, channelName, channelId, repositor
 				channel: channelName,
 				repositoryName: repositoryName,
 				name: name + '_content',
+				assetGUIDS: assetGUIDS,
 				publishedassets: publishedassets,
 				requiredContentPath: tempAssetPath,
 				requiredContentTemplateName: 'Content Template of ' + name
@@ -867,9 +880,15 @@ module.exports.createTemplate = function (argv, done) {
 			done();
 			return;
 		}
+		var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
+		var referencedassets = typeof argv.referencedassets === 'string' && argv.referencedassets.toLowerCase() === 'true';
 		var excludeContent = typeof argv.excludecontent === 'string' && argv.excludecontent.toLowerCase() === 'true';
 		var enterprisetemplate = typeof argv.enterprisetemplate === 'string' && argv.enterprisetemplate.toLowerCase() === 'true';
-		_createLocalTemplateFromSite(argv.name, siteName, server, excludeContent, enterprisetemplate)
+		var excludeComponents = false;
+		var excludeTheme = false;
+		var excludeType = false;
+		_createLocalTemplateFromSite(argv.name, siteName, server, excludeContent, enterprisetemplate,
+				excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets)
 			.then(function (result) {
 				if (result.err) {
 					done();
@@ -2530,7 +2549,9 @@ module.exports.compileTemplate = function (argv, done) {
 		contentLayoutSnippet = typeof argv.contentLayoutSnippet === 'boolean' ? argv.contentLayoutSnippet : argv.contentLayoutSnippet === 'true',
 		contentType = argv.type,
 		ignoreErrors = argv.ignoreErrors,
-		server;
+		server,
+		useJSSOR = false; // switch from JSSOR to Swiper (CCS-92594)
+
 	if (argv.server) {
 		server = serverUtils.verifyServer(argv.server, projectDir);
 		if (!server || !server.valid) {
@@ -2539,6 +2560,10 @@ module.exports.compileTemplate = function (argv, done) {
 		}
 	}
 
+	// handle whether to use JSSOR or swiper for sliders
+	if (argv.hasOwnProperty('jssor')) {
+		useJSSOR = typeof argv.jssor === 'boolean' ? argv.jssor : argv.jssor === 'true';
+	}
 
 	var tempName = argv.source,
 		template = '',
@@ -2590,6 +2615,7 @@ module.exports.compileTemplate = function (argv, done) {
 		noDefaultDetailPageLink: noDefaultDetailPageLink,
 		contentLayoutSnippet: contentLayoutSnippet,
 		includeLocale: includeLocale,
+		useJSSOR: useJSSOR,
 		logLevel: 'log',
 		outputURL: serverURL + '/templates/' + tempName + '/'
 	}).then(function (result) {

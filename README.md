@@ -14,6 +14,15 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 21.12.2
+
+**Added**
+
+- `cec transfer-site` - Added option `--referencedassets` to transfer only the assets referenced on site's pages
+- `cec create-template` - Added option `--referencedassets` to include only the assets referenced on site's pages
+- `cec create-template` - Added option `--publishedassets` to include only the published assets
+
+
 # New in Release 21.12.1
 
 **Added**

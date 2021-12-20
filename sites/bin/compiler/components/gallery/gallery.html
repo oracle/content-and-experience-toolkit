@@ -46,7 +46,7 @@
 								data-google-maps-embed-api-key="googleMapsEmbedApiKey" style="display: block;">
 							{{/isMap}}
 							{{#isNotMap}}
-							<a href="{{linkURL}}" target="{{target}}" {{{downloadName}}} style="display: block;" {{{dataAnalyticsClick}}} {{{ariaLabelValue}}}>
+							<a href="{{linkURL}}" target="{{target}}" {{{downloadName}}} {{{dataAnalyticsClick}}} {{{ariaLabelValue}}} style="display: block;">
 							{{/isNotMap}}
 							{{/hasLink}}
 
@@ -158,7 +158,7 @@
 									{{/isNotMap}}
 									{{/hasLink}}
 
-										<img src="{{imageURL}}" alt="{{altText}}" title="{{title}}" style="object-fit:{{computedObjectFit}}" {{{dataIndex}}} {{{dataAnalyticsView}}}/>
+										<img src="{{imageURL}}" alt="{{altText}}" title="{{title}}" style="object-fit: {{computedObjectFit}};" {{{dataIndex}}} {{{dataAnalyticsView}}}/>
 
 									{{#hasLink}}
 									</a>
@@ -216,10 +216,7 @@
 			// Build swiper options
 			var swiperOptions = {
 				loop: true,
-				speed: 1000 * {{transitionTime}},
-				keyboard: {
-					enabled: true,
-				}
+				speed: 1000 * {{transitionTime}}
 			};
 
 			if ('{{autoPlay}}' === 'true') {
@@ -239,6 +236,12 @@
 				swiperOptions.navigation = {
 					nextEl: '.swiper-button-next',
 					prevEl: '.swiper-button-prev'
+				}
+			}
+
+			if ('{{useKeyboard}}' === 'true') {
+				swiperOptions.keyboard = {
+					enabled: true,
 				}
 			}
 

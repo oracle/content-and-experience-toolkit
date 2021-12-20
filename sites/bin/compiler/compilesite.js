@@ -66,7 +66,8 @@ var siteFolder, // Z:/sitespublish/SiteC/
 	isSecureSite, // Is this a secure site -- used to populate the siteRootPath in the siteinfo properties
 	targetDevice = '', // 'mobile' or 'desktop' (no value implies compile for both if RegEx is specified)
 	mobilePages = false, // whether we are compiling mobile pages
-	folderProperties; // _folder.json values
+	folderProperties, // _folder.json values
+	useJSSOR;  // use JSSOR or Swiper when compiling sliders in pages
 
 
 // Global Variables
@@ -934,6 +935,7 @@ var compiler = {
 			channelAccessToken: channelAccessToken,
 			deviceInfo: self.context.deviceInfo,
 			snippetOnly: creatingDetailPages && detailPageContentLayoutSnippet,
+			useJSSOR: useJSSOR,
 			getContentClient: function (type) {
 				return new Promise(function (resolve, reject) {
 					var contentType = type === 'published' ? 'published' : defaultContentType,
@@ -2679,6 +2681,7 @@ var compileSite = function (args) {
 	server = args.server;
 	projectDir = args.currPath;
 	defaultContentType = args.type === 'published' ? 'published' : 'draft'; // default to draft content, URLs will still be published
+	useJSSOR = args.useJSSOR;
 
 	console.log("Oracle Content Management Site Compiler");
 	console.log("");

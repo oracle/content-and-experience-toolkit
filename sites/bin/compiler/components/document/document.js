@@ -21,7 +21,7 @@ var Document = function (compId, compInstance) {
 };
 Document.prototype = Object.create(Base.prototype);
 
-Document.prototype.compile = function () {
+Document.prototype.compile = function (args) {
 	var self = this;
 
 	// make sure we can compile
@@ -32,8 +32,10 @@ Document.prototype.compile = function () {
 		});
 	}
 
+	this.SCSCompileAPI = args && args.SCSCompileAPI;
+
 	return new Promise(function (resolve, reject) {
-		self.useSwiper = false; // JSON.parse(localStorage.getItem('CCS-92041'));
+		self.useSwiper = self.SCSCompileAPI && !self.SCSCompileAPI.useJSSOR; // CCS-92041/CCS-92912
 		self.useJssor = !self.useSwiper;
 
 		// extend the model with any values specific to this component type
@@ -53,6 +55,7 @@ Document.prototype.compile = function () {
 		self.hasThumbnails = self.showThumbnails === 'true';
 		self.hasIndexer = self.showIndexer === 'true';
 		self.hasPrevNext = self.showPrevNext === 'true';
+		self.useKeyboard = self.useKeyboard === 'true';
 
 		if (self.documentRatio !== '' && self.documentRatio > 1) {
 			self.thumbHeight = '100%';

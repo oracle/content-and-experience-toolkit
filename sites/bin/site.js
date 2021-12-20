@@ -1247,6 +1247,7 @@ module.exports.transferSite = function (argv, done) {
 	var excludetheme = typeof argv.excludetheme === 'string' && argv.excludetheme.toLowerCase() === 'true';
 	var excludetype = typeof argv.excludetype === 'string' && argv.excludetype.toLowerCase() === 'true';
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
+	var referencedassets = typeof argv.referencedassets === 'string' && argv.referencedassets.toLowerCase() === 'true';
 	var includestaticfiles = typeof argv.includestaticfiles === 'string' && argv.includestaticfiles.toLowerCase() === 'true';
 	var suppressgovernance = typeof argv.suppressgovernance === 'string' && argv.suppressgovernance.toLowerCase() === 'true';
 	var reuseContent = typeof argv.reuse === 'string' && argv.reuse.toLowerCase() === 'true';
@@ -1296,6 +1297,7 @@ module.exports.transferSite = function (argv, done) {
 	var newThemeGUID;
 	var newThemePath;
 	var compsToVerify = [];
+	var referencedassetIds = [];
 
 	var cecVersion, idcToken;
 
@@ -1582,7 +1584,7 @@ module.exports.transferSite = function (argv, done) {
 								// create template on the source server and download
 								var enterprisetemplate = true;
 								return templateUtils.createLocalTemplateFromSite(
-									argv, templateName, siteName, server, excludecontent, enterprisetemplate, excludecomponents, excludetheme, excludetype, publishedassets);
+									argv, templateName, siteName, server, excludecontent, enterprisetemplate, excludecomponents, excludetheme, excludetype, publishedassets, referencedassets);
 
 							})
 							.then(function (result) {
@@ -2723,6 +2725,10 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 						item: 'fFolderGUID:' + siteId
 					}
 				};
+
+				if (server.oauthtoken) {
+					body.token = server.oauthtoken;
+				}
 
 				if (usedContentOnly) {
 					body.LocalData.publishUsedContentOnly = true;

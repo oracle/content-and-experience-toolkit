@@ -35,7 +35,7 @@ Gallery.prototype.compile = function (args) {
 	this.SCSCompileAPI = args && args.SCSCompileAPI;
 
 	return new Promise(function (resolve, reject) {
-		self.useSwiper = false; // JSON.parse(localStorage.getItem('CCS-92041'));
+		self.useSwiper = self.SCSCompileAPI && !self.SCSCompileAPI.useJSSOR; // CCS-92041/CCS-92912
 		self.useJssor = !self.useSwiper;
 
 		// extend the model with any values specific to this component type
@@ -43,6 +43,7 @@ Gallery.prototype.compile = function (args) {
 		self.computedContentStyle = self.encodeCSS(self.computeContentStyle());
 		self.computedClass = self.computeClass();
 		self.computedImages = self.computeImages();
+		self.computedRatio = self.encodeCSS(self.computeRatio());
 
 		self.sliderContainerId = 'slider_container_' + self.id;
 		self.computedWidth = self.computeWidth();
@@ -55,6 +56,7 @@ Gallery.prototype.compile = function (args) {
 		self.hasThumbnails = self.showThumbnails === 'true';
 		self.hasIndexer = self.showIndexer === 'true';
 		self.hasPrevNext = self.showPrevNext === 'true';
+		self.useKeyboard = self.useKeyboard === 'true';
 
 		// create an hydrate ID for adding handlers to the slider
 		self.hydrateId = 'slider_hydrate_' + self.id;
@@ -105,6 +107,11 @@ Gallery.prototype.computeContentStyle = function () {
 	computedContentStyle += viewModel.computedWidthStyle;
 
 	return computedContentStyle;
+};
+
+// compute the aspect ratio
+Gallery.prototype.computeRatio = function() {
+	return 'padding-top: 66.666%;';
 };
 
 Gallery.prototype.computeClass = function() {

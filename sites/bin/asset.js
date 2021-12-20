@@ -212,6 +212,7 @@ module.exports.controlRepository = function (argv, done) {
 	var taxNames = argv.taxonomies ? argv.taxonomies.split(',') : [];
 	var languages = argv.languages ? argv.languages.split(',') : [];
 	var connectorNames = argv.translationconnectors ? argv.translationconnectors.split(',') : [];
+	var roleNames = argv.editorialroles ? argv.editorialroles.split(',') : [];
 
 	var allRepos = [];
 	var allRepoNames = [];
@@ -223,6 +224,8 @@ module.exports.controlRepository = function (argv, done) {
 	var finalTaxNames = [];
 	var connectors = [];
 	var finalConnectorNames = [];
+	var editorialRoles = [];
+	var finalRoleNames = [];
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
@@ -430,8 +433,50 @@ module.exports.controlRepository = function (argv, done) {
 					}
 				}
 
+				// get editorial roles
+				var rolePromises = [];
+				for (var i = 0; i < roleNames.length; i++) {
+					rolePromises.push(serverRest.getEditorialRoleWithName({
+						server: server,
+						name: roleNames[i]
+					}));
+				}
+
+				return Promise.all(rolePromises);
+
+			})
+			.then(function (results) {
+
+				if (roleNames.length > 0) {
+					var allRoles = results || [];
+					roleNames.forEach(function (name) {
+						var roleExist = false;
+						for (var i = 0; i < allRoles.length; i++) {
+							var role = allRoles[i] && allRoles[i].data;
+							if (role && role.name && role.name.toLowerCase() === name.toLowerCase()) {
+								editorialRoles.push({
+									id: role.id,
+									name: role.name
+								});
+								finalRoleNames.push(name);
+								roleExist = true;
+								break;
+							}
+						}
+						if (!roleExist) {
+							console.log('ERROR: editorial role ' + name + ' does not exist');
+						}
+					});
+					if (finalRoleNames.length > 0) {
+						console.log(' - verify editorial role' + (finalRoleNames.length > 1 ? 's' : ''));
+					} else {
+						return Promise.reject();
+					}
+				}
+
 				return _controlRepositories(server, allRepos, action, types, finalTypeNames,
-					channels, finaleChannelNames, taxonomies, finalTaxNames, languages, connectors, finalConnectorNames);
+					channels, finaleChannelNames, taxonomies, finalTaxNames, languages,
+					connectors, finalConnectorNames, editorialRoles, finalRoleNames);
 
 			})
 			.then(function (result) {
@@ -452,7 +497,7 @@ module.exports.controlRepository = function (argv, done) {
 
 var _controlRepositories = function (server, repositories, action, types, typeNames,
 	channels, channelNames, taxonomies, taxonomyNames, languages,
-	connectors, connectorNames) {
+	connectors, connectorNames, editorialRoles, roleNames) {
 	return new Promise(function (resolve, reject) {
 		var err;
 		var doUpdateRepos = repositories.reduce(function (updatePromise, repository) {
@@ -464,6 +509,7 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 					var finalTaxonomies = repository.taxonomies;
 					var finalLanguages = repository.languageOptions;
 					var finalConnectors = repository.connectors;
+					var finalEditorialRoles = repository.editorialRoles;
 					var idx;
 					var i, j;
 
@@ -544,6 +590,23 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 								finalConnectors.splice(idx, 1);
 							}
 						}
+					} else if (action === 'add-editorial-role') {
+						finalEditorialRoles = finalEditorialRoles.concat(editorialRoles);
+					} else if (action === 'remove-editorial-role') {
+						for (i = 0; i < editorialRoles.length; i++) {
+							idx = undefined;
+							for (j = 0; j < finalEditorialRoles.length; j++) {
+								if (editorialRoles[i].id === finalEditorialRoles[j].id) {
+									idx = j;
+									break;
+								}
+							}
+							if (idx !== undefined) {
+								finalEditorialRoles.splice(idx, 1);
+							}
+						}
+					} else {
+						console.log('ERROR: invalid action ' + action);
 					}
 
 					return serverRest.updateRepository({
@@ -553,7 +616,8 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 						channels: finalChannels,
 						taxonomies: finalTaxonomies,
 						languages: finalLanguages,
-						connectors: finalConnectors
+						connectors: finalConnectors,
+						editorialRoles: finalEditorialRoles
 					}).then(function (result) {
 
 						if (result.err) {
@@ -580,6 +644,10 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 								console.log(' - added translation connector ' + connectorNames + ' to repository ' + name);
 							} else if (action === 'remove-translation-connector') {
 								console.log(' - removed translation connector ' + connectorNames + ' from repository ' + name);
+							} else if (action === 'add-editorial-role') {
+								console.log(' - added editorial role ' + roleNames + ' to repository ' + name);
+							} else if (action === 'remove-editorial-role') {
+								console.log(' - removed editorial-role ' + roleNames + ' from repository ' + name);
 							}
 						}
 					});
@@ -3119,7 +3187,7 @@ module.exports.listEditorialPermission = function (argv, done) {
 
 				var permissionSets = result && result.permissionSets;
 
-				_listPermissionSets(repository, permissionSets);
+				_listPermissionSets(permissionSets);
 
 				// console.log(JSON.stringify(permissionSets, null, 4));
 
@@ -3134,7 +3202,7 @@ module.exports.listEditorialPermission = function (argv, done) {
 	});
 };
 
-var _listPermissionSets = function (repository, data) {
+var _listPermissionSets = function (data) {
 	// console.log(JSON.stringify(data, null, 4));
 	// order by user/group name
 	var byName = data.slice(0);
@@ -3783,7 +3851,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 
 				var newPermissionSets = result && result.permissionSets || [];
 				if (toAdd.length > 0 || toUpdate.length > 0) {
-					_listPermissionSets(repository, newPermissionSets);
+					_listPermissionSets(newPermissionSets);
 					done(!err);
 				} else {
 					done();
@@ -3835,6 +3903,706 @@ var _setPermissions = function (server, repository, permissions, action) {
 		});
 	});
 };
+
+/**
+ * List Editorial Roles
+ */
+module.exports.listEditorialRole = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		serverRest.getEditorialRoles({
+				server: server
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var roles = result;
+				var exitCode;
+				if (roles.length === 0) {
+					console.log(' - no editorial role');
+				} else {
+					var displayed = false;
+					roles.forEach(function (role) {
+						if (!name || name.toLowerCase() === role.name.toLowerCase()) {
+							_listEditorialRoles(role);
+							displayed = true;
+						}
+					});
+					if (name && !displayed) {
+						console.log('ERROR: editorial role ' + name + ' does not exist');
+						exitCode = 1;
+					}
+				}
+
+				if (exitCode === 1) {
+					done();
+				} else {
+					done(true);
+				}
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
+// list type and taxonomy settings for one editorial role
+var _listEditorialRoles = function (item) {
+
+	// sort by asset type name (Any Type on top)
+	if (item.contentPrivileges.length > 1) {
+		var byAssetName = item.contentPrivileges.slice(0);
+		byAssetName.sort(function (a, b) {
+			var x = a.typeName;
+			var y = b.typeName;
+			return (!x ? -1 : (!y ? 1 : (x < y ? -1 : x > y ? 1 : 0)));
+		});
+		item.contentPrivileges = byAssetName;
+	}
+
+	// sort by category name (Any Category on top)
+	if (item.taxonomyPrivileges.length > 1) {
+		var byCatName = item.taxonomyPrivileges.slice(0);
+		byCatName.sort(function (a, b) {
+			var x = a.taxonomyShortName;
+			var y = b.taxonomyShortName;
+			return (!x ? -1 : (!y ? 1 : (x < y ? -1 : x > y ? 1 : 0)));
+		});
+		item.taxonomyPrivileges = byCatName;
+	}
+
+	console.log('');
+	var format1 = '  %-53s  %-s';
+	// console.log(sprintf(format1, '', 'Assets', 'Taxonomies'));
+
+	var format2 = '  %-20s  %-4s  %-6s  %-6s  %-6s     %-30s  %-6s  %-s';
+	// console.log(sprintf(format2, '', '', 'View', 'Update', 'Create', 'Delete', '', 'View', 'Categorize'));
+
+
+	console.log(item.name + '  ' + (item.description || ''));
+
+	console.log(sprintf(format1, 'Assets', 'Taxonomies'));
+	console.log(sprintf(format2, '', 'View', 'Update', 'Create', 'Delete', '', 'View', 'Categorize'));
+
+	// console.log(item.principal);
+	// console.log(item.contentPrivileges);
+	// console.log(JSON.stringify(item.taxonomyPrivileges, null, 4));
+	var idx = 0;
+	var max = Math.max(item.contentPrivileges.length, item.taxonomyPrivileges.length);
+	for (var i = 0; i < max; i++) {
+		var typeLabel = '',
+			typeView = '',
+			typeUpdate = '',
+			typeCreate = '',
+			typeDelete = '';
+		var catLabel = '',
+			catView = '',
+			catCategorize = '';
+		if (idx < item.contentPrivileges.length) {
+			typeLabel = item.contentPrivileges[idx].typeName ? item.contentPrivileges[idx].typeName : 'Any Type';
+			typeView = item.contentPrivileges[idx].operations.includes('view') ? '  √' : '';
+			typeUpdate = item.contentPrivileges[idx].operations.includes('update') ? '  √' : '';
+			typeCreate = item.contentPrivileges[idx].operations.includes('create') ? '  √' : '';
+			typeDelete = item.contentPrivileges[idx].operations.includes('delete') ? '  √' : '';
+		}
+		if (idx < item.taxonomyPrivileges.length) {
+			if (item.taxonomyPrivileges[idx].categoryId) {
+				catLabel = item.taxonomyPrivileges[idx].taxonomyShortName;
+				if (item.taxonomyPrivileges[idx].nodes && item.taxonomyPrivileges[idx].nodes.length > 0) {
+					var nodeNames = [];
+					for (var j = 0; j < item.taxonomyPrivileges[idx].nodes.length; j++) {
+						nodeNames.push(item.taxonomyPrivileges[idx].nodes[j].name);
+					}
+					catLabel = catLabel + '|' + nodeNames.join('/');
+				}
+			} else {
+				catLabel = 'Any Category';
+			}
+			catView = item.taxonomyPrivileges[idx].operations.includes('view') ? '  √' : '';
+			catCategorize = item.taxonomyPrivileges[idx].operations.includes('categorize') ? '  √' : '';
+		}
+
+		console.log(sprintf(format2, typeLabel, typeView, typeUpdate, typeCreate, typeDelete,
+			catLabel, catView, catCategorize));
+
+		//move to next one
+		idx += 1;
+	}
+
+};
+
+/**
+ * Create Editorial Role
+ */
+module.exports.createEditorialRole = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+	var desc = argv.description;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+		var exitCode;
+		serverRest.getEditorialRoleWithName({
+				server: server,
+				name: name
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var role = result && result.data;
+				if (role && role.id) {
+					console.log(' - editorial role already exists');
+					_listEditorialRoles(role);
+					exitCode = 2;
+					return Promise.reject();
+				}
+
+				return serverRest.createEditorialRole({
+					server: server,
+					name: name,
+					description: desc
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - editorial role created');
+				_listEditorialRoles(result);
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done(exitCode);
+			});
+	});
+};
+
+/**
+ * delete Editorial Role
+ */
+module.exports.setEditorialRole = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+	var typeNames = argv.assettypes ? argv.assettypes.split(',') : [];
+	var assetPermission = argv.assetpermission;
+	var categoryNames = argv.categories ? argv.categories.split(',') : [];
+	var categoryPermission = argv.categorypermission;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		const ANY_TYPE = '__cecanytype';
+		const ANY_CATEGORY = '__cecanycategory';
+		const DELETE_TYPE = '__cecdeletetype';
+		const DELETE_CATEGORY = '__cecdeletecategory';
+
+		var types = [];
+		var goodTypeNames = [];
+		var taxonomies = [];
+		var goodTaxonomyNames = [];
+		var goodCateNames = [];
+		var taxCategories = [];
+
+		var role;
+
+		serverRest.getEditorialRoleWithName({
+				server: server,
+				name: name
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				role = result && result.data;
+				if (!role || !role.id) {
+					console.log('ERROR: editorial role ' + name + ' does not exist');
+					return Promise.reject();
+				}
+				console.log(' - verify editorial role');
+
+				var typesPromises = [];
+				for (var i = 0; i < typeNames.length; i++) {
+					if (typeNames[i] !== ANY_TYPE) {
+						typesPromises.push(serverRest.getContentType({
+							server: server,
+							name: typeNames[i],
+							showError: false
+						}));
+					}
+				}
+
+				return Promise.all(typesPromises);
+			})
+			.then(function (results) {
+
+				if (typeNames.length > 0) {
+					// verify types
+					var allTypes = [];
+					for (var i = 0; i < results.length; i++) {
+						if (results[i] && results[i].id) {
+							allTypes = allTypes.concat(results[i]);
+						}
+					}
+
+					for (var k = 0; k < typeNames.length; k++) {
+						var found = false;
+						for (var i = 0; i < allTypes.length; i++) {
+							if (allTypes[i].name.toLowerCase() === typeNames[k].toLowerCase()) {
+								types.push(allTypes[i]);
+								goodTypeNames.push(typeNames[k]);
+								found = true;
+								break;
+							}
+							if (found) {
+								break;
+							}
+						}
+						if (!found && typeNames[k] !== ANY_TYPE) {
+							console.log(' - WARNING: asset type ' + typeNames[k] + ' does not exist, ignore');
+						}
+					}
+
+					if (goodTypeNames.length > 0) {
+						console.log(' - valid asset types: ' + goodTypeNames);
+					}
+					if (typeNames.includes(ANY_TYPE)) {
+						types.push({
+							id: '',
+							name: 'any'
+						});
+					}
+					// console.log(types);
+				}
+
+				var taxonomiesPromises = [];
+				var taxNames = [];
+				for (var i = 0; i < categoryNames.length; i++) {
+					if (categoryNames[i].indexOf(':') > 0) {
+						var taxName = categoryNames[i].substring(0, categoryNames[i].indexOf(':'));
+						if (!taxNames.includes(taxName)) {
+							taxonomiesPromises.push(serverRest.getTaxonomyWithName({
+								server: server,
+								name: taxName
+							}));
+							taxNames.push(taxName);
+						}
+					}
+				}
+
+				return Promise.all(taxonomiesPromises);
+
+			})
+			.then(function (results) {
+
+				if (categoryNames.length > 0) {
+					// verify taxonomies
+					var allTaxonomies = [];
+					for (var i = 0; i < results.length; i++) {
+						if (results[i] && results[i].data && results[i].data.name) {
+							allTaxonomies.push(results[i].data);
+						}
+					}
+
+					for (var k = 0; k < categoryNames.length; k++) {
+						if (categoryNames[k] !== ANY_CATEGORY) {
+							var taxName = categoryNames[k].substring(0, categoryNames[k].indexOf(':'));
+							var found = false;
+							for (var i = 0; i < allTaxonomies.length; i++) {
+								if (allTaxonomies[i].name === taxName) {
+									if (!goodTaxonomyNames.includes(taxName)) {
+										taxonomies.push(allTaxonomies[i]);
+										goodTaxonomyNames.push(taxName);
+									}
+									found = true;
+									break;
+								}
+							}
+							if (!found) {
+								console.log(' - WARNING: taxonomy ' + taxName + ' does not exist, ignore');
+							}
+						}
+					}
+
+					// console.log(taxonomies);
+				}
+
+				var categoryPromises = [];
+				for (var i = 0; i < taxonomies.length; i++) {
+					categoryPromises.push(serverRest.getCategories({
+						server: server,
+						taxonomyId: taxonomies[i].id,
+						taxonomyName: taxonomies[i].name
+					}));
+				}
+
+				return Promise.all(categoryPromises);
+
+			})
+			.then(function (results) {
+
+				if (categoryNames.length > 0) {
+					// verify categories
+					var allCategories = [];
+					for (var i = 0; i < results.length; i++) {
+						if (results[i] && results[i].categories) {
+							allCategories.push(results[i]);
+						}
+					}
+
+					for (var k = 0; k < categoryNames.length; k++) {
+						var found = false;
+						var cateName;
+						if (categoryNames[k] !== ANY_CATEGORY) {
+							var taxName = categoryNames[k].substring(0, categoryNames[k].indexOf(':'));
+							cateName = categoryNames[k].substring(categoryNames[k].indexOf(':') + 1);
+							// console.log(' - category name: ' + cateName);
+							for (var i = 0; i < allCategories.length; i++) {
+								if (allCategories[i].taxonomyName === taxName &&
+									allCategories[i].categories && allCategories[i].categories.length > 0) {
+									for (var j = 0; j < allCategories[i].categories.length; j++) {
+										var cateFullPath = '';
+										var ancestors = allCategories[i].categories[j].ancestors || [];
+										ancestors.forEach(function (ancestor) {
+											if (cateFullPath) {
+												cateFullPath = cateFullPath + '/';
+											}
+											cateFullPath = cateFullPath + ancestor.name;
+										});
+										if (cateFullPath) {
+											cateFullPath = cateFullPath + '/';
+										}
+										cateFullPath = cateFullPath + allCategories[i].categories[j].name;
+
+										if (cateName.indexOf('/') > 0) {
+											if (cateFullPath === cateName) {
+												found = true;
+											}
+										} else {
+											if (allCategories[i].categories[j].name === cateName) {
+												found = true;
+											}
+										}
+										if (found) {
+											taxCategories.push({
+												taxonomyId: allCategories[i].taxonomyId,
+												taxonomyName: allCategories[i].taxonomyName,
+												categoryId: allCategories[i].categories[j].id,
+												categoryName: allCategories[i].categories[j].name
+											});
+											goodCateNames.push(allCategories[i].taxonomyName + '|' + cateFullPath);
+											break;
+										}
+									}
+								}
+								if (found) {
+									break;
+								}
+							}
+
+							if (!found) {
+								console.log(' - WARNING: category ' + cateName + ' does not exist, ignore');
+							}
+						}
+					}
+
+					if (goodCateNames.length > 0) {
+						console.log(' - valid categories: ' + goodCateNames);
+					}
+
+					if (categoryNames.includes(ANY_CATEGORY)) {
+						taxCategories.push({
+							taxonomyId: 'any',
+							taxonomyName: 'any',
+							categoryId: ''
+						});
+					}
+
+					// console.log(taxCategories);
+				}
+
+				if (types.length === 0 && taxCategories.length === 0) {
+					console.log('ERROR: no valid asset type nor category');
+					return Promise.reject();
+				}
+
+				var assetOps = [];
+				if (assetPermission) {
+					if (assetPermission === 'view') {
+						assetOps = ['view'];
+					} else if (assetPermission === 'update') {
+						assetOps = ['view', 'update'];
+					} else if (assetPermission === 'create') {
+						assetOps = ['view', 'update', 'create'];
+					} else if (assetPermission === 'delete') {
+						assetOps = ['view', 'update', 'create', 'delete'];
+					}
+				}
+
+				var catOps = [];
+				if (categoryPermission) {
+					if (categoryPermission === 'view') {
+						catOps = ['view'];
+					} else if (categoryPermission === 'categorize') {
+						catOps = ['view', 'categorize'];
+					}
+				}
+
+				var contentPrivileges = role.contentPrivileges || [];
+				var taxonomyPrivileges = role.taxonomyPrivileges || [];
+
+				for (var j = 0; j < types.length; j++) {
+					var foundType = false;
+
+					for (var k = 0; k < contentPrivileges.length; k++) {
+						if (!types[j].id && !contentPrivileges[k].typeId ||
+							types[j].id === contentPrivileges[k].typeId) {
+							foundType = true;
+							if (assetPermission !== DELETE_TYPE) {
+								// update the permissions
+								contentPrivileges[k].operations = assetOps;
+							} else {
+								// delete the type
+								contentPrivileges.splice(k, 1);
+							}
+							break;
+						}
+					}
+
+					if (!foundType && assetPermission !== DELETE_TYPE) {
+						// append 
+						contentPrivileges.push({
+							typeId: types[j].id,
+							typeName: types[j].name,
+							isValid: true,
+							operations: assetOps
+						});
+					}
+				}
+
+				for (var j = 0; j < taxCategories.length; j++) {
+					var foundCat = false;
+
+					for (var k = 0; k < taxonomyPrivileges.length; k++) {
+						if (!taxonomyPrivileges[k].taxonomyId && taxCategories[j].taxonomyId === 'any' ||
+							(taxonomyPrivileges[k].taxonomyId === taxCategories[j].taxonomyId &&
+								taxonomyPrivileges[k].categoryId === taxCategories[j].categoryId)) {
+							foundCat = true;
+							if (!taxonomyPrivileges[k].taxonomyId) {
+								taxonomyPrivileges[k].taxonomyId = 'any';
+							}
+							if (categoryPermission !== DELETE_CATEGORY) {
+								// update the permissions
+								taxonomyPrivileges[k].operations = catOps;
+							} else {
+								// delete the category
+								taxonomyPrivileges.splice(k, 1);
+							}
+							break;
+						}
+					}
+
+					if (!foundCat && categoryPermission !== DELETE_CATEGORY) {
+						// append
+						taxonomyPrivileges.push({
+							taxonomyId: taxCategories[j].taxonomyId,
+							categoryId: taxCategories[j].categoryId,
+							isValid: true,
+							operations: catOps
+						});
+					}
+				}
+
+				var anyTypeExist = false;
+				for (var i = 0; i < contentPrivileges.length; i++) {
+					if (!contentPrivileges[i].typeId) {
+						anyTypeExist = true;
+						break;
+					}
+				}
+
+				var anyTaxExist = false;
+				for (var i = 0; i < taxonomyPrivileges.length; i++) {
+					if (!taxonomyPrivileges[i].categoryId) {
+						anyTaxExist = true;
+						break;
+					}
+				}
+
+				if (!anyTypeExist && !anyTaxExist) {
+					console.log('ERROR: "Any" content type rule and "Any" taxonomy category rule are missing for ' + pal.name);
+					return Promise.reject();
+				} else if (!anyTypeExist) {
+					console.log('ERROR: "Any" content type rule is missing for ' + pal.name);
+					return Promise.reject();
+				} else if (!anyTaxExist) {
+					console.log('ERROR: "Any" taxonomy category rule is missing for ' + pal.name);
+					return Promise.reject();
+				}
+				// console.log(contentPrivileges);
+				// console.log(taxonomyPrivileges);
+				role.contentPrivileges = contentPrivileges;
+				role.taxonomyPrivileges = taxonomyPrivileges;
+
+				return serverRest.updateEditorialRole({
+					server: server,
+					role: role
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - editorial role updated');
+				_listEditorialRoles(result);
+
+				done(true);
+
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
+/**
+ * delete Editorial Role
+ */
+module.exports.deleteEditorialRole = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		serverRest.getEditorialRoleWithName({
+				server: server,
+				name: name
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var role = result && result.data;
+				if (!role || !role.id) {
+					console.log('ERROR: editorial role ' + name + ' does not exist');
+					return Promise.reject();
+				}
+
+				return serverRest.deleteEditorialRole({
+					server: server,
+					id: role.id,
+					name: role.name
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				console.log(' - editorial role ' + name + ' deleted');
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
 
 module.exports.createLocalizationPolicy = function (argv, done) {
 	'use strict';

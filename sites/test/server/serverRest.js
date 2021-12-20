@@ -1734,7 +1734,7 @@ var _deleteCollection = function (server, repositoryId, collection) {
 						data = body;
 					}
 
-					if (response && response.statusCode === 200) {
+					if (response && (response.statusCode === 200 || response.statusCode === 204)) {
 						resolve(data);
 					} else {
 						var msg = response.statusMessage || response.statusCode;
@@ -1962,14 +1962,14 @@ module.exports.deleteRepository = function (args) {
 };
 
 // Delete content type on server
-var _deleteContentType = function (server, id) {
+var _deleteContentType = function (server, name) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
 				resolve(result);
 			} else {
 				var csrfToken = result && result.token;
-				var url = server.url + '/content/management/api/v1.1/types/' + id;
+				var url = server.url + '/content/management/api/v1.1/types/' + name;
 				var postData = {
 					method: 'DELETE',
 					url: url,
@@ -1984,7 +1984,7 @@ var _deleteContentType = function (server, id) {
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete contennt type ' + id);
+						console.log('Failed to delete contennt type ' + name);
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -1999,7 +1999,7 @@ var _deleteContentType = function (server, id) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to delete content type ' + id + ' : ' + (response.statusMessage || response.statusCode));
+						console.log('Failed to delete content type ' + name + ' : ' + (response.statusMessage || response.statusCode));
 						resolve({
 							err: 'err'
 						});
@@ -2508,8 +2508,8 @@ module.exports.approveItems = function (args) {
  * @param {array} args.itemIds The id of items
  * @returns {Promise.<object>} The data object returned by the server.
  */
- module.exports.rejectItems = function(args) {
-  return _bulkOpItems(args.server, 'reject', [], args.itemIds);
+module.exports.rejectItems = function (args) {
+	return _bulkOpItems(args.server, 'reject', [], args.itemIds);
 };
 
 /**
@@ -2519,8 +2519,8 @@ module.exports.approveItems = function (args) {
  * @param {array} args.itemIds The id of items
  * @returns {Promise.<object>} The data object returned by the server.
  */
-module.exports.submitItemsForApproval = function(args) {
-  return _bulkOpItems(args.server, 'submitForApproval', [], args.itemIds);
+module.exports.submitItemsForApproval = function (args) {
+	return _bulkOpItems(args.server, 'submitForApproval', [], args.itemIds);
 };
 
 /**
@@ -3850,7 +3850,7 @@ module.exports.createRepository = function (args) {
 
 // Update repository
 var _updateRepository = function (server, repository, contentTypes, channels,
-	taxonomies, autoTagEnabled, languages, connectors) {
+	taxonomies, autoTagEnabled, languages, connectors, editorialRoles) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -3873,6 +3873,9 @@ var _updateRepository = function (server, repository, contentTypes, channels,
 				}
 				if (connectors && connectors.length > 0) {
 					data.connectors = connectors;
+				}
+				if (editorialRoles) {
+					data.editorialRoles = editorialRoles;
 				}
 				data.autoTagEnabled = autoTagEnabled || false;
 
@@ -3940,7 +3943,8 @@ var _updateRepository = function (server, repository, contentTypes, channels,
  */
 module.exports.updateRepository = function (args) {
 	return _updateRepository(args.server, args.repository, args.contentTypes, args.channels,
-		args.taxonomies, args.autoTagEnabled, args.languages, args.connectors);
+		args.taxonomies, args.autoTagEnabled, args.languages, args.connectors,
+		args.editorialRoles);
 };
 
 var _performPermissionOperation = function (server, operation, resourceId, resourceName, resourceType, role, users, groups) {
@@ -4075,6 +4079,336 @@ module.exports.performPermissionOperation = function (args) {
 	return _performPermissionOperation(args.server,
 		args.operation, args.resourceId, args.resourceName, args.resourceType, args.role, args.users || [], args.groups || []);
 };
+
+var _getEditorialRoles = function (server) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/editorialRoles?limit=99999&orderBy=name:asc&fields=all';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get editorial roles');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve(data && data.items);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get editorial roles  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get all editorial roles on OCM server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {string} server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getEditorialRoles = function (args) {
+	return _getEditorialRoles(args.server);
+};
+
+/**
+ * Get an editorial role with name on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the editorial role to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getEditorialRoleWithName = function (args) {
+	return new Promise(function (resolve, reject) {
+		if (!args.name) {
+			return resolve({});
+		}
+		var roleName = args.name;
+		var server = args.server;
+
+		var url = server.url + '/content/management/api/v1.1/editorialRoles';
+		url = url + '?q=(name mt "' + encodeURIComponent(roleName) + '")';
+		url = url + '&fields=all';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		// console.log(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get editorial role ' + roleName);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 200) {
+				var roles = data && data.items || [];
+				var role;
+				for (var i = 0; i < roles.length; i++) {
+					if (roles[i].name && roles[i].name.toLowerCase() === roleName.toLocaleLowerCase()) {
+						role = roles[i];
+						break;
+					}
+				}
+				if (role) {
+					resolve({
+						data: role
+					});
+				} else {
+					return resolve({});
+				}
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get editorial role ' + roleName + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
+// Create an editorial role on server
+var _createEditorialRole = function (server, name, description) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var contentPrivileges = [{
+					typeId: '',
+					typeName: 'any',
+					operations: ['view']
+				}];
+				var taxonomyPrivileges = [{
+					taxonomyId: 'any',
+					categoryId: '',
+					operations: ['view']
+				}];
+
+				var payload = {
+					name: name,
+					description: description || '',
+					contentPrivileges: contentPrivileges,
+					taxonomyPrivileges: taxonomyPrivileges
+				};
+
+				var url = server.url + '/content/management/api/v1.1/editorialRoles';
+				var postData = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: JSON.stringify(payload),
+					json: true
+				};
+				// console.log(postData);
+
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to create editorial role ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
+						console.log('Failed to create editorial role ' + name + ' - ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Create editorial role on server by channel name
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the editorial role to create.
+ * @param {string} args.description The description of the editorial role.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createEditorialRole = function (args) {
+	return _createEditorialRole(args.server, args.name, args.description);
+};
+
+// Update an editorial role on server
+var _updateEditorialRole = function (server, role) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var payload = role;
+				var url = server.url + '/content/management/api/v1.1/editorialRoles/' + role.id;
+				var options = {
+					method: 'PUT',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: JSON.stringify(payload),
+					json: true
+				};
+				// console.log(options);
+
+				var request = require('./requestUtils.js').request;
+				request.put(options, function (error, response, body) {
+					if (error) {
+						console.log('Failed to update editorial role ' + role.name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
+						console.log('Failed to update editorial role ' + role.name + ' - ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Update editorial role on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.role The editorial role json object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.updateEditorialRole = function (args) {
+	return _updateEditorialRole(args.server, args.role);
+};
+
+// Delete an editorial role on server
+var _deleteEditorialRole = function (server, id, name) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var url = server.url + '/content/management/api/v1.1/editorialRoles/' + id;
+				var options = {
+					method: 'DELETE',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					}
+				};
+				// console.log(options);
+
+				var request = require('./requestUtils.js').request;
+				request.delete(options, function (error, response, body) {
+					if (error) {
+						console.log('Failed to delete editorial role ' + name);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
+						console.log('Failed to delete editorial role ' + name + ' - ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * Delete editorial role on server by channel name
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the editorial role to create.
+ * @param {string} args.id The id of the editorial role.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteEditorialRole = function (args) {
+	return _deleteEditorialRole(args.server, args.id, args.name);
+};
+
 
 // Get types from server
 var _getContentTypes = function (server) {
@@ -8698,7 +9032,7 @@ module.exports.sendRankingPolicyRequest = function (args) {
 	return _sendRankingPolicyRequest(args.server, args.method, args.url, args.payload, args.requestUtils);
 }
 
-var _getMe = function(server) {
+var _getMe = function (server) {
 	return new Promise(function (resolve, reject) {
 		var request = require('./requestUtils.js').request;
 		_createConnection(request, server)

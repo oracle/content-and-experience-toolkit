@@ -178,6 +178,10 @@ var getRepositoryActions = function () {
 	];
 	return actions;
 };
+var getRepositoryHiddenActions = function () {
+	const actions = ['add-editorial-role', 'remove-editorial-role'];
+	return actions;
+};
 
 var getRecommendationActions = function () {
 	const actions = ['add-channel', 'remove-channel', 'publish', 'unpublish'];
@@ -519,7 +523,9 @@ const createTemplate = {
 	example: [
 		['cec create-template Temp1'],
 		['cec create-template Temp2 -f CafeSupremoLite'],
-		['cec create-template Temp1 -s Site1', 'Create template Temp1 based on site Site1 on OCM server'],
+		['cec create-template Temp1 -s Site1', 'Create template Temp1 based on site Site1 on OCM server and include all assets in the site channel'],
+		['cec create-template Temp1 -s Site1 -p', 'Create template Temp1 based on site Site1 on OCM server and include only the published assets'],
+		['cec create-template Temp1 -s Site1 -n', 'Create template Temp1 based on site Site1 on OCM server and include only the assets added to the site\'s pages'],
 		['cec create-template Temp1 -s Site1 -x', 'Create template Temp1 based on site Site1 on OCM server and exclude the content in the site'],
 		['cec create-template Temp1 -s Site1 -r UAT', 'Create template Temp1 based on site Site1 on the registered server UAT'],
 		['cec create-template EnterpriseTemp1 -s StandardSite1 -e', 'Create enterprise template EnterpriseTemp1 based on standard site StandardSite1 on OCM server'],
@@ -716,7 +722,8 @@ const compileTemplate = {
 				'Optionally specify -l <includeLocale> include default locale when creating pages.\n' +
 				'Optionally specify -a <targetDevice> [desktop | mobile] target device type when using adaptive layouts.\n' +
 				'Optionally specify -v <verbose> to display all warning messages during compilation.\n' +
-				'Optionally specify -i <ignoreErrors> ignore compilation errors when calculating the exit code for the process.\n';
+				'Optionally specify -i <ignoreErrors> ignore compilation errors when calculating the exit code for the process.\n' +
+				'Optionally specify -j use JSSOR when compiling pages with sliders otherwise use swiper.\n';
 			return desc;
 		})()
 	},
@@ -1399,6 +1406,7 @@ const transferSite = {
 	example: [
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1', 'Creates site Site1 on server UAT based on site Site1 on server DEV'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -p', 'Creates site Site1 on server UAT based on site Site1 on server DEV with published assets'],
+		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -n', 'Creates site Site1 on server UAT based on site Site1 on server DEV with assets added to the site\'s pages'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -u', 'Creates site Site1 on server UAT based on site Site1 on server DEV and only update the content that is older than the content being transferred'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -x', 'Creates site Site1 on server UAT based on site Site1 on server DEV without content'],
 		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -e', 'Creates site Site1 on server UAT based on site Site1 on server DEV without transferring components to server UAT'],
@@ -1916,6 +1924,90 @@ const listEditorialPermission = {
 	example: [
 		['cec list-editorial-permission Repo1'],
 		['cec list-editorial-permission Repo1 -s DEV'],
+	]
+};
+
+const listEditorialRole = {
+	command: 'list-editorial-role',
+	alias: 'ler',
+	name: 'list-editorial-role',
+	usage: {
+		'short': 'Lists Editorial Roles on OCM server.',
+		'long': (function () {
+			let desc = 'Lists Editorial Roles on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+
+		})()
+	},
+	example: [
+		['cec list-editorial-role', 'List all editorial roles'],
+		['cec list-editorial-role -n Role1', 'List editorial role Role1'],
+		['cec list-editorial-role -s DEV'],
+	]
+};
+
+const createEditorialRole = {
+	command: 'create-editorial-role <name>',
+	alias: 'cer',
+	name: 'create-editorial-role',
+	usage: {
+		'short': 'Creates an editorial role on OCM server.',
+		'long': (function () {
+			let desc = 'Creates an editorial role on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -d <description> to set the description. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-editorial-role Role1'],
+		['cec create-editorial-role Role1 -d "Editorial role for blogs"']
+	]
+};
+
+const setEditorialRole = {
+	command: 'set-editorial-role <name>',
+	alias: 'ser',
+	name: 'set-editorial-role',
+	usage: {
+		'short': 'Sets Editorial Permissions for editorial role.',
+		'long': (function () {
+			let desc = 'Sets Editorial Permissions for editorial role on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'The valid permission for assets are' + os.EOL + os.EOL;
+			desc = getAssetEditorialPermissions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			desc = desc + os.EOL + 'The valid permissions for taxonomies are ' + os.EOL + os.EOL;
+			desc = getTaxonomyEditorialPermissions().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return desc;
+
+		})()
+	},
+	example: [
+		['cec set-editorial-role Role1 -a Article -p update', 'Role1 can view and edit existing assets of “Article” type'],
+		['cec set-editorial-role Role1 -a -p none', 'Role1 cannot see assets of any type'],
+		['cec set-editorial-role Role1 -a Article -p none', 'Role1 cannot see assets of “Article” type'],
+		['cec set-editorial-role Role1 -a Article -p', 'Remove type Article from Role1'],
+		['cec set-editorial-role Role1 -a Article -p update', 'Role1 can view and edit existing assets of “Article” type'],
+		['cec set-editorial-role Role1 -c -t categorize', 'Role1 can see and add assets to any category'],
+		['cec set-editorial-role Role1 -c -t none', 'Role1 cannot see any categorized assets'],
+		['cec set-editorial-role Role1 -c "Region:Asia" -t categorize', 'Role1 can see and add assets to Asia category and its children in taxonomy Region'],
+		['cec set-editorial-role Role1 -c "Region:Asia/East" -t categorize', 'Role1 can see and add assets to Asia\'s child category East and its children in taxonomy Region'],
+		['cec set-editorial-role Role1 -c "Region:Asia" -t', 'Remove category Region|Asia from Role1']
+	]
+};
+
+const deleteEditorialRole = {
+	command: 'delete-editorial-role <name>',
+	alias: '',
+	name: 'delete-editorial-role',
+	usage: {
+		'short': 'Deletes an editorial role on OCM server.',
+		'long': (function () {
+			let desc = 'Deletes an editorial role on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec delete-editorial-role Role1'],
+		['cec delete-editorial-role Role1 -s DEV']
 	]
 };
 
@@ -3394,6 +3486,14 @@ const argv = yargs.usage(_usage)
 					alias: 's',
 					description: '<site> Site to create from'
 				})
+				.option('publishedassets', {
+					alias: 'p',
+					description: 'Published assets only'
+				})
+				.option('referencedassets', {
+					alias: 'n',
+					description: 'Assets added to the site\'s pages only'
+				})
 				.option('excludecontent', {
 					alias: 'x',
 					description: 'Exclude content'
@@ -3421,6 +3521,8 @@ const argv = yargs.usage(_usage)
 				.example(...createTemplate.example[3])
 				.example(...createTemplate.example[4])
 				.example(...createTemplate.example[5])
+				.example(...createTemplate.example[6])
+				.example(...createTemplate.example[7])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createTemplate.command}\n\n${createTemplate.usage.long}`);
@@ -3545,6 +3647,10 @@ const argv = yargs.usage(_usage)
 				.option('ignoreErrors', {
 					alias: 'i',
 					description: 'Ignore compilation errors when calculating the exit code for the process.'
+				})
+				.option('jssor', {
+					alias: 'j',
+					description: 'Compile JSSOR into the page, otherwise use swiper. Default is true.'
 				})
 				.check((argv) => {
 					if (argv.type && argv.type !== 'draft' && argv.type !== 'published') {
@@ -4704,7 +4810,11 @@ const argv = yargs.usage(_usage)
 				})
 				.option('publishedassets', {
 					alias: 'p',
-					description: 'The flag to indicate published assets only'
+					description: 'Published assets only'
+				})
+				.option('referencedassets', {
+					alias: 'n',
+					description: 'Assets added to the site\'s pages only'
 				})
 				.option('repositorymappings', {
 					alias: 'm',
@@ -4753,6 +4863,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferSite.example[6])
 				.example(...transferSite.example[7])
 				.example(...transferSite.example[8])
+				.example(...transferSite.example[9])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${transferSite.command}\n\n${transferSite.usage.long}`);
@@ -5505,7 +5616,7 @@ const argv = yargs.usage(_usage)
 	.command([controlRepository.command, controlRepository.alias], false,
 		(yargs) => {
 			yargs.check((argv) => {
-					if (argv.action && !getRepositoryActions().includes(argv.action)) {
+					if (argv.action && !getRepositoryActions().includes(argv.action) && !getRepositoryHiddenActions().includes(argv.action)) {
 						throw new Error(`${os.EOL}${argv.action} is not a valid value for <action>`);
 					} else if ((argv.action === 'add-type' || argv.action === 'remove-type') && !argv.contenttypes) {
 						throw new Error(`${os.EOL}<contenttypes> is required for ${argv.action}`);
@@ -5517,6 +5628,8 @@ const argv = yargs.usage(_usage)
 						throw new Error(`${os.EOL}<languages> is required for ${argv.action}`);
 					} else if ((argv.action === 'add-translation-connector' || argv.action === 'remove-translation-connector') && !argv.translationconnectors) {
 						throw new Error(`${os.EOL}<translationconnectors> is required for ${argv.action}`);
+					} else if ((argv.action === 'add-editorial-role' || argv.action === 'remove-editorial-role') && !argv.editorialroles) {
+						throw new Error(`${os.EOL}<editorialroles> is required for ${argv.action}`);
 					} else {
 						return true;
 					}
@@ -5545,6 +5658,11 @@ const argv = yargs.usage(_usage)
 				.option('translationconnectors', {
 					alias: 'n',
 					description: 'The comma separated list of translation connectors'
+				})
+				.option('editorialroles', {
+					alias: 'e',
+					description: 'The comma separated list of editorial roles',
+					hidden: true
 				})
 				.option('server', {
 					alias: 's',
@@ -5737,6 +5855,116 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listEditorialPermission.command}\n\n${listEditorialPermission.usage.long}`);
+		})
+	.command([listEditorialRole.command, listEditorialRole.alias], false,
+		(yargs) => {
+			yargs.option('name', {
+					alias: 'n',
+					description: 'The editorial role name'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...listEditorialRole.example[0])
+				.example(...listEditorialRole.example[1])
+				.example(...listEditorialRole.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${listEditorialRole.command}\n\n${listEditorialRole.usage.long}`);
+		})
+	.command([createEditorialRole.command, createEditorialRole.alias], false,
+		(yargs) => {
+			yargs.option('description', {
+					alias: 'd',
+					description: 'The description for the editorial role'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...createEditorialRole.example[0])
+				.example(...createEditorialRole.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${createEditorialRole.command}\n\n${createEditorialRole.usage.long}`);
+		})
+	.command([setEditorialRole.command, setEditorialRole.alias], false,
+		(yargs) => {
+			yargs.option('assettypes', {
+					alias: 'a',
+					description: 'The comma separated list of asset types'
+				})
+				.option('assetpermission', {
+					alias: 'p',
+					description: 'Asset permission [' + getAssetEditorialPermissions().join(' | ') + ']'
+				})
+				.option('categories', {
+					alias: 'c',
+					description: 'The comma separated list of categories in format of <taxonomy>:<category>'
+				})
+				.option('categorypermission', {
+					alias: 't',
+					description: 'Category permission [' + getTaxonomyEditorialPermissions().join(' | ') + ']'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (!argv.assettypes && !argv.categories) {
+						throw new Error(os.EOL + 'Please specify asset types or categories');
+					}
+					if (argv.assettypes && !argv.assetpermission) {
+						throw new Error(os.EOL + 'Please specify asset permission');
+					}
+					if (argv.assettypes && argv.assetpermission &&
+						typeof argv.assetpermission !== 'boolean' && !getAssetEditorialPermissions().includes(argv.assetpermission)) {
+						throw new Error(os.EOL + `${argv.assetpermission} is not a valid value for <assetpermission>`);
+					}
+					if (typeof argv.assettypes === 'boolean' && typeof argv.assetpermission === 'boolean') {
+						throw new Error(os.EOL + 'Any Type cannot be removed');
+					}
+					if (argv.categories && !argv.categorypermission) {
+						throw new Error(os.EOL + 'Please specify category permission');
+					}
+					if (argv.categories && argv.categorypermission &&
+						typeof argv.categorypermission !== 'boolean' && !getTaxonomyEditorialPermissions().includes(argv.categorypermission)) {
+						throw new Error(os.EOL + `${argv.categorypermission} is not a valid value for <categorypermission>`);
+					}
+					if (argv.categories && typeof argv.categories !== 'boolean' && argv.categories.indexOf(':') <= 0) {
+						throw new Error(os.EOL + 'Please specify category in format of <taxonomy>:<category>');
+					}
+					if (typeof argv.categories === 'boolean' && typeof argv.categorypermission === 'boolean') {
+						throw new Error(os.EOL + 'Any Category cannot be removed');
+					}
+					return true;
+				})
+				.example(...setEditorialRole.example[0])
+				.example(...setEditorialRole.example[1])
+				.example(...setEditorialRole.example[2])
+				.example(...setEditorialRole.example[3])
+				.example(...setEditorialRole.example[4])
+				.example(...setEditorialRole.example[5])
+				.example(...setEditorialRole.example[6])
+				.example(...setEditorialRole.example[7])
+				.example(...setEditorialRole.example[8])
+				.example(...setEditorialRole.example[9])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${setEditorialRole.command}\n\n${setEditorialRole.usage.long}`);
+		})
+	.command([deleteEditorialRole.command, deleteEditorialRole.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...deleteEditorialRole.example[0])
+				.example(...deleteEditorialRole.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${deleteEditorialRole.command}\n\n${deleteEditorialRole.usage.long}`);
 		})
 	.command([shareType.command, shareType.alias], false,
 		(yargs) => {
@@ -7451,6 +7679,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.site && typeof argv.site !== 'boolean') {
 		createTemplateArgs.push(...['--site', argv.site]);
 	}
+	if (argv.publishedassets) {
+		createTemplateArgs.push(...['--publishedassets', argv.publishedassets]);
+	}
+	if (argv.referencedassets) {
+		createTemplateArgs.push(...['--referencedassets', argv.referencedassets]);
+	}
 	if (argv.excludecontent) {
 		createTemplateArgs.push(...['--excludecontent', argv.excludecontent]);
 	}
@@ -7643,6 +7877,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.ignoreErrors) {
 		compileTemplateArgs.push(...['--ignoreErrors', argv.targetDevice]);
+	}
+	if (argv.jssor) {
+		compileTemplateArgs.push(...['--jssor', argv.jssor]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, compileTemplateArgs, {
 		cwd,
@@ -8433,6 +8670,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.publishedassets) {
 		transferSiteArgs.push(...['--publishedassets', argv.publishedassets]);
 	}
+	if (argv.referencedassets) {
+		transferSiteArgs.push(...['--referencedassets', argv.referencedassets]);
+	}
 	if (argv.repositorymappings) {
 		transferSiteArgs.push(...['--repositorymappings', argv.repositorymappings]);
 	}
@@ -8997,6 +9237,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.translationconnectors) {
 		controlRepositoryArgs.push(...['--translationconnectors', argv.translationconnectors]);
 	}
+	if (argv.editorialroles) {
+		controlRepositoryArgs.push(...['--editorialroles', argv.editorialroles]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlRepositoryArgs.push(...['--server', argv.server]);
 	}
@@ -9101,6 +9344,84 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		listEditorialPermissionArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, listEditorialPermissionArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === listEditorialRole.name || argv._[0] === listEditorialRole.alias) {
+	let listEditorialRoleArgs = ['run', '-s', listEditorialRole.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+	if (argv.name) {
+		listEditorialRoleArgs.push(...['--name', argv.name]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		listEditorialRoleArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, listEditorialRoleArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createEditorialRole.name || argv._[0] === createEditorialRole.alias) {
+	let createEditorialRoleArgs = ['run', '-s', createEditorialRole.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.description) {
+		createEditorialRoleArgs.push(...['--description', argv.description]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createEditorialRoleArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createEditorialRoleArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === setEditorialRole.name || argv._[0] === setEditorialRole.alias) {
+	let setEditorialRoleArgs = ['run', '-s', setEditorialRole.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.assettypes) {
+		var assettypes = typeof argv.assettypes === 'boolean' ? '__cecanytype' : argv.assettypes;
+		setEditorialRoleArgs.push(...['--assettypes', assettypes]);
+	}
+	if (argv.assetpermission) {
+		var assetpermission = typeof argv.assetpermission === 'boolean' ? '__cecdeletetype' : argv.assetpermission;
+		setEditorialRoleArgs.push(...['--assetpermission', assetpermission]);
+	}
+	if (argv.categories) {
+		var categories = typeof argv.categories === 'boolean' ? '__cecanycategory' : argv.categories;
+		setEditorialRoleArgs.push(...['--categories', categories]);
+	}
+	if (argv.categorypermission) {
+		var categorypermission = typeof argv.categorypermission === 'boolean' ? '__cecdeletecategory' : argv.categorypermission;
+		setEditorialRoleArgs.push(...['--categorypermission', categorypermission]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		setEditorialRoleArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, setEditorialRoleArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === deleteEditorialRole.name || argv._[0] === deleteEditorialRole.alias) {
+	let deleteEditorialRoleArgs = ['run', '-s', deleteEditorialRole.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		deleteEditorialRoleArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, deleteEditorialRoleArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

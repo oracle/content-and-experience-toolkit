@@ -1182,6 +1182,49 @@ module.exports.getTypeContentLayouts = function (typeObj) {
 	return contentLayouts;
 };
 
+/**
+ * Get asset IDs on site pages
+ */
+module.exports.getReferencedAssets = function (pagesPath) {
+	var assetIds = [];
+	if (!fs.existsSync(pagesPath)) {
+		console.log('ERROR: path ' + pagesPath + ' does not exist');
+		return assetIds;
+	}
+	if (!fs.statSync(pagesPath).isDirectory()) {
+		console.log('ERROR: path ' + pagesPath + ' is not a folder');
+		return assetIds;
+	}
+	var pageFiles = fs.readdirSync(pagesPath) || [];
+
+	pageFiles.forEach(function (pageName) {
+		if (_endsWith(pageName, '.json')) {
+			var pageFile = path.join(pagesPath, pageName);
+			var pageData;
+			try {
+				pageData = JSON.parse(fs.readFileSync(pageFile));
+			} catch (e) {
+				// not a valid JSON
+			}
+			var componentInstances = pageData && pageData.componentInstances || {};
+
+			Object.keys(componentInstances).forEach(key => {
+				var data = componentInstances[key].data;
+				if (data && data.contentIds && data.contentIds.length > 0) {
+					for (var i = 0; i < data.contentIds.length; i++) {
+						if (!assetIds.includes(data.contentIds[i])) {
+							assetIds.push(data.contentIds[i]);
+						}
+					}
+				}
+			});
+		}
+	});
+
+	return assetIds;
+};
+
+
 module.exports.getCaasCSRFToken = function (server) {
 	var csrfTokenPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/token';
@@ -1809,7 +1852,7 @@ var _loginToPODServer = function (server) {
 	}
 
 	if (server.useSecurityTokenAPI) {
-		return new Promise(function(resolve, reject) {
+		return new Promise(function (resolve, reject) {
 			var url = server.url + '/system/api/v1/security/token';
 			var options = {
 				method: 'POST',
