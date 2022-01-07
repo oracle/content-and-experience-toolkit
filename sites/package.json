@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "21.12.2",
+	"version": "22.1.1",
 	"license": "UPL-1.0",
 	"description": "Oracle Content Management Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content Management.",
 	"main": "index.js",
@@ -173,7 +173,7 @@
 	"dependencies": {
 		"@oracle/oraclejet": "10.0.0",
 		"body-parser": "1.19.0",
-		"chai": "4.3.0",
+		"chai": "4.3.4",
 		"cheerio": "1.0.0-rc.9",
 		"deepmerge": "4.2.2",
 		"express": "4.17.1",
@@ -192,7 +192,7 @@
 		"node-fetch": "2.6.1",
 		"puppeteer": "10.4.0",
 		"request": "2.88.0",
-		"semver": "7.1.3",
+		"semver": "7.3.5",
 		"simplebar": "5.3.6",
 		"sprintf-js": "1.1.2",
 		"uglify-js": "3.13.5",

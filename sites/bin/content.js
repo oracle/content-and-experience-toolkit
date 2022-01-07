@@ -2060,37 +2060,46 @@ module.exports.createDigitalAsset = function (argv, done) {
 	}
 	console.log(' - server: ' + server.url);
 
+	var documents = typeof argv.documents === 'string' && argv.documents.toLowerCase() === 'true';
+
 	var srcFiles = [];
 
 	var sources = argv.from.split(',');
 	// console.log(sources);
-	sources.forEach(function (srcPath) {
-		if (srcPath.indexOf('~/') === 0) {
-			srcPath = srcPath.replace('~', os.homedir());
-		}
 
-		if (!path.isAbsolute(srcPath)) {
-			srcPath = path.join(projectDir, srcPath);
-		}
-		srcPath = path.resolve(srcPath);
+	if (!documents) {
+		sources.forEach(function (srcPath) {
+			if (srcPath.indexOf('~/') === 0) {
+				srcPath = srcPath.replace('~', os.homedir());
+			}
 
-		if (!fs.existsSync(srcPath)) {
-			console.log('ERROR: ' + srcPath + ' does not exist');
-		} else {
+			if (!path.isAbsolute(srcPath)) {
+				srcPath = path.join(projectDir, srcPath);
+			}
+			srcPath = path.resolve(srcPath);
 
-			if (fs.statSync(srcPath).isFile()) {
-				srcFiles.push(srcPath);
+			if (!fs.existsSync(srcPath)) {
+				console.log('ERROR: ' + srcPath + ' does not exist');
 			} else {
-				// get folder content
-				var items = fs.readdirSync(srcPath);
-				for (var i = 0; i < items.length; i++) {
-					if (fs.statSync(path.join(srcPath, items[i])).isFile()) {
-						srcFiles.push(path.join(srcPath, items[i]));
+
+				if (fs.statSync(srcPath).isFile()) {
+					srcFiles.push(srcPath);
+				} else {
+					// get folder content
+					var items = fs.readdirSync(srcPath);
+					for (var i = 0; i < items.length; i++) {
+						if (fs.statSync(path.join(srcPath, items[i])).isFile()) {
+							srcFiles.push(path.join(srcPath, items[i]));
+						}
 					}
 				}
 			}
+		});
+		if (srcFiles.length === 0) {
+			done();
+			return;
 		}
-	});
+	}
 	// console.log(srcFiles);
 
 	var attributes;
@@ -2131,6 +2140,7 @@ module.exports.createDigitalAsset = function (argv, done) {
 
 	var repository;
 	var contentType;
+	var docs;
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
@@ -2139,9 +2149,22 @@ module.exports.createDigitalAsset = function (argv, done) {
 			return;
 		}
 
-		serverRest.getRepositoryWithName({
-				server: server,
-				name: repositoryName
+		var getDocumentsPromises = [];
+		if (documents) {
+			getDocumentsPromises.push(_getDocumentForAssets(server, sources));
+		}
+
+		Promise.all(getDocumentsPromises)
+			.then(function (results) {
+				docs = results && results[0] || [];
+				if (documents && docs.length === 0) {
+					return Promise.reject();
+				}
+
+				return serverRest.getRepositoryWithName({
+					server: server,
+					name: repositoryName
+				});
 			})
 			.then(function (result) {
 				if (!result || result.err || !result.data) {
@@ -2201,7 +2224,9 @@ module.exports.createDigitalAsset = function (argv, done) {
 
 				var translatable = isBuiltinDT || repository.repositoryType === 'Business' ? undefined : !nontranslatable;
 				var langToUse = isBuiltinDT || repository.repositoryType === 'Business' ? undefined : language;
-				return _createDigitalAssets(server, repository.id, typeName, srcFiles, attributes, slug, translatable, langToUse);
+
+				return documents ? _createDigitalAssetsFromDocuments(server, repository.id, typeName, docs, attributes, slug, translatable, langToUse) :
+					_createDigitalAssets(server, repository.id, typeName, srcFiles, attributes, slug, translatable, langToUse);
 			})
 			.then(function (result) {
 
@@ -2215,6 +2240,57 @@ module.exports.createDigitalAsset = function (argv, done) {
 			});
 	});
 
+};
+
+var _getDocumentForAssets = function (server, sources) {
+	return new Promise(function (resolve, reject) {
+		var srcDocuments = [];
+
+		var doGetDoc = sources.reduce(function (docPromise, srcPath) {
+				return docPromise.then(function (result) {
+					var folderPath = srcPath === '/' ? [] : srcPath.split('/');
+					return documentUtils.findFolder(server, 'self', folderPath, false)
+						.then(function (result) {
+							if (result && result.id) {
+								if (result.id === 'self' || result.type === 'folder') {
+									// Get all child files
+									return serverRest.getChildItems({
+										server: server,
+										parentID: result.id,
+										limit: 10000
+									}).then(function (result) {
+										var items = result && result.items || [];
+										for (var i = 0; i < items.length; i++) {
+											if (items[i].type === 'file') {
+												srcDocuments.push({
+													id: items[i].id,
+													name: items[i].name,
+													path: srcPath + '/' + items[i].name
+												});
+											}
+										}
+									});
+								} else {
+									// it is a file
+									srcDocuments.push({
+										id: result.id,
+										name: result.name,
+										path: srcPath
+									});
+								}
+							} else {
+								console.log('ERROR: document ' + srcPath + ' does not exist');
+							}
+						});
+				});
+			},
+			Promise.resolve({})
+		);
+
+		doGetDoc.then(function (result) {
+			resolve(srcDocuments);
+		});
+	});
 };
 
 var _createDigitalAssets = function (server, repositoryId, type, srcFiles, attributes, slug, translatable, language) {
@@ -2239,6 +2315,49 @@ var _createDigitalAssets = function (server, repositoryId, type, srcFiles, attri
 							created.push(result);
 							console.log(' - created ' + type + ' asset (name: ' + result.name + ' Id: ' + result.id + ' slug: ' + result.slug +
 								' translatable: ' + result.translatable + ' language: ' + result.language + ')');
+						}
+					});
+				});
+			},
+			Promise.resolve({})
+		);
+
+		doCreateAsset.then(function (result) {
+			resolve(created);
+		});
+	});
+};
+
+var _createDigitalAssetsFromDocuments = function (server, repositoryId, type, srcDocs, attributes, slug, translatable, language) {
+
+	return new Promise(function (resolve, reject) {
+		var created = [];
+		var doCreateAsset = srcDocs.reduce(function (assetPromise, doc) {
+				return assetPromise.then(function (result) {
+					return serverRest.createDigitalItemFromDocuments({
+						server: server,
+						repositoryId: repositoryId,
+						type: type,
+						docId: doc.id,
+						docName: doc.name,
+						fields: attributes,
+						slug: (srcDocs.length === 1 ? slug : ''),
+						translatable: translatable,
+						language: language
+					}).then(function (result) {
+						if (result && result.id) {
+							// query item
+							return serverRest.getItem({
+									server: server,
+									id: result.id
+								})
+								.then(function (result) {
+									if (result && result.id) {
+										created.push(result);
+										console.log(' - created ' + type + ' asset (name: ' + result.name + ' Id: ' + result.id + ' slug: ' + result.slug +
+											' translatable: ' + result.translatable + ' language: ' + result.language + ')');
+									}
+								});
 						}
 					});
 				});

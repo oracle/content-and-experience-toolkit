@@ -14,6 +14,14 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+
+# New in Release 22.1.1
+
+**Added**
+
+- `cec create-digital-asset` - Added support for creating digital assets from Documents
+
+
 # New in Release 21.12.2
 
 **Added**

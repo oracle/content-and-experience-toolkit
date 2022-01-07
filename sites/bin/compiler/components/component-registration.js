@@ -62,7 +62,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_IMAGE_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_IMAGE_DESCRIPTION',
-					'icon': 'image.svg',
 					'defaultValues': {
 						'alignment': 'fill',
 						'borderColor': '#808080',
@@ -207,7 +206,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_MAP_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_MAP_DESCRIPTION',
-					'icon': 'map.svg',
 					'defaultValues': {
 						'alignment': 'fill',
 						'borderColor': '#808080',
@@ -291,7 +289,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_DOCUMENT_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_DOCUMENT_DESCRIPTION',
-					'icon': 'doc.svg',
 					'defaultValues': {
 						'alignment': 'fill',
 						'aspectRatio': 'auto',
@@ -386,7 +383,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_TITLE_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_TITLE_DESCRIPTION',
-					'icon': 'title.svg',
 					'seedData': {},
 					'defaultValues': {
 						'alignment': 'fill',
@@ -461,7 +457,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_PARAGRAPH_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_PARAGRAPH_DESCRIPTION',
-					'icon': 'paragraph.svg',
 					'seedData': {},
 					'defaultValues': {
 						'alignment': 'fill',
@@ -543,7 +538,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_DIVIDER_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_DIVIDER_DESCRIPTION',
-					'icon': 'divider_h.svg',
 					'defaultValues': {
 						'dividerColor': '#d3d3d3',
 						'dividerRadius': 0,
@@ -581,7 +575,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_BUTTON_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_BUTTON_DESCRIPTION',
-					'icon': 'button.svg',
 					'defaultValues': {
 						'actions': [],
 						'alignment': 'left',
@@ -701,7 +694,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_APP_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_APP_DESCRIPTION',
-					'icon': 'app.svg',
 					'seedData': {},
 					'defaultValues': {
 						'actions': [],
@@ -825,7 +817,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_COMPONENT_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_COMPONENT_DESCRIPTION',
-					'icon': '',
 					'seedData': {},
 					'defaultValues': {
 						'alignment': 'fill',
@@ -974,7 +965,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_SPACER_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_SPACER_DESCRIPTION',
-					'icon': 'spacer_v.svg',
 					'defaultValues': {
 						'height': 50,
 						'useStyleClass': 'true',
@@ -998,7 +988,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_YOUTUBE_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_YOUTUBE_DESCRIPTION',
-					'icon': 'YouTube.svg',
 					'defaultValues': {
 						'alignment': 'fill',
 						'aspectRatio': 'auto',
@@ -1055,7 +1044,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_GALLERY_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_GALLERY_DESCRIPTION',
-					'icon': 'gallery-s.svg',
 					'defaultValues': {
 						'alignment': 'fill',
 						'autoPlay': 'false',
@@ -1147,7 +1135,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_GALLERYGRID_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_GALLERYGRID_DESCRIPTION',
-					'icon': 'gallery.svg',
 					'defaultValues': {
 						'alignment': 'fill',
 						'borderColor': '#808080',
@@ -1234,7 +1221,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_SOCIALBAR_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_SOCIALBAR_DESCRIPTION',
-					'icon': 'share.svg',
 					'defaultValues': {
 						'alignment': 'right',
 						'borderColor': '#808080',
@@ -1340,7 +1326,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_SLOT_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_SLOT_DESCRIPTION',
-					'icon': 'gallery-s.svg',
 					'defaultValues': {
 						'backgroundAttachment': 'scroll',
 						'backgroundPosition': 'left top',
@@ -1380,7 +1365,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_COMPONENTGROUP_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_COMPONENTGROUP_DESCRIPTION',
-					'icon': 'componentgroup.svg',
 					'defaultValues': {
 						'visible': true,
 						'backgroundAttachment': 'scroll',
@@ -1430,7 +1414,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_SECTIONLAYOUT_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_SECTIONLAYOUT_DESCRIPTION',
-					'icon': 'sectionlayout.svg',
 					'defaultValues': {
 						'backgroundAttachment': 'scroll',
 						'backgroundPosition': 'left top',
@@ -1496,7 +1479,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_VIDEO_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_VIDEO_DESCRIPTION',
-					'icon': 'video.svg',
 					'defaultValues': {
 						'alignment': 'fill',
 						'autoplay': 'false',
@@ -1604,7 +1586,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_INLINE_TEXT_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_INLINE_TEXT_DESCRIPTION',
-					'icon': '',
 					'seedData': {},
 					'defaultValues': {
 						'innerHTML': null
@@ -1632,7 +1613,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_INLINE_IMAGE_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_INLINE_IMAGE_DESCRIPTION',
-					'icon': '',
 					'seedData': {},
 					'defaultValues': {
 						'attr_src': null,
@@ -1670,7 +1650,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_CONTENTLIST_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_CONTENTLIST_DESCRIPTION',
-					'icon': 'content-list.svg',
 					'defaultValues': {
 						'additionalItems': 2,
 						'alignment': 'fill',
@@ -1807,7 +1786,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_DYNAMICLIST_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_DYNAMICLIST_DESCRIPTION',
-					'icon': 'dynamic-list.svg',
 					'defaultValues': {
 						'additionalItems': 2,
 						'alignment': 'fill',
@@ -1947,7 +1925,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_RECOMMENDATION_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_RECOMMENDATION_DESCRIPTION',
-					'icon': 'recommendation.svg',
 					'defaultValues': {
 						'additionalItems': 2,
 						'alignment': 'fill',
@@ -2060,7 +2037,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_CONTENTSEARCH_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_CONTENTSEARCH_DESCRIPTION',
-					'icon': 'content-search.svg',
 					'defaultValues': {
 						'alignment': 'fill',
 						'borderColor': 'black',
@@ -2126,7 +2102,6 @@
 				'config': {
 					'displayName': 'COMP_CONFIG_OPAINTERVIEW_DISPLAY_NAME',
 					'description': 'COMP_CONFIG_OPAINTERVIEW_DESCRIPTION',
-					'icon': 'opa-interview.svg',
 					'defaultValues': {
 						'alignment': 'fill',
 						'borderColor': 'black',

@@ -1093,7 +1093,8 @@ const createDigitalAsset = {
 		['cec create-digital-asset -f ~/Documents/logo.jpg -t MyImage -r Repo1 -l company-logo -a ~/Documents/logoattrs.json', 'Create asset of type MyImage with slug and attributes'],
 		['cec create-digital-asset -f ~/Documents/logo.jpg -t MyImage -r Repo1 -g fr-FR', 'Create asset of type MyImage in language fr-FR'],
 		['cec create-digital-asset -f ~/Documents/logo.jpg -t MyImage -r Repo1 -n', 'Create non-translatable asset of type MyImage'],
-		['cec create-digital-asset -f ~/Documents/images -t Image -r Repo1', 'Create assets for all images files from folder ~/Documents/images']
+		['cec create-digital-asset -f ~/Documents/images -t Image -r Repo1', 'Create assets for all images files from folder ~/Documents/images'],
+		['cec create-digital-asset -f Doc/images/logo.jpg -d -t Image -r Repo1', 'Create asset of type Image from file Doc/images/logo.jpg on OCM server']
 	]
 };
 
@@ -4334,6 +4335,10 @@ const argv = yargs.usage(_usage)
 					description: 'The repository to add the asset',
 					demandOption: true
 				})
+				.option('documents', {
+					alias: 'd',
+					description: 'The source is from Documents'
+				})
 				.option('slug', {
 					alias: 'l',
 					description: 'The slug for the asset when create a single asset'
@@ -4362,6 +4367,7 @@ const argv = yargs.usage(_usage)
 				.example(...createDigitalAsset.example[5])
 				.example(...createDigitalAsset.example[6])
 				.example(...createDigitalAsset.example[7])
+				.example(...createDigitalAsset.example[8])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createDigitalAsset.command}\n\n${createDigitalAsset.usage.long}`);
@@ -8263,6 +8269,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--repository', argv.repository,
 		'--type', argv.type
 	];
+	if (argv.documents) {
+		createDigitalAssetArgs.push(...['--documents', argv.documents]);
+	}
 	if (argv.slug) {
 		createDigitalAssetArgs.push(...['--slug', argv.slug]);
 	}

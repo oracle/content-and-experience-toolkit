@@ -1464,6 +1464,157 @@ module.exports.createDigitalItem = function (args) {
 };
 
 
+// Create digital item from Documents on server
+var _createDigitalItemFromDocuments = function (server, repositoryId, type, docId, docName,
+	fields, slug, translatable, language) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var item = {
+					externalId: docId,
+					type: type
+				};
+
+				if (slug) {
+					item.slug = slug;
+				}
+				if (translatable !== undefined) {
+					item.translatable = translatable;
+				}
+				if (language) {
+					item.language = language;
+				}
+				if (fields && Object.keys(fields).length > 0) {
+					item.fields = fields;
+				}
+
+				var payload = {
+					operations: {
+						addToRepository: {
+							repositoryId: repositoryId,
+							connectorId: 'Documents',
+							externalItems: [item]
+						}
+					}
+				};
+
+				var url = server.url + '/content/management/api/v1.1/bulkItemsOperations';
+				var postData = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Prefer: 'respond-async',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					},
+					body: JSON.stringify(payload),
+					json: true
+				};
+				// console.log(postData);
+
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to create digital asset from ' + docName);
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					}
+
+					if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
+						var statusId = response.location || '';
+						statusId = statusId.substring(statusId.lastIndexOf('/') + 1);
+
+						console.log(' - submit request (job id: ' + statusId + ')');
+						var startTime = new Date();
+						var needNewLine = false;
+						var inter = setInterval(function () {
+							var jobPromise = _getItemOperationStatus(server, statusId);
+							jobPromise.then(function (data) {
+								if (!data || data.error || data.progress === 'failed') {
+									clearInterval(inter);
+									if (needNewLine) {
+										process.stdout.write(os.EOL);
+									}
+									// console.log(data);
+									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
+									console.log('ERROR: failed to create digital asset from ' + docName + ': ' + msg);
+
+									return resolve({
+										err: 'err'
+									});
+								}
+								if (data.completed) {
+									clearInterval(inter);
+									process.stdout.write(' - create digital asset in progress [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+									process.stdout.write(os.EOL);
+									// console.log(JSON.stringify(data, null, 4));
+									if (data.result && data.result.body && data.result.body.operations &&
+										data.result.body.operations.addToRepository &&
+										data.result.body.operations.addToRepository.items &&
+										data.result.body.operations.addToRepository.items.length > 0) {
+										var item = data.result.body.operations.addToRepository.items[0];
+										return resolve(item);
+									} else {
+										var msg = 'failed to create digital asset from ' + docName;
+										if (data.result && data.result.body && data.result.body.operations &&
+											data.result.body.operations.addToRepository &&
+											data.result.body.operations.addToRepository.failedExternalIds &&
+											data.result.body.operations.addToRepository.failedExternalIds.items) {
+											msg = msg + ' : ' + Object.values(data.result.body.operations.addToRepository.failedExternalIds.items)[0];
+										}
+										console.log('ERROR: ' + msg);
+										return resolve({
+											err: 'err'
+										});
+									}
+
+								} else {
+									process.stdout.write(' - create digital asset in progress [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+									readline.cursorTo(process.stdout, 0);
+									needNewLine = true;
+								}
+							});
+						}, 6000);
+					} else {
+						var msg = data ? (data.detail || data.title) : response.statusMessage;
+						console.log('ERROR: Failed to create digital asset - ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+/**
+ * create a digital item on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {string} args.server the server object
+ * @param {string} args.item the item object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createDigitalItemFromDocuments = function (args) {
+	return _createDigitalItemFromDocuments(args.server, args.repositoryId, args.type,
+		args.docId, args.docName,
+		args.fields, args.slug, args.translatable, args.language);
+};
+
 // Update digital item on server
 var _updateDigitalItem = function (server, item, contents) {
 	return new Promise(function (resolve, reject) {
@@ -2321,7 +2472,7 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 				} else if (operation === 'reject') {
 					operations['approve'] = {
 						value: false
-					}
+					};
 				} else if (operation === 'addCollections' || operation === 'removeCollections') {
 					operations[operation] = {
 						collections: collections
@@ -2329,7 +2480,7 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 				} else if (operation === 'lock' || operation === 'unlock') {
 					operations[operation] = {
 						dependencies: !!actOnDependencies
-					}
+					};
 				} else {
 					operations[operation] = {
 						channels: channels

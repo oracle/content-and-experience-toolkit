@@ -2727,7 +2727,7 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 				};
 
 				if (server.oauthtoken) {
-					body.token = server.oauthtoken;
+					body.LocalData.token = server.oauthtoken;
 				}
 
 				if (usedContentOnly) {

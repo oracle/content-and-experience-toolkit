@@ -1320,7 +1320,7 @@ var _publishComponents = function (server, comps) {
 		var doPublishComps = comps.reduce(function (publishPromise, compName) {
 				return publishPromise.then(function (result) {
 					startTime = new Date();
-					sitesRest.publishComponent({
+					return sitesRest.publishComponent({
 							server: server,
 							name: compName,
 							hideAPI: true
