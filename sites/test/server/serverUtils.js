@@ -163,6 +163,7 @@ var _getConfiguredServer = function (currPath) {
 			var cecurl,
 				username,
 				password,
+				oauthtoken,
 				env,
 				useRest,
 				idcs_url,
@@ -199,9 +200,17 @@ var _getConfiguredServer = function (currPath) {
 				} else if (line.indexOf('cec_scope=') === 0) {
 					scope = line.substring('cec_scope='.length);
 					scope = scope.replace(/(\r\n|\n|\r)/gm, '').trim();
+				} else if (line.indexOf('cec_token=') === 0) {
+					oauthtoken = line.substring('cec_token='.length);
+					oauthtoken = oauthtoken.replace(/(\r\n|\n|\r)/gm, '').trim();
 				}
 			});
-			if (cecurl && username && password) {
+			if(oauthtoken) {
+				server.url = cecurl;
+				server.env = env || 'pod_ec';
+				server.oauthtoken = oauthtoken;
+			}
+			else if (cecurl && username && password) {
 				server.url = cecurl;
 				server.username = username;
 				server.password = password;
@@ -284,7 +293,7 @@ var _verifyServer = function (serverName, currPath, showError) {
 			return server;
 		}
 	}
-	if (!server.url || !server.username || !server.password) {
+	if(!server.url || ((!server.username || !server.password) && (!server.oauthtoken))) {
 		if (toShowError) {
 			console.log('ERROR: no server is configured in ' + server.fileloc);
 		}
