@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -214,7 +214,7 @@ var getCollectionRoles = function () {
 };
 
 var getContentTypeRoles = function () {
-	const roles = ['manager', 'contributor'];
+	const roles = ['manager'];
 	return roles;
 };
 
@@ -333,13 +333,17 @@ const copyComponent = {
 	alias: 'cpc',
 	name: 'copy-component',
 	usage: {
-		'short': 'Copies an existing component named <source> to <destination>.',
+		'short': 'Copies an existing local or server component.',
 		'long': (function () {
-			let desc = 'Copies an existing component named <source> to <destination>. <source> is a folder name from src/components';
+			let desc = 'Copies an existing local or server component. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
-	example: ['cec copy-component Sample-To-Do Comp1', 'Copies Sample-To-Do to Comp1.']
+	example: [
+		['cec copy-component Sample-To-Do Comp1', 'Copies Sample-To-Do to Comp1.'],
+		['cec copy-component Comp1 Comp2 -s DEV', 'Copies Comp1 to Comp2 on the registered server DEV.'],
+		['cec copy-component Comp1 Comp2 -d "compied from Comp1" -s DEV', 'Copies Comp1 to Comp2 on the registered server DEV and set the description.']
+	]
 };
 
 const createContentLayout = {
@@ -506,6 +510,22 @@ const unshareComponent = {
 	]
 };
 
+const describeComponent = {
+	command: 'describe-component <name>',
+	alias: 'dscp',
+	name: 'describe-component',
+	usage: {
+		'short': 'Lists the properties of a component on OCM server.',
+		'long': (function () {
+			let desc = 'Lists the properties of a component on OCM server. Optionally specify -f <file> to save the properties to a JSON file. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-component Comp1 -s UAT'],
+		['cec describe-component Comp1 -f ~/Docs/Comp1.json -s UAT']
+	]
+};
 
 const createTemplate = {
 	command: 'create-template <name>',
@@ -537,13 +557,18 @@ const copyTemplate = {
 	alias: 'cpt',
 	name: 'copy-template',
 	usage: {
-		'short': 'Copies an existing template named <source> to <destination>.',
+		'short': 'Copies an existing local or server template.',
 		'long': (function () {
-			let desc = 'Copies an existing template named <source> to <destination>. <source> is a folder name from src/templates';
+			let desc = 'Copies an existing local or server template. Specify the server with -s <server> or use the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
-	example: ['cec copy-template Temp1 Temp2', 'Copies Temp1 to Temp2.']
+	example: [
+		['cec copy-template Temp1 Temp2', 'Copies local Temp1 to Temp2.'],
+		['cec copy-template Temp1 Temp2 -s DEV', 'Copies Temp1 to Temp2 on the registered server DEV.'],
+		['cec copy-template Temp1 Temp2 -d "copied from Temp1" -s DEV', 'Copies Temp1 to Temp2 on the registered server DEV and set the description.']
+	]
+
 };
 
 const importTemplate = {
@@ -623,13 +648,17 @@ const describeTemplate = {
 	alias: 'dst',
 	name: 'describe-template',
 	usage: {
-		'short': 'Describes the template <name> package.',
+		'short': 'Lists the properties of a local or server template.',
 		'long': (function () {
-			let desc = 'Describes the template <name> package such as theme, components and content types.';
+			let desc = 'Lists the properties of a local or server template. Optionally specify -f <file> to save the properties to a JSON file for server template. Specify the server with -r <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
-	example: ['cec describe-template StarterTemplate', 'Describes the template StarterTemplate package']
+	example: [
+		['cec describe-template StarterTemplate', 'Display the properties of local template StarterTemplate'],
+		['cec describe-template StarterTemplate -s DEV', 'Display the properties of template StarterTemplate on the registered server DEV'],
+		['cec describe-template StarterTemplate -f ~/Docs/StarterTemplate.json -s DEV', 'Display the properties of template StarterTemplate on the registered server DEV and also save to the local file']
+	]
 };
 
 const createTemplateReport = {
@@ -1204,6 +1233,23 @@ const controlTaxonomy = {
 	]
 };
 
+const describeTaxonomy = {
+	command: 'describe-taxonomy <name>',
+	alias: 'dstx',
+	name: 'describe-taxonomy',
+	usage: {
+		'short': 'Lists the properties of a taxonomy on OCM server.',
+		'long': (function () {
+			let desc = 'Lists the properties of a taxonomy on OCM server. Optionally specify -f <file> to save the properties to a JSON file. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-taxonomy Taxonomy1 -s UAT'],
+		['cec describe-taxonomy Taxonomy1 -f ~/Docs/Taxonomy1.json -s UAT']
+	]
+};
+
 const addComponentToTheme = {
 	command: 'add-component-to-theme <component>',
 	alias: 'actt',
@@ -1234,6 +1280,23 @@ const removeComponentFromTheme = {
 	},
 	example: [
 		['cec remove-component-from-theme Sample-To-Do -t BlogTheme']
+	]
+};
+
+const copyTheme = {
+	command: 'copy-theme <source> [<destination>]',
+	alias: 'cpth',
+	name: 'copy-theme',
+	usage: {
+		'short': 'Copies a theme on OCM server.',
+		'long': (function () {
+			let desc = 'Copies a theme on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec copy-theme Theme1 Theme2 -s DEV', 'Copy theme Theme1 to Theme2 on the registered server DEV'],
+		['cec copy-theme Theme1 Theme2 -d "copied from Theme1" -s DEV', 'Copy theme Theme1 to Theme2 on the registered server DEV and set the description']
 	]
 };
 
@@ -1855,7 +1918,7 @@ const shareRepository = {
 		['cec share-repository Repo1 -u user1,user2 -g group1,group2 -r manager', 'Share repository Repo1 with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
 		['cec share-repository Repo1 -u user1,user2 -r manager -s UAT', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them on the registered server UAT'],
 		['cec share-repository Repo1 -u user1,user2 -r manager -t', 'Share repository Repo1 and all the types in Repo1 with user user1 and user2 and assign Manager role to them'],
-		['cec share-repository Repo1 -u user1,user2 -r manager -t -y contributor', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them, share all types in  Repo1 with user user1 and user2 and assign Contributor role to them']
+		['cec share-repository Repo1 -u user1,user2 -r manager -t -y manager', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them, share all types in  Repo1 with user user1 and user2 and assign Manager role to them']
 	]
 };
 
@@ -1876,6 +1939,23 @@ const unshareRepository = {
 		['cec unshare-repository Repo1 -u user1,user2 -g group1,group2'],
 		['cec unshare-repository Repo1 -u user1,user2 -s UAT'],
 		['cec unshare-repository Repo1 -u user1,user2 -t']
+	]
+};
+
+const describeRepository = {
+	command: 'describe-repository <name>',
+	alias: 'dsr',
+	name: 'describe-repository',
+	usage: {
+		'short': 'Lists the properties of a repository on OCM server.',
+		'long': (function () {
+			let desc = 'Lists the properties of a repository on OCM server. Optionally specify -f <file> to save the properties to a JSON file. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-repository Repo1 -s UAT'],
+		['cec describe-repository Repo1 -f ~/Docs/Repo1.json -s UAT']
 	]
 };
 
@@ -2088,6 +2168,23 @@ const uploadType = {
 	]
 };
 
+const copyType = {
+	command: 'copy-type <source> [<destination>]',
+	alias: 'cptp',
+	name: 'copy-type',
+	usage: {
+		'short': 'Copies a type on OCM server.',
+		'long': (function () {
+			let desc = 'Copies a type on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec copy-type BlogType BlogType2 -s DEV', 'Copy type BlogType to BlogType2 on the registered server DEV'],
+		['cec copy-type BlogType BlogType2 -p "Blog Type" -d "Copied from BlogType" -s DEV', 'Copy type BlogType to BlogType2 on the registered server DEV and set the display name and description']
+	]
+};
+
 const updateType = {
 	command: 'update-type <action>',
 	alias: 'utp',
@@ -2270,6 +2367,23 @@ const unshareChannel = {
 		['cec unshare-channel Channel1 -u user1,user2 '],
 		['cec unshare-channel Channel1 -u user1,user2 -g group1,group2'],
 		['cec unshare-channel Channel1 -u user1,user2 -s UAT']
+	]
+};
+
+const describeChannel = {
+	command: 'describe-channel <name>',
+	alias: 'dsch',
+	name: 'describe-channel',
+	usage: {
+		'short': 'Lists the properties of a channel on OCM server.',
+		'long': (function () {
+			let desc = 'Lists the properties of a channel on OCM server. Optionally specify -f <file> to save the properties to a JSON file. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-channel Channel1 -s UAT'],
+		['cec describe-channel Channel1 -f ~/Docs/Channel1.json -s UAT']
 	]
 };
 
@@ -2544,6 +2658,27 @@ const createFolder = {
 	]
 };
 
+const copyFolder = {
+	command: 'copy-folder <name>',
+	alias: 'cpfd',
+	name: 'copy-folder',
+	usage: {
+		'short': 'Copies folder on OCM server.',
+		'long': (function () {
+			let desc = 'Copies folder on OCM server. If no target folder is specified, the folder will copied to the same folder. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec copy-folder Projects/Blogs', 'Copy the folder in the same parent folder'],
+		['cec copy-folder Projects/Blogs -f /', 'Copy the folder to the Home folder'],
+		['cec copy-folder Projects/Blogs -f Projects2 -s UAT', 'Copy the folder to another folder'],
+		['cec copy-folder site:blog1/pages -f site:blog2', 'Copy the site folder to another site'],
+		['cec copy-folder theme:blog1Theme/assets/img -f theme:blog1Theme/assets/css', 'Copy the theme folder to another folder of the same theme'],
+		['cec copy-folder component:Comp1/assets', 'Copy the component folder in the same component folder']
+	]
+};
+
 const shareFolder = {
 	command: 'share-folder <name>',
 	alias: 'sfd',
@@ -2736,6 +2871,27 @@ const downloadFile = {
 		['cec download-file site:blog1/siteinfo.json', 'Downloads the file from folder blog1 and save to local folder src/documents/blog1'],
 		['cec download-file theme:blog1Theme/designs/default/design.css', 'Downloads the css file from folder designs/default of theme blog1Theme and save to local folder src/documents/blog1Theme/designs/default/'],
 		['cec download-file component:Comp1/assets/render.js', 'Downloads the js file from folder assets of component Comp1 and save to local folder src/documents/Comp1/assets/']
+	]
+};
+
+const copyFile = {
+	command: 'copy-file <file>',
+	alias: 'cpf',
+	name: 'copy-file',
+	usage: {
+		'short': 'Copies file on OCM server.',
+		'long': (function () {
+			let desc = 'Copies file on OCM server. If no target folder is specified, the file will copied to the same folder. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec copy-file Releases/Projects.pdf', 'Copy the file the in the same folder'],
+		['cec copy-file Releases/Projects.pdf -f /', 'Copy the file to the Home folder'],
+		['cec copy-file Releases/Projects.pdf -f NewRelease/v1 -s UAT', 'Copy the folder to another folder'],
+		['cec copy-file site:blog1/siteinfo.json -f Misc', 'Copy the site file to Home folder Misc'],
+		['cec copy-file theme:blog1Theme/designs/default/design.css -f theme:blog1Theme/designs/styles', 'Copy the theme file to another folder of the same theme'],
+		['cec copy-file component:Comp1/assets/render.js', 'Copy the component file in the same component folder']
 	]
 };
 
@@ -3073,6 +3229,26 @@ const executePost = {
 	]
 };
 
+const executeDelete = {
+	command: 'execute-delete <endpoint>',
+	alias: 'exed',
+	name: 'execute-delete',
+	usage: {
+		'short': 'Makes an HTTP DELETE request to a REST API endpoint on OCM server',
+		'long': (function () {
+			let desc = 'Makes an HTTP DELETE request to a REST API endpoint on OCM server. Specify the server with -s <server>. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec exed "/sites/management/api/v1/components/name:Comp1" -s DEV', 'Soft delete component Comp1'],
+		['cec exed "/sites/management/api/v1/themes/name:Theme1" -s DEV', 'Soft delete theme Theme1'],
+		['cec exed "/content/management/api/v1.1/channels/{id}" -s DEV', 'Delete a channel'],
+		['cec exed "/content/management/api/v1.1/items/{id}" -s DEV', 'Delete an item'],
+		['cec exed "/system/api/v1/webhooks/{id}" -s DEV', 'Delete a webhook']
+	]
+};
+
 /*********************
  * Setup yargs
  **********************/
@@ -3102,12 +3278,14 @@ var _usage = 'Usage: cec <command> [options] ' + os.EOL + os.EOL +
 	'Commands:' + os.EOL;
 _usage = _usage + os.EOL + 'Documents' + os.EOL +
 	_getCmdHelp(createFolder) + os.EOL +
+	_getCmdHelp(copyFolder) + os.EOL +
 	_getCmdHelp(shareFolder) + os.EOL +
 	_getCmdHelp(unshareFolder) + os.EOL +
 	_getCmdHelp(listFolder) + os.EOL +
 	_getCmdHelp(downloadFolder) + os.EOL +
 	_getCmdHelp(uploadFolder) + os.EOL +
 	_getCmdHelp(deleteFolder) + os.EOL +
+	_getCmdHelp(copyFile) + os.EOL +
 	_getCmdHelp(downloadFile) + os.EOL +
 	_getCmdHelp(uploadFile) + os.EOL +
 	_getCmdHelp(deleteFile) + os.EOL;
@@ -3122,6 +3300,7 @@ _usage = _usage + os.EOL + 'Components' + os.EOL +
 	_getCmdHelp(controlComponent) + os.EOL +
 	_getCmdHelp(shareComponent) + os.EOL +
 	_getCmdHelp(unshareComponent) + os.EOL;
+// _getCmdHelp(describeComponent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Templates' + os.EOL +
 	_getCmdHelp(createTemplate) + os.EOL +
@@ -3142,6 +3321,7 @@ _usage = _usage + os.EOL + 'Templates' + os.EOL +
 _usage = _usage + os.EOL + 'Themes' + os.EOL +
 	_getCmdHelp(addComponentToTheme) + os.EOL +
 	_getCmdHelp(removeComponentFromTheme) + os.EOL +
+	_getCmdHelp(copyTheme) + os.EOL +
 	_getCmdHelp(controlTheme) + os.EOL +
 	_getCmdHelp(shareTheme) + os.EOL +
 	_getCmdHelp(unshareTheme) + os.EOL +
@@ -3187,6 +3367,7 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(controlRepository) + os.EOL +
 	_getCmdHelp(shareRepository) + os.EOL +
 	_getCmdHelp(unshareRepository) + os.EOL +
+	// _getCmdHelp(describeRepository) + os.EOL +
 	_getCmdHelp(setEditorialPermission) + os.EOL +
 	_getCmdHelp(listEditorialPermission) + os.EOL +
 	_getCmdHelp(createCollection) + os.EOL +
@@ -3194,12 +3375,14 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(createChannel) + os.EOL +
 	_getCmdHelp(shareChannel) + os.EOL +
 	_getCmdHelp(unshareChannel) + os.EOL +
+	// _getCmdHelp(describeChannel) + os.EOL +
 	_getCmdHelp(createLocalizationPolicy) + os.EOL +
 	_getCmdHelp(listServerContentTypes) + os.EOL +
 	_getCmdHelp(shareType) + os.EOL +
 	_getCmdHelp(unshareType) + os.EOL +
 	_getCmdHelp(downloadType) + os.EOL +
 	_getCmdHelp(uploadType) + os.EOL +
+	_getCmdHelp(copyType) + os.EOL +
 	_getCmdHelp(updateType) + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
 	_getCmdHelp(addContentLayoutMapping) + os.EOL +
@@ -3219,6 +3402,7 @@ _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
 	_getCmdHelp(downloadTaxonomy) + os.EOL +
 	_getCmdHelp(uploadTaxonomy) + os.EOL +
 	_getCmdHelp(controlTaxonomy) + os.EOL;
+	// _getCmdHelp(describeTaxonomy) + os.EOL;
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(listTranslationJobs) + os.EOL +
@@ -3245,6 +3429,7 @@ _usage = _usage + os.EOL + 'Local Environment' + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
 	_getCmdHelp(executeGet) + os.EOL +
 	_getCmdHelp(executePost) + os.EOL +
+	_getCmdHelp(executeDelete) + os.EOL +
 	_getCmdHelp(install) + os.EOL +
 	_getCmdHelp(develop) + os.EOL +
 	_getCmdHelp(syncServer) + os.EOL +
@@ -3311,7 +3496,17 @@ const argv = yargs.usage(_usage)
 		})
 	.command([copyComponent.command, copyComponent.alias], false,
 		(yargs) => {
-			yargs.example(...copyComponent.example)
+			yargs.option('description', {
+					alias: 'd',
+					description: 'The description of the new component on OCM server'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...copyComponent.example[0])
+				.example(...copyComponent.example[1])
+				.example(...copyComponent.example[2])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${copyComponent.command}\n\n${copyComponent.usage.long}`);
@@ -3477,6 +3672,22 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${unshareComponent.command}\n\n${unshareComponent.usage.long}`);
 		})
+	.command([describeComponent.command, describeComponent.alias], false,
+		(yargs) => {
+			yargs.option('file', {
+					alias: 'f',
+					description: 'The JSON file to save the properties'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...describeComponent.example[0])
+				.example(...describeComponent.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeComponent.command}\n\n${describeComponent.usage.long}`);
+		})
 	.command([createTemplate.command, createTemplate.alias], false,
 		(yargs) => {
 			yargs.option('from', {
@@ -3557,7 +3768,17 @@ const argv = yargs.usage(_usage)
 		})
 	.command([copyTemplate.command, copyTemplate.alias], false,
 		(yargs) => {
-			yargs.example(...copyTemplate.example)
+			yargs.option('description', {
+					alias: 'd',
+					description: 'The description of the new template on OCM server'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...copyTemplate.example[0])
+				.example(...copyTemplate.example[1])
+				.example(...copyTemplate.example[2])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${copyTemplate.command}\n\n${copyTemplate.usage.long}`);
@@ -3860,7 +4081,17 @@ const argv = yargs.usage(_usage)
 		})
 	.command([describeTemplate.command, describeTemplate.alias], false,
 		(yargs) => {
-			yargs.example(...describeTemplate.example)
+			yargs.option('file', {
+					alias: 'f',
+					description: 'The JSON file to save the properties for template on OCM server',
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...describeTemplate.example[0])
+				.example(...describeTemplate.example[1])
+				.example(...describeTemplate.example[2])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${describeTemplate.command}\n\n${describeTemplate.usage.long}`);
@@ -4559,6 +4790,22 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${controlTaxonomy.command}\n\n${controlTaxonomy.usage.long}`);
 		})
+	.command([describeTaxonomy.command, describeTaxonomy.alias], false,
+		(yargs) => {
+			yargs.option('file', {
+					alias: 'f',
+					description: 'The JSON file to save the properties'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...describeTaxonomy.example[0])
+				.example(...describeTaxonomy.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeTaxonomy.command}\n\n${describeTaxonomy.usage.long}`);
+		})
 	.command([shareTheme.command, shareTheme.alias], false,
 		(yargs) => {
 			yargs.option('users', {
@@ -4625,7 +4872,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('server', {
 					alias: 's',
-					description: '<server> The registered OCM server'
+					description: 'The registered OCM server'
 				})
 				.example(...describeTheme.example[0])
 				.example(...describeTheme.example[1])
@@ -4661,6 +4908,22 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${removeComponentFromTheme.command}\n\n${removeComponentFromTheme.usage.long}`);
+		})
+	.command([copyTheme.command, copyTheme.alias], false,
+		(yargs) => {
+			yargs.option('description', {
+					alias: 'd',
+					description: 'The description of the new theme on OCM server'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...copyTheme.example[0])
+				.example(...copyTheme.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${copyTheme.command}\n\n${copyTheme.usage.long}`);
 		})
 	.command([controlTheme.command, controlTheme.alias], false,
 		(yargs) => {
@@ -5773,6 +6036,22 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${unshareRepository.command}\n\n${unshareRepository.usage.long}`);
 		})
+	.command([describeRepository.command, describeRepository.alias], false,
+		(yargs) => {
+			yargs.option('file', {
+					alias: 'f',
+					description: 'The JSON file to save the properties'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...describeRepository.example[0])
+				.example(...describeRepository.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeRepository.command}\n\n${describeRepository.usage.long}`);
+		})
 	.command([setEditorialPermission.command, setEditorialPermission.alias], false,
 		(yargs) => {
 			yargs.option('users', {
@@ -6051,6 +6330,26 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadType.command}\n\n${downloadType.usage.long}`);
+		})
+	.command([copyType.command, copyType.alias], false,
+		(yargs) => {
+			yargs.option('displayname', {
+					alias: 'p',
+					description: 'The display name of the new type'
+				})
+				.option('description', {
+					alias: 'd',
+					description: 'The description of the new type'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...copyType.example[0])
+				.example(...copyType.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${copyType.command}\n\n${copyType.usage.long}`);
 		})
 	.command([updateType.command, updateType.alias], false,
 		(yargs) => {
@@ -6358,6 +6657,22 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${unshareChannel.command}\n\n${unshareChannel.usage.long}`);
+		})
+	.command([describeChannel.command, describeChannel.alias], false,
+		(yargs) => {
+			yargs.option('file', {
+					alias: 'f',
+					description: 'The JSON file to save the properties'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...describeChannel.example[0])
+				.example(...describeChannel.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeChannel.command}\n\n${describeChannel.usage.long}`);
 		})
 	.command([createLocalizationPolicy.command, createLocalizationPolicy.alias], false,
 		(yargs) => {
@@ -6711,6 +7026,26 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${createFolder.command}\n\n${createFolder.usage.long}`);
 		})
+	.command([copyFolder.command, copyFolder.alias], false,
+		(yargs) => {
+			yargs.option('folder', {
+					alias: 'f',
+					description: 'The target folder to copy the folder to'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...copyFolder.example[0])
+				.example(...copyFolder.example[1])
+				.example(...copyFolder.example[2])
+				.example(...copyFolder.example[3])
+				.example(...copyFolder.example[4])
+				.example(...copyFolder.example[5])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${copyFolder.command}\n\n${copyFolder.usage.long}`);
+		})
 	.command([shareFolder.command, shareFolder.alias], false,
 		(yargs) => {
 			yargs.option('users', {
@@ -6853,6 +7188,26 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${deleteFolder.command}\n\n${deleteFolder.usage.long}`);
+		})
+	.command([copyFile.command, copyFile.alias], false,
+		(yargs) => {
+			yargs.option('folder', {
+					alias: 'f',
+					description: 'The target folder to copy the file to'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...copyFile.example[0])
+				.example(...copyFile.example[1])
+				.example(...copyFile.example[2])
+				.example(...copyFile.example[3])
+				.example(...copyFile.example[4])
+				.example(...copyFile.example[5])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${copyFile.command}\n\n${copyFile.usage.long}`);
 		})
 	.command([uploadFile.command, uploadFile.alias], false,
 		(yargs) => {
@@ -7233,6 +7588,21 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${executePost.command}\n\n${executePost.usage.long}`);
 		})
+	.command([executeDelete.command, executeDelete.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...executeDelete.example[0])
+				.example(...executeDelete.example[1])
+				.example(...executeDelete.example[2])
+				.example(...executeDelete.example[3])
+				.example(...executeDelete.example[4])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${executeDelete.command}\n\n${executeDelete.usage.long}`);
+		})
 	.command([install.command, install.alias], false,
 		(yargs) => {
 			yargs.example(...install.example[0])
@@ -7538,6 +7908,13 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	} else {
 		copyComponentArgs.push(...['--name', argv.source + '_' + Math.floor(Math.random() * 1000000)]);
 	}
+	if (argv.description) {
+		copyComponentArgs.push(...['--description', argv.description]);
+	}
+	if (argv.server) {
+		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		copyComponentArgs.push(...['--server'], serverVal);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, copyComponentArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -7675,6 +8052,23 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === describeComponent.name || argv._[0] === describeComponent.alias) {
+	let describeComponentArgs = ['run', '-s', describeComponent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.file) {
+		describeComponentArgs.push(...['--file', argv.file]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeComponentArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, describeComponentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === createTemplate.name || argv._[0] === createTemplate.alias) {
 
 	let createTemplateArgs = ['run', '-s', createTemplate.name, '--prefix', appRoot,
@@ -7716,6 +8110,13 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		copyTemplateArgs.push(...['--name', argv.destination]);
 	} else {
 		copyTemplateArgs.push(...['--name', argv.source + '_' + Math.floor(Math.random() * 1000000)]);
+	}
+	if (argv.description) {
+		copyTemplateArgs.push(...['--description', argv.description]);
+	}
+	if (argv.server) {
+		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		copyTemplateArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, copyTemplateArgs, {
 		cwd,
@@ -7983,6 +8384,13 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--template', argv.name
 	];
+	if (argv.file) {
+		describeTemplateArgs.push(...['--file', argv.file]);
+	}
+	if (argv.server) {
+		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		describeTemplateArgs.push(...['--server'], serverVal);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, describeTemplateArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -8420,6 +8828,23 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === describeTaxonomy.name || argv._[0] === describeTaxonomy.alias) {
+	let describeTaxonomyArgs = ['run', '-s', describeTaxonomy.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.file) {
+		describeTaxonomyArgs.push(...['--file', argv.file]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeTaxonomyArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, describeTaxonomyArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === addComponentToTheme.name || argv._[0] === addComponentToTheme.alias) {
 	let addComponentToThemeArgs = ['run', '-s', addComponentToTheme.name, '--prefix', appRoot,
 		'--',
@@ -8445,6 +8870,28 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	];
 
 	spawnCmd = childProcess.spawnSync(npmCmd, removeComponentFromThemeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === copyTheme.name || argv._[0] === copyTheme.alias) {
+	let copyThemeArgs = ['run', '-s', copyTheme.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--source', argv.source
+	];
+	if (argv.destination) {
+		copyThemeArgs.push(...['--name', argv.destination]);
+	} else {
+		copyThemeArgs.push(...['--name', argv.source + '_' + Math.floor(Math.random() * 1000000)]);
+	}
+	if (argv.description) {
+		copyThemeArgs.push(...['--description', argv.description]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		copyThemeArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, copyThemeArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -9307,6 +9754,23 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === describeRepository.name || argv._[0] === describeRepository.alias) {
+	let describeRepositoryArgs = ['run', '-s', describeRepository.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.file) {
+		describeRepositoryArgs.push(...['--file', argv.file]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeRepositoryArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, describeRepositoryArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === setEditorialPermission.name || argv._[0] === setEditorialPermission.alias) {
 	let setEditorialPermissionArgs = ['run', '-s', setEditorialPermission.name, '--prefix', appRoot,
 		'--',
@@ -9579,6 +10043,31 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === copyType.name || argv._[0] === copyType.alias) {
+	let copyTypeArgs = ['run', '-s', copyType.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--source', argv.source
+	];
+	if (argv.destination) {
+		copyTypeArgs.push(...['--name', argv.destination]);
+	} else {
+		copyTypeArgs.push(...['--name', argv.source + '_' + Math.floor(Math.random() * 1000000)]);
+	}
+	if (argv.displayname) {
+		copyTypeArgs.push(...['--displayname', argv.displayname]);
+	}
+	if (argv.description) {
+		copyTypeArgs.push(...['--description', argv.description]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		copyTypeArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, copyTypeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === createCollection.name || argv._[0] === createCollection.alias) {
 	let createCollectionArgs = ['run', '-s', createCollection.name, '--prefix', appRoot,
 		'--',
@@ -9688,6 +10177,23 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		unshareChannelArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, unshareChannelArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeChannel.name || argv._[0] === describeChannel.alias) {
+	let describeChannelArgs = ['run', '-s', describeChannel.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.file) {
+		describeChannelArgs.push(...['--file', argv.file]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeChannelArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, describeChannelArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -9904,6 +10410,23 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === copyFolder.name || argv._[0] === copyFolder.alias) {
+	let copyFolderArgs = ['run', '-s', copyFolder.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		copyFolderArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		copyFolderArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, copyFolderArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === shareFolder.name || argv._[0] === shareFolder.alias) {
 	let shareFolderArgs = ['run', '-s', shareFolder.name, '--prefix', appRoot,
 		'--',
@@ -10006,6 +10529,23 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		deleteFolderArgs.push(...['--permanent', argv.permanent]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, deleteFolderArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === copyFile.name || argv._[0] === copyFile.alias) {
+	let copyFileArgs = ['run', '-s', copyFile.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--file', argv.file
+	];
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		copyFileArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		copyFileArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, copyFileArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -10381,6 +10921,21 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		executePostArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, executePostArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === executeDelete.name || argv._[0] === executeDelete.alias) {
+	let executeDeleteArgs = ['run', '-s', executeDelete.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--endpoint', argv.endpoint
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		executeDeleteArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, executeDeleteArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

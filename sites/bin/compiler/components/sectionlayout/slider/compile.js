@@ -69,8 +69,8 @@ SectionLayout.prototype = {
 				}
 
 				// Create markup for the arrows
-				html += '<span class="jssora02l sl-slider-arrow sl-slider-arrow-left"></span>';
-				html += '<span class="jssora02r sl-slider-arrow sl-slider-arrow-right"></span>';
+				html += '<span class="sl-slider-arrow sl-slider-arrow-left"></span>';
+				html += '<span class="sl-slider-arrow sl-slider-arrow-right"></span>';
 				/*
 				} else if (isEditMode) {
 					html += '<div class="sl-slider-watermark">';

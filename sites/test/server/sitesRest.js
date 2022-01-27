@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global module, process */
@@ -1879,7 +1879,7 @@ module.exports.importTemplate = function (args) {
 };
 
 var _createSite = function (server, name, description, sitePrefix, templateName, templateId, repositoryId, localizationPolicyId, defaultLanguage,
-	updateContent, reuseContent, suppressgovernance) {
+	updateContent, reuseContent, suppressgovernance, id) {
 	return new Promise(function (resolve, reject) {
 
 		var url = '/sites/management/api/v1/sites';
@@ -1900,6 +1900,10 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 		}
 		if (defaultLanguage) {
 			body.defaultLanguage = defaultLanguage;
+		}
+		if (id) {
+			// create the site with a specific id (transfer site preserve original site id)
+			body.id = id;
 		}
 
 		var headers = {
@@ -2049,7 +2053,7 @@ module.exports.createSite = function (args) {
 	return _createSite(server, args.name, args.description, args.sitePrefix,
 		args.templateName, args.templateId, args.repositoryId,
 		args.localizationPolicyId, args.defaultLanguage,
-		args.updateContent, args.reuseContent, args.suppressgovernance);
+		args.updateContent, args.reuseContent, args.suppressgovernance, args.id);
 };
 
 var _copySite = function (server, sourceSiteName, name, description, sitePrefix, repositoryId) {
@@ -2372,4 +2376,213 @@ var _shareSite = function (server, id, name, member, role) {
  */
 module.exports.shareSite = function (args) {
 	return _shareSite(args.server, args.id, args.name, args.member, args.role);
+};
+
+var _copyResource = function (server, type, srcId, srcName, name, desc) {
+	return new Promise(function (resolve, reject) {
+
+		var url = '/sites/management/api/v1/' + type + '/';
+		if (srcId) {
+			url = url + srcId;
+		} else if (srcName) {
+			url = url + 'name:' + srcName;
+		}
+		url = url + '/copy';
+
+		var body = {
+			name: name
+		};
+		if (desc) {
+			body.description = desc;
+		}
+		var options = {
+			method: 'POST',
+			url: server.url + url,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(body),
+			json: true
+		};
+		// console.log(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			var result = {};
+
+			if (error) {
+				console.log('ERROR: failed to copy ' + type.substring(0, type.length - 1) + ' ' + (srcName || srcId) + ' : ');
+				console.log(error);
+
+				resolve({
+					err: error
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode <= 300) {
+				resolve(data);
+			} else {
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to copy ' + type.substring(0, type.length - 1) + ' ' + (srcName || srcId) + ' : ' + msg);
+
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+
+/**
+ * Copy a component on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {string} srcId the id of the source component or
+ * @param {string} srcName the name of the source component
+ * @param {string} name the name of the new component
+ * * @param {string} description the description of the new component
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.copyComponent = function (args) {
+	return _copyResource(args.server, 'components', args.srcId, args.srcName, args.name, args.description);
+};
+
+/**
+ * Copy a theme on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {string} srcId the id of the source theme or
+ * @param {string} srcName the name of the source theme
+ * @param {string} name the name of the new theme
+ * * @param {string} description the description of the new theme
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.copyTheme = function (args) {
+	return _copyResource(args.server, 'themes', args.srcId, args.srcName, args.name, args.description);
+};
+
+var _copyResourceAsync = function (server, type, srcId, srcName, name, desc) {
+	return new Promise(function (resolve, reject) {
+
+		var url = '/sites/management/api/v1/' + type + '/';
+		if (srcId) {
+			url = url + srcId;
+		} else if (srcName) {
+			url = url + 'name:' + srcName;
+		}
+		url = url + '/copy';
+
+		var body = {
+			name: name
+		};
+		if (desc) {
+			body.description = desc;
+		}
+		var options = {
+			method: 'POST',
+			url: server.url + url,
+			headers: {
+				'Content-Type': 'application/json',
+				Prefer: 'respond-async',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(body),
+			json: true
+		};
+		// console.log(options);
+
+		var typeLabel = type.substring(0, type.length - 1);
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
+
+			if (error) {
+				console.log('ERROR: failed to copy ' + typeLabel + ' ' + (srcName || srcId) + ' : ');
+				console.log(error);
+
+				resolve({
+					err: error
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 202) {
+				var statusLocation = response.location;
+				var jobId = statusLocation ? statusLocation.substring(statusLocation.lastIndexOf('/') + 1) : '';
+				console.log(' - job id: ' + jobId);
+				var startTime = new Date();
+				var needNewLine = false;
+				var inter = setInterval(function () {
+					var jobPromise = _getBackgroundJobStatus(server, statusLocation);
+					jobPromise.then(function (data) {
+						// console.log(data);
+						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+							clearInterval(inter);
+							if (needNewLine) {
+								process.stdout.write(os.EOL);
+							}
+							var msg = data && data.message;
+							if (data && data.error) {
+								msg = msg + ' ' + (data.error.detail || data.error.title);
+							}
+							console.log('ERROR: copy ' + type + ' ' + (srcName || srcId) + ' failed: ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						} else if (data.completed && data.progress === 'succeeded') {
+							clearInterval(inter);
+							process.stdout.write(' - copy in process: percentage ' + data.completedPercentage +
+								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+							needNewLine = true;
+							clearInterval(inter);
+							process.stdout.write(os.EOL);
+
+							return resolve({});
+						} else {
+							process.stdout.write(' - copy in process: percentage ' + data.completedPercentage +
+								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+							needNewLine = true;
+						}
+					});
+				}, 5000);
+			} else {
+				console.log(data);
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to copy ' + typeLabel + ' ' + (srcName || srcId) + ' : ' + msg);
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+
+/**
+ * Copy a site template on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {string} srcId the id of the source template or
+ * @param {string} srcName the name of the source template
+ * @param {string} name the name of the new template
+ * * @param {string} description the description of the new template
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+ module.exports.copyTemplate = function (args) {
+	return _copyResourceAsync(args.server, 'templates', args.srcId, args.srcName, args.name, args.description);
 };

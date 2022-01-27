@@ -72,6 +72,60 @@ module.exports.createFolder = function (args) {
 	return _createFolder(args.server, args.parentID, args.foldername);
 };
 
+// Copy a folder
+var _copyFolder = function (server, folderId, targetFolderId) {
+	return new Promise(function (resolve, reject) {
+		var body = {
+			destinationID: targetFolderId
+		};
+		var options = {
+			method: 'POST',
+			url: server.url + '/documents/api/1.2/folders/' + folderId + '/copy',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(body)
+		};
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to copy folder ' + folderId);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve(data);
+			} else {
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to copy folder ' + folderId + ' : ' + msg);
+				resolve({
+					err: 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Copy folder on server with file GUID
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.id The DOCS GUID for the folder to copy
+ * @param {string} args.folderId The DOCS GUID for the target folder to copy to
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.copyFolder = function (args) {
+	return _copyFolder(args.server, args.id, args.folderId);
+};
+
 // Find or Create Folder on server
 var _findOrCreateFolder = function (server, parentID, foldername) {
 	return new Promise(function (resolve, reject) {
@@ -741,6 +795,60 @@ var _deleteFile = function (server, fFileGUID, filePath) {
  */
 module.exports.deleteFile = function (args) {
 	return _deleteFile(args.server, args.fFileGUID, args.filePath);
+};
+
+// Copy a file 
+var _copyFile = function (server, fileId, targetFolderId) {
+	return new Promise(function (resolve, reject) {
+		var body = {
+			destinationID: targetFolderId
+		};
+		var options = {
+			method: 'POST',
+			url: server.url + '/documents/api/1.2/files/' + fileId + '/copy',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(body)
+		};
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to copy file ' + fileId);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve(data);
+			} else {
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to copy file ' + fileId + ' : ' + msg);
+				resolve({
+					err: 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Copy file on server with file GUID
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.id The DOCS GUID for the file to copy
+ * @param {string} args.folderId The DOCS GUID for the target folder to copy to
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.copyFile = function (args) {
+	return _copyFile(args.server, args.id, args.folderId);
 };
 
 // Get file versions from server
@@ -3608,6 +3716,62 @@ module.exports.getTaxonomies = function (args) {
 };
 
 /**
+ * Get a taxonomy with id on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the taxonomy to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getTaxonomy = function (args) {
+	return new Promise(function (resolve, reject) {
+		if (!args.id) {
+			return resolve({});
+		}
+		var taxonomyId = args.id;
+		var server = args.server;
+
+		var url = server.url + '/content/management/api/v1.1/taxonomies/' + taxonomyId;
+		url = url + '?fields=all';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		// console.log(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get taxonomy ' + taxonomyId);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 200) {
+				return resolve(data);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get taxonomy ' + taxonomyId + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
+/**
  * Get a taxonomy with name on server
  * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
@@ -3623,7 +3787,7 @@ module.exports.getTaxonomyWithName = function (args) {
 		var server = args.server;
 
 		var url = server.url + '/content/management/api/v1.1/taxonomies';
-		url = url + '?q=(name mt "' + encodeURIComponent(taxonomyName) + '")';
+		url = url + '?q=(name mt "' + encodeURIComponent(taxonomyName) + '" AND status eq "all")';
 		url = url + '&fields=all';
 
 		var options = {
@@ -3680,9 +3844,15 @@ module.exports.getTaxonomyWithName = function (args) {
 };
 
 // Get categories of a taxonomy from server
-var _getCategories = function (server, taxonomyId, taxonomyName) {
+var _getCategories = function (server, taxonomyId, taxonomyName, status, orderBy) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/taxonomies/' + taxonomyId + '/categories?fields=all&limit=9999';
+		if (status) {
+			url = url + '&q=status eq "' + status + '"';
+		}
+		if (orderBy) {
+			url = url + '&orderBy=' + orderBy;
+		}
 		var options = {
 			method: 'GET',
 			url: url,
@@ -3690,6 +3860,7 @@ var _getCategories = function (server, taxonomyId, taxonomyName) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		// console.log(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -3729,7 +3900,7 @@ var _getCategories = function (server, taxonomyId, taxonomyName) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getCategories = function (args) {
-	return _getCategories(args.server, args.taxonomyId, args.taxonomyName);
+	return _getCategories(args.server, args.taxonomyId, args.taxonomyName, args.status, args.orderBy);
 };
 
 
@@ -9208,3 +9379,53 @@ var _getMe = function (server) {
 module.exports.getMe = function (args) {
 	return _getMe(args.server);
 }
+
+var _getAssetActivity = function (server, assetType, assetId) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/system/api/v1/auditlog/activities?q=objectType eq "' + assetType + '" and objectId eq "' + assetId + '"&limit=50&offset=0&expand=all';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get activity for: ' + assetId);
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				console.log('ERROR: failed to get activity for: ' + assetId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Fetch asset activity
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.assetType asset type Digital Asset/Content Item
+ * @param {string} args.assetId Id of asset
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getAssetActivity = function (args) {
+	return _getAssetActivity(args.server, args.assetType, args.assetId);
+};

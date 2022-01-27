@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global console, __dirname, process, console */
@@ -15,6 +15,7 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	path = require('path'),
+	sprintf = require('sprintf-js').sprintf,
 	zip = require('gulp-zip');
 
 const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
@@ -186,6 +187,18 @@ module.exports.copyComponent = function (argv, done) {
 		return;
 	}
 
+	var useserver = argv.server ? true : false;
+	var serverName;
+	var server;
+	if (useserver) {
+		serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
+		server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			done();
+			return;
+		}
+	}
+
 	var srcCompName = argv.source,
 		compName = argv.name,
 		comp = '',
@@ -207,51 +220,109 @@ module.exports.copyComponent = function (argv, done) {
 		return;
 	}
 
-	// verify the source component
-	for (var i = 0; i < existingComponents.length; i++) {
-		if (srcCompName === existingComponents[i]) {
-			comp = existingComponents[i];
-			break;
+	if (!useserver) {
+		// verify the source component
+		for (var i = 0; i < existingComponents.length; i++) {
+			if (srcCompName === existingComponents[i]) {
+				comp = existingComponents[i];
+				break;
+			}
 		}
-	}
-	if (!comp) {
-		console.error('ERROR: invalid source component ' + srcCompName);
-		done();
-		return;
-	}
-
-	// verify the new template name 
-	var re = /^[a-z0-9_-]+$/ig;
-	if (compName.search(re) === -1) {
-		console.error('ERROR: Use only letters, numbers, hyphens, and underscores in component names.');
-		done();
-		return;
-	} else {
-		if (fs.existsSync(path.join(componentsSrcDir, compName))) {
-			console.error('ERROR: A component with the name ' + compName + ' already exists. Please specify a different name.');
+		if (!comp) {
+			console.error('ERROR: invalid local source component ' + srcCompName);
 			done();
 			return;
 		}
-	}
 
-	// copy all files
-	fse.copySync(path.join(componentsSrcDir, srcCompName), path.join(componentsSrcDir, compName));
-
-	// update itemGUID
-	if (serverUtils.updateItemFolderJson(projectDir, 'component', compName)) {
-		// update appinfo.json 
-		var appinfoPath = path.join(componentsSrcDir, compName, 'appinfo.json');
-		if (fs.existsSync(appinfoPath)) {
-			var appinfojson = JSON.parse(fs.readFileSync(appinfoPath));
-			appinfojson.id = compName;
-			console.log(' - update component id to ' + compName);
-			fs.writeFileSync(appinfoPath, JSON.stringify(appinfojson));
-			// fs.writeFileSync(appinfoPath, JSON.stringify(appinfojson, null, 4));
+		// verify the new component name 
+		var re = /^[a-z0-9_-]+$/ig;
+		if (compName.search(re) === -1) {
+			console.error('ERROR: Use only letters, numbers, hyphens, and underscores in component names.');
+			done();
+			return;
+		} else {
+			if (fs.existsSync(path.join(componentsSrcDir, compName))) {
+				console.error('ERROR: A component with the name ' + compName + ' already exists. Please specify a different name.');
+				done();
+				return;
+			}
 		}
-		console.log(' *** component is ready to test: http://localhost:8085/components/' + compName);
-		done(true);
+
+		// copy all files
+		fse.copySync(path.join(componentsSrcDir, srcCompName), path.join(componentsSrcDir, compName));
+
+		// update itemGUID
+		if (serverUtils.updateItemFolderJson(projectDir, 'component', compName)) {
+			// update appinfo.json 
+			var appinfoPath = path.join(componentsSrcDir, compName, 'appinfo.json');
+			if (fs.existsSync(appinfoPath)) {
+				var appinfojson = JSON.parse(fs.readFileSync(appinfoPath));
+				appinfojson.id = compName;
+				console.log(' - update component id to ' + compName);
+				fs.writeFileSync(appinfoPath, JSON.stringify(appinfojson));
+				// fs.writeFileSync(appinfoPath, JSON.stringify(appinfojson, null, 4));
+			}
+			console.log(' *** component is ready to test: http://localhost:8085/components/' + compName);
+			done(true);
+		} else {
+			done();
+		}
 	} else {
-		done();
+		// console.log(' - copy component on the server');
+		var description = argv.description;
+
+		serverUtils.loginToServer(server).then(function (result) {
+			if (!result.status) {
+				console.log(result.statusMessage);
+				done();
+				return;
+			}
+
+			sitesRest.getComponent({
+					server: server,
+					name: srcCompName
+				}).then(function (result) {
+					if (!result || result.err || !result.id) {
+						return Promise.reject();
+					}
+
+					var srcComp = result;
+					// console.log(srcComp);
+					console.log(' - verify component (Id: ' + srcComp.id + ' type: ' + srcComp.type + ')');
+
+					return sitesRest.copyComponent({
+						server: server,
+						srcId: srcComp.id,
+						srcName: srcComp.name,
+						name: compName,
+						description: description
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+
+					return sitesRest.getComponent({
+						server: server,
+						name: compName
+					});
+				})
+				.then(function (result) {
+					if (result && result.id) {
+						console.log(' - component copied (Id: ' + result.id + ' name: ' + compName + ')');
+						done(true);
+					} else {
+						done();
+					}
+				})
+				.catch((error) => {
+					if (error) {
+						console.log(error);
+					}
+					done();
+				});
+		});
 	}
 };
 
@@ -1428,6 +1499,131 @@ module.exports.unshareComponent = function (argv, done) {
 	} catch (e) {
 		done();
 	}
+};
+
+/**
+ * describe component
+ */
+module.exports.describeComponent = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var output = argv.file;
+
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+		if (!fs.existsSync(outputFolder)) {
+			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(outputFolder).isDirectory()) {
+			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			done();
+			return;
+		}
+	}
+
+	var name = argv.name;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		var comp;
+
+		sitesRest.getComponent({
+				server: server,
+				name: name,
+				expand: 'all'
+			}).then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				if (output) {
+					fs.writeFileSync(output, JSON.stringify(result, null, 4));
+					console.log(' - component properties saved to ' + output);
+				}
+
+				comp = result;
+
+				var managers = [];
+				var contributors = [];
+				var downloaders = [];
+				var viewers = [];
+				var members = comp.members && comp.members.items || [];
+				members.forEach(function (member) {
+					if (member.role === 'manager') {
+						managers.push(member.displayName || member.name);
+					} else if (member.role === 'contributor') {
+						contributors.push(member.displayName || member.name);
+					} else if (member.role === 'downloader') {
+						downloaders.push(member.displayName || member.name);
+					} else if (member.role === 'viewer') {
+						viewers.push(member.displayName || member.name);
+					}
+				});
+				var memberLabel = '';
+				if (managers.length > 0) {
+					memberLabel = 'Manager: ' + managers + ' ';
+				}
+				if (contributors.length > 0) {
+					memberLabel = memberLabel + 'Contributor: ' + contributors + ' ';
+				}
+				if (downloaders.length > 0) {
+					memberLabel = memberLabel + 'Downloader: ' + downloaders + ' ';
+				}
+				if (viewers.length > 0) {
+					memberLabel = memberLabel + 'Viewer: ' + viewers;
+				}
+
+				var format1 = '%-41s %-s';
+				console.log('');
+				console.log(sprintf(format1, 'Id', comp.id));
+				console.log(sprintf(format1, 'Type', comp.type));
+				console.log(sprintf(format1, 'Name', comp.name));
+				console.log(sprintf(format1, 'Description', comp.description || ''));
+				console.log(sprintf(format1, 'Owner', comp.ownedBy ? (comp.ownedBy.displayName || comp.ownedBy.name) : ''));
+				console.log(sprintf(format1, 'Members', memberLabel));
+				console.log(sprintf(format1, 'Created', comp.createdAt + ' by ' + (comp.createdBy ? (comp.createdBy.displayName || comp.createdBy.name) : '')));
+				console.log(sprintf(format1, 'Updated', comp.lastModifiedAt + ' by ' + (comp.lastModifiedBy ? (comp.lastModifiedBy.displayName || comp.lastModifiedBy.name) : '')));
+				console.log(sprintf(format1, 'Status', comp.publishStatus));
+				console.log(sprintf(format1, 'Hide on custom palette in the site editor', comp.isHidden));
+
+				console.log('');
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+
 };
 
 // export non "command line" utility functions

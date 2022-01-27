@@ -644,3 +644,156 @@ module.exports.controlTaxonomy = function (argv, done) {
 			});
 	});
 };
+
+module.exports.describeTaxonomy = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var output = argv.file;
+
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+		if (!fs.existsSync(outputFolder)) {
+			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(outputFolder).isDirectory()) {
+			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			done();
+			return;
+		}
+	}
+
+	var name = argv.name;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		var tax;
+
+		serverRest.getTaxonomyWithName({
+				server: server,
+				name: name
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.data || !result.data.id) {
+					console.log('ERROR: taxonomy ' + name + ' does not exist');
+					return Promise.reject();
+				}
+				if (output) {
+					fs.writeFileSync(output, JSON.stringify(result, null, 4));
+					console.log(' - taxonomy properties saved to ' + output);
+				}
+
+				tax = result.data;
+
+				var promotedVersion;
+				var publishedVersion;
+				if (tax.availableStates && tax.availableStates.length > 0) {
+					tax.availableStates.forEach(function (state) {
+						if (state.status === 'promoted') {
+							promotedVersion = state.version;
+							if (state.published && !publishedVersion) {
+								publishedVersion = promotedVersion;
+							}
+						} else if (state.status === 'published') {
+							publishedVersion = state.version;
+						}
+					});
+				}
+				var channelNames = [];
+				if (tax.publishedChannels && tax.publishedChannels.length > 0) {
+					tax.publishedChannels.forEach(function (channel) {
+						channelNames.push(channel.name || channel.id);
+					});
+				}
+
+				var format1 = '%-38s  %-s';
+				console.log('');
+				console.log(sprintf(format1, 'Id', tax.id));
+				console.log(sprintf(format1, 'Name', tax.name));
+				console.log(sprintf(format1, 'Abbreviation', tax.shortName));
+				console.log(sprintf(format1, 'description', tax.description || ''));
+				console.log(sprintf(format1, 'Created', tax.createdDate.value + ' by ' + tax.createdBy));
+				console.log(sprintf(format1, 'Updated', tax.updatedDate.value + ' by ' + tax.updatedBy));
+				console.log(sprintf(format1, 'Allow publishing', tax.isPublishable));
+				console.log(sprintf(format1, 'Status', tax.status));
+				if (promotedVersion) {
+					console.log(sprintf(format1, 'Promoted', 'v' + promotedVersion));
+				}
+				if (publishedVersion) {
+					console.log(sprintf(format1, 'Published', 'v' + publishedVersion));
+				}
+				if (channelNames.length > 0) {
+					console.log(sprintf(format1, 'Channels', channelNames.sort()));
+				}
+
+				return serverRest.getCategories({
+					server: server,
+					taxonomyId: tax.id,
+					taxonomyName: tax.name,
+					status: promotedVersion ? 'promoted' : 'draft',
+					orderBy: 'position:asc'
+				});
+
+			})
+			.then(function (result) {
+				var categories = result && result.categories || [];
+
+				if (categories.length > 0) {
+					console.log('Categories:');
+					var ident = '  ';
+					_displayCategories(tax.id, categories, ident);
+				}
+
+				console.log('');
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+
+};
+
+var _displayCategories = function (parentId, categories, ident) {
+
+	var i;
+	for (i = 0; i < categories.length; i++) {
+		var cat = categories[i];
+		if (parentId === cat.parentId) {
+			console.log(ident + cat.name);
+
+			if (cat.children && cat.children.count > 0) {
+				_displayCategories(cat.id, categories, ident + '    ');
+			}
+		}
+	}
+
+};

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global console, __dirname, process, console */
@@ -21,6 +21,7 @@ var gulp = require('gulp'),
 	fse = require('fs-extra'),
 	os = require('os'),
 	readline = require('readline'),
+	sprintf = require('sprintf-js').sprintf,
 	path = require('path'),
 	argv = require('yargs').argv,
 	zip = require('gulp-zip');
@@ -1081,6 +1082,18 @@ module.exports.copyTemplate = function (argv, done) {
 		return;
 	}
 
+	var useserver = argv.server ? true : false;
+	var serverName;
+	var server;
+	if (useserver) {
+		serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
+		server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			done();
+			return;
+		}
+	}
+
 	var srcTempName = argv.source,
 		tempName = argv.name,
 		template = '',
@@ -1102,100 +1115,161 @@ module.exports.copyTemplate = function (argv, done) {
 		return;
 	}
 
-	// verify the source template
-	for (var i = 0; i < existingTemplates.length; i++) {
-		if (srcTempName === existingTemplates[i]) {
-			template = existingTemplates[i];
-			break;
+	if (!useserver) {
+		// verify the source template
+		for (var i = 0; i < existingTemplates.length; i++) {
+			if (srcTempName === existingTemplates[i]) {
+				template = existingTemplates[i];
+				break;
+			}
 		}
-	}
-	if (!template) {
-		console.error('ERROR: invalid template ' + srcTempName);
-		done();
-		return;
-	}
-
-	var themeName = tempName + 'Theme';
-
-	// verify the new template name 
-	var re = /^[a-z0-9_-]+$/ig;
-	if (tempName.search(re) === -1) {
-		console.error('ERROR: Use only letters, numbers, hyphens, and underscores in component names.');
-		done();
-		return;
-	} else {
-		if (fs.existsSync(path.join(templatesSrcDir, tempName))) {
-			console.error('ERROR: A template with the name ' + tempName + ' already exists. Please specify a different name.');
+		if (!template) {
+			console.error('ERROR: invalid local template ' + srcTempName);
 			done();
 			return;
 		}
-		// check theme name 
-		if (fs.existsSync(path.join(themesSrcDir, themeName))) {
-			console.error('ERROR: A theme with the name ' + themeName + ' already exists. Please specify a different template name.');
+
+		var themeName = tempName + 'Theme';
+
+		// verify the new template name 
+		var re = /^[a-z0-9_-]+$/ig;
+		if (tempName.search(re) === -1) {
+			console.error('ERROR: Use only letters, numbers, hyphens, and underscores in component names.');
+			done();
+			return;
+		} else {
+			if (fs.existsSync(path.join(templatesSrcDir, tempName))) {
+				console.error('ERROR: A template with the name ' + tempName + ' already exists. Please specify a different name.');
+				done();
+				return;
+			}
+			// check theme name 
+			if (fs.existsSync(path.join(themesSrcDir, themeName))) {
+				console.error('ERROR: A theme with the name ' + themeName + ' already exists. Please specify a different template name.');
+				done();
+				return;
+			}
+		}
+
+		console.log('Copy Template: creating new template ' + tempName + ' from ' + srcTempName);
+
+		var siteinfofile = path.join(templatesSrcDir, srcTempName, 'siteinfo.json');
+		if (!fs.existsSync(siteinfofile)) {
+			console.error('ERROR: template file siteinfo.json is missing');
 			done();
 			return;
 		}
-	}
 
-	console.log('Copy Template: creating new template ' + tempName + ' from ' + srcTempName);
-
-	var siteinfofile = path.join(templatesSrcDir, srcTempName, 'siteinfo.json');
-	if (!fs.existsSync(siteinfofile)) {
-		console.error('ERROR: template file siteinfo.json is missing');
-		done();
-		return;
-	}
-
-	// get the theme
-	var siteinfostr = fs.readFileSync(siteinfofile),
-		siteinfojson = JSON.parse(siteinfostr),
-		srcThemeName = '';
-	if (siteinfojson && siteinfojson.properties) {
-		srcThemeName = siteinfojson.properties.themeName;
-	}
-
-	if (!srcThemeName) {
-		console.error('ERROR: no theme is defined for the source template ' + srcTempName);
-		done();
-		return;
-	}
-
-	// copy template files
-	fse.copySync(path.join(templatesSrcDir, srcTempName), path.join(templatesSrcDir, tempName));
-
-	// update itemGUID for the new template
-	serverUtils.updateItemFolderJson(projectDir, 'template', tempName, 'siteName', tempName);
-
-	// update the content dir if exists
-	var contentdir = path.join(templatesSrcDir, tempName, 'assets', 'contenttemplate', 'Content Template of ' + srcTempName);
-	if (fs.existsSync(contentdir)) {
-		var newname = 'Content Template of ' + tempName,
-			newcontentdir = path.join(templatesSrcDir, tempName, 'assets', 'contenttemplate', newname);
-		fs.renameSync(contentdir, newcontentdir);
-		console.log(' - update content dir to ' + newname);
-	}
-
-	// copy theme files
-	fse.copySync(path.join(themesSrcDir, srcThemeName), path.join(themesSrcDir, themeName));
-
-	// update itemGUID for the new theme
-	serverUtils.updateItemFolderJson(projectDir, 'theme', themeName, 'themeName', themeName);
-
-	// update the siteName and themeName in siteinfo.json for the new template
-	siteinfofile = path.join(templatesSrcDir, tempName, 'siteinfo.json');
-	if (fs.existsSync(siteinfofile)) {
+		// get the theme
 		var siteinfostr = fs.readFileSync(siteinfofile),
-			siteinfojson = JSON.parse(siteinfostr);
+			siteinfojson = JSON.parse(siteinfostr),
+			srcThemeName = '';
 		if (siteinfojson && siteinfojson.properties) {
-			console.log(' - update template themeName to ' + themeName + ' in siteinfo.json');
-			siteinfojson.properties.themeName = themeName;
-			siteinfojson.properties.siteName = tempName;
-			fs.writeFileSync(siteinfofile, JSON.stringify(siteinfojson));
+			srcThemeName = siteinfojson.properties.themeName;
 		}
-	}
 
-	console.log(' *** template is ready to test: ' + serverURL + '/templates/' + tempName);
-	done(true);
+		if (!srcThemeName) {
+			console.error('ERROR: no theme is defined for the source template ' + srcTempName);
+			done();
+			return;
+		}
+
+		// copy template files
+		fse.copySync(path.join(templatesSrcDir, srcTempName), path.join(templatesSrcDir, tempName));
+
+		// update itemGUID for the new template
+		serverUtils.updateItemFolderJson(projectDir, 'template', tempName, 'siteName', tempName);
+
+		// update the content dir if exists
+		var contentdir = path.join(templatesSrcDir, tempName, 'assets', 'contenttemplate', 'Content Template of ' + srcTempName);
+		if (fs.existsSync(contentdir)) {
+			var newname = 'Content Template of ' + tempName,
+				newcontentdir = path.join(templatesSrcDir, tempName, 'assets', 'contenttemplate', newname);
+			fs.renameSync(contentdir, newcontentdir);
+			console.log(' - update content dir to ' + newname);
+		}
+
+		// copy theme files
+		fse.copySync(path.join(themesSrcDir, srcThemeName), path.join(themesSrcDir, themeName));
+
+		// update itemGUID for the new theme
+		serverUtils.updateItemFolderJson(projectDir, 'theme', themeName, 'themeName', themeName);
+
+		// update the siteName and themeName in siteinfo.json for the new template
+		siteinfofile = path.join(templatesSrcDir, tempName, 'siteinfo.json');
+		if (fs.existsSync(siteinfofile)) {
+			var siteinfostr = fs.readFileSync(siteinfofile),
+				siteinfojson = JSON.parse(siteinfostr);
+			if (siteinfojson && siteinfojson.properties) {
+				console.log(' - update template themeName to ' + themeName + ' in siteinfo.json');
+				siteinfojson.properties.themeName = themeName;
+				siteinfojson.properties.siteName = tempName;
+				fs.writeFileSync(siteinfofile, JSON.stringify(siteinfojson));
+			}
+		}
+
+		console.log(' *** template is ready to test: ' + serverURL + '/templates/' + tempName);
+		done(true);
+
+	} else {
+		console.log(' - copy template on OCM server');
+		var description = argv.description;
+
+		serverUtils.loginToServer(server).then(function (result) {
+			if (!result.status) {
+				console.log(result.statusMessage);
+				done();
+				return;
+			}
+
+			sitesRest.getTemplate({
+					server: server,
+					name: srcTempName
+				})
+				.then(function (result) {
+					if (!result || result.err || !result.id) {
+						return Promise.reject();
+					}
+
+					var srcTemplate = result;
+					console.log(' - validate source template (Id: ' + srcTemplate.id + ')');
+
+					return sitesRest.copyTemplate({
+						server: server,
+						srcId: srcTemplate.id,
+						srcName: srcTemplate.name,
+						name: tempName,
+						description: description
+					});
+
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+
+					return sitesRest.getTemplate({
+						server: server,
+						name: tempName
+					});
+				})
+				.then(function (result) {
+					if (result && result.id) {
+						console.log(' - template copied (Id: ' + result.id + ' name: ' + result.name + ')');
+						done(true);
+					} else {
+						done();
+					}
+				})
+				.catch((error) => {
+					if (error) {
+						console.log(error);
+					}
+					done();
+				});
+		});
+
+	}
 };
 
 module.exports.deployTemplate = function (argv, done) {
@@ -1342,6 +1416,95 @@ var _publishComponents = function (server, comps) {
 	});
 };
 
+// Display the properties of a template on OCM server
+var _displayServerTemplate = function (server, name, output) {
+	return new Promise(function (resolve, reject) {
+		var loginPromise = serverUtils.loginToServer(server);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.log(result.statusMessage);
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			sitesRest.getTemplate({
+					server: server,
+					name: name,
+					expand: 'all'
+				})
+				.then(function (result) {
+					if (!result || result.err || !result.id) {
+						return Promise.reject();
+					}
+
+					if (output) {
+						fs.writeFileSync(output, JSON.stringify(result, null, 4));
+						console.log(' - template properties saved to ' + output);
+					}
+
+					var temp = result;
+					var managers = [];
+					var contributors = [];
+					var downloaders = [];
+					var viewers = [];
+					var members = temp.members && temp.members.items || [];
+					members.forEach(function (member) {
+						if (member.role === 'manager') {
+							managers.push(member.displayName || member.name);
+						} else if (member.role === 'contributor') {
+							contributors.push(member.displayName || member.name);
+						} else if (member.role === 'downloader') {
+							downloaders.push(member.displayName || member.name);
+						} else if (member.role === 'viewer') {
+							viewers.push(member.displayName || member.name);
+						}
+					});
+					var memberLabel = '';
+					if (managers.length > 0) {
+						memberLabel = 'Manager: ' + managers + ' ';
+					}
+					if (contributors.length > 0) {
+						memberLabel = memberLabel + 'Contributor: ' + contributors + ' ';
+					}
+					if (downloaders.length > 0) {
+						memberLabel = memberLabel + 'Downloader: ' + downloaders + ' ';
+					}
+					if (viewers.length > 0) {
+						memberLabel = memberLabel + 'Viewer: ' + viewers;
+					}
+
+					var format1 = '%-38s  %-s';
+					console.log('');
+					console.log(sprintf(format1, 'Id', temp.id));
+					console.log(sprintf(format1, 'Name', temp.name));
+					console.log(sprintf(format1, 'Author', temp.author));
+					console.log(sprintf(format1, 'Short description', temp.description || ''));
+					console.log(sprintf(format1, 'Long description', temp.longDescription || ''));
+					console.log(sprintf(format1, 'Owner', temp.ownedBy ? (temp.ownedBy.displayName || temp.ownedBy.name) : ''));
+					console.log(sprintf(format1, 'Members', memberLabel));
+					console.log(sprintf(format1, 'Created', temp.createdAt + ' by ' + (temp.createdBy ? (temp.createdBy.displayName || temp.createdBy.name) : '')));
+					console.log(sprintf(format1, 'Updated', temp.lastModifiedAt + ' by ' + (temp.lastModifiedBy ? (temp.lastModifiedBy.displayName || temp.lastModifiedBy.name) : '')));
+					console.log(sprintf(format1, 'Type', (temp.isEnterprise ? 'Enterprise' : 'Standard')));
+					console.log(sprintf(format1, 'Localization policy', temp.localizationPolicy ? temp.localizationPolicy.name : ''));
+					console.log(sprintf(format1, 'Default language', temp.defaultLanguage || ''));
+					console.log(sprintf(format1, 'Theme', temp.themeName));
+
+					console.log('');
+					return resolve({});
+				})
+				.catch((error) => {
+					if (error) {
+						console.log(error);
+					}
+					return resolve({
+						err: 'err'
+					});
+				});
+		});
+	});
+};
+
 module.exports.describeTemplate = function (argv, done) {
 	'use strict';
 
@@ -1356,163 +1519,213 @@ module.exports.describeTemplate = function (argv, done) {
 		return;
 	}
 
-	var name = argv.template,
-		tempExist = false,
-		templates = getContents(templatesSrcDir);
-	for (var i = 0; i < templates.length; i++) {
-		if (name === templates[i]) {
-			tempExist = true;
-			break;
+	var useserver = argv.server ? true : false;
+	var serverName;
+	var server;
+	if (useserver) {
+		//
+		// server template
+		//
+		serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
+		server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			done();
+			return;
 		}
-	}
-	if (!tempExist) {
-		console.error('ERROR: template ' + name + ' does not exist');
-		done();
-		return;
-	}
 
-	console.log('Name:  ' + name);
+		var output = argv.file;
 
-	var tempSrcDir = path.join(templatesSrcDir, name);
-
-	// get the used theme
-	var siteinfofile = path.join(tempSrcDir, 'siteinfo.json'),
-		themeName = '';
-	if (fs.existsSync(siteinfofile)) {
-		var siteinfostr = fs.readFileSync(siteinfofile),
-			siteinfojson = JSON.parse(siteinfostr);
-		if (siteinfojson && siteinfojson.properties) {
-			themeName = siteinfojson.properties.themeName;
-		}
-	}
-	console.log('Theme: ' + themeName);
-
-	// custom components
-	var comps = serverUtils.getTemplateComponents(projectDir, name);
-	console.log('Components used in the template:');
-	if (comps) {
-		comps.forEach(function (name) {
-			if (fs.existsSync(path.join(componentsSrcDir, name, 'appinfo.json'))) {
-				console.log('    ' + name);
+		if (output) {
+			if (!path.isAbsolute(output)) {
+				output = path.join(projectDir, output);
 			}
-		});
-	}
+			output = path.resolve(output);
 
-	// theme components
-	console.log('Theme components:');
-	var themeComps = serverUtils.getThemeComponents(projectDir, themeName);
-	themeComps.forEach(function (comp) {
-		console.log('    ' + comp.id);
-	});
+			var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+			// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+			if (!fs.existsSync(outputFolder)) {
+				console.log('ERROR: folder ' + outputFolder + ' does not exist');
+				done();
+				return;
+			}
 
-
-	// Content types
-	console.log('Content types:');
-	var alltypes = serverUtils.getContentTypes(projectDir);
-	for (var i = 0; i < alltypes.length; i++) {
-		if (name === alltypes[i].template) {
-			console.log('    ' + alltypes[i].type.name);
+			if (!fs.statSync(outputFolder).isDirectory()) {
+				console.log('ERROR: ' + outputFolder + ' is not a folder');
+				done();
+				return;
+			}
 		}
-	}
 
-	// Content layout mapping
-	console.log('Content Type mappings:');
-	var contentmapfile = path.join(tempSrcDir, 'assets', 'contenttemplate', 'summary.json');
-	if (fs.existsSync(contentmapfile)) {
-		var summaryjson = JSON.parse(fs.readFileSync(contentmapfile));
-		var contenttypes = summaryjson.categoryLayoutMappings || summaryjson.contentTypeMappings || [];
-		for (var i = 0; i < contenttypes.length; i++) {
-			var j;
-			var ctype = contenttypes[i];
-			console.log('    ' + ctype.type + ':');
-			var mappings = [],
-				defaultLayout,
-				conentListDefault,
-				emptyListDefault,
-				contentPlaceholderDefault;
-			for (j = 0; j < ctype.categoryList.length; j++) {
-				var layoutName = ctype.categoryList[j].layoutName,
-					categoryName = ctype.categoryList[j].categoryName;
-				if (layoutName) {
-					if (categoryName === 'Default') {
-						defaultLayout = {
-							'layoutName': layoutName,
-							'categoryName': 'Content Item Default'
-						};
-					} else if (categoryName === 'Content List Default') {
-						conentListDefault = {
-							'layoutName': layoutName,
-							'categoryName': categoryName
-						};
-					} else if (categoryName === 'Empty Content List Default') {
-						emptyListDefault = {
-							'layoutName': layoutName,
-							'categoryName': categoryName
-						};
-					} else if (categoryName === 'Content Placeholder Default') {
-						contentPlaceholderDefault = {
-							'layoutName': layoutName,
-							'categoryName': categoryName
-						};
-					} else {
-						mappings[mappings.length] = {
-							'layoutName': layoutName,
-							'categoryName': categoryName
-						};
+		_displayServerTemplate(server, argv.template, output)
+			.then(function (result) {
+				done(result && !result.err);
+				return;
+			});
+
+	} else {
+
+		// 
+		// local template
+		//
+
+		var name = argv.template,
+			tempExist = false,
+			templates = getContents(templatesSrcDir);
+		for (var i = 0; i < templates.length; i++) {
+			if (name === templates[i]) {
+				tempExist = true;
+				break;
+			}
+		}
+		if (!tempExist) {
+			console.error('ERROR: local template ' + name + ' does not exist');
+			done();
+			return;
+		}
+
+		console.log('Name:  ' + name);
+
+		var tempSrcDir = path.join(templatesSrcDir, name);
+
+		// get the used theme
+		var siteinfofile = path.join(tempSrcDir, 'siteinfo.json'),
+			themeName = '';
+		if (fs.existsSync(siteinfofile)) {
+			var siteinfostr = fs.readFileSync(siteinfofile),
+				siteinfojson = JSON.parse(siteinfostr);
+			if (siteinfojson && siteinfojson.properties) {
+				themeName = siteinfojson.properties.themeName;
+			}
+		}
+		console.log('Theme: ' + themeName);
+
+		// custom components
+		var comps = serverUtils.getTemplateComponents(projectDir, name);
+		console.log('Components used in the template:');
+		if (comps) {
+			comps.forEach(function (name) {
+				if (fs.existsSync(path.join(componentsSrcDir, name, 'appinfo.json'))) {
+					console.log('    ' + name);
+				}
+			});
+		}
+
+		// theme components
+		console.log('Theme components:');
+		var themeComps = serverUtils.getThemeComponents(projectDir, themeName);
+		themeComps.forEach(function (comp) {
+			console.log('    ' + comp.id);
+		});
+
+
+		// Content types
+		console.log('Content types:');
+		var alltypes = serverUtils.getContentTypes(projectDir);
+		for (var i = 0; i < alltypes.length; i++) {
+			if (name === alltypes[i].template) {
+				console.log('    ' + alltypes[i].type.name);
+			}
+		}
+
+		// Content layout mapping
+		console.log('Content Type mappings:');
+		var contentmapfile = path.join(tempSrcDir, 'assets', 'contenttemplate', 'summary.json');
+		if (fs.existsSync(contentmapfile)) {
+			var summaryjson = JSON.parse(fs.readFileSync(contentmapfile));
+			var contenttypes = summaryjson.categoryLayoutMappings || summaryjson.contentTypeMappings || [];
+			for (var i = 0; i < contenttypes.length; i++) {
+				var j;
+				var ctype = contenttypes[i];
+				console.log('    ' + ctype.type + ':');
+				var mappings = [],
+					defaultLayout,
+					conentListDefault,
+					emptyListDefault,
+					contentPlaceholderDefault;
+				for (j = 0; j < ctype.categoryList.length; j++) {
+					var layoutName = ctype.categoryList[j].layoutName,
+						categoryName = ctype.categoryList[j].categoryName;
+					if (layoutName) {
+						if (categoryName === 'Default') {
+							defaultLayout = {
+								'layoutName': layoutName,
+								'categoryName': 'Content Item Default'
+							};
+						} else if (categoryName === 'Content List Default') {
+							conentListDefault = {
+								'layoutName': layoutName,
+								'categoryName': categoryName
+							};
+						} else if (categoryName === 'Empty Content List Default') {
+							emptyListDefault = {
+								'layoutName': layoutName,
+								'categoryName': categoryName
+							};
+						} else if (categoryName === 'Content Placeholder Default') {
+							contentPlaceholderDefault = {
+								'layoutName': layoutName,
+								'categoryName': categoryName
+							};
+						} else {
+							mappings[mappings.length] = {
+								'layoutName': layoutName,
+								'categoryName': categoryName
+							};
+						}
+					}
+				}
+
+				if (mappings.length > 0) {
+					var byName = mappings.slice(0);
+					byName.sort(function (a, b) {
+						var x = a.categoryName;
+						var y = b.categoryName;
+						return (x < y ? -1 : x > y ? 1 : 0);
+					});
+					mappings = byName;
+				}
+
+				console.log('        Content Layout:');
+				if (defaultLayout) {
+					console.log('            ' + defaultLayout.categoryName + ' => ' + defaultLayout.layoutName);
+				}
+				if (conentListDefault) {
+					console.log('            ' + conentListDefault.categoryName + ' => ' + conentListDefault.layoutName);
+				}
+				if (emptyListDefault) {
+					console.log('           ' + emptyListDefault.categoryName + ' => ' + emptyListDefault.layoutName);
+				}
+				if (contentPlaceholderDefault) {
+					console.log('            ' + contentPlaceholderDefault.categoryName + ' => ' + contentPlaceholderDefault.layoutName);
+				}
+				for (j = 0; j < mappings.length; j++) {
+					console.log('            ' + mappings[j].categoryName + ' => ' + mappings[j].layoutName);
+				}
+
+				var editorList = ctype.editorList || [];
+				if (editorList.length > 0) {
+					console.log('        Editors:');
+					for (j = 0; j < editorList.length; j++) {
+						console.log('            ' + editorList[j].editorName);
 					}
 				}
 			}
+		}
 
-			if (mappings.length > 0) {
-				var byName = mappings.slice(0);
-				byName.sort(function (a, b) {
-					var x = a.categoryName;
-					var y = b.categoryName;
-					return (x < y ? -1 : x > y ? 1 : 0);
-				});
-				mappings = byName;
-			}
-
-			console.log('        Content Layout:');
-			if (defaultLayout) {
-				console.log('            ' + defaultLayout.categoryName + ' => ' + defaultLayout.layoutName);
-			}
-			if (conentListDefault) {
-				console.log('            ' + conentListDefault.categoryName + ' => ' + conentListDefault.layoutName);
-			}
-			if (emptyListDefault) {
-				console.log('           ' + emptyListDefault.categoryName + ' => ' + emptyListDefault.layoutName);
-			}
-			if (contentPlaceholderDefault) {
-				console.log('            ' + contentPlaceholderDefault.categoryName + ' => ' + contentPlaceholderDefault.layoutName);
-			}
-			for (j = 0; j < mappings.length; j++) {
-				console.log('            ' + mappings[j].categoryName + ' => ' + mappings[j].layoutName);
-			}
-
-			var editorList = ctype.editorList || [];
-			if (editorList.length > 0) {
-				console.log('        Editors:');
-				for (j = 0; j < editorList.length; j++) {
-					console.log('            ' + editorList[j].editorName);
+		// Content forms
+		var typesRootPath = path.join(tempSrcDir, 'assets', 'contenttemplate', 'Content Template of ' + name);
+		if (fs.existsSync(typesRootPath)) {
+			var contentForms = _getCustomForms(typesRootPath);
+			if (contentForms.length > 0) {
+				console.log('Content Forms:');
+				for (var j = 0; j < contentForms.length; j++) {
+					console.log('    ' + contentForms[j].type + ': ' + contentForms[j].customForms);
 				}
 			}
 		}
-	}
 
-	// Content forms
-	var typesRootPath = path.join(tempSrcDir, 'assets', 'contenttemplate', 'Content Template of ' + name);
-	if (fs.existsSync(typesRootPath)) {
-		var contentForms = _getCustomForms(typesRootPath);
-		if (contentForms.length > 0) {
-			console.log('Content Forms:');
-			for (var j = 0; j < contentForms.length; j++) {
-				console.log('    ' + contentForms[j].type + ': ' + contentForms[j].customForms);
-			}
-		}
+		done(true);
 	}
-
-	done(true);
 };
 
 module.exports.downloadTemplate = function (argv, done) {
@@ -3102,7 +3315,7 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 						return Promise.reject();
 					}
 
-					console.log(' - get site ');
+					console.log(' - get site (Id: ' + site.fFolderGUID + ')');
 					fFolderGUID = site.fFolderGUID;
 
 					return _IdcCopySites2(server, idcToken, name, fFolderGUID, exportPublishedAssets);
@@ -3196,7 +3409,9 @@ var _createTemplateFromSiteAndDownloadSCS = function (argv) {
 				})
 				.then(function (result) {
 
-					return resolve({});
+					return resolve({
+						siteId: fFolderGUID
+					});
 
 				})
 				.catch((error) => {

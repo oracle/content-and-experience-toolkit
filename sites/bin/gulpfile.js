@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global console, __dirname, process, console */
@@ -528,6 +528,19 @@ gulp.task('create-folder', function (done) {
 });
 
 /**
+ * Copy folder
+ */
+gulp.task('copy-folder', function (done) {
+	'use strict';
+
+	doclib.copyFolder(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+
+/**
  * Share folder
  */
 gulp.task('share-folder', function (done) {
@@ -595,6 +608,18 @@ gulp.task('delete-folder', function (done) {
 	'use strict';
 
 	doclib.deleteFolder(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Copy file
+ */
+gulp.task('copy-file', function (done) {
+	'use strict';
+
+	doclib.copyFile(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -694,6 +719,18 @@ gulp.task('unshare-component', function (done) {
 	'use strict';
 
 	componentlib.unshareComponent(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Describe component
+ */
+gulp.task('describe-component', function (done) {
+	'use strict';
+
+	componentlib.describeComponent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -940,7 +977,7 @@ gulp.task('compile-template', function (done) {
  * Compile site
  * download a site to a local template, compile it and upload the compiled pages to the site
  */
- gulp.task('compile-site', function (done) {
+gulp.task('compile-site', function (done) {
 	'use strict';
 	projectDir = argv.projectDir;
 
@@ -1174,6 +1211,18 @@ gulp.task('control-taxonomy', function (done) {
 });
 
 /**
+ * describe taxonomy on server
+ */
+gulp.task('describe-taxonomy', function (done) {
+	'use strict';
+
+	taxonomylib.describeTaxonomy(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Add component to a theme
  */
 gulp.task('add-theme-component', function (done) {
@@ -1192,6 +1241,18 @@ gulp.task('remove-theme-component', function (done) {
 	'use strict';
 
 	templatelib.removeThemeComponent(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Copy theme
+ */
+gulp.task('copy-theme', function (done) {
+	'use strict';
+
+	themelib.copyTheme(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -1236,7 +1297,7 @@ gulp.task('unshare-theme', function (done) {
 /**
  * describe theme
  */
- gulp.task('describe-theme', function (done) {
+gulp.task('describe-theme', function (done) {
 	'use strict';
 
 	themelib.describeTheme(argv, function (success) {
@@ -1498,7 +1559,7 @@ gulp.task('unshare-site', function (done) {
 /**
  * Delete site
  */
- gulp.task('delete-site', function (done) {
+gulp.task('delete-site', function (done) {
 	'use strict';
 
 	sitelib.deleteSite(argv, function (success) {
@@ -1704,6 +1765,18 @@ gulp.task('unshare-repository', function (done) {
 });
 
 /**
+ * List repository properties
+ */
+gulp.task('describe-repository', function (done) {
+	'use strict';
+
+	assetlib.describeRepository(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Set Editorial Permissions
  */
 gulp.task('set-editorial-permission', function (done) {
@@ -1730,7 +1803,7 @@ gulp.task('list-editorial-permission', function (done) {
 /**
  * List Editorial Roles
  */
- gulp.task('list-editorial-role', function (done) {
+gulp.task('list-editorial-role', function (done) {
 	'use strict';
 
 	assetlib.listEditorialRole(argv, function (success) {
@@ -1742,7 +1815,7 @@ gulp.task('list-editorial-permission', function (done) {
 /**
  * Create an Editorial Role
  */
- gulp.task('create-editorial-role', function (done) {
+gulp.task('create-editorial-role', function (done) {
 	'use strict';
 
 	assetlib.createEditorialRole(argv, function (success) {
@@ -1754,7 +1827,7 @@ gulp.task('list-editorial-permission', function (done) {
 /**
  * Set editorial permission for an Editorial Role
  */
- gulp.task('set-editorial-role', function (done) {
+gulp.task('set-editorial-role', function (done) {
 	'use strict';
 
 	assetlib.setEditorialRole(argv, function (success) {
@@ -1766,7 +1839,7 @@ gulp.task('list-editorial-permission', function (done) {
 /**
  * Delete an Editorial Role
  */
- gulp.task('delete-editorial-role', function (done) {
+gulp.task('delete-editorial-role', function (done) {
 	'use strict';
 
 	assetlib.deleteEditorialRole(argv, function (success) {
@@ -1818,6 +1891,18 @@ gulp.task('upload-type', function (done) {
 	'use strict';
 
 	assetlib.uploadType(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Copy a type
+ */
+gulp.task('copy-type', function (done) {
+	'use strict';
+
+	assetlib.copyType(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -1943,6 +2028,18 @@ gulp.task('unshare-channel', function (done) {
 	'use strict';
 
 	assetlib.unshareChannel(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Describe a channel
+ */
+gulp.task('describe-channel', function (done) {
+	'use strict';
+
+	assetlib.describeChannel(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -2165,7 +2262,7 @@ gulp.task('execute-get', function (done) {
 /**
  * Execute POST
  */
- gulp.task('execute-post', function (done) {
+gulp.task('execute-post', function (done) {
 	'use strict';
 
 	resourcelib.executePost(argv, function (success) {
@@ -2174,6 +2271,17 @@ gulp.task('execute-get', function (done) {
 	});
 });
 
+/**
+ * Execute DELETE
+ */
+gulp.task('execute-delete', function (done) {
+	'use strict';
+
+	resourcelib.executeDelete(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
 
 gulp.task('check-version', function (done) {
 	'use strict';

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global console, __dirname, process, module, Buffer, console */
@@ -1071,6 +1071,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 				if (creatNewSite && site) {
 					createSitePromises.push(sitesRest.createSite({
 						server: destServer,
+						id: site.id,
 						name: siteName,
 						description: site.description,
 						templateName: templateName,
@@ -1357,7 +1358,7 @@ module.exports.transferSite = function (argv, done) {
 
 					} else {
 
-						console.log(' - verify site (defaultLanguage: ' + site.defaultLanguage + ' theme: ' + site.themeName + ')');
+						console.log(' - verify site (Id: ' + site.id + ' defaultLanguage: ' + site.defaultLanguage + ' theme: ' + site.themeName + ')');
 
 						if (!site.channel || !site.channel.localizationPolicy) {
 							console.log('ERROR: failed to get site channel ' + (site.channel ? JSON.stringify(site.channel) : ''));
@@ -1765,8 +1766,10 @@ module.exports.transferSite = function (argv, done) {
 								var createSitePromises = [];
 								if (creatNewSite && site) {
 
+									// will preserve the original site id
 									createSitePromises.push(sitesRest.createSite({
 										server: destServer,
+										id: site.id,
 										name: siteName,
 										description: site.description,
 										sitePrefix: (sitePrefix || site.sitePrefix),
@@ -4673,6 +4676,7 @@ module.exports.migrateSite = function (argv, done) {
 		}
 
 		var template, templateGUID;
+		var srcSiteId;
 
 		// verify site
 		sitesRest.resourceExist({
@@ -4722,6 +4726,7 @@ module.exports.migrateSite = function (argv, done) {
 					if (!results || !results[0] || results[0].err) {
 						return Promise.reject();
 					}
+					srcSiteId = results[0].siteId;
 				}
 
 				var templatePath;
@@ -4807,6 +4812,7 @@ module.exports.migrateSite = function (argv, done) {
 
 				return sitesRest.createSite({
 					server: destServer,
+					id: srcSiteId,
 					name: siteName,
 					descriptions: description,
 					sitePrefix: sitePrefix,

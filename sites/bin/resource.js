@@ -1049,9 +1049,8 @@ module.exports.executePost = function (argv, done) {
 					if (error) {
 						console.log('Failed to post ' + endpoint);
 						console.log(error);
-						resolve({
-							err: 'err'
-						});
+						done();
+						return;
 					}
 					var data;
 					try {
@@ -1127,6 +1126,92 @@ module.exports.executePost = function (argv, done) {
 				});
 			});
 	});
+};
+
+module.exports.executeDelete = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var endpoint = argv.endpoint;
+	var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
+	var isSites = endpoint.indexOf('/sites/management/api/') === 0;
+	var isSystem = endpoint.indexOf('/system/api/') === 0;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		var caasTokenPromises = [];
+		if (isCAAS) {
+			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
+		} else if (isSystem) {
+			caasTokenPromises.push(serverUtils.getSystemCSRFToken(server));
+		}
+
+		Promise.all(caasTokenPromises)
+			.then(function (results) {
+				var csrfToken = results && results[0] && results[0].token;
+
+				var options = {
+					method: 'DELETE',
+					url: server.url + endpoint,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					}
+				};
+
+				if (csrfToken) {
+					options.headers['X-CSRF-TOKEN'] = csrfToken;
+				}
+				// console.log(options);
+
+				console.log(' - executing endpoint: DELETE ' + endpoint);
+				var request = require('../test/server/requestUtils.js').request;
+				request.delete(options, function (error, response, body) {
+
+					if (error) {
+						console.log('Failed to delete ' + endpoint);
+						console.log(error);
+						done();
+						return;
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					}
+
+					if (response && response.statusCode <= 300) {
+						console.log(' - endpoint executed');
+						done(true);
+					} else {
+						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+						if (data && !Buffer.isBuffer(data)) {
+							console.log(JSON.stringify(data, null, 4));
+						}
+						done();
+					}
+
+				});
+			});
+	});
+
 };
 
 

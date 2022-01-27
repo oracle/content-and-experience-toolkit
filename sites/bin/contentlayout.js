@@ -692,7 +692,7 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 						fieldstr = fieldstr + '{{/' + field.name + '}}' + os.EOL;
 
 					} else if (field.datatype === 'datetime') {
-						fieldstr = fieldstr + os.EOL + '<li><p>{{' + field.name + '.formated}}</p></li>' + os.EOL;
+						fieldstr = fieldstr + os.EOL + '<li><p>{{' + field.name + '.formatted}}</p></li>' + os.EOL;
 					} else {
 						// default
 						fieldstr = fieldstr + os.EOL + '<li><p>{{' + field.name + '}}</p></li>' + os.EOL;
@@ -836,7 +836,7 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 					} else if (field.datatype === 'datetime') {
 						tmpstr = tmpstr + os.EOL + ident;
 						tmpstr = tmpstr + 'if (data["' + field.name + '"]) {' + os.EOL + ident;
-						tmpstr = tmpstr + '	data["' + field.name + '"]["formated"] = dateToMDY(data["' + field.name + '"].value);';
+						tmpstr = tmpstr + '	data["' + field.name + '"]["formatted"] = dateToMDY(data["' + field.name + '"].value);';
 						tmpstr = tmpstr + os.EOL + ident + '}';
 					}
 					if (field.datatype === 'largetext') {

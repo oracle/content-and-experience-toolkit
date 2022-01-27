@@ -15,6 +15,23 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.1.2
+
+**Added**
+
+- `cec execute-delete` - Makes an HTTP DELETE request to a REST API endpoint on an OCM server
+- `cec copy-type` - Copies an existing content type on an OCM server
+- `cec copy-theme` - Copies an existing theme on an OCM server
+- `cec copy-folder` - Copies an existing folder on an OCM server
+- `cec copy-file` - Copies an existing file on an OCM server
+
+**Updated**
+
+- `cec copy-component` - Copies an existing local component or component on an OCM server
+- `cec copy-template` - Copies an existing local template or template on an OCM server
+- `cec transfer-site` - Now preserves the site id when transfering the site to the target server the first time
+
+
 # New in Release 22.1.1
 
 **Added**

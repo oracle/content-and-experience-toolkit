@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 /* global console, __dirname, process, console */
@@ -126,6 +126,473 @@ var _createFolder = function (server, rootParentId, folderPath, showMessage) {
 		});
 	});
 };
+
+var _getResourceInfo = function (server, resourcePath) {
+	var resourceName;
+	var resourceType;
+	var resourcePromises = [];
+	if (resourcePath && (resourcePath.indexOf('site:') === 0 || resourcePath.indexOf('theme:') === 0 || resourcePath.indexOf('component:') === 0)) {
+		// resourceFolder = true;
+		if (resourcePath.indexOf('site:') === 0) {
+			resourcePath = resourcePath.substring(5);
+			resourceType = 'site';
+		} else if (resourcePath.indexOf('theme:') === 0) {
+			resourcePath = resourcePath.substring(6);
+			resourceType = 'theme';
+		} else {
+			resourcePath = resourcePath.substring(10);
+			resourceType = 'component';
+		}
+		if (resourcePath.indexOf('/') > 0) {
+			resourceName = resourcePath.substring(0, resourcePath.indexOf('/'));
+			resourcePath = resourcePath.substring(resourcePath.indexOf('/') + 1);
+		} else {
+			resourceName = resourcePath;
+			resourcePath = '';
+		}
+
+		if (resourceType === 'site') {
+			resourcePromises.push(sitesRest.getSite({
+				server: server,
+				name: resourceName
+			}));
+		} else if (resourceType === 'theme') {
+			resourcePromises.push(sitesRest.getTheme({
+				server: server,
+				name: resourceName
+			}));
+		} else {
+			resourcePromises.push(sitesRest.getComponent({
+				server: server,
+				name: resourceName
+			}));
+		}
+	}
+	var resInfo = {
+		resourcePath: resourcePath,
+		resourceName: resourceName,
+		resourceType: resourceType,
+		resourcePromises: resourcePromises
+	};
+	return resInfo;
+};
+
+module.exports.copyFolder = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		var srcPath = argv.name;
+		var folderName = srcPath;
+		if (folderName.indexOf('/') > 0) {
+			folderName = folderName.substring(folderName.lastIndexOf('/') + 1);
+		}
+
+		var info = _getResourceInfo(server, srcPath);
+		var resourceName = info.resourceName;
+		var resourceType = info.resourceType;
+		var folderResourcePromises = info.resourcePromises;
+		var resourceFolder = resourceName && resourceType;
+		if (resourceFolder) {
+			srcPath = info.resourcePath;
+		}
+		// console.log(' - argv.name=' + argv.name + ' resource name=' + resourceName + ' type=' + resourceType + ' folder=' + srcPath);
+
+		var sameFolder = argv.folder === undefined;
+		var targetPath = argv.folder === '/' ? '' : serverUtils.trimString(argv.folder, '/');
+		info = _getResourceInfo(server, targetPath);
+		var targetResName = info.resourceName;
+		var targetResType = info.resourceType;
+		var targetResourcePromises = info.resourcePromises;
+		var targetResFolder = targetResName && targetResType;
+		if (targetResFolder) {
+			targetPath = info.resourcePath;
+		}
+		// console.log(' - argv.folder=' + argv.folder + ' resource name=' + targetResName + ' type=' + targetResType + ' target folder=' + targetPath);
+
+		if (resourceFolder && !targetResFolder) {
+			console.log('ERROR: ' + resourceType + ' folder cannot be copied to Home folder');
+			done();
+			return;
+		}
+		if (!resourceFolder && targetResFolder) {
+			console.log('ERROR: personal folder cannot be copied to ' + targetResType + ' folder');
+			done();
+			return;
+		}
+		if (resourceFolder && resourceFolder && resourceType !== targetResType) {
+			console.log('ERROR: ' + resourceType + ' folder cannot be copied to ' + targetResType + ' folder');
+			done();
+			return;
+		}
+
+		var folderRootParentId = 'self';
+		var srcFolder;
+		var targetFolderId = 'self';
+
+		Promise.all(folderResourcePromises)
+			.then(function (results) {
+				if (resourceFolder) {
+					var resourceGUID;
+					if (results.length > 0 && results[0]) {
+						resourceGUID = results[0].id;
+					}
+
+					if (!resourceGUID) {
+						console.log('ERROR: invalid ' + resourceType + ' ' + resourceName);
+						return Promise.reject();
+					}
+					folderRootParentId = resourceGUID;
+				}
+				// console.log(' - file parent ' + folderRootParentId);
+
+				return serverRest.findFolderHierarchy({
+					server: server,
+					parentID: folderRootParentId,
+					folderPath: srcPath
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					console.log('ERROR: folder ' + argv.name + ' does not exist');
+					return Promise.reject();
+				}
+				if (result.type !== 'folder') {
+					console.log('ERROR: ' + argv.name + ' is not a folder');
+					return Promise.reject();
+				}
+				console.log(' - verify source folder ' + argv.name);
+				srcFolder = result;
+
+				return Promise.all(targetResourcePromises);
+
+			})
+			.then(function (results) {
+				var targetFldRootParentId = 'self';
+				if (targetResFolder) {
+					var targetResGUID;
+					if (results.length > 0 && results[0]) {
+						targetResGUID = results[0].id;
+					}
+
+					if (!targetResGUID) {
+						console.log('ERROR: invalid ' + targetResType + ' ' + targetResName);
+						return Promise.reject();
+					}
+					targetFldRootParentId = targetResGUID;
+				}
+				// console.log(' - target folder root parent ' + targetFldRootParentId);
+
+				var targetFolderPromises = [];
+				if (!sameFolder) {
+					targetFolderPromises.push(serverRest.findFolderHierarchy({
+						server: server,
+						parentID: targetFldRootParentId,
+						folderPath: targetPath
+					}));
+				}
+
+				return Promise.all(targetFolderPromises);
+			})
+			.then(function (results) {
+				if (!sameFolder) {
+					if (results.length > 0 && results[0]) {
+						targetFolderId = results[0].id;
+					}
+				} else {
+					targetFolderId = srcFolder.parentID;
+				}
+
+				var targetFolderLabel;
+				if (targetFolderId === 'self') {
+					targetFolderLabel = 'Home';
+				} else if (!argv.folder) {
+					// the same folder as the source file
+					targetFolderLabel = argv.name.substring(0, argv.name.lastIndexOf('/'));
+				} else {
+					targetFolderLabel = argv.folder;
+				}
+
+				if (!targetFolderId) {
+					console.log('ERROR: folder ' + targetFolderLabel + ' does not exist');
+					return Promise.reject();
+				}
+
+				console.log(' - verify target folder: ' + targetFolderLabel);
+
+				return serverRest.copyFolder({
+					server: server,
+					id: srcFolder.id,
+					folderId: targetFolderId
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+				// console.log(result);
+				console.log(' - folder copied (Id: ' + result.id + ')');
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
+
+module.exports.copyFile = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		var filePath = argv.file;
+		var fileName = filePath;
+		if (fileName.indexOf('/') > 0) {
+			fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
+		}
+
+		var folderPathStr = filePath.indexOf('/') >= 0 ? filePath.substring(0, filePath.lastIndexOf('/')) : '';
+		var resourceFolder = false;
+		var resourceName;
+		var resourceType;
+		var fileResourcePromises = [];
+		if (folderPathStr && (folderPathStr.indexOf('site:') === 0 || folderPathStr.indexOf('theme:') === 0 || folderPathStr.indexOf('component:') === 0)) {
+			resourceFolder = true;
+			if (folderPathStr.indexOf('site:') === 0) {
+				folderPathStr = folderPathStr.substring(5);
+				resourceType = 'site';
+			} else if (folderPathStr.indexOf('theme:') === 0) {
+				folderPathStr = folderPathStr.substring(6);
+				resourceType = 'theme';
+			} else {
+				folderPathStr = folderPathStr.substring(10);
+				resourceType = 'component';
+			}
+			if (folderPathStr.indexOf('/') > 0) {
+				resourceName = folderPathStr.substring(0, folderPathStr.indexOf('/'));
+				folderPathStr = folderPathStr.substring(folderPathStr.indexOf('/') + 1);
+			} else {
+				resourceName = folderPathStr;
+				folderPathStr = '';
+			}
+			filePath = folderPathStr ? folderPathStr + '/' + fileName : fileName;
+
+			if (resourceType === 'site') {
+				fileResourcePromises.push(sitesRest.getSite({
+					server: server,
+					name: resourceName
+				}));
+			} else if (resourceType === 'theme') {
+				fileResourcePromises.push(sitesRest.getTheme({
+					server: server,
+					name: resourceName
+				}));
+			} else {
+				fileResourcePromises.push(sitesRest.getComponent({
+					server: server,
+					name: resourceName
+				}));
+			}
+		}
+		// console.log(' - argv.file=' + argv.file + ' folderPathStr=' + folderPathStr + ' resourceName=' + resourceName);
+		var folderPath = folderPathStr.split('/');
+
+		var sameFolder = argv.folder === undefined;
+		var targetPath = argv.folder === '/' ? '' : serverUtils.trimString(argv.folder, '/');
+		var targetResFolder = false;
+		var targetResName;
+		var targetResType;
+		var targetResourcePromises = [];
+		if (targetPath && (targetPath.indexOf('site:') === 0 || targetPath.indexOf('theme:') === 0 || targetPath.indexOf('component:') === 0)) {
+			targetResFolder = true;
+			if (targetPath.indexOf('site:') === 0) {
+				targetPath = targetPath.substring(5);
+				targetResType = 'site';
+			} else if (targetPath.indexOf('theme:') === 0) {
+				targetPath = targetPath.substring(6);
+				targetResType = 'theme';
+			} else {
+				targetPath = targetPath.substring(10);
+				targetResType = 'component';
+			}
+			if (targetPath.indexOf('/') > 0) {
+				targetResName = targetPath.substring(0, targetPath.indexOf('/'));
+				targetPath = targetPath.substring(targetPath.indexOf('/') + 1);
+			} else {
+				targetResName = targetPath;
+				targetPath = '';
+			}
+			if (targetResType === 'site') {
+				targetResourcePromises.push(sitesRest.getSite({
+					server: server,
+					name: targetResName
+				}));
+			} else if (targetResType === 'theme') {
+				targetResourcePromises.push(sitesRest.getTheme({
+					server: server,
+					name: targetResName
+				}));
+			} else {
+				targetResourcePromises.push(sitesRest.getComponent({
+					server: server,
+					name: targetResName
+				}));
+			}
+		}
+
+		var fileRootParentId = 'self';
+		var srcFile;
+		var targetFolderId = 'self';
+
+		Promise.all(fileResourcePromises)
+			.then(function (results) {
+				if (resourceFolder) {
+					var resourceGUID;
+					if (results.length > 0 && results[0]) {
+						resourceGUID = results[0].id;
+					}
+
+					if (!resourceGUID) {
+						console.log('ERROR: invalid ' + resourceType + ' ' + resourceName);
+						return Promise.reject();
+					}
+					fileRootParentId = resourceGUID;
+				}
+				// console.log(' - file parent ' + fileRootParentId);
+
+				return serverRest.findFolderHierarchy({
+					server: server,
+					parentID: fileRootParentId,
+					folderPath: filePath
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					console.log('ERROR: file ' + filePath + ' does not exist');
+					return Promise.reject();
+				}
+				console.log(' - verify source file ' + argv.file);
+				srcFile = result;
+
+				return Promise.all(targetResourcePromises);
+
+			})
+			.then(function (results) {
+				var targetFldRootParentId = 'self';
+				if (targetResFolder) {
+					var targetResGUID;
+					if (results.length > 0 && results[0]) {
+						targetResGUID = results[0].id;
+					}
+
+					if (!targetResGUID) {
+						console.log('ERROR: invalid ' + targetResType + ' ' + targetResName);
+						return Promise.reject();
+					}
+					targetFldRootParentId = targetResGUID;
+				}
+
+				// console.log(' - target folder root parent ' + targetFldRootParentId);
+				var targetFolderPromises = [];
+				if (!sameFolder) {
+					targetFolderPromises.push(serverRest.findFolderHierarchy({
+						server: server,
+						parentID: targetFldRootParentId,
+						folderPath: targetPath
+					}));
+				}
+
+				return Promise.all(targetFolderPromises);
+			})
+			.then(function (results) {
+				if (!sameFolder) {
+					if (results.length > 0 && results[0]) {
+						targetFolderId = results[0].id;
+					}
+				} else {
+					targetFolderId = srcFile.parentID;
+				}
+
+				var targetFolderLabel;
+				if (targetFolderId === 'self') {
+					targetFolderLabel = 'Home';
+				} else if (!argv.folder) {
+					// the same folder as the source file
+					targetFolderLabel = argv.file.substring(0, argv.file.lastIndexOf('/'));
+				} else {
+					targetFolderLabel = argv.folder;
+				}
+
+				if (!targetFolderId) {
+					console.log('ERROR: folder ' + targetFolderLabel + ' does not exist');
+					return Promise.reject();
+				}
+
+				console.log(' - verify target folder: ' + targetFolderLabel);
+
+				return serverRest.copyFile({
+					server: server,
+					id: srcFile.id,
+					folderId: targetFolderId
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+				// console.log(result);
+				console.log(' - file copied (Id: ' + result.id + ')');
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
 
 module.exports.uploadFile = function (argv, done) {
 	'use strict';

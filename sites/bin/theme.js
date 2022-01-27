@@ -645,3 +645,83 @@ module.exports.describeTheme = function (argv, done) {
 			});
 	});
 };
+
+/**
+ * copy a theme on server
+ */
+module.exports.copyTheme = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var srcName = argv.source;
+	var name = argv.name;
+	var description = argv.description;
+
+	serverUtils.loginToServer(server)
+		.then(function (result) {
+			if (!result.status) {
+				console.log(result.statusMessage);
+				done();
+				return;
+			}
+
+			sitesRest.getTheme({
+					server: server,
+					name: srcName
+				})
+				.then(function (result) {
+					if (!result || result.err || !result.id) {
+						return Promise.reject();
+					}
+
+					var srcTheme = result;
+					console.log(' - validate theme (Id: ' + srcTheme.id + ')');
+
+					return sitesRest.copyTheme({
+						server: server,
+						srcId: srcTheme.id,
+						srcName: srcTheme.name,
+						name: name,
+						description: description
+					});
+
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+
+					return sitesRest.getTheme({
+						server: server,
+						name: name
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err || !result.id) {
+						return Promise.reject();
+					}
+
+					console.log(' - theme copied (Id: ' + result.id + ' name: ' + result.name + ')');
+					done(true);
+
+				})
+				.catch((error) => {
+					if (error) {
+						console.log(error);
+					}
+					done();
+				});
+
+		});
+};

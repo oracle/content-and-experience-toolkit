@@ -1264,6 +1264,46 @@ module.exports.getCaasCSRFToken = function (server) {
 	return csrfTokenPromise;
 };
 
+module.exports.getSystemCSRFToken = function (server) {
+	var csrfTokenPromise = new Promise(function (resolve, reject) {
+		var url = server.url + '/system/api/v1/csrfToken';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				'X-Requested-With': 'XMLHttpRequest',
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get system CSRF token');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				return resolve(data);
+			} else {
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get system CSRF token ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+	return csrfTokenPromise;
+};
+
 module.exports.getIdcToken = function (server) {
 	return _getIdcToken(server);
 };

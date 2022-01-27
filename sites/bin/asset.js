@@ -732,7 +732,9 @@ module.exports.shareRepository = function (argv, done) {
 
 				if (repository.contentTypes) {
 					for (var i = 0; i < repository.contentTypes.length; i++) {
-						typeNames.push(repository.contentTypes[i].name);
+						if (!['Image', 'File', 'Video'].includes(repository.contentTypes[i].name)) {
+							typeNames.push(repository.contentTypes[i].name);
+						}
 					}
 				}
 				if (shareTypes) {
@@ -1247,6 +1249,158 @@ module.exports.unShareRepository = function (argv, done) {
 			});
 	});
 };
+
+module.exports.describeRepository = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var output = argv.file;
+
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+		if (!fs.existsSync(outputFolder)) {
+			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(outputFolder).isDirectory()) {
+			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			done();
+			return;
+		}
+	}
+
+	var name = argv.name;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		var repo;
+		var channels = [];
+		var taxonomies = [];
+
+		serverRest.getRepositoryWithName({
+				server: server,
+				name: name
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				repo = result.data;
+				if (!repo || !repo.id) {
+					console.log('ERROR: repository ' + name + ' does not exist');
+					return Promise.reject();
+				}
+
+				if (output) {
+					fs.writeFileSync(output, JSON.stringify(repo, null, 4));
+					console.log(' - repository properties saved to ' + output);
+				}
+
+				var channelPromises = [];
+				if (repo.channels && repo.channels.length > 0) {
+					repo.channels.forEach(function (channel) {
+						channelPromises.push(serverRest.getChannel({
+							server: server,
+							id: channel.id
+						}));
+					});
+				}
+
+				return Promise.all(channelPromises);
+
+			})
+			.then(function (results) {
+
+				channels = results || [];
+
+				var taxonomyPromises = [];
+
+				if (repo.taxonomies && repo.taxonomies.length > 0) {
+					repo.taxonomies.forEach(function (tax) {
+						taxonomyPromises.push(serverRest.getTaxonomy({
+							server: server,
+							id: tax.id
+						}));
+					});
+				}
+
+				return Promise.all(taxonomyPromises);
+
+			})
+			.then(function (results) {
+				var taxonomies = results || [];
+				var taxNames = [];
+				taxonomies.forEach(function (tax) {
+					if (tax && tax.id && tax.name) {
+						taxNames.push(tax.name);
+					}
+				});
+
+				var channelNames = [];
+				channels.forEach(function (channel) {
+					if (channel && channel.id && channel.name) {
+						channelNames.push(channel.name);
+					}
+				});
+
+				var assetTypes = [];
+				if (repo.contentTypes && repo.contentTypes.length > 0) {
+					repo.contentTypes.forEach(function (type) {
+						assetTypes.push(type.displayName || type.name);
+					});
+				}
+				var format1 = '%-38s  %-s';
+				console.log('');
+				console.log(sprintf(format1, 'Id', repo.id));
+				console.log(sprintf(format1, 'Name', repo.name));
+				console.log(sprintf(format1, 'description', repo.description || ''));
+				console.log(sprintf(format1, 'Created', repo.createdDate.value + ' by ' + repo.createdBy));
+				console.log(sprintf(format1, 'Updated', repo.updatedDate.value + ' by ' + repo.updatedBy));
+				console.log(sprintf(format1, 'Asset types', assetTypes.sort()));
+				console.log(sprintf(format1, 'Publishing channels', channelNames.sort()));
+				console.log(sprintf(format1, 'Taxonomies', taxNames.sort()));
+				console.log(sprintf(format1, 'Default language', repo.defaultLanguage));
+				console.log(sprintf(format1, 'Channel languages', repo.configuredLanguages));
+				console.log(sprintf(format1, 'Additional languages', repo.languageOptions));
+				console.log('');
+
+				done(true);
+
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
 
 module.exports.shareType = function (argv, done) {
 	'use strict';
@@ -2044,6 +2198,74 @@ var _createContentTypes = function (server, typePaths) {
 
 	});
 };
+
+module.exports.copyType = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var srcTypeName = argv.source;
+	var name = argv.name;
+	var displayName = argv.displayname || name;
+	var description = argv.description ? argv.description : '';
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		serverRest.getContentType({
+				server: server,
+				name: srcTypeName,
+				expand: 'all'
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+
+				console.log(' - validate type ' + srcTypeName);
+				var typeObj = result;
+				typeObj.name = name;
+				typeObj.displayName = displayName;
+				typeObj.description = description;
+
+				return serverRest.createContentType({
+					server: server,
+					type: typeObj
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+
+				console.log(' - type copied (name: ' + result.name + ' display name: ' + result.displayName + ' typeCategory: ' + result.typeCategory + ')');
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
 
 module.exports.createCollection = function (argv, done) {
 	'use strict';
@@ -3127,6 +3349,157 @@ module.exports.unshareChannel = function (argv, done) {
 			});
 	});
 };
+
+module.exports.describeChannel = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var output = argv.file;
+
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+		if (!fs.existsSync(outputFolder)) {
+			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(outputFolder).isDirectory()) {
+			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			done();
+			return;
+		}
+	}
+
+	var name = argv.name;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		var channel;
+		var policyName;
+
+		serverRest.getChannelWithName({
+				server: server,
+				name: name
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				channel = result.data;
+				if (!channel || !channel.id) {
+					console.log('ERROR: channel ' + name + ' does not exist');
+					return Promise.reject();
+				}
+
+				if (output) {
+					fs.writeFileSync(output, JSON.stringify(repo, null, 4));
+					console.log(' - channel properties saved to ' + output);
+				}
+
+				var policyPromises = [];
+				if (channel.localizationPolicy) {
+					policyPromises.push(serverRest.getLocalizationPolicy({
+						server: server,
+						id: channel.localizationPolicy
+					}));
+				}
+
+				return Promise.all(policyPromises);
+
+			})
+			.then(function (results) {
+				var policies = results || [];
+				policyName = '';
+				if (policies && policies[0] && policies[0].id && policies[0].name) {
+					policyName = policies[0].name;
+				}
+
+				var repoPromises = [];
+				if (channel.repositories && channel.repositories.length > 0) {
+					channel.repositories.forEach(function (repo) {
+						if (repo.id) {
+							repoPromises.push(serverRest.getRepository({
+								server: server,
+								id: repo.id
+							}));
+						}
+					});
+				}
+
+				return Promise.all(repoPromises);
+
+			})
+			.then(function (results) {
+				var repos = results || [];
+				var repoNames = [];
+				repos.forEach(function (repo) {
+					if (repo && repo.id && repo.name) {
+						repoNames.push(repo.name);
+					}
+				});
+
+				var tokens = channel.channelTokens || [];
+				var channelToken;
+				for (var i = 0; i < tokens.length; i++) {
+					if (tokens[i].name === 'defaultToken') {
+						channelToken = tokens[i].token;
+						break;
+					}
+				}
+
+				var format1 = '%-38s  %-s';
+				console.log('');
+				console.log(sprintf(format1, 'Id', channel.id));
+				console.log(sprintf(format1, 'Token', channelToken));
+				console.log(sprintf(format1, 'Name', channel.name));
+				console.log(sprintf(format1, 'description', channel.description || ''));
+				console.log(sprintf(format1, 'Created', channel.createdDate.value + ' by ' + channel.createdBy));
+				console.log(sprintf(format1, 'Updated', channel.updatedDate.value + ' by ' + channel.updatedBy));
+				console.log(sprintf(format1, 'Publishing', channel.publishPolicy));
+				console.log(sprintf(format1, 'Localization', policyName));
+				console.log(sprintf(format1, 'Access to published resources', channel.channelType));
+				/*
+				if (repoNames.length > 0) {
+					console.log(sprintf(format1, 'Repositories', repoNames.sort()));
+				}
+				*/
+				console.log('');
+				done(true);
+
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
 
 /**
  * List Editorial Permissions
