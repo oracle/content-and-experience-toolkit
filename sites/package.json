@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "22.1.2",
+	"version": "22.1.2a",
 	"license": "UPL-1.0",
 	"description": "Oracle Content Management Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content Management.",
 	"main": "index.js",
@@ -195,7 +195,7 @@
 		"gulp-zip": "5.1.0",
 		"he": "1.2.0",
 		"htmllint": "0.8.0",
-		"marked": "3.0.7",
+		"marked": "4.0.10",
 		"mocha": "8.2.1",
 		"mustache": "4.0.1",
 		"node-fetch": "2.6.1",

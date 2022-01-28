@@ -97,7 +97,15 @@ var getRichText = function (content) {
 var getMarkdownText = function (content) {
 	var newVal = content.replace(/<!---mde-->/i, '');
 
-	newVal = marked(newVal);
+	if (marked) {
+		if (typeof marked.parse === 'function') {
+			// marked v4+
+			newVal = marked.parse(newVal);
+		} else {
+			// marked v3
+			newVal = marked(newVal);
+		}
+	}
 
 	return newVal;
 };
