@@ -1,6 +1,6 @@
 {
   "name": "cec",
-  "version": "22.1.2a",
+  "version": "22.1.2b",
   "description": "CLI for cec",
   "license": "UPL-1.0",
   "main": "cec.js",

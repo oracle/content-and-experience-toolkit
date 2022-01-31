@@ -1480,7 +1480,7 @@ module.exports.createItem = function (args) {
 
 // Create digital item on server
 var _createDigitalItem = function (server, repositoryId, type, filename, contents,
-	fields, slug, translatable, language) {
+	fields, slug, translatable, language, masterId) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -1490,6 +1490,7 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 				var FormData = require('form-data');
 				var form = new FormData();
 				var item = {
+					name: filename,
 					repositoryId: repositoryId,
 					type: type
 				};
@@ -1501,6 +1502,13 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 				}
 				if (language) {
 					item.language = language;
+				}
+				if (masterId) {
+					item.languageIsMaster = false;
+					item.sourceId = masterId;
+				}
+				else {
+					item.languageIsMaster = true;
 				}
 				if (fields && Object.keys(fields).length > 0) {
 					item.fields = fields;
@@ -1526,9 +1534,8 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 					if (error) {
 						console.log('ERROR: Failed to create create digital item for ' + filename);
 						console.log(error);
-						resolve({
-							err: 'err'
-						});
+						// Do we really want to resolve on an error?
+						resolve({err: 'err'}, error, response, body);
 					}
 
 					var data;
@@ -1549,9 +1556,8 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
 							console.log(data['o:errorDetails']);
 						}
-						resolve({
-							err: 'err'
-						});
+						// Shouldn't this reject on an error?
+						resolve({err: 'err'}, error, response, body);
 					}
 				});
 			}
@@ -1710,6 +1716,7 @@ var _createDigitalItemFromDocuments = function (server, repositoryId, type, docI
 		});
 	});
 };
+
 /**
  * create a digital item on server
  * @param {object} args JavaScript object containing parameters.
@@ -1721,6 +1728,24 @@ module.exports.createDigitalItemFromDocuments = function (args) {
 	return _createDigitalItemFromDocuments(args.server, args.repositoryId, args.type,
 		args.docId, args.docName,
 		args.fields, args.slug, args.translatable, args.language);
+};
+
+/**
+ * create a digital item on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {string} args.server the server object
+ * @param {string} args.repositoryId target repository ID
+ * @param {string} args.type asset type of the new asset
+ * @param {string} args.filename the new asset name
+ * @param {fs} args.contents file stream of the file to upload
+ * @param {Object} args.fields field data for the new item
+ * @param {string} args.slug new asset's slug
+ * @param {string} args.language the asset's language
+ * @param {string} args.masterId ID of the master variation
+ */
+module.exports.createDAVariation = function (args) {
+	return _createDigitalItem(args.server, args.repositoryId, args.type, args.filename, args.contents,
+		args.fields, args.slug, true, args.language, args.masterId);
 };
 
 // Update digital item on server
@@ -9378,6 +9403,83 @@ var _getMe = function (server) {
  */
 module.exports.getMe = function (args) {
 	return _getMe(args.server);
+}
+
+var _setUserSocialPreferences = function (server, userId, props = []) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/osn/fc/RemoteJSONBatch?apmOps=Properties.setProperties,User.updateMyProfile';
+		props = props.map(obj => ({ ...obj, '_class': 'XPropertyInfo' }));
+
+		var body = [{
+			'ModuleName': 'XPropertiesModule$Server',
+			'MethodName': 'setProperties',
+			'Arguments': [userId, props]
+		}];
+
+		// console.log("_setUserSocialPreferences body = ", body);
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var postData = {
+						method: 'POST',
+						url: url,
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID,
+							'X-Waggle-APIVersion': '12100' // It is a range between 6100 - 12140
+						},
+						body: JSON.stringify(body),
+						json: true
+					};
+
+					addCachedCookiesForRequest(server, postData);
+					request.post(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: failed to set user preferences ' + props);
+							console.log(error);
+							resolve({
+								err: 'err'
+							});
+						}
+
+						if (response && response.statusCode >= 200 && response.statusCode < 300) {
+							var data;
+							try {
+								data = JSON.parse(body);
+								console.log(`INFO: _setUserSocialPreferences(${JSON.stringify(props)}) returned`, JSON.stringify(data));
+							} catch (e) {
+								console.error(e.stack);
+							}
+							resolve(data);
+						} else {
+							console.log('ERROR: failed to set user preferences ' + props + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+							resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+		});
+}
+
+/**
+ * Get social user information about the user associated with the given server object.
+ * @param {object} args Javascript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {object} args.userId the user's social ID
+ * @param {object} args.propName the user preference property name
+ * @param {object} args.propValue the user preference property value
+ * @returns {Promise.<object>} The social user data object.
+ */
+module.exports.setUserSocialPreferences = function (args) {
+	return _setUserSocialPreferences(args.server, args.userId, args.props);
 }
 
 var _getAssetActivity = function (server, assetType, assetId) {
