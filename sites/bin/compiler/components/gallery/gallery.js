@@ -35,9 +35,6 @@ Gallery.prototype.compile = function (args) {
 	this.SCSCompileAPI = args && args.SCSCompileAPI;
 
 	return new Promise(function (resolve, reject) {
-		self.useSwiper = self.SCSCompileAPI && !self.SCSCompileAPI.useJSSOR; // CCS-92041/CCS-92912
-		self.useJssor = !self.useSwiper;
-
 		// extend the model with any values specific to this component type
 		self.computedStyle = self.encodeCSS(self.computeStyle());
 		self.computedContentStyle = self.encodeCSS(self.computeContentStyle());

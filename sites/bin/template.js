@@ -2762,8 +2762,7 @@ module.exports.compileTemplate = function (argv, done) {
 		contentLayoutSnippet = typeof argv.contentLayoutSnippet === 'boolean' ? argv.contentLayoutSnippet : argv.contentLayoutSnippet === 'true',
 		contentType = argv.type,
 		ignoreErrors = argv.ignoreErrors,
-		server,
-		useJSSOR = false; // switch from JSSOR to Swiper (CCS-92594)
+		server;
 
 	if (argv.server) {
 		server = serverUtils.verifyServer(argv.server, projectDir);
@@ -2771,11 +2770,6 @@ module.exports.compileTemplate = function (argv, done) {
 			done();
 			return;
 		}
-	}
-
-	// handle whether to use JSSOR or swiper for sliders
-	if (argv.hasOwnProperty('jssor')) {
-		useJSSOR = typeof argv.jssor === 'boolean' ? argv.jssor : argv.jssor === 'true';
 	}
 
 	var tempName = argv.source,
@@ -2828,7 +2822,6 @@ module.exports.compileTemplate = function (argv, done) {
 		noDefaultDetailPageLink: noDefaultDetailPageLink,
 		contentLayoutSnippet: contentLayoutSnippet,
 		includeLocale: includeLocale,
-		useJSSOR: useJSSOR,
 		logLevel: 'log',
 		outputURL: serverURL + '/templates/' + tempName + '/'
 	}).then(function (result) {

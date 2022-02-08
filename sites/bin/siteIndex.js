@@ -507,7 +507,7 @@ var _getPageContent = function (server, channelToken, q, pageId, queryType) {
 				});
 			}
 			if (!response || response.statusCode !== 200) {
-				console.log('ERROR: Failed to get content: status: ' + (response ? response.statusCode : '') + ' url: ' + url.replace(server.url, ''));
+				console.log('ERROR: Failed to get content: page: ' + pageId + ' status: ' + (response ? response.statusCode : '') + ' url: ' + url.replace(server.url, ''));
 				return resolve({
 					'err': (response ? response.statusCode : 'error')
 				});
@@ -515,7 +515,7 @@ var _getPageContent = function (server, channelToken, q, pageId, queryType) {
 			try {
 				var data = JSON.parse(body);
 				if (!data) {
-					console.log('ERROR: Failed to get content: url: ' + url.replace(server.url, ''));
+					console.log('ERROR: Failed to get content: page: ' + pageId + ' url: ' + url.replace(server.url, ''));
 					return resolve({
 						'err': 'error'
 					});
@@ -1362,14 +1362,16 @@ var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contentty
 					if (values && values.length > 0) {
 						for (var i = 0; i < values.length; i++) {
 							// Save the item id for publish
-							ids.push(values[i].id);
-							if (isMaster) {
-								_masterItems.push({
-									id: values[i].id,
-									pageid: values[i].fields.pageid
-								});
-							} else {
-								itemIds.push(values[i].id);
+							if (values[i].id && values[i].fields) {
+								ids.push(values[i].id);
+								if (isMaster) {
+									_masterItems.push({
+										id: values[i].id,
+										pageid: values[i].fields.pageid
+									});
+								} else {
+									itemIds.push(values[i].id);
+								}
 							}
 						}
 					}
@@ -1406,13 +1408,15 @@ var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contentty
 
 					for (var i = 0; i < values.length; i++) {
 						// Save the item id for publish
-						if (isMaster) {
-							_masterItems.push({
-								id: values[i].id,
-								pageid: values[i].fields.pageid
-							});
-						} else {
-							itemIds.push(values[i].id);
+						if (values[i].id && values[i].fields) {
+							if (isMaster) {
+								_masterItems.push({
+									id: values[i].id,
+									pageid: values[i].fields.pageid
+								});
+							} else {
+								itemIds.push(values[i].id);
+							}
 						}
 					}
 

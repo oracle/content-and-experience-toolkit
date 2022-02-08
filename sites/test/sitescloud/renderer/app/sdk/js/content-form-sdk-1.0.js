@@ -104,7 +104,7 @@
             }
             function o(e, r, i, o) {
                 var a, s, d, u, l = null, c = r ? r.name : null, f = e, p = !0, h = "";
-                return e || (p = !1, e = "_@r" + (O += 1)), l = (u = n(e))[0], e = u[1], l && (l = t(l, c, o), 
+                return e || (p = !1, e = "_@r" + (q += 1)), l = (u = n(e))[0], e = u[1], l && (l = t(l, c, o), 
                 s = getOwn(S, l)), e && (l ? h = i ? e : s && s.normalize ? s.normalize(e, function(e) {
                     return t(e, c, o);
                 }) : -1 === e.indexOf("!") ? t(e, c, o) : e : (l = (u = n(h = t(e, c, o)))[0], h = u[1], 
@@ -112,7 +112,7 @@
                     prefix: l,
                     name: h,
                     parentMap: r,
-                    unnormalized: !!(d = !l || s || i ? "" : "_unnormalized" + (C += 1)),
+                    unnormalized: !!(d = !l || s || i ? "" : "_unnormalized" + (F += 1)),
                     url: a,
                     originalName: f,
                     isDefine: p,
@@ -195,7 +195,7 @@
                 pkgs: {},
                 shim: {},
                 config: {}
-            }, x = {}, k = {}, I = {}, T = [], S = {}, q = {}, A = {}, O = 1, C = 1;
+            }, x = {}, k = {}, I = {}, T = [], S = {}, A = {}, O = {}, q = 1, F = 1;
             return b = {
                 require: function(e) {
                     return e.require ? e.require : e.require = w.makeRequire(e.map);
@@ -241,7 +241,7 @@
                 },
                 load: function() {
                     var e = this.map.url;
-                    q[e] || (q[e] = !0, w.load(this.map.id, e));
+                    A[e] || (A[e] = !0, w.load(this.map.id, e));
                 },
                 check: function() {
                     if (this.enabled && !this.enabling) {
@@ -276,7 +276,7 @@
                 callPlugin: function() {
                     var e = this.map, r = e.id, i = o(e.prefix);
                     this.depMaps.push(i), s(i, "defined", bind(this, function(i) {
-                        var n, u, c, f = getOwn(A, this.map.id), p = this.map.name, h = this.map.parentMap ? this.map.parentMap.name : null, g = w.makeRequire(e.parentMap, {
+                        var n, u, c, f = getOwn(O, this.map.id), p = this.map.name, h = this.map.parentMap ? this.map.parentMap.name : null, g = w.makeRequire(e.parentMap, {
                             enableBuildCallback: !0
                         });
                         return this.map.unnormalized ? (i.normalize && (p = i.normalize(p, function(e) {
@@ -344,7 +344,7 @@
                 contextName: e,
                 registry: x,
                 defined: S,
-                urlFetched: q,
+                urlFetched: A,
                 defQueue: T,
                 defQueueMap: {},
                 Module: v,
@@ -369,7 +369,7 @@
                         i[t] ? (E[t] || (E[t] = {}), mixin(E[t], e, !0, !0)) : E[t] = e;
                     }), e.bundles && eachProp(e.bundles, function(e, t) {
                         each(e, function(e) {
-                            e !== t && (A[e] = t);
+                            e !== t && (O[e] = t);
                         });
                     }), e.shim && (eachProp(e.shim, function(e, t) {
                         isArray(e) && (e = {
@@ -419,7 +419,7 @@
                     }), i || (s.undef = function(e) {
                         u();
                         var t = o(e, i, !0), n = getOwn(x, e);
-                        n.undefed = !0, r(e), delete S[e], delete q[t.url], delete I[e], eachReverse(T, function(t, r) {
+                        n.undefed = !0, r(e), delete S[e], delete A[t.url], delete I[e], eachReverse(T, function(t, r) {
                             t[0] === e && T.splice(r, 1);
                         }), delete w.defQueueMap[e], n && (n.events.defined && (I[e] = n.events), l(e));
                     }), s;
@@ -444,7 +444,7 @@
                 },
                 nameToUrl: function(e, t, r) {
                     var i, n, o, a, s, d, u = getOwn(E.pkgs, e);
-                    if (u && (e = u), d = getOwn(A, e)) return w.nameToUrl(d, t, r);
+                    if (u && (e = u), d = getOwn(O, e)) return w.nameToUrl(d, t, r);
                     if (req.jsExtRegExp.test(e)) a = e + (t || ""); else {
                         for (i = E.paths, o = (n = e.split("/")).length; 0 < o; o -= 1) if (s = getOwn(i, n.slice(0, o).join("/"))) {
                             isArray(s) && (s = s[0]), n.splice(0, o, s);
@@ -884,8 +884,9 @@
                 var r = "Unable to initialize Type - invalid  parameter: no typeCategory provided";
                 throw t.error(r), new Error(r);
             }
-            this.name = e.name, this.description = e.description, this.displayName = e.displayName, 
-            this.typeCategory = e.typeCategory, this.getSlug = function() {
+            e.allowedFileTypes && (this.allowedFileTypes = e.allowedFileTypes), this.name = e.name, 
+            this.description = e.description, this.displayName = e.displayName, this.typeCategory = e.typeCategory, 
+            this.getSlug = function() {
                 return Object.freeze(e.slug);
             }, this.getGroups = function() {
                 return Object.freeze(e.groups);
@@ -908,8 +909,8 @@
                 l = e.id, c = e.type, f = e.name, p = e.description, h = e.slug, g = e.language, 
                 m = e.translatable, v = e.languageIsMaster, w = e.version, b = e.isPublished, y = e.scheduled, 
                 E = e.status, x = e.createdDate, k = e.createdBy, I = e.updatedDate, T = e.updatedBy, 
-                S = e.repositoryId, q = e.latestVersion, A = e.currentVersion, O = e.mimeType, C = e.fileGroup, 
-                D = e.varSetId, M = e.versionInfo, N = e.publishInfo, F = e.tags, R = e.collections, 
+                S = e.repositoryId, A = e.latestVersion, O = e.currentVersion, q = e.mimeType, F = e.fileGroup, 
+                C = e.varSetId, N = e.versionInfo, D = e.publishInfo, M = e.tags, R = e.collections, 
                 P = e.channels, j = e.publishedChannels, z = e.taxonomies, B = e.isNew;
             }
             function s() {
@@ -931,18 +932,18 @@
                     scheduled: y,
                     languageIsMaster: v,
                     version: w,
-                    currentVersion: A,
-                    latestVersion: q,
-                    mimeType: O,
-                    fileGroup: C,
-                    varSetId: D
+                    currentVersion: O,
+                    latestVersion: A,
+                    mimeType: q,
+                    fileGroup: F,
+                    varSetId: C
                 };
             }
             function d(e) {
                 a.debug("Item update recived data: ", e), i(e);
                 var t = e.fieldData;
                 t && Array.isArray(t) && t.forEach(function(e) {
-                    var t = e.definition.id, r = e.value, i = K.filter(function(e) {
+                    var t = e.definition.id, r = e.value, i = $.filter(function(e) {
                         return e.getDefinition().id === t;
                     }), n = i && i.length > 0 ? i[0] : null;
                     n && (a.debug("Syncing field value for field : " + e.definition.name + " with value " + r), 
@@ -958,10 +959,10 @@
             }
             if (!t.contentType) throw a.error("Type must be  provided"), new Error("Type must be  provided");
             r.on("update", d);
-            var l, c, f, p, h, g, m, v, w, b, y, E, x, k, I, T, S, q, A, O, C, D, M, N, F, R, P, j, z, B, V = t.contentType, L = V.getSlug(), U = (L && L.enabled, 
-            {}), W = t.itemData, Q = W.fieldData, _ = t.formOptions, G = W.languageOptions;
+            var l, c, f, p, h, g, m, v, w, b, y, E, x, k, I, T, S, A, O, q, F, C, N, D, M, R, P, j, z, B, V = t.contentType, L = V.getSlug(), U = (L && L.enabled, 
+            {}), W = t.itemData, Q = W.fieldData, _ = t.formOptions, G = W.languageOptions, K = W.nativeFileOptions;
             i(W);
-            var K = Q.map(function(t) {
+            var $ = Q.map(function(t) {
                 return new e(t);
             });
             this.getFormOptions = function() {
@@ -975,14 +976,14 @@
             }, this.getLanguageOptions = function() {
                 return G;
             }, this.getFields = function() {
-                return K;
+                return $;
             }, this.getFieldByName = function(e) {
-                var t = K.filter(function(t) {
+                var t = $.filter(function(t) {
                     return t.getDefinition().name === e;
                 });
                 return t && t.length > 0 ? t[0] : null;
             }, this.getFieldById = function(e) {
-                var t = K.filter(function(t) {
+                var t = $.filter(function(t) {
                     return t.getDefinition().id === e;
                 });
                 return t && t.length > 0 ? t[0] : null;
@@ -1042,11 +1043,11 @@
                     options: t
                 });
             }, this.getVersionInfo = function() {
-                return Promise.resolve(M);
-            }, this.getPublishInfo = function() {
                 return Promise.resolve(N);
+            }, this.getPublishInfo = function() {
+                return Promise.resolve(D);
             }, this.getTags = function() {
-                return Promise.resolve(F);
+                return Promise.resolve(M);
             }, this.getCollections = function() {
                 return Promise.resolve(R);
             }, this.getChannels = function() {
@@ -1148,6 +1149,30 @@
                         categories: t
                     },
                     options: r
+                });
+            }, this.getNativeFileOptions = function() {
+                return K;
+            }, this.setNativeFile = function(e, t) {
+                if (_ && !_.supportsSetNativeFile) throw new Error("Form does not support setting native file");
+                if (e && !(e instanceof File)) throw new Error('Unable to setNativeFile - invalid  parameter: "file" should be an instance of File');
+                t = t || {}, n({
+                    nodeName: "nativefile",
+                    value: e,
+                    options: t
+                });
+            }, this.setSourceId = function(e, t) {
+                if (_ && !_.supportsSetNativeFile) throw new Error("Form does not support setting sourceId");
+                if (!e) throw new Error("Unable to set sourceId - invalid  parameter: no sourceId provided");
+                t = t || {}, n({
+                    nodeName: "sourceId",
+                    value: e,
+                    options: t
+                });
+            }, this.validateNativeFile = function(e) {
+                if (_ && !_.supportsSetNativeFile) throw new Error("Form does not support validate native file");
+                if (!(e && e instanceof File)) throw new Error('Unable to validate file - invalid  parameter: "file" should be an instance of File');
+                return r.sendAndWait("validateNativeFile", {
+                    value: e
                 });
             };
         };

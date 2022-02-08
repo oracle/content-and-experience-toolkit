@@ -751,8 +751,7 @@ const compileTemplate = {
 				'Optionally specify -l <includeLocale> include default locale when creating pages.\n' +
 				'Optionally specify -a <targetDevice> [desktop | mobile] target device type when using adaptive layouts.\n' +
 				'Optionally specify -v <verbose> to display all warning messages during compilation.\n' +
-				'Optionally specify -i <ignoreErrors> ignore compilation errors when calculating the exit code for the process.\n' +
-				'Optionally specify -j use JSSOR when compiling pages with sliders otherwise use swiper.\n';
+				'Optionally specify -i <ignoreErrors> ignore compilation errors when calculating the exit code for the process.\n';
 			return desc;
 		})()
 	},
@@ -1359,9 +1358,9 @@ const describeTheme = {
 	alias: 'dsth',
 	name: 'describe-theme',
 	usage: {
-		'short': 'Displays the properties of a theme on OCM server',
+		'short': 'Lists the properties of a theme on OCM server',
 		'long': (function () {
-			let desc = 'Displays the properties of a theme on OCM server. Theme components and the sites that use the theme will also be displayed. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Lists the properties of a theme on OCM server. Theme components and the sites that use the theme will also be displayed. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
@@ -1637,7 +1636,12 @@ const updateSite = {
 	]
 };
 
-
+const pageIndexContentTypeFields = function () {
+	const values = [
+		'site', 'pageid', 'pagename', 'pagetitle', 'pagedescription', 'pageurl', 'keywords (multiple values)'
+	];
+	return values;
+};
 const indexSite = {
 	command: 'index-site <site>',
 	alias: 'is',
@@ -1645,7 +1649,9 @@ const indexSite = {
 	usage: {
 		'short': 'Index the page content of site <site> on OCM server.',
 		'long': (function () {
-			let desc = 'Creates content item for each page with all text on the page. If the page index content item already exists for a page, updated it with latest text on the page. Specify -c <contenttype> to set the page index content type. Optionally specify -p to publish the page index items after creation or update. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			let desc = 'Creates content item for each page with all text on the page. If the page index content item already exists for a page, updated it with latest text on the page. Specify -c <contenttype> to set the page index content type. Optionally specify -p to publish the page index items after creation or update. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			desc = desc + os.EOL + os.EOL + 'The page index content type should have the following Text type fields:' + os.EOL;
+			desc = pageIndexContentTypeFields().reduce((acc, item) => acc + '  ' + item + '\n', desc);
 			return desc;
 		})()
 	},
@@ -3299,8 +3305,8 @@ _usage = _usage + os.EOL + 'Components' + os.EOL +
 	_getCmdHelp(uploadComponent) + os.EOL +
 	_getCmdHelp(controlComponent) + os.EOL +
 	_getCmdHelp(shareComponent) + os.EOL +
-	_getCmdHelp(unshareComponent) + os.EOL;
-// _getCmdHelp(describeComponent) + os.EOL;
+	_getCmdHelp(unshareComponent) + os.EOL +
+	_getCmdHelp(describeComponent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Templates' + os.EOL +
 	_getCmdHelp(createTemplate) + os.EOL +
@@ -3367,7 +3373,7 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(controlRepository) + os.EOL +
 	_getCmdHelp(shareRepository) + os.EOL +
 	_getCmdHelp(unshareRepository) + os.EOL +
-	// _getCmdHelp(describeRepository) + os.EOL +
+	_getCmdHelp(describeRepository) + os.EOL +
 	_getCmdHelp(setEditorialPermission) + os.EOL +
 	_getCmdHelp(listEditorialPermission) + os.EOL +
 	_getCmdHelp(createCollection) + os.EOL +
@@ -3375,7 +3381,7 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(createChannel) + os.EOL +
 	_getCmdHelp(shareChannel) + os.EOL +
 	_getCmdHelp(unshareChannel) + os.EOL +
-	// _getCmdHelp(describeChannel) + os.EOL +
+	_getCmdHelp(describeChannel) + os.EOL +
 	_getCmdHelp(createLocalizationPolicy) + os.EOL +
 	_getCmdHelp(listServerContentTypes) + os.EOL +
 	_getCmdHelp(shareType) + os.EOL +
@@ -3401,8 +3407,8 @@ _usage = _usage + os.EOL + 'Recommendations' + os.EOL +
 _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
 	_getCmdHelp(downloadTaxonomy) + os.EOL +
 	_getCmdHelp(uploadTaxonomy) + os.EOL +
-	_getCmdHelp(controlTaxonomy) + os.EOL;
-	// _getCmdHelp(describeTaxonomy) + os.EOL;
+	_getCmdHelp(controlTaxonomy) + os.EOL +
+	_getCmdHelp(describeTaxonomy) + os.EOL;
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(listTranslationJobs) + os.EOL +
@@ -3422,7 +3428,7 @@ _usage = _usage + os.EOL + 'Groups' + os.EOL +
 	_getCmdHelp(addMemberToGroup) + os.EOL +
 	_getCmdHelp(removeMemberFromGroup) + os.EOL;
 
-_usage = _usage + os.EOL + 'Local Environment' + os.EOL +
+_usage = _usage + os.EOL + 'Environment' + os.EOL +
 	_getCmdHelp(createEncryptionKey) + os.EOL +
 	_getCmdHelp(registerServer) + os.EOL +
 	_getCmdHelp(setOAuthToken) + os.EOL +
@@ -3869,10 +3875,6 @@ const argv = yargs.usage(_usage)
 				.option('ignoreErrors', {
 					alias: 'i',
 					description: 'Ignore compilation errors when calculating the exit code for the process.'
-				})
-				.option('jssor', {
-					alias: 'j',
-					description: 'Compile JSSOR into the page, otherwise use swiper. Default is true.'
 				})
 				.check((argv) => {
 					if (argv.type && argv.type !== 'draft' && argv.type !== 'published') {
@@ -8284,9 +8286,6 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.ignoreErrors) {
 		compileTemplateArgs.push(...['--ignoreErrors', argv.targetDevice]);
-	}
-	if (argv.jssor) {
-		compileTemplateArgs.push(...['--jssor', argv.jssor]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, compileTemplateArgs, {
 		cwd,

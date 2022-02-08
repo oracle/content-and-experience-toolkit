@@ -14,7 +14,7 @@
  *
  * $Id: component-registration.js 166785 2019-01-10 18:46:18Z muralik $
  */
-/* global define, module, exports, require */
+/* global exports */
 (function defineComponentRegistration(scope, factory) {
 	// configure to run in various JS environments
 	if (typeof define === 'function' && define.amd) {
@@ -138,49 +138,49 @@
 						'visibleOnMobile'
 					],
 					'dataProperties': [{
-							'propName': 'altText',
-							'propType': 'string',
-							'propDisplayName': 'COMP_IMAGE_ALTTEXT'
-						},
-						{
-							'propName': 'caption',
-							'propType': 'string',
-							'propDisplayName': 'COMP_IMAGE_CAPTION'
-						},
-						{
-							'propName': 'imageHref',
-							'propType': 'link',
-							'propDisplayName': 'COMP_IMAGE_HREF'
-						},
-						{
-							'propName': 'imageHrefContentViewing',
-							'propType': 'string',
-							'propDisplayName': 'COMP_IMAGE_HREF'
-						},
-						{
-							'propName': 'imageHrefName',
-							'propType': 'string',
-							'propDisplayName': 'COMP_IMAGE_HREF'
-						},
-						{
-							'propName': 'imageUrl',
-							'propType': 'image',
-							'propDisplayName': 'COMP_IMAGE_URL'
-						},
-						{
-							'propName': 'title',
-							'propType': 'string',
-							'propDisplayName': 'COMP_IMAGE_TITLE'
-						}
+						'propName': 'altText',
+						'propType': 'string',
+						'propDisplayName': 'COMP_IMAGE_ALTTEXT'
+					},
+					{
+						'propName': 'caption',
+						'propType': 'string',
+						'propDisplayName': 'COMP_IMAGE_CAPTION'
+					},
+					{
+						'propName': 'imageHref',
+						'propType': 'link',
+						'propDisplayName': 'COMP_IMAGE_HREF'
+					},
+					{
+						'propName': 'imageHrefContentViewing',
+						'propType': 'string',
+						'propDisplayName': 'COMP_IMAGE_HREF'
+					},
+					{
+						'propName': 'imageHrefName',
+						'propType': 'string',
+						'propDisplayName': 'COMP_IMAGE_HREF'
+					},
+					{
+						'propName': 'imageUrl',
+						'propType': 'image',
+						'propDisplayName': 'COMP_IMAGE_URL'
+					},
+					{
+						'propName': 'title',
+						'propType': 'string',
+						'propDisplayName': 'COMP_IMAGE_TITLE'
+					}
 					],
 					'fileReferenceProperties': [{
-							'propName': 'imageUrl',
-							'propType': 'string'
-						},
-						{
-							'propName': 'imageHref',
-							'propType': 'string'
-						}
+						'propName': 'imageUrl',
+						'propType': 'string'
+					},
+					{
+						'propName': 'imageHref',
+						'propType': 'string'
+					}
 					],
 					'supportedFileExtensions': [
 						'gif',
@@ -263,20 +263,20 @@
 						'visibleOnMobile'
 					],
 					'dataProperties': [{
-							'propName': 'apiKey',
-							'propType': 'string',
-							'propDisplayName': 'COMP_MAP_APIKEY'
-						},
-						{
-							'propName': 'mapLocation',
-							'propType': 'string',
-							'propDisplayName': 'COMP_MAP_LOCATION'
-						},
-						{
-							'propName': 'provider',
-							'propType': 'string',
-							'propDisplayName': 'COMP_MAP_PROVIDER'
-						}
+						'propName': 'apiKey',
+						'propType': 'string',
+						'propDisplayName': 'COMP_MAP_APIKEY'
+					},
+					{
+						'propName': 'mapLocation',
+						'propType': 'string',
+						'propDisplayName': 'COMP_MAP_LOCATION'
+					},
+					{
+						'propName': 'provider',
+						'propType': 'string',
+						'propDisplayName': 'COMP_MAP_PROVIDER'
+					}
 					],
 					'desktopControls': [
 						'overviewMapControl',
@@ -654,30 +654,30 @@
 						'visibleOnMobile'
 					],
 					'dataProperties': [{
-							'propName': 'href',
-							'propType': 'link',
-							'propDisplayName': 'COMP_BUTTON_HREF'
-						},
-						{
-							'propName': 'hrefContentViewing',
-							'propType': 'link',
-							'propDisplayName': 'COMP_BUTTON_HREF'
-						},
-						{
-							'propName': 'hrefName',
-							'propType': 'link',
-							'propDisplayName': 'COMP_BUTTON_HREF'
-						},
-						{
-							'propName': 'text',
-							'propType': 'string',
-							'propDisplayName': 'COMP_BUTTON_TEXT'
-						},
-						{
-							'propName': 'title',
-							'propType': 'string',
-							'propDisplayName': 'COMP_BUTTON_TITLE'
-						}
+						'propName': 'href',
+						'propType': 'link',
+						'propDisplayName': 'COMP_BUTTON_HREF'
+					},
+					{
+						'propName': 'hrefContentViewing',
+						'propType': 'link',
+						'propDisplayName': 'COMP_BUTTON_HREF'
+					},
+					{
+						'propName': 'hrefName',
+						'propType': 'link',
+						'propDisplayName': 'COMP_BUTTON_HREF'
+					},
+					{
+						'propName': 'text',
+						'propType': 'string',
+						'propDisplayName': 'COMP_BUTTON_TEXT'
+					},
+					{
+						'propName': 'title',
+						'propType': 'string',
+						'propDisplayName': 'COMP_BUTTON_TITLE'
+					}
 					],
 					'fileReferenceProperties': [{
 						'propName': 'href',
@@ -1230,40 +1230,40 @@
 						'iconSize': 24,
 						'iconSpacing': 5,
 						'images': [{
-								'id': 'icon320382885',
-								'name': 'COMP_ICON_FACEBOOK',
-								'class': 'scs-facebook-icon',
-								'title': '',
-								'altText': ''
-							},
-							{
-								'id': 'icon131811662',
-								'name': 'COMP_ICON_LINKEDIN',
-								'class': 'scs-linkedin-icon',
-								'title': '',
-								'altText': ''
-							},
-							{
-								'id': 'icon486530998',
-								'name': 'COMP_ICON_TWITTER',
-								'class': 'scs-twitter-icon',
-								'title': '',
-								'altText': ''
-							},
-							{
-								'id': 'icon263767943',
-								'name': 'COMP_ICON_GOOGLEPLUS',
-								'class': 'scs-googleplus-icon',
-								'title': '',
-								'altText': ''
-							},
-							{
-								'id': 'icon737027322',
-								'name': 'COMP_ICON_YOUTUBE',
-								'class': 'scs-youtube-icon',
-								'title': '',
-								'altText': ''
-							}
+							'id': 'icon320382885',
+							'name': 'COMP_ICON_FACEBOOK',
+							'class': 'scs-facebook-icon',
+							'title': '',
+							'altText': ''
+						},
+						{
+							'id': 'icon131811662',
+							'name': 'COMP_ICON_LINKEDIN',
+							'class': 'scs-linkedin-icon',
+							'title': '',
+							'altText': ''
+						},
+						{
+							'id': 'icon486530998',
+							'name': 'COMP_ICON_TWITTER',
+							'class': 'scs-twitter-icon',
+							'title': '',
+							'altText': ''
+						},
+						{
+							'id': 'icon263767943',
+							'name': 'COMP_ICON_GOOGLEPLUS',
+							'class': 'scs-googleplus-icon',
+							'title': '',
+							'altText': ''
+						},
+						{
+							'id': 'icon737027322',
+							'name': 'COMP_ICON_YOUTUBE',
+							'class': 'scs-youtube-icon',
+							'title': '',
+							'altText': ''
+						}
 						],
 						'layout': 'horizontal',
 						'marginBottom': 5,
@@ -1547,13 +1547,13 @@
 						'propDisplayName': 'COMP_VIDEO_URL'
 					}],
 					'fileReferenceProperties': [{
-							'propName': 'videoUrl',
-							'propType': 'string'
-						},
-						{
-							'propName': 'posterUrl',
-							'propType': 'string'
-						}
+						'propName': 'videoUrl',
+						'propType': 'string'
+					},
+					{
+						'propName': 'posterUrl',
+						'propType': 'string'
+					}
 					],
 					'supportedDataFlavors': [
 						'videos/mp4',
@@ -2143,15 +2143,15 @@
 						'interviewName'
 					],
 					'dataProperties': [{
-							'propName': 'renderType',
-							'propType': 'string',
-							'propDisplayName': 'COMP_OPA_INTERVIEW_RENDER_TYPE'
-						},
-						{
-							'propName': 'interviewName',
-							'propType': 'string',
-							'propDisplayName': 'COMP_OPA_INTERVIEW_NAME'
-						}
+						'propName': 'renderType',
+						'propType': 'string',
+						'propDisplayName': 'COMP_OPA_INTERVIEW_RENDER_TYPE'
+					},
+					{
+						'propName': 'interviewName',
+						'propType': 'string',
+						'propDisplayName': 'COMP_OPA_INTERVIEW_NAME'
+					}
 					]
 				}
 			}

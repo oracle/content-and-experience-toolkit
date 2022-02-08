@@ -9470,12 +9470,11 @@ var _setUserSocialPreferences = function (server, userId, props = []) {
 }
 
 /**
- * Get social user information about the user associated with the given server object.
+ * Set social user preferences. This is a non-RESTful call but needs _createConnection to work.
  * @param {object} args Javascript object containing parameters.
  * @param {object} args.server the server object
  * @param {object} args.userId the user's social ID
- * @param {object} args.propName the user preference property name
- * @param {object} args.propValue the user preference property value
+ * @param {object} args.props array of PropertyName, PropertyValue objects.
  * @returns {Promise.<object>} The social user data object.
  */
 module.exports.setUserSocialPreferences = function (args) {
@@ -9530,4 +9529,130 @@ var _getAssetActivity = function (server, assetType, assetId) {
  */
 module.exports.getAssetActivity = function (args) {
 	return _getAssetActivity(args.server, args.assetType, args.assetId);
+};
+
+module.exports.archiveItems = function (args) {
+	var async = args.async ? args.async : 'false';
+	return _archiveBulkOpItems(args.server, 'archive', undefined, args.itemIds, '', async);
+};
+
+module.exports.restoreArchivedItems = function (args) {
+	var async = args.async ? args.async : 'false';
+	return _archiveBulkOpItems(args.server, 'restore', undefined, args.itemIds, '', async);
+};
+
+module.exports.cancelRestoration = function (args) {
+	var async = args.async ? args.async : 'false';
+	return _archiveBulkOpItems(args.server, 'cancelRestore', undefined, args.itemIds, '', async);
+};
+
+var _archiveBulkOpItems = function (server, operation, channelIds, itemIds, queryString, async, collectionIds) {
+	
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var q = '';
+				if (queryString) {
+					q = queryString;
+				} else {
+					for (var i = 0; i < itemIds.length; i++) {
+						if (q) {
+							q = q + ' or ';
+						}
+						q = q + 'id eq "' + itemIds[i] + '"';
+					}
+				}
+			
+				var url = server.url + '/content/management/api/v1.1/';
+				url += (operation === 'archive') ? 'bulkItemsOperations/' + operation : 'archive/items/.bulk/' + operation;
+				
+				var formData = {
+					q: q,
+				};
+				
+				var headers = {
+					'Content-Type': 'application/json',
+					'X-CSRF-TOKEN': csrfToken,
+					'X-Requested-With': 'XMLHttpRequest',
+					Authorization: serverUtils.getRequestAuthorization(server)
+				};
+
+				if (async &&async ==='true') {
+					headers.Prefer = 'respond-async';
+				}
+				var postData = {
+					method: 'POST',
+					url: url,
+					headers: headers,
+					body: JSON.stringify(formData),
+					json: true
+				};
+
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to ' + operation + ' items ');
+						console.log(error);
+						resolve({
+							err: 'err'
+						});
+					}
+
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					}
+
+					if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
+						var statusId = response.location || '';
+						statusId = statusId.substring(statusId.lastIndexOf('/') + 1);
+						statusId = 'archive/' + statusId;
+						console.log(' - submit request');
+						var startTime = new Date();
+						var needNewLine = false;
+						var inter = setInterval(function () {
+							var jobPromise = _getItemOperationStatus(server, statusId);
+							jobPromise.then(function (data) {
+								if (!data || data.error || data.progress === 'failed') {
+									clearInterval(inter);
+									if (needNewLine) {
+										process.stdout.write(os.EOL);
+									}
+									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
+									console.log('ERROR: Failed to'  + operation + ' items ',  msg);
+
+									return resolve({
+										err: 'err'
+									});
+								}
+								if (data.completed) {
+									clearInterval(inter);
+									if (needNewLine) {
+										process.stdout.write(os.EOL);
+									}
+									return resolve({});
+								} else {
+									process.stdout.write(' -' + operation + ' items in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+									readline.cursorTo(process.stdout, 0);
+									needNewLine = true;
+								}
+							});
+						}, 6000);
+					} else {
+						var msg = data ? (data.detail || data.title) : response.statusMessage;
+						console.log('Failed to ' + operation + ' items - ' + msg);
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
 };

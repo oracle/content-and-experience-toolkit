@@ -594,19 +594,11 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 		}
 	}
 
-	var layoutzipfile = 'contentlistnoqlayout.zip';
-	if (layoutstyle === 'detail') {
-		if (hasRefItems) {
-			layoutzipfile = 'contentlayout.zip';
-		}
-	}
-	/* no need to call getItem() to get large text fields 
-	else if (haslargetext) {
-		layoutzipfile = 'contentlistlayout.zip';
-	}
-	*/
+	// base contentlayout files
+	layoutzipfile = 'contentlayout.zip';
 
 	console.log(' - layoutstyle = ' + layoutstyle + ' haslargetext = ' + haslargetext + ' hasRefItems = ' + hasRefItems + ' hasMultiItems = ' + hasMultiItems + ' layoutzipfile = ' + layoutzipfile);
+
 	// Unzip the component and update metadata
 	fileUtils.extractZip(path.join(componentsDataDir, layoutzipfile), componentDir)
 		.then(function (err) {
@@ -667,26 +659,31 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 					} else if (field.datatype === 'reference') {
 						fieldstr = fieldstr + '{{#' + field.name + '}}' + os.EOL;
 
-						if (field.referenceType && field.referenceType.type === 'DigitalAsset') {
-							fieldstr = fieldstr + '<li><img src="{{url}}"></img></li>' + os.EOL;
-						}
-						if (field.referenceType && field.referenceType.typeCategory === 'DigitalAssetType') {
-							fieldstr = fieldstr + '{{#contentItem}}' + os.EOL;
-							fieldstr = fieldstr + '{{#renderAsImage}}' + os.EOL;
-							fieldstr = fieldstr + '<li><img src="{{url}}"></img></li>' + os.EOL;
-							fieldstr = fieldstr + '{{/renderAsImage}}' + os.EOL;
-							fieldstr = fieldstr + '{{#renderAsVideo}}' + os.EOL;
-							fieldstr = fieldstr + '<li><video src="{{url}}" playsinline width="100%" controls controlslist="nodownload"></video></li>' + os.EOL;
-							fieldstr = fieldstr + '{{/renderAsVideo}}' + os.EOL;
-							fieldstr = fieldstr + '{{#renderAsDownload}}' + os.EOL;
-							fieldstr = fieldstr + '<li><a _target_="_blank" download href="{{url}}">{{{name}}}</a></li>' + os.EOL;
-							fieldstr = fieldstr + '{{/renderAsDownload}}' + os.EOL;
-							fieldstr = fieldstr + '{{/contentItem}}' + os.EOL;
+						if (layoutstyle === 'detail') {
+							var isDigitalAssetRef = (field.referenceType && (field.referenceType.typeCategory === 'DigitalAssetType' || field.referenceType.type === 'DigitalAsset'));
+							if (isDigitalAssetRef) {
+								// reference a digital asset
+								fieldstr = fieldstr + '{{#contentItem}}' + os.EOL;
+								fieldstr = fieldstr + '{{#renderAsImage}}' + os.EOL;
+								fieldstr = fieldstr + '<li><img src="{{url}}"></img></li>' + os.EOL;
+								fieldstr = fieldstr + '{{/renderAsImage}}' + os.EOL;
+								fieldstr = fieldstr + '{{#renderAsVideo}}' + os.EOL;
+								fieldstr = fieldstr + '<li><video src="{{url}}" playsinline width="100%" controls controlslist="nodownload"></video></li>' + os.EOL;
+								fieldstr = fieldstr + '{{/renderAsVideo}}' + os.EOL;
+								fieldstr = fieldstr + '{{#renderAsDownload}}' + os.EOL;
+								fieldstr = fieldstr + '<li><a _target_="_blank" download href="{{url}}">{{{name}}}</a></li>' + os.EOL;
+								fieldstr = fieldstr + '{{/renderAsDownload}}' + os.EOL;
+								fieldstr = fieldstr + '{{/contentItem}}' + os.EOL;
+							} else {
+								// reference to another content
+								fieldstr = fieldstr + '{{#contentItem}}' + os.EOL;
+								fieldstr = fieldstr + '<li>{{{name}}}</li>' + os.EOL;
+								fieldstr = fieldstr + '{{/contentItem}}' + os.EOL;
+							}
 						} else {
-							// reference to another content
-							fieldstr = fieldstr + '{{#contentItem}}' + os.EOL;
-							fieldstr = fieldstr + '<li>{{{name}}}</li>' + os.EOL;
-							fieldstr = fieldstr + '{{/contentItem}}' + os.EOL;
+							if (field.referenceType && (field.referenceType.typeCategory === 'DigitalAssetType' || field.referenceType.type === 'DigitalAsset')) {
+								fieldstr = fieldstr + '<li><img src="{{url}}"></img></li>' + os.EOL;
+							}
 						}
 
 						fieldstr = fieldstr + '{{/' + field.name + '}}' + os.EOL;
@@ -711,152 +708,54 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 				fs.writeFileSync(layoutfile, newlayoutstr);
 				console.log(' - update layout.html');
 
-				// update render.js
-				var renderfile = path.join(componentDir, 'assets', 'render.js'),
-					renderstr = fs.readFileSync(renderfile).toString(),
-					newrenderstr = '';
+				// update render.mjs
+				var renderfile = path.join(componentDir, 'assets', 'render.mjs'),
+					renderstr = fs.readFileSync(renderfile).toString();
 
-				var ident = (layoutstyle === 'detail' || !haslargetext) ? '			' : '					',
-					ident2 = ident + '	',
-					ident3 = ident2 + '	',
-					ident4 = ident3 + '	',
-					ident5 = ident4 + '	',
-					tmpstr = ident + '// Support both v1.0 and v1.1 Content REST API response formats.' + os.EOL +
-					ident + "// User-defined fields are passed through the 'data' property in v1.0 and 'fields' property in v1.1." + os.EOL +
-					ident + 'var data = !contentClient.getInfo().contentVersion || contentClient.getInfo().contentVersion === "v1" ? content.data : content.fields;' + os.EOL,
-					refstr = '';
+				var fieldNames = ['referedFields', 'digitalAssetFields', 'markDownFields', 'richTextFields', 'dateTimeFields'];
+				var fieldTypes = {};
 
-				tmpstr = tmpstr + os.EOL + ident + "// Massage the data so that the 'fields' property is always there." + os.EOL +
-					ident + "// The corresponding layout.html template only checks for the ‘fields’ property. " + os.EOL +
-					ident + 'if (!contentClient.getInfo().contentVersion || contentClient.getInfo().contentVersion === "v1") {' + os.EOL +
-					ident2 + 'content["fields"] = content.data;' + os.EOL +
-					ident + '}' + os.EOL;
+				// seed each of the field values
+				fieldNames.forEach(function (fieldName) {
+					fieldTypes[fieldName] = [];
+				});
 
-				tmpstr = tmpstr + os.EOL + ident + '//' + os.EOL +
-					ident + '// Handle fields specific to this content type.' + os.EOL +
-					ident + '//' + os.EOL;
-
-				if (hasMultiItems) {
-					tmpstr = tmpstr + os.EOL + ident + 'var moreItems;' + os.EOL;
-				}
-
-				if (layoutstyle === 'detail') {
-					tmpstr = tmpstr + os.EOL + ident + 'var referedIds = [];' + os.EOL;
-				}
-
-				for (var i = 0; i < contenttype.fields.length; i++) {
-					var field = contenttype.fields[i],
-						fieldname = field.name;
-					var valuecountRange = field.settings && field.settings.caas && field.settings.caas.valuecountRange ?
-						field.settings.caas.valuecountRange : {};
-
+				// populate the fields by type
+				contenttype.fields.forEach(function (field) {
 					if (field.datatype === 'reference') {
-
-						if (field.referenceType && field.referenceType.type === 'DigitalAsset') {
-							tmpstr = tmpstr + os.EOL + ident;
-							if (valuecountRange && valuecountRange.min >= 0) {
-								tmpstr = tmpstr + os.EOL + ident;
-
-								tmpstr = tmpstr + 'moreItems = data["' + field.name + '"] || [];' + os.EOL + ident;
-								tmpstr = tmpstr + 'moreItems.forEach(function (nxtItem) {';
-								tmpstr = tmpstr + os.EOL + ident2;
-								tmpstr = tmpstr +
-									'nxtItem["url"] = contentClient.getRenditionURL({"id": nxtItem.id});';
-								tmpstr = tmpstr + os.EOL + ident + '});' + os.EOL + ident;
-
-							} else {
-								tmpstr = tmpstr + 'if (data["' + field.name + '"]) {' + os.EOL + ident +
-									'	data["' + field.name + '"]["url"] = contentClient.getRenditionURL({"id": data["' + field.name +
-									'"].id});';
-								tmpstr = tmpstr + os.EOL + ident + '}';
-							}
-							tmpstr = tmpstr + os.EOL;
-
-						} else if (layoutstyle === 'detail') {
-							tmpstr = tmpstr + os.EOL + ident;
-							// reference to another content
-							if (valuecountRange && valuecountRange.min >= 0) {
-								tmpstr = tmpstr + 'moreItems = data["' + field.name + '"] || [];' + os.EOL + ident;
-								tmpstr = tmpstr + 'moreItems.forEach(function (nxtItem) {';
-								tmpstr = tmpstr + os.EOL + ident2;
-								tmpstr = tmpstr + '// Get the IDs of any referenced assets, we will do an additional query to retrieve these so we can render them as well.';
-								tmpstr = tmpstr + os.EOL + ident2;
-								tmpstr = tmpstr + '// If you don’t want to render referenced assets, remove these block.';
-								tmpstr = tmpstr + os.EOL + ident2;
-								tmpstr = tmpstr + 'referedIds[referedIds.length] = nxtItem.id;';
-								tmpstr = tmpstr + os.EOL + ident + '});';
-
-								refstr = refstr + os.EOL + ident3 +
-									'moreItems = data["' + field.name + '"] || [];' + os.EOL + ident3 +
-									'// Retrieve the reference item from the query result.' + os.EOL + ident3 +
-									'moreItems.forEach(function (nxtItem) {' + os.EOL + ident4 +
-									'if (nxtItem.id === item.id) {' + os.EOL;
-
-								if (field.referenceType && field.referenceType.typeCategory === 'DigitalAssetType') {
-									refstr = refstr +
-										ident5 + 'item["url"] = contentClient.getRenditionURL({"id": item.id});' + os.EOL +
-										ident5 + 'var mimeType = item.fields && item.fields.mimeType;' + os.EOL +
-										ident5 + 'item["renderAsImage"] = mimeType && mimeType.indexOf("image/") === 0;' + os.EOL +
-										ident5 + 'item["renderAsVideo"] = mimeType && mimeType.indexOf("video/") === 0;' + os.EOL +
-										ident5 + 'item["renderAsDownload"] = !mimeType || (mimeType.indexOf("image/") !== 0 && mimeType.indexOf("video/") !== 0);' + os.EOL;
-								}
-
-								refstr = refstr +
-									ident5 + 'nxtItem["contentItem"] = item;' + os.EOL +
-									ident4 + '}' + os.EOL + ident3 + '});';
-
-							} else {
-								tmpstr = tmpstr + '// Get the IDs of any referenced assets, we will do an additional query to retrieve these so we can render them as well.' + os.EOL + ident;
-								tmpstr = tmpstr + '// If you don’t want to render referenced assets, remove these block.' + os.EOL + ident;
-								tmpstr = tmpstr + 'if (data["' + field.name + '"]) {' + os.EOL + ident2;
-								tmpstr = tmpstr + 'referedIds[referedIds.length] = data["' + field.name + '"].id;' + os.EOL + ident;
-								tmpstr = tmpstr + '}';
-								refstr = refstr + os.EOL + ident3 +
-									'// Retrieve the reference item from the query result.' +
-									os.EOL + ident3 +
-									'if (data["' + field.name + '"] && data["' + field.name + '"].id === item.id) {' + os.EOL;
-
-								if (field.referenceType && field.referenceType.typeCategory === 'DigitalAssetType') {
-									refstr = refstr +
-										ident4 + 'item["url"] = contentClient.getRenditionURL({"id": item.id});' + os.EOL +
-										ident4 + 'var mimeType = item.fields && item.fields.mimeType;' + os.EOL +
-										ident4 + 'item["renderAsImage"] = mimeType && mimeType.indexOf("image/") === 0;' + os.EOL +
-										ident4 + 'item["renderAsVideo"] = mimeType && mimeType.indexOf("video/") === 0;' + os.EOL +
-										ident4 + 'item["renderAsDownload"] = !mimeType || (mimeType.indexOf("image/") !== 0 && mimeType.indexOf("video/") !== 0);' + os.EOL;
-								}
-
-								refstr = refstr +
-									ident4 + 'data["' + field.name + '"]["contentItem"] = item;' + os.EOL +
-									ident3 + '}';
-							}
-							tmpstr = tmpstr + os.EOL;
-							refstr = refstr + os.EOL;
+						if (layoutstyle === 'detail') {
+							// digital assets will be treated as referenced items
+							fieldTypes.referedFields.push(field.name);
+						} else if (field.referenceType && (field.referenceType.typeCategory === 'DigitalAssetType' || field.referenceType.type === 'DigitalAsset')) {
+							// digital assets are assumed to be images and URLs generated
+							fieldTypes.digitalAssetFields.push(field.name);
 						}
-
 					} else if (field.datatype === 'datetime') {
-						tmpstr = tmpstr + os.EOL + ident;
-						tmpstr = tmpstr + 'if (data["' + field.name + '"]) {' + os.EOL + ident;
-						tmpstr = tmpstr + '	data["' + field.name + '"]["formatted"] = dateToMDY(data["' + field.name + '"].value);';
-						tmpstr = tmpstr + os.EOL + ident + '}';
-					}
-					if (field.datatype === 'largetext') {
-						var editor = field.settings && field.settings.caas && field.settings.caas.editor ?
-							field.settings.caas.editor.name : '';
-						if (editor && editor === 'rich-text-editor') {
-							tmpstr = tmpstr + os.EOL + ident;
-							tmpstr = tmpstr + 'data["' + field.name + '"] = contentClient.expandMacros(data["' + field.name + '"]);';
-							tmpstr = tmpstr + os.EOL;
-						} else if (editor && editor === 'markdown-editor') {
-							tmpstr = tmpstr + os.EOL + ident;
-							tmpstr = tmpstr + 'data["' + field.name + '"] = parseMarkdown(contentClient.expandMacros(data["' + field.name + '"]));';
-							tmpstr = tmpstr + os.EOL;
+						fieldTypes.dateTimeFields.push(field.name);
+					} else if (field.datatype === 'largetext') {
+						var editorName = field.settings && field.settings.caas && field.settings.caas.editor ? field.settings.caas.editor.name : '';
+
+						if (editorName === 'rich-text-editor') {
+							fieldTypes.richTextFields.push(field.name);
+						}
+
+						if (editorName === 'markdown-editor') {
+							fieldTypes.markDownFields.push(field.name);
 						}
 					}
-				}
-				newrenderstr = renderstr.replace('//_devcs_contentlayout_code', tmpstr);
-				newrenderstr = newrenderstr.replace('//_devcs_contentlayout_reference_code', refstr);
-				fs.writeFileSync(renderfile, newrenderstr);
-				console.log(' - update render.js');
+				});
+
+				// insert the field array into each of the entries in the template
+				fieldNames.forEach(function (fieldName) {
+					var fields = fieldTypes[fieldName];
+					renderstr = renderstr.replace('"_' + fieldName + '_"', fields.length > 0 ? '"' + fields.join('", "') + '"' : '');
+				});
+
+				// replace the permission string - this is translated in the builder case
+				renderstr = renderstr.replace('_noPermissionToView_', 'You do not have permission to view this asset');
+
+				fs.writeFileSync(renderfile, renderstr);
+				console.log(' - update render.mjs');
 
 				if (addcustomsettings) {
 					// update appinfo.json

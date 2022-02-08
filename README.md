@@ -15,6 +15,23 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.2.1
+
+**Added**
+
+- `cec describe-component` - List the properties of a component on an OCM server
+- `cec describe-repository` - List the properties of a repository on an OCM server
+- `cec describe-channel` - List the properties of a channel on an OCM server
+- `cec describe-taxonomy` - List the properties and categories of a taxonomy on an OCM server
+- `cec describe-template` - List the properties of a template on an OCM server
+
+**Updated**
+
+- `cec share-type` - Removed Contributor role as no longer supported on content types
+- `cec share-repository` - Removed Contributor role for content types as no longer supported 
+
+
+
 # New in Release 22.1.2b
 
 **Fixed**
