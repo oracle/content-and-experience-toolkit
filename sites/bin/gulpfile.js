@@ -2272,6 +2272,30 @@ gulp.task('execute-post', function (done) {
 });
 
 /**
+ * Execute PUT
+ */
+gulp.task('execute-put', function (done) {
+	'use strict';
+
+	resourcelib.executePut(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Execute PATCH
+ */
+gulp.task('execute-patch', function (done) {
+	'use strict';
+
+	resourcelib.executePatch(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Execute DELETE
  */
 gulp.task('execute-delete', function (done) {

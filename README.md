@@ -15,6 +15,23 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+
+# New in Release 22.2.2
+
+**Added**
+
+- `cec execute-put` - Make an HTTP PUT request to a REST API endpoint on an OCM server
+- `cec execute-patch` - Make an HTTP PATCH request to a REST API endpoint on an OCM server
+
+**Updated**
+
+- `cec set-oauth-token` - Can now save the OAUTH token to the cec.properties file
+- `cec transfer-site` - Now supports param `--excludetheme` when transfering a standard site
+
+- Updated local server to remember the selected component type and selected template
+
+
+
 # New in Release 22.2.1
 
 **Added**

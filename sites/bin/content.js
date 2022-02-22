@@ -2034,8 +2034,8 @@ var _displayValidation = function (validations, action) {
 		}
 	}
 
-	console.log(JSON.stringify(policyValidation, null, 4));
-	console.log('Failed to ' + action + ' the following items: ' + policyValidation.error ? policyValidation.error : '');
+	// console.log(JSON.stringify(policyValidation, null, 4));
+	console.log('Failed to ' + action + ' the following items: ' + (policyValidation.error ? policyValidation.error : ''));
 	var format = '  %-36s  %-60s  %-s';
 	console.log(sprintf(format, 'Id', 'Name', 'Message'));
 	for (var i = 0; i < blockingItems.length; i++) {
@@ -4389,12 +4389,14 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 							clearInterval(inter);
 							console.log(' - content item imported');
 							// delete the zip file
-							serverRest.deleteFile({
-								server: destServer,
-								fFileGUID: fileId
-							}).then(function (result) {
-								done(true);
-							});
+							var deleteArgv = {
+								file: fileName,
+								permanent: 'true'
+							};
+							documentUtils.deleteFile(deleteArgv, destServer, false)
+								.then(function (result) {
+									done(true);
+								});
 
 						} else if (status && status === 'FAILED') {
 							clearInterval(inter);

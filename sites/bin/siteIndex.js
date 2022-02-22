@@ -945,6 +945,10 @@ var _createPageIndexItem = function (server, repositoryId, contenttype, dataInde
 			var indexData = _pageIndexToCreate[dataIndex];
 			var itemName = indexData.site + indexData.pagename + indexData.pageid;
 			var itemDesc = 'Page index for ' + itemName;
+			// the maximum length of item description is 128
+			if (itemDesc.length > 128) {
+				itemDesc = itemDesc.substring(0, 127);
+			}
 			var formData = {
 				name: itemName,
 				description: itemDesc,

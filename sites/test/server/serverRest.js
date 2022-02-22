@@ -4110,7 +4110,8 @@ module.exports.setPermissionSets = function (args) {
 };
 
 // Create repository on server
-var _createRepository = function (server, name, description, contentTypes, channels, defaultLanguage, repositoryType) {
+var _createRepository = function(server, name, description, contentTypes, channels, defaultLanguage,
+	repositoryType, additionalLangs) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -4124,7 +4125,10 @@ var _createRepository = function (server, name, description, contentTypes, chann
 				if (repositoryType) {
 					payload.repositoryType = repositoryType;
 				}
-				payload.defaultLanguage = repositoryType && repositoryType === 'Business' ? 'und' : (defaultLanguage || 'en-US');
+				payload.defaultLanguage = (defaultLanguage || "");
+				if (!payload.defaultLanguage) {
+					payload.defaultLanguage = repositoryType && repositoryType === 'Business' ? 'und' : 'en-US';
+				}
 
 				payload.taxonomies = [];
 
@@ -4133,6 +4137,10 @@ var _createRepository = function (server, name, description, contentTypes, chann
 				}
 				if (channels && channels.length > 0) {
 					payload.channels = channels;
+				}
+
+				if (additionalLangs && additionalLangs.length > 0) {
+					payload.languageOptions = additionalLangs;
 				}
 
 				var url = server.url + '/content/management/api/v1.1/repositories';
@@ -4188,11 +4196,12 @@ var _createRepository = function (server, name, description, contentTypes, chann
  * @param {string} args.defaultLanguage The default language of the repository.
  * @param {array} args.contentTypes The list of content types.
  * @param {array} args.channels The list of channels.
+ * @param {array} args.additionalLanguages A list of language codes to apply to the repository's additional languages
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.createRepository = function (args) {
 	return _createRepository(args.server, args.name, args.description,
-		args.contentTypes, args.channels, args.defaultLanguage, args.repositoryType);
+		args.contentTypes, args.channels, args.defaultLanguage, args.repositoryType, args.additionalLanguages);
 };
 
 // Update repository
@@ -9531,22 +9540,49 @@ module.exports.getAssetActivity = function (args) {
 	return _getAssetActivity(args.server, args.assetType, args.assetId);
 };
 
+/**
+ * archive items on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {array} args.operation The operation/action to perform - 'archive'
+ * @param {array} args.itemIds The id of items
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+
 module.exports.archiveItems = function (args) {
 	var async = args.async ? args.async : 'false';
-	return _archiveBulkOpItems(args.server, 'archive', undefined, args.itemIds, '', async);
+	return _archiveBulkOpItems(args.server, 'archive', args.itemIds, '', async);
 };
+
+/**
+ * schedule archived items for restoration on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {array} args.operation The operation/action to perform - 'restore'
+ * @param {array} args.itemIds The id of items
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
 
 module.exports.restoreArchivedItems = function (args) {
 	var async = args.async ? args.async : 'false';
-	return _archiveBulkOpItems(args.server, 'restore', undefined, args.itemIds, '', async);
+	return _archiveBulkOpItems(args.server, 'restore', args.itemIds, '', async);
 };
+
+/**
+ * cancel restoration of archived items on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {array} args.operation The operation/action to perform - 'cancelRestore'
+ * @param {array} args.itemIds The id of items
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
 
 module.exports.cancelRestoration = function (args) {
 	var async = args.async ? args.async : 'false';
-	return _archiveBulkOpItems(args.server, 'cancelRestore', undefined, args.itemIds, '', async);
+	return _archiveBulkOpItems(args.server, 'cancelRestore', args.itemIds, '', async);
 };
 
-var _archiveBulkOpItems = function (server, operation, channelIds, itemIds, queryString, async, collectionIds) {
+var _archiveBulkOpItems = function (server, operation, itemIds, queryString, async) {
 	
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
@@ -9581,7 +9617,7 @@ var _archiveBulkOpItems = function (server, operation, channelIds, itemIds, quer
 					Authorization: serverUtils.getRequestAuthorization(server)
 				};
 
-				if (async &&async ==='true') {
+				if (async && async ==='true') {
 					headers.Prefer = 'respond-async';
 				}
 				var postData = {

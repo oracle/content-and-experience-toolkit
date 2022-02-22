@@ -444,7 +444,8 @@
 					}],
 					'transientProperties': [
 						'openFilePicker',
-						'linkPickerData'
+						'linkPickerData',
+						'ckEditorData'
 					],
 					'triggers': [{
 						'triggerName': 'scsLinkClicked',
@@ -525,7 +526,8 @@
 					],
 					'transientProperties': [
 						'openFilePicker',
-						'linkPickerData'
+						'linkPickerData',
+						'ckEditorData'
 					],
 					'triggers': [{
 						'triggerName': 'scsLinkClicked',
@@ -1600,7 +1602,8 @@
 					}],
 					'transientProperties': [
 						'openFilePicker',
-						'linkPickerData'
+						'linkPickerData',
+						'ckEditorData'
 					],
 					'fileReferenceProperties': [{
 						'propName': 'innerHTML',

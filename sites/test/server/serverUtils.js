@@ -146,6 +146,7 @@ var _getConfiguredServer = function (currPath) {
 	var server = {
 		fileloc: configFile,
 		fileexist: false,
+		configured: true,
 		url: '',
 		username: '',
 		password: '',
@@ -163,6 +164,7 @@ var _getConfiguredServer = function (currPath) {
 			var cecurl,
 				username,
 				password,
+				oauthtoken,
 				env,
 				useRest,
 				idcs_url,
@@ -199,14 +201,17 @@ var _getConfiguredServer = function (currPath) {
 				} else if (line.indexOf('cec_scope=') === 0) {
 					scope = line.substring('cec_scope='.length);
 					scope = scope.replace(/(\r\n|\n|\r)/gm, '').trim();
+				} else if (line.indexOf('cec_token=') === 0) {
+					oauthtoken = line.substring('cec_token='.length);
+					oauthtoken = oauthtoken.replace(/(\r\n|\n|\r)/gm, '').trim();
 				}
 			});
-			if (cecurl && username && password) {
+			if (cecurl && (username && password || oauthtoken)) {
 				server.url = cecurl;
 				server.username = username;
 				server.password = password;
 				server.env = env || 'pod_ec';
-				server.oauthtoken = '';
+				server.oauthtoken = oauthtoken;
 				server.tokentype = '';
 				server.idcs_url = idcs_url;
 				server.client_id = client_id;
@@ -221,6 +226,37 @@ var _getConfiguredServer = function (currPath) {
 		}
 	}
 	return server;
+};
+
+/**
+ * Get server and credentials from gradle properties
+ */
+module.exports.setTokenToConfiguredServer = function (server, token) {
+	return _setTokenToConfiguredServer(server, token);
+};
+var _setTokenToConfiguredServer = function (server, token) {
+	var configServerFilePath = server.fileloc;
+	if (fs.existsSync(configServerFilePath)) {
+		var fileContent = fs.readFileSync(configServerFilePath).toString();
+		var fileLines = fileContent.split(os.EOL);
+		var idx;
+		for (var i = 0; i < fileLines.length; i++) {
+			var line = fileLines[i];
+			if (line && line.indexOf('cec_token=') === 0) {
+				idx = i;
+				break;
+			}
+		}
+		if (idx >= 0) {
+			fileLines[i] = 'cec_token=' + token;
+		} else {
+			fileLines.push('cec_token=' + token);
+		}
+		fs.writeFileSync(configServerFilePath, fileLines.join(os.EOL));
+		return true;
+	} else {
+		return false;
+	}
 };
 
 /**
@@ -284,9 +320,9 @@ var _verifyServer = function (serverName, currPath, showError) {
 			return server;
 		}
 	}
-	if (!server.url || !server.username || !server.password) {
+	if (!server.url || ((!server.username || !server.password) && !server.oauthtoken)) {
 		if (toShowError) {
-			console.log('ERROR: no server is configured in ' + server.fileloc);
+			console.log('ERROR: no valid server is configured in ' + server.fileloc);
 		}
 		return server;
 	}
@@ -524,6 +560,7 @@ var _getRegisteredServer = function (projectDir, name) {
 		server = serverjson;
 		server.fileloc = serverpath;
 		server.fileexist = true;
+		server.configured = false;
 
 		var keyFile = server.key;
 		if (keyFile && fs.existsSync(keyFile)) {
@@ -567,27 +604,45 @@ var _getRegisteredServer = function (projectDir, name) {
 	return server;
 };
 
-var _saveOAuthToken = function (serverPath, serverName, token) {
-	// console.log('serverPath: ' + serverPath + ' serverName: ' + serverName);
-	if (serverName && fs.existsSync(serverPath)) {
-		var serverstr = fs.readFileSync(serverPath).toString(),
-			serverjson = JSON.parse(serverstr);
-		serverjson.oauthtoken = token;
+var _saveOAuthToken = function (server, token) {
+	if (server.skipSavingOAuthToken) {
+		return;
+	}
+	if (server.configured) {
+		_setTokenToConfiguredServer(server, token);
+		console.log(' - token saved to ' + server.fileloc);
+	} else {
+		var serverPath = server.fileloc;
+		var serverName = server.name;
+		// console.log('serverPath: ' + serverPath + ' serverName: ' + serverName);
+		if (serverName && fs.existsSync(serverPath)) {
+			var serverstr = fs.readFileSync(serverPath).toString(),
+				serverjson = JSON.parse(serverstr);
+			serverjson.oauthtoken = token;
 
-		fs.writeFileSync(serverPath, JSON.stringify(serverjson));
-		console.log(' - token saved to server ' + serverName);
+			fs.writeFileSync(serverPath, JSON.stringify(serverjson));
+			console.log(' - token saved to server ' + serverName);
+		}
 	}
 };
 
-var _clearOAuthToken = function (serverPath, serverName) {
+var _clearOAuthToken = function (server) {
 
-	if (fs.existsSync(serverPath)) {
-		var serverstr = fs.readFileSync(serverPath).toString(),
-			serverjson = JSON.parse(serverstr);
-		serverjson.oauthtoken = '';
+	if (server.configured) {
+		_setTokenToConfiguredServer(server, '');
+		console.log(' - token cleared in file ' + server.fileloc);
+	} else {
+		var serverPath = server.fileloc;
+		var serverName = server.name;
 
-		fs.writeFileSync(serverPath, JSON.stringify(serverjson));
-		console.log(' - token cleared for server ' + serverName);
+		if (fs.existsSync(serverPath)) {
+			var serverstr = fs.readFileSync(serverPath).toString(),
+				serverjson = JSON.parse(serverstr);
+			serverjson.oauthtoken = '';
+
+			fs.writeFileSync(serverPath, JSON.stringify(serverjson));
+			console.log(' - token cleared for server ' + serverName);
+		}
 	}
 };
 
@@ -1928,7 +1983,7 @@ var _loginToPODServer = function (server) {
 				server.oauthtoken = data.accessToken;
 				server.login = true;
 				// Save the token and use till it expires
-				_saveOAuthToken(server.fileloc, server.name, server.oauthtoken);
+				_saveOAuthToken(server, server.oauthtoken);
 
 				return resolve({
 					'status': true
@@ -2037,7 +2092,7 @@ var _loginToPODServer = function (server) {
 				console.log(' - connect to remote server: ' + server.url);
 
 				// Save the token and use till it expires
-				_saveOAuthToken(server.fileloc, server.name, token);
+				_saveOAuthToken(server, token);
 
 				return resolve({
 					'status': true
@@ -2162,7 +2217,7 @@ var _loginToSSOServer = function (server) {
 				console.log(' - connect to remote server: ' + server.url);
 
 				// Save the token and use till it expires
-				_saveOAuthToken(server.fileloc, server.name, token);
+				_saveOAuthToken(server, token);
 
 				return resolve({
 					'status': true
@@ -2428,6 +2483,14 @@ var _loginToServer = function (server) {
 			status: true
 		});
 	}
+
+	if (!server.username && !server.password && !server.oauthtoken) {
+		console.log('ERROR: no user credentials specified');
+		return Promise.resolve({
+			status: false
+		});
+	}
+
 	var env = server.env || 'pod_ec';
 
 	if (env === 'dev_pod') {
@@ -2448,7 +2511,7 @@ var _loginToServer = function (server) {
 					server.login = false;
 					server.oauthtoken = '';
 					// remove the expired/invalid token
-					_clearOAuthToken(server.fileloc, server.name);
+					_clearOAuthToken(server);
 
 					// open browser to obtain the token again
 					return _loginToServer(server);
@@ -2726,18 +2789,6 @@ module.exports.getBackgroundServiceJobData = function (server, idcToken, jobId) 
  */
 module.exports.browseSitesOnServer = function (server, fApplication, name) {
 	var sitePromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=SCS_BROWSE_SITES&IsJson=1&siteCount=-1';
 		if (fApplication) {
@@ -2832,12 +2883,6 @@ module.exports.browseCollectionsOnServer = function (server, params) {
 };
 var _browseCollectionsOnServer = function (server, params) {
 	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=FLD_BROWSE_COLLECTIONS&IsJson=1&itemCount=9999';
 		if (params) {
@@ -2899,18 +2944,6 @@ var _browseCollectionsOnServer = function (server, params) {
  */
 module.exports.browseTranslationConnectorsOnServer = function (server) {
 	var transPromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=GET_ALL_CONNECTOR_INSTANCES&IsJson=1&type=translation';
 
@@ -3003,18 +3036,6 @@ var _parseConnectorsResultSets = function (data) {
  */
 module.exports.getTranslationConnectorOnServer = function (server, connectorId) {
 	var transPromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=GET_CONNECTOR_INSTANCE&connectorId=' + connectorId + '&IsJson=1';
 
@@ -3062,18 +3083,6 @@ module.exports.getTranslationConnectorOnServer = function (server, connectorId) 
  */
 module.exports.updateTranslationConnectorOnServer = function (server, connector) {
 	var transPromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=UPDATE_CONNECTOR_INSTANCE&IsJson=1';
 
@@ -3140,18 +3149,6 @@ module.exports.updateTranslationConnectorOnServer = function (server, connector)
  */
 module.exports.getTranslationConnectorJobOnServer = function (server, jobId) {
 	var jobPromise = new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=GET_CONNECTOR_JOB_INFO&jobId=' + jobId;
 		url += '&IsJson=1';
@@ -3210,18 +3207,6 @@ module.exports.getTranslationConnectorJobOnServer = function (server, jobId) {
  */
 module.exports.getThemeMetadata = function (server, themeId, themeName) {
 	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=SCS_GET_THEME_METADATA&item=fFolderGUID:' + themeId;
 		url = url + '&IsJson=1';
@@ -3278,18 +3263,6 @@ module.exports.getThemeMetadata = function (server, themeId, themeName) {
  */
 module.exports.getComponentMetadata = function (server, compId, compName) {
 	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=SCS_GET_COMPONENT_METADATA&item=fFolderGUID:' + compId;
 		url = url + '&IsJson=1';
@@ -3346,18 +3319,6 @@ module.exports.getComponentMetadata = function (server, compId, compName) {
  */
 module.exports.getSiteUsedData = function (server, siteId) {
 	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=SCS_GET_SITE_COMPS_CONTENT_USED&item=fFolderGUID:' + siteId;
 		url = url + '&IsJson=1';
@@ -3444,18 +3405,6 @@ module.exports.getSiteUsedData = function (server, siteId) {
  */
 module.exports.setSiteUsedData = function (server, idcToken, siteId, itemsUsedAdded, itemsUsedDeleted) {
 	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=SCS_EDIT_SITE_COMPS_CONTENT_USED&IsJson=1';
 
@@ -3526,18 +3475,6 @@ module.exports.setSiteUsedData = function (server, idcToken, siteId, itemsUsedAd
  */
 module.exports.setSiteMetadata = function (server, idcToken, siteId, values) {
 	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=SCS_SET_SITE_METADATA&IsJson=1';
 
@@ -3608,18 +3545,6 @@ module.exports.setSiteMetadata = function (server, idcToken, siteId, values) {
  */
 module.exports.setThemeMetadata = function (server, idcToken, themeId, values) {
 	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=SCS_SET_THEME_METADATA&IsJson=1';
 
@@ -3684,18 +3609,6 @@ module.exports.setThemeMetadata = function (server, idcToken, themeId, values) {
  */
 module.exports.setComponentMetadata = function (server, idcToken, compId, values) {
 	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=SCS_SET_COMPONENT_METADATA&IsJson=1';
 
@@ -3958,18 +3871,6 @@ module.exports.updateAdminSettings = function (server, settings) {
  */
 module.exports.viewGroupInfo = function (server, groupId) {
 	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=VIEW_GROUP_INFO&IsJson=1';
 
@@ -4026,18 +3927,6 @@ module.exports.viewGroupInfo = function (server, groupId) {
  */
 module.exports.viewGroupMembers = function (server, groupId) {
 	return new Promise(function (resolve, reject) {
-		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
-			resolve({
-				err: 'no server'
-			});
-		}
-		if (server.env !== 'dev_ec' && !server.oauthtoken) {
-			console.log('ERROR: OAuth token');
-			resolve({
-				err: 'no OAuth token'
-			});
-		}
 
 		var url = server.url + '/documents/integration?IdcService=VIEW_GROUP_MEMBERS&IsJson=1';
 

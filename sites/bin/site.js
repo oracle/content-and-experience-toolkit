@@ -917,7 +917,7 @@ var _createDefaultTheme = function () {
 
 var _transferSiteTemplateId;
 
-var _transferStandardSite = function (argv, server, destServer, site, excludecomponents, suppressgovernance) {
+var _transferStandardSite = function (argv, server, destServer, site, excludecomponents, excludetheme, suppressgovernance) {
 	return new Promise(function (resolve, reject) {
 		console.log(' - site ' + site.name + ' is a standard site');
 
@@ -937,13 +937,33 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 		var templateId;
 		var contentLayoutNames = [];
 		var compsToVerify = [];
+		var defaultThemeName = '__toolkit_theme';
+		var newThemeName;
+		var newThemeGUID;
+		var newThemePath;
 
 		var destdir = path.join(projectDir, 'dist');
 		var startTime;
 		var idcToken;
 
-		// query site metadata to get static site settings
-		serverUtils.getSiteUsedData(server, site.id)
+		sitesRest.resourceExist({
+				server: destServer,
+				type: 'themes',
+				name: site.themeName
+			})
+			.then(function (result) {
+				if (result && result.id) {
+					console.log(' - theme ' + site.themeName + ' exists on server ' + destServerName);
+				} else {
+					if (excludetheme) {
+						console.log(' - theme does not exist on server ' + destServerName + ' and will not exclude the theme');
+						excludetheme = false;
+					}
+				}
+
+				// query site metadata to get static site settings
+				return serverUtils.getSiteUsedData(server, site.id);
+			})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -972,7 +992,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 				// create a local template based on the site
 				var enterprisetemplate = false;
 				var excludecontent = true;
-				return templateUtils.createLocalTemplateFromSite(argv, templateName, siteName, server, excludecontent, enterprisetemplate, excludecomponents);
+				return templateUtils.createLocalTemplateFromSite(argv, templateName, siteName, server, excludecontent, enterprisetemplate, excludecomponents, excludetheme);
 			})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -984,7 +1004,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 				compsToVerify = result.components || [];
 
 				var verifyThemePromises = [];
-				if (result.theme && result.theme.themeName && result.theme.itemGUID) {
+				if (!excludetheme && result.theme && result.theme.themeName && result.theme.itemGUID) {
 					verifyThemePromises.push(_verifyThemeItemGUID(destServer, result.theme.themeName, result.theme.itemGUID));
 				}
 
@@ -1002,13 +1022,60 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 			})
 			.then(function (results) {
 
+				// 
+				// Exclude the theme
+				// replace with a "default" one
+				//
+				var extractThemePromises = [];
+				if (excludetheme) {
+					var buildfolder = serverUtils.getBuildFolder(projectDir);
+					if (!fs.existsSync(buildfolder)) {
+						fs.mkdirSync(buildfolder);
+					}
+					var themesBuildDir = path.join(buildfolder, 'themes');
+					if (!fs.existsSync(themesBuildDir)) {
+						fs.mkdirSync(themesBuildDir);
+					}
+					newThemeGUID = serverUtils.createGUID();
+					newThemeName = defaultThemeName + newThemeGUID;
+					newThemePath = path.join(themesBuildDir, newThemeName);
+					if (fs.existsSync(newThemePath)) {
+						fileUtils.remove(newThemePath);
+					}
+					fs.mkdirSync(newThemePath);
+					var themePath = path.join(themesDataDir, defaultThemeName + '.zip');
+					extractThemePromises.push(fileUtils.extractZip(themePath, newThemePath));
+				}
+
+				return Promise.all(extractThemePromises);
+
+			})
+			.then(function (results) {
+
+				var newTheme;
+				if (excludetheme && !results[0]) {
+					// update the name and itemGUID
+					var filePath = path.join(newThemePath, '_folder.json');
+					if (fs.existsSync(filePath)) {
+						var folderStr = fs.readFileSync(path.join(filePath));
+						var folderJson = JSON.parse(folderStr);
+						folderJson.itemGUID = newThemeGUID;
+						folderJson.themeName = newThemeName;
+						fs.writeFileSync(filePath, JSON.stringify(folderJson));
+					}
+					newTheme = {
+						name: newThemeName,
+						srcPath: newThemePath
+					};
+				}
+
 				// zip up the template
 				var optimize = false;
 				var excludeContentTemplate = true;
 				var extraComponents = [];
 				var excludeSiteContent = false;
 
-				return templateUtils.zipTemplate(argv, templateName, optimize, excludeContentTemplate, extraComponents, excludeSiteContent, excludecomponents);
+				return templateUtils.zipTemplate(argv, templateName, optimize, excludeContentTemplate, extraComponents, excludeSiteContent, excludecomponents, newTheme);
 
 			})
 			.then(function (result) {
@@ -1067,6 +1134,27 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 				templateId = result.id;
 				_transferSiteTemplateId = templateId;
 
+				// update template to the original theme
+				var updateTemplatePromises = [];
+
+				if (excludetheme) {
+					var values = {
+						'scsSiteTheme': site.themeName
+					};
+					updateTemplatePromises.push(serverUtils.setSiteMetadata(destServer, idcToken, templateId, values));
+
+				}
+
+				return Promise.all(updateTemplatePromises);
+
+			})
+			.then(function (results) {
+				if (excludetheme) {
+					if (results && results[0] && !results[0].err) {
+						console.log(' - set template theme back to ' + site.themeName);
+					}
+				}
+
 				var createSitePromises = [];
 				if (creatNewSite && site) {
 					createSitePromises.push(sitesRest.createSite({
@@ -1122,12 +1210,20 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 				return Promise.all(deleteTemplatePromises);
 			})
 			.then(function (results) {
-				var unzipTemplatePromises = [];
-				if (!creatNewSite) {
-					unzipTemplatePromises.push(templateUtils.unzipTemplate(templateName, templatePath, false));
+
+				// delete the dymmy theme in excludetheme mode
+				var deleteThemePromises = [];
+				if (newThemeName) {
+					deleteThemePromises.push(sitesRest.deleteTheme({
+						server: destServer,
+						name: newThemeName,
+						hard: true,
+						showError: false
+					}));
 				}
 
-				return Promise.all(unzipTemplatePromises);
+				return Promise.all(deleteThemePromises);
+
 			})
 			.then(function (results) {
 
@@ -1349,7 +1445,7 @@ module.exports.transferSite = function (argv, done) {
 
 					if (!site.isEnterprise) {
 
-						_transferStandardSite(argv, server, destServer, site, excludecomponents, suppressgovernance)
+						_transferStandardSite(argv, server, destServer, site, excludecomponents, excludetheme, suppressgovernance)
 							.then(function (result) {
 								var success = result && !result.err;
 								_cmdEnd(done, success);
@@ -1742,7 +1838,7 @@ module.exports.transferSite = function (argv, done) {
 									idcToken = result && result.idcToken;
 								}
 
-								// update template to the original template
+								// update template to the original theme
 								var updateTemplatePromises = [];
 
 								if (excludetheme) {

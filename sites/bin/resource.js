@@ -227,24 +227,39 @@ module.exports.setOAuthToken = function (argv, done) {
 	}
 
 	var serverName = argv.server;
-	var server = serverUtils.verifyServer(serverName, projectDir);
-	if (!server || !server.valid) {
-		done();
-		return;
-	}
+	var server;
 
-	server = serverUtils.getRegisteredServer(projectDir, serverName);
-	var serverPath = path.join(serversSrcDir, serverName, "server.json");
-	if (fs.existsSync(serverPath)) {
-		var serverstr = fs.readFileSync(serverPath).toString(),
-			serverjson = JSON.parse(serverstr);
-		serverjson.oauthtoken = argv.token;
+	if (serverName) {
+		server = serverUtils.getRegisteredServer(projectDir, serverName);
+		if (!server || !server.fileexist) {
+			done();
+			return;
+		}
+		var serverPath = path.join(serversSrcDir, serverName, "server.json");
+		if (fs.existsSync(serverPath)) {
+			var serverstr = fs.readFileSync(serverPath).toString(),
+				serverjson = JSON.parse(serverstr);
+			serverjson.oauthtoken = argv.token;
 
-		fs.writeFileSync(serverPath, JSON.stringify(serverjson));
-		console.log(' - token saved to server ' + serverName);
-		done(true);
+			fs.writeFileSync(serverPath, JSON.stringify(serverjson));
+			console.log(' - token saved to server ' + serverName);
+			done(true);
+		} else {
+			done();
+		}
 	} else {
-		done();
+		server = serverUtils.getConfiguredServer(projectDir);
+		if (!server || !server.fileexist) {
+			done();
+			return;
+		}
+		// save to the config file
+		if (serverUtils.setTokenToConfiguredServer(server, argv.token)) {
+			console.log(' - token saved to file ' + server.fileloc);
+			done(true);
+		} else {
+			done();
+		}
 	}
 };
 
@@ -1123,6 +1138,284 @@ module.exports.executePost = function (argv, done) {
 						}
 						done(true);
 					}
+				});
+			});
+	});
+};
+
+module.exports.executePut = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var bodyPath = argv.body;
+	var body;
+	if (bodyPath) {
+
+		if (!path.isAbsolute(bodyPath)) {
+			bodyPath = path.join(projectDir, bodyPath);
+		}
+		bodyPath = path.resolve(bodyPath);
+
+		if (!fs.existsSync(bodyPath)) {
+			console.log('ERROR: file ' + bodyPath + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(bodyPath).isFile()) {
+			console.log('ERROR: ' + bodyPath + ' is not a file');
+			done();
+			return;
+		}
+
+
+		try {
+			body = JSON.parse(fs.readFileSync(bodyPath));
+		} catch (e) {
+			console.log('ERROR: file ' + bodyPath + ' is not a valid JSON file');
+			done();
+			return;
+		}
+	}
+
+	var output = argv.file;
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+		if (!fs.existsSync(outputFolder)) {
+			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(outputFolder).isDirectory()) {
+			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			done();
+			return;
+		}
+	}
+
+	var endpoint = argv.endpoint;
+	var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
+	var isSites = endpoint.indexOf('/sites/management/api/') === 0;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		var caasTokenPromises = [];
+		if (isCAAS) {
+			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
+		}
+
+		Promise.all(caasTokenPromises)
+			.then(function (results) {
+				var csrfToken = results && results[0] && results[0].token;
+
+				var url = server.url + endpoint;
+				var postData = {
+					method: 'PUT',
+					url: url,
+					headers: {
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					}
+				};
+				if (csrfToken) {
+					postData.headers['X-CSRF-TOKEN'] = csrfToken;
+				}
+
+				if (body && Object.keys(body).length > 0) {
+					postData.headers['Content-Type'] = 'application/json';
+					postData.body = JSON.stringify(body);
+				}
+				// console.log(postData);
+
+				console.log(' - executing endpoint: PUT ' + endpoint);
+				var request = require('../test/server/requestUtils.js').request;
+				request.put(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to put ' + endpoint);
+						console.log(error);
+						done();
+						return;
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {}
+
+					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+					if (response.location || response.url) {
+						console.log('Result URL: ' + (response.location || response.url));
+					}
+					// console.log(response);
+					if (data) {
+						console.log('Result:');
+						console.log(JSON.stringify(data, null, 4));
+						if (output) {
+							fs.writeFileSync(output, JSON.stringify(data, null, 4));
+							console.log(' - result saved to ' + output);
+						}
+					}
+					done(true);
+				});
+			});
+	});
+};
+
+module.exports.executePatch = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var bodyPath = argv.body;
+	var body;
+	if (bodyPath) {
+
+		if (!path.isAbsolute(bodyPath)) {
+			bodyPath = path.join(projectDir, bodyPath);
+		}
+		bodyPath = path.resolve(bodyPath);
+
+		if (!fs.existsSync(bodyPath)) {
+			console.log('ERROR: file ' + bodyPath + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(bodyPath).isFile()) {
+			console.log('ERROR: ' + bodyPath + ' is not a file');
+			done();
+			return;
+		}
+
+
+		try {
+			body = JSON.parse(fs.readFileSync(bodyPath));
+		} catch (e) {
+			console.log('ERROR: file ' + bodyPath + ' is not a valid JSON file');
+			done();
+			return;
+		}
+	}
+
+	var output = argv.file;
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+		if (!fs.existsSync(outputFolder)) {
+			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(outputFolder).isDirectory()) {
+			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			done();
+			return;
+		}
+	}
+
+	var endpoint = argv.endpoint;
+	var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
+	var isSites = endpoint.indexOf('/sites/management/api/') === 0;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		var caasTokenPromises = [];
+		if (isCAAS) {
+			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
+		}
+
+		Promise.all(caasTokenPromises)
+			.then(function (results) {
+				var csrfToken = results && results[0] && results[0].token;
+
+				var url = server.url + endpoint;
+				var postData = {
+					method: 'PATCH',
+					url: url,
+					headers: {
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					}
+				};
+				if (csrfToken) {
+					postData.headers['X-CSRF-TOKEN'] = csrfToken;
+				}
+
+				if (body && Object.keys(body).length > 0) {
+					postData.headers['Content-Type'] = 'application/json';
+					postData.body = JSON.stringify(body);
+				}
+				// console.log(postData);
+
+				console.log(' - executing endpoint: PATCH ' + endpoint);
+				var request = require('../test/server/requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to patch ' + endpoint);
+						console.log(error);
+						done();
+						return;
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {}
+
+					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+					if (response.location || response.url) {
+						console.log('Result URL: ' + (response.location || response.url));
+					}
+					// console.log(response);
+					if (data) {
+						console.log('Result:');
+						console.log(JSON.stringify(data, null, 4));
+						if (output) {
+							fs.writeFileSync(output, JSON.stringify(data, null, 4));
+							console.log(' - result saved to ' + output);
+						}
+					}
+					done(true);
 				});
 			});
 	});
