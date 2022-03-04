@@ -444,16 +444,18 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 	var listChannels = types.length === 0 || types.includes('channels');
 	var listComponents = types.length === 0 || types.includes('components');
 	var listLocalizationpolicies = types.length === 0 || types.includes('localizationpolicies');
+	var listRankingPolicies = types.length === 0 || types.includes('rankingpolicies');
 	var listRecommendations = types.length === 0 || types.includes('recommendations');
 	var listRepositories = types.length === 0 || types.includes('repositories');
 	var listSites = types.length === 0 || types.includes('sites');
 	var listTemplates = types.length === 0 || types.includes('templates');
 	var listTranslationConnectors = types.length === 0 || types.includes('translationconnectors');
 	var listTaxonomies = types.length === 0 || types.includes('taxonomies');
+	var listWorkflows = types.length === 0 || types.includes('workflows');
 
 	if (!listChannels && !listComponents && !listLocalizationpolicies && !listRecommendations &&
-		!listRepositories && !listSites &&
-		!listTemplates && !listTaxonomies && !listTranslationConnectors) {
+		!listRankingPolicies && !listRepositories && !listSites &&
+		!listTemplates && !listTaxonomies && !listWorkflows && !listTranslationConnectors) {
 		console.log('ERROR: invalid resource types: ' + argv.types);
 		done();
 		return;
@@ -565,6 +567,36 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					}
 					if (policies.length > 0) {
 						console.log('Total: ' + policies.length);
+					}
+					console.log('');
+				}
+
+				promises = listRankingPolicies ? [serverRest.getRankingPolicyDescriptors({
+					server: server
+				})] : [];
+
+				return Promise.all(promises);
+
+			})
+			.then(function (results) {
+				//
+				// list ranking policies
+				//
+				if (listRankingPolicies) {
+					var rankingPolicies = results && results[0] || [];
+					console.log('Ranking policies:');
+					var policyFormat = '  %-36s  %-36s  %-10s  %-10s  %-s';
+					// console.log(JSON.stringify(rankingPolicies, null, 4));
+					console.log(sprintf(policyFormat, 'Name', 'API Name', 'Draft', 'Promoted', 'Published'));
+					rankingPolicies.forEach(function (policy) {
+						var draft = policy.draftUID ? '  √' : '';
+						var promoted = policy.promotedVersion ? ('  v' + policy.promotedVersion) : '';
+						var published = policy.publishedVersion ? ('  v' + policy.publishedVersion) : '';
+						console.log(sprintf(policyFormat, policy.name, policy.apiName, draft, promoted, published));
+					});
+
+					if (rankingPolicies.length > 0) {
+						console.log('Total: ' + rankingPolicies.length);
 					}
 					console.log('');
 				}
@@ -787,6 +819,32 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					for (var i = 0; i < connectors.length; i++) {
 						var conn = connectors[i];
 						console.log(sprintf(connectorFormat, conn.connectorId, conn.connectorName, (conn.isEnabled && conn.isEnabled.toLowerCase() === 'true' ? '   √' : '')));
+					}
+					console.log('');
+				}
+
+				promises = listWorkflows ? [serverRest.getWorkflows({
+					server: server
+				})] : [];
+
+				return Promise.all(promises);
+
+			})
+			.then(function (results) {
+				//
+				// List workflows
+				//
+				if (listWorkflows) {
+					console.log('Workflows:');
+					var wfFormat = '  %-36s  %-42s  %-8s  %-8s  %-s';
+					var workflows = results && results.length > 0 && results[0] && results[0].length > 0 ? results[0] : [];
+					console.log(sprintf(wfFormat, 'Name', 'Application Name', 'Revision', 'Enabled', 'Role Name'));
+					workflows.forEach(function (wf) {
+						var enabled = wf.isEnabled ? '  √' : '';
+						console.log(sprintf(wfFormat, wf.name, wf.applicationName, wf.revision, enabled, wf.roleName));
+					});
+					if (workflows.length > 0) {
+						console.log('Total: ' + workflows.length);
 					}
 					console.log('');
 				}

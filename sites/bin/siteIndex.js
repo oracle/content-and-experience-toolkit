@@ -895,8 +895,7 @@ var _generatePageIndex = function (site, pages, pageData, pageContent, typeTextF
 
 var _getPageIndexItem = function (server, channelToken, contenttype, locale) {
 	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/items?fields=ALL&limit=9999';
-		url = url + '&channelToken=' + channelToken;
+		
 		var q;
 		if (locale) {
 			q = 'type eq "' + contenttype + '" and language eq "' + locale + '"';
@@ -904,7 +903,6 @@ var _getPageIndexItem = function (server, channelToken, contenttype, locale) {
 			q = 'type eq "' + contenttype + '"';
 		}
 
-		// console.log(url);
 		serverRest.queryItems({
 				server: server,
 				q: q,

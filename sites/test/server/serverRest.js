@@ -797,7 +797,7 @@ module.exports.deleteFile = function (args) {
 	return _deleteFile(args.server, args.fFileGUID, args.filePath);
 };
 
-// Copy a file 
+// Copy a file
 var _copyFile = function (server, fileId, targetFolderId) {
 	return new Promise(function (resolve, reject) {
 		var body = {
@@ -1114,7 +1114,7 @@ module.exports.getItemVariations = function (args) {
 	return _getItemVariations(args.server, args.id);
 };
 
-var _queryItems = function (server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, aggregationResults, defaultQuery) {
+var _queryItems = function (server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, aggregationResults, defaultQuery, rankBy) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/items';
 		var sep = '?';
@@ -1122,7 +1122,7 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 			url = url + sep + 'q=' + q;
 			sep = '&';
 		}
-		url = url + sep + 'limit=' + (limit || 10000);
+		url = url + sep + 'limit=' + limit;
 		if (offset) {
 			url = url + '&offset=' + offset;
 		}
@@ -1143,6 +1143,9 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 		}
 		if (aggregationResults) {
 			url = url + '&aggs={"name":"item_count_per_category","field":"id"}';
+		}
+		if (rankBy) {
+			url = url + '&rankBy=' + rankBy;
 		}
 		var options = {
 			method: 'GET',
@@ -1227,7 +1230,7 @@ var _scrollItems = function (server, url) {
 		});
 	});
 };
-var _scrollAllItems = function (server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData) {
+var _scrollAllItems = function (server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, rankBy) {
 	var SCROLL_SIZE = 4000;
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/items';
@@ -1248,6 +1251,9 @@ var _scrollAllItems = function (server, q, fields, orderBy, limit, offset, chann
 		}
 		if (includeAdditionalData) {
 			url = url + '&includeAdditionalData=true';
+		}
+		if (rankBy) {
+			url = url + '&rankBy=' + rankBy;
 		}
 		url = url + '&scroll=true';
 
@@ -1297,6 +1303,9 @@ var _scrollAllItems = function (server, q, fields, orderBy, limit, offset, chann
 
 	});
 };
+
+const MAX_ITEM_LIMIT = 10000;
+
 /**
  * Get an item on server
  * @param {object} args JavaScript object containing parameters.
@@ -1315,16 +1324,16 @@ module.exports.queryItems = function (args) {
 				}
 
 				var totalCount = result.limit;
-				// console.log(' - total items: ' + totalCount);
+				console.log(' - total items: ' + totalCount);
 				var offset = args.offset ? args.offset : 0;
-				if (totalCount < 10000 || (args.limit && (offset + args.limit < 10000))) {
-					_queryItems(args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken, args.includeAdditionalData, args.aggregationResults, args.defaultQuery)
+				if (totalCount < MAX_ITEM_LIMIT || (args.limit && (offset + args.limit < MAX_ITEM_LIMIT))) {
+					_queryItems(args.server, args.q, args.fields, args.orderBy, (args.limit || totalCount), args.offset, args.channelToken, args.includeAdditionalData, args.aggregationResults, args.defaultQuery, args.rankBy)
 						.then(function (result) {
 							return resolve(result);
 						});
 				} else {
 					// console.log(' - scrolling items...');
-					_scrollAllItems(args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken, args.includeAdditionalData)
+					_scrollAllItems(args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken, args.includeAdditionalData, args.rankBy)
 						.then(function (result) {
 							var items = result;
 							return resolve({
@@ -1506,8 +1515,7 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 				if (masterId) {
 					item.languageIsMaster = false;
 					item.sourceId = masterId;
-				}
-				else {
+				} else {
 					item.languageIsMaster = true;
 				}
 				if (fields && Object.keys(fields).length > 0) {
@@ -1535,7 +1543,9 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 						console.log('ERROR: Failed to create create digital item for ' + filename);
 						console.log(error);
 						// Do we really want to resolve on an error?
-						resolve({err: 'err'}, error, response, body);
+						resolve({
+							err: 'err'
+						}, error, response, body);
 					}
 
 					var data;
@@ -1557,7 +1567,9 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 							console.log(data['o:errorDetails']);
 						}
 						// Shouldn't this reject on an error?
-						resolve({err: 'err'}, error, response, body);
+						resolve({
+							err: 'err'
+						}, error, response, body);
 					}
 				});
 			}
@@ -2383,12 +2395,35 @@ module.exports.addChannelToRepository = function (args) {
 	return _addChannelToRepository(args.server, args.id, args.name, args.repository);
 };
 
+// CAAS query maximum limit
+const MAX_LIMIT = 500;
 
-// Get channels from server
-var _getChannels = function (server) {
+var _getResources = function (server, endpoint, type, fields, offset, q, orderBy) {
 	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
 
-		var url = server.url + '/content/management/api/v1.1/channels?limit=99999&fields=all';
+		var url = server.url + endpoint;
+
+		if (url.indexOf('?') > 0) {
+			url = url + '&links=none&limit=' + MAX_LIMIT;
+		} else {
+			url = url + '?links=none&limit=' + MAX_LIMIT;
+		}
+
+		if (offset) {
+			url = url + '&offset=' + offset;
+		}
+		if (fields) {
+			url = url + '&fields=' + fields;
+		}
+		if (q) {
+			url = url + '&q=' + q;
+		}
+		if (orderBy) {
+			url = url + '&orderBy=' + orderBy;
+		}
+		// console.log(' - GET ' + url);
+
 		var options = {
 			method: 'GET',
 			url: url,
@@ -2396,13 +2431,15 @@ var _getChannels = function (server) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		var request = require('./requestUtils.js').request;
+
 		request.get(options, function (error, response, body) {
+			var result = {};
+
 			if (error) {
-				console.log('ERROR: failed to get channels');
+				console.log('ERROR: failed to get ' + type + ':');
 				console.log(error);
-				return resolve({
-					err: 'err'
+				resolve({
+					err: error
 				});
 			}
 			var data;
@@ -2412,17 +2449,52 @@ var _getChannels = function (server) {
 				data = body;
 			}
 			if (response && response.statusCode === 200) {
-				resolve(data && data.items);
+				// console.log(data);
+				resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get channels  : ' + msg);
+				console.log('ERROR: failed to get ' + type + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
 			}
+
 		});
 	});
 };
+
+
+// get all resources with pagination
+var _getAllResources = function (server, endpoint, type, fields, q, orderBy) {
+	return new Promise(function (resolve, reject) {
+		var groups = [];
+		// 1000 * 500 = 500,000 should be enough
+		for (var i = 1; i < 1000; i++) {
+			groups.push(MAX_LIMIT * i);
+		}
+
+		var resources = [];
+
+		var doGetResources = groups.reduce(function (resPromise, offset) {
+				return resPromise.then(function (result) {
+					if (result && result.items && result.items.length > 0) {
+						resources = resources.concat(result.items);
+					}
+					if (result && result.hasMore) {
+						return _getResources(server, endpoint, type, fields, offset, q, orderBy);
+					}
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise
+			_getResources(server, endpoint, type, fields, 0, q, orderBy));
+
+		doGetResources.then(function (result) {
+			// console.log(resources.length);
+			resolve(resources);
+		});
+	});
+};
+
 /**
  * Get all channels on server
  * @param {object} args JavaScript object containing parameters.
@@ -2430,7 +2502,7 @@ var _getChannels = function (server) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getChannels = function (args) {
-	return _getChannels(args.server);
+	return _getAllResources(args.server, '/content/management/api/v1.1/channels', 'channels', 'all');
 };
 
 // Get channel from server
@@ -3093,44 +3165,7 @@ module.exports.copyAssets = function (args) {
 		args.itemIds);
 };
 
-// Get localization policies from server
-var _getLocalizationPolicies = function (server) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/localizationPolicies?limit=99999';
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-		var request = require('./requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to localization policies');
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				resolve(data && data.items);
-			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get localization policies : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
+
 /**
  * Get all localization policies on server
  * @param {object} args JavaScript object containing parameters.
@@ -3138,7 +3173,7 @@ var _getLocalizationPolicies = function (server) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getLocalizationPolicies = function (args) {
-	return _getLocalizationPolicies(args.server);
+	return _getAllResources(args.server, '/content/management/api/v1.1/localizationPolicies', 'localizationPolicies', 'all');
 };
 
 // Get a localization policy from server
@@ -3395,47 +3430,6 @@ module.exports.deleteLocalizationPolicy = function (args) {
 	return _deleteLocalizationPolicy(args.server, args.id);
 };
 
-
-// Get repositories from server
-var _getRepositories = function (server) {
-	return new Promise(function (resolve, reject) {
-
-		var url = server.url + '/content/management/api/v1.1/repositories?limit=99999&fields=all';
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-
-		var request = require('./requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to get repositories');
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				resolve(data && data.items);
-			} else {
-				var msg = (data && (data.title || data.errorMessage)) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get repositories : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
 /**
  * Get all repositories on server
  * @param {object} args JavaScript object containing parameters.
@@ -3443,7 +3437,7 @@ var _getRepositories = function (server) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getRepositories = function (args) {
-	return _getRepositories(args.server);
+	return _getAllResources(args.server, '/content/management/api/v1.1/repositories', 'repositories', 'all');
 };
 
 // Get a repository from server
@@ -3567,44 +3561,7 @@ module.exports.getRepositoryWithName = function (args) {
 	});
 };
 
-// Get collections of a repository from server
-var _getCollections = function (server, repositoryId) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/repositories/' + repositoryId + '/collections?limit=9999&fields=all';
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-		var request = require('./requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to get collections');
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				resolve(data && data.items);
-			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get collections : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
+
 /**
  * Get all collections of a repository on server
  * @param {object} args JavaScript object containing parameters.
@@ -3613,7 +3570,9 @@ var _getCollections = function (server, repositoryId) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getCollections = function (args) {
-	return _getCollections(args.server, args.repositoryId);
+	return _getAllResources(args.server,
+		'/content/management/api/v1.1/repositories/' + args.repositoryId + '/collections',
+		'collections', 'all');
 };
 
 /**
@@ -3626,31 +3585,65 @@ module.exports.getCollections = function (args) {
 module.exports.getCollectionWithName = function (args) {
 	return new Promise(function (resolve, reject) {
 		if (!args.name) {
-			return resolve({
-				err: 'err'
-			});
+			return resolve({});
 		}
-		_getCollections(args.server, args.repositoryId).then(function (result) {
-			if (result.err) {
-				resolve({
+		var colName = args.name;
+		var server = args.server;
+
+		var url = server.url + '/content/management/api/v1.1/repositories/' + args.repositoryId + '/collections';
+		url = url + '?q=(name mt "' + encodeURIComponent(colName) + '")';
+		url = url + '&fields=all';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		// console.log(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get collection ' + colName);
+				console.log(error);
+				return resolve({
 					err: 'err'
 				});
 			}
-
-			var collections = result || [];
-			var collection;
-			var name = args.name.toLowerCase();
-			for (var i = 0; i < collections.length; i++) {
-				if (name === collections[i].name.toLowerCase()) {
-					collection = collections[i];
-					break;
-				}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
 			}
 
-			resolve({
-				data: collection
-			});
+			if (response && response.statusCode === 200) {
+				var collections = data && data.items || [];
+				var collection;
+				for (var i = 0; i < collections.length; i++) {
+					if (collections[i].name && collections[i].name.toLowerCase() === colName.toLocaleLowerCase()) {
+						collection = collections[i];
+						break;
+					}
+				}
+				if (collection) {
+					resolve({
+						data: collection
+					});
+				} else {
+					return resolve({});
+				}
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get collection ' + colName + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
 		});
+
 	});
 };
 
@@ -3868,56 +3861,7 @@ module.exports.getTaxonomyWithName = function (args) {
 	});
 };
 
-// Get categories of a taxonomy from server
-var _getCategories = function (server, taxonomyId, taxonomyName, status, orderBy) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/taxonomies/' + taxonomyId + '/categories?fields=all&limit=9999';
-		if (status) {
-			url = url + '&q=status eq "' + status + '"';
-		}
-		if (orderBy) {
-			url = url + '&orderBy=' + orderBy;
-		}
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-		// console.log(options);
 
-		var request = require('./requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to get categories');
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				resolve({
-					taxonomyName: taxonomyName,
-					taxonomyId: taxonomyId,
-					categories: data && data.items
-				});
-			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get categories : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
 /**
  * Get all categories of a taxonomy on server
  * @param {object} args JavaScript object containing parameters.
@@ -3925,7 +3869,21 @@ var _getCategories = function (server, taxonomyId, taxonomyName, status, orderBy
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getCategories = function (args) {
-	return _getCategories(args.server, args.taxonomyId, args.taxonomyName, args.status, args.orderBy);
+	return new Promise(function (resolve, reject) {
+		var q;
+		if (args.status) {
+			q = 'status eq "' + args.status + '"';
+		}
+		_getAllResources(args.server, '/content/management/api/v1.1/taxonomies/' + args.taxonomyId + '/categories',
+				'categories', 'all', q, args.orderBy)
+			.then(function (result) {
+				resolve({
+					taxonomyName: args.taxonomyName,
+					taxonomyId: args.taxonomyId,
+					categories: result
+				});
+			});
+	});
 };
 
 
@@ -3990,47 +3948,7 @@ module.exports.getResourcePermissions = function (args) {
 	return _getResourcePermissions(args.server, args.id, args.type, args.repositoryId);
 };
 
-var _getPermissionSets = function (server, id, name) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/repositories/' + id + '/permissionSets?limit=1000&links=none';
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-		var request = require('./requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to get permission sets for ' + (name || id));
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				resolve({
-					id: id,
-					name: name,
-					permissionSets: data && data.items
-				});
-			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get permission sets for ' + (name || id) + ' : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
+
 /**
  * Get all permission sets of repository  on a oce server
  * @param {object} args JavaScript object containing parameters.
@@ -4039,7 +3957,16 @@ var _getPermissionSets = function (server, id, name) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getPermissionSets = function (args) {
-	return _getPermissionSets(args.server, args.id, args.name);
+	return new Promise(function (resolve, reject) {
+		_getAllResources(args.server, '/content/management/api/v1.1/repositories/' + args.id + '/permissionSets', 'permissionSets')
+			.then(function (result) {
+				resolve({
+					id: args.id,
+					name: args.name,
+					permissionSets: result
+				});
+			});
+	});
 };
 
 var _setPermissionSets = function (server, id, name, action, permissions) {
@@ -4110,7 +4037,7 @@ module.exports.setPermissionSets = function (args) {
 };
 
 // Create repository on server
-var _createRepository = function(server, name, description, contentTypes, channels, defaultLanguage,
+var _createRepository = function (server, name, description, contentTypes, channels, defaultLanguage,
 	repositoryType, additionalLangs) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
@@ -4436,43 +4363,6 @@ module.exports.performPermissionOperation = function (args) {
 		args.operation, args.resourceId, args.resourceName, args.resourceType, args.role, args.users || [], args.groups || []);
 };
 
-var _getEditorialRoles = function (server) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/editorialRoles?limit=99999&orderBy=name:asc&fields=all';
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-		var request = require('./requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to get editorial roles');
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				resolve(data && data.items);
-			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get editorial roles  : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
 /**
  * Get all editorial roles on OCM server
  * @param {object} args JavaScript object containing parameters.
@@ -4480,7 +4370,8 @@ var _getEditorialRoles = function (server) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getEditorialRoles = function (args) {
-	return _getEditorialRoles(args.server);
+	return _getAllResources(args.server, '/content/management/api/v1.1/editorialRoles',
+		'editorialRoles', 'all', '', 'name:asc');
 };
 
 /**
@@ -4766,49 +4657,6 @@ module.exports.deleteEditorialRole = function (args) {
 };
 
 
-// Get types from server
-var _getContentTypes = function (server) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/types?limit=99999&links=none';
-
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-		var request = require('./requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				if (showError) {
-					console.log('ERROR: failed to get types');
-					console.log(error);
-				}
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				resolve(data);
-			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				if (showError) {
-					console.log('ERROR: failed to get types');
-				}
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
 /**
  * Get all types on server
  * @param {object} args JavaScript object containing parameters.
@@ -4816,7 +4664,8 @@ var _getContentTypes = function (server) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getContentTypes = function (args) {
-	return _getContentTypes(args.server);
+	// return _getContentTypes(args.server);
+	return _getAllResources(args.server, '/content/management/api/v1.1/types', 'types');
 };
 
 // Get type from server
@@ -6849,49 +6698,7 @@ module.exports.deleteTaxonomy = function (args) {
 	return _deleteTaxonomy(args.server, args.id, args.name, args.status);
 };
 
-// Get recommendations from server
-var _getRecommendations = function (server, repositoryId, repositoryName) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/personalization/recommendations';
-		url = url + '?q=(repositoryId eq "' + repositoryId + '")&fields=all&links=none&limit=9999';
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-		var request = require('./requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to get recommendations from repository ' + (repositoryName || repositoryId));
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				resolve({
-					repositoryId: repositoryId,
-					repositoryName: repositoryName,
-					data: data && data.items
-				});
-			} else {
-				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get recommendations from repository ' + (repositoryName || repositoryId) + ' : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
+
 /**
  * Get all recommendations on server
  * @param {object} args JavaScript object containing parameters.
@@ -6899,7 +6706,19 @@ var _getRecommendations = function (server, repositoryId, repositoryName) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getRecommendations = function (args) {
-	return _getRecommendations(args.server, args.repositoryId, args.repositoryName);
+	// return _getRecommendations(args.server, args.repositoryId, args.repositoryName);
+	return new Promise(function (resolve, reject) {
+		var q = '(repositoryId eq "' + args.repositoryId + '")';
+		_getAllResources(args.server, '/content/management/api/v1.1/personalization/recommendations',
+				'recommendations', 'all', q)
+			.then(function (result) {
+				resolve({
+					repositoryId: args.repositoryId,
+					repositoryName: args.repositoryName,
+					data: result
+				});
+			});
+	});
 };
 
 var _getContentJobStatus = function (server, jobId) {
@@ -7988,6 +7807,28 @@ var _cancelScheduledJob = function (server, id) {
 	});
 };
 
+/**
+ * Get translation jobs
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.jobType The translation job type
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getTranslationJobs = function (args) {
+	var fields;
+	var q;
+	var orderBy = 'name:asc';
+	return new Promise(function (resolve, reject) {
+		_getAllResources(args.server, '/content/management/api/v1.1/translationJobs?jobType=' + args.jobType, 'translationJobs', fields, q, orderBy)
+			.then(function (result) {
+				return resolve({
+					jobType: args.jobType,
+					jobs: result
+				});
+			});
+	});
+};
+
 var _createAssetTranslation = function (server, name, repositoryId, collectionId, contentIds, sourceLanguage, targetLanguages, connectorId) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
@@ -8357,6 +8198,112 @@ module.exports.createCategory = function (args) {
 };
 
 /**
+ * Get all workflows on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getWorkflows = function (args) {
+	return _getAllResources(args.server, '/content/management/api/v1.1/workflows', 'workflows', 'all');
+};
+
+/**
+ * Get all workflows on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getWorkflowPermissions = function (args) {
+	return new Promise(function (resolve, reject) {
+		_getAllResources(args.server, '/content/management/api/v1.1/workflows/' + args.id + '/permissions', 'workflow permissions', 'all')
+			.then(function (result) {
+				return resolve({
+					workflowId: args.id,
+					permissions: result
+				});
+			});
+	});
+};
+
+/**
+ * Get workflows with name on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the workflow to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getWorkflowsWithName = function (args) {
+	return new Promise(function (resolve, reject) {
+		if (!args.name) {
+			return resolve({});
+		}
+		var workflowName = args.name;
+		var server = args.server;
+
+		var url = server.url + '/content/management/api/v1.1/workflows';
+		url = url + '?q=(name mt "' + encodeURIComponent(workflowName) + '")';
+		url = url + '&fields=all';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		// console.log(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get workflow ' + workflowName);
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 200) {
+				var workflows = data && data.items || [];
+				return resolve(workflows);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get workflow ' + workflowName + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Get all ranking policies on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getRankingPolicies = function (args) {
+	return _getAllResources(args.server, '/content/management/api/v1.1/search/rankingPolicies', 'rankingPolicies', 'all');
+};
+
+/**
+ * Get all ranking policy descriptors on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getRankingPolicyDescriptors = function (args) {
+	return _getAllResources(args.server, '/content/management/api/v1.1/search/rankingPolicyDescriptors', 'rankingPolicyDescriptors', 'all');
+};
+
+/**
  * Get a translation connector with name on server
  * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
@@ -8678,6 +8625,148 @@ module.exports.createConversation = function (args) {
 	return _createConversation(args.server, args.name, args.isDiscoverable);
 };
 
+var _createAssetConversation = function(server, props = []){
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/osn/fc/RemoteJSONBatch?apmOps=Conversation.createConversationFromInfo';
+		props = props.map(obj => ({
+			...obj,
+			'_class': 'XConversationCreateInfo'
+		}));
+
+		var body = [{
+			'ModuleName': 'XConversationModule$Server',
+			'MethodName': 'createConversationFromInfo',
+			'Arguments': props
+		}];
+
+		// console.log("_setUserSocialPreferences body = ", body);
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var postData = {
+						method: 'POST',
+						url: url,
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID,
+							'X-Waggle-APIVersion': '12100' // It is a range between 6100 - 12140
+						},
+						body: JSON.stringify(body),
+						json: true
+					};
+
+					addCachedCookiesForRequest(server, postData);
+					request.post(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: failed to create asset conversation ' + props);
+							console.log(error);
+							resolve({
+								err: 'err'
+							});
+						}
+
+						if (response && response.statusCode >= 200 && response.statusCode < 300) {
+							var data;
+							var conversationData;
+							try {
+								data = JSON.parse(body);
+								conversationData = (data && data.length > 0)? data[0].returnValue : undefined;
+								console.log(`INFO: _createAssetConversation(${JSON.stringify(props)}) returned`, JSON.stringify(data));
+							} catch (e) {
+								console.error(e.stack);
+							}
+							resolve(conversationData);
+						} else {
+							console.log('ERROR: failed to create asset conversation ' + props + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+							resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+
+/**
+ * Create a conversation on the server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {object} args.props array of PropertyName, PropertyValue objects.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+ module.exports.createAssetConversation = function (args) {
+	return _createAssetConversation(args.server, args.props);
+};
+
+var _getConversation = function (server, conversationId) {
+	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/conversations/' + conversationId;
+					var postData = {
+						method: 'GET',
+						url: url,
+						headers: {
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID
+						},
+						json: true
+					};
+					addCachedCookiesForRequest(server, postData);
+					// console.log(postData);
+					request.post(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: get conversation ' + conversationId);
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+
+						cacheCookiesFromResponse(server, response);
+						if (response && response.statusCode === 200) {
+							resolve(data);
+						} else {
+							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
+							console.log('ERROR: failed to get conversation ' + conversationId + ' : ' + msg);
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+/**
+ * Get a conversation.
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.id ID of the conversation
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getConversation = function (args) {
+	return _getConversation(args.server, args.id);
+};
 
 var _deleteConversation = function (server, conversationId) {
 	return new Promise(function (resolve, reject) {
@@ -9072,6 +9161,85 @@ module.exports.postMessageToConversation = function (args) {
 	return _postMessageToConversation(args.server, args.conversationId, args.text);
 };
 
+var _postMessageToAssetConversation = function(server, props = []){
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/osn/fc/RemoteJSONBatch?apmOps=Chat.createChatFromInfo';
+		props = props.map(obj => ({
+			...obj
+		}));
+
+		var body = [{
+			'ModuleName': 'XChatModule$Server',
+			'MethodName': 'createChatFromInfo',
+			'Arguments': props
+		}];
+
+		// console.log("_setUserSocialPreferences body = ", body);
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var postData = {
+						method: 'POST',
+						url: url,
+						headers: {
+							'Content-Type': 'application/json',
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID,
+							'X-Waggle-APIVersion': '12100' // It is a range between 6100 - 12140
+						},
+						body: JSON.stringify(body),
+						json: true
+					};
+
+					addCachedCookiesForRequest(server, postData);
+					request.post(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: failed to add post to asset conversation ' + props);
+							console.log(error);
+							resolve({
+								err: 'err'
+							});
+						}
+
+						if (response && response.statusCode >= 200 && response.statusCode < 300) {
+							var data;
+							var chatId;
+							try {
+								data = JSON.parse(body);
+								chatId = (data && data.length > 0)? data[0].returnValue : undefined;
+								console.log(`INFO: _postMessageToAssetConversation(${JSON.stringify(props)}) returned`, JSON.stringify(data));
+							} catch (e) {
+								console.error(e.stack);
+							}
+							resolve(chatId);
+						} else {
+							console.log('ERROR: failed to add post to asset conversation ' + props + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+							resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+
+/**
+ * Post a message to a conversation.
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.props array of PropertyName, PropertyValue objects.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+ module.exports.postMessageToAssetConversation = function (args) {
+	return _postMessageToAssetConversation(args.server, args.props);
+};
+
 var _postReplyToMessage = function (server, messageId, text) {
 	return new Promise(function (resolve, reject) {
 		var request = require('./requestUtils.js').request;
@@ -9417,7 +9585,10 @@ module.exports.getMe = function (args) {
 var _setUserSocialPreferences = function (server, userId, props = []) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/osn/fc/RemoteJSONBatch?apmOps=Properties.setProperties,User.updateMyProfile';
-		props = props.map(obj => ({ ...obj, '_class': 'XPropertyInfo' }));
+		props = props.map(obj => ({
+			...obj,
+			'_class': 'XPropertyInfo'
+		}));
 
 		var body = [{
 			'ModuleName': 'XPropertiesModule$Server',
@@ -9475,7 +9646,7 @@ var _setUserSocialPreferences = function (server, userId, props = []) {
 					});
 				}
 			});
-		});
+	});
 }
 
 /**
@@ -9583,7 +9754,6 @@ module.exports.cancelRestoration = function (args) {
 };
 
 var _archiveBulkOpItems = function (server, operation, itemIds, queryString, async) {
-	
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -9602,14 +9772,14 @@ var _archiveBulkOpItems = function (server, operation, itemIds, queryString, asy
 						q = q + 'id eq "' + itemIds[i] + '"';
 					}
 				}
-			
+
 				var url = server.url + '/content/management/api/v1.1/';
 				url += (operation === 'archive') ? 'bulkItemsOperations/' + operation : 'archive/items/.bulk/' + operation;
-				
+
 				var formData = {
 					q: q,
 				};
-				
+
 				var headers = {
 					'Content-Type': 'application/json',
 					'X-CSRF-TOKEN': csrfToken,
@@ -9617,7 +9787,7 @@ var _archiveBulkOpItems = function (server, operation, itemIds, queryString, asy
 					Authorization: serverUtils.getRequestAuthorization(server)
 				};
 
-				if (async && async ==='true') {
+				if (async &&async ==='true') {
 					headers.Prefer = 'respond-async';
 				}
 				var postData = {
@@ -9661,7 +9831,7 @@ var _archiveBulkOpItems = function (server, operation, itemIds, queryString, asy
 										process.stdout.write(os.EOL);
 									}
 									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
-									console.log('ERROR: Failed to'  + operation + ' items ',  msg);
+									console.log('ERROR: Failed to' + operation + ' items ', msg);
 
 									return resolve({
 										err: 'err'

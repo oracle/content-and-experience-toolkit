@@ -1948,6 +1948,18 @@ gulp.task('update-type', function (done) {
 });
 
 /**
+ * Describe a workflow
+ */
+gulp.task('describe-workflow', function (done) {
+	'use strict';
+
+	assetlib.describeWorkflow(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Create MS word template
  * 2021-08-20 removed
 gulp.task('create-word-template', function (done) {

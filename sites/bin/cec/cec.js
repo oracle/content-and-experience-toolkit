@@ -249,7 +249,7 @@ var getGroupMemberRoles = function () {
 };
 
 var getResourceTypes = function () {
-	var names = ['channels', 'components', 'localizationpolicies', 'recommendations', 'repositories', 'sites', 'templates', 'taxonomies', 'translationconnectors'];
+	var names = ['channels', 'components', 'localizationpolicies', 'rankingpolicies', 'recommendations', 'repositories', 'sites', 'templates', 'taxonomies', 'translationconnectors', 'workflows'];
 	return names;
 };
 
@@ -2393,6 +2393,23 @@ const describeChannel = {
 	]
 };
 
+const describeWorkflow = {
+	command: 'describe-workflow <name>',
+	alias: 'dswf',
+	name: 'describe-workflow',
+	usage: {
+		'short': 'Lists the properties of a content workflow on OCM server.',
+		'long': (function () {
+			let desc = 'Lists the properties of a content workflow on OCM server. Optionally specify -f <file> to save the properties to a JSON file. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-workflow OneStepReview -s UAT'],
+		['cec describe-workflow OneStepReview -f ~/Docs/OneStepReview.json -s UAT']
+	]
+};
+
 const createLocalizationPolicy = {
 	command: 'create-localization-policy <name>',
 	alias: 'clp',
@@ -2431,9 +2448,11 @@ const listAssets = {
 		['cec list-assets', 'List all assets'],
 		['cec list-assets -s UAT', 'List all assets on registered server UAT'],
 		['cec list-assets -r Repo1', 'List all assets from repository Repo1'],
+		['cec list-assets -r Repo1 -o "name:asc"', 'List all assets from repository Repo1 and order them by name'],
 		['cec list-assets -c Channel1', 'List all assets from channel Channel1'],
 		['cec list-assets -r Repo1 -l Collection1', 'List all assets from collection Collection1 and repository Repo1'],
-		['cec list-assets -q \'fields.category eq "RECIPE"\'', 'List all assets matching the query']
+		['cec list-assets -q \'fields.category eq "RECIPE"\'', 'List all assets matching the query'],
+		['cec list-assets -q \'fields.category eq "RECIPE"\' -k ranking1', 'List all assets matching the query and order them by relevance']
 	]
 };
 
@@ -3426,6 +3445,7 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(uploadType) + os.EOL +
 	_getCmdHelp(copyType) + os.EOL +
 	_getCmdHelp(updateType) + os.EOL +
+	_getCmdHelp(describeWorkflow) + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
 	_getCmdHelp(addContentLayoutMapping) + os.EOL +
 	_getCmdHelp(removeContentLayoutMapping) + os.EOL +
@@ -6458,6 +6478,22 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${uploadType.command}\n\n${uploadType.usage.long}`);
 		})
+	.command([describeWorkflow.command, describeWorkflow.alias], false,
+		(yargs) => {
+			yargs.option('file', {
+					alias: 'f',
+					description: 'The JSON file to save the properties'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...describeWorkflow.example[0])
+				.example(...describeWorkflow.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeWorkflow.command}\n\n${describeWorkflow.usage.long}`);
+		})
 	/** 
  	* 2021-08-20 removed
 	.command([createWordTemplate.command, createWordTemplate.alias], false,
@@ -6763,6 +6799,14 @@ const argv = yargs.usage(_usage)
 					alias: 'q',
 					description: 'Query to fetch the assets'
 				})
+				.option('orderby', {
+					alias: 'o',
+					description: 'The order of query items'
+				})
+				.option('rankby', {
+					alias: 'k',
+					description: 'The ranking policy API name'
+				})
 				/*
 				.option('urls', {
 					alias: 'u',
@@ -6785,6 +6829,8 @@ const argv = yargs.usage(_usage)
 				.example(...listAssets.example[3])
 				.example(...listAssets.example[4])
 				.example(...listAssets.example[5])
+				.example(...listAssets.example[6])
+				.example(...listAssets.example[7])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listAssets.command}\n\n${listAssets.usage.long}`);
@@ -9096,6 +9142,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.query) {
 		listAssetsArgs.push(...['--query', argv.query]);
 	}
+	if (argv.orderby) {
+		listAssetsArgs.push(...['--orderby', argv.orderby]);
+	}
+	if (argv.rankby) {
+		listAssetsArgs.push(...['--rankby', argv.rankby]);
+	}
 	if (argv.urls) {
 		listAssetsArgs.push(...['--urls', argv.urls]);
 	}
@@ -10055,6 +10107,23 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		updateTypeArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, updateTypeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeWorkflow.name || argv._[0] === describeWorkflow.alias) {
+	let describeWorkflowArgs = ['run', '-s', describeWorkflow.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.file) {
+		describeWorkflowArgs.push(...['--file', argv.file]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeWorkflowArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, describeWorkflowArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

@@ -15,6 +15,17 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.3.1
+
+**Added**
+
+- `cec describe-workflow` - Lists the properties of a content workflow on an OCM server
+
+**Updated**
+
+- `cec list` - Now includes workflows and ranking policies
+- `cec list-assets` - Added parameter `--rankby` to sort query result by ranking policy
+
 
 # New in Release 22.2.2
 

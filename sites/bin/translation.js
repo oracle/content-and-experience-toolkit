@@ -80,46 +80,10 @@ var _cmdEnd = function (done, success) {
  * @param {*} jobType 
  */
 var _getTranslationJobs = function (server, jobType) {
-	var jobPromise = new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/translationJobs?jobType=' + jobType + '&limit=99999&offset=0&orderBy=name:asc';
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-		var request = require('../test/server/requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to query translation jobs');
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				var jobs = data && data.items || [];
-				resolve({
-					jobType: jobType,
-					jobs: jobs
-				});
-			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to query translation jobs  : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
+	return serverRest.getTranslationJobs({
+		server: server,
+		jobType: jobType
 	});
-	return jobPromise;
 };
 
 /**
