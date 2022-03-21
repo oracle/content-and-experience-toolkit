@@ -16,6 +16,7 @@
  */
 var fs = require('fs'),
 	path = require('path'),
+	url = require('url'),
 	cheerio = require('cheerio');
 
 var compilationReporter = require('../../reporter.js');
@@ -158,7 +159,7 @@ SectionLayout.prototype = {
 								foundComponentFile = true;
 
 								// JavaScript module based section layout, import it
-								const { default: importModule } = await import(moduleFile);
+								const { default: importModule } = await import(url.pathToFileURL(moduleFile));
 								SectionLayoutImpl = importModule;
 							} catch (e) {
 								compilationReporter.error({

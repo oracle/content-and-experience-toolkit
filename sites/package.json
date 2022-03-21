@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "22.3.1",
+	"version": "22.3.2",
 	"license": "UPL-1.0",
 	"description": "Oracle Content Management Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content Management.",
 	"main": "index.js",
@@ -117,7 +117,7 @@
 		"describe-repository": "gulp -LL --gulpfile bin/gulpfile.js describe-repository ",
 		"set-editorial-permission": "gulp -LL --gulpfile bin/gulpfile.js set-editorial-permission ",
 		"list-editorial-permission": "gulp -LL --gulpfile bin/gulpfile.js list-editorial-permission ",
-		"list-editorial-role": "gulp -LL --gulpfile bin/gulpfile.js list-editorial-role ",
+		"list-editorial-roles": "gulp -LL --gulpfile bin/gulpfile.js list-editorial-roles ",
 		"create-editorial-role": "gulp -LL --gulpfile bin/gulpfile.js create-editorial-role ",
 		"set-editorial-role": "gulp -LL --gulpfile bin/gulpfile.js set-editorial-role ",
 		"delete-editorial-role": "gulp -LL --gulpfile bin/gulpfile.js delete-editorial-role ",
@@ -180,15 +180,15 @@
 	],
 	"author": "Oracle",
 	"engines": {
-		"node": "10.0.0"
+		"node": ">=14.0.0"
 	},
 	"dependencies": {
 		"@oracle/oraclejet": "10.0.0",
-		"body-parser": "1.19.0",
+		"body-parser": "1.19.2",
 		"chai": "4.3.4",
 		"cheerio": "1.0.0-rc.9",
 		"deepmerge": "4.2.2",
-		"express": "4.17.1",
+		"express": "4.17.3",
 		"extract-zip": "2.0.1",
 		"form-data": "4.0.0",
 		"fs-extra": "10.0.0",

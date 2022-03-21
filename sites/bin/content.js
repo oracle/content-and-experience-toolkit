@@ -1685,7 +1685,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					return serverRest.queryItems({
 						server: server,
 						q: q,
-						fields: 'name,status,isPublished'
+						fields: 'name,status,isPublished,publishedChannels'
 					});
 				})
 				.then(function (result) {
@@ -1760,13 +1760,23 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						// all items include rejected, use for unpublish / remove
 						itemIds.push(item.id);
 
+						// Get published channels
+						var publishedChannels = [];
+						if (item.publishedChannels && item.publishedChannels.data && item.publishedChannels.data.length > 0) {
+							item.publishedChannels.data.forEach(function (channel) {
+								if (channel.id && !publishedChannels.includes(channel.id)) {
+									publishedChannels.push(channel.id);
+								}
+							});
+						}
+
 						if (publishPolicy) {
 							if (publishPolicy === 'onlyApproved') {
 								if (item.status === 'approved') {
 									toPublishItemIds.push(item.id);
 								}
 							} else {
-								if (item.status !== 'rejected' && item.status !== 'published') {
+								if (item.status !== 'rejected' && (item.status !== 'published' || channel && !publishedChannels.includes(channel.id))) {
 									toPublishItemIds.push(item.id);
 								}
 							}

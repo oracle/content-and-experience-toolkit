@@ -1803,7 +1803,7 @@ gulp.task('list-editorial-permission', function (done) {
 /**
  * List Editorial Roles
  */
-gulp.task('list-editorial-role', function (done) {
+gulp.task('list-editorial-roles', function (done) {
 	'use strict';
 
 	assetlib.listEditorialRole(argv, function (success) {

@@ -1496,7 +1496,7 @@ module.exports.listFolder = function (argv, done) {
 					}
 					rootParentId = resourceGUID;
 				}
-
+				// console.log(folderPath);
 				return _findFolder(server, rootParentId, folderPath);
 			})
 			.then(function (result) {

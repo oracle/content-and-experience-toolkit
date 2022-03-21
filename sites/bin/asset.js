@@ -590,9 +590,9 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 								finalConnectors.splice(idx, 1);
 							}
 						}
-					} else if (action === 'add-editorial-role') {
+					} else if (action === 'add-role') {
 						finalEditorialRoles = finalEditorialRoles.concat(editorialRoles);
-					} else if (action === 'remove-editorial-role') {
+					} else if (action === 'remove-role') {
 						for (i = 0; i < editorialRoles.length; i++) {
 							idx = undefined;
 							for (j = 0; j < finalEditorialRoles.length; j++) {
@@ -644,9 +644,9 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 								console.log(' - added translation connector ' + connectorNames + ' to repository ' + name);
 							} else if (action === 'remove-translation-connector') {
 								console.log(' - removed translation connector ' + connectorNames + ' from repository ' + name);
-							} else if (action === 'add-editorial-role') {
+							} else if (action === 'add-role') {
 								console.log(' - added editorial role ' + roleNames + ' to repository ' + name);
-							} else if (action === 'remove-editorial-role') {
+							} else if (action === 'remove-role') {
 								console.log(' - removed editorial-role ' + roleNames + ' from repository ' + name);
 							}
 						}
@@ -1311,6 +1311,7 @@ module.exports.describeRepository = function (argv, done) {
 				}
 
 				repo = result.data;
+				// console.log(repo);
 				if (!repo || !repo.id) {
 					console.log('ERROR: repository ' + name + ' does not exist');
 					return Promise.reject();
@@ -1374,6 +1375,14 @@ module.exports.describeRepository = function (argv, done) {
 						assetTypes.push(type.displayName || type.name);
 					});
 				}
+
+				var editorialRoles = [];
+				if (repo.editorialRoles && repo.editorialRoles.length > 0) {
+					repo.editorialRoles.forEach(function (role) {
+						editorialRoles.push(role.name);
+					});
+				}
+
 				var format1 = '%-38s  %-s';
 				console.log('');
 				console.log(sprintf(format1, 'Id', repo.id));
@@ -1387,6 +1396,7 @@ module.exports.describeRepository = function (argv, done) {
 				console.log(sprintf(format1, 'Default language', repo.defaultLanguage));
 				console.log(sprintf(format1, 'Channel languages', repo.configuredLanguages));
 				console.log(sprintf(format1, 'Additional languages', repo.languageOptions));
+				console.log(sprintf(format1, 'Editorial roles', editorialRoles));
 				console.log('');
 
 				done(true);
@@ -4371,14 +4381,14 @@ var _listEditorialRoles = function (item) {
 	}
 
 	console.log('');
-	var format1 = '  %-53s  %-s';
+	var format1 = '  %-63s  %-s';
 	// console.log(sprintf(format1, '', 'Assets', 'Taxonomies'));
 
-	var format2 = '  %-20s  %-4s  %-6s  %-6s  %-6s     %-30s  %-6s  %-s';
+	var format2 = '  %-30s  %-4s  %-6s  %-6s  %-6s     %-36s  %-6s  %-s';
 	// console.log(sprintf(format2, '', '', 'View', 'Update', 'Create', 'Delete', '', 'View', 'Categorize'));
 
 
-	console.log(item.name + '  ' + (item.description || ''));
+	console.log(item.name + '  ' + (item.description ? ('(' + item.description + ')') : ''));
 
 	console.log(sprintf(format1, 'Assets', 'Taxonomies'));
 	console.log(sprintf(format2, '', 'View', 'Update', 'Create', 'Delete', '', 'View', 'Categorize'));

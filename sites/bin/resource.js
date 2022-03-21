@@ -449,13 +449,14 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 	var listRepositories = types.length === 0 || types.includes('repositories');
 	var listSites = types.length === 0 || types.includes('sites');
 	var listTemplates = types.length === 0 || types.includes('templates');
+	var listThemes = types.length === 0 || types.includes('themes');
 	var listTranslationConnectors = types.length === 0 || types.includes('translationconnectors');
 	var listTaxonomies = types.length === 0 || types.includes('taxonomies');
 	var listWorkflows = types.length === 0 || types.includes('workflows');
 
 	if (!listChannels && !listComponents && !listLocalizationpolicies && !listRecommendations &&
 		!listRankingPolicies && !listRepositories && !listSites &&
-		!listTemplates && !listTaxonomies && !listWorkflows && !listTranslationConnectors) {
+		!listTemplates && !listThemes && !listTaxonomies && !listWorkflows && !listTranslationConnectors) {
 		console.log('ERROR: invalid resource types: ' + argv.types);
 		done();
 		return;
@@ -762,6 +763,31 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 				}
 				console.log('');
 
+				promises = listThemes ? [sitesRest.getThemes({
+					server: server
+				})] : [];
+				return Promise.all(promises);
+
+			})
+			.then(function (results) {
+				//
+				// list themes
+				//
+				console.l
+				var themes = results.length > 0 ? results[0] : [];
+				if (listThemes) {
+					console.log('Themes:');
+					console.log(sprintf(format2, 'Name', 'Published'));
+					for (var i = 0; i < themes.length; i++) {
+						var status = themes[i].publishStatus === 'published' ? '   √' : '';
+						console.log(sprintf(format2, themes[i].name, status));
+					}
+				}
+				if (themes.length > 0) {
+					console.log('Total: ' + themes.length);
+				}
+				console.log('');
+
 				promises = listTaxonomies ? [serverRest.getTaxonomies({
 					server: server
 				})] : [];
@@ -960,49 +986,22 @@ module.exports.executeGet = function (argv, done) {
 		});
 		*/
 
-		var url = server.url + endpoint;
+		serverRest.executeGet({
+				server: server,
+				endpoint: endpoint
+			})
+			.then(function (result) {
 
-		var options = {
-			url: url,
-			encoding: null,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-		if (server.cookies) {
-			options.headers.Cookie = server.cookies;
-		}
-		// console.log(options);
+				if (!result || result.err) {
+					done();
+				} else {
+					console.log(' - saving result to ' + output);
+					fs.writeFileSync(output, result);
+					console.log(' - finished');
 
-		console.log(' - executing endpoint: ' + endpoint);
-		var request = require('../test/server/requestUtils.js').request;
-		request.get(options, function (err, response, body) {
-			if (err) {
-				console.log('ERROR: Failed to execute');
-				console.log(err);
-				done();
-				return;
-			}
-			console.log(' - status: ' + response.statusCode + ' (' + response.statusMessage + ')');
-			if (response && response.statusCode === 200) {
-				console.log(' - saving result to ' + output);
-				fs.writeFileSync(output, body);
-				console.log(' - finished');
-
-				done(true);
-			} else {
-				console.log('ERROR: Failed to execute');
-				var data;
-				try {
-					data = JSON.parse(body);
-					console.log(data);
-				} catch (e) {
-
+					done(true);
 				}
-				done();
-			}
-		});
-
+			});
 	});
 };
 
@@ -1086,117 +1085,26 @@ module.exports.executePost = function (argv, done) {
 			return;
 		}
 
-		var caasTokenPromises = [];
-		if (isCAAS) {
-			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
-		}
-
-		Promise.all(caasTokenPromises)
-			.then(function (results) {
-				var csrfToken = results && results[0] && results[0].token;
-
-				var url = server.url + endpoint;
-				var postData = {
-					method: 'POST',
-					url: url,
-					headers: {
-						'X-REQUESTED-WITH': 'XMLHttpRequest',
-						Authorization: serverUtils.getRequestAuthorization(server)
-					}
-				};
-				if (csrfToken) {
-					postData.headers['X-CSRF-TOKEN'] = csrfToken;
-				}
-				if (async) {
-					postData.headers['Prefer'] = 'respond-async';
-				}
-				if (body && Object.keys(body).length > 0) {
-					postData.headers['Content-Type'] = 'application/json';
-					postData.body = JSON.stringify(body);
-				}
-				// console.log(postData);
-
-				console.log(' - executing endpoint: POST ' + endpoint);
-				var request = require('../test/server/requestUtils.js').request;
-				request.post(postData, function (error, response, body) {
-					if (error) {
-						console.log('Failed to post ' + endpoint);
-						console.log(error);
-						done();
-						return;
-					}
-					var data;
-					try {
-						data = JSON.parse(body);
-					} catch (e) {}
-					if (async) {
-						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
-						var statusUrl = response.location;
-						if (statusUrl) {
-							console.log(' - submit background job');
-							console.log(' - job status: ' + statusUrl);
-							var startTime = new Date();
-							var needNewLine = false;
-							var inter = setInterval(function () {
-								var jobPromise = sitesRest.getBackgroundJobStatus({
-									server: server,
-									url: statusUrl
-								});
-								jobPromise.then(function (data) {
-									// console.log(data);
-									if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
-										clearInterval(inter);
-										if (needNewLine) {
-											process.stdout.write(os.EOL);
-										}
-										var msg = data && data.error ? (data.error.detail || data.error.title) : '';
-										console.log('ERROR: request failed: ' + msg);
-										done();
-									} else if (data.completed && data.progress === 'succeeded') {
-										clearInterval(inter);
-										if (data.completedPercentage) {
-											process.stdout.write(' - request in process percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-										}
-										process.stdout.write(os.EOL);
-										console.log(' - request finished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-										// console.log(data);
-										done(true);
-									} else {
-										process.stdout.write(' - request in process' + (data.completedPercentage !== undefined ? ' percentage ' + data.completedPercentage : '') + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-										readline.cursorTo(process.stdout, 0);
-										needNewLine = true;
-									}
-								});
-							}, 5000);
-						} else {
-							if (data) {
-								console.log('Result:');
-								console.log(JSON.stringify(data, null, 4));
-								if (output) {
-									fs.writeFileSync(output, JSON.stringify(data, null, 4));
-									console.log(' - result saved to ' + output);
-								}
-							}
-							done();
+		serverRest.executePost({
+				server: server,
+				endpoint: endpoint,
+				body: body,
+				async: async
+			})
+			.then(function (result) {
+				if (result && result.err) {
+					done();
+				} else {
+					if (result) {
+						console.log('Result:');
+						console.log(JSON.stringify(result, null, 4));
+						if (output) {
+							fs.writeFileSync(output, JSON.stringify(result, null, 4));
+							console.log(' - result saved to ' + output);
 						}
-
-					} else {
-						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
-						if (response.location || response.url) {
-							console.log('Result URL: ' + (response.location || response.url));
-						}
-						// console.log(response);
-						if (data) {
-							console.log('Result:');
-							console.log(JSON.stringify(data, null, 4));
-							if (output) {
-								fs.writeFileSync(output, JSON.stringify(data, null, 4));
-								console.log(' - result saved to ' + output);
-							}
-						}
-						done(true);
 					}
-				});
+					done(true);
+				}
 			});
 	});
 };
@@ -1269,8 +1177,6 @@ module.exports.executePut = function (argv, done) {
 	}
 
 	var endpoint = argv.endpoint;
-	var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
-	var isSites = endpoint.indexOf('/sites/management/api/') === 0;
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
@@ -1279,63 +1185,25 @@ module.exports.executePut = function (argv, done) {
 			return;
 		}
 
-		var caasTokenPromises = [];
-		if (isCAAS) {
-			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
-		}
-
-		Promise.all(caasTokenPromises)
-			.then(function (results) {
-				var csrfToken = results && results[0] && results[0].token;
-
-				var url = server.url + endpoint;
-				var postData = {
-					method: 'PUT',
-					url: url,
-					headers: {
-						'X-REQUESTED-WITH': 'XMLHttpRequest',
-						Authorization: serverUtils.getRequestAuthorization(server)
-					}
-				};
-				if (csrfToken) {
-					postData.headers['X-CSRF-TOKEN'] = csrfToken;
-				}
-
-				if (body && Object.keys(body).length > 0) {
-					postData.headers['Content-Type'] = 'application/json';
-					postData.body = JSON.stringify(body);
-				}
-				// console.log(postData);
-
-				console.log(' - executing endpoint: PUT ' + endpoint);
-				var request = require('../test/server/requestUtils.js').request;
-				request.put(postData, function (error, response, body) {
-					if (error) {
-						console.log('Failed to put ' + endpoint);
-						console.log(error);
-						done();
-						return;
-					}
-					var data;
-					try {
-						data = JSON.parse(body);
-					} catch (e) {}
-
-					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
-					if (response.location || response.url) {
-						console.log('Result URL: ' + (response.location || response.url));
-					}
-					// console.log(response);
-					if (data) {
+		serverRest.executePut({
+				server: server,
+				endpoint: endpoint,
+				body: body
+			})
+			.then(function (result) {
+				if (result && result.err) {
+					done();
+				} else {
+					if (result) {
 						console.log('Result:');
-						console.log(JSON.stringify(data, null, 4));
+						console.log(JSON.stringify(result, null, 4));
 						if (output) {
-							fs.writeFileSync(output, JSON.stringify(data, null, 4));
+							fs.writeFileSync(output, JSON.stringify(result, null, 4));
 							console.log(' - result saved to ' + output);
 						}
 					}
 					done(true);
-				});
+				}
 			});
 	});
 };
@@ -1408,8 +1276,6 @@ module.exports.executePatch = function (argv, done) {
 	}
 
 	var endpoint = argv.endpoint;
-	var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
-	var isSites = endpoint.indexOf('/sites/management/api/') === 0;
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
@@ -1418,63 +1284,25 @@ module.exports.executePatch = function (argv, done) {
 			return;
 		}
 
-		var caasTokenPromises = [];
-		if (isCAAS) {
-			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
-		}
-
-		Promise.all(caasTokenPromises)
-			.then(function (results) {
-				var csrfToken = results && results[0] && results[0].token;
-
-				var url = server.url + endpoint;
-				var postData = {
-					method: 'PATCH',
-					url: url,
-					headers: {
-						'X-REQUESTED-WITH': 'XMLHttpRequest',
-						Authorization: serverUtils.getRequestAuthorization(server)
-					}
-				};
-				if (csrfToken) {
-					postData.headers['X-CSRF-TOKEN'] = csrfToken;
-				}
-
-				if (body && Object.keys(body).length > 0) {
-					postData.headers['Content-Type'] = 'application/json';
-					postData.body = JSON.stringify(body);
-				}
-				// console.log(postData);
-
-				console.log(' - executing endpoint: PATCH ' + endpoint);
-				var request = require('../test/server/requestUtils.js').request;
-				request.post(postData, function (error, response, body) {
-					if (error) {
-						console.log('Failed to patch ' + endpoint);
-						console.log(error);
-						done();
-						return;
-					}
-					var data;
-					try {
-						data = JSON.parse(body);
-					} catch (e) {}
-
-					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
-					if (response.location || response.url) {
-						console.log('Result URL: ' + (response.location || response.url));
-					}
-					// console.log(response);
-					if (data) {
+		serverRest.executePatch({
+				server: server,
+				endpoint: endpoint,
+				body: body
+			})
+			.then(function (result) {
+				if (result && result.err) {
+					done();
+				} else {
+					if (result) {
 						console.log('Result:');
-						console.log(JSON.stringify(data, null, 4));
+						console.log(JSON.stringify(result, null, 4));
 						if (output) {
-							fs.writeFileSync(output, JSON.stringify(data, null, 4));
+							fs.writeFileSync(output, JSON.stringify(result, null, 4));
 							console.log(' - result saved to ' + output);
 						}
 					}
 					done(true);
-				});
+				}
 			});
 	});
 };
@@ -1494,9 +1322,6 @@ module.exports.executeDelete = function (argv, done) {
 	}
 
 	var endpoint = argv.endpoint;
-	var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
-	var isSites = endpoint.indexOf('/sites/management/api/') === 0;
-	var isSystem = endpoint.indexOf('/system/api/') === 0;
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
@@ -1505,61 +1330,16 @@ module.exports.executeDelete = function (argv, done) {
 			return;
 		}
 
-		var caasTokenPromises = [];
-		if (isCAAS) {
-			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
-		} else if (isSystem) {
-			caasTokenPromises.push(serverUtils.getSystemCSRFToken(server));
-		}
-
-		Promise.all(caasTokenPromises)
-			.then(function (results) {
-				var csrfToken = results && results[0] && results[0].token;
-
-				var options = {
-					method: 'DELETE',
-					url: server.url + endpoint,
-					headers: {
-						'Content-Type': 'application/json',
-						'X-REQUESTED-WITH': 'XMLHttpRequest',
-						Authorization: serverUtils.getRequestAuthorization(server)
-					}
-				};
-
-				if (csrfToken) {
-					options.headers['X-CSRF-TOKEN'] = csrfToken;
+		serverRest.executeDelete({
+				server: server,
+				endpoint: endpoint
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					done();
+				} else {
+					done(true);
 				}
-				// console.log(options);
-
-				console.log(' - executing endpoint: DELETE ' + endpoint);
-				var request = require('../test/server/requestUtils.js').request;
-				request.delete(options, function (error, response, body) {
-
-					if (error) {
-						console.log('Failed to delete ' + endpoint);
-						console.log(error);
-						done();
-						return;
-					}
-					var data;
-					try {
-						data = JSON.parse(body);
-					} catch (e) {
-						data = body;
-					}
-
-					if (response && response.statusCode <= 300) {
-						console.log(' - endpoint executed');
-						done(true);
-					} else {
-						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
-						if (data && !Buffer.isBuffer(data)) {
-							console.log(JSON.stringify(data, null, 4));
-						}
-						done();
-					}
-
-				});
 			});
 	});
 

@@ -174,7 +174,8 @@ var getThemeActions = function () {
 
 var getRepositoryActions = function () {
 	const actions = ['add-type', 'remove-type', 'add-channel', 'remove-channel', 'add-taxonomy', 'remove-taxonomy', 'add-language', 'remove-language',
-		'add-translation-connector', 'remove-translation-connector'
+		'add-translation-connector', 'remove-translation-connector',
+		'add-role', 'remove-role',
 	];
 	return actions;
 };
@@ -249,7 +250,7 @@ var getGroupMemberRoles = function () {
 };
 
 var getResourceTypes = function () {
-	var names = ['channels', 'components', 'localizationpolicies', 'rankingpolicies', 'recommendations', 'repositories', 'sites', 'templates', 'taxonomies', 'translationconnectors', 'workflows'];
+	var names = ['channels', 'components', 'localizationpolicies', 'rankingpolicies', 'recommendations', 'repositories', 'sites', 'templates', 'themes', 'taxonomies', 'translationconnectors', 'workflows'];
 	return names;
 };
 
@@ -1898,7 +1899,9 @@ const controlRepository = {
 		['cec control-repository add-language -r Repo1 -l fr-FR,de-DE'],
 		['cec control-repository remove-language -r Repo1 -l fr-FR,de-DE'],
 		['cec control-repository add-translation-connector -r Repo1 -n "Lingotek,My Lingotek Connector"'],
-		['cec control-repository remove-translation-connector -r Repo1 -n "Lingotek,My Lingotek Connector"']
+		['cec control-repository remove-translation-connector -r Repo1 -n "Lingotek,My Lingotek Connector"'],
+		['cec control-repository add-role -r Repo1 -e EditorialRole1,EditorialRole2'],
+		['cec control-repository remove-role -r Repo1 -e EditorialRole1,EditorialRole2']
 	]
 };
 
@@ -2015,9 +2018,9 @@ const listEditorialPermission = {
 };
 
 const listEditorialRole = {
-	command: 'list-editorial-role',
+	command: 'list-editorial-roles',
 	alias: 'ler',
-	name: 'list-editorial-role',
+	name: 'list-editorial-roles',
 	usage: {
 		'short': 'Lists Editorial Roles on OCM server.',
 		'long': (function () {
@@ -2027,9 +2030,9 @@ const listEditorialRole = {
 		})()
 	},
 	example: [
-		['cec list-editorial-role', 'List all editorial roles'],
-		['cec list-editorial-role -n Role1', 'List editorial role Role1'],
-		['cec list-editorial-role -s DEV'],
+		['cec list-editorial-roles', 'List all editorial roles'],
+		['cec list-editorial-roles -n Role1', 'List editorial role Role1'],
+		['cec list-editorial-roles -s DEV'],
 	]
 };
 
@@ -3421,7 +3424,10 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(createDigitalAsset) + os.EOL +
 	_getCmdHelp(updateDigitalAsset) + os.EOL +
 	_getCmdHelp(copyAssets) + os.EOL +
-	_getCmdHelp(createAssetUsageReport) + os.EOL;
+	_getCmdHelp(createAssetUsageReport) +
+	_getCmdHelp(migrateContent) + os.EOL +
+	_getCmdHelp(compileContent) + os.EOL +
+	_getCmdHelp(uploadCompiledContent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(createRepository) + os.EOL +
@@ -3429,8 +3435,6 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(shareRepository) + os.EOL +
 	_getCmdHelp(unshareRepository) + os.EOL +
 	_getCmdHelp(describeRepository) + os.EOL +
-	_getCmdHelp(setEditorialPermission) + os.EOL +
-	_getCmdHelp(listEditorialPermission) + os.EOL +
 	_getCmdHelp(createCollection) + os.EOL +
 	_getCmdHelp(controlCollection) + os.EOL +
 	_getCmdHelp(createChannel) + os.EOL +
@@ -3450,21 +3454,31 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(addContentLayoutMapping) + os.EOL +
 	_getCmdHelp(removeContentLayoutMapping) + os.EOL +
 	_getCmdHelp(addFieldEditor) + os.EOL +
-	_getCmdHelp(removeFieldEditor) + os.EOL +
-	_getCmdHelp(migrateContent) + os.EOL +
-	_getCmdHelp(compileContent) + os.EOL +
-	_getCmdHelp(uploadCompiledContent) + os.EOL;
+	_getCmdHelp(removeFieldEditor) + os.EOL;
+
 
 _usage = _usage + os.EOL + 'Recommendations' + os.EOL +
+	_getCmdHelp(listEditorialPermission) + os.EOL +
+	_getCmdHelp(setEditorialPermission) + os.EOL +
 	_getCmdHelp(downloadRecommendation) + os.EOL +
 	_getCmdHelp(uploadRecommendation) + os.EOL +
 	_getCmdHelp(controlRecommendation) + os.EOL;
+
 
 _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
 	_getCmdHelp(downloadTaxonomy) + os.EOL +
 	_getCmdHelp(uploadTaxonomy) + os.EOL +
 	_getCmdHelp(controlTaxonomy) + os.EOL +
 	_getCmdHelp(describeTaxonomy) + os.EOL;
+
+_usage = _usage + os.EOL + 'Permissions' + os.EOL +
+	_getCmdHelp(listEditorialPermission) + os.EOL +
+	_getCmdHelp(setEditorialPermission) + os.EOL +
+	_getCmdHelp(listEditorialRole) + os.EOL +
+	_getCmdHelp(createEditorialRole) + os.EOL +
+	_getCmdHelp(setEditorialRole) + os.EOL +
+	_getCmdHelp(deleteEditorialRole) + os.EOL;
+
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(listTranslationJobs) + os.EOL +
@@ -5990,8 +6004,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('editorialroles', {
 					alias: 'e',
-					description: 'The comma separated list of editorial roles',
-					hidden: true
+					description: 'The comma separated list of editorial roles'
 				})
 				.option('server', {
 					alias: 's',
@@ -6009,6 +6022,8 @@ const argv = yargs.usage(_usage)
 				.example(...controlRepository.example[9])
 				.example(...controlRepository.example[10])
 				.example(...controlRepository.example[11])
+				.example(...controlRepository.example[12])
+				.example(...controlRepository.example[13])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlRepository.command}\n\n${controlRepository.usage.long}`);

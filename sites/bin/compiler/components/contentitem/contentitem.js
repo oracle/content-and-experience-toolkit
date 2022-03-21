@@ -1,5 +1,6 @@
 var fs = require('fs'),
 	path = require('path'),
+	url = require('url'),
 	serverUtils = require('../../../../test/server/serverUtils.js'),
 	compilationReporter = require('../../reporter.js');
 
@@ -197,7 +198,7 @@ ContentItem.prototype.compile = function (args) {
 				var CustomLayoutCompiler;
 				if (component.moduleFile) {
 					// JavaScript Module
-					const { default: importModule } = await import(component.moduleFile);
+					const { default: importModule } = await import(url.pathToFileURL(component.moduleFile));
 					CustomLayoutCompiler = importModule;
 				} else {
 					// CommonJS Module

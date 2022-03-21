@@ -15,6 +15,20 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.3.2
+
+**Added**
+
+- `cec list-editorial-roles` - Lists the Editorial Roles on an OCM server
+- `cec create-editorial-role` - Creates an Editorial Role on an OCM server
+- `cec set-editorial-role` - Sets Editorial Permissions for an Editorial Role
+- `cec delete-editorial-role` - Deletes an Editorial Role on an OCM server
+
+**Fixed**
+
+- `cec control-content publish` -  Can now publish same items to multiple channels
+
+
 # New in Release 22.3.1
 
 **Added**

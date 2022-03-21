@@ -4,6 +4,9 @@
  */
 /* global module, process */
 /* jshint esversion: 6 */
+const {
+	end
+} = require('cheerio/lib/api/traversing');
 var request = require('request'),
 	os = require('os'),
 	fs = require('fs'),
@@ -939,7 +942,7 @@ var _createFolderPublicLink = function (server, folderId, role) {
 };
 module.exports.createFolderPublicLink = function (args) {
 	return _createFolderPublicLink(args.server, args.folderId, args.role);
-}
+};
 
 ///////////////////////////////////////////////////////////
 //                  Content Management APIs
@@ -2720,6 +2723,7 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 					body: JSON.stringify(formData),
 					json: true
 				};
+				// console.log(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
@@ -2912,7 +2916,8 @@ module.exports.unlockItems = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.validateChannelItems = function (args) {
-	return _bulkOpItems(args.server, 'validatePublish', [args.channelId], args.itemIds);
+	var async = args.async ? args.async : 'false';
+	return _bulkOpItems(args.server, 'validatePublish', [args.channelId], args.itemIds, '', async);
 };
 
 /**
@@ -7682,6 +7687,422 @@ module.exports.publishLaterChannelItems = function (args) {
 	return _publishLaterChannelItems(args.server, args.name, args.itemIds, args.channelId, args.repositoryId, args.schedule);
 };
 
+/////////////////////////////////////////////////////////
+//  Utilities
+/////////////////////////////////////////////////////////
+
+/**
+ * Makes an HTTP GET request to a REST API endpoint on OCM server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {string} args.server The server object
+ * @param {string} args.endpoint The REST endpoint
+ * @returns {Promise.<object>} The data returned by the server.
+ * @returns 
+ */
+module.exports.executeGet = function (args) {
+	return _executeGet(args.server, args.endpoint);
+};
+
+var _executeGet = function (server, endpoint, noMsg) {
+	return new Promise(function (resolve, reject) {
+		var showDetail = noMsg ? false : true;
+		var url;
+		if (endpoint.startsWith('http')) {
+			url = endpoint;
+		} else {
+			url = server.url + endpoint;
+		}
+
+		var options = {
+			url: url,
+			encoding: null,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		if (server.cookies) {
+			options.headers.Cookie = server.cookies;
+		}
+		// console.log(options);
+
+		if (showDetail) {
+			console.log(' - executing endpoint: ' + endpoint);
+		}
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to execute');
+				console.log(err);
+				return resolve({
+					err: 'err'
+				});
+			}
+			if (showDetail) {
+				console.log(' - status: ' + response.statusCode + ' (' + response.statusMessage + ')');
+			}
+			if (response && response.statusCode === 200) {
+				return resolve(body);
+			} else {
+				console.log('ERROR: Failed to execute');
+				var data;
+				try {
+					data = JSON.parse(body);
+					console.log(data);
+				} catch (e) {}
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Makes an HTTP POST request to a REST API endpoint on OCM server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {string} args.server The server object
+ * @param {string} args.endpoint The REST endpoint
+ * @param {string} args.body The JSON object for the request payload
+ * @param {boolean} args.async Send asynchronous request
+ * @returns 
+ */
+module.exports.executePost = function (args) {
+	return new Promise(function (resolve, reject) {
+		var endpoint = args.endpoint;
+		var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
+
+		var server = args.server;
+		var url = server.url + args.endpoint;
+		var body = args.body;
+		var async = args.async;
+
+		var caasTokenPromises = [];
+		if (isCAAS) {
+			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
+		}
+
+		Promise.all(caasTokenPromises)
+			.then(function (results) {
+				var csrfToken = results && results[0] && results[0].token;
+
+				var postData = {
+					method: 'POST',
+					url: url,
+					headers: {
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					}
+				};
+				if (csrfToken) {
+					postData.headers['X-CSRF-TOKEN'] = csrfToken;
+				}
+				if (async) {
+					postData.headers['Prefer'] = 'respond-async';
+				}
+				if (body && Object.keys(body).length > 0) {
+					postData.headers['Content-Type'] = 'application/json';
+					postData.body = JSON.stringify(body);
+				}
+				// console.log(postData);
+
+				console.log(' - executing endpoint: POST ' + endpoint);
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to post ' + endpoint);
+						console.log(error);
+						done();
+						return;
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {}
+					if (async) {
+						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+						var statusUrl = response.location;
+						if (statusUrl) {
+							console.log(' - submit background job');
+							console.log(' - job status: ' + statusUrl);
+							var startTime = new Date();
+							var needNewLine = false;
+							var noMsg = true;
+							var inter = setInterval(function () {
+								_executeGet(server, statusUrl, noMsg)
+									.then(function (result) {
+										var data;
+										try {
+											data = JSON.parse(result);
+										} catch (e) {}
+										// console.log(data);
+										if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+											clearInterval(inter);
+											if (needNewLine) {
+												process.stdout.write(os.EOL);
+											}
+											var msg = data && data.error ? (data.error.detail || data.error.title) : '';
+											console.log('ERROR: request failed: ' + msg);
+											return resolve({
+												err: 'err'
+											});
+										} else if (data.completed && data.progress === 'succeeded') {
+											clearInterval(inter);
+											if (data.completedPercentage) {
+												process.stdout.write(' - request in process percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+											}
+											process.stdout.write(os.EOL);
+											console.log(' - request finished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+											// console.log(data);
+											return resolve();
+										} else {
+											process.stdout.write(' - request in process' + (data.completedPercentage !== undefined ? ' percentage ' + data.completedPercentage : '') + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+											readline.cursorTo(process.stdout, 0);
+											needNewLine = true;
+										}
+									});
+							}, 5000);
+						} else {
+							return resolve(data);
+						}
+
+					} else {
+						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+						if (response.location || response.url) {
+							console.log('Result URL: ' + (response.location || response.url));
+						}
+						return resolve(data);
+					}
+				});
+			});
+	});
+};
+
+
+/**
+ * Makes an HTTP PUT request to a REST API endpoint on OCM server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {string} args.server The server object
+ * @param {string} args.endpoint The REST endpoint
+ * @param {string} args.body The JSON object for the request payload
+ * @returns 
+ */
+module.exports.executePut = function (args) {
+	return new Promise(function (resolve, reject) {
+		var endpoint = args.endpoint;
+		var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
+
+		var server = args.server;
+		var url = server.url + args.endpoint;
+		var body = args.body;
+
+		var caasTokenPromises = [];
+		if (isCAAS) {
+			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
+		}
+
+		Promise.all(caasTokenPromises)
+			.then(function (results) {
+				var csrfToken = results && results[0] && results[0].token;
+
+				var postData = {
+					method: 'PUT',
+					url: url,
+					headers: {
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					}
+				};
+				if (csrfToken) {
+					postData.headers['X-CSRF-TOKEN'] = csrfToken;
+				}
+
+				if (body && Object.keys(body).length > 0) {
+					postData.headers['Content-Type'] = 'application/json';
+					postData.body = JSON.stringify(body);
+				}
+				// console.log(postData);
+
+				console.log(' - executing endpoint: PUT ' + endpoint);
+				var request = require('./requestUtils.js').request;
+				request.put(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to put ' + endpoint);
+						console.log(error);
+						return resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {}
+
+					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+					if (response.location || response.url) {
+						console.log('Result URL: ' + (response.location || response.url));
+					}
+					// console.log(response);
+					return resolve(data);
+
+				});
+			});
+	});
+};
+
+/**
+ * Makes an HTTP PATCH request to a REST API endpoint on OCM server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {string} args.server The server object
+ * @param {string} args.endpoint The REST endpoint
+ * @param {string} args.body The JSON object for the request payload
+ * @returns 
+ */
+module.exports.executePatch = function (args) {
+	return new Promise(function (resolve, reject) {
+		var endpoint = args.endpoint;
+		var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
+
+		var server = args.server;
+		var url = server.url + args.endpoint;
+		var body = args.body;
+
+		var caasTokenPromises = [];
+		if (isCAAS) {
+			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
+		}
+
+		Promise.all(caasTokenPromises)
+			.then(function (results) {
+				var csrfToken = results && results[0] && results[0].token;
+
+				var postData = {
+					method: 'PATCH',
+					url: url,
+					headers: {
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					}
+				};
+				if (csrfToken) {
+					postData.headers['X-CSRF-TOKEN'] = csrfToken;
+				}
+
+				if (body && Object.keys(body).length > 0) {
+					postData.headers['Content-Type'] = 'application/json';
+					postData.body = JSON.stringify(body);
+				}
+				// console.log(postData);
+
+				console.log(' - executing endpoint: PATCH ' + endpoint);
+				var request = require('./requestUtils.js').request;
+				request.patch(postData, function (error, response, body) {
+					if (error) {
+						console.log('Failed to patch ' + endpoint);
+						console.log(error);
+						return resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {}
+
+					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+					if (response.location || response.url) {
+						console.log('Result URL: ' + (response.location || response.url));
+					}
+
+					return resolve(data);
+
+				});
+			});
+	});
+};
+
+/**
+ * Makes an HTTP DELETE request to a REST API endpoint on OCM server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {string} args.server The server object
+ * @param {string} args.endpoint The REST endpoint
+ * @returns 
+ */
+module.exports.executeDelete = function (args) {
+	return new Promise(function (resolve, reject) {
+		var endpoint = args.endpoint;
+		var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
+		var isSites = endpoint.indexOf('/sites/management/api/') === 0;
+		var isSystem = endpoint.indexOf('/system/api/') === 0;
+
+		var server = args.server;
+		var url = server.url + args.endpoint;
+
+		var caasTokenPromises = [];
+		if (isCAAS) {
+			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
+		} else if (isSystem) {
+			caasTokenPromises.push(serverUtils.getSystemCSRFToken(server));
+		}
+
+		Promise.all(caasTokenPromises)
+			.then(function (results) {
+				var csrfToken = results && results[0] && results[0].token;
+
+				var options = {
+					method: 'DELETE',
+					url: url,
+					headers: {
+						'Content-Type': 'application/json',
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server)
+					}
+				};
+
+				if (csrfToken) {
+					options.headers['X-CSRF-TOKEN'] = csrfToken;
+				}
+				// console.log(options);
+
+				console.log(' - executing endpoint: DELETE ' + endpoint);
+				var request = require('./requestUtils.js').request;
+				request.delete(options, function (error, response, body) {
+
+					if (error) {
+						console.log('Failed to delete ' + endpoint);
+						console.log(error);
+						return resolve({
+							err: 'err'
+						});
+					}
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (e) {
+						data = body;
+					}
+
+					if (response && response.statusCode <= 300) {
+						console.log(' - endpoint executed');
+						return resolve({});
+					} else {
+						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+						if (data && !Buffer.isBuffer(data)) {
+							console.log(JSON.stringify(data, null, 4));
+						}
+						return resolve({
+							err: 'err'
+						});
+					}
+
+				});
+			});
+	});
+};
+
+/////////////////////////////////////////////////////////
+//  Others
+/////////////////////////////////////////////////////////
+
 
 var _queryScheduledJobs = function (server, repositoryId, startDate, endDate) {
 	var formatDate = function (date) {
@@ -8625,7 +9046,7 @@ module.exports.createConversation = function (args) {
 	return _createConversation(args.server, args.name, args.isDiscoverable);
 };
 
-var _createAssetConversation = function(server, props = []){
+var _createAssetConversation = function (server, props = []) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/osn/fc/RemoteJSONBatch?apmOps=Conversation.createConversationFromInfo';
 		props = props.map(obj => ({
@@ -8676,7 +9097,7 @@ var _createAssetConversation = function(server, props = []){
 							var conversationData;
 							try {
 								data = JSON.parse(body);
-								conversationData = (data && data.length > 0)? data[0].returnValue : undefined;
+								conversationData = (data && data.length > 0) ? data[0].returnValue : undefined;
 								console.log(`INFO: _createAssetConversation(${JSON.stringify(props)}) returned`, JSON.stringify(data));
 							} catch (e) {
 								console.error(e.stack);
@@ -8701,7 +9122,7 @@ var _createAssetConversation = function(server, props = []){
  * @param {object} args.props array of PropertyName, PropertyValue objects.
  * @returns {Promise.<object>} The data object returned by the server.
  */
- module.exports.createAssetConversation = function (args) {
+module.exports.createAssetConversation = function (args) {
 	return _createAssetConversation(args.server, args.props);
 };
 
@@ -9161,7 +9582,7 @@ module.exports.postMessageToConversation = function (args) {
 	return _postMessageToConversation(args.server, args.conversationId, args.text);
 };
 
-var _postMessageToAssetConversation = function(server, props = []){
+var _postMessageToAssetConversation = function (server, props = []) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/osn/fc/RemoteJSONBatch?apmOps=Chat.createChatFromInfo';
 		props = props.map(obj => ({
@@ -9211,7 +9632,7 @@ var _postMessageToAssetConversation = function(server, props = []){
 							var chatId;
 							try {
 								data = JSON.parse(body);
-								chatId = (data && data.length > 0)? data[0].returnValue : undefined;
+								chatId = (data && data.length > 0) ? data[0].returnValue : undefined;
 								console.log(`INFO: _postMessageToAssetConversation(${JSON.stringify(props)}) returned`, JSON.stringify(data));
 							} catch (e) {
 								console.error(e.stack);
@@ -9236,7 +9657,7 @@ var _postMessageToAssetConversation = function(server, props = []){
  * @param {string} args.props array of PropertyName, PropertyValue objects.
  * @returns {Promise.<object>} The data object returned by the server.
  */
- module.exports.postMessageToAssetConversation = function (args) {
+module.exports.postMessageToAssetConversation = function (args) {
 	return _postMessageToAssetConversation(args.server, args.props);
 };
 

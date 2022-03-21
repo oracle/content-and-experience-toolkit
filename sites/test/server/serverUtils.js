@@ -1869,6 +1869,7 @@ var _loginToDevServer = function (server) {
 		request.get(options, function (err, response, body) {
 			if (err) {
 				console.log(' - Failed to login to ' + server.url);
+				console.log(err);
 				return resolve({
 					'status': false
 				});
@@ -1880,6 +1881,9 @@ var _loginToDevServer = function (server) {
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.log(' - Failed to login to ' + server.url);
+				if (data) {
+					console.log(data);
+				}
 				return resolve({
 					'status': false
 				});

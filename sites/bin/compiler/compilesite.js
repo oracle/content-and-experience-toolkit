@@ -32,6 +32,7 @@ Sample Invocation:
 //*********************************************
 var fs = require('fs'),
 	path = require('path'),
+	url = require('url'),
 	merge = require('deepmerge'),
 	request = require('request'),
 	serverUtils = require('../../test/server/serverUtils');
@@ -428,7 +429,7 @@ async function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 		// ok, file's there, load it in
 		var pageCompiler = {};
 		if (useModuleCompiler) {
-			const { default: PageCompiler} = await import(moduleFile);
+			const { default: PageCompiler} = await import(url.pathToFileURL(moduleFile));
 			if (PageCompiler) {
 				pageCompiler = new PageCompiler();
 			} else {

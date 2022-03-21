@@ -3520,7 +3520,9 @@ var _displayAssetValidation = function (validations) {
 
 var _validateSiteREST = function (server, siteName, done) {
 	var siteId;
+	var siteValidation;
 	var repositoryId, channelId, channelToken;
+	var itemIds = [];
 	sitesRest.getSite({
 			server: server,
 			name: siteName,
@@ -3571,9 +3573,7 @@ var _validateSiteREST = function (server, siteName, done) {
 			if (!result || result.err) {
 				return Promise.reject();
 			}
-			var siteValidation = result;
-			console.log('Site Validation:');
-			_displaySiteValidation(siteValidation);
+			siteValidation = result;
 
 			// query channel items
 			var q = 'channelToken eq "' + channelToken + '"';
@@ -3590,7 +3590,6 @@ var _validateSiteREST = function (server, siteName, done) {
 				return Promise.reject();
 			}
 
-			var itemIds = [];
 			for (var i = 0; i < items.length; i++) {
 				var item = items[i];
 				itemIds.push(item.id);
@@ -3601,7 +3600,8 @@ var _validateSiteREST = function (server, siteName, done) {
 			return serverRest.validateChannelItems({
 				server: server,
 				channelId: channelId,
-				itemIds: itemIds
+				itemIds: itemIds,
+				async: 'true'
 			});
 		})
 		.then(function (result) {
@@ -3609,19 +3609,75 @@ var _validateSiteREST = function (server, siteName, done) {
 				return Promise.reject();
 			}
 
-			console.log('Assets Validation:');
-			if (result.data && result.data.operations && result.data.operations.validatePublish) {
-				var assetsValidation = result.data.operations.validatePublish.validationResults;
-				_displayAssetValidation(assetsValidation);
-			} else {
-				console.log('  no assets');
+			var statusId = result && result.statusId;
+			if (!statusId) {
+				console.log('ERROR: failed to submit validation');
+				return Promise.reject();
 			}
 
-			done(true);
+			console.log(' - submit validation job (' + statusId + ')');
+			_getValidateAssetsStatus(server, statusId)
+				.then(function (data) {
+
+					//
+					// Display result
+					//
+					console.log('Site Validation:');
+					_displaySiteValidation(siteValidation);
+
+					console.log('Assets Validation:');
+					if (data.result && data.result.body && data.result.body.operations && data.result.body.operations.validatePublish && data.result.body.operations.validatePublish.validationResults) {
+						var assetsValidation = data.result.body.operations.validatePublish.validationResults;
+						_displayAssetValidation(assetsValidation);
+					} else {
+						console.log('  no assets');
+					}
+
+					done(true);
+				});
 		})
 		.catch((error) => {
+			if (error) {
+				console.log(error);
+			}
 			done();
 		});
+};
+
+var _getValidateAssetsStatus = function (server, statusId) {
+	return new Promise(function (resolve, reject) {
+		var startTime = new Date();
+		var needNewLine = false;
+		var inter = setInterval(function () {
+			var jobPromise = serverRest.getItemOperationStatus({
+				server: server,
+				statusId: statusId
+			});
+			jobPromise.then(function (data) {
+				if (!data || data.error || data.progress === 'failed') {
+					clearInterval(inter);
+					if (needNewLine) {
+						process.stdout.write(os.EOL);
+					}
+					var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
+					console.log('ERROR: assets validation failed: ' + msg);
+					return resolve({
+						err: 'err'
+					});
+				}
+				if (data.completed) {
+					clearInterval(inter);
+					process.stdout.write(' - assets validation finished [' + serverUtils.timeUsed(startTime, new Date()) + ']        ');
+					process.stdout.write(os.EOL);
+					return resolve(data);
+				} else {
+					process.stdout.write(' - assets validation in progress [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
+					readline.cursorTo(process.stdout, 0);
+					needNewLine = true;
+				}
+			});
+		}, 5000);
+	});
 };
 
 /**
