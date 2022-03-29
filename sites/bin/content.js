@@ -1685,7 +1685,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					return serverRest.queryItems({
 						server: server,
 						q: q,
-						fields: 'name,status,isPublished'
+						fields: 'name,status,isPublished,publishedChannels'
 					});
 				})
 				.then(function (result) {
@@ -1760,13 +1760,23 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						// all items include rejected, use for unpublish / remove
 						itemIds.push(item.id);
 
+						// Get published channels
+						var publishedChannels = [];
+						if (item.publishedChannels && item.publishedChannels.data && item.publishedChannels.data.length > 0) {
+							item.publishedChannels.data.forEach(function (channel) {
+								if (channel.id && !publishedChannels.includes(channel.id)) {
+									publishedChannels.push(channel.id);
+								}
+							});
+						}
+
 						if (publishPolicy) {
 							if (publishPolicy === 'onlyApproved') {
 								if (item.status === 'approved') {
 									toPublishItemIds.push(item.id);
 								}
 							} else {
-								if (item.status !== 'rejected' && item.status !== 'published') {
+								if (item.status !== 'rejected' && (item.status !== 'published' || channel && !publishedChannels.includes(channel.id))) {
 									toPublishItemIds.push(item.id);
 								}
 							}
@@ -2034,8 +2044,8 @@ var _displayValidation = function (validations, action) {
 		}
 	}
 
-	console.log(JSON.stringify(policyValidation, null, 4));
-	console.log('Failed to ' + action + ' the following items: ' + policyValidation.error ? policyValidation.error : '');
+	// console.log(JSON.stringify(policyValidation, null, 4));
+	console.log('Failed to ' + action + ' the following items: ' + (policyValidation.error ? policyValidation.error : ''));
 	var format = '  %-36s  %-60s  %-s';
 	console.log(sprintf(format, 'Id', 'Name', 'Message'));
 	for (var i = 0; i < blockingItems.length; i++) {
@@ -4389,12 +4399,14 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 							clearInterval(inter);
 							console.log(' - content item imported');
 							// delete the zip file
-							serverRest.deleteFile({
-								server: destServer,
-								fFileGUID: fileId
-							}).then(function (result) {
-								done(true);
-							});
+							var deleteArgv = {
+								file: fileName,
+								permanent: 'true'
+							};
+							documentUtils.deleteFile(deleteArgv, destServer, false)
+								.then(function (result) {
+									done(true);
+								});
 
 						} else if (status && status === 'FAILED') {
 							clearInterval(inter);

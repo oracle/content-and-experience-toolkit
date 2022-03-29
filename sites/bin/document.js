@@ -20,7 +20,7 @@ var projectDir,
 
 /**
  * Verify the source structure before proceed the command
- * @param {*} done 
+ * @param {*} done
  */
 var verifyRun = function (argv) {
 	projectDir = argv.projectDir;
@@ -100,7 +100,7 @@ var _createFolder = function (server, rootParentId, folderPath, showMessage) {
 						}
 						parentGUID = folderDetails.id;
 
-						// wait for the previous promise to complete and then return a new promise for the next 
+						// wait for the previous promise to complete and then return a new promise for the next
 						return nextPromise(parentGUID);
 					}
 				});
@@ -791,7 +791,7 @@ var _findFolder = function (server, rootParentId, folderPath, showError) {
 						}
 						parentGUID = folderDetails.id;
 
-						// wait for the previous promise to complete and then return a new promise for the next 
+						// wait for the previous promise to complete and then return a new promise for the next
 						return nextPromise(parentGUID);
 					}
 				});
@@ -1003,7 +1003,7 @@ module.exports.downloadFile = function (argv, done) {
 				}
 				done();
 			});
-	}); // login 
+	}); // login
 };
 
 
@@ -1496,7 +1496,7 @@ module.exports.listFolder = function (argv, done) {
 					}
 					rootParentId = resourceGUID;
 				}
-
+				// console.log(folderPath);
 				return _findFolder(server, rootParentId, folderPath);
 			})
 			.then(function (result) {
@@ -1884,7 +1884,7 @@ var _readAllFiles = function (server, files) {
 
 				});
 			},
-			// Start with a previousPromise value that is a resolved promise 
+			// Start with a previousPromise value that is a resolved promise
 			Promise.resolve({}));
 
 		doReadFile.then(function (result) {
@@ -2255,7 +2255,7 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 					});
 				});
 			},
-			// Start with a previousPromise value that is a resolved promise 
+			// Start with a previousPromise value that is a resolved promise
 			Promise.resolve({}));
 		console.log(' - folder uploaded:');
 		console.log(sprintf(format, 'Type', 'Path'));
@@ -2323,7 +2323,7 @@ var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFo
 
 				});
 			},
-			// Start with a previousPromise value that is a resolved promise 
+			// Start with a previousPromise value that is a resolved promise
 			Promise.resolve({}));
 
 		doWriteFile.then(function (result) {
@@ -2465,7 +2465,7 @@ var _deleteFolder = function (argv, server) {
 				}
 				folderId = result.id;
 
-				var deletePromise = permanent ? _deletePermanentSCS(server, folderId, false) : serverRest.deleteFolder({
+				var deletePromise = permanent ? serverUtils.deletePermanentSCS(server, folderId, false, _deleteDone) : serverRest.deleteFolder({
 					server: server,
 					fFolderGUID: folderId
 				});
@@ -2497,141 +2497,6 @@ var _deleteDone = function (success, resolve) {
 	}
 	return success ? resolve({}) : resolve({
 		err: 'err'
-	});
-};
-var _deletePermanentSCS = function (server, id, isFile) {
-	return new Promise(function (resolve, reject) {
-
-		var idcToken;
-
-		var idInTrash;
-
-		serverUtils.getIdcToken(server).then(function (result) {
-			idcToken = result && result.idcToken;
-			if (!idcToken) {
-				console.log('ERROR: failed to get idcToken');
-				done();
-			}
-
-			var headers = {
-				'Content-Type': 'application/json',
-				Authorization: serverUtils.getRequestAuthorization(server)
-			};
-			if (server.cookies) {
-				headers.Cookie = server.cookies;
-			}
-
-			url = server.url + '/documents/integration?IdcService=FLD_MOVE_TO_TRASH';
-			url = url + '&IsJson=1';
-			url = url + '&idcToken=' + idcToken;
-			url = url + '&item=' + (isFile ? 'fFileGUID:' : 'fFolderGUID:') + id;
-
-			var options = {
-				method: 'POST',
-				url: url,
-				headers: headers
-			};
-			// console.log(options);
-
-			var request = require('../test/server/requestUtils.js').request;
-			request.post(options, function (err, response, body) {
-				if (err) {
-					console.log('ERROR: Failed to delete');
-					console.log(err);
-					return resolve({
-						err: 'err'
-					});
-				}
-
-				var data;
-				try {
-					data = JSON.parse(body);
-				} catch (e) {}
-
-				if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-					console.log('ERROR: failed to delete  ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-					_deleteDone(false, resolve);
-				} else {
-					// query the GUID in the trash folder
-					url = server.url + '/documents/integration?IdcService=FLD_BROWSE_TRASH&fileCount=-1';
-					url = url + '&IsJson=1';
-					options = {
-						method: 'GET',
-						url: url,
-						headers: headers
-					};
-					// console.log(options);
-					request.get(options, function (err, response, body) {
-						var data = JSON.parse(body);
-						if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-							console.log('ERROR: failed to browse trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-							_deleteDone(false, resolve);
-						} else {
-							var fields;
-							var rows;
-							if (isFile) {
-								fields = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.fields || [];
-								rows = data.ResultSets && data.ResultSets.ChildFiles && data.ResultSets.ChildFiles.rows;
-							} else {
-								fields = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.fields || [];
-								rows = data.ResultSets && data.ResultSets.ChildFolders && data.ResultSets.ChildFolders.rows;
-							}
-							var items = [];
-							for (var j = 0; j < rows.length; j++) {
-								items.push({});
-							}
-							for (var i = 0; i < fields.length; i++) {
-								var attr = fields[i].name;
-								for (var j = 0; j < rows.length; j++) {
-									items[j][attr] = rows[j][i];
-								}
-							}
-
-							for (var i = 0; i < items.length; i++) {
-								if (items[i]['fRealItemGUID'] === id) {
-									idInTrash = isFile ? items[i]['fFileGUID'] : items[i]['fFolderGUID'];
-									break;
-								}
-							}
-							// console.log(' - find ' + (isFile ? 'file' : 'folder ') + ' in trash ' + idInTrash);
-
-							url = server.url + '/documents/integration?IdcService=FLD_DELETE_FROM_TRASH';
-							url = url + '&IsJson=1';
-							url = url + '&idcToken=' + idcToken;
-							url = url + '&item=' + (isFile ? 'fFileGUID:' : 'fFolderGUID:') + idInTrash;
-
-							options = {
-								method: 'POST',
-								url: url,
-								headers: headers
-							};
-							// console.log(options);
-
-							request.post(options, function (err, response, body) {
-								if (err) {
-									console.log('ERROR: Failed to delete from trash');
-									console.log(err);
-									_deleteDone(false, resolve);
-								}
-
-								var data;
-								try {
-									data = JSON.parse(body);
-								} catch (e) {}
-
-								if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-									console.log('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
-									_deleteDone(false, resolve);
-								} else {
-									_deleteDone(true, resolve);
-								}
-							}); // delete from trash
-						}
-					}); // browse trash
-				}
-			}); // delete
-
-		}); // idc token request
 	});
 };
 
@@ -2791,7 +2656,7 @@ var _deleteFile = function (argv, server, toReject) {
 				}
 				fileId = result.id;
 
-				var deletePromise = permanent ? _deletePermanentSCS(server, fileId, true) : serverRest.deleteFile({
+				var deletePromise = permanent ? serverUtils.deletePermanentSCS(server, fileId, true, _deleteDone) : serverRest.deleteFile({
 					server: server,
 					fFileGUID: fileId
 				});

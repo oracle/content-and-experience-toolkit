@@ -100,6 +100,17 @@ module.exports.getTemplates = function (args) {
 };
 
 /**
+ * Get all themes on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+ module.exports.getThemes = function (args) {
+	var server = args.server;
+	return _getAllResources(server, 'themes', args.expand);
+};
+
+/**
  * Get all components on server
  * @param {object} args JavaScript object containing parameters.
  * @param {object} server the server object

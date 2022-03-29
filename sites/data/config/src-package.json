@@ -27,14 +27,14 @@
 	"dependencies": {
 		"chai": "4.3.4",
 		"del": "6.0.0",
-		"fs-extra": "9.0.0",
+		"fs-extra": "10.0.0",
 		"gulp": "4.0.2",
 		"gulp-replace": "1.1.1",
 		"lodash": "4.17.21",
-		"marked": "3.0.7",
+		"marked": "4.0.10",
 		"mocha": "8.2.1",
 		"mocha-junit-reporter": "2.0.0",
-		"mustache": "4.0.1",
+		"mustache": "4.2.0",
 		"puppeteer": "10.4.0",
 		"requirejs": "2.3.6"
 	}

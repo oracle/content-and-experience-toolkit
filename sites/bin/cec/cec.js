@@ -174,7 +174,8 @@ var getThemeActions = function () {
 
 var getRepositoryActions = function () {
 	const actions = ['add-type', 'remove-type', 'add-channel', 'remove-channel', 'add-taxonomy', 'remove-taxonomy', 'add-language', 'remove-language',
-		'add-translation-connector', 'remove-translation-connector'
+		'add-translation-connector', 'remove-translation-connector',
+		'add-role', 'remove-role',
 	];
 	return actions;
 };
@@ -249,7 +250,7 @@ var getGroupMemberRoles = function () {
 };
 
 var getResourceTypes = function () {
-	var names = ['channels', 'components', 'localizationpolicies', 'recommendations', 'repositories', 'sites', 'templates', 'taxonomies', 'translationconnectors'];
+	var names = ['channels', 'components', 'localizationpolicies', 'rankingpolicies', 'recommendations', 'repositories', 'sites', 'templates', 'themes', 'taxonomies', 'translationconnectors', 'workflows'];
 	return names;
 };
 
@@ -1898,7 +1899,9 @@ const controlRepository = {
 		['cec control-repository add-language -r Repo1 -l fr-FR,de-DE'],
 		['cec control-repository remove-language -r Repo1 -l fr-FR,de-DE'],
 		['cec control-repository add-translation-connector -r Repo1 -n "Lingotek,My Lingotek Connector"'],
-		['cec control-repository remove-translation-connector -r Repo1 -n "Lingotek,My Lingotek Connector"']
+		['cec control-repository remove-translation-connector -r Repo1 -n "Lingotek,My Lingotek Connector"'],
+		['cec control-repository add-role -r Repo1 -e EditorialRole1,EditorialRole2'],
+		['cec control-repository remove-role -r Repo1 -e EditorialRole1,EditorialRole2']
 	]
 };
 
@@ -2015,9 +2018,9 @@ const listEditorialPermission = {
 };
 
 const listEditorialRole = {
-	command: 'list-editorial-role',
+	command: 'list-editorial-roles',
 	alias: 'ler',
-	name: 'list-editorial-role',
+	name: 'list-editorial-roles',
 	usage: {
 		'short': 'Lists Editorial Roles on OCM server.',
 		'long': (function () {
@@ -2027,9 +2030,9 @@ const listEditorialRole = {
 		})()
 	},
 	example: [
-		['cec list-editorial-role', 'List all editorial roles'],
-		['cec list-editorial-role -n Role1', 'List editorial role Role1'],
-		['cec list-editorial-role -s DEV'],
+		['cec list-editorial-roles', 'List all editorial roles'],
+		['cec list-editorial-roles -n Role1', 'List editorial role Role1'],
+		['cec list-editorial-roles -s DEV'],
 	]
 };
 
@@ -2393,6 +2396,23 @@ const describeChannel = {
 	]
 };
 
+const describeWorkflow = {
+	command: 'describe-workflow <name>',
+	alias: 'dswf',
+	name: 'describe-workflow',
+	usage: {
+		'short': 'Lists the properties of a content workflow on OCM server.',
+		'long': (function () {
+			let desc = 'Lists the properties of a content workflow on OCM server. Optionally specify -f <file> to save the properties to a JSON file. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-workflow OneStepReview -s UAT'],
+		['cec describe-workflow OneStepReview -f ~/Docs/OneStepReview.json -s UAT']
+	]
+};
+
 const createLocalizationPolicy = {
 	command: 'create-localization-policy <name>',
 	alias: 'clp',
@@ -2431,9 +2451,11 @@ const listAssets = {
 		['cec list-assets', 'List all assets'],
 		['cec list-assets -s UAT', 'List all assets on registered server UAT'],
 		['cec list-assets -r Repo1', 'List all assets from repository Repo1'],
+		['cec list-assets -r Repo1 -o "name:asc"', 'List all assets from repository Repo1 and order them by name'],
 		['cec list-assets -c Channel1', 'List all assets from channel Channel1'],
 		['cec list-assets -r Repo1 -l Collection1', 'List all assets from collection Collection1 and repository Repo1'],
-		['cec list-assets -q \'fields.category eq "RECIPE"\'', 'List all assets matching the query']
+		['cec list-assets -q \'fields.category eq "RECIPE"\'', 'List all assets matching the query'],
+		['cec list-assets -q \'fields.category eq "RECIPE"\' -k ranking1', 'List all assets matching the query and order them by relevance']
 	]
 };
 
@@ -3005,14 +3027,15 @@ const setOAuthToken = {
 	alias: 'sot',
 	name: 'set-oauth-token',
 	usage: {
-		'short': 'Set OAuth token for a registered server.',
+		'short': 'Set OAuth token for server.',
 		'long': (function () {
-			let desc = 'Set OAuth token for a registered server.';
+			let desc = 'Set OAuth token for a registered server or the one specified in cec.properties file.';
 			return desc;
 		})()
 	},
 	example: [
-		['cec set-oauth-token token1 -s UAT', 'Set OAuth token for server UAT, all CLI commands using UAT will be headless']
+		['cec set-oauth-token token1 -s UAT', 'Set OAuth token for server UAT, all CLI commands using UAT will be headless'],
+		['cec set-oauth-token token1', 'Set OAuth token for the server specified in cec.properties file']
 	]
 };
 
@@ -3235,6 +3258,41 @@ const executePost = {
 	]
 };
 
+const executePut = {
+	command: 'execute-put <endpoint>',
+	alias: 'exeu',
+	name: 'execute-put',
+	usage: {
+		'short': 'Makes an HTTP PUT request to a REST API endpoint on OCM server',
+		'long': (function () {
+			let desc = 'Makes an HTTP PUT request to a REST API endpoint on OCM server. Specify the server with -s <server>. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec exeu "/content/management/api/v1.1/channels/{id}/channelSecret" -f result.json', 'Refresh secret for a channel'],
+		['cec exeu "/content/management/api/v1.1/localizationPolicies/{id}" -b policy.json -f result.json -s DEV', 'Update a localization policy and save the result to result.json'],
+		['cec exeu "/documents/api/1.2/files/{fileId}" -b file.json -f result.json -s DEV', 'Change the name of a file']
+	]
+};
+
+const executePatch = {
+	command: 'execute-patch <endpoint>',
+	alias: 'exea',
+	name: 'execute-patch',
+	usage: {
+		'short': 'Makes an HTTP PATCH request to a REST API endpoint on OCM server',
+		'long': (function () {
+			let desc = 'Makes an HTTP PATCH request to a REST API endpoint on OCM server. Specify the server with -s <server>. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec exea "/sites/management/api/v1/components/name:Comp1" -b comp.json -f result.json', 'Update fields of a component'],
+		['cec exea "/sites/management/api/v1/sites/name:Site1" -b site.json -f result.json', 'Update fields of a site such as name (rename)']
+	]
+};
+
 const executeDelete = {
 	command: 'execute-delete <endpoint>',
 	alias: 'exed',
@@ -3366,7 +3424,10 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(createDigitalAsset) + os.EOL +
 	_getCmdHelp(updateDigitalAsset) + os.EOL +
 	_getCmdHelp(copyAssets) + os.EOL +
-	_getCmdHelp(createAssetUsageReport) + os.EOL;
+	_getCmdHelp(createAssetUsageReport) +
+	_getCmdHelp(migrateContent) + os.EOL +
+	_getCmdHelp(compileContent) + os.EOL +
+	_getCmdHelp(uploadCompiledContent) + os.EOL;
 
 _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(createRepository) + os.EOL +
@@ -3374,8 +3435,6 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(shareRepository) + os.EOL +
 	_getCmdHelp(unshareRepository) + os.EOL +
 	_getCmdHelp(describeRepository) + os.EOL +
-	_getCmdHelp(setEditorialPermission) + os.EOL +
-	_getCmdHelp(listEditorialPermission) + os.EOL +
 	_getCmdHelp(createCollection) + os.EOL +
 	_getCmdHelp(controlCollection) + os.EOL +
 	_getCmdHelp(createChannel) + os.EOL +
@@ -3390,25 +3449,36 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(uploadType) + os.EOL +
 	_getCmdHelp(copyType) + os.EOL +
 	_getCmdHelp(updateType) + os.EOL +
+	_getCmdHelp(describeWorkflow) + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
 	_getCmdHelp(addContentLayoutMapping) + os.EOL +
 	_getCmdHelp(removeContentLayoutMapping) + os.EOL +
 	_getCmdHelp(addFieldEditor) + os.EOL +
-	_getCmdHelp(removeFieldEditor) + os.EOL +
-	_getCmdHelp(migrateContent) + os.EOL +
-	_getCmdHelp(compileContent) + os.EOL +
-	_getCmdHelp(uploadCompiledContent) + os.EOL;
+	_getCmdHelp(removeFieldEditor) + os.EOL;
+
 
 _usage = _usage + os.EOL + 'Recommendations' + os.EOL +
+	_getCmdHelp(listEditorialPermission) + os.EOL +
+	_getCmdHelp(setEditorialPermission) + os.EOL +
 	_getCmdHelp(downloadRecommendation) + os.EOL +
 	_getCmdHelp(uploadRecommendation) + os.EOL +
 	_getCmdHelp(controlRecommendation) + os.EOL;
+
 
 _usage = _usage + os.EOL + 'Taxonomies' + os.EOL +
 	_getCmdHelp(downloadTaxonomy) + os.EOL +
 	_getCmdHelp(uploadTaxonomy) + os.EOL +
 	_getCmdHelp(controlTaxonomy) + os.EOL +
 	_getCmdHelp(describeTaxonomy) + os.EOL;
+
+_usage = _usage + os.EOL + 'Permissions' + os.EOL +
+	_getCmdHelp(listEditorialPermission) + os.EOL +
+	_getCmdHelp(setEditorialPermission) + os.EOL +
+	_getCmdHelp(listEditorialRole) + os.EOL +
+	_getCmdHelp(createEditorialRole) + os.EOL +
+	_getCmdHelp(setEditorialRole) + os.EOL +
+	_getCmdHelp(deleteEditorialRole) + os.EOL;
+
 
 _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(listTranslationJobs) + os.EOL +
@@ -3435,6 +3505,8 @@ _usage = _usage + os.EOL + 'Environment' + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
 	_getCmdHelp(executeGet) + os.EOL +
 	_getCmdHelp(executePost) + os.EOL +
+	_getCmdHelp(executePut) + os.EOL +
+	_getCmdHelp(executePatch) + os.EOL +
 	_getCmdHelp(executeDelete) + os.EOL +
 	_getCmdHelp(install) + os.EOL +
 	_getCmdHelp(develop) + os.EOL +
@@ -5932,8 +6004,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('editorialroles', {
 					alias: 'e',
-					description: 'The comma separated list of editorial roles',
-					hidden: true
+					description: 'The comma separated list of editorial roles'
 				})
 				.option('server', {
 					alias: 's',
@@ -5951,6 +6022,8 @@ const argv = yargs.usage(_usage)
 				.example(...controlRepository.example[9])
 				.example(...controlRepository.example[10])
 				.example(...controlRepository.example[11])
+				.example(...controlRepository.example[12])
+				.example(...controlRepository.example[13])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlRepository.command}\n\n${controlRepository.usage.long}`);
@@ -6420,6 +6493,22 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${uploadType.command}\n\n${uploadType.usage.long}`);
 		})
+	.command([describeWorkflow.command, describeWorkflow.alias], false,
+		(yargs) => {
+			yargs.option('file', {
+					alias: 'f',
+					description: 'The JSON file to save the properties'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...describeWorkflow.example[0])
+				.example(...describeWorkflow.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeWorkflow.command}\n\n${describeWorkflow.usage.long}`);
+		})
 	/** 
  	* 2021-08-20 removed
 	.command([createWordTemplate.command, createWordTemplate.alias], false,
@@ -6725,6 +6814,14 @@ const argv = yargs.usage(_usage)
 					alias: 'q',
 					description: 'Query to fetch the assets'
 				})
+				.option('orderby', {
+					alias: 'o',
+					description: 'The order of query items'
+				})
+				.option('rankby', {
+					alias: 'k',
+					description: 'The ranking policy API name'
+				})
 				/*
 				.option('urls', {
 					alias: 'u',
@@ -6747,6 +6844,8 @@ const argv = yargs.usage(_usage)
 				.example(...listAssets.example[3])
 				.example(...listAssets.example[4])
 				.example(...listAssets.example[5])
+				.example(...listAssets.example[6])
+				.example(...listAssets.example[7])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listAssets.command}\n\n${listAssets.usage.long}`);
@@ -7537,10 +7636,10 @@ const argv = yargs.usage(_usage)
 			yargs
 				.option('server', {
 					alias: 's',
-					description: 'The registered OCM server',
-					demandOption: true
+					description: 'The registered OCM server'
 				})
 				.example(...setOAuthToken.example[0])
+				.example(...setOAuthToken.example[1])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${setOAuthToken.command}\n\n${setOAuthToken.usage.long}`);
@@ -7589,6 +7688,47 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${executePost.command}\n\n${executePost.usage.long}`);
+		})
+	.command([executePut.command, executePut.alias], false,
+		(yargs) => {
+			yargs.option('body', {
+					alias: 'b',
+					description: 'The JSON file for the request payload'
+				})
+				.option('file', {
+					alias: 'f',
+					description: 'The file to save the result'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...executePut.example[0])
+				.example(...executePut.example[1])
+				.example(...executePut.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${executePut.command}\n\n${executePut.usage.long}`);
+		})
+	.command([executePatch.command, executePatch.alias], false,
+		(yargs) => {
+			yargs.option('body', {
+					alias: 'b',
+					description: 'The JSON file for the request payload'
+				})
+				.option('file', {
+					alias: 'f',
+					description: 'The file to save the result'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...executePatch.example[0])
+				.example(...executePatch.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${executePatch.command}\n\n${executePatch.usage.long}`);
 		})
 	.command([executeDelete.command, executeDelete.alias], false,
 		(yargs) => {
@@ -9017,6 +9157,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.query) {
 		listAssetsArgs.push(...['--query', argv.query]);
 	}
+	if (argv.orderby) {
+		listAssetsArgs.push(...['--orderby', argv.orderby]);
+	}
+	if (argv.rankby) {
+		listAssetsArgs.push(...['--rankby', argv.rankby]);
+	}
 	if (argv.urls) {
 		listAssetsArgs.push(...['--urls', argv.urls]);
 	}
@@ -9980,6 +10126,23 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === describeWorkflow.name || argv._[0] === describeWorkflow.alias) {
+	let describeWorkflowArgs = ['run', '-s', describeWorkflow.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.file) {
+		describeWorkflowArgs.push(...['--file', argv.file]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeWorkflowArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, describeWorkflowArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 }
 /** 
 * 2021-08-20 removedelse if (argv._[0] === createWordTemplate.name || argv._[0] === createWordTemplate.alias) {
@@ -10712,9 +10875,12 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	let setOAuthTokenArgs = ['run', '-s', setOAuthToken.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
-		'--token', argv.token,
-		'--server', argv.server
+		'--token', argv.token
 	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		setOAuthTokenArgs.push(...['--server', argv.server]);
+	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, setOAuthTokenArgs, {
 		cwd,
@@ -10920,6 +11086,46 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		executePostArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, executePostArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === executePut.name || argv._[0] === executePut.alias) {
+	let executePutArgs = ['run', '-s', executePut.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--endpoint', argv.endpoint
+	];
+	if (argv.body && typeof argv.body !== 'boolean') {
+		executePutArgs.push(...['--body', argv.body]);
+	}
+	if (argv.file && typeof argv.file !== 'boolean') {
+		executePutArgs.push(...['--file', argv.file]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		executePutArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, executePutArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === executePatch.name || argv._[0] === executePatch.alias) {
+	let executePatchArgs = ['run', '-s', executePatch.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--endpoint', argv.endpoint
+	];
+	if (argv.body && typeof argv.body !== 'boolean') {
+		executePatchArgs.push(...['--body', argv.body]);
+	}
+	if (argv.file && typeof argv.file !== 'boolean') {
+		executePatchArgs.push(...['--file', argv.file]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		executePatchArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, executePatchArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

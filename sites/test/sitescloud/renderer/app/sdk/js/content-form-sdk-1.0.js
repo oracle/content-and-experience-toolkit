@@ -104,7 +104,7 @@
             }
             function o(e, r, i, o) {
                 var a, s, d, u, l = null, c = r ? r.name : null, f = e, p = !0, h = "";
-                return e || (p = !1, e = "_@r" + (q += 1)), l = (u = n(e))[0], e = u[1], l && (l = t(l, c, o), 
+                return e || (p = !1, e = "_@r" + (O += 1)), l = (u = n(e))[0], e = u[1], l && (l = t(l, c, o), 
                 s = getOwn(S, l)), e && (l ? h = i ? e : s && s.normalize ? s.normalize(e, function(e) {
                     return t(e, c, o);
                 }) : -1 === e.indexOf("!") ? t(e, c, o) : e : (l = (u = n(h = t(e, c, o)))[0], h = u[1], 
@@ -112,7 +112,7 @@
                     prefix: l,
                     name: h,
                     parentMap: r,
-                    unnormalized: !!(d = !l || s || i ? "" : "_unnormalized" + (F += 1)),
+                    unnormalized: !!(d = !l || s || i ? "" : "_unnormalized" + (q += 1)),
                     url: a,
                     originalName: f,
                     isDefine: p,
@@ -195,7 +195,7 @@
                 pkgs: {},
                 shim: {},
                 config: {}
-            }, x = {}, k = {}, I = {}, T = [], S = {}, A = {}, O = {}, q = 1, F = 1;
+            }, x = {}, k = {}, I = {}, T = [], S = {}, F = {}, A = {}, O = 1, q = 1;
             return b = {
                 require: function(e) {
                     return e.require ? e.require : e.require = w.makeRequire(e.map);
@@ -241,7 +241,7 @@
                 },
                 load: function() {
                     var e = this.map.url;
-                    A[e] || (A[e] = !0, w.load(this.map.id, e));
+                    F[e] || (F[e] = !0, w.load(this.map.id, e));
                 },
                 check: function() {
                     if (this.enabled && !this.enabling) {
@@ -276,7 +276,7 @@
                 callPlugin: function() {
                     var e = this.map, r = e.id, i = o(e.prefix);
                     this.depMaps.push(i), s(i, "defined", bind(this, function(i) {
-                        var n, u, c, f = getOwn(O, this.map.id), p = this.map.name, h = this.map.parentMap ? this.map.parentMap.name : null, g = w.makeRequire(e.parentMap, {
+                        var n, u, c, f = getOwn(A, this.map.id), p = this.map.name, h = this.map.parentMap ? this.map.parentMap.name : null, g = w.makeRequire(e.parentMap, {
                             enableBuildCallback: !0
                         });
                         return this.map.unnormalized ? (i.normalize && (p = i.normalize(p, function(e) {
@@ -344,7 +344,7 @@
                 contextName: e,
                 registry: x,
                 defined: S,
-                urlFetched: A,
+                urlFetched: F,
                 defQueue: T,
                 defQueueMap: {},
                 Module: v,
@@ -369,7 +369,7 @@
                         i[t] ? (E[t] || (E[t] = {}), mixin(E[t], e, !0, !0)) : E[t] = e;
                     }), e.bundles && eachProp(e.bundles, function(e, t) {
                         each(e, function(e) {
-                            e !== t && (O[e] = t);
+                            e !== t && (A[e] = t);
                         });
                     }), e.shim && (eachProp(e.shim, function(e, t) {
                         isArray(e) && (e = {
@@ -419,7 +419,7 @@
                     }), i || (s.undef = function(e) {
                         u();
                         var t = o(e, i, !0), n = getOwn(x, e);
-                        n.undefed = !0, r(e), delete S[e], delete A[t.url], delete I[e], eachReverse(T, function(t, r) {
+                        n.undefed = !0, r(e), delete S[e], delete F[t.url], delete I[e], eachReverse(T, function(t, r) {
                             t[0] === e && T.splice(r, 1);
                         }), delete w.defQueueMap[e], n && (n.events.defined && (I[e] = n.events), l(e));
                     }), s;
@@ -444,7 +444,7 @@
                 },
                 nameToUrl: function(e, t, r) {
                     var i, n, o, a, s, d, u = getOwn(E.pkgs, e);
-                    if (u && (e = u), d = getOwn(O, e)) return w.nameToUrl(d, t, r);
+                    if (u && (e = u), d = getOwn(A, e)) return w.nameToUrl(d, t, r);
                     if (req.jsExtRegExp.test(e)) a = e + (t || ""); else {
                         for (i = E.paths, o = (n = e.split("/")).length; 0 < o; o -= 1) if (s = getOwn(i, n.slice(0, o).join("/"))) {
                             isArray(s) && (s = s[0]), n.splice(0, o, s);
@@ -896,102 +896,107 @@
         };
     }), define("sdk/Item", [ "sdk/Field", "sdk/Type", "sdk/dispatcher", "sdk/logger" ], function(e, t, r, i) {
         function n(e) {
-            a.debug("Notifying UI that the item property value has changed:", e), r.send("edit", e);
+            s.debug("Notifying UI that the item property value has changed:", e), r.send("edit", e);
         }
         function o(e, t) {
             return e = e || [], e.some(function(e) {
                 return e.value === t;
             });
         }
-        var a = new i("Item");
+        function a(e, t) {
+            return -1 !== t.map(function(e) {
+                return e.toLowerCase();
+            }).indexOf(e ? e.toLowerCase() : null);
+        }
+        var s = new i("Item");
         return function(t) {
             function i(e) {
-                l = e.id, c = e.type, f = e.name, p = e.description, h = e.slug, g = e.language, 
-                m = e.translatable, v = e.languageIsMaster, w = e.version, b = e.isPublished, y = e.scheduled, 
-                E = e.status, x = e.createdDate, k = e.createdBy, I = e.updatedDate, T = e.updatedBy, 
-                S = e.repositoryId, A = e.latestVersion, O = e.currentVersion, q = e.mimeType, F = e.fileGroup, 
-                C = e.varSetId, N = e.versionInfo, D = e.publishInfo, M = e.tags, R = e.collections, 
-                P = e.channels, j = e.publishedChannels, z = e.taxonomies, B = e.isNew;
+                c = e.id, f = e.type, p = e.name, h = e.description, g = e.slug, m = e.language, 
+                v = e.translatable, w = e.languageIsMaster, b = e.version, y = e.isPublished, E = e.scheduled, 
+                x = e.status, k = e.createdDate, I = e.createdBy, T = e.updatedDate, S = e.updatedBy, 
+                F = e.repositoryId, A = e.latestVersion, O = e.currentVersion, q = e.mimeType, N = e.fileGroup, 
+                C = e.varSetId, D = e.versionInfo, M = e.publishInfo, R = e.tags, P = e.collections, 
+                j = e.channels, z = e.publishedChannels, B = e.taxonomies, V = e.isNew;
             }
-            function s() {
+            function d() {
                 return {
-                    id: l,
-                    type: c,
-                    name: f,
-                    description: p,
-                    createdBy: k,
-                    createdDate: x,
-                    updatedBy: T,
-                    updatedDate: I,
-                    slug: h,
-                    repositoryId: S,
-                    language: g,
-                    translatable: m,
-                    status: E,
-                    isPublished: b,
-                    scheduled: y,
-                    languageIsMaster: v,
-                    version: w,
+                    id: c,
+                    type: f,
+                    name: p,
+                    description: h,
+                    createdBy: I,
+                    createdDate: k,
+                    updatedBy: S,
+                    updatedDate: T,
+                    slug: g,
+                    repositoryId: F,
+                    language: m,
+                    translatable: v,
+                    status: x,
+                    isPublished: y,
+                    scheduled: E,
+                    languageIsMaster: w,
+                    version: b,
                     currentVersion: O,
                     latestVersion: A,
                     mimeType: q,
-                    fileGroup: F,
+                    fileGroup: N,
                     varSetId: C
                 };
             }
-            function d(e) {
-                a.debug("Item update recived data: ", e), i(e);
+            function u(e) {
+                s.debug("Item update recived data: ", e), i(e);
                 var t = e.fieldData;
                 t && Array.isArray(t) && t.forEach(function(e) {
-                    var t = e.definition.id, r = e.value, i = $.filter(function(e) {
+                    var t = e.definition.id, r = e.value, i = X.filter(function(e) {
                         return e.getDefinition().id === t;
                     }), n = i && i.length > 0 ? i[0] : null;
-                    n && (a.debug("Syncing field value for field : " + e.definition.name + " with value " + r), 
+                    n && (s.debug("Syncing field value for field : " + e.definition.name + " with value " + r), 
                     n.setValue(r, {
                         notifyForm: !0
                     }));
-                }), U.update && (a.debug("Notifying the form to update the item with itemData:" + s()), 
-                U.update.call(null, s()));
+                }), W.update && (s.debug("Notifying the form to update the item with itemData:" + d()), 
+                W.update.call(null, d()));
             }
             if (!t) {
-                var u = "Unable to initialize Item - invalid  parameter:" + t;
-                throw a.error(u), new Error(u);
+                var l = "Unable to initialize Item - invalid  parameter:" + t;
+                throw s.error(l), new Error(l);
             }
-            if (!t.contentType) throw a.error("Type must be  provided"), new Error("Type must be  provided");
-            r.on("update", d);
-            var l, c, f, p, h, g, m, v, w, b, y, E, x, k, I, T, S, A, O, q, F, C, N, D, M, R, P, j, z, B, V = t.contentType, L = V.getSlug(), U = (L && L.enabled, 
-            {}), W = t.itemData, Q = W.fieldData, _ = t.formOptions, G = W.languageOptions, K = W.nativeFileOptions;
-            i(W);
-            var $ = Q.map(function(t) {
+            if (!t.contentType) throw s.error("Type must be  provided"), new Error("Type must be  provided");
+            r.on("update", u);
+            var c, f, p, h, g, m, v, w, b, y, E, x, k, I, T, S, F, A, O, q, N, C, D, M, R, P, j, z, B, V, L = t.contentType, U = L.getSlug(), W = (U && U.enabled, 
+            {}), Q = t.itemData, _ = Q.fieldData, G = t.formOptions, K = Q.languageOptions, $ = Q.nativeFileOptions;
+            i(Q);
+            var X = _.map(function(t) {
                 return new e(t);
             });
             this.getFormOptions = function() {
-                return Object.freeze(_);
+                return Object.freeze(G);
             }, this.get = function() {
-                return s();
+                return d();
             }, this.on = function(e, t) {
-                U[e] = t;
+                W[e] = t;
             }, this.isNew = function() {
-                return B;
+                return V;
             }, this.getLanguageOptions = function() {
-                return G;
+                return K;
             }, this.getFields = function() {
-                return $;
+                return X;
             }, this.getFieldByName = function(e) {
-                var t = $.filter(function(t) {
+                var t = X.filter(function(t) {
                     return t.getDefinition().name === e;
                 });
                 return t && t.length > 0 ? t[0] : null;
             }, this.getFieldById = function(e) {
-                var t = $.filter(function(t) {
+                var t = X.filter(function(t) {
                     return t.getDefinition().id === e;
                 });
                 return t && t.length > 0 ? t[0] : null;
             }, this.setName = function(e, t) {
-                if (_ && !_.supportsSetName) throw new Error("Form does not support changing name");
-                t = t || {}, f = e, n({
+                if (G && !G.supportsSetName) throw new Error("Form does not support changing name");
+                t = t || {}, p = e, n({
                     nodeName: "name",
-                    value: f,
+                    value: p,
                     options: t
                 });
             }, this.validateName = function(e) {
@@ -999,10 +1004,10 @@
                     value: e
                 });
             }, this.setDescription = function(e, t) {
-                if (_ && !_.supportsSetDescription) throw new Error("Form does not support changing description .");
-                t = t || {}, p = e, n({
+                if (G && !G.supportsSetDescription) throw new Error("Form does not support changing description .");
+                t = t || {}, h = e, n({
                     nodeName: "description",
-                    value: p,
+                    value: h,
                     options: t
                 });
             }, this.validateDescription = function(e) {
@@ -1010,10 +1015,10 @@
                     value: e
                 });
             }, this.setSlug = function(e, t) {
-                if (_ && !_.supportsSetSlug) throw new Error("Form does not support changing slug.");
-                t = t || {}, h = e, n({
+                if (G && !G.supportsSetSlug) throw new Error("Form does not support changing slug.");
+                t = t || {}, g = e, n({
                     nodeName: "slug",
-                    value: h,
+                    value: g,
                     options: t
                 });
             }, this.validateSlug = function(e) {
@@ -1021,12 +1026,12 @@
                     value: e
                 });
             }, this.setLanguage = function(e, t) {
-                if (_ && !_.supportsSetLanguage) throw new Error("Form does not support changing language.");
-                if (t = t || {}, b || y) throw new Error("Form does not support changing language as the asset is either published or scheduled for publish.");
-                if (!o(G, e)) throw new Error('Invalid Language "' + e + '" passed');
-                g = e, n({
+                if (G && !G.supportsSetLanguage) throw new Error("Form does not support changing language.");
+                if (t = t || {}, y || E) throw new Error("Form does not support changing language as the asset is either published or scheduled for publish.");
+                if (!o(K, e)) throw new Error('Invalid Language "' + e + '" passed');
+                m = e, n({
                     nodeName: "language",
-                    value: g,
+                    value: m,
                     options: t
                 });
             }, this.validateLanguage = function(e) {
@@ -1034,7 +1039,7 @@
                     value: e
                 });
             }, this.setTranslatable = function(e, t) {
-                if (_ && !_.supportsSetTranslatable) throw new Error("Form does not support changing translatable.");
+                if (G && !G.supportsSetTranslatable) throw new Error("Form does not support changing translatable.");
                 if (t = t || {}, !this.isNew()) throw new Error("Translatbale property cannot be modified for an existing item");
                 if ("boolean" != typeof e) throw new Error("Translatbale property must be boolean");
                 e = e, n({
@@ -1043,21 +1048,21 @@
                     options: t
                 });
             }, this.getVersionInfo = function() {
-                return Promise.resolve(N);
-            }, this.getPublishInfo = function() {
                 return Promise.resolve(D);
-            }, this.getTags = function() {
+            }, this.getPublishInfo = function() {
                 return Promise.resolve(M);
-            }, this.getCollections = function() {
+            }, this.getTags = function() {
                 return Promise.resolve(R);
-            }, this.getChannels = function() {
+            }, this.getCollections = function() {
                 return Promise.resolve(P);
-            }, this.getPublishedChannels = function() {
+            }, this.getChannels = function() {
                 return Promise.resolve(j);
-            }, this.getTaxonomies = function() {
+            }, this.getPublishedChannels = function() {
                 return Promise.resolve(z);
+            }, this.getTaxonomies = function() {
+                return Promise.resolve(B);
             }, this.addChannels = function(e, t) {
-                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support adding channels.");
+                if (G && !G.supportsSetMetaData) throw new Error("Form does not support adding channels.");
                 if (!Array.isArray(e)) throw new Error("Channels must be an array");
                 t = t || {}, n({
                     nodeName: "channels",
@@ -1068,7 +1073,7 @@
                     options: t
                 });
             }, this.removeChannels = function(e, t) {
-                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support removing channels.");
+                if (G && !G.supportsSetMetaData) throw new Error("Form does not support removing channels.");
                 if (!Array.isArray(e)) throw new Error("Channels must be an array");
                 t = t || {}, n({
                     nodeName: "channels",
@@ -1079,7 +1084,7 @@
                     options: t
                 });
             }, this.addTags = function(e, t) {
-                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support adding tags.");
+                if (G && !G.supportsSetMetaData) throw new Error("Form does not support adding tags.");
                 if (!Array.isArray(e)) throw new Error("Tags must be an array");
                 t = t || {}, n({
                     nodeName: "tags",
@@ -1090,7 +1095,7 @@
                     options: t
                 });
             }, this.removeTags = function(e, t) {
-                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support removing tags.");
+                if (G && !G.supportsSetMetaData) throw new Error("Form does not support removing tags.");
                 if (!Array.isArray(e)) throw new Error("Tags must be an array");
                 t = t || {}, n({
                     nodeName: "tags",
@@ -1101,7 +1106,7 @@
                     options: t
                 });
             }, this.addCollections = function(e, t) {
-                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support adding collections.");
+                if (G && !G.supportsSetMetaData) throw new Error("Form does not support adding collections.");
                 if (!Array.isArray(e)) throw new Error("Collections must be an array");
                 t = t || {}, n({
                     nodeName: "collections",
@@ -1112,7 +1117,7 @@
                     options: t
                 });
             }, this.removeCollections = function(e, t) {
-                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support removing collections.");
+                if (G && !G.supportsSetMetaData) throw new Error("Form does not support removing collections.");
                 if (!Array.isArray(e)) throw new Error("Collections must be an array");
                 t = t || {}, n({
                     nodeName: "collections",
@@ -1123,7 +1128,7 @@
                     options: t
                 });
             }, this.addCategories = function(e, t, r) {
-                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support adding categories.");
+                if (G && !G.supportsSetMetaData) throw new Error("Form does not support adding categories.");
                 if (!e) throw new Error("Taxonomy is missing");
                 if (Array.isArray(e)) throw new Error("Taxonomy must not be an array");
                 if (!Array.isArray(t)) throw new Error("Categories must be an array");
@@ -1137,7 +1142,7 @@
                     options: r
                 });
             }, this.removeCategories = function(e, t, r) {
-                if (_ && !_.supportsSetMetaData) throw new Error("Form does not support removing categories.");
+                if (G && !G.supportsSetMetaData) throw new Error("Form does not support removing categories.");
                 if (!e) throw new Error("Taxonomy is missing");
                 if (Array.isArray(e)) throw new Error("Taxonomy must not be an array");
                 if (!Array.isArray(t)) throw new Error("Categories must be an array");
@@ -1151,17 +1156,19 @@
                     options: r
                 });
             }, this.getNativeFileOptions = function() {
-                return K;
+                return $;
             }, this.setNativeFile = function(e, t) {
-                if (_ && !_.supportsSetNativeFile) throw new Error("Form does not support setting native file");
+                if (G && !G.supportsSetNativeFile) throw new Error("Form does not support setting native file");
                 if (e && !(e instanceof File)) throw new Error('Unable to setNativeFile - invalid  parameter: "file" should be an instance of File');
+                var r = e.name ? e.name.split(".").pop() : "";
+                if (!a(r, L.allowedFileTypes)) throw new Error(r + " file type is not supported");
                 t = t || {}, n({
                     nodeName: "nativefile",
                     value: e,
                     options: t
                 });
             }, this.setSourceId = function(e, t) {
-                if (_ && !_.supportsSetNativeFile) throw new Error("Form does not support setting sourceId");
+                if (G && !G.supportsSetNativeFile) throw new Error("Form does not support setting sourceId");
                 if (!e) throw new Error("Unable to set sourceId - invalid  parameter: no sourceId provided");
                 t = t || {}, n({
                     nodeName: "sourceId",
@@ -1169,10 +1176,31 @@
                     options: t
                 });
             }, this.validateNativeFile = function(e) {
-                if (_ && !_.supportsSetNativeFile) throw new Error("Form does not support validate native file");
+                if (G && !G.supportsSetNativeFile) throw new Error("Form does not support validate native file");
                 if (!(e && e instanceof File)) throw new Error('Unable to validate file - invalid  parameter: "file" should be an instance of File');
                 return r.sendAndWait("validateNativeFile", {
                     value: e
+                });
+            }, this.openDocumentPicker = function(e) {
+                if (G && !G.supportsSetNativeFile) throw new Error("Form does not support opening document picker");
+                return e = e || {}, r.sendAndWait("openDocumentPicker", {
+                    options: e
+                });
+            }, this.validateDocument = function(e) {
+                if (G && !G.supportsSetNativeFile) throw new Error("Form does not support validate document");
+                if (!e || !e.name) throw new Error("Unable to validate document - invalid  parameter: document should have name");
+                return r.sendAndWait("validateDocument", {
+                    value: e
+                });
+            }, this.setDocument = function(e, t) {
+                if (G && !G.supportsSetNativeFile) throw new Error("Form does not support setting document");
+                if (!e || !e.id) throw new Error("Unable to setDocument - invalid  parameter: document object not passed");
+                var r = e.name ? e.name.split(".").pop() : "";
+                if (!a(r, L.allowedFileTypes)) throw new Error(r + " file type is not supported");
+                t = t || {}, n({
+                    nodeName: "document",
+                    value: e,
+                    options: t
                 });
             };
         };
