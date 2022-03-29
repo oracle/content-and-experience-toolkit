@@ -113,9 +113,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 	<!-- /ko -->
     <script type="text/javascript">
         /* global ko, console */
-        var selectedTemp = 'all',
-            selectedType = 'all';
-        var getTemplates = function (self) {
+        var getTemplates = function (self, selectedTemp) {
             var temps = self.templates;
             $.getJSON("/gettemplates", function (data) {
                 var alltemps = [];
@@ -130,7 +128,18 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                     });
                 }
                 temps(alltemps);
+
+				var selectedTempValue;
+				console.log(self.templates().length);
+				ko.utils.arrayForEach(self.templates(), function (item) {
+					if (item.value === selectedTemp) {
+						selectedTempValue = item;
+					}
+				});
+				console.log(selectedTempValue);
+				self.selectedTemplate(selectedTempValue);
             });
+			
         };
         var getComponents = function (self, selectedTemp, selectedType) {
             var comps = self.components;
@@ -193,12 +202,13 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			self.isGrid = ko.observable(layoutValue === 'grid');
 
             // templates
+			var selectedTemp = window.sessionStorage['selectedTemplate'] || 'all';
+			self.selectedTemplate = ko.observable();
             self.templates = ko.observableArray([]);
-            self.selectedTemplate = ko.observable();
-            getTemplates(self);
+            getTemplates(self, selectedTemp);
 
             // component types
-            self.compTypes = ko.observableArray([{
+			self.compTypes = ko.observableArray([{
                     value: 'all',
                     label: 'All'
                 },
@@ -243,7 +253,16 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
                     label: 'Content forms'
                 }
             ]);
-            self.selectedCompType = ko.observable();
+			
+            var selectedType = window.sessionStorage['selectedComponentType'] || 'all';
+			var selectedTypeValue;
+			ko.utils.arrayForEach(self.compTypes(), function (item) {
+				if (item.value === selectedType) {
+					selectedTypeValue = item;
+				}
+			});
+			self.selectedCompType = ko.observable(selectedTypeValue);
+
             self.components = ko.observableArray([]);
 
             self.url = "comp.html";
@@ -276,10 +295,13 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
             
             self.selectedTemplate.subscribe(function (newValue) {
                 selectedTemp = newValue ? newValue.value : 'all';
+				console.log('selected temp: ' + selectedTemp);
+				window.sessionStorage.setItem('selectedTemplate', selectedTemp);
                 getComponents(self, selectedTemp, selectedType);
             });
             self.selectedCompType.subscribe(function (newValue) {
                 selectedType = newValue ? newValue.value : 'all';
+				window.sessionStorage.setItem('selectedComponentType', selectedType);
                 getComponents(self, selectedTemp, selectedType);
 			});
 			
@@ -289,6 +311,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			});
 			
         };
+		
         ko.applyBindings(new IndexViewModel());
     </script>
 </body>

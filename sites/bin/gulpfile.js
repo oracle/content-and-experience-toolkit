@@ -1803,7 +1803,7 @@ gulp.task('list-editorial-permission', function (done) {
 /**
  * List Editorial Roles
  */
-gulp.task('list-editorial-role', function (done) {
+gulp.task('list-editorial-roles', function (done) {
 	'use strict';
 
 	assetlib.listEditorialRole(argv, function (success) {
@@ -1945,6 +1945,18 @@ gulp.task('update-type', function (done) {
 		process.exitCode = 1;
 		done();
 	}
+});
+
+/**
+ * Describe a workflow
+ */
+gulp.task('describe-workflow', function (done) {
+	'use strict';
+
+	assetlib.describeWorkflow(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
 });
 
 /**
@@ -2266,6 +2278,30 @@ gulp.task('execute-post', function (done) {
 	'use strict';
 
 	resourcelib.executePost(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Execute PUT
+ */
+gulp.task('execute-put', function (done) {
+	'use strict';
+
+	resourcelib.executePut(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Execute PATCH
+ */
+gulp.task('execute-patch', function (done) {
+	'use strict';
+
+	resourcelib.executePatch(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});

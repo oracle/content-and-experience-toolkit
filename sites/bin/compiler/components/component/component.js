@@ -16,6 +16,7 @@
  */
 var fs = require('fs'),
 	path = require('path'),
+	url = require('url'),
 	mustache = require('mustache'),
 	Base = require('../base/base'),
 	compilationReporter = require('../../reporter.js');
@@ -232,7 +233,7 @@ Component.prototype.compileComponent = function (args) {
 				foundComponentFile = true;
 
 				// JavaScript module based custom component, import it
-				const { default: importModule } = await import(moduleFile);
+				const { default: importModule } = await import(url.pathToFileURL(moduleFile));
 				CustCompImpl = importModule;
 			} else {
 				// verify if we can load the file

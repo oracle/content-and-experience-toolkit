@@ -15,6 +15,48 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.3.2
+
+**Added**
+
+- `cec list-editorial-roles` - Lists the Editorial Roles on an OCM server
+- `cec create-editorial-role` - Creates an Editorial Role on an OCM server
+- `cec set-editorial-role` - Sets Editorial Permissions for an Editorial Role
+- `cec delete-editorial-role` - Deletes an Editorial Role on an OCM server
+
+**Fixed**
+
+- `cec control-content publish` -  Can now publish same items to multiple channels
+
+
+# New in Release 22.3.1
+
+**Added**
+
+- `cec describe-workflow` - Lists the properties of a content workflow on an OCM server
+
+**Updated**
+
+- `cec list` - Now includes workflows and ranking policies
+- `cec list-assets` - Added parameter `--rankby` to sort query result by ranking policy
+
+
+# New in Release 22.2.2
+
+**Added**
+
+- `cec execute-put` - Make an HTTP PUT request to a REST API endpoint on an OCM server
+- `cec execute-patch` - Make an HTTP PATCH request to a REST API endpoint on an OCM server
+
+**Updated**
+
+- `cec set-oauth-token` - Can now save the OAUTH token to the cec.properties file
+- `cec transfer-site` - Now supports param `--excludetheme` when transfering a standard site
+
+- Updated local server to remember the selected component type and selected template
+
+
+
 # New in Release 22.2.1
 
 **Added**

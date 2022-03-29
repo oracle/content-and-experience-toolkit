@@ -155,11 +155,7 @@ JobManager.prototype.compileJob = function (jobConfig) {
 					command += ' ' + a;
 				});
 
-				// In docker container, the command includes the script. E.g.
-				//      /compileExec.sh 'cd /home/compileagent/cec-src; cec...'
-				// Otherwise, the command is simply the cec command. E.g.
-				//      cec...
-				return inDocker ? spawnCommand + " '" + changeDir + command + "'" : command;
+				return command;
 			};
 
 		var noop = -1,

@@ -124,7 +124,9 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						return Promise.reject();
 					}
 					site = result;
-					console.log(' - verify site');
+					console.log(' - verify site (Id: ' + site.id + ')');
+
+					// console.log(site);
 
 					// create local folder for the template
 
@@ -133,7 +135,16 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					repositoryName = site.repository && site.repository.name;
 					repositoryId = site.repository && site.repository.id;
 
-					// console.log(site);
+					if (site.isEnterprise && !repositoryId) {
+						console.log('ERROR: could not find repository');
+						if (site.repository) {
+							console.log(site.repository);
+						}
+						return Promise.reject();
+					}
+					if (site.isEnterprise) {
+						console.log(' - repository: ' + repositoryName + ' (Id: ' + repositoryId + ')');
+					}
 
 					// query to get the content types used in the site
 					return sitesRest.getSiteContentTypes({

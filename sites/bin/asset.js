@@ -590,9 +590,9 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 								finalConnectors.splice(idx, 1);
 							}
 						}
-					} else if (action === 'add-editorial-role') {
+					} else if (action === 'add-role') {
 						finalEditorialRoles = finalEditorialRoles.concat(editorialRoles);
-					} else if (action === 'remove-editorial-role') {
+					} else if (action === 'remove-role') {
 						for (i = 0; i < editorialRoles.length; i++) {
 							idx = undefined;
 							for (j = 0; j < finalEditorialRoles.length; j++) {
@@ -644,9 +644,9 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 								console.log(' - added translation connector ' + connectorNames + ' to repository ' + name);
 							} else if (action === 'remove-translation-connector') {
 								console.log(' - removed translation connector ' + connectorNames + ' from repository ' + name);
-							} else if (action === 'add-editorial-role') {
+							} else if (action === 'add-role') {
 								console.log(' - added editorial role ' + roleNames + ' to repository ' + name);
-							} else if (action === 'remove-editorial-role') {
+							} else if (action === 'remove-role') {
 								console.log(' - removed editorial-role ' + roleNames + ' from repository ' + name);
 							}
 						}
@@ -1311,6 +1311,7 @@ module.exports.describeRepository = function (argv, done) {
 				}
 
 				repo = result.data;
+				// console.log(repo);
 				if (!repo || !repo.id) {
 					console.log('ERROR: repository ' + name + ' does not exist');
 					return Promise.reject();
@@ -1374,11 +1375,19 @@ module.exports.describeRepository = function (argv, done) {
 						assetTypes.push(type.displayName || type.name);
 					});
 				}
+
+				var editorialRoles = [];
+				if (repo.editorialRoles && repo.editorialRoles.length > 0) {
+					repo.editorialRoles.forEach(function (role) {
+						editorialRoles.push(role.name);
+					});
+				}
+
 				var format1 = '%-38s  %-s';
 				console.log('');
 				console.log(sprintf(format1, 'Id', repo.id));
 				console.log(sprintf(format1, 'Name', repo.name));
-				console.log(sprintf(format1, 'description', repo.description || ''));
+				console.log(sprintf(format1, 'Description', repo.description || ''));
 				console.log(sprintf(format1, 'Created', repo.createdDate.value + ' by ' + repo.createdBy));
 				console.log(sprintf(format1, 'Updated', repo.updatedDate.value + ' by ' + repo.updatedBy));
 				console.log(sprintf(format1, 'Asset types', assetTypes.sort()));
@@ -1387,6 +1396,7 @@ module.exports.describeRepository = function (argv, done) {
 				console.log(sprintf(format1, 'Default language', repo.defaultLanguage));
 				console.log(sprintf(format1, 'Channel languages', repo.configuredLanguages));
 				console.log(sprintf(format1, 'Additional languages', repo.languageOptions));
+				console.log(sprintf(format1, 'Editorial roles', editorialRoles));
 				console.log('');
 
 				done(true);
@@ -3476,7 +3486,7 @@ module.exports.describeChannel = function (argv, done) {
 				console.log(sprintf(format1, 'Id', channel.id));
 				console.log(sprintf(format1, 'Token', channelToken));
 				console.log(sprintf(format1, 'Name', channel.name));
-				console.log(sprintf(format1, 'description', channel.description || ''));
+				console.log(sprintf(format1, 'Description', channel.description || ''));
 				console.log(sprintf(format1, 'Created', channel.createdDate.value + ' by ' + channel.createdBy));
 				console.log(sprintf(format1, 'Updated', channel.updatedDate.value + ' by ' + channel.updatedBy));
 				console.log(sprintf(format1, 'Publishing', channel.publishPolicy));
@@ -4371,14 +4381,14 @@ var _listEditorialRoles = function (item) {
 	}
 
 	console.log('');
-	var format1 = '  %-53s  %-s';
+	var format1 = '  %-63s  %-s';
 	// console.log(sprintf(format1, '', 'Assets', 'Taxonomies'));
 
-	var format2 = '  %-20s  %-4s  %-6s  %-6s  %-6s     %-30s  %-6s  %-s';
+	var format2 = '  %-30s  %-4s  %-6s  %-6s  %-6s     %-36s  %-6s  %-s';
 	// console.log(sprintf(format2, '', '', 'View', 'Update', 'Create', 'Delete', '', 'View', 'Categorize'));
 
 
-	console.log(item.name + '  ' + (item.description || ''));
+	console.log(item.name + '  ' + (item.description ? ('(' + item.description + ')') : ''));
 
 	console.log(sprintf(format1, 'Assets', 'Taxonomies'));
 	console.log(sprintf(format2, '', 'View', 'Update', 'Create', 'Delete', '', 'View', 'Categorize'));
@@ -5050,6 +5060,147 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 	});
 };
 
+module.exports.describeWorkflow = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var output = argv.file;
+
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+		if (!fs.existsSync(outputFolder)) {
+			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(outputFolder).isDirectory()) {
+			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			done();
+			return;
+		}
+	}
+
+	var name = argv.name;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		var workflows;
+
+		serverRest.getWorkflowsWithName({
+				server: server,
+				name: name
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				} else if (result.length === 0) {
+					console.log('ERROR: workflow ' + name + ' not found');
+					return Promise.reject();
+				}
+				workflows = result;
+
+				var permissionPromises = [];
+				workflows.forEach(function (wf) {
+					permissionPromises.push(serverRest.getWorkflowPermissions({
+						server: server,
+						id: wf.id
+					}));
+				});
+
+				return Promise.all(permissionPromises);
+
+			})
+			.then(function (results) {
+
+				var allPermissions = results || [];
+
+				workflows.forEach(function (workflow) {
+					var permissions = [];
+
+					for (var i = 0; i < allPermissions.length; i++) {
+						if (allPermissions[i] && allPermissions[i].workflowId === workflow.id) {
+							permissions = allPermissions[i].permissions;
+							break;
+						}
+					}
+
+					var repositories = [];
+					if (workflow.repositories && workflow.repositories.length > 0) {
+						workflow.repositories.forEach(function (repo) {
+							if (repo.name) {
+								repositories.push(repo.name);
+							}
+						});
+					}
+
+					var format1 = '%-38s  %-s';
+					var format2 = '    %-s';
+					console.log('');
+					console.log(sprintf(format1, 'Id', workflow.id));
+					console.log(sprintf(format1, 'Name', workflow.name));
+					console.log(sprintf(format1, 'Description', workflow.description || ''));
+					console.log(sprintf(format1, 'Registered', workflow.createdDate.value + ' by ' + workflow.createdBy));
+					console.log(sprintf(format1, 'Updated', workflow.updatedDate.value + ' by ' + workflow.updatedBy));
+					console.log(sprintf(format1, 'Application name', workflow.applicationName));
+					console.log(sprintf(format1, 'Revision', workflow.revision));
+					console.log(sprintf(format1, 'External Id', workflow.externalId));
+					console.log(sprintf(format1, 'Source', workflow.source));
+					console.log(sprintf(format1, 'Enabled', workflow.isEnabled));
+					console.log(sprintf(format1, 'Assigned repositories', repositories));
+					console.log(sprintf(format1, 'Role name', workflow.roleName));
+					console.log(sprintf(format1, 'Workflow roles:', ''));
+					if (workflow.roles && workflow.roles.length > 0) {
+						workflow.roles.forEach(function (role) {
+							console.log(sprintf(format2, role));
+						});
+					}
+
+					console.log(sprintf(format1, 'Workflow permissions:', ''));
+					var format3 = '  %-32s  %-12s  %-10s  %-32s  %-s';
+					if (permissions.length > 0) {
+						console.log(sprintf(format3, 'Id', 'Role name', 'Type', 'Full name', 'Email'));
+						permissions.forEach(function (perm) {
+							console.log(sprintf(format3, perm.id, perm.roleName, perm.type, perm.fullName, (perm.email || '')));
+						});
+					}
+				});
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+
+};
+
+
 module.exports.listAssets = function (argv, done) {
 	'use strict';
 
@@ -5079,8 +5230,13 @@ module.exports.listAssets = function (argv, done) {
 	var total, limit;
 	var repository, collection, channel, channelToken;
 	var items = [];
+	var startTime;
 
 	var showURLS = typeof argv.urls === 'boolean' ? argv.urls : argv.urls === 'true';
+
+	var orderBy = argv.orderby;
+	var ranking = argv.rankby;
+	var rankingApiName;
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
@@ -5129,6 +5285,42 @@ module.exports.listAssets = function (argv, done) {
 					}
 					collection = results[0].data;
 					console.log(' - validate collection (Id: ' + collection.id + ')');
+				}
+
+				var rankingPromises = [];
+				if (ranking) {
+					rankingPromises.push(serverRest.getRankingPolicies({
+						server: server
+					}));
+				}
+
+				return Promise.all(rankingPromises);
+
+			})
+			.then(function (results) {
+				if (ranking) {
+					// check if the ranking is valid
+					var rankings = results && results[0] || [];
+					for (var i = 0; i < rankings.length; i++) {
+						if (rankings[i].apiName.toLowerCase() === ranking.toLowerCase()) {
+							rankingApiName = rankings[i].apiName;
+							break;
+						}
+					}
+					if (!rankingApiName) {
+						// try to match with name
+						for (var i = 0; i < rankings.length; i++) {
+							if (rankings[i].name.toLowerCase() === ranking.toLowerCase()) {
+								rankingApiName = rankings[i].apiName;
+								break;
+							}
+						}
+					}
+					if (!rankingApiName) {
+						console.log(' - WARNING: ranking policy is not found with API name ' + ranking);
+					} else {
+						console.log(' - verify ranking policy (API name: ' + rankingApiName + ')');
+					}
 				}
 
 				var channelPromises = [];
@@ -5200,17 +5392,22 @@ module.exports.listAssets = function (argv, done) {
 					console.log(' - query all assets');
 				}
 
+				startTime = new Date();
 				return serverRest.queryItems({
 					server: server,
 					q: q,
 					fields: 'name,status,slug,language,publishedChannels',
-					includeAdditionalData: true
+					includeAdditionalData: true,
+					orderBy: orderBy,
+					rankBy: rankingApiName
 				});
 			})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
 				}
+
+				var timeSpent = serverUtils.timeUsed(startTime, new Date());
 
 				items = result && result.data || [];
 				total = items.length;
@@ -5219,19 +5416,22 @@ module.exports.listAssets = function (argv, done) {
 				console.log(' - items: ' + total + ' of ' + limit);
 
 				if (total > 0) {
-					_displayAssets(server, repository, collection, channel, channelToken, items, showURLS);
-					console.log(' - items: ' + total + ' of ' + limit);
+					_displayAssets(server, repository, collection, channel, channelToken, items, showURLS, rankingApiName);
+					console.log(' - items: ' + total + ' of ' + limit + ' [' + timeSpent + ']');
 				}
 
 				done(true);
 			})
 			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
 				done();
 			});
 	});
 };
 
-var _displayAssets = function (server, repository, collection, channel, channelToken, items, showURLS) {
+var _displayAssets = function (server, repository, collection, channel, channelToken, items, showURLS, ranking) {
 	var types = [];
 	var allIds = [];
 	for (var i = 0; i < items.length; i++) {
@@ -5240,6 +5440,7 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 			types.push(items[i].type);
 		}
 	}
+
 
 	// sort types
 	var byType = types.slice(0);
@@ -5267,6 +5468,7 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 	}
 
 	// sort name
+	/*
 	for (var i = 0; i < list.length; i++) {
 		var byName = list[i].items.slice(0);
 		byName.sort(function (a, b) {
@@ -5276,6 +5478,7 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 		});
 		list[i].items = byName;
 	}
+	*/
 
 	var format = '   %-15s %-s';
 	if (repository) {
@@ -5307,7 +5510,6 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 	} else {
 		format2 = '   %-38s %-38s %-7s %-10s %-8s %-10s %-s';
 		console.log(sprintf(format2, 'Type', 'Id', 'Version', 'Status', 'Language', 'Size', 'Name'));
-
 		var totalSize = 0;
 		for (var i = 0; i < list.length; i++) {
 			for (var j = 0; j < list[i].items.length; j++) {

@@ -75,7 +75,7 @@ module.exports.listServerContentTypes = function (argv, done) {
 			server: server
 		});
 		typesPromise.then(function (result) {
-			var types = result && result.items;
+			var types = result || [];
 			var typeFound = false;
 			if (types && types.length > 0) {
 				var byName = types.slice(0);
@@ -200,7 +200,7 @@ module.exports.createContentLayout = function (argv, done) {
 			server: server
 		});
 		typesPromise.then(function (result) {
-			var types = result && result.items || [];
+			var types = result || [];
 			var foundtype = false,
 				contenttype;
 			for (var i = 0; i < types.length; i++) {
