@@ -2,8 +2,6 @@
  * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-/* global module, process */
-/* jshint esversion: 6 */
 
 /**
  * Utilities for Local Server
@@ -3511,11 +3509,11 @@ module.exports.setSiteMetadata = function (server, idcToken, siteId, values) {
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
 			if (response && response.statusCode !== 200) {
-				console.log('ERROR: Failed to set site metadata');
+				console.log('ERROR: Failed to set site metadata' + ' (ecid: ' + response.ecid + ')');
 				console.log('compilation server message: response status -', response.statusCode);
 			}
 			if (err) {
-				console.log('ERROR: Failed to set site metadata');
+				console.log('ERROR: Failed to set site metadata' + ' (ecid: ' + response.ecid + ')');
 				console.log('compilation server message: error -', err);
 				return reject({
 					err: err
@@ -3581,7 +3579,7 @@ module.exports.setThemeMetadata = function (server, idcToken, themeId, values) {
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to set theme metadata');
+				console.log('ERROR: Failed to set theme metadata' + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -3596,7 +3594,7 @@ module.exports.setThemeMetadata = function (server, idcToken, themeId, values) {
 			}
 			// console.log(data);
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to set theme metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				console.log('ERROR: failed to set theme metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -3645,7 +3643,7 @@ module.exports.setComponentMetadata = function (server, idcToken, compId, values
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to set component metadata');
+				console.log('ERROR: Failed to set component metadata' + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -3660,7 +3658,7 @@ module.exports.setComponentMetadata = function (server, idcToken, compId, values
 			}
 			// console.log(data);
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to set component metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				console.log('ERROR: failed to set component metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -4069,7 +4067,7 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 			var request = require('./requestUtils.js').request;
 			request.post(options, function (err, response, body) {
 				if (err) {
-					console.log('ERROR: Failed to delete');
+					console.log('ERROR: Failed to delete' + ' (ecid: ' + response.ecid + ')');
 					console.log(err);
 					return resolve({
 						err: 'err'
@@ -4082,7 +4080,7 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 				} catch (e) {}
 
 				if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-					console.log('ERROR: failed to delete  ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+					console.log('ERROR: failed to delete  ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
 					_deleteDone(false, resolve);
 				} else {
 					// query the GUID in the trash folder
@@ -4153,7 +4151,7 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 								} catch (e) {}
 
 								if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-									console.log('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+									console.log('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
 									_deleteDone(false, resolve);
 								} else {
 									_deleteDone(true, resolve);

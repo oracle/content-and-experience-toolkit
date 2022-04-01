@@ -2,8 +2,6 @@
  * Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-/* global console, __dirname, process, console */
-/* jshint esversion: 6 */
 
 /**
  * translation job library
@@ -623,7 +621,7 @@ var _exportTranslationJobSCS = function (server, idcToken, jobName, siteInfo, ta
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to create translation job');
+				console.log('ERROR: Failed to create translation job' + ' (ecid: ' + response.ecid + ')');
 				console.log(err);
 				return resolve({
 					err: 'err'
@@ -636,7 +634,7 @@ var _exportTranslationJobSCS = function (server, idcToken, jobName, siteInfo, ta
 			} catch (e) {}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0' || !data.LocalData.JobID) {
-				console.log('ERROR: failed to create translation job ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				console.log('ERROR: failed to create translation job ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -827,14 +825,14 @@ var _createConnectorJob = function (translationconnector, jobName) {
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(postData, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to create job on the connector: ' + error);
+				console.log('ERROR: failed to create job on the connector: ' + error + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
 			}
 
 			if (response.statusCode != 200) {
-				console.log('ERROR: failed to create job on the connector: ' + response.statusMessage);
+				console.log('ERROR: failed to create job on the connector: ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -846,7 +844,7 @@ var _createConnectorJob = function (translationconnector, jobName) {
 			} catch (err) {}
 
 			if (!data || !data.properties) {
-				console.log('ERROR: failed to create job on the connector: no data returned');
+				console.log('ERROR: failed to create job on the connector: no data returned' + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -877,14 +875,14 @@ var _sendFileToConnector = function (translationconnector, jobId, filePath) {
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(postData, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to send zip to the job: ' + error);
+				console.log('ERROR: failed to send zip to the job: ' + error + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
 			}
 
 			if (response.statusCode != 200) {
-				console.log('ERROR: failed to send zip to the job: ' + response.statusMessage);
+				console.log('ERROR: failed to send zip to the job: ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -921,14 +919,14 @@ var _refreshConnectorJob = function (translationconnector, connection, jobId) {
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(postData, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to refresh job on the connector: ' + error);
+				console.log('ERROR: failed to refresh job on the connector: ' + error + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
 			}
 
 			if (response.statusCode != 200) {
-				console.log('ERROR: failed to refresh job on the connector: ' + response.statusMessage);
+				console.log('ERROR: failed to refresh job on the connector: ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -940,7 +938,7 @@ var _refreshConnectorJob = function (translationconnector, connection, jobId) {
 			} catch (err) {}
 
 			if (!data || !data.properties) {
-				console.log('ERROR: failed to refresh job on the connector: no data returned');
+				console.log('ERROR: failed to refresh job on the connector: no data returned' + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -2518,7 +2516,7 @@ var _refreshTranslationJobSCS = function (server, idcToken, jobId, connectorId) 
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(params, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: Failed to submit refresh translation job ' + job.jobName);
+				console.log('ERROR: Failed to submit refresh translation job ' + job.jobName + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -2531,7 +2529,7 @@ var _refreshTranslationJobSCS = function (server, idcToken, jobId, connectorId) 
 			} catch (e) {}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to submit refresh translation job ' + jobId + ' - ' + (data && data.LocalData ? data.LocalData.StatusMessage : (response.statusMessage || response.statusCode)));
+				console.log('ERROR: Failed to submit refresh translation job ' + jobId + ' - ' + (data && data.LocalData ? data.LocalData.StatusMessage : (response.statusMessage || response.statusCode)) + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});

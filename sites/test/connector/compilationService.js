@@ -1,4 +1,4 @@
-/* globals app, module, __dirname */
+/* globals app */
 
 var responses = require('./connectorResponses'),
     jobManager = require('../job-manager/jobManager'),

@@ -2,8 +2,6 @@
  * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-/* global console, __dirname, process, module, Buffer, console */
-/* jshint esversion: 6 */
 
 var he = require('he'),
 	fs = require('fs'),
@@ -980,7 +978,7 @@ var _createPageIndexItem = function (server, repositoryId, contenttype, dataInde
 			var request = require('../test/server/requestUtils.js').request;
 			request.post(postData, function (err, response, body) {
 				if (err) {
-					console.log('ERROR: Failed to create page index item for page ' + pageName + localemsg);
+					console.log('ERROR: Failed to create page index item for page ' + pageName + localemsg + ' (ecid: ' + response.ecid + ')');
 					console.log(err);
 					return resolve({
 						err: 'err'
@@ -999,14 +997,14 @@ var _createPageIndexItem = function (server, repositoryId, contenttype, dataInde
 					return resolve(data);
 				} else {
 					var msg = data ? (data.detail || data.title) : response.statusMessage;
-					console.log('ERROR: Failed to create page index item for page ' + pageName + localemsg + ' : ' + msg);
+					console.log('ERROR: Failed to create page index item for page ' + pageName + localemsg + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 					return resolve({
 						err: 'err'
 					});
 				}
 			});
 		} else {
-			console.log('ERROR: invalid parameters to create content item');
+			console.log('ERROR: invalid parameters to create content item' + ' (ecid: ' + response.ecid + ')');
 			return resolve({
 				err: 'err'
 			});

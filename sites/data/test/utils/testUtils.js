@@ -3,8 +3,6 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
-/* global console, process, __dirname */
-/* jshint esversion: 8 */
 var fs = require('fs'),
 	path = require('path');
 

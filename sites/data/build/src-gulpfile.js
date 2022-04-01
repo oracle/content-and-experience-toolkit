@@ -1,6 +1,3 @@
-/* global console, __dirname, process, console */
-/* jshint esversion: 6 */
-
 // Gulp and plugins
 var gulp = require('gulp'),
 	del = require('del'),

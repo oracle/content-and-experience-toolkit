@@ -2,8 +2,6 @@
  * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-/* global console, __dirname, process, console */
-/* jshint esversion: 6 */
 
 var serverUtils = require('../test/server/serverUtils.js'),
 	fileUtils = require('../test/server/fileUtils.js'),

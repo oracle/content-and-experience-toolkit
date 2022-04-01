@@ -2,8 +2,7 @@
  * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-/* global module, process */
-/* jshint esversion: 6 */
+
 const {
 	end
 } = require('cheerio/lib/api/traversing');
@@ -39,7 +38,7 @@ var _createFolder = function (server, parentID, foldername) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to create folder ' + foldername);
+				console.log('ERROR: failed to create folder ' + foldername + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -53,7 +52,7 @@ var _createFolder = function (server, parentID, foldername) {
 				} catch (e) {}
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to create folder ' + foldername + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.log('ERROR: failed to create folder ' + foldername + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -93,7 +92,7 @@ var _copyFolder = function (server, folderId, targetFolderId) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to copy folder ' + folderId);
+				console.log('ERROR: failed to copy folder ' + folderId + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -108,7 +107,7 @@ var _copyFolder = function (server, folderId, targetFolderId) {
 				resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to copy folder ' + folderId + ' : ' + msg);
+				console.log('ERROR: failed to copy folder ' + folderId + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -320,7 +319,7 @@ var _deleteFolder = function (server, fFolderGUID, folderPath) {
 		var request = require('./requestUtils.js').request;
 		request.delete(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to delete folder ' + fFolderGUID);
+				console.log('ERROR: failed to delete folder ' + fFolderGUID + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -334,7 +333,7 @@ var _deleteFolder = function (server, fFolderGUID, folderPath) {
 
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to delete folder ' + (folderPath || fFolderGUID) + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.log('ERROR: failed to delete folder ' + (folderPath || fFolderGUID) + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -376,7 +375,7 @@ var _getChildItems = function (server, parentID, limit, offset) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get folder child items ' + parentID);
+				console.log('ERROR: failed to get folder child items ' + parentID + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -391,7 +390,7 @@ var _getChildItems = function (server, parentID, limit, offset) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to get folder items ' + parentID + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.log('ERROR: failed to get folder items ' + parentID + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -428,7 +427,7 @@ var _getFolderMetadata = function (server, folderId) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get folder metadata ' + folderId);
+				console.log('ERROR: failed to get folder metadata ' + folderId + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -454,7 +453,7 @@ var _getFolderMetadata = function (server, folderId) {
 					metadata: metadata
 				});
 			} else {
-				console.log('ERROR: failed to get folder metadata ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.log('ERROR: failed to get folder metadata ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -491,7 +490,7 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get folder child items ' + parentID);
+				console.log('ERROR: failed to get folder child items ' + parentID + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -517,7 +516,7 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 			if (showError) {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				msg = msg === 'OK' ? '' : msg;
-				console.log('ERROR: failed to find ' + (itemtype ? itemtype : ' File') + ': ' + filename + ' ' + msg);
+				console.log('ERROR: failed to find ' + (itemtype ? itemtype : ' File') + ': ' + filename + ' ' + msg + ' (ecid: ' + response.ecid + ')');
 			}
 			return resolve({
 				err: 'err'
@@ -567,7 +566,7 @@ var _createFile = function (server, parentID, filename, contents, filepath) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to create file ' + filename);
+				console.log('ERROR: failed to create file ' + filename + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -587,7 +586,7 @@ var _createFile = function (server, parentID, filename, contents, filepath) {
 				resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to create file ' + filename + ' : ' + msg);
+				console.log('ERROR: failed to create file ' + filename + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -623,7 +622,7 @@ var _readFile = function (server, fFileGUID) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to read file ' + fFileGUID);
+				console.log('ERROR: failed to read file ' + fFileGUID + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -638,7 +637,7 @@ var _readFile = function (server, fFileGUID) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to read file ' + fFileGUID + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.log('ERROR: failed to read file ' + fFileGUID + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -672,7 +671,7 @@ var _getFile = function (server, id) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get file ' + id);
+				console.log('ERROR: failed to get file ' + id + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -687,7 +686,7 @@ var _getFile = function (server, id) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to get file ' + id + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.log('ERROR: failed to get file ' + id + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -720,7 +719,7 @@ var _downloadFile = function (server, fFileGUID) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to download file');
+				console.log('ERROR: failed to download file' + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -732,7 +731,7 @@ var _downloadFile = function (server, fFileGUID) {
 					data: body
 				});
 			} else {
-				console.log('ERROR: failed to download file: ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.log('ERROR: failed to download file: ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -766,7 +765,7 @@ var _deleteFile = function (server, fFileGUID, filePath) {
 		var request = require('./requestUtils.js').request;
 		request.delete(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to delete file ' + fFileGUID);
+				console.log('ERROR: failed to delete file ' + fFileGUID + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -780,7 +779,7 @@ var _deleteFile = function (server, fFileGUID, filePath) {
 
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to delete file ' + (filePath || fFileGUID) + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.log('ERROR: failed to delete file ' + (filePath || fFileGUID) + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -818,7 +817,7 @@ var _copyFile = function (server, fileId, targetFolderId) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to copy file ' + fileId);
+				console.log('ERROR: failed to copy file ' + fileId + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: 'err'
@@ -833,7 +832,7 @@ var _copyFile = function (server, fileId, targetFolderId) {
 				resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to copy file ' + fileId + ' : ' + msg);
+				console.log('ERROR: failed to copy file ' + fileId + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -869,7 +868,7 @@ var _getFileVersions = function (server, fFileGUID) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get file version ' + fFileGUID);
+				console.log('ERROR: failed to get file version ' + fFileGUID + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve();
 			}
@@ -883,7 +882,7 @@ var _getFileVersions = function (server, fFileGUID) {
 				resolve(data && data.items);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get file version ' + fFileGUID + ' : ' + msg);
+				console.log('ERROR: failed to get file version ' + fFileGUID + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve();
 			}
 		});
@@ -920,7 +919,7 @@ var _createFolderPublicLink = function (server, folderId, role) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to create folder public link ' + folderId);
+				console.log('ERROR: failed to create folder public link ' + folderId + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve();
 			}
@@ -934,7 +933,7 @@ var _createFolderPublicLink = function (server, folderId, role) {
 				resolve(data && data.id);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to create folder public link ' + folderId + ' : ' + msg);
+				console.log('ERROR: failed to create folder public link ' + folderId + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve();
 			}
 		});
@@ -942,6 +941,235 @@ var _createFolderPublicLink = function (server, folderId, role) {
 };
 module.exports.createFolderPublicLink = function (args) {
 	return _createFolderPublicLink(args.server, args.folderId, args.role);
+};
+
+var _getUser = function (server, userName) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/api/1.2/users/items?info=' + userName;
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get user ' + userName + ' (ecid: ' + response.ecid + ')');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get user ' + userName + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get user info on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of user.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getUser = function (args) {
+	return _getUser(args.server, args.name);
+};
+
+var _getFolderUsers = function (server, folderId) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/api/1.2/shares/' + folderId + '/items';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get folder users ' + folderId + ' (ecid: ' + response.ecid + ')');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				var users = [];
+				if (data && data.items && data.items.length > 0) {
+					for (var i = 0; i < data.items.length; i++) {
+						users.push({
+							id: data.items[i].user.id,
+							name: data.items[i].user.loginName || data.items[i].user.displayName,
+							type: data.items[i].user.type,
+							role: data.items[i].role
+						});
+					}
+				}
+				resolve({
+					id: folderId,
+					data: users
+				});
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.log('ERROR: failed to get folder users ' + folderId + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get shared folder users on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.id The id of the folder
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getFolderUsers = function (args) {
+	return _getFolderUsers(args.server, args.id);
+};
+
+var _shareFolder = function (server, folderId, userId, role, createNew) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/api/1.2/shares/' + folderId;
+		if (!createNew) {
+			url = url + '/role';
+		}
+		var body = {
+			'userID': userId,
+			'role': role
+		};
+		var options = {
+			method: createNew ? 'POST' : 'PUT',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(body),
+			json: true
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to share folder ' + folderId + ' (ecid: ' + response.ecid + ')');
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve(data);
+			} else {
+				var objName = body && body.user ? body.user.displayName : 'folder ' + folderId;
+				var msg = body && body.errorMessage ? body.errorMessage : (response ? (response.statusMessage || response.statusCode) : '');
+				console.log('ERROR: failed to share ' + objName + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Share folder with a user on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.id The id of the folder
+ * @param {string} args.userId the user id
+ * @param {string} args.role the role
+ * @param {boolean} args.create the flag to indicate create new sharing otherwise update exising
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.shareFolder = function (args) {
+	return _shareFolder(args.server, args.id, args.userId, args.role, (args.create === undefined ? true : args.create));
+};
+
+var _unshareFolder = function (server, folderId, userId) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/api/1.2/shares/' + folderId + '/user';
+		var body = {
+			'userID': userId
+		};
+		var options = {
+			method: 'DELETE',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(body),
+			json: true
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.delete(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to unshare folder ' + folderId + ' (ecid: ' + response.ecid + ')');
+				console.log(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {}
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve(data);
+			} else {
+				console.log('ERROR: failed to unshare folder ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+
+	});
+};
+/**
+ * Unshare folder with a user on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.id The id of the folder
+ * @param {string} args.userId the user id
+ * @param {string} args.role the role
+ * @param {boolean} args.create the flag to indicate create new sharing otherwise update exising
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.unshareFolder = function (args) {
+	return _unshareFolder(args.server, args.id, args.userId);
 };
 
 ///////////////////////////////////////////////////////////
@@ -964,7 +1192,7 @@ var _getItem = function (server, id, expand) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get item ' + id);
+				console.log('ERROR: failed to get item ' + id + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				return resolve({
 					err: 'err'
@@ -980,7 +1208,7 @@ var _getItem = function (server, id, expand) {
 				return resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get item ' + id + ' : ' + msg);
+				console.log('ERROR: failed to get item ' + id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -1013,7 +1241,7 @@ var _getItemRelationships = function (server, id) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get item relationships ' + id);
+				console.log('ERROR: failed to get item relationships ' + id + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				return resolve({
 					err: 'err'
@@ -1045,7 +1273,7 @@ var _getItemRelationships = function (server, id) {
 				});
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get item relationships ' + id + ' : ' + msg);
+				console.log('ERROR: failed to get item relationships ' + id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -1079,7 +1307,7 @@ var _getItemVariations = function (server, id) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get item variations ' + id);
+				console.log('ERROR: failed to get item variations ' + id + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				return resolve({
 					err: 'err'
@@ -1098,7 +1326,7 @@ var _getItemVariations = function (server, id) {
 				});
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get item variations ' + id + ' : ' + msg);
+				console.log('ERROR: failed to get item variations ' + id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -1117,9 +1345,12 @@ module.exports.getItemVariations = function (args) {
 	return _getItemVariations(args.server, args.id);
 };
 
-var _queryItems = function (server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, aggregationResults, defaultQuery, rankBy) {
+var _queryItems = function (useDelivery, server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, aggregationResults, defaultQuery, rankBy) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/items';
+		if (useDelivery) {
+			url = server.url + '/content/published/api/v1.1/items';
+		}
 		var sep = '?';
 		if (q) {
 			url = url + sep + 'q=' + q;
@@ -1162,7 +1393,7 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to query items with ' + query);
+				console.log('ERROR: failed to query items with ' + query + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				return resolve({
 					err: 'err'
@@ -1185,7 +1416,7 @@ var _queryItems = function (server, q, fields, orderBy, limit, offset, channelTo
 				});
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to query items with ' + query + ' : ' + msg);
+				console.log('ERROR: failed to query items with ' + query + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -1208,7 +1439,7 @@ var _scrollItems = function (server, url) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to scroll items with ' + query);
+				console.log('ERROR: failed to scroll items with ' + query + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				return resolve({
 					err: 'err'
@@ -1225,7 +1456,7 @@ var _scrollItems = function (server, url) {
 				return resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to scroll items with ' + query + ' : ' + msg);
+				console.log('ERROR: failed to scroll items with ' + query + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -1233,10 +1464,13 @@ var _scrollItems = function (server, url) {
 		});
 	});
 };
-var _scrollAllItems = function (server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, rankBy) {
+var _scrollAllItems = function (useDelivery, server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, rankBy) {
 	var SCROLL_SIZE = 4000;
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/items';
+		if (useDelivery) {
+			url = server.url + '/content/published/api/v1.1/items';
+		}
 		var sep = '?';
 		if (q) {
 			url = url + sep + 'q=' + q;
@@ -1317,9 +1551,10 @@ const MAX_ITEM_LIMIT = 10000;
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.queryItems = function (args) {
+	var showTotal = args.showTotal === undefined ? true : args.showTotal;
 	return new Promise(function (resolve, reject) {
 		// find out the total first
-		_queryItems(args.server, args.q, args.fields, args.orderBy, 1, 0, args.channelToken, args.includeAdditionalData)
+		_queryItems(args.useDelivery, args.server, args.q, args.fields, args.orderBy, 1, 0, args.channelToken, args.includeAdditionalData)
 			.then(function (result) {
 				items = result && result.data || [];
 				if (items.length == 0 || result.limit === args.limit) {
@@ -1327,16 +1562,18 @@ module.exports.queryItems = function (args) {
 				}
 
 				var totalCount = result.limit;
-				console.log(' - total items: ' + totalCount);
+				if (showTotal) {
+					console.log(' - total items: ' + totalCount);
+				}
 				var offset = args.offset ? args.offset : 0;
 				if (totalCount < MAX_ITEM_LIMIT || (args.limit && (offset + args.limit < MAX_ITEM_LIMIT))) {
-					_queryItems(args.server, args.q, args.fields, args.orderBy, (args.limit || totalCount), args.offset, args.channelToken, args.includeAdditionalData, args.aggregationResults, args.defaultQuery, args.rankBy)
+					_queryItems(args.useDelivery, args.server, args.q, args.fields, args.orderBy, (args.limit || totalCount), args.offset, args.channelToken, args.includeAdditionalData, args.aggregationResults, args.defaultQuery, args.rankBy)
 						.then(function (result) {
 							return resolve(result);
 						});
 				} else {
 					// console.log(' - scrolling items...');
-					_scrollAllItems(args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken, args.includeAdditionalData, args.rankBy)
+					_scrollAllItems(args.useDelivery, args.server, args.q, args.fields, args.orderBy, args.limit, args.offset, args.channelToken, args.includeAdditionalData, args.rankBy)
 						.then(function (result) {
 							var items = result;
 							return resolve({
@@ -1374,7 +1611,7 @@ var _getAllItemIds = function (server, repositoryId, channelId, publishedassets)
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get all item Ids ' + query);
+				console.log('ERROR: failed to get all item Ids ' + query + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				return resolve({
 					err: 'err'
@@ -1396,7 +1633,7 @@ var _getAllItemIds = function (server, repositoryId, channelId, publishedassets)
 				});
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get all item Ids ' + query + ' : ' + msg);
+				console.log('ERROR: failed to get all item Ids ' + query + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -1450,7 +1687,7 @@ var _createItem = function (server, repositoryId, type, name, desc, fields, lang
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create create ' + name);
+						console.log('Failed to create create ' + name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -1466,7 +1703,7 @@ var _createItem = function (server, repositoryId, type, name, desc, fields, lang
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to create item ' + name + ' : ' + (response.statusMessage || response.statusCode));
+						console.log('Failed to create item ' + name + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 						console.log(data);
 						resolve({
 							err: 'err'
@@ -1543,7 +1780,7 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('ERROR: Failed to create create digital item for ' + filename);
+						console.log('ERROR: Failed to create create digital item for ' + filename + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						// Do we really want to resolve on an error?
 						resolve({
@@ -1564,7 +1801,7 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 						if (data && (data.detail || data.title)) {
 							msg = (data.detail || data.title);
 						}
-						console.log('ERROR: Failed to create digital item for ' + filename + ' : ' + msg);
+						console.log('ERROR: Failed to create digital item for ' + filename + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						// console.log(data);
 						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
 							console.log(data['o:errorDetails']);
@@ -1650,7 +1887,7 @@ var _createDigitalItemFromDocuments = function (server, repositoryId, type, docI
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create digital asset from ' + docName);
+						console.log('Failed to create digital asset from ' + docName + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -1681,7 +1918,7 @@ var _createDigitalItemFromDocuments = function (server, repositoryId, type, docI
 									}
 									// console.log(data);
 									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
-									console.log('ERROR: failed to create digital asset from ' + docName + ': ' + msg);
+									console.log('ERROR: failed to create digital asset from ' + docName + ': ' + msg + ' (ecid: ' + response.ecid + ')');
 
 									return resolve({
 										err: 'err'
@@ -1721,7 +1958,7 @@ var _createDigitalItemFromDocuments = function (server, repositoryId, type, docI
 						}, 6000);
 					} else {
 						var msg = data ? (data.detail || data.title) : response.statusMessage;
-						console.log('ERROR: Failed to create digital asset - ' + msg);
+						console.log('ERROR: Failed to create digital asset - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -1799,7 +2036,7 @@ var _updateDigitalItem = function (server, item, contents) {
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('ERROR: Failed to update create digital item ' + item.id);
+						console.log('ERROR: Failed to update create digital item ' + item.id + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -1819,7 +2056,7 @@ var _updateDigitalItem = function (server, item, contents) {
 						if (data && (data.detail || data.title)) {
 							msg = (data.detail || data.title);
 						}
-						console.log('ERROR: Failed to update digital item ' + item.id + ' : ' + msg);
+						console.log('ERROR: Failed to update digital item ' + item.id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						// console.log(data);
 						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
 							console.log(data['o:errorDetails']);
@@ -1879,7 +2116,7 @@ var _createCollection = function (server, repositoryId, name, channels) {
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create collection ' + name);
+						console.log('Failed to create collection ' + name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -1895,7 +2132,7 @@ var _createCollection = function (server, repositoryId, name, channels) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to create collection ' + name + ' : ' + (response.statusMessage || response.statusCode));
+						console.log('Failed to create collection ' + name + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -1946,7 +2183,7 @@ var _updateCollection = function (server, repositoryId, collection) {
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to update collection ' + collection.name);
+						console.log('Failed to update collection ' + collection.name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -1963,7 +2200,7 @@ var _updateCollection = function (server, repositoryId, collection) {
 						resolve(data);
 					} else {
 						var msg = response.statusMessage || response.statusCode;
-						console.log('Failed to update collection ' + collection.name + ' : ' + msg);
+						console.log('Failed to update collection ' + collection.name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						if (data) {
 							console.log(JSON.stringify(data, null, 4));
 						}
@@ -2020,7 +2257,7 @@ var _deleteCollection = function (server, repositoryId, collection) {
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete collection ' + collection.name);
+						console.log('Failed to delete collection ' + collection.name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -2037,7 +2274,7 @@ var _deleteCollection = function (server, repositoryId, collection) {
 						resolve(data);
 					} else {
 						var msg = response.statusMessage || response.statusCode;
-						console.log('Failed to delete collection ' + collection.name + ' : ' + msg);
+						console.log('Failed to delete collection ' + collection.name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						if (data) {
 							console.log(JSON.stringify(data, null, 4));
 						}
@@ -2098,7 +2335,7 @@ var _createChannel = function (server, name, channelType, description, publishPo
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create channel ' + name);
+						console.log('Failed to create channel ' + name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -2114,7 +2351,7 @@ var _createChannel = function (server, name, channelType, description, publishPo
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to create channel ' + name + ' : ' + (response.statusMessage || response.statusCode));
+						console.log('Failed to create channel ' + name + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -2164,7 +2401,7 @@ var _deleteChannel = function (server, id) {
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete channel ' + id);
+						console.log('Failed to delete channel ' + id + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -2179,7 +2416,7 @@ var _deleteChannel = function (server, id) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to delete channel ' + id + ' : ' + (response.statusMessage || response.statusCode));
+						console.log('Failed to delete channel ' + id + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -2223,7 +2460,7 @@ var _deleteRepository = function (server, id) {
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete repository ' + id);
+						console.log('Failed to delete repository ' + id + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -2238,7 +2475,7 @@ var _deleteRepository = function (server, id) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to delete repository ' + id + ' : ' + (response.statusMessage || response.statusCode));
+						console.log('Failed to delete repository ' + id + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -2283,7 +2520,7 @@ var _deleteContentType = function (server, name) {
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete contennt type ' + name);
+						console.log('Failed to delete contennt type ' + name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -2298,7 +2535,7 @@ var _deleteContentType = function (server, name) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to delete content type ' + name + ' : ' + (response.statusMessage || response.statusCode));
+						console.log('Failed to delete content type ' + name + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -2357,7 +2594,7 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to add channel ' + channelName + ' to repository ' + repository.name);
+						console.log('Failed to add channel ' + channelName + ' to repository ' + repository.name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -2374,7 +2611,7 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 						resolve(data);
 					} else {
 						var msg = data ? JSON.stringify(data) : (response.statusMessage || response.statusCode);
-						console.log('Failed to add channel ' + channelName + ' to repository ' + repository.name + ' : ' + msg);
+						console.log('Failed to add channel ' + channelName + ' to repository ' + repository.name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -2728,7 +2965,7 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to ' + operation + ' items ');
+						console.log('Failed to ' + operation + ' items ' + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -2751,7 +2988,7 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 						});
 					} else {
 						var msg = data ? (data.detail || data.title) : response.statusMessage;
-						console.log('Failed to ' + operation + ' items - ' + msg);
+						console.log('Failed to ' + operation + ' items - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -3096,7 +3333,7 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to copy assets ');
+						console.log('Failed to copy assets ' + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -3127,7 +3364,7 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 									}
 									// console.log(data);
 									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
-									console.log('ERROR: copy assets failed: ' + msg);
+									console.log('ERROR: copy assets failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 
 									return resolve({
 										err: 'err'
@@ -3148,7 +3385,7 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 						}, 6000);
 					} else {
 						var msg = data ? (data.detail || data.title) : response.statusMessage;
-						console.log('Failed to copy assets - ' + msg);
+						console.log('Failed to copy assets - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -3264,7 +3501,7 @@ var _createLocalizationPolicy = function (server, name, description, requiredLan
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create localization policy ' + name);
+						console.log('Failed to create localization policy ' + name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -3280,7 +3517,7 @@ var _createLocalizationPolicy = function (server, name, description, requiredLan
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to create localization policy ' + name + ' : ' + msg);
+						console.log('Failed to create localization policy ' + name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -3337,7 +3574,7 @@ var _updateLocalizationPolicy = function (server, id, name, data) {
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to update localization policy ' + (name || id));
+						console.log('Failed to update localization policy ' + (name || id) + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -3353,7 +3590,7 @@ var _updateLocalizationPolicy = function (server, id, name, data) {
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to update localization policy ' + (name || id) + ' : ' + msg);
+						console.log('Failed to update localization policy ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -3399,7 +3636,7 @@ var _deleteLocalizationPolicy = function (server, id) {
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete localization policy ' + id);
+						console.log('Failed to delete localization policy ' + id + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -3414,7 +3651,7 @@ var _deleteLocalizationPolicy = function (server, id) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to delete localization policy ' + id + ' : ' + (response.statusMessage || response.statusCode));
+						console.log('Failed to delete localization policy ' + id + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -4004,7 +4241,7 @@ var _setPermissionSets = function (server, id, name, action, permissions) {
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to ' + action + ' permission sets for ' + name);
+						console.log('Failed to ' + action + ' permission sets for ' + name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -4020,7 +4257,7 @@ var _setPermissionSets = function (server, id, name, action, permissions) {
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to ' + action + ' permission sets for ' + name + ' - ' + msg);
+						console.log('Failed to ' + action + ' permission sets for ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -4093,7 +4330,7 @@ var _createRepository = function (server, name, description, contentTypes, chann
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create repository ' + name);
+						console.log('Failed to create repository ' + name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -4109,7 +4346,7 @@ var _createRepository = function (server, name, description, contentTypes, chann
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to create repository ' + name + ' - ' + msg);
+						console.log('Failed to create repository ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -4185,7 +4422,7 @@ var _updateRepository = function (server, repository, contentTypes, channels,
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to update repository ' + repository.name);
+						console.log('Failed to update repository ' + repository.name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -4205,7 +4442,7 @@ var _updateRepository = function (server, repository, contentTypes, channels,
 						if (data && (data.detail || data.title)) {
 							msg = (data.detail || data.title);
 						}
-						console.log('Failed to update repository ' + repository.name + ' - ' + msg);
+						console.log('Failed to update repository ' + repository.name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						// console.log(data);
 						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
 							console.log(data['o:errorDetails']);
@@ -4306,7 +4543,7 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('ERROR: failed to ' + operation + ' resource ');
+						console.log('ERROR: failed to ' + operation + ' resource ' + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -4330,7 +4567,7 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 									msg = msg + ' ' + (failedRoles[i].users[j].name || failedRoles[i].users[j].id) + ': ' + failedRoles[i].users[j].message;
 								}
 							}
-							console.log('ERROR: failed to ' + operation + ' resource: ' + msg);
+							console.log('ERROR: failed to ' + operation + ' resource: ' + msg + ' (ecid: ' + response.ecid + ')');
 							resolve({
 								err: 'err'
 							});
@@ -4340,7 +4577,7 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 						}
 					} else {
 						var msg = data ? (data.detail || data.title) : response.statusMessage;
-						console.log('ERROR: failed to ' + operation + ' resource ' + msg);
+						console.log('ERROR: failed to ' + operation + ' resource ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -4410,7 +4647,7 @@ module.exports.getEditorialRoleWithName = function (args) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get editorial role ' + roleName);
+				console.log('ERROR: failed to get editorial role ' + roleName + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				return resolve({
 					err: 'err'
@@ -4441,7 +4678,7 @@ module.exports.getEditorialRoleWithName = function (args) {
 				}
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get editorial role ' + roleName + '  : ' + msg);
+				console.log('ERROR: failed to get editorial role ' + roleName + '  : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -4495,7 +4732,7 @@ var _createEditorialRole = function (server, name, description) {
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create editorial role ' + name);
+						console.log('Failed to create editorial role ' + name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -4511,7 +4748,7 @@ var _createEditorialRole = function (server, name, description) {
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to create editorial role ' + name + ' - ' + msg);
+						console.log('Failed to create editorial role ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -4561,7 +4798,7 @@ var _updateEditorialRole = function (server, role) {
 				var request = require('./requestUtils.js').request;
 				request.put(options, function (error, response, body) {
 					if (error) {
-						console.log('Failed to update editorial role ' + role.name);
+						console.log('Failed to update editorial role ' + role.name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -4577,7 +4814,7 @@ var _updateEditorialRole = function (server, role) {
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to update editorial role ' + role.name + ' - ' + msg);
+						console.log('Failed to update editorial role ' + role.name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -4623,7 +4860,7 @@ var _deleteEditorialRole = function (server, id, name) {
 				var request = require('./requestUtils.js').request;
 				request.delete(options, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete editorial role ' + name);
+						console.log('Failed to delete editorial role ' + name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -4639,7 +4876,7 @@ var _deleteEditorialRole = function (server, id, name) {
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to delete editorial role ' + name + ' - ' + msg);
+						console.log('Failed to delete editorial role ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -4760,7 +4997,7 @@ var _createContentType = function (server, typeObj) {
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create type ' + name);
+						console.log('Failed to create type ' + name + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						resolve({
 							err: 'err'
@@ -4776,7 +5013,7 @@ var _createContentType = function (server, typeObj) {
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to create type ' + name + ' - ' + msg);
+						console.log('Failed to create type ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -5063,972 +5300,6 @@ module.exports.removeContentTypeLayoutMapping = function (args) {
 				resolve({
 					err: 'err'
 				});
-			});
-	});
-};
-
-var _getUser = function (server, userName) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/api/1.2/users/items?info=' + userName;
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-		var request = require('./requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to get user ' + userName);
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				resolve(data);
-			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get user ' + userName + ' : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
-/**
- * Get user info on server
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @param {string} args.name The name of user.
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.getUser = function (args) {
-	return _getUser(args.server, args.name);
-};
-
-var _getFolderUsers = function (server, folderId) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/api/1.2/shares/' + folderId + '/items';
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-		var request = require('./requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to get folder users ' + folderId);
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				var users = [];
-				if (data && data.items && data.items.length > 0) {
-					for (var i = 0; i < data.items.length; i++) {
-						users.push({
-							id: data.items[i].user.id,
-							name: data.items[i].user.loginName || data.items[i].user.displayName,
-							type: data.items[i].user.type,
-							role: data.items[i].role
-						});
-					}
-				}
-				resolve({
-					id: folderId,
-					data: users
-				});
-			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get folder users ' + folderId + ' : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
-/**
- * Get shared folder users on server
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @param {string} args.id The id of the folder
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.getFolderUsers = function (args) {
-	return _getFolderUsers(args.server, args.id);
-};
-
-var _shareFolder = function (server, folderId, userId, role, createNew) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/api/1.2/shares/' + folderId;
-		if (!createNew) {
-			url = url + '/role';
-		}
-		var body = {
-			'userID': userId,
-			'role': role
-		};
-		var options = {
-			method: createNew ? 'POST' : 'PUT',
-			url: url,
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: serverUtils.getRequestAuthorization(server)
-			},
-			body: JSON.stringify(body),
-			json: true
-		};
-
-		var request = require('./requestUtils.js').request;
-		request.post(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to share folder ' + folderId);
-				console.log(error);
-				resolve({
-					err: 'err'
-				});
-			}
-
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-
-			if (response && response.statusCode >= 200 && response.statusCode < 300) {
-				resolve(data);
-			} else {
-				var objName = body && body.user ? body.user.displayName : 'folder ' + folderId;
-				var msg = body && body.errorMessage ? body.errorMessage : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to share ' + objName + ' : ' + msg);
-				resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
-/**
- * Share folder with a user on server
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @param {string} args.id The id of the folder
- * @param {string} args.userId the user id
- * @param {string} args.role the role
- * @param {boolean} args.create the flag to indicate create new sharing otherwise update exising
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.shareFolder = function (args) {
-	return _shareFolder(args.server, args.id, args.userId, args.role, (args.create === undefined ? true : args.create));
-};
-
-var _unshareFolder = function (server, folderId, userId) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/documents/api/1.2/shares/' + folderId + '/user';
-		var body = {
-			'userID': userId
-		};
-		var options = {
-			method: 'DELETE',
-			url: url,
-			headers: {
-				'Content-Type': 'application/json',
-				Authorization: serverUtils.getRequestAuthorization(server)
-			},
-			body: JSON.stringify(body),
-			json: true
-		};
-
-		var request = require('./requestUtils.js').request;
-		request.delete(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to unshare folder ' + folderId);
-				console.log(error);
-				resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {}
-			if (response && response.statusCode >= 200 && response.statusCode < 300) {
-				resolve(data);
-			} else {
-				console.log('ERROR: failed to unshare folder ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
-				resolve({
-					err: 'err'
-				});
-			}
-		});
-
-	});
-};
-/**
- * Unshare folder with a user on server
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @param {string} args.id The id of the folder
- * @param {string} args.userId the user id
- * @param {string} args.role the role
- * @param {boolean} args.create the flag to indicate create new sharing otherwise update exising
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.unshareFolder = function (args) {
-	return _unshareFolder(args.server, args.id, args.userId);
-};
-
-var _getGroups = function (server, count, offset) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/osn/social/api/v1/groups?count=' + count + '&offset=' + offset;
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-		// console.log(options);
-		var request = require('./requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to get groups');
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			// console.log(' - url: ' + url + ' hasMore: ' + (data ? data.hasMore : 'unknown'));
-
-			if (response && response.statusCode === 200) {
-				resolve(data);
-			} else {
-				var msg = response.statusMessage || response.statusCode;
-				console.log('ERROR: failed to get groups ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
-/**
- * Get CEC groups on server
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.getGroups = function (args) {
-	return new Promise(function (resolve, reject) {
-		var count = 1000;
-		var offset = 0;
-		var items = [];
-		//
-		// Currently support up to 12000 groups
-		//
-		console.log(' - querying groups ...');
-		_getGroups(args.server, count, offset)
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.log(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.log(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.log(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items)
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.log(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.log(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.log(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.log(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.log(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.log(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.log(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.log(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return resolve(items);
-				}
-				if (result.items) {
-					items = items.concat(result.items);
-				}
-				if (!result.hasMore) {
-					return resolve(items);
-				}
-
-				console.log(' - querying groups ...');
-				offset = offset + count;
-				return _getGroups(args.server, count, offset);
-			})
-			.then(function (result) {
-				if (result && result.items) {
-					items = items.concat(result.items);
-				}
-				// console.log(' - total groups: ' + items.length);
-				return resolve(items);
-			});
-	});
-};
-
-var _getGroupMembers = function (server, id, name) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members';
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-
-		var request = require('./requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to get members of group ' + (name || id));
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			if (response && response.statusCode === 200) {
-				resolve(data && data.items);
-			} else {
-				var msg = response.statusMessage || response.statusCode;
-				console.log('ERROR: failed to get members of group ' + (name || id) + ' : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
-/**
- * Get members of a group on server
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.getGroupMembers = function (args) {
-	return _getGroupMembers(args.server, args.id, args.name);
-};
-
-var _createConnection = function (request, server) {
-	return new Promise(function (resolve, reject) {
-		// If apiRandomID and cookieStore have already been cached, then just use them.
-		if (server.apiRandomID && server.cookieStore) {
-			return resolve({
-				apiRandomID: server.apiRandomID,
-				cookieStore: server.cookieStore,
-				socialUser: server.socialUser
-			});
-		}
-
-		var url = server.url + '/osn/social/api/v1/connections';
-
-		var postData = {
-			method: 'POST',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			},
-		};
-
-		// console.log(postData);
-
-		request.post(postData, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: failed to create connection');
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			// console.log(data);
-			if (response && response.statusCode === 200) {
-				// Cache apiRandomID and cookieStore for re-use, so that we don't need to create a
-				// connection for each API request.
-				var apiRandomID = data && data.apiRandomID;
-				cacheCookiesFromResponse(server, response);
-				server.apiRandomID = apiRandomID;
-				server.socialUser = data.user;
-				resolve({
-					apiRandomID: apiRandomID,
-					cookieStore: server.cookieStore,
-					socialUser: data.user
-				});
-			} else {
-				var msg = response.statusMessage || response.statusCode;
-				console.log('ERROR: failed to create connection' + ' : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
-/**
- * Establish OSN connection on server
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.createConnection = function (args) {
-	return _createConnection(args.request, args.server);
-};
-
-
-var _getGroup = function (server, name) {
-	return new Promise(function (resolve, reject) {
-		var url = server.url + '/osn/social/api/v1/groups/' + name;
-		var options = {
-			method: 'GET',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server)
-			}
-		};
-
-		// console.log(options);
-		var request = require('./requestUtils.js').request;
-		request.get(options, function (error, response, body) {
-			if (error) {
-				// console.log('ERROR: failed to get group ' + name);
-				// console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-
-			if (response && response.statusCode === 200) {
-				resolve(data);
-			} else {
-				var msg = response.statusMessage || response.statusCode;
-				// console.log('ERROR: failed to get group ' + name + ' ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
-/**
- * Get CEC group with name on server
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.getGroup = function (args) {
-	return _getGroup(args.server, args.name);
-};
-
-var _createGroup = function (server, name, type) {
-	return new Promise(function (resolve, reject) {
-		var request = require('./requestUtils.js').request;
-		_createConnection(request, server)
-			.then(function (result) {
-				if (result.err || !result.apiRandomID) {
-					return resolve({
-						err: 'err'
-					});
-				} else {
-					var url = server.url + '/osn/social/api/v1/groups';
-					var payload = {
-						name: name,
-						groupType: type
-					};
-					var postData = {
-						method: 'POST',
-						url: url,
-						headers: {
-							Authorization: serverUtils.getRequestAuthorization(server),
-							'X-Waggle-RandomID': result.apiRandomID
-						},
-						body: JSON.stringify(payload),
-						json: true
-					};
-					addCachedCookiesForRequest(server, postData);
-					// console.log(postData);
-					request.post(postData, function (error, response, body) {
-						if (error) {
-							console.log('ERROR: create group ' + name);
-							console.log(error);
-							return resolve({
-								err: 'err'
-							});
-						}
-						var data;
-						try {
-							data = JSON.parse(body);
-						} catch (e) {
-							data = body;
-						}
-
-						cacheCookiesFromResponse(server, response);
-						if (response && response.statusCode === 200) {
-							resolve(data);
-						} else {
-							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.log('ERROR: failed to create group ' + name + ' : ' + msg);
-							return resolve({
-								err: 'err'
-							});
-						}
-					});
-				}
-			});
-	});
-};
-
-function cacheCookiesFromResponse(server, response) {
-	server.cookieStore = server.cookieStore || {};
-	if (response.headers && response.headers.raw && typeof response.headers.raw === 'function') {
-		let setCookie = response.headers.raw()['set-cookie'] || [];
-		setCookie.forEach(cookie => {
-			let nameValue = cookie.split(";")[0].split("=");
-			server.cookieStore[nameValue[0]] = nameValue[1];
-		});
-	}
-}
-
-function addCachedCookiesForRequest(server, request) {
-	if (server.cookieStore) {
-		let cookieHeader = Object.keys(server.cookieStore).map(cookieName => cookieName + '=' + server.cookieStore[cookieName]).join("; ");
-		request.headers.Cookie = cookieHeader;
-	}
-}
-
-/**
- * Create an OCM group on server
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.createGroup = function (args) {
-	return _createGroup(args.server, args.name, args.type);
-};
-
-var _deleteGroup = function (server, id, name) {
-	return new Promise(function (resolve, reject) {
-		var request = require('./requestUtils.js').request;
-		_createConnection(request, server)
-			.then(function (result) {
-				if (result.err || !result.apiRandomID) {
-					return resolve({
-						err: 'err'
-					});
-				} else {
-					var url = server.url + '/osn/social/api/v1/groups/' + id;
-
-					var postData = {
-						method: 'DELETE',
-						url: url,
-						headers: {
-							Authorization: serverUtils.getRequestAuthorization(server),
-							'X-Waggle-RandomID': result.apiRandomID
-						}
-					};
-					addCachedCookiesForRequest(server, postData);
-					request.delete(postData, function (error, response, body) {
-						if (error) {
-							console.log('ERROR: delete group ' + (name || id));
-							console.log(error);
-							return resolve({
-								err: 'err'
-							});
-						}
-						var data;
-						try {
-							data = JSON.parse(body);
-						} catch (e) {
-							data = body;
-						}
-
-						cacheCookiesFromResponse(server, response);
-						if (response && response.statusCode === 200) {
-							resolve({});
-						} else {
-							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.log('ERROR: failed to delete group ' + (name || id) + ' : ' + msg);
-							return resolve({
-								err: 'err'
-							});
-						}
-					});
-				}
-			});
-	});
-};
-/**
- * Delete an OCM group on server
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.deleteGroup = function (args) {
-	return _deleteGroup(args.server, args.id, args.name);
-};
-
-var _addMemberToGroup = function (request, cookieStore, server, apiRandomID, id, name, memberId, memberName, role, isGroup) {
-	return new Promise(function (resolve, reject) {
-
-		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members';
-		var payload = {
-			member: memberName,
-			role: role,
-			isGroup: isGroup
-		};
-		var postData = {
-			method: 'POST',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server),
-				'X-Waggle-RandomID': apiRandomID
-			},
-			body: JSON.stringify(payload),
-			json: true
-		};
-		addCachedCookiesForRequest(server, postData);
-		// console.log(JSON.stringify(postData, null, 4));
-		request.post(postData, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: add member ' + (memberName || memberId) + ' to group ' + (name || id));
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			// console.log(data);
-			cacheCookiesFromResponse(server, response);
-			if (response && response.statusCode === 200) {
-				resolve(data);
-			} else {
-				var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-				console.log('ERROR: add member ' + (memberName || memberId) + ' to group ' + (name || id) + ' : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
-/**
- * Add members to an OCM group on server
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.addMembersToGroup = function (args) {
-	var server = args.server;
-	var id = args.id;
-	var name = args.name;
-	var members = args.members || [];
-	var request = require('./requestUtils.js').request;
-	var results = [];
-	return new Promise(function (resolve, reject) {
-		_createConnection(request, server)
-			.then(function (result) {
-				if (result.err || !result.apiRandomID) {
-					return resolve([{
-						err: 'err'
-					}]);
-				} else {
-					var apiRandomID = result.apiRandomID;
-					var cookieStore = result.cookieStore;
-
-					var doAddMember = members.reduce(function (addPromise, member) {
-							return addPromise.then(function (result) {
-								return _addMemberToGroup(request, cookieStore, server, apiRandomID, id, name, member.id,
-										member.name, member.role, member.isGroup)
-									.then(function (result) {
-										results.push(result);
-									});
-							});
-						},
-						// Start with a previousPromise value that is a resolved promise
-						Promise.resolve({}));
-
-					doAddMember.then(function (result) {
-						// console.log(resources.length);
-						resolve(results);
-					});
-				}
-			});
-	});
-};
-
-var _removeMemberFromGroup = function (request, cookieStore, server, apiRandomID, id, name, memberId, memberName) {
-	return new Promise(function (resolve, reject) {
-
-		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members/' + memberId;
-		var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
-			'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
-
-		var postData = {
-			method: 'DELETE',
-			url: url,
-			headers: {
-				Authorization: serverUtils.getRequestAuthorization(server),
-				'X-Waggle-RandomID': apiRandomID
-			}
-		};
-		addCachedCookiesForRequest(server, postData);
-		// console.log(postData);
-		request.delete(postData, function (error, response, body) {
-			if (error) {
-				console.log('ERROR: remove member ' + (memberName || memberId) + ' from group ' + (name || id));
-				console.log(error);
-				return resolve({
-					err: 'err'
-				});
-			}
-			var data;
-			try {
-				data = JSON.parse(body);
-			} catch (e) {
-				data = body;
-			}
-			// console.log(data);
-			cacheCookiesFromResponse(server, response);
-			if (response && response.statusCode === 200) {
-				resolve(data);
-			} else {
-				var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-				console.log('ERROR: remove member ' + (memberName || memberId) + ' from group ' + (name || id) + ' : ' + msg);
-				return resolve({
-					err: 'err'
-				});
-			}
-		});
-	});
-};
-/**
- * Remove members from an OCM group on server
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.removeMembersFromGroup = function (args) {
-	var server = args.server;
-	var id = args.id;
-	var name = args.name;
-	var members = args.members || [];
-	var request = require('./requestUtils.js').request;
-	return new Promise(function (resolve, reject) {
-		_createConnection(request, server)
-			.then(function (result) {
-				if (result.err || !result.apiRandomID) {
-					return resolve([{
-						err: 'err'
-					}]);
-				} else {
-					var apiRandomID = result.apiRandomID;
-					var cookieStore = result.cookieStore;
-					var memberPromises = [];
-					for (var i = 0; i < members.length; i++) {
-						memberPromises.push(_removeMemberFromGroup(request, cookieStore, server, apiRandomID, id, name,
-							members[i].id, members[i].name));
-					}
-					Promise.all(memberPromises).then(function (results) {
-						return resolve(results);
-					});
-				}
 			});
 	});
 };
@@ -6738,7 +6009,7 @@ var _getContentJobStatus = function (server, jobId) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get export job status');
+				console.log('ERROR: Failed to get export job status' + ' (ecid: ' + response.ecid + ')');
 				console.log(err);
 				return resolve({
 					status: 'err'
@@ -6751,7 +6022,7 @@ var _getContentJobStatus = function (server, jobId) {
 					data: data
 				});
 			} else {
-				console.log('ERROR: Failed to get export job status: ' + response.statusCode);
+				console.log('ERROR: Failed to get export job status: ' + response.statusCode + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					status: response.statusCode
 				});
@@ -7175,7 +6446,7 @@ var _importContent = function (server, fileId, repositoryId, channelId, update) 
 				var request = require('./requestUtils.js').request;
 				request.post(options, function (err, response, body) {
 					if (err) {
-						console.log('ERROR: Failed to import');
+						console.log('ERROR: Failed to import' + ' (ecid: ' + response.ecid + ')');
 						console.log(err);
 						return resolve({
 							err: 'err'
@@ -7196,13 +6467,14 @@ var _importContent = function (server, fileId, repositoryId, channelId, update) 
 							});
 						} else {
 							return resolve({
-								jobId: jobId
+								jobId: jobId,
+								ecid: response.ecid
 							});
 						}
 					} else {
 						// console.log(data);
 						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-						console.log('ERROR: failed to import: ' + msg);
+						console.log('ERROR: failed to import: ' + msg + ' (ecid: ' + response.ecid + ')');
 						return resolve({
 							err: 'err'
 						});
@@ -7230,7 +6502,7 @@ module.exports.importContent = function (args) {
 
 					var jobId = result.jobId;
 					console.log(' - submit import job (' + jobId + ')' + (args.update ? ', updating content' : ''));
-
+					var importEcid = result.ecid;
 					// Wait for job to finish
 					var startTime = new Date();
 					var needNewline = false;
@@ -7262,7 +6534,7 @@ module.exports.importContent = function (args) {
 									if (needNewline) {
 										process.stdout.write(os.EOL);
 									}
-									console.log('ERROR: import failed: ' + data.errorDescription);
+									console.log('ERROR: import failed: ' + data.errorDescription + ' (ecid: ' + importEcid + ')');
 									if (!data.errorDescription) {
 										console.log(data);
 									}
@@ -7688,6 +6960,747 @@ module.exports.publishLaterChannelItems = function (args) {
 };
 
 /////////////////////////////////////////////////////////
+//  Social APIs
+/////////////////////////////////////////////////////////
+
+var _getGroups = function (server, count, offset) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/osn/social/api/v1/groups?count=' + count + '&offset=' + offset;
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		// console.log(options);
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get groups');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			// console.log(' - url: ' + url + ' hasMore: ' + (data ? data.hasMore : 'unknown'));
+
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				var msg = response.statusMessage || response.statusCode;
+				console.log('ERROR: failed to get groups ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get CEC groups on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getGroups = function (args) {
+	return new Promise(function (resolve, reject) {
+		var count = 1000;
+		var offset = 0;
+		var items = [];
+		//
+		// Currently support up to 12000 groups
+		//
+		console.log(' - querying groups ...');
+		_getGroups(args.server, count, offset)
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items)
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return resolve(items);
+				}
+				if (result.items) {
+					items = items.concat(result.items);
+				}
+				if (!result.hasMore) {
+					return resolve(items);
+				}
+
+				console.log(' - querying groups ...');
+				offset = offset + count;
+				return _getGroups(args.server, count, offset);
+			})
+			.then(function (result) {
+				if (result && result.items) {
+					items = items.concat(result.items);
+				}
+				// console.log(' - total groups: ' + items.length);
+				return resolve(items);
+			});
+	});
+};
+
+var _getGroupMembers = function (server, id, name) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to get members of group ' + (name || id));
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve(data && data.items);
+			} else {
+				var msg = response.statusMessage || response.statusCode;
+				console.log('ERROR: failed to get members of group ' + (name || id) + ' : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get members of a group on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getGroupMembers = function (args) {
+	return _getGroupMembers(args.server, args.id, args.name);
+};
+
+var _createConnection = function (request, server) {
+	return new Promise(function (resolve, reject) {
+		// If apiRandomID and cookieStore have already been cached, then just use them.
+		if (server.apiRandomID && server.cookieStore) {
+			return resolve({
+				apiRandomID: server.apiRandomID,
+				cookieStore: server.cookieStore,
+				socialUser: server.socialUser
+			});
+		}
+
+		var url = server.url + '/osn/social/api/v1/connections';
+
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+		};
+
+		// console.log(postData);
+
+		request.post(postData, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: failed to create connection' + ' (ecid: ' + response.ecid + ')');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			// console.log(data);
+			if (response && response.statusCode === 200) {
+				// Cache apiRandomID and cookieStore for re-use, so that we don't need to create a
+				// connection for each API request.
+				var apiRandomID = data && data.apiRandomID;
+				cacheCookiesFromResponse(server, response);
+				server.apiRandomID = apiRandomID;
+				server.socialUser = data.user;
+				resolve({
+					apiRandomID: apiRandomID,
+					cookieStore: server.cookieStore,
+					socialUser: data.user
+				});
+			} else {
+				var msg = response.statusMessage || response.statusCode;
+				console.log('ERROR: failed to create connection' + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Establish OSN connection on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createConnection = function (args) {
+	return _createConnection(args.request, args.server);
+};
+
+
+var _getGroup = function (server, name) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/osn/social/api/v1/groups/' + name;
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+
+		// console.log(options);
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				// console.log('ERROR: failed to get group ' + name);
+				// console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				var msg = response.statusMessage || response.statusCode;
+				// console.log('ERROR: failed to get group ' + name + ' ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get CEC group with name on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getGroup = function (args) {
+	return _getGroup(args.server, args.name);
+};
+
+var _createGroup = function (server, name, type) {
+	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/groups';
+					var payload = {
+						name: name,
+						groupType: type
+					};
+					var postData = {
+						method: 'POST',
+						url: url,
+						headers: {
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID
+						},
+						body: JSON.stringify(payload),
+						json: true
+					};
+					addCachedCookiesForRequest(server, postData);
+					// console.log(postData);
+					request.post(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: create group ' + name + ' (ecid: ' + response.ecid + ')');
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+
+						cacheCookiesFromResponse(server, response);
+						if (response && response.statusCode === 200) {
+							resolve(data);
+						} else {
+							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
+							console.log('ERROR: failed to create group ' + name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+
+function cacheCookiesFromResponse(server, response) {
+	server.cookieStore = server.cookieStore || {};
+	if (response.headers && response.headers.raw && typeof response.headers.raw === 'function') {
+		let setCookie = response.headers.raw()['set-cookie'] || [];
+		setCookie.forEach(cookie => {
+			let nameValue = cookie.split(";")[0].split("=");
+			server.cookieStore[nameValue[0]] = nameValue[1];
+		});
+	}
+}
+
+function addCachedCookiesForRequest(server, request) {
+	if (server.cookieStore) {
+		let cookieHeader = Object.keys(server.cookieStore).map(cookieName => cookieName + '=' + server.cookieStore[cookieName]).join("; ");
+		request.headers.Cookie = cookieHeader;
+	}
+}
+
+/**
+ * Create an OCM group on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createGroup = function (args) {
+	return _createGroup(args.server, args.name, args.type);
+};
+
+var _deleteGroup = function (server, id, name) {
+	return new Promise(function (resolve, reject) {
+		var request = require('./requestUtils.js').request;
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve({
+						err: 'err'
+					});
+				} else {
+					var url = server.url + '/osn/social/api/v1/groups/' + id;
+
+					var postData = {
+						method: 'DELETE',
+						url: url,
+						headers: {
+							Authorization: serverUtils.getRequestAuthorization(server),
+							'X-Waggle-RandomID': result.apiRandomID
+						}
+					};
+					addCachedCookiesForRequest(server, postData);
+					request.delete(postData, function (error, response, body) {
+						if (error) {
+							console.log('ERROR: delete group ' + (name || id) + ' (ecid: ' + response.ecid + ')');
+							console.log(error);
+							return resolve({
+								err: 'err'
+							});
+						}
+						var data;
+						try {
+							data = JSON.parse(body);
+						} catch (e) {
+							data = body;
+						}
+
+						cacheCookiesFromResponse(server, response);
+						if (response && response.statusCode === 200) {
+							resolve({});
+						} else {
+							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
+							console.log('ERROR: failed to delete group ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+							return resolve({
+								err: 'err'
+							});
+						}
+					});
+				}
+			});
+	});
+};
+/**
+ * Delete an OCM group on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.deleteGroup = function (args) {
+	return _deleteGroup(args.server, args.id, args.name);
+};
+
+var _addMemberToGroup = function (request, cookieStore, server, apiRandomID, id, name, memberId, memberName, role, isGroup) {
+	return new Promise(function (resolve, reject) {
+
+		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members';
+		var payload = {
+			member: memberName,
+			role: role,
+			isGroup: isGroup
+		};
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server),
+				'X-Waggle-RandomID': apiRandomID
+			},
+			body: JSON.stringify(payload),
+			json: true
+		};
+		addCachedCookiesForRequest(server, postData);
+		// console.log(JSON.stringify(postData, null, 4));
+		request.post(postData, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: add member ' + (memberName || memberId) + ' to group ' + (name || id) + ' (ecid: ' + response.ecid + ')');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			// console.log(data);
+			cacheCookiesFromResponse(server, response);
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
+				console.log('ERROR: add member ' + (memberName || memberId) + ' to group ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Add members to an OCM group on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.addMembersToGroup = function (args) {
+	var server = args.server;
+	var id = args.id;
+	var name = args.name;
+	var members = args.members || [];
+	var request = require('./requestUtils.js').request;
+	var results = [];
+	return new Promise(function (resolve, reject) {
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve([{
+						err: 'err'
+					}]);
+				} else {
+					var apiRandomID = result.apiRandomID;
+					var cookieStore = result.cookieStore;
+
+					var doAddMember = members.reduce(function (addPromise, member) {
+							return addPromise.then(function (result) {
+								return _addMemberToGroup(request, cookieStore, server, apiRandomID, id, name, member.id,
+										member.name, member.role, member.isGroup)
+									.then(function (result) {
+										results.push(result);
+									});
+							});
+						},
+						// Start with a previousPromise value that is a resolved promise
+						Promise.resolve({}));
+
+					doAddMember.then(function (result) {
+						// console.log(resources.length);
+						resolve(results);
+					});
+				}
+			});
+	});
+};
+
+var _removeMemberFromGroup = function (request, cookieStore, server, apiRandomID, id, name, memberId, memberName) {
+	return new Promise(function (resolve, reject) {
+
+		var url = server.url + '/osn/social/api/v1/groups/' + id + '/members/' + memberId;
+		var auth = server.oauthtoken ? (server.tokentype || 'Bearer') + ' ' + server.oauthtoken :
+			'Basic ' + serverUtils.btoa(server.username + ':' + server.password);
+
+		var postData = {
+			method: 'DELETE',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server),
+				'X-Waggle-RandomID': apiRandomID
+			}
+		};
+		addCachedCookiesForRequest(server, postData);
+		// console.log(postData);
+		request.delete(postData, function (error, response, body) {
+			if (error) {
+				console.log('ERROR: remove member ' + (memberName || memberId) + ' from group ' + (name || id) + ' (ecid: ' + response.ecid + ')');
+				console.log(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			// console.log(data);
+			cacheCookiesFromResponse(server, response);
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
+				console.log('ERROR: remove member ' + (memberName || memberId) + ' from group ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Remove members from an OCM group on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.removeMembersFromGroup = function (args) {
+	var server = args.server;
+	var id = args.id;
+	var name = args.name;
+	var members = args.members || [];
+	var request = require('./requestUtils.js').request;
+	return new Promise(function (resolve, reject) {
+		_createConnection(request, server)
+			.then(function (result) {
+				if (result.err || !result.apiRandomID) {
+					return resolve([{
+						err: 'err'
+					}]);
+				} else {
+					var apiRandomID = result.apiRandomID;
+					var cookieStore = result.cookieStore;
+					var memberPromises = [];
+					for (var i = 0; i < members.length; i++) {
+						memberPromises.push(_removeMemberFromGroup(request, cookieStore, server, apiRandomID, id, name,
+							members[i].id, members[i].name));
+					}
+					Promise.all(memberPromises).then(function (results) {
+						return resolve(results);
+					});
+				}
+			});
+	});
+};
+
+/////////////////////////////////////////////////////////
 //  Utilities
 /////////////////////////////////////////////////////////
 
@@ -7731,7 +7744,7 @@ var _executeGet = function (server, endpoint, noMsg) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to execute');
+				console.log('ERROR: Failed to execute' + ' (ecid: ' + response.ecid + ')');
 				console.log(err);
 				return resolve({
 					err: 'err'
@@ -7743,7 +7756,7 @@ var _executeGet = function (server, endpoint, noMsg) {
 			if (response && response.statusCode === 200) {
 				return resolve(body);
 			} else {
-				console.log('ERROR: Failed to execute');
+				console.log('ERROR: Failed to execute' + ' (ecid: ' + response.ecid + ')');
 				var data;
 				try {
 					data = JSON.parse(body);
@@ -7809,7 +7822,7 @@ module.exports.executePost = function (args) {
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to post ' + endpoint);
+						console.log('Failed to post ' + endpoint + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						done();
 						return;
@@ -7841,7 +7854,7 @@ module.exports.executePost = function (args) {
 												process.stdout.write(os.EOL);
 											}
 											var msg = data && data.error ? (data.error.detail || data.error.title) : '';
-											console.log('ERROR: request failed: ' + msg);
+											console.log('ERROR: request failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 											return resolve({
 												err: 'err'
 											});
@@ -7866,7 +7879,7 @@ module.exports.executePost = function (args) {
 						}
 
 					} else {
-						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
 						if (response.location || response.url) {
 							console.log('Result URL: ' + (response.location || response.url));
 						}
@@ -7926,7 +7939,7 @@ module.exports.executePut = function (args) {
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to put ' + endpoint);
+						console.log('Failed to put ' + endpoint + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						return resolve({
 							err: 'err'
@@ -7937,7 +7950,7 @@ module.exports.executePut = function (args) {
 						data = JSON.parse(body);
 					} catch (e) {}
 
-					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
 					if (response.location || response.url) {
 						console.log('Result URL: ' + (response.location || response.url));
 					}
@@ -7997,7 +8010,7 @@ module.exports.executePatch = function (args) {
 				var request = require('./requestUtils.js').request;
 				request.patch(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to patch ' + endpoint);
+						console.log('Failed to patch ' + endpoint + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						return resolve({
 							err: 'err'
@@ -8008,7 +8021,7 @@ module.exports.executePatch = function (args) {
 						data = JSON.parse(body);
 					} catch (e) {}
 
-					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
 					if (response.location || response.url) {
 						console.log('Result URL: ' + (response.location || response.url));
 					}
@@ -8068,7 +8081,7 @@ module.exports.executeDelete = function (args) {
 				request.delete(options, function (error, response, body) {
 
 					if (error) {
-						console.log('Failed to delete ' + endpoint);
+						console.log('Failed to delete ' + endpoint + ' (ecid: ' + response.ecid + ')');
 						console.log(error);
 						return resolve({
 							err: 'err'
@@ -8085,7 +8098,7 @@ module.exports.executeDelete = function (args) {
 						console.log(' - endpoint executed');
 						return resolve({});
 					} else {
-						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
 						if (data && !Buffer.isBuffer(data)) {
 							console.log(JSON.stringify(data, null, 4));
 						}

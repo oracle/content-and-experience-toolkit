@@ -2,8 +2,6 @@
  * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-/* global console, __dirname, process, console */
-/* jshint esversion: 6 */
 
 /**
  * Site library
@@ -300,6 +298,25 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 
 					var items = result || [];
 					console.log(' - total items from query: ' + items.length);
+
+					if (assetGUIDS && assetGUIDS.length > 0) {
+						var notFoundAssets = [];
+						assetGUIDS.forEach(function (id) {
+							var found = false;
+							for (var i = 0; i < items.length; i++) {
+								if (items[i].id === id) {
+									found = true;
+									break;
+								}
+							}
+							if (!found) {
+								notFoundAssets.push(id);
+							}
+						});
+						if (notFoundAssets.length > 0) {
+							console.log('WRONG: the following assets not found: ' + notFoundAssets);
+						}
+					}
 
 					// the export items have to be in both query result and specified item list
 					for (var i = 0; i < items.length; i++) {
@@ -612,7 +629,7 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 
 			request.post(options, function (err, response, body) {
 				if (err) {
-					console.log('ERROR: Failed to export');
+					console.log('ERROR: Failed to export' + ' (ecid: ' + response.ecid + ')');
 					console.log(err);
 					resolve({
 						err: 'err'
@@ -704,7 +721,7 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 									process.stdout.write(os.EOL);
 								}
 								// console.log(data);
-								console.log('ERROR: export failed: ' + data.errorDescription);
+								console.log('ERROR: export failed: ' + data.errorDescription + ' (ecid: ' + response.ecid + ')');
 								return resolve({
 									err: 'err'
 								});
@@ -721,7 +738,7 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 				} else {
 					process.stdout.write(os.EOL);
 					var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-					console.log('ERROR: failed to export: ' + msg);
+					console.log('ERROR: failed to export: ' + msg + ' (ecid: ' + response.ecid + ')');
 					return resolve({
 						err: 'err'
 					});
@@ -1390,12 +1407,13 @@ var _importContent = function (server, csrfToken, contentZipFileId, repositoryId
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to import');
+				console.log('ERROR: Failed to import' + ' (ecid: ' + response.ecid + ')');
 				console.log(err);
 				resolve({
 					err: 'err'
 				});
 			}
+
 			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
 				var data = JSON.parse(body);
 				var jobId = data && data.jobId;
@@ -1439,7 +1457,7 @@ var _importContent = function (server, csrfToken, contentZipFileId, repositoryId
 							if (needNewline) {
 								process.stdout.write(os.EOL);
 							}
-							console.log('ERROR: import failed: ' + data.errorDescription);
+							console.log('ERROR: import failed: ' + data.errorDescription + ' (ecid: ' + response.ecid + ')');
 							if (!data.errorDescription) {
 								console.log(data);
 							}
@@ -1456,7 +1474,7 @@ var _importContent = function (server, csrfToken, contentZipFileId, repositoryId
 				}, 6000);
 			} else {
 				process.stdout.write(os.EOL);
-				console.log(' - failed to import: ' + response.statusCode);
+				console.log('ERROR: failed to import: ' + response.statusCode + ' (ecid: ' + response.ecid + ')');
 				console.log(body);
 				return resolve({
 					err: 'err'
@@ -3122,7 +3140,7 @@ var _exportContentIC = function (server, collectionId, exportfilepath) {
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to export');
+				console.log('ERROR: Failed to export' + ' (ecid: ' + response.ecid + ')');
 				console.log(err);
 				resolve({
 					err: 'err'
@@ -3199,7 +3217,7 @@ var _exportContentIC = function (server, collectionId, exportfilepath) {
 							clearInterval(inter);
 							var statusFile = path.join(buildfolder, 'export_content_status.json');
 							fs.writeFileSync(statusFile, JSON.stringify(data, null, 4));
-							console.log('ERROR: export failed: ' + data.errorDescription);
+							console.log('ERROR: export failed: ' + data.errorDescription + ' (ecid: ' + response.ecid + ')');
 							console.log('  find more info in ' + statusFile);
 							return resolve({
 								err: 'err'
@@ -3213,7 +3231,7 @@ var _exportContentIC = function (server, collectionId, exportfilepath) {
 				}, 5000);
 			} else {
 				var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to export: ' + msg);
+				console.log('ERROR: failed to export: ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});

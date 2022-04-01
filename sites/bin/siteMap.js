@@ -2,8 +2,6 @@
  * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-/* global console, __dirname, process, module, Buffer, console */
-/* jshint esversion: 6 */
 
 var path = require('path'),
 	fs = require('fs'),
@@ -13,6 +11,9 @@ var path = require('path'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	serverUtils = require('../test/server/serverUtils.js');
+const {
+	locale
+} = require('yargs');
 
 var projectDir,
 	serversSrcDir;
@@ -39,6 +40,7 @@ var _masterPageData = [];
 var _contentTypesOnPages = [];
 var _pageContentIds = [];
 var _detailPages = [];
+var _typesToQuery = [];
 
 //
 // Private functions
@@ -328,6 +330,7 @@ var _readPageFiles = function (server, files) {
 
 		doReadFile.then(function (result) {
 			process.stdout.write(os.EOL);
+
 			// console.log(' - total number of downloaded files: ' + fileData.length);
 			resolve(fileData);
 		});
@@ -628,6 +631,44 @@ var _getPageContentPromise = function (server, channelToken, pageContentIds, pag
 	return promises;
 };
 
+var _getTypeItems = function (server, channelToken, locale) {
+	return new Promise(function (resolve, reject) {
+		var items = [];
+		var doQuery = _typesToQuery.reduce(function (typePromise, typeName) {
+				return typePromise.then(function (result) {
+					var q = 'type eq "' + typeName + '"';
+					if (locale) {
+						q = '((' + q + ') and (language eq "' + locale + '"))';
+					}
+					return serverRest.queryItems({
+							useDelivery: true,
+							server: server,
+							q: q,
+							channelToken: channelToken,
+							showTotal: false
+						})
+						.then(function (result) {
+							if (result && result.data && result.data.length > 0) {
+								console.log(' - total items of type ' + typeName + ' (' + locale + '): ' + result.data.length);
+								items.push({
+									type: typeName,
+									locale: locale,
+									items: result.data
+								});
+							}
+						});
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doQuery.then(function (result) {
+			resolve(items);
+		});
+
+	});
+};
+
 var _getLastmod = function (isodate) {
 	var months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
 	var lastModifiedDate = new Date(isodate);
@@ -674,7 +715,7 @@ var _getMasterPageData = function (pageid) {
  * @param {*} siteInfo 
  * @param {*} pages 
  */
-var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, changefreq, toppagepriority,
+var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, typeItems, changefreq, toppagepriority,
 	siteMapFile, newlink, noDefaultDetailPageLink) {
 
 	var prefix = siteUrl;
@@ -749,11 +790,14 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ch
 		}
 	}
 
+	var totalPageUrls = urls.length;
+
 	//
 	// detail page urls for items
 	//
+	// console.log(_detailPages);
+	var addedUrls = [];
 	if (_hasDetailPage) {
-		var addedUrls = [];
 		for (var i = 0; i < items.length; i++) {
 			if (!noDefaultDetailPageLink || items[i].detailPageId) {
 				// get page's priority
@@ -768,7 +812,6 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ch
 					}
 				}
 
-				var detailPageUrl;
 				var detailPage = _getPage(items[i].detailPageId) || _defaultDetailPage;
 				var detailPageUrl = detailPage.pageUrl;
 
@@ -818,8 +861,53 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ch
 				} // all items on the page
 			}
 		} // all items
+
+		// items from type query
+		typeItems.forEach(function (typeItem) {
+			// find the detail page for this type
+			var detailPageUrl;
+			for (var i = 0; i < _detailPages.length; i++) {
+				if (_detailPages[i].contentTypes && _detailPages[i].contentTypes.includes(typeItem.type)) {
+					detailPageUrl = _detailPages[i].page && _detailPages[i].page.pageUrl;
+					break;
+				}
+			}
+
+			if (detailPageUrl) {
+				for (var i = 0; i < typeItem.items.length; i++) {
+					var item = typeItem.items[i];
+					var detailPagePrefix = detailPageUrl.replace('.html', '');
+					var itemlanguage = typeItem.locale;
+					var locale = itemlanguage && itemlanguage !== _SiteInfo.defaultLanguage ? (itemlanguage + '/') : '';
+					// trailing / is required
+					var url;
+					if (newlink) {
+						url = prefix + '/' + locale + detailPagePrefix + '/' + item.slug;
+					} else {
+						url = prefix + '/' + locale + detailPagePrefix + '/' + item.type + '/' + item.id + '/' + item.slug;
+					}
+					// console.log(item);
+					var lastmod = _getLastmod(item.updatedDate.value);
+
+					// no duplicate url
+					if (!addedUrls.includes(url)) {
+						// console.log('item: ' + item.name + ' page: ' + pageId + ' priority: ' + itemPriority + ' lastmod: ' + lastmod);
+						urls.push({
+							loc: url,
+							lastmod: lastmod,
+							priority: itemPriority,
+							changefreq: itemChangefreq
+						});
+
+						addedUrls.push(url);
+					}
+				}
+			}
+		});
+
 	} // has detail page
 
+	console.log(' - total page URLs: ' + totalPageUrls + '  total asset URLs: ' + addedUrls.length);
 
 	var buf = '<?xml version="1.0" encoding="UTF-8"?>' + os.EOL +
 		'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + os.EOL;
@@ -918,7 +1006,7 @@ var _uploadSiteMapToServer = function (server, localFilePath) {
 	return uploadPromise;
 };
 
-var _prepareData = function (server, site, languages, done) {
+var _prepareData = function (server, site, languages, allTypes, wantedTypes, done) {
 	var dataPromise = new Promise(function (resolve, reject) {
 
 		var siteInfo, defaultLanguage, siteChannelToken, siteRepositoryId;
@@ -1155,9 +1243,46 @@ var _prepareData = function (server, site, languages, done) {
 				_getDetailPageContentTypes(pageData);
 				// console.log(_detailPages);
 
+				if (contentTypeNames.length > 0) {
+					console.log(' - content types used in the site: ' + contentTypeNames);
+				}
+
+				// Display detail pages
+				_detailPages.forEach(function (dpage) {
+					console.log(' - detail page: ' + dpage.page.name + ' content types: ' + dpage.contentTypes);
+				});
+				
+				if (allTypes) {
+					_detailPages.forEach(function (dpage) {
+						for (var i = 0; i < dpage.contentTypes.length; i++) {
+							if (!_typesToQuery.includes(dpage.contentTypes[i])) {
+								_typesToQuery.push(dpage.contentTypes[i]);
+							}
+						}
+					});
+					console.log(' - content types to query items: ' + _typesToQuery);
+				} else if (wantedTypes && wantedTypes.length > 0) {
+					for (var i = 0; i < wantedTypes.length; i++) {
+						var found = false;
+						for (var j = 0; j < _detailPages.length; j++) {
+							if (_detailPages[j].contentTypes.includes(wantedTypes[i])) {
+								found = true;
+								if (!_typesToQuery.includes(wantedTypes[i])) {
+									_typesToQuery.push(wantedTypes[i]);
+								}
+								break;
+							}
+						}
+						if (!found) {
+							console.log('WARNING: no site detail page found for type ' + wantedTypes[i]);
+						}
+					}
+					console.log(' - content types to query items: ' + _typesToQuery);
+				}
+
+
 				if (contentTypesPromise.length > 0) {
 					Promise.all(contentTypesPromise).then(function (values) {
-						console.log(' - content types used in the site: ' + contentTypeNames);
 						_contentTypesOnPages = values;
 						// console.log(_contentTypesOnPages);
 
@@ -1233,16 +1358,21 @@ var _getSiteDataWithLocale = function (server, site, locale, isMaster) {
 						Promise.all(pageContentPromise).then(function (values) {
 							console.log(' - query content on the pages (' + locale + ')');
 
-							var items = [];
 							for (var i = 0; i < values.length; i++) {
 								items = items.concat(values[i]);
 							}
+							// console.log(' - total items: ' + items.length);
 
-							return resolve({
-								locale: locale,
-								pageFiles: pageFiles,
-								pages: pages,
-								items: items
+							var typeContentPromises = _typesToQuery.length > 0 ? [_getTypeItems(server, _siteChannelToken, locale)] : [];
+							Promise.all(typeContentPromises).then(function (results) {
+								var typeItems = _typesToQuery.length > 0 ? results[0] : [];
+								return resolve({
+									locale: locale,
+									pageFiles: pageFiles,
+									pages: pages,
+									items: items,
+									typeItems: typeItems
+								});
 							});
 						});
 					});
@@ -1270,13 +1400,33 @@ var _getSiteDataWithLocale = function (server, site, locale, isMaster) {
 	return sitePromise;
 };
 
+var _getSiteData = function (server, site, locales) {
+	return new Promise(function (resolve, reject) {
+		var values = [];
+		var doGet = locales.reduce(function (sitePromise, locale) {
+				return sitePromise.then(function (result) {
+					return _getSiteDataWithLocale(server, site, locale.language, locale.isMaster)
+						.then(function (result) {
+							values.push(result);
+						});
+				});
+			},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doGet.then(function (result) {
+			resolve(values);
+		});
+	});
+};
 
 /**
  * Main entry
  * 
  */
 var _createSiteMap = function (server, serverName, site, siteUrl, changefreq,
-	publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink, done) {
+	publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink,
+	allTypes, wantedTypes, done) {
 
 	//
 	// get site info and other metadata
@@ -1285,7 +1435,8 @@ var _createSiteMap = function (server, serverName, site, siteUrl, changefreq,
 	var allPages = [];
 	var allPageFiles = [];
 	var allItems = [];
-	var dataPromise = _prepareData(server, site, languages, done);
+	var allTypeItems = [];
+	var dataPromise = _prepareData(server, site, languages, allTypes, wantedTypes, done);
 	dataPromise.then(function (result) {
 			if (result.err) {
 				_cmdEnd(done);
@@ -1293,15 +1444,23 @@ var _createSiteMap = function (server, serverName, site, siteUrl, changefreq,
 			}
 
 			var isMaster = true;
-			var siteDataPromises = [];
-			siteDataPromises.push(_getSiteDataWithLocale(server, site, _SiteInfo.defaultLanguage, isMaster));
+
+			var locales = [];
+			locales.push({
+				language: _SiteInfo.defaultLanguage,
+				isMaster: true
+			});
+
 			for (var i = 0; i < _languages.length; i++) {
 				if (_languages[i] !== _SiteInfo.defaultLanguage) {
-					siteDataPromises.push(_getSiteDataWithLocale(server, site, _languages[i], false));
+					locales.push({
+						language: _languages[i],
+						isMaster: false
+					});
 				}
 			}
 
-			return Promise.all(siteDataPromises);
+			return _getSiteData(server, site, locales);
 
 		})
 		.then(function (values) {
@@ -1343,6 +1502,9 @@ var _createSiteMap = function (server, serverName, site, siteUrl, changefreq,
 				if (values[i].items && values[i].items.length > 0) {
 					allItems = allItems.concat(values[i].items);
 				}
+				if (values[i].typeItems && values[i].typeItems.length > 0) {
+					allTypeItems = allTypeItems.concat(values[i].typeItems);
+				}
 			}
 
 			var changefreqPromises = changefreq === 'auto' ? [_calculatePageChangeFraq(server, serverName, allPageFiles)] : [];
@@ -1354,7 +1516,7 @@ var _createSiteMap = function (server, serverName, site, siteUrl, changefreq,
 			//
 			// create site map
 			//
-			_generateSiteMapXML(server, siteUrl, allPages, allPageFiles, allItems, changefreq, toppagepriority, siteMapFile, newlink, noDefaultDetailPageLink);
+			_generateSiteMapXML(server, siteUrl, allPages, allPageFiles, allItems, allTypeItems, changefreq, toppagepriority, siteMapFile, newlink, noDefaultDetailPageLink);
 
 			if (publish) {
 				// Upload site map to the server
@@ -1371,6 +1533,7 @@ var _createSiteMap = function (server, serverName, site, siteUrl, changefreq,
 			}
 		});
 };
+
 
 var _calculatePageChangeFraq = function (server, serverName, allPageFiles) {
 	return new Promise(function (resolve, reject) {
@@ -1413,6 +1576,7 @@ var _calculatePageChangeFraq = function (server, serverName, allPageFiles) {
 					count.push('.');
 					process.stdout.write(' - calculating page change frequency ' + count.join(''));
 					readline.cursorTo(process.stdout, 0);
+
 					return Promise.all(versionPromises).then(function (results) {
 						var pages = results;
 
@@ -1533,6 +1697,10 @@ module.exports.createSiteMap = function (argv, done) {
 		return;
 	}
 
+	// content types
+	var allTypes = argv.assettypes === '__cecanytype';
+	var wantedTypes = argv.assettypes && argv.assettypes !== '__cecanytype' ? argv.assettypes.split(',') : undefined;
+
 	// changefreq
 	var changefreq = argv.changefreq || 'monthly';
 
@@ -1565,7 +1733,8 @@ module.exports.createSiteMap = function (argv, done) {
 		}
 
 		_createSiteMap(server, serverName, site, siteUrl, changefreq,
-			publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink, done);
+			publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink,
+			allTypes, wantedTypes, done);
 
 	}); // login
 };

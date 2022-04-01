@@ -1040,7 +1040,8 @@ var compiler = {
 					Object.prototype.hasOwnProperty.call(self.siteInfo.properties, propertyName)) {
 					value = self.siteInfo.properties[propertyName];
 
-					if (value && (propertyName === 'customProperties') && (typeof value === 'object')) {
+					if (value && (typeof value === 'object') &&
+						((propertyName === 'customProperties') || (propertyName === 'pageProperties'))) {
 						value = JSON.parse(JSON.stringify(value));
 					}
 				}
@@ -1058,6 +1059,51 @@ var compiler = {
 						Object.prototype.hasOwnProperty.call(properties, propertyName)) {
 						properties = JSON.parse(JSON.stringify(properties));
 						value = properties[propertyName];
+					}
+				}
+
+				return value;
+			},
+			getDefaultPageProperty: function (propertyName) {
+				var value;
+
+				if (propertyName && (typeof propertyName === 'string')) {
+					var properties = this.getSiteProperty('pageProperties');
+					if (properties && properties[propertyName] && (typeof properties[propertyName] === 'object') &&
+						Object.prototype.hasOwnProperty.call(properties, propertyName)) {
+						var definition = properties[propertyName];
+						if (typeof definition.value === 'string') {
+							value = definition.value;
+						}
+					}
+				}
+
+				return value;
+			},
+			getCustomPageProperty: function (propertyName, pageId) {
+				var value,
+					navNode;
+
+				var isValidPageId = function(pageId) {
+					var isValid = false;
+					if( ( typeof pageId === "number" ) ||
+						( ( typeof pageId === "string" ) && pageId )
+					) {
+						isValid = true;
+					}
+
+					return isValid;
+				};
+				pageId = isValidPageId(pageId) ? pageId : this.navigationCurr;
+
+				// Find the supplied pageId in the navigation, and obtain the named property
+				if (propertyName && (typeof propertyName === 'string') && this.structureMap &&
+					isValidPageId(pageId) ) {
+					navNode = this.structureMap[pageId];
+					if(navNode && navNode.properties && (typeof navNode.properties === 'object') &&
+						(typeof navNode.properties[propertyName] === 'string') &&
+						Object.prototype.hasOwnProperty.call(navNode.properties, propertyName)) {
+						value = navNode.properties[propertyName];
 					}
 				}
 
