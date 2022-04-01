@@ -2,8 +2,7 @@
  * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-/* globals app, module, __dirname */
-/* jshint esversion: 6 */
+/* globals app */
 
 /**
  * Manage persistence of the job during the jobs lifecycle. <br/>

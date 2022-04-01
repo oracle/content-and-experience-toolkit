@@ -2,8 +2,6 @@
  * Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-/* global module, process */
-/* jshint esversion: 8 */
 
 /**
  * node-fetch wrapper
@@ -63,7 +61,8 @@ var _get = function (options, callback) {
 				var res = {
 					statusCode: response.status,
 					statusMessage: response.statusText,
-					headers: response.headers
+					headers: response.headers,
+					ecid: response.headers.get('x-oracle-dms-ecid')
 				};
 				return callback(err, res, data);
 			});
@@ -89,7 +88,8 @@ var _post = function (options, callback) {
 					statusMessage: response.statusText,
 					url: response.url,
 					location: location,
-					headers: response.headers
+					headers: response.headers,
+					ecid: response.headers.get('x-oracle-dms-ecid')
 				};
 				return callback(err, res, data);
 			});

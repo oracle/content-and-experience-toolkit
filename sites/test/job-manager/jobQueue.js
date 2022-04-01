@@ -1,4 +1,4 @@
-/* globals app, module, __dirname */
+/* globals app */
 
 var JobQueue = function(args) {
         this.ps = args.ps;

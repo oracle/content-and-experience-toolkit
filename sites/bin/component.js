@@ -2,8 +2,6 @@
  * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-/* global console, __dirname, process, console */
-/* jshint esversion: 6 */
 
 var serverUtils = require('../test/server/serverUtils.js'),
 	documentUtils = require('./document.js').utils,
@@ -740,7 +738,8 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 					publishpromises.push(sitesRest.publishComponent({
 						server: server,
 						id: componentId,
-						name: name
+						name: name,
+						async: false
 					}));
 				}
 
@@ -1049,7 +1048,7 @@ var _controlComponentsREST = function (server, componentNames) {
 		var err;
 		var total = componentNames.length;
 		var groups = [];
-		var limit = 8;
+		var limit = 1;
 		var start, end;
 		for (var i = 0; i < total / limit; i++) {
 			start = i * limit;
@@ -1076,7 +1075,8 @@ var _controlComponentsREST = function (server, componentNames) {
 						publishPromises.push(sitesRest.publishComponent({
 							server: server,
 							name: componentNames[i],
-							hideAPI: true
+							hideAPI: true,
+							async: false
 						}));
 					}
 
@@ -1085,7 +1085,7 @@ var _controlComponentsREST = function (server, componentNames) {
 							if (!results[i] || results[i].err) {
 								err = 'err';
 							} else {
-								console.log(' - publish ' + results[i].name + ' finished [' + results[i].timeUsed + ']');
+								console.log(' - publish ' + results[i].name + ' finished  [' + results[i].timeUsed + ']');
 							}
 						}
 					});

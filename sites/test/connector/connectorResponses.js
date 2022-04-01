@@ -1,5 +1,5 @@
 
-/* globals app, module, __dirname */
+/* globals app */
 
 var mustache = require('mustache');
 

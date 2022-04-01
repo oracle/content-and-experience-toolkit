@@ -2,8 +2,6 @@
  * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-/* global console, __dirname, process, console */
-/* jshint esversion: 6 */
 
 /**
  * Site library
@@ -441,6 +439,9 @@ module.exports.uploadRecommendation = function (argv, done) {
 
 				var jobId = result.jobId;
 				console.log(' - submit import job (' + jobId + ')');
+
+				var importEcid = result.ecid;
+
 				// Wait for job to finish
 				var inter = setInterval(function () {
 					var checkExportStatusPromise = serverRest.getContentJobStatus({
@@ -470,7 +471,7 @@ module.exports.uploadRecommendation = function (argv, done) {
 							} else if (status && status === 'FAILED') {
 								clearInterval(inter);
 								// console.log(data);
-								console.log('ERROR: import failed: ' + data.errorDescription);
+								console.log('ERROR: import failed: ' + data.errorDescription + ' (ecid: ' + importEcid + ')');
 								clearInterval(inter);
 								done();
 							} else if (status && status === 'INPROGRESS') {

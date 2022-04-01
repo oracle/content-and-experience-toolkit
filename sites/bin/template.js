@@ -2,8 +2,6 @@
  * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-/* global console, __dirname, process, console */
-/* jshint esversion: 6 */
 
 /**
  * Template library
@@ -566,7 +564,13 @@ var _downloadSiteComponents = function (server, compNames) {
 					// currently API /sites/management/api/v1/components does not return appType
 					var appType = comps[i].appType;
 					if (!appType && fs.existsSync(path.join(componentsSrcDir, comps[i].name, 'appinfo.json'))) {
-						var appinfo = JSON.parse(fs.readFileSync(path.join(componentsSrcDir, comps[i].name, 'appinfo.json')));
+						var appinfo;
+						try {
+							appinfo = JSON.parse(fs.readFileSync(path.join(componentsSrcDir, comps[i].name, 'appinfo.json')));
+						} catch (e) {
+							console.log('ERROR: component ' + comps[i].name + ' appinfo.json is invalid');
+							// console.log(e);
+						}
 						if (appinfo && appinfo.type) {
 							appType = appinfo.type;
 						}
@@ -1408,7 +1412,8 @@ var _publishComponents = function (server, comps) {
 					return sitesRest.publishComponent({
 							server: server,
 							name: compName,
-							hideAPI: true
+							hideAPI: true,
+							async: false
 						})
 						.then(function (result) {
 							if (!result.err) {

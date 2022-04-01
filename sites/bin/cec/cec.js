@@ -1680,6 +1680,8 @@ const createSiteMap = {
 	},
 	example: [
 		['cec create-site-map Site1 -u http://www.example.com/site1'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -a', 'Create entry for all site assets of the types which are placed on site detail pages' ],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -a Blog,Author', 'Create entry for all site assets of the type Blog and Author if they are placed on site detail pages' ],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -s UAT'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -t 0.9'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -f sitemap.xml'],
@@ -5537,6 +5539,10 @@ const argv = yargs.usage(_usage)
 					description: '<url> Site URL',
 					demandOption: true
 				})
+				.option('assettypes', {
+					alias: 'a',
+					description: 'The comma separated list of content types'
+				})
 				.option('changefreq', {
 					alias: 'c',
 					description: 'How frequently the page is likely to change.'
@@ -5587,6 +5593,8 @@ const argv = yargs.usage(_usage)
 				.example(...createSiteMap.example[4])
 				.example(...createSiteMap.example[5])
 				.example(...createSiteMap.example[6])
+				.example(...createSiteMap.example[7])
+				.example(...createSiteMap.example[8])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createSiteMap.command}\n\n${createSiteMap.usage.long}`);
@@ -9521,6 +9529,10 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--site', argv.site,
 		'--url', argv.url
 	];
+	if (argv.assettypes) {
+		var assettypes = typeof argv.assettypes === 'boolean' ? '__cecanytype' : argv.assettypes;
+		createSiteMapArgs.push(...['--assettypes', assettypes]);
+	}
 	if (argv.changefreq) {
 		createSiteMapArgs.push(...['--changefreq', argv.changefreq]);
 	}

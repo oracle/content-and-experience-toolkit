@@ -2,8 +2,7 @@
  * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-/* global module, process */
-/* jshint esversion: 6 */
+
 var os = require('os'),
 	readline = require('readline'),
 	serverUtils = require('./serverUtils');
@@ -105,7 +104,7 @@ module.exports.getTemplates = function (args) {
  * @param {object} server the server object
  * @returns {Promise.<object>} The data object returned by the server.
  */
- module.exports.getThemes = function (args) {
+module.exports.getThemes = function (args) {
 	var server = args.server;
 	return _getAllResources(server, 'themes', args.expand);
 };
@@ -500,7 +499,7 @@ var _grantSiteAccess = function (server, id, name, member) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to grant ' + member + ' to access site ' + (id || name) + ' : ');
+				console.log('ERROR: failed to grant ' + member + ' to access site ' + (id || name) + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -516,7 +515,7 @@ var _grantSiteAccess = function (server, id, name, member) {
 				resolve(data);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to grant ' + member + ' to access site ' + (name || id) + ' : ' + msg);
+				console.log('ERROR: failed to grant ' + member + ' to access site ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -706,7 +705,7 @@ var _refreshSiteContent = function (server, id, name) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to refresh pre-render cache for site ' + (name || id) + ' : ');
+				console.log('ERROR: failed to refresh pre-render cache for site ' + (name || id) + +' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -727,7 +726,7 @@ var _refreshSiteContent = function (server, id, name) {
 						// console.log(data);
 						if (!data || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
 							clearInterval(inter);
-							console.log('ERROR: refresh pre-render cache failed');
+							console.log('ERROR: refresh pre-render cache failed' + ' (ecid: ' + response.ecid + ')');
 							if (data && data.error && data.error['o:errorDetails'] && data.error['o:errorDetails'].length > 0) {
 								console.log(data.error);
 							}
@@ -749,7 +748,7 @@ var _refreshSiteContent = function (server, id, name) {
 				}, 5000);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to refresh pre-render cache for site ' + (name || id) + ' : ' + msg);
+				console.log('ERROR: failed to refresh pre-render cache for site ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -794,7 +793,7 @@ var _exportResource = function (server, type, id, name) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to export ' + type.substring(0, type.length - 1) + ' ' + (id || name) + ' : ');
+				console.log('ERROR: failed to export ' + type.substring(0, type.length - 1) + ' ' + (id || name) + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -817,7 +816,7 @@ var _exportResource = function (server, type, id, name) {
 				});
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to export ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
+				console.log('ERROR: failed to export ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -865,7 +864,7 @@ var _exportResourceAsync = function (server, type, id, name) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to export ' + resource + ' ' + (name || id) + ' : ');
+				console.log('ERROR: failed to export ' + resource + ' ' + (name || id) + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -894,11 +893,11 @@ var _exportResourceAsync = function (server, type, id, name) {
 							if (needNewLine) {
 								process.stdout.write(os.EOL);
 							}
-							var msg = data && data.message;
+							var msg = data && (data.message || data.err);
 							if (data && data.error) {
 								msg = msg + ' ' + (data.error.detail || data.error.title);
 							}
-							console.log('ERROR: export ' + resource + ' failed: ' + msg);
+							console.log('ERROR: export ' + resource + ' failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 							return resolve({
 								err: 'err'
 							});
@@ -923,7 +922,7 @@ var _exportResourceAsync = function (server, type, id, name) {
 			} else {
 				console.log(data);
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to export ' + resource + ' ' + name + ' : ' + msg);
+				console.log('ERROR: failed to export ' + resource + ' ' + name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -972,7 +971,7 @@ var _publishResource = function (server, type, id, name, hideAPI) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to publish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
+				console.log('ERROR: failed to publish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -994,7 +993,7 @@ var _publishResource = function (server, type, id, name, hideAPI) {
 				});
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to publish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
+				console.log('ERROR: failed to publish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -1013,8 +1012,11 @@ var _publishResource = function (server, type, id, name, hideAPI) {
  */
 module.exports.publishComponent = function (args) {
 	var server = args.server;
-
-	return _publishResource(server, 'components', args.id, args.name, args.hideAPI);
+	if (args.async) {
+		return _publishResourceAsync(server, 'components', args.id, args.name);
+	} else {
+		return _publishResource(server, 'components', args.id, args.name, args.hideAPI);
+	}
 };
 
 var _publishResourceAsync = function (server, type, id, name, usedContentOnly, compileSite, staticOnly, fullpublish) {
@@ -1059,10 +1061,12 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 
 		var resTitle = type.substring(0, type.length - 1);
 
+		var timer = type === 'components' ? 2000 : 5000;
+
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to publish ' + resTitle + ' ' + (name || id) + ' : ');
+				console.log('ERROR: failed to publish ' + resTitle + ' ' + (name || id) + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -1095,7 +1099,7 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 							if (data && data.error) {
 								msg = msg + ' ' + (data.error.detail || data.error.title);
 							}
-							console.log('ERROR: failed to publish ' + resTitle + ' ' + (name || id) + ' : ' + msg);
+							console.log('ERROR: failed to publish ' + resTitle + ' ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 							return resolve({
 								err: 'err'
 							});
@@ -1104,7 +1108,9 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 							process.stdout.write(' - publish in process: percentage ' + data.completedPercentage +
 								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 							process.stdout.write(os.EOL);
-							return resolve({});
+							return resolve({
+								name: name
+							});
 						} else {
 							process.stdout.write(' - publish in process: percentage ' + data.completedPercentage +
 								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
@@ -1112,10 +1118,10 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 							needNewLine = true;
 						}
 					});
-				}, 5000);
+				}, timer);
 			} else {
 				var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to publish ' + resTitle + ' ' + (name || id) + ' : ' + msg);
+				console.log('ERROR: failed to publish ' + resTitle + ' ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -1175,7 +1181,7 @@ var _unpublishResource = function (server, type, id, name) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to unpublish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
+				console.log('ERROR: failed to unpublish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -1196,7 +1202,7 @@ var _unpublishResource = function (server, type, id, name) {
 				});
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to unpublish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
+				console.log('ERROR: failed to unpublish ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -1244,7 +1250,7 @@ var _setSiteOnlineStatus = function (server, id, name, status) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to ' + action + ' site ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
+				console.log('ERROR: failed to ' + action + ' site ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -1265,7 +1271,7 @@ var _setSiteOnlineStatus = function (server, id, name, status) {
 				});
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to ' + action + ' site ' + (name || id) + ' : ' + msg);
+				console.log('ERROR: failed to ' + action + ' site ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -1324,7 +1330,7 @@ var _validateSite = function (server, id, name) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to validate site ' + (name || id) + ' : ');
+				console.log('ERROR: failed to validate site ' + (name || id) + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -1342,7 +1348,7 @@ var _validateSite = function (server, id, name) {
 				resolve(data);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to validate site ' + (name || id) + ' : ' + msg);
+				console.log('ERROR: failed to validate site ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -1388,7 +1394,7 @@ var _softDeleteResource = function (server, type, id, name) {
 		var request = require('./requestUtils.js').request;
 		request.delete(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
+				console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -1409,7 +1415,7 @@ var _softDeleteResource = function (server, type, id, name) {
 				});
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
+				console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -1442,7 +1448,7 @@ var _hardDeleteResource = function (server, type, id, name, showError) {
 		request.delete(options, function (error, response, body) {
 			if (error) {
 				if (showError) {
-					console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ');
+					console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' (ecid: ' + response.ecid + ')');
 					console.log(error);
 				}
 				resolve({
@@ -1464,7 +1470,7 @@ var _hardDeleteResource = function (server, type, id, name, showError) {
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				if (showError) {
-					console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg);
+					console.log('ERROR: failed to delete ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				}
 				resolve({
 					err: msg || 'err'
@@ -1561,7 +1567,7 @@ var _importComponent = function (server, name, fileId) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to import component ' + name);
+				console.log('ERROR: failed to import component ' + name + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -1586,7 +1592,7 @@ var _importComponent = function (server, name, fileId) {
 				if (itemId) {
 					_getResource(server, 'components', itemId).then(function (result) {
 						if (!result || result.err || !result.name) {
-							console.log('ERROR: failed to import component ' + name);
+							console.log('ERROR: failed to import component ' + name + ' (ecid: ' + response.ecid + ')');
 						} else {
 							resolve({
 								id: result.id,
@@ -1597,7 +1603,7 @@ var _importComponent = function (server, name, fileId) {
 
 					});
 				} else {
-					console.log('ERROR: failed to import component ' + name + ' : ' + response.statusMessage);
+					console.log('ERROR: failed to import component ' + name + ' : ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
 					resolve({
 						err: 'err'
 					});
@@ -1606,7 +1612,7 @@ var _importComponent = function (server, name, fileId) {
 				// console.log(data);
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				var owner = data && data.owner && data.owner.displayName || '';
-				console.log('ERROR: failed to import component ' + name + (owner ? ' (owned by ' + owner + ')' : '') + ' : ' + msg);
+				console.log('ERROR: failed to import component ' + name + (owner ? ' (owned by ' + owner + ')' : '') + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				if (!msg) {
 					console.log(data);
 				}
@@ -1649,7 +1655,7 @@ var _getBackgroundJobStatus = function (server, url) {
 		request.get(options, function (error, response, body) {
 
 			if (error) {
-				console.log('ERROR: failed to get status from ' + endpoint);
+				console.log('ERROR: failed to get status from ' + endpoint + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -1659,6 +1665,7 @@ var _getBackgroundJobStatus = function (server, url) {
 			var data;
 			try {
 				data = JSON.parse(body);
+				data.ecid = response.ecid;
 			} catch (e) {
 				data = body;
 			}
@@ -1667,7 +1674,7 @@ var _getBackgroundJobStatus = function (server, url) {
 				resolve(data);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to get status from ' + endpoint + ' : ' + msg);
+				console.log('ERROR: failed to get status from ' + endpoint + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -1715,7 +1722,7 @@ var _createTemplateFromSite = function (server, name, siteName, includeUnpublish
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to create template ' + name + ' from site ' + siteName);
+				console.log('ERROR: failed to create template ' + name + ' from site ' + siteName + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -1731,29 +1738,39 @@ var _createTemplateFromSite = function (server, name, siteName, includeUnpublish
 
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.location;
+				var startTime = new Date();
+				var needNewLine = false;
 				var inter = setInterval(function () {
 					var jobPromise = _getBackgroundJobStatus(server, statusLocation);
 					jobPromise.then(function (data) {
 						// console.log(data);
 						if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
 							clearInterval(inter);
+							if (needNewLine) {
+								process.stdout.write(os.EOL);
+							}
 							var msg = data && data.error ? (data.error.detail || data.error.title) : '';
-							console.log('ERROR: create template failed: ' + msg);
+							console.log('ERROR: create template failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 							return resolve({
 								err: 'err'
 							});
 						} else if (data.completed && data.progress === 'succeeded') {
 							clearInterval(inter);
+							process.stdout.write(' - creating template: percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+							process.stdout.write(os.EOL);
 
 							return resolve({});
 						} else {
-							console.log(' - creating template: percentage ' + data.completedPercentage);
+							process.stdout.write(' - creating template: percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+							needNewLine = true;
 						}
 					});
 				}, 5000);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to create template ' + name + ' from site ' + siteName + ' : ' + msg);
+				console.log('ERROR: failed to create template ' + name + ' from site ' + siteName + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -1811,7 +1828,7 @@ var _importTemplate = function (server, name, fileId) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to import template ' + name);
+				console.log('ERROR: failed to import template ' + name + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -1838,7 +1855,7 @@ var _importTemplate = function (server, name, fileId) {
 							process.stdout.write(os.EOL);
 							console.log(JSON.stringify(data, null, 4));
 							var msg = data && data.error ? (data.error.detail || data.error.title) : '';
-							console.log('ERROR: import template failed: ' + msg);
+							console.log('ERROR: import template failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 							return resolve({
 								err: 'err'
 							});
@@ -1864,7 +1881,7 @@ var _importTemplate = function (server, name, fileId) {
 						msg = msg + ' (' + data.status + ' ' + data['o:errorCode'] + ')';
 					}
 				}
-				console.log('ERROR: failed to import template ' + name + ' : ' + msg);
+				console.log('ERROR: failed to import template ' + name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				if (data) {
 					console.log(JSON.stringify(data, null, 4));
 				}
@@ -1946,7 +1963,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to create site ' + name + ' from template ' + (templateName || templateId));
+				console.log('ERROR: failed to create site ' + name + ' from template ' + (templateName || templateId) + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -1982,7 +1999,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 									process.stdout.write(os.EOL);
 								}
 								var msg = data && data.message ? data.message : (data && data.error ? (data.error.detail || data.error.title) : '');
-								console.log('ERROR: create site failed: ' + msg);
+								console.log('ERROR: create site failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 								// console.log(data);
 								return resolve({
 									err: 'err'
@@ -2018,7 +2035,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 									process.stdout.write(os.EOL);
 								}
 								var msg = data && data.message ? data.message : (data && data.error ? (data.error.detail || data.error.title) : '');
-								console.log('ERROR: create site failed: ' + msg);
+								console.log('ERROR: create site failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 								// console.log(data);
 								return resolve({
 									err: 'err'
@@ -2042,7 +2059,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 				}, 5000);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to create site ' + name + ' from template ' + templateName + ' : ' + msg);
+				console.log('ERROR: failed to create site ' + name + ' from template ' + templateName + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -2101,7 +2118,7 @@ var _copySite = function (server, sourceSiteName, name, description, sitePrefix,
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to copy site ' + sourceSiteName);
+				console.log('ERROR: failed to copy site ' + sourceSiteName + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -2130,7 +2147,7 @@ var _copySite = function (server, sourceSiteName, name, description, sitePrefix,
 								process.stdout.write(os.EOL);
 							}
 							var msg = data && data.message ? data.message : (data && data.error ? (data.error.detail || data.error.title) : '');
-							console.log('ERROR: copy site failed: ' + msg);
+							console.log('ERROR: copy site failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 							// console.log(data);
 							return resolve({
 								err: 'err'
@@ -2152,7 +2169,7 @@ var _copySite = function (server, sourceSiteName, name, description, sitePrefix,
 				}, 5000);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to copy site ' + sourceSiteName + ' : ' + msg);
+				console.log('ERROR: failed to copy site ' + sourceSiteName + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -2206,7 +2223,7 @@ var _siteUpdated = function (server, name) {
 					var request = require('./requestUtils.js').request;
 					request.patch(options, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: failed to update site ' + site.name);
+							console.log('ERROR: failed to update site ' + site.name + ' (ecid: ' + response.ecid + ')');
 							console.log(error);
 							resolve({
 								err: error
@@ -2222,7 +2239,7 @@ var _siteUpdated = function (server, name) {
 							resolve(data);
 						} else {
 							var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-							console.log('ERROR: failed to update site ' + site.name + ' : ' + msg);
+							console.log('ERROR: failed to update site ' + site.name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 							resolve({
 								err: msg || 'err'
 							});
@@ -2350,7 +2367,7 @@ var _shareSite = function (server, id, name, member, role) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to share site ' + (name || id) + ' with ' + member + ' : ');
+				console.log('ERROR: failed to share site ' + (name || id) + ' with ' + member + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 				resolve({
 					err: error
@@ -2366,7 +2383,7 @@ var _shareSite = function (server, id, name, member, role) {
 				resolve(data);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to share site ' + (name || id) + ' with ' + member + ' : ' + msg);
+				console.log('ERROR: failed to share site ' + (name || id) + ' with ' + member + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -2423,7 +2440,7 @@ var _copyResource = function (server, type, srcId, srcName, name, desc) {
 			var result = {};
 
 			if (error) {
-				console.log('ERROR: failed to copy ' + type.substring(0, type.length - 1) + ' ' + (srcName || srcId) + ' : ');
+				console.log('ERROR: failed to copy ' + type.substring(0, type.length - 1) + ' ' + (srcName || srcId) + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 
 				resolve({
@@ -2441,7 +2458,7 @@ var _copyResource = function (server, type, srcId, srcName, name, desc) {
 				resolve(data);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to copy ' + type.substring(0, type.length - 1) + ' ' + (srcName || srcId) + ' : ' + msg);
+				console.log('ERROR: failed to copy ' + type.substring(0, type.length - 1) + ' ' + (srcName || srcId) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 
 				resolve({
 					err: msg || 'err'
@@ -2516,7 +2533,7 @@ var _copyResourceAsync = function (server, type, srcId, srcName, name, desc) {
 		request.post(options, function (error, response, body) {
 
 			if (error) {
-				console.log('ERROR: failed to copy ' + typeLabel + ' ' + (srcName || srcId) + ' : ');
+				console.log('ERROR: failed to copy ' + typeLabel + ' ' + (srcName || srcId) + ' (ecid: ' + response.ecid + ')');
 				console.log(error);
 
 				resolve({
@@ -2549,7 +2566,7 @@ var _copyResourceAsync = function (server, type, srcId, srcName, name, desc) {
 							if (data && data.error) {
 								msg = msg + ' ' + (data.error.detail || data.error.title);
 							}
-							console.log('ERROR: copy ' + type + ' ' + (srcName || srcId) + ' failed: ' + msg);
+							console.log('ERROR: copy ' + type + ' ' + (srcName || srcId) + ' failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 							return resolve({
 								err: 'err'
 							});
@@ -2574,7 +2591,7 @@ var _copyResourceAsync = function (server, type, srcId, srcName, name, desc) {
 			} else {
 				console.log(data);
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to copy ' + typeLabel + ' ' + (srcName || srcId) + ' : ' + msg);
+				console.log('ERROR: failed to copy ' + typeLabel + ' ' + (srcName || srcId) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -2594,6 +2611,6 @@ var _copyResourceAsync = function (server, type, srcId, srcName, name, desc) {
  * * @param {string} description the description of the new template
  * @returns {Promise.<object>} The data object returned by the server.
  */
- module.exports.copyTemplate = function (args) {
+module.exports.copyTemplate = function (args) {
 	return _copyResourceAsync(args.server, 'templates', args.srcId, args.srcName, args.name, args.description);
 };
