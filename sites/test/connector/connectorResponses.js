@@ -1,6 +1,3 @@
-
-/* globals app */
-
 var mustache = require('mustache');
 
 var responses = {

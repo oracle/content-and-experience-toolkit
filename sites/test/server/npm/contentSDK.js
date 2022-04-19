@@ -3,7 +3,6 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
  * $Id: content.js 167153 2019-01-25 21:29:15Z muralik $
  */
-/* global JSON, console, define, module, exports, require, requirejs, Promise */
 (function defineContentSDK(scope, factory) {
 	// configure to run in various JS environments
 	if (typeof define === 'function' && define.amd) {

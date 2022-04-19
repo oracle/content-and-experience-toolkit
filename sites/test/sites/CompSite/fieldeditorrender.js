@@ -1,4 +1,3 @@
-/* globals define */
 define(['knockout', 'jquery'], function (ko, $) {
 	'use strict';
 	// ----------------------------------------------

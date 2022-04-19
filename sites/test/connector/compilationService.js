@@ -1,5 +1,3 @@
-/* globals app */
-
 var responses = require('./connectorResponses'),
     jobManager = require('../job-manager/jobManager'),
     compileJobQueue = require('../job-manager/jobQueue');

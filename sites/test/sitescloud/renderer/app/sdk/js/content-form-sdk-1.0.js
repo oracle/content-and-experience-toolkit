@@ -609,8 +609,9 @@
                     "replyTo" === a && (i[r.messageId] && "function" == typeof i[r.messageId].resolveCallBack ? (t.debug("processing resolve callback"), 
                     i[r.messageId].resolveCallBack.call(null, r.payload)) : t.debug("no resolve callback for message id:", r.messageId))) : t.debug("No content window found for:", r.senderId)) : ("replyTo" === r.type && (r.replyStatus && "error" === r.replyStatus.replyType ? (t.error("replyTo returned error :", r.replyStatus.message), 
                     i[r.messageId] && "function" == typeof i[r.messageId].rejectCallBack ? (t.debug("processing reject callback"), 
-                    i[r.messageId].rejectCallBack.call(null, r.replyStatus.message ? r.replyStatus.message : "Error")) : t.debug("no reject callback for message id:", r.messageId)) : i[r.messageId] && "function" == typeof i[r.messageId].resolveCallBack ? (t.debug("processing resolve callback"), 
-                    i[r.messageId].resolveCallBack.call(null, r.payload)) : t.debug("no resolve callback for message id:", r.messageId)), 
+                    i[r.messageId].rejectCallBack.call(null, r.replyStatus.message ? r.replyStatus.message : "Error")) : t.debug("no reject callback for message id:", r.messageId)) : i[r.messageId] ? (i[r.messageId].callBack && "function" == typeof i[r.messageId].callBack && i[r.messageId].callBack.call(null, r.payload), 
+                    "function" == typeof i[r.messageId].resolveCallBack && (t.debug("processing resolve callback"), 
+                    i[r.messageId].resolveCallBack.call(null, r.payload))) : t.debug("no resolve callback for message id:", r.messageId)), 
                     "function" == typeof n[a] && (t.debug("processing event", a), n[a].call(null, e.data.payload, e.data.messageId)));
                 }
             },
@@ -649,8 +650,9 @@
                 return new Promise(function(o, a) {
                     n = n || {}, r++, i[r] = {
                         resolveCallBack: o,
-                        rejectCallBack: a
-                    };
+                        rejectCallBack: a,
+                        callBack: n && n.callBack ? n.callBack : void 0
+                    }, delete n.callBack;
                     var s = {
                         type: e,
                         payload: n,
@@ -916,7 +918,7 @@
                 x = e.status, k = e.createdDate, I = e.createdBy, T = e.updatedDate, S = e.updatedBy, 
                 A = e.repositoryId, F = e.latestVersion, O = e.currentVersion, q = e.mimeType, N = e.fileGroup, 
                 C = e.varSetId, D = e.fileExtension, M = e.versionInfo, R = e.publishInfo, P = e.tags, 
-                j = e.collections, z = e.channels, B = e.publishedChannels, V = e.taxonomies, L = e.isNew;
+                j = e.collections, B = e.channels, z = e.publishedChannels, V = e.taxonomies, L = e.isNew;
             }
             function d() {
                 return {
@@ -965,7 +967,7 @@
             }
             if (!t.contentType) throw s.error("Type must be  provided"), new Error("Type must be  provided");
             r.on("update", u);
-            var c, f, p, h, g, m, v, w, b, y, E, x, k, I, T, S, A, F, O, q, N, C, D, M, R, P, j, z, B, V, L, U = t.contentType, W = U.getSlug(), Q = (W && W.enabled, 
+            var c, f, p, h, g, m, v, w, b, y, E, x, k, I, T, S, A, F, O, q, N, C, D, M, R, P, j, B, z, V, L, U = t.contentType, W = U.getSlug(), Q = (W && W.enabled, 
             {}), _ = t.itemData, G = _.fieldData, K = t.formOptions, $ = _.languageOptions, X = _.nativeFileOptions;
             i(_);
             var J = G.map(function(t) {
@@ -1057,9 +1059,9 @@
             }, this.getCollections = function() {
                 return Promise.resolve(j);
             }, this.getChannels = function() {
-                return Promise.resolve(z);
-            }, this.getPublishedChannels = function() {
                 return Promise.resolve(B);
+            }, this.getPublishedChannels = function() {
+                return Promise.resolve(z);
             }, this.getTaxonomies = function() {
                 return Promise.resolve(V);
             }, this.addChannels = function(e, t) {

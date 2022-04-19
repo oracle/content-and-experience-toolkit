@@ -1738,6 +1738,7 @@ var _createTemplateFromSite = function (server, name, siteName, includeUnpublish
 
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.location;
+				console.log(' - create template (job id: ' + statusLocation.substring(statusLocation.lastIndexOf('/') + 1) + ')');
 				var startTime = new Date();
 				var needNewLine = false;
 				var inter = setInterval(function () {

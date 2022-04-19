@@ -2,8 +2,6 @@
  * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
-/* globals app, module, __dirname */
-/* jshint esversion: 6 */
 var fs = require('fs'),
 	path = require('path'),
 	os = require('os'),
@@ -52,7 +50,7 @@ var SampleFilePersistenceStore = function (args) {
 		this.queueFilePath = path.join(this.compilationJobsDir, queueFileName);
 		if (!fs.existsSync(this.queueFilePath)) {
 			var emptyArray = [];
-			fs.writeFileSync(this.queueFilePath, JSON.stringify(emptyArray), { mode: 0600 });
+			fs.writeFileSync(this.queueFilePath, JSON.stringify(emptyArray), { mode: 0o600 });
 			console.log('SampleFilePersistenceStore queueFilePath', this.queueFilePath);
 		}
 	};
