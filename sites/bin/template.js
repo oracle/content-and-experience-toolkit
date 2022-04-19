@@ -76,7 +76,7 @@ var _cmdEnd = function (done, success) {
 
 
 var _createLocalTemplateFromSite = function (name, siteName, server, excludeContent, enterprisetemplate,
-	excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets) {
+	excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets, excludeFolders) {
 	return new Promise(function (resolve, reject) {
 
 		serverUtils.loginToServer(server).then(function (result) {
@@ -194,6 +194,21 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					};
 					console.log(' - downloading site files');
 					var excludeFolder = ['/publish', '/variants', '/static'];
+					if (excludeFolders && excludeFolders.length > 0) {
+						excludeFolders.forEach(function (folder) {
+							if (folder.indexOf('site:') === 0) {
+								var folderPath = folder.substring(5);
+								if (!folderPath.startsWith('/')) {
+									folderPath = '/' + folderPath;
+								}
+								if (!excludeFolder.includes(folderPath)) {
+									excludeFolder.push(folderPath);
+								}
+							}
+						});
+					}
+					// console.log(' - exlcude folders: ' + excludeFolder);
+
 					return documentUtils.downloadFolder(downloadArgv, server, true, false, excludeFolder);
 				})
 				.then(function (result) {
@@ -239,7 +254,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					}
 					themeId = result.id;
 
-					var downloadThemePromises = excludeTheme ? [] : [_downloadTheme(server, themeName, themeId, themeSrcPath)];
+					var downloadThemePromises = excludeTheme ? [] : [_downloadTheme(server, themeName, themeId, themeSrcPath, excludeFolders)];
 
 					return Promise.all(downloadThemePromises);
 
@@ -487,7 +502,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 	});
 };
 
-var _downloadTheme = function (server, themeName, themeId, themeSrcPath) {
+var _downloadTheme = function (server, themeName, themeId, themeSrcPath, excludeFolders) {
 	return new Promise(function (resolve, reject) {
 		// download theme
 		var downloadArgv = {
@@ -495,7 +510,21 @@ var _downloadTheme = function (server, themeName, themeId, themeSrcPath) {
 			folder: themeSrcPath
 		};
 		console.log(' - downloading theme files');
-		documentUtils.downloadFolder(downloadArgv, server, true, false)
+		var excludeFolder = ['/publish'];
+		if (excludeFolders && excludeFolders.length > 0) {
+			excludeFolders.forEach(function (folder) {
+				if (folder.indexOf('theme:') === 0) {
+					var folderPath = folder.substring(6);
+					if (!folderPath.startsWith('/')) {
+						folderPath = '/' + folderPath;
+					}
+					if (!excludeFolder.includes(folderPath)) {
+						excludeFolder.push(folderPath);
+					}
+				}
+			});
+		}
+		documentUtils.downloadFolder(downloadArgv, server, true, false, excludeFolder)
 			.then(function (result) {
 				console.log(' - download theme files');
 
@@ -839,7 +868,8 @@ var _downloadComponents = function (comps, server) {
 						path: 'component:' + param,
 						folder: compSrcPath
 					};
-					return documentUtils.downloadFolder(downloadArgv, server, false, false).then(function (result) {
+					var excludeFolder = ['/publish'];
+					return documentUtils.downloadFolder(downloadArgv, server, false, false, excludeFolder).then(function (result) {
 							if (result && result.err) {
 								fileUtils.remove(compSrcPath);
 							} else {
@@ -899,12 +929,14 @@ module.exports.createTemplate = function (argv, done) {
 		var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
 		var referencedassets = typeof argv.referencedassets === 'string' && argv.referencedassets.toLowerCase() === 'true';
 		var excludeContent = typeof argv.excludecontent === 'string' && argv.excludecontent.toLowerCase() === 'true';
+		var excludeComponents = typeof argv.excludecomponents === 'string' && argv.excludecomponents.toLowerCase() === 'true';
 		var enterprisetemplate = typeof argv.enterprisetemplate === 'string' && argv.enterprisetemplate.toLowerCase() === 'true';
-		var excludeComponents = false;
 		var excludeTheme = false;
 		var excludeType = false;
+		var excludeFolders = argv.excludefolders ? argv.excludefolders.split(',') : [];
+
 		_createLocalTemplateFromSite(argv.name, siteName, server, excludeContent, enterprisetemplate,
-				excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets)
+				excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets, excludeFolders)
 			.then(function (result) {
 				if (result.err) {
 					done();
@@ -1051,8 +1083,12 @@ gulp.task('create-no-content-template-zip', function (done) {
 	if (templateName) {
 		var tempBuildDir = path.join(templatesBuildDir, templateName);
 
-		gulp.src(tempBuildDir + '/**')
-			.pipe(zip(templateName + '.zip'))
+		gulp.src(tempBuildDir + '/**', {
+				buffer: false
+			})
+			.pipe(zip(templateName + '.zip', {
+				buffer: false
+			}))
 			.pipe(gulp.dest(path.join(projectDir, 'dist')))
 			.on('end', done);
 	}
@@ -1066,8 +1102,12 @@ gulp.task('create-template-zip', function (done) {
 			tempBuildDir = path.join(templatesBuildDir, templateName),
 			metainfbuilddir = path.join(templateBuildContentDirBase, 'META-INF');
 
-		gulp.src([tempBuildDir + '/**', '!' + contentdir, '!' + contentdir + '/**', '!' + metainfbuilddir, '!' + metainfbuilddir + '/**'])
-			.pipe(zip(templateName + '.zip'))
+		gulp.src([tempBuildDir + '/**', '!' + contentdir, '!' + contentdir + '/**', '!' + metainfbuilddir, '!' + metainfbuilddir + '/**'], {
+				buffer: false
+			})
+			.pipe(zip(templateName + '.zip', {
+				buffer: false
+			}))
 			.pipe(gulp.dest(path.join(projectDir, 'dist')))
 			.on('end', done);
 	}
@@ -1083,7 +1123,9 @@ gulp.task('create-template-export-zip', function (done) {
 		return gulp.src([contentdir + '/**', metainfbuilddir + '/**'], {
 				base: templateBuildContentDirBase
 			})
-			.pipe(zip('export.zip'))
+			.pipe(zip('export.zip', {
+				buffer: false
+			}))
 			.pipe(gulp.dest(path.join(templateBuildContentDirBase)))
 			.on('end', done);
 	}
@@ -1413,11 +1455,12 @@ var _publishComponents = function (server, comps) {
 							server: server,
 							name: compName,
 							hideAPI: true,
-							async: false
+							async: true
 						})
 						.then(function (result) {
 							if (!result.err) {
-								console.log(' - component ' + compName + ' published [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								// console.log(' - component ' + compName + ' published [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								console.log(' - component ' + compName + ' published');
 							}
 							resolve(result);
 						});
@@ -3129,17 +3172,6 @@ var _downloadTemplateREST = function (server, name) {
 				// console.log(result);
 
 				fileId = result.id;
-				console.log(' - downloading template zip file (id: ' + fileId + ' size: ' + result.size + ') ...');
-				startTime = new Date();
-				return serverRest.downloadFile({
-					server: server,
-					fFileGUID: fileId
-				});
-			})
-			.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
 
 				var destdir = path.join(projectDir, 'dist');
 				if (!fs.existsSync(destdir)) {
@@ -3147,7 +3179,19 @@ var _downloadTemplateREST = function (server, name) {
 				}
 
 				zippath = path.join(destdir, name + '.zip');
-				fs.writeFileSync(zippath, result.data);
+				console.log(' - downloading template zip file (id: ' + fileId + ' size: ' + result.size + ') ...');
+				startTime = new Date();
+				return serverRest.downloadFileSave({
+					server: server,
+					fFileGUID: fileId,
+					saveTo: zippath
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
 				console.log(' - template downloaded to ' + zippath + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 
 				// delete the zip file on server
@@ -3164,6 +3208,9 @@ var _downloadTemplateREST = function (server, name) {
 				resolve({});
 			})
 			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
 				resolve({
 					err: 'err'
 				});
@@ -3175,6 +3222,7 @@ var _importTemplateToServerRest = function (server, name, folder, zipfile) {
 	var fileName = zipfile.substring(zipfile.lastIndexOf('/') + 1);
 	return new Promise(function (resolve, reject) {
 		var folderPromises = [];
+		var startTime;
 		if (folder) {
 			folderPromises.push(serverRest.findFolderHierarchy({
 				server: server,
@@ -3191,6 +3239,8 @@ var _importTemplateToServerRest = function (server, name, folder, zipfile) {
 				var folderId = folder ? results[0].id : 'self';
 
 				// upload file
+				console.log(' - uploading file ' + fileName + ' ...');
+				startTime = new Date();
 				return serverRest.createFile({
 					server: server,
 					parentID: folderId,
@@ -3202,7 +3252,7 @@ var _importTemplateToServerRest = function (server, name, folder, zipfile) {
 				if (!result || !result.id) {
 					return Promise.reject();
 				}
-				console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + result.version);
+				console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + result.version + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 				var fileId = result.id;
 
 				return sitesRest.importTemplate({

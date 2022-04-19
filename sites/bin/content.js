@@ -314,7 +314,7 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 							}
 						});
 						if (notFoundAssets.length > 0) {
-							console.log('WRONG: the following assets not found: ' + notFoundAssets);
+							console.log('WARNING: items not found: ' + notFoundAssets);
 						}
 					}
 
@@ -399,25 +399,12 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 	});
 };
 
-var _queryItems = function (server, qstr, assetGUIDS) {
+var _queryItemsWithIds = function (server, qstr, assetGUIDS) {
 	return new Promise(function (resolve, reject) {
 		var items = [];
-		if (!qstr && (!assetGUIDS || assetGUIDS.length === 0)) {
-
+		if (assetGUIDS.length === 0) {
 			return resolve(items);
-
-		} else if (!assetGUIDS || assetGUIDS.length === 0) {
-
-			return serverRest.queryItems({
-				server: server,
-				q: qstr
-			}).then(function (result) {
-				items = result && result.data || [];
-				return resolve(items);
-			});
-
 		} else {
-
 			var total = assetGUIDS.length;
 			// console.log(' - total number of assets: ' + total);
 			var groups = [];
@@ -441,9 +428,8 @@ var _queryItems = function (server, qstr, assetGUIDS) {
 				});
 			}
 			// console.log(groups);
-
-			var items = [];
-
+			console.log(' - validating items ...');
+			var startTime = new Date();
 			var doQueryItems = groups.reduce(function (itemPromise, param) {
 					return itemPromise.then(function (result) {
 						var q = qstr;
@@ -462,10 +448,14 @@ var _queryItems = function (server, qstr, assetGUIDS) {
 
 						return serverRest.queryItems({
 							server: server,
-							q: q
+							q: q,
+							showTotal: false
 						}).then(function (result) {
 							if (result && result.data && result.data.length > 0) {
 								items = items.concat(result.data);
+								process.stdout.write(' - validating items ' + items.length +
+									' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								readline.cursorTo(process.stdout, 0);
 							}
 						});
 
@@ -475,8 +465,63 @@ var _queryItems = function (server, qstr, assetGUIDS) {
 				Promise.resolve({}));
 
 			doQueryItems.then(function (result) {
+				process.stdout.write(os.EOL);
 				resolve(items);
 			});
+		}
+	});
+};
+
+var _queryItems = function (server, qstr, assetGUIDS) {
+	return new Promise(function (resolve, reject) {
+		var items = [];
+		if (!qstr && (!assetGUIDS || assetGUIDS.length === 0)) {
+
+			return resolve(items);
+
+		} else if (!assetGUIDS || assetGUIDS.length === 0) {
+
+			return serverRest.queryItems({
+				server: server,
+				q: qstr
+			}).then(function (result) {
+				items = result && result.data || [];
+				var ids = [];
+				items.forEach(function (item) {
+					ids.push(item.id);
+				});
+				// verify items with id
+				_queryItemsWithIds(server, '', ids)
+					.then(function (result) {
+						var verifiedItems = result || [];
+						var notFound = [];
+						if (ids.length !== result.length) {
+							ids.forEach(function (id) {
+								var found = false;
+								for (var i = 0; i < verifiedItems.length; i++) {
+									if (id === verifiedItems[i].id) {
+										found = true;
+										break;
+									}
+								}
+								if (!found) {
+									notFound.push(id);
+								}
+							});
+							if (notFound.length > 0) {
+								console.log('WARNING: items not found: ' + notFound);
+							}
+						}
+						return resolve(verifiedItems);
+					});
+			});
+
+		} else {
+
+			_queryItemsWithIds(server, qstr, assetGUIDS)
+				.then(function (result) {
+					return resolve(result);
+				});
 		}
 	});
 };
@@ -693,27 +738,28 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 									// Download the export zip
 									console.log(' - downloading export ' + downloadLink);
 									startTime = new Date();
-									request.get(options, function (err, response, body) {
-										if (err) {
-											console.log('ERROR: Failed to download');
-											console.log(err);
-											return resolve({
-												err: 'err'
-											});
-										}
-										if (response && response.statusCode === 200) {
-											console.log(' - download export file [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-											fs.writeFileSync(exportfilepath, body);
-											console.log(' - save export to ' + exportfilepath);
+									var writer = fs.createWriteStream(exportfilepath);
+									serverRest.executeGetStream({
+											server: server,
+											endpoint: downloadLink,
+											writer: writer,
+											noMsg: true
+										})
+										.then(function (result) {
 
-											return resolve({});
-										} else {
-											console.log('ERROR: Failed to download, status=' + response.statusCode);
-											return resolve({
-												err: 'err'
-											});
-										}
-									});
+											if (!result || result.err) {
+												console.log('ERROR: Failed to download');
+												return resolve({
+													err: 'err'
+												});
+											} else {
+
+												console.log(' - download export file [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+												console.log(' - save export to ' + exportfilepath);
+
+												return resolve({});
+											}
+										});
 								}
 							} else if (status && status === 'FAILED') {
 								clearInterval(inter);
@@ -874,7 +920,9 @@ var _uploadContentFromZip = function (args) {
 		// 
 		var exportzippath = path.join(contentpath, 'export.zip');
 		gulp.src([contentpath + '/**', '!' + exportzippath])
-			.pipe(zip(contentfilename))
+			.pipe(zip(contentfilename, {
+				buffer: false
+			}))
 			.pipe(gulp.dest(path.join(projectDir, 'dist')))
 			.on('end', function () {
 				var zippath = path.join(projectDir, 'dist', contentfilename);
@@ -4025,7 +4073,8 @@ var _getMasterItems = function (server, items) {
 
 					return serverRest.queryItems({
 						server: server,
-						q: q
+						q: q,
+						showTotal: false
 					}).then(function (result) {
 						if (result && result.data && result.data.length > 0) {
 							masterItems = masterItems.concat(result.data);
@@ -4536,6 +4585,7 @@ module.exports.syncApproveItem = function (argv, done) {
 module.exports.utils = {
 	downloadContent: _downloadContentUtil,
 	uploadContent: _uploadContentUtil,
+	queryItemsWithIds: _queryItemsWithIds,
 	getSiteAssetsFromOtherRepos: _getSiteAssetsFromOtherRepos,
 	siteHasAssets: _siteHasAssets
 };

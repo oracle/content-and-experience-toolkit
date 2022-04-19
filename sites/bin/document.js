@@ -810,29 +810,8 @@ var _findFolder = function (server, rootParentId, folderPath, showError) {
 	});
 };
 
-
-module.exports.downloadFile = function (argv, done) {
-	'use strict';
-
-	if (!verifyRun(argv)) {
-		done();
-		return;
-	}
-
-	var serverName = argv.server;
-	var server = serverUtils.verifyServer(serverName, projectDir);
-	if (!server || !server.valid) {
-		done();
-		return;
-	}
-
-	serverUtils.loginToServer(server).then(function (result) {
-		if (!result.status) {
-			console.log(result.statusMessage);
-			done();
-			return;
-		}
-
+var _downloadFile = function (argv, server) {
+	return new Promise(function (resolve, reject) {
 		var filePath = argv.file;
 		var fileName = filePath;
 		if (fileName.indexOf('/') > 0) {
@@ -917,6 +896,7 @@ module.exports.downloadFile = function (argv, done) {
 		}
 
 		var startTime;
+		var targetFile;
 
 		Promise.all(resourcePromises).then(function (results) {
 				var rootParentId = 'self';
@@ -957,16 +937,6 @@ module.exports.downloadFile = function (argv, done) {
 				}
 
 				// console.log('folderId: ' + folderId + ' fileName: ' + fileName + ' fileId: ' + result.id);
-				console.log(' - downloading file (id: ' + result.id + ' size: ' + result.size + ') ...');
-				startTime = new Date();
-				return _readFile(server, result.id, fileName, folderPath);
-			})
-			.then(function (result) {
-				if (!result || !result.data) {
-					console.log('ERROR: failed to get file from server');
-					return Promise.reject();
-				}
-
 				if (!argv.folder) {
 					targetPath = documentsSrcDir;
 					if (resourceFolder) {
@@ -987,19 +957,66 @@ module.exports.downloadFile = function (argv, done) {
 					}
 				}
 
-				var targetFile = path.join(targetPath, fileName);
-				var fileContent = result.data;
-				fs.writeFileSync(targetFile, fileContent);
+				targetFile = path.join(targetPath, fileName);
+				console.log(' - downloading file (id: ' + result.id + ' size: ' + result.size + ') ...');
+				startTime = new Date();
+				return serverRest.downloadFileSave({
+					server: server,
+					fFileGUID: result.id,
+					saveTo: targetFile
+				});
+				
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					console.log('ERROR: failed to get file from server');
+					return Promise.reject();
+				}
 
 				console.log(' - save file ' + targetFile + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 
-				done(true);
+				return resolve({});
 			})
 			.catch((error) => {
 				if (error) {
 					console.log(error);
 				}
-				done();
+				return resolve({
+					err: 'err'
+				});
+			});
+	});
+};
+
+module.exports.downloadFile = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.log(result.statusMessage);
+			done();
+			return;
+		}
+
+		_downloadFile(argv, server)
+			.then(function (result) {
+				if (!result || result.err) {
+					done();
+				} else {
+					done(true);
+				}
 			});
 	}); // login
 };
@@ -1558,9 +1575,6 @@ module.exports.listFolder = function (argv, done) {
 };
 
 
-// All files to download from server
-var _files = [];
-
 module.exports.downloadFolder = function (argv, done) {
 	'use strict';
 
@@ -1648,7 +1662,8 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 
 		var folderId;
 
-		_files = [];
+		// All files of the folder to download from server
+		var _files = [];
 
 		var loginPromises = [];
 
@@ -1713,7 +1728,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 					}
 					folderId = result.id;
 
-					return _downloadFolderWithId(server, folderId, inputPath, excludeFolder);
+					return _downloadFolderWithId(server, folderId, inputPath, excludeFolder, _files);
 				})
 				.then(function (result) {
 					// console.log(' _files: ' + _files.length);
@@ -1894,8 +1909,8 @@ var _readAllFiles = function (server, files) {
 	});
 };
 
-var _downloadFolderWithId = function (server, parentId, parentPath, excludeFolder) {
-	// console.log(' - folder: id=' + parentId + ' path=' + parentPath);
+var _downloadFolderWithId = function (server, parentId, parentPath, excludeFolder, _files) {
+// console.log(' - folder: id=' + parentId + ' path=' + parentPath + ' excludeFolder=' + excludeFolder);
 	return new Promise(function (resolve, reject) {
 		var doQuery = true;
 		if (excludeFolder && excludeFolder.length > 0) {
@@ -1964,7 +1979,7 @@ var _downloadFolderWithId = function (server, parentId, parentPath, excludeFolde
 								folderPath: parentPath
 							});
 						} else {
-							subfolderPromises.push(_downloadFolderWithId(server, items[i].id, parentPath + '/' + items[i].name, excludeFolder));
+							subfolderPromises.push(_downloadFolderWithId(server, items[i].id, parentPath + '/' + items[i].name, excludeFolder, _files));
 						}
 					}
 					return Promise.all(subfolderPromises);
@@ -2691,6 +2706,7 @@ module.exports.utils = {
 	uploadFolder: _uploadFolder,
 	downloadFolder: _downloadFolder,
 	deleteFolder: _deleteFolder,
+	downloadFile: _downloadFile,
 	uploadFile: _uploadFile,
 	deleteFile: _deleteFile
 };

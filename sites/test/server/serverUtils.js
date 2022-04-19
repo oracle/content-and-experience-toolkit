@@ -1671,6 +1671,7 @@ var _getOAuthTokenFromIDCS = function (server) {
 			body: formData,
 			json: true
 		};
+		// console.log(postData);
 
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
@@ -1687,7 +1688,7 @@ var _getOAuthTokenFromIDCS = function (server) {
 			} catch (error) {
 				data = body;
 			}
-			// console.log(data);
+
 			if (!data || response.statusCode !== 200) {
 				var msg = (data && (data.error || data.error_description)) ? (data.error_description || data.error) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: Failed to get OAuth token - ' + msg);
@@ -4003,7 +4004,7 @@ module.exports.convertResultSetToJson = function (resultSet) {
  * @param {string} args.fFolderGUID The DOCS GUID for the folder to delete
  * @returns {Promise.<object>} The data object returned by the server.
  */
- module.exports.deleteFolder = function (args) {
+module.exports.deleteFolder = function (args) {
 	return _deletePermanentSCS(args.server, args.fFolderGUID, false, _deleteDone);
 };
 

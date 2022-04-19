@@ -125,7 +125,7 @@ module.exports.registerServer = function (argv, done) {
 	var user = argv.user;
 	var password = argv.password;
 	var type = argv.type || 'pod_ec';
-	var idcs_url = argv.idcsurl;
+	var idcs_url = argv.domainurl || argv.idcsurl;
 	var client_id = argv.clientid;
 	var client_secret = argv.clientsecret;
 	var scope = argv.scope;
@@ -984,18 +984,21 @@ module.exports.executeGet = function (argv, done) {
 		});
 		*/
 
-		serverRest.executeGet({
+		var writer = fs.createWriteStream(output);
+		serverRest.executeGetStream({
 				server: server,
-				endpoint: endpoint
+				endpoint: endpoint,
+				writer: writer
 			})
 			.then(function (result) {
 
 				if (!result || result.err) {
 					done();
 				} else {
-					console.log(' - saving result to ' + output);
-					fs.writeFileSync(output, result);
-					console.log(' - finished');
+					// fs.writeFileSync(output, result);
+					// var writer = fs.createWriteStream(output);
+					// writer.write(result);
+					console.log(' - result saved to ' + output);
 
 					done(true);
 				}

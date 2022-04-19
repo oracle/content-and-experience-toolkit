@@ -1,4 +1,3 @@
-/* globals app */
 var path = require('path'),
 	exec = require('child_process').exec,
 	serverUtils = require('../server/serverUtils'),

@@ -7,6 +7,7 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	fileUtils = require('../test/server/fileUtils.js'),
 	componentUtils = require('./component.js').utils,
+	contentUtils = require('./content.js').utils,
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	gulp = require('gulp'),
@@ -5235,6 +5236,8 @@ module.exports.listAssets = function (argv, done) {
 	var ranking = argv.rankby;
 	var rankingApiName;
 
+	var validate = typeof argv.validate === 'boolean' ? argv.validate : argv.validate === 'true';
+
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.log(result.statusMessage);
@@ -5405,16 +5408,59 @@ module.exports.listAssets = function (argv, done) {
 				}
 
 				var timeSpent = serverUtils.timeUsed(startTime, new Date());
-
+				fs.writeFileSync(path.join(projectDir, 'Netsuite_Headstart_items.json'), JSON.stringify(result.data, null, 2));
 				items = result && result.data || [];
 				total = items.length;
 				limit = result.limit;
 
-				console.log(' - items: ' + total + ' of ' + limit);
+				console.log(' - items: ' + total + ' of ' + limit + ' [' + timeSpent + ']');
 
 				if (total > 0) {
 					_displayAssets(server, repository, collection, channel, channelToken, items, showURLS, rankingApiName);
 					console.log(' - items: ' + total + ' of ' + limit + ' [' + timeSpent + ']');
+				}
+
+				var validatePromises = [];
+				if (validate && items.length > 0) {
+					var ids = [];
+					items.forEach(function (item) {
+						ids.push(item.id);
+					});
+					validatePromises.push(contentUtils.queryItemsWithIds(server, '', ids));
+				}
+
+				return Promise.all(validatePromises);
+
+			})
+			.then(function (results) {
+				if (validate && items.length > 0) {
+					var notFound = [];
+					var validatedItems = results[0];
+					if (validatedItems.length !== items.length) {
+						items.forEach(function (item) {
+							var found = false;
+							for (var i = 0; i < validatedItems.length; i++) {
+								if (item.id === validatedItems[i].id) {
+									found = true;
+									break;
+								}
+							}
+							if (!found) {
+								notFound.push(item);
+							}
+						});
+					}
+					if (notFound.length > 0) {
+						console.log(' - items not found:');
+						var format = '   %-38s %-38s %-s';
+						console.log(sprintf(format, 'Type', 'Id', 'Name'));
+						notFound.forEach(function (item) {
+							console.log(sprintf(format, item.type, item.id, item.name));
+						});
+						console.log(JSON.stringify(notFound, null, 4));
+					} else {
+						console.log(' - validation finished');
+					}
 				}
 
 				done(true);
@@ -5741,7 +5787,9 @@ var _zipContent = function (contentpath, contentfilename) {
 		gulp.src(contentpath + '/**', {
 				base: contentpath
 			})
-			.pipe(zip(contentfilename))
+			.pipe(zip(contentfilename, {
+				buffer: false
+			}))
 			.pipe(gulp.dest(path.join(projectDir, 'dist')))
 			.on('end', function () {
 				var zippath = path.join(projectDir, 'dist', contentfilename);

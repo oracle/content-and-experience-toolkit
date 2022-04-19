@@ -277,10 +277,10 @@ ContentLayout.prototype = {
 		}
 		// Handling seeded Digital Asset
 		if (content.typeCategory === 'DigitalAssetType' && 
-			(content.type === 'Image' || 
-			 content.type === 'Video' || 
-			 content.type === 'Video-Plus' || 
-			 content.type === 'File')) {
+			(content.type === 'Image' ||
+			content.type === 'Video' ||
+			content.type === 'Video-Plus' ||
+			content.type === 'File')) {
 			// For seeded digital asset types, render the content list dynamically
 			return Promise.resolve({
 				content: ''

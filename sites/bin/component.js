@@ -405,7 +405,9 @@ gulp.task('create-component-zip', function (done) {
 			return gulp.src(`${componentsBuildDir}/${comp}/**/*`, {
 					base: componentsBuildDir
 				})
-				.pipe(zip(`${comp}.zip`))
+				.pipe(zip(`${comp}.zip`), {
+					buffer: false
+				})
 				.pipe(gulp.dest(destDir))
 				.on('end', function () {
 					var zippath = path.join(destDir, comp + '.zip');
@@ -739,7 +741,7 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 						server: server,
 						id: componentId,
 						name: name,
-						async: false
+						async: true
 					}));
 				}
 
@@ -751,7 +753,8 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 					if (results && results[0] && results[0].err) {
 						return Promise.reject();
 					} else {
-						console.log(' - component ' + name + ' published/republished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						// console.log(' - component ' + name + ' published/republished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						console.log(' - component ' + name + ' published/republished');
 						resolve({
 							fileId: fileId
 						});
@@ -1076,7 +1079,7 @@ var _controlComponentsREST = function (server, componentNames) {
 							server: server,
 							name: componentNames[i],
 							hideAPI: true,
-							async: false
+							async: true
 						}));
 					}
 
@@ -1085,7 +1088,8 @@ var _controlComponentsREST = function (server, componentNames) {
 							if (!results[i] || results[i].err) {
 								err = 'err';
 							} else {
-								console.log(' - publish ' + results[i].name + ' finished  [' + results[i].timeUsed + ']');
+								// console.log(' - publish ' + results[i].name + ' finished  [' + results[i].timeUsed + ']');
+								console.log(' - publish ' + results[i].name + ' finished');
 							}
 						}
 					});

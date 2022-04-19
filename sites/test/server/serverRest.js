@@ -752,6 +752,21 @@ module.exports.downloadFile = function (args) {
 	return _downloadFile(args.server, args.fFileGUID);
 };
 
+/**
+ * Download file from server by file id and save to local
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.fFileGUID The DOCS GUID for the file to update
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.downloadFileSave = function (args) {
+	var url = args.server.url + '/documents/api/1.2/files/' + args.fFileGUID + '/data/';
+	var noMsg = true;
+	var writer = fs.createWriteStream(args.saveTo);
+	return _executeGetStream(args.server, url, writer, noMsg);
+
+};
+
 // Delete file from server
 var _deleteFile = function (server, fFileGUID, filePath) {
 	return new Promise(function (resolve, reject) {
@@ -7757,6 +7772,71 @@ var _executeGet = function (server, endpoint, noMsg) {
 				return resolve(body);
 			} else {
 				console.log('ERROR: Failed to execute' + ' (ecid: ' + response.ecid + ')');
+				var data;
+				try {
+					data = JSON.parse(body);
+					console.log(data);
+				} catch (e) {}
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
+module.exports.executeGetStream = function (args) {
+	return _executeGetStream(args.server, args.endpoint, args.writer, args.noMsg);
+};
+
+var _executeGetStream = function (server, endpoint, writer, noMsg) {
+	return new Promise(function (resolve, reject) {
+		var showDetail = noMsg ? false : true;
+		var url;
+		if (endpoint.startsWith('http')) {
+			url = endpoint;
+		} else {
+			url = server.url + endpoint;
+		}
+
+		var options = {
+			url: url,
+			encoding: null,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		if (server.cookies) {
+			options.headers.Cookie = server.cookies;
+		}
+		// console.log(options);
+
+		if (showDetail) {
+			console.log(' - executing endpoint: ' + endpoint);
+		}
+		var request = require('./requestUtils.js').request;
+		request.getStream(options, function (err, response, body) {
+			if (err) {
+				console.log('ERROR: Failed to execute' + ' (ecid: ' + response.ecid + ')');
+				console.log(err);
+				return resolve({
+					err: 'err'
+				});
+			}
+			if (showDetail) {
+				console.log(' - status: ' + response.statusCode + ' (' + response.statusMessage + ')');
+			}
+			if (response && response.statusCode === 200) {
+				if (showDetail) {
+					console.log(' - writing result ...');
+				}
+				body.pipe(writer);
+				body.on('end', function () {
+					// console.log(' - ended');
+					return resolve({});
+				});
+			} else {
+				console.log('ERROR: Failed to execute ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 				var data;
 				try {
 					data = JSON.parse(body);

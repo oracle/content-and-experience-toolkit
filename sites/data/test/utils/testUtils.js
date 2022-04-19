@@ -90,7 +90,7 @@ var _loginToServer = function (server, selectors) {
 				await page.evaluate((usernameid, username, passwordid, password) => {
 					document.querySelector(usernameid).value = username;
 					document.querySelector(passwordid).value = password;
-				  }, usernameid, username, passwordid, password);
+				}, usernameid, username, passwordid, password);
 
 				// login with entered credentials
 				var button = await page.waitForSelector(submitid);

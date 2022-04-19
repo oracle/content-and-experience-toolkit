@@ -5,8 +5,6 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
-/* jshint esversion: 6 */
-
 const path = require('path');
 const childProcess = require('child_process');
 const fs = require('fs');
@@ -548,6 +546,8 @@ const createTemplate = {
 		['cec create-template Temp1 -s Site1 -p', 'Create template Temp1 based on site Site1 on OCM server and include only the published assets'],
 		['cec create-template Temp1 -s Site1 -n', 'Create template Temp1 based on site Site1 on OCM server and include only the assets added to the site\'s pages'],
 		['cec create-template Temp1 -s Site1 -x', 'Create template Temp1 based on site Site1 on OCM server and exclude the content in the site'],
+		['cec create-template Temp1 -s Site1 -c', 'Create template Temp1 based on site Site1 on OCM server and exclude the components used in the site'],
+		['cec create-template Temp1 -s Site1 -d site:content', 'Create template Temp1 based on site Site1 on OCM server and exclude the content folder of the site'],
 		['cec create-template Temp1 -s Site1 -r UAT', 'Create template Temp1 based on site Site1 on the registered server UAT'],
 		['cec create-template EnterpriseTemp1 -s StandardSite1 -e', 'Create enterprise template EnterpriseTemp1 based on standard site StandardSite1 on OCM server'],
 	]
@@ -1680,8 +1680,8 @@ const createSiteMap = {
 	},
 	example: [
 		['cec create-site-map Site1 -u http://www.example.com/site1'],
-		['cec create-site-map Site1 -u http://www.example.com/site1 -a', 'Create entry for all site assets of the types which are placed on site detail pages' ],
-		['cec create-site-map Site1 -u http://www.example.com/site1 -a Blog,Author', 'Create entry for all site assets of the type Blog and Author if they are placed on site detail pages' ],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -a', 'Create entry for all site assets of the types which are placed on site detail pages'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -a Blog,Author', 'Create entry for all site assets of the type Blog and Author if they are placed on site detail pages'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -s UAT'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -t 0.9'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -f sitemap.xml'],
@@ -2455,6 +2455,7 @@ const listAssets = {
 		['cec list-assets -r Repo1', 'List all assets from repository Repo1'],
 		['cec list-assets -r Repo1 -o "name:asc"', 'List all assets from repository Repo1 and order them by name'],
 		['cec list-assets -c Channel1', 'List all assets from channel Channel1'],
+		['cec list-assets -c Channel1 -v', 'Query all items from channel Channel1 and validate existence'],
 		['cec list-assets -r Repo1 -l Collection1', 'List all assets from collection Collection1 and repository Repo1'],
 		['cec list-assets -q \'fields.category eq "RECIPE"\'', 'List all assets matching the query'],
 		['cec list-assets -q \'fields.category eq "RECIPE"\' -k ranking1', 'List all assets matching the query and order them by relevance']
@@ -3011,12 +3012,12 @@ const registerServer = {
 				'Optionally specify -t <type> to set the server type. The valid values for <type> are:\n\n';
 			desc = getServerTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc) +
 				'\nand the default value is pod_ec.';
-			desc = desc + os.EOL + os.EOL + 'For pod_ec server, optionlly specify <idcsurl>, <clientid>, <clientsecret> and <scope> for headless commands. ';
+			desc = desc + os.EOL + os.EOL + 'For pod_ec server, optionlly specify <domainurl>, <clientid>, <clientsecret> and <scope> for headless commands. ';
 			return desc;
 		})()
 	},
 	example: [
-		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -i http://idcs1.com -c clientid -s clientsecret -o https://primary-audience-and-scope', 'The server is a tenant on Oracle Public cloud'],
+		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -d http://identitydomain1.com -c clientid -s clientsecret -o https://primary-audience-and-scope', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -m 60000', 'The server is a tenant on Oracle Public cloud'],
 		['cec register-server server1 -e http://server1.git.oraclecorp.com.com -u user1 -p Welcome1 -t dev_ec', 'The server is a standalone development instance'],
@@ -3772,11 +3773,11 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('from', {
 					alias: 'f',
-					description: '<source> Source to create from'
+					description: 'Source to create from'
 				})
 				.option('site', {
 					alias: 's',
-					description: '<site> Site to create from'
+					description: 'Site to create from'
 				})
 				.option('publishedassets', {
 					alias: 'p',
@@ -3790,13 +3791,21 @@ const argv = yargs.usage(_usage)
 					alias: 'x',
 					description: 'Exclude content'
 				})
+				.option('excludecomponents', {
+					alias: 'c',
+					description: 'Exclude components'
+				})
+				.option('excludefolders', {
+					alias: 'd',
+					description: 'The comma separated list of excluded folders for site and theme'
+				})
 				.option('enterprisetemplate', {
 					alias: 'e',
 					description: 'Enterprise template'
 				})
 				.option('server', {
 					alias: 'r',
-					description: '<server> The registered OCM server'
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (argv.from && !getTemplateSources().includes(argv.from)) {
@@ -3815,6 +3824,8 @@ const argv = yargs.usage(_usage)
 				.example(...createTemplate.example[5])
 				.example(...createTemplate.example[6])
 				.example(...createTemplate.example[7])
+				.example(...createTemplate.example[8])
+				.example(...createTemplate.example[9])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createTemplate.command}\n\n${createTemplate.usage.long}`);
@@ -6830,6 +6841,10 @@ const argv = yargs.usage(_usage)
 					alias: 'k',
 					description: 'The ranking policy API name'
 				})
+				.option('validate', {
+					alias: 'v',
+					description: 'Validate the existence of each item'
+				})
 				/*
 				.option('urls', {
 					alias: 'u',
@@ -6854,6 +6869,7 @@ const argv = yargs.usage(_usage)
 				.example(...listAssets.example[5])
 				.example(...listAssets.example[6])
 				.example(...listAssets.example[7])
+				.example(...listAssets.example[8])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listAssets.command}\n\n${listAssets.usage.long}`);
@@ -7567,17 +7583,17 @@ const argv = yargs.usage(_usage)
 			yargs
 				.option('endpoint', {
 					alias: 'e',
-					description: '<endpoint> Server endpoint',
+					description: 'Server endpoint',
 					demandOption: true
 				})
 				.option('user', {
 					alias: 'u',
-					description: '<user> User name',
+					description: 'User name',
 					demandOption: true
 				})
 				.option('password', {
 					alias: 'p',
-					description: '<password> Password',
+					description: 'Password',
 					demandOption: true
 				})
 				.option('key', {
@@ -7586,23 +7602,28 @@ const argv = yargs.usage(_usage)
 				})
 				.option('type', {
 					alias: 't',
-					description: '<type> Server type'
+					description: 'Server type'
 				})
 				.option('idcsurl', {
 					alias: 'i',
-					description: '<idcsurl> Oracle Identity Cloud Service Instance URL'
+					description: 'Oracle Identity Cloud Service Instance URL',
+					hidden: true
+				})
+				.option('domainurl', {
+					alias: 'd',
+					description: 'Oracle Identity Domain URL'
 				})
 				.option('clientid', {
 					alias: 'c',
-					description: '<clientid> Client ID'
+					description: 'Client ID'
 				})
 				.option('clientsecret', {
 					alias: 's',
-					description: '<clientsecret> Client secret'
+					description: 'Client secret'
 				})
 				.option('scope', {
 					alias: 'o',
-					description: '<clientsecret> Scope'
+					description: 'Scope'
 				})
 				.option('timeout', {
 					alias: 'm',
@@ -7612,10 +7633,10 @@ const argv = yargs.usage(_usage)
 					if (argv.type && !getServerTypes().includes(argv.type) && argv.type.indexOf('dev_ec:') < 0) {
 						throw new Error(`${argv.type} is not a valid value for <type>`);
 					} else if (!argv.type || argv.type === 'pod_ec') {
-						var useIDCS = argv.idcsurl || argv.clientid || argv.clientsecret || argv.scope;
+						var useIDCS = argv.domainurl || argv.idcsurl || argv.clientid || argv.clientsecret || argv.scope;
 						if (useIDCS) {
-							if (!argv.idcsurl) {
-								throw new Error('Please specify Oracle Identity Cloud Service Instance URL <idcsurl>');
+							if (!argv.domainurl && !argv.idcsurl) {
+								throw new Error('Please specify Oracle Identity Domain URL <domainurl>');
 							} else if (!argv.clientid) {
 								throw new Error('Please specify client id <clientid>');
 							} else if (!argv.clientsecret) {
@@ -8237,6 +8258,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.excludecontent) {
 		createTemplateArgs.push(...['--excludecontent', argv.excludecontent]);
+	}
+	if (argv.excludecomponents) {
+		createTemplateArgs.push(...['--excludecomponents', argv.excludecomponents]);
+	}
+	if (argv.excludefolders) {
+		createTemplateArgs.push(...['--excludefolders', argv.excludefolders]);
 	}
 	if (argv.enterprisetemplate) {
 		createTemplateArgs.push(...['--enterprisetemplate', argv.enterprisetemplate]);
@@ -9167,6 +9194,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.orderby) {
 		listAssetsArgs.push(...['--orderby', argv.orderby]);
+	}
+	if (argv.validate) {
+		listAssetsArgs.push(...['--validate', argv.validate]);
 	}
 	if (argv.rankby) {
 		listAssetsArgs.push(...['--rankby', argv.rankby]);
@@ -10865,6 +10895,9 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	}
 	if (argv.idcsurl) {
 		registerServerArgs.push(...['--idcsurl'], argv.idcsurl);
+	}
+	if (argv.domainurl) {
+		registerServerArgs.push(...['--domainurl'], argv.domainurl);
 	}
 	if (argv.clientid) {
 		registerServerArgs.push(...['--clientid'], argv.clientid);

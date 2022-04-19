@@ -1,5 +1,3 @@
-/* globals app */
-
 var JobQueue = function(args) {
         this.ps = args.ps;
         this.items = [];
