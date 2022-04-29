@@ -17,6 +17,8 @@ var fs = require('fs'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	serverUtils = require('../test/server/serverUtils.js');
 
+var console = require('../test/server/logger.js').console;
+
 var cecDir = path.join(__dirname, ".."),
 	componentsDataDir = path.join(cecDir, 'data', 'components');
 
@@ -61,11 +63,11 @@ module.exports.listServerContentTypes = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -133,7 +135,7 @@ module.exports.createContentLayout = function (argv, done) {
 			return;
 		}
 
-		console.log(' - server: ' + server.url);
+		console.info(' - server: ' + server.url);
 	}
 
 	var contenttypename = argv.contenttype,
@@ -190,7 +192,7 @@ module.exports.createContentLayout = function (argv, done) {
 	}
 
 	var addcustomsettings = typeof argv.addcustomsettings === 'string' && argv.addcustomsettings.toLowerCase() === 'true';
-
+console.log(useserver);
 	if (useserver) {
 
 		// verify the content type
@@ -362,21 +364,21 @@ module.exports.addContentLayoutMapping = function (argv, done) {
 		mappings[mappings.length] = {
 			"type": contenttypename,
 			"categoryList": [{
-					"categoryName": "Default",
-					"layoutName": ""
-				},
-				{
-					"categoryName": "Content List Default",
-					"layoutName": ""
-				},
-				{
-					"categoryName": "Content Placeholder Default",
-					"layoutName": ""
-				},
-				{
-					"categoryName": "Empty Content List Default",
-					"layoutName": ""
-				}
+				"categoryName": "Default",
+				"layoutName": ""
+			},
+			{
+				"categoryName": "Content List Default",
+				"layoutName": ""
+			},
+			{
+				"categoryName": "Content Placeholder Default",
+				"layoutName": ""
+			},
+			{
+				"categoryName": "Empty Content List Default",
+				"layoutName": ""
+			}
 			]
 		};
 	}
@@ -595,7 +597,7 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 	// base contentlayout files
 	layoutzipfile = 'contentlayout.zip';
 
-	console.log(' - layoutstyle = ' + layoutstyle + ' haslargetext = ' + haslargetext + ' hasRefItems = ' + hasRefItems + ' hasMultiItems = ' + hasMultiItems + ' layoutzipfile = ' + layoutzipfile);
+	console.info(' - layoutstyle = ' + layoutstyle + ' haslargetext = ' + haslargetext + ' hasRefItems = ' + hasRefItems + ' hasMultiItems = ' + hasMultiItems + ' layoutzipfile = ' + layoutzipfile);
 
 	// Unzip the component and update metadata
 	fileUtils.extractZip(path.join(componentsDataDir, layoutzipfile), componentDir)
@@ -617,7 +619,7 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 					designstr = fs.readFileSync(designfile).toString(),
 					newdesignstr = serverUtils.replaceAll(designstr, '_devcs_contenttype_name', contenttypename);
 				fs.writeFileSync(designfile, newdesignstr);
-				console.log(' - update design.css');
+				console.info(' - update design.css');
 
 				// update layout.html
 				var layoutfile = path.join(componentDir, 'assets', 'layout.html'),
@@ -704,7 +706,7 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 					'{{/scsData.detailPageLink}}';
 				newlayoutstr = newlayoutstr.replace('_devcs_contenttype_fields', fieldstr);
 				fs.writeFileSync(layoutfile, newlayoutstr);
-				console.log(' - update layout.html');
+				console.info(' - update layout.html');
 
 				// update render.mjs
 				var renderfile = path.join(componentDir, 'assets', 'render.mjs'),
@@ -753,7 +755,7 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 				renderstr = renderstr.replace('_noPermissionToView_', 'You do not have permission to view this asset');
 
 				fs.writeFileSync(renderfile, renderstr);
-				console.log(' - update render.mjs');
+				console.info(' - update render.mjs');
 
 				if (addcustomsettings) {
 					// update appinfo.json
@@ -772,7 +774,7 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 					// add default settings.html
 					var settingsFile = 'settings.html';
 					fs.copyFileSync(path.join(componentsDataDir, settingsFile), path.join(componentDir, 'assets', settingsFile));
-					console.log(' - add custom settings');
+					console.info(' - add custom settings');
 				}
 
 				console.log(`Created content layout ${layoutname} at ${componentDir}`);
@@ -805,27 +807,27 @@ module.exports.addFieldEditor = function (argv, done) {
 	// verify field editor
 	var filePath = path.join(componentsSrcDir, name, 'appinfo.json');
 	if (!fs.existsSync(filePath)) {
-		console.log('ERROR: field editor ' + name + ' does not exist');
+		console.error('ERROR: field editor ' + name + ' does not exist');
 		done();
 		return;
 	}
 	try {
 		var appInfoJson = JSON.parse(fs.readFileSync(filePath));
 		if (!appInfoJson || !appInfoJson.type || appInfoJson.type !== 'fieldeditor') {
-			console.log('ERROR: ' + name + ' is not a field editor');
+			console.error('ERROR: ' + name + ' is not a field editor');
 			done();
 			return;
 		}
-		console.log(' - verify field editor ' + name);
+		console.info(' - verify field editor ' + name);
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 		done();
 		return;
 	}
 
 	var templatePath = contenttemplate ? path.join(contentSrcDir, templateName) : path.join(templatesSrcDir, templateName);
 	if (!fs.existsSync(templatePath)) {
-		console.log('ERROR: ' + (contenttemplate ? 'content ' : '') + 'template ' + templateName + ' does not exist');
+		console.error('ERROR: ' + (contenttemplate ? 'content ' : '') + 'template ' + templateName + ' does not exist');
 		done();
 		return;
 	}
@@ -833,15 +835,15 @@ module.exports.addFieldEditor = function (argv, done) {
 	var templateContentPath = contenttemplate ? path.join(templatePath, 'contentexport') :
 		path.join(templatePath, 'assets', 'contenttemplate', 'Content Template of ' + templateName);
 	if (!fs.existsSync(templateContentPath)) {
-		console.log('ERROR: template ' + templateName + ' does not have content');
+		console.error('ERROR: template ' + templateName + ' does not have content');
 		done();
 		return;
 	}
-	console.log(' - get template');
+	console.info(' - get template');
 
 	var typePath = path.join(templateContentPath, 'ContentTypes', typeName + '.json');
 	if (!fs.existsSync(typePath)) {
-		console.log('ERROR: type ' + typeName + ' does not exist');
+		console.error('ERROR: type ' + typeName + ' does not exist');
 		done();
 		return;
 	}
@@ -849,16 +851,16 @@ module.exports.addFieldEditor = function (argv, done) {
 	try {
 		typeJson = JSON.parse(fs.readFileSync(typePath));
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 		done();
 		return;
 	}
 	if (!typeJson || !typeJson.id || !typeJson.name) {
-		console.log('ERROR: type ' + typeName + ' is not valid');
+		console.error('ERROR: type ' + typeName + ' is not valid');
 		done();
 		return;
 	}
-	console.log(' - get content type');
+	console.info(' - get content type');
 
 	var fields = typeJson.fields || [];
 	var field;
@@ -869,11 +871,11 @@ module.exports.addFieldEditor = function (argv, done) {
 		}
 	}
 	if (!field) {
-		console.log('ERROR: field ' + fieldName + ' is not found in type ' + typeName);
+		console.error('ERROR: field ' + fieldName + ' is not found in type ' + typeName);
 		done();
 		return;
 	}
-	console.log(' - get field');
+	console.info(' - get field');
 	var editor = {
 		name: 'custom-editor',
 		options: {
@@ -923,7 +925,7 @@ module.exports.addFieldEditor = function (argv, done) {
 		try {
 			summaryjson = JSON.parse(fs.readFileSync(summaryPath));
 		} catch (e) {
-			console.log(e);
+			console.error(e);
 		}
 		if (!summaryjson) {
 			done();
@@ -973,7 +975,7 @@ module.exports.addFieldEditor = function (argv, done) {
 
 		done(true);
 	} else {
-		console.log('ERROR: template ' + templateName + ' does not have summary.json');
+		console.error('ERROR: template ' + templateName + ' does not have summary.json');
 		done();
 	}
 
@@ -999,27 +1001,27 @@ module.exports.removeFieldEditor = function (argv, done) {
 	// verify field editor
 	var filePath = path.join(componentsSrcDir, name, 'appinfo.json');
 	if (!fs.existsSync(filePath)) {
-		console.log('ERROR: field editor ' + name + ' does not exist');
+		console.error('ERROR: field editor ' + name + ' does not exist');
 		done();
 		return;
 	}
 	try {
 		var appInfoJson = JSON.parse(fs.readFileSync(filePath));
 		if (!appInfoJson || !appInfoJson.type || appInfoJson.type !== 'fieldeditor') {
-			console.log('ERROR: ' + name + ' is not a field editor');
+			console.error('ERROR: ' + name + ' is not a field editor');
 			done();
 			return;
 		}
-		console.log(' - verify field editor ' + name);
+		console.info(' - verify field editor ' + name);
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 		done();
 		return;
 	}
 
 	var templatePath = contenttemplate ? path.join(contentSrcDir, templateName) : path.join(templatesSrcDir, templateName);
 	if (!fs.existsSync(templatePath)) {
-		console.log('ERROR: ' + (contenttemplate ? 'content ' : '') + 'template ' + templateName + ' does not exist');
+		console.error('ERROR: ' + (contenttemplate ? 'content ' : '') + 'template ' + templateName + ' does not exist');
 		done();
 		return;
 	}
@@ -1027,15 +1029,15 @@ module.exports.removeFieldEditor = function (argv, done) {
 	var templateContentPath = contenttemplate ? path.join(templatePath, 'contentexport') :
 		path.join(templatePath, 'assets', 'contenttemplate', 'Content Template of ' + templateName);
 	if (!fs.existsSync(templateContentPath)) {
-		console.log('ERROR: template ' + templateName + ' does not have content');
+		console.error('ERROR: template ' + templateName + ' does not have content');
 		done();
 		return;
 	}
-	console.log(' - get template');
+	console.info(' - get template');
 
 	var typePath = path.join(templateContentPath, 'ContentTypes', typeName + '.json');
 	if (!fs.existsSync(typePath)) {
-		console.log('ERROR: type ' + typeName + ' does not exist');
+		console.error('ERROR: type ' + typeName + ' does not exist');
 		done();
 		return;
 	}
@@ -1043,16 +1045,16 @@ module.exports.removeFieldEditor = function (argv, done) {
 	try {
 		typeJson = JSON.parse(fs.readFileSync(typePath));
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 		done();
 		return;
 	}
 	if (!typeJson || !typeJson.id || !typeJson.name) {
-		console.log('ERROR: type ' + typeName + ' is not valid');
+		console.error('ERROR: type ' + typeName + ' is not valid');
 		done();
 		return;
 	}
-	console.log(' - get content type');
+	console.info(' - get content type');
 
 	var fields = typeJson.fields || [];
 	var field;
@@ -1063,11 +1065,11 @@ module.exports.removeFieldEditor = function (argv, done) {
 		}
 	}
 	if (!field) {
-		console.log('ERROR: field ' + fieldName + ' is not found in type ' + typeName);
+		console.error('ERROR: field ' + fieldName + ' is not found in type ' + typeName);
 		done();
 		return;
 	}
-	console.log(' - get field');
+	console.info(' - get field');
 	var editor = field.settings && field.settings.caas && field.settings.caas.editor;
 	if (editor && editor.isCustom && editor.options && editor.options.name === name) {
 		field.settings.caas.editor = {};
@@ -1114,7 +1116,7 @@ module.exports.removeFieldEditor = function (argv, done) {
 		try {
 			summaryjson = JSON.parse(fs.readFileSync(summaryPath));
 		} catch (e) {
-			console.log(e);
+			console.error(e);
 		}
 		if (!summaryjson) {
 			done();
@@ -1163,11 +1165,11 @@ module.exports.removeFieldEditor = function (argv, done) {
 			summaryjson.editorComponents = newEditorComponents;
 		}
 		fs.writeFileSync(summaryPath, JSON.stringify(summaryjson, null, 4));
-		console.log(' - field editor ' + name + ' removed from type ' + typeName + ' in file ' + summaryPath);
+		console.info(' - field editor ' + name + ' removed from type ' + typeName + ' in file ' + summaryPath);
 
 		done(true);
 	} else {
-		console.log('ERROR: template ' + templateName + ' does not have summary.json');
+		console.error('ERROR: template ' + templateName + ' does not have summary.json');
 		done();
 	}
 
@@ -1192,7 +1194,7 @@ module.exports.addContentForm = function (argv, done) {
 	// verify content form
 	var filePath = path.join(componentsSrcDir, name, 'appinfo.json');
 	if (!fs.existsSync(filePath)) {
-		console.log('ERROR: content form ' + name + ' does not exist');
+		console.error('ERROR: content form ' + name + ' does not exist');
 		done();
 		return;
 	}
@@ -1200,20 +1202,20 @@ module.exports.addContentForm = function (argv, done) {
 	try {
 		appInfoJson = JSON.parse(fs.readFileSync(filePath));
 		if (!appInfoJson || !appInfoJson.type || appInfoJson.type !== 'contentform') {
-			console.log('ERROR: ' + name + ' is not a content form');
+			console.error('ERROR: ' + name + ' is not a content form');
 			done();
 			return;
 		}
-		console.log(' - verify content form ' + name);
+		console.info(' - verify content form ' + name);
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 		done();
 		return;
 	}
 
 	var templatePath = contenttemplate ? path.join(contentSrcDir, templateName) : path.join(templatesSrcDir, templateName);
 	if (!fs.existsSync(templatePath)) {
-		console.log('ERROR: ' + (contenttemplate ? 'content ' : '') + 'template ' + templateName + ' does not exist');
+		console.error('ERROR: ' + (contenttemplate ? 'content ' : '') + 'template ' + templateName + ' does not exist');
 		done();
 		return;
 	}
@@ -1221,15 +1223,15 @@ module.exports.addContentForm = function (argv, done) {
 	var templateContentPath = contenttemplate ? path.join(templatePath, 'contentexport') :
 		path.join(templatePath, 'assets', 'contenttemplate', 'Content Template of ' + templateName);
 	if (!fs.existsSync(templateContentPath)) {
-		console.log('ERROR: template ' + templateName + ' does not have content');
+		console.error('ERROR: template ' + templateName + ' does not have content');
 		done();
 		return;
 	}
-	console.log(' - get template');
+	console.info(' - get template');
 
 	var typePath = path.join(templateContentPath, 'ContentTypes', typeName + '.json');
 	if (!fs.existsSync(typePath)) {
-		console.log('ERROR: type ' + typeName + ' does not exist');
+		console.error('ERROR: type ' + typeName + ' does not exist');
 		done();
 		return;
 	}
@@ -1237,16 +1239,16 @@ module.exports.addContentForm = function (argv, done) {
 	try {
 		typeJson = JSON.parse(fs.readFileSync(typePath));
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 		done();
 		return;
 	}
 	if (!typeJson || !typeJson.id || !typeJson.name) {
-		console.log('ERROR: type ' + typeName + ' is not valid');
+		console.error('ERROR: type ' + typeName + ' is not valid');
 		done();
 		return;
 	}
-	console.log(' - get content type');
+	console.info(' - get content type');
 
 	if (typeJson.properties) {
 		typeJson.properties.customForms = [name];
@@ -1292,7 +1294,7 @@ module.exports.addContentFormServer = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -1300,15 +1302,15 @@ module.exports.addContentFormServer = function (argv, done) {
 		var typeObj;
 
 		serverRest.getContentType({
-				server: server,
-				name: contentTypeName
-			})
+			server: server,
+			name: contentTypeName
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
 				}
 
-				console.log(' - verify type');
+				console.info(' - verify type');
 				typeObj = result;
 
 				return sitesRest.getComponent({
@@ -1321,7 +1323,7 @@ module.exports.addContentFormServer = function (argv, done) {
 					return Promise.reject();
 				}
 
-				console.log(' - verify component');
+				console.info(' - verify component');
 
 				if (typeObj.properties) {
 					typeObj.properties.customForms = [contentFormName];
@@ -1348,7 +1350,7 @@ module.exports.addContentFormServer = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -1374,7 +1376,7 @@ module.exports.removeContentForm = function (argv, done) {
 	// verify content form
 	var filePath = path.join(componentsSrcDir, name, 'appinfo.json');
 	if (!fs.existsSync(filePath)) {
-		console.log('ERROR: content form ' + name + ' does not exist');
+		console.error('ERROR: content form ' + name + ' does not exist');
 		done();
 		return;
 	}
@@ -1382,20 +1384,20 @@ module.exports.removeContentForm = function (argv, done) {
 	try {
 		appInfoJson = JSON.parse(fs.readFileSync(filePath));
 		if (!appInfoJson || !appInfoJson.type || appInfoJson.type !== 'contentform') {
-			console.log('ERROR: ' + name + ' is not a content form');
+			console.error('ERROR: ' + name + ' is not a content form');
 			done();
 			return;
 		}
-		console.log(' - verify content form ' + name);
+		console.info(' - verify content form ' + name);
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 		done();
 		return;
 	}
 
 	var templatePath = contenttemplate ? path.join(contentSrcDir, templateName) : path.join(templatesSrcDir, templateName);
 	if (!fs.existsSync(templatePath)) {
-		console.log('ERROR: ' + (contenttemplate ? 'content ' : '') + 'template ' + templateName + ' does not exist');
+		console.error('ERROR: ' + (contenttemplate ? 'content ' : '') + 'template ' + templateName + ' does not exist');
 		done();
 		return;
 	}
@@ -1403,15 +1405,15 @@ module.exports.removeContentForm = function (argv, done) {
 	var templateContentPath = contenttemplate ? path.join(templatePath, 'contentexport') :
 		path.join(templatePath, 'assets', 'contenttemplate', 'Content Template of ' + templateName);
 	if (!fs.existsSync(templateContentPath)) {
-		console.log('ERROR: template ' + templateName + ' does not have content');
+		console.error('ERROR: template ' + templateName + ' does not have content');
 		done();
 		return;
 	}
-	console.log(' - get template');
+	console.info(' - get template');
 
 	var typePath = path.join(templateContentPath, 'ContentTypes', typeName + '.json');
 	if (!fs.existsSync(typePath)) {
-		console.log('ERROR: type ' + typeName + ' does not exist');
+		console.error('ERROR: type ' + typeName + ' does not exist');
 		done();
 		return;
 	}
@@ -1419,16 +1421,16 @@ module.exports.removeContentForm = function (argv, done) {
 	try {
 		typeJson = JSON.parse(fs.readFileSync(typePath));
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 		done();
 		return;
 	}
 	if (!typeJson || !typeJson.id || !typeJson.name) {
-		console.log('ERROR: type ' + typeName + ' is not valid');
+		console.error('ERROR: type ' + typeName + ' is not valid');
 		done();
 		return;
 	}
-	console.log(' - get content type');
+	console.info(' - get content type');
 
 	if (typeJson.properties && typeJson.properties.customForms && typeJson.properties.customForms.includes(name)) {
 
@@ -1473,7 +1475,7 @@ module.exports.removeContentFormServer = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -1481,15 +1483,15 @@ module.exports.removeContentFormServer = function (argv, done) {
 		var typeObj;
 
 		serverRest.getContentType({
-				server: server,
-				name: contentTypeName
-			})
+			server: server,
+			name: contentTypeName
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
 				}
 
-				console.log(' - verify type');
+				console.info(' - verify type');
 				typeObj = result;
 
 				return sitesRest.getComponent({
@@ -1502,7 +1504,7 @@ module.exports.removeContentFormServer = function (argv, done) {
 					return Promise.reject();
 				}
 
-				console.log(' - verify component');
+				console.info(' - verify component');
 
 				var customForms = typeObj.properties && typeObj.properties.customForms || [];
 				var updateTypePromises = [];
@@ -1534,7 +1536,7 @@ module.exports.removeContentFormServer = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -1573,21 +1575,21 @@ module.exports.addContentLayoutMappingServer = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getContentType({
-				server: server,
-				name: contentType
-			})
+			server: server,
+			name: contentType
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
 				}
 
-				console.log(' - verify type');
+				console.info(' - verify type');
 
 				return sitesRest.getComponent({
 					server: server,
@@ -1599,7 +1601,7 @@ module.exports.addContentLayoutMappingServer = function (argv, done) {
 					return Promise.reject();
 				}
 
-				console.log(' - verify component');
+				console.info(' - verify component');
 
 				return serverRest.addContentTypeLayoutMapping({
 					server: server,
@@ -1630,7 +1632,7 @@ module.exports.addContentLayoutMappingServer = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -1667,23 +1669,23 @@ module.exports.removeContentLayoutMappingServer = function (argv, done) {
 		return;
 	}
 
-	serverUtils.loginToServer(server, ).then(function (result) {
+	serverUtils.loginToServer(server,).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getContentType({
-				server: server,
-				name: contentType
-			})
+			server: server,
+			name: contentType
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
 				}
 
-				console.log(' - verify type');
+				console.info(' - verify type');
 
 				return sitesRest.getComponent({
 					server: server,
@@ -1695,7 +1697,7 @@ module.exports.removeContentLayoutMappingServer = function (argv, done) {
 					return Promise.reject();
 				}
 
-				console.log(' - verify component');
+				console.info(' - verify component');
 
 				return serverRest.removeContentTypeLayoutMapping({
 					server: server,
@@ -1726,7 +1728,7 @@ module.exports.removeContentLayoutMappingServer = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});

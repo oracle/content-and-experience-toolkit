@@ -12,6 +12,8 @@ var express = require('express'),
 	router = express.Router(),
 	path = require('path');
 
+var console = require('./logger.js').console;
+
 var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), '');
 var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
 var connectionsSrcDir, connectorsSrcDir;
@@ -28,7 +30,7 @@ router.get('/*', (req, res) => {
 
 	_setupSourceDir();
 
-	console.log('$$$ Connector: GET: ' + req.url);
+	console.info('$$$ Connector: GET: ' + req.url);
 
 	var apiUrl;
 	var params;
@@ -40,7 +42,7 @@ router.get('/*', (req, res) => {
 
 	var connectionName = params.connection;
 	if (!connectionName) {
-		console.log(' - no connection is specified');
+		console.error(' - no connection is specified');
 		res.writeHead(404, {});
 		res.end();
 		return;
@@ -53,7 +55,7 @@ router.get('/*', (req, res) => {
 		connector = connectionstr ? JSON.parse(connectionstr) : undefined;
 	}
 	if (!connector) {
-		console.log(' - connection ' + connection + ' does not exist');
+		console.error(' - connection ' + connection + ' does not exist');
 		res.writeHead(404, {});
 		res.end();
 		return;
@@ -70,7 +72,7 @@ router.get('/*', (req, res) => {
 	}
 
 	var url = connector.url + apiUrl;
-	console.log(' - call connector: ' + connector.url + apiUrl);
+	console.info(' - call connector: ' + connector.url + apiUrl);
 
 	var options = {
 		method: 'GET',
@@ -95,7 +97,7 @@ router.get('/*', (req, res) => {
 		request2.get(options, function (error, response, body) {
 			// fix headers for cross-domain and capitalization issues
 			if (error) {
-				console.log(' - connector request error: ' + error);
+				console.error(' - connector request error: ' + error);
 				result['err'] = 'err';
 				result['data'] = {
 					Error: error
@@ -121,7 +123,7 @@ router.get('/*', (req, res) => {
 				if (response.headers.get('content-length')) {
 					responseHeaders['content-length'] = response.headers.get('content-length');
 				}
-				console.log(response.headers);
+				console.info(response.headers);
 				fs.writeFileSync(targetFile, body);
 				responseHeaders.message = 'translation saved to ' + targetFile;
 				result['data'] = responseHeaders;
@@ -155,7 +157,7 @@ router.post('/*', (req, res) => {
 
 	_setupSourceDir();
 
-	console.log('$$$ Connector: POST: ' + req.url);
+	console.info('$$$ Connector: POST: ' + req.url);
 
 	var request2 = require('./requestUtils.js').request;
 
@@ -169,7 +171,7 @@ router.post('/*', (req, res) => {
 
 	var connectionName = params.connection;
 	if (!connectionName) {
-		console.log(' - no connection is specified');
+		console.error(' - no connection is specified');
 		res.writeHead(404, {});
 		res.end();
 		return;
@@ -182,7 +184,7 @@ router.post('/*', (req, res) => {
 		connector = connectionstr ? JSON.parse(connectionstr) : undefined;
 	}
 	if (!connector) {
-		console.log(' - connection ' + connection + ' does not exist');
+		console.error(' - connection ' + connection + ' does not exist');
 		res.writeHead(404, {});
 		res.end();
 		return;
@@ -197,7 +199,7 @@ router.post('/*', (req, res) => {
 	}
 
 	var url = connector.url + apiUrl;
-	console.log(' - call connector: ' + url);
+	console.info(' - call connector: ' + url);
 
 	var options = {
 		method: 'POST',
@@ -211,7 +213,7 @@ router.post('/*', (req, res) => {
 		// send translate
 		sendTranslation = true;
 		options['body'] = fs.readFileSync(filePath);
-		console.log(' - send file: ' + filePath);
+		console.info(' - send file: ' + filePath);
 	} else if (req.url.indexOf('/connector/rest/api/v1/job') === 0) {
 		// Create job
 		//formData['name'] = params.jobName;
@@ -256,7 +258,7 @@ router.delete('/*', (req, res) => {
 
 	_setupSourceDir();
 
-	console.log('$$$ Connector: DELETE: ' + req.url);
+	console.info('$$$ Connector: DELETE: ' + req.url);
 
 	var request2 = require('./requestUtils.js').request;
 
@@ -270,7 +272,7 @@ router.delete('/*', (req, res) => {
 
 	var connectionName = params.connection;
 	if (!connectionName) {
-		console.log(' - no connection is specified');
+		console.error(' - no connection is specified');
 		res.writeHead(404, {});
 		res.end();
 		return;
@@ -283,7 +285,7 @@ router.delete('/*', (req, res) => {
 		connector = connectionstr ? JSON.parse(connectionstr) : undefined;
 	}
 	if (!connector) {
-		console.log(' - connection ' + connection + ' does not exist');
+		console.error(' - connection ' + connection + ' does not exist');
 		res.writeHead(404, {});
 		res.end();
 		return;
@@ -297,7 +299,7 @@ router.delete('/*', (req, res) => {
 	}
 
 	var url = connector.url + apiUrl;
-	console.log(' - call connector: ' + url);
+	console.info(' - call connector: ' + url);
 
 	var options = {
 		method: 'DELETE',

@@ -305,6 +305,12 @@ var getRepositoryTypes = function () {
 	const types = ['asset', 'business'];
 	return types;
 };
+
+var getLoggerLevels = function () {
+	const types = ['error', 'warn', 'info'];
+	return types;
+};
+
 /*********************
  * Command definitions
  **********************/
@@ -340,8 +346,8 @@ const copyComponent = {
 	},
 	example: [
 		['cec copy-component Sample-To-Do Comp1', 'Copies Sample-To-Do to Comp1.'],
-		['cec copy-component Comp1 Comp2 -s DEV', 'Copies Comp1 to Comp2 on the registered server DEV.'],
-		['cec copy-component Comp1 Comp2 -d "compied from Comp1" -s DEV', 'Copies Comp1 to Comp2 on the registered server DEV and set the description.']
+		['cec copy-component Comp1 Comp2 -s SampleServer ', 'Copies Comp1 to Comp2 on the registered server SampleServer.'],
+		['cec copy-component Comp1 Comp2 -d "compied from Comp1" -s SampleServer ', 'Copies Comp1 to Comp2 on the registered server SampleServer and set the description.']
 	]
 };
 
@@ -364,7 +370,7 @@ const createContentLayout = {
 		['cec create-contentlayout Blog-Post-Detail-Layout -c Blog-Post -t BlogTemplate -s detail'],
 		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -t BlogTemplate -a', 'Add custom settings when used in Sites'],
 		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -r', 'Use content type Blog-Post from the server specified in cec.properties file'],
-		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -r UAT -s detail', 'Use content type Blog-Post from the registered server UAT']
+		['cec create-contentlayout Blog-Post-Overview-Layout -c Blog-Post -r SampleServer1 -s detail', 'Use content type Blog-Post from the registered server SampleServer1']
 	]
 };
 
@@ -411,7 +417,7 @@ const downloadComponent = {
 	example: [
 		['cec download-component Sample-To-Do'],
 		['cec download-component Sample-To-Do,Sample-To-Do2'],
-		['cec download-component Sample-To-Do -s UAT']
+		['cec download-component Sample-To-Do -s SampleServer1']
 	]
 };
 
@@ -428,7 +434,7 @@ const deployComponent = {
 	},
 	example: [
 		['cec deploy-component Sample-To-Do', 'Deploys the component Sample-To-Do to the server specified in cec.properties.'],
-		['cec deploy-component Sample-To-Do -s UAT', 'Deploys the component Sample-To-Do to the registered server UAT.'],
+		['cec deploy-component Sample-To-Do -s SampleServer1', 'Deploys the component Sample-To-Do to the registered server SampleServer1.'],
 		['cec deploy-component Sample-To-Do -p', 'Deploys and publishes the component Sample-To-Do.'],
 		['cec deploy-component Sample-To-Do,Sample-To-Do2', 'Deploys component Sample-To-Do and Sample-To-Do2.'],
 		['cec deploy-component Sample-To-Do -f Import/Components', 'Uploads file Sample-To-Do.zip to folder Import/Components and imports the component Sample-To-Do.'],
@@ -447,7 +453,7 @@ const uploadComponent = {
 	},
 	example: [
 		['cec upload-component Sample-To-Do', 'Uploads the component Sample-To-Do to the server specified in cec.properties.'],
-		['cec upload-component Sample-To-Do -s UAT', 'Uploads the component Sample-To-Do to the registered server UAT.'],
+		['cec upload-component Sample-To-Do -s SampleServer1', 'Uploads the component Sample-To-Do to the registered server SampleServer1.'],
 		['cec upload-component Sample-To-Do -p', 'Uploads and publishes the component Sample-To-Do.'],
 		['cec upload-component Sample-To-Do,Sample-To-Do2', 'Uploads component Sample-To-Do and Sample-To-Do2.'],
 		['cec upload-component Sample-To-Do -f Import/Components', 'Uploads file Sample-To-Do.zip to folder Import/Components and imports the component Sample-To-Do.'],
@@ -467,8 +473,8 @@ const controlComponent = {
 	},
 	example: [
 		['cec control-component publish -c Comp1', 'Publish component Comp1 on the server specified in cec.properties file'],
-		['cec control-component publish -c Comp1 -s UAT', 'Publish component Comp1 on the registered server UAT'],
-		['cec control-component publish -c Comp1,Comp2 -s UAT', 'Publish component Comp1 and Comp2 on the registered server UAT']
+		['cec control-component publish -c Comp1 -s SampleServer1', 'Publish component Comp1 on the registered server SampleServer1'],
+		['cec control-component publish -c Comp1,Comp2 -s SampleServer1', 'Publish component Comp1 and Comp2 on the registered server SampleServer1']
 	]
 };
 
@@ -487,7 +493,7 @@ const shareComponent = {
 	example: [
 		['cec share-component Comp1 -u user1,user2 -r manager', 'Share component Comp1 with user user1 and user2 and assign Manager role to them'],
 		['cec share-component Comp1 -u user1,user2 -g group1,group2 -r manager', 'Share component Comp1 with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
-		['cec share-component Comp1 -u user1,user2 -r manager -s UAT', 'Share component Comp1 with user user1 and user2 and assign Manager role to them on the registered server UAT']
+		['cec share-component Comp1 -u user1,user2 -r manager -s SampleServer1', 'Share component Comp1 with user user1 and user2 and assign Manager role to them on the registered server SampleServer1']
 	]
 };
 
@@ -505,7 +511,7 @@ const unshareComponent = {
 	example: [
 		['cec unshare-component Comp1 -u user1,user2'],
 		['cec unshare-component Comp1 -u user1,user2 -g group1,group2'],
-		['cec unshare-component Comp1 -u user1,user2 -s UAT']
+		['cec unshare-component Comp1 -u user1,user2 -s SampleServer1']
 	]
 };
 
@@ -521,8 +527,8 @@ const describeComponent = {
 		})()
 	},
 	example: [
-		['cec describe-component Comp1 -s UAT'],
-		['cec describe-component Comp1 -f ~/Docs/Comp1.json -s UAT']
+		['cec describe-component Comp1 -s SampleServer1'],
+		['cec describe-component Comp1 -f ~/Docs/Comp1.json -s SampleServer1']
 	]
 };
 
@@ -548,7 +554,7 @@ const createTemplate = {
 		['cec create-template Temp1 -s Site1 -x', 'Create template Temp1 based on site Site1 on OCM server and exclude the content in the site'],
 		['cec create-template Temp1 -s Site1 -c', 'Create template Temp1 based on site Site1 on OCM server and exclude the components used in the site'],
 		['cec create-template Temp1 -s Site1 -d site:content', 'Create template Temp1 based on site Site1 on OCM server and exclude the content folder of the site'],
-		['cec create-template Temp1 -s Site1 -r UAT', 'Create template Temp1 based on site Site1 on the registered server UAT'],
+		['cec create-template Temp1 -s Site1 -r SampleServer1', 'Create template Temp1 based on site Site1 on the registered server SampleServer1'],
 		['cec create-template EnterpriseTemp1 -s StandardSite1 -e', 'Create enterprise template EnterpriseTemp1 based on standard site StandardSite1 on OCM server'],
 	]
 };
@@ -566,8 +572,8 @@ const copyTemplate = {
 	},
 	example: [
 		['cec copy-template Temp1 Temp2', 'Copies local Temp1 to Temp2.'],
-		['cec copy-template Temp1 Temp2 -s DEV', 'Copies Temp1 to Temp2 on the registered server DEV.'],
-		['cec copy-template Temp1 Temp2 -d "copied from Temp1" -s DEV', 'Copies Temp1 to Temp2 on the registered server DEV and set the description.']
+		['cec copy-template Temp1 Temp2 -s SampleServer ', 'Copies Temp1 to Temp2 on the registered server SampleServer.'],
+		['cec copy-template Temp1 Temp2 -d "copied from Temp1" -s SampleServer ', 'Copies Temp1 to Temp2 on the registered server SampleServer and set the description.']
 	]
 
 };
@@ -614,7 +620,7 @@ const deployTemplate = {
 	},
 	example: [
 		['cec deploy-template StarterTemplate', 'Deploys the template StarterTemplate.'],
-		['cec deploy-template StarterTemplate -s UAT', 'Deploys the template StarterTemplate to the registered server UAT.'],
+		['cec deploy-template StarterTemplate -s SampleServer1', 'Deploys the template StarterTemplate to the registered server SampleServer1.'],
 		['cec deploy-template StarterTemplate -f Import/Templates', 'Uploads file StarterTemplate.zip to folder Import/Templates and imports the template StarterTemplate.'],
 		['cec deploy-template StarterTemplate -o', 'Optimizes and deploys the template StarterTemplate.'],
 		['cec deploy-template StarterTemplate -x', 'Exclude the "Content Template" from the template upload. "Content Template" upload can be managed independently.']
@@ -635,7 +641,7 @@ const uploadTemplate = {
 	},
 	example: [
 		['cec upload-template StarterTemplate', 'Uploads the template StarterTemplate.'],
-		['cec upload-template StarterTemplate -s UAT', 'Uploads the template StarterTemplate to the registered server UAT.'],
+		['cec upload-template StarterTemplate -s SampleServer1', 'Uploads the template StarterTemplate to the registered server SampleServer1.'],
 		['cec upload-template StarterTemplate -f Import/Templates', 'Uploads file StarterTemplate.zip to folder Import/Templates and imports the template StarterTemplate.'],
 		['cec upload-template StarterTemplate -p', 'Publish the theme and all components in StarterTemplate.zip after import'],
 		['cec upload-template StarterTemplate -o', 'Optimizes and uploads the template StarterTemplate.'],
@@ -657,8 +663,8 @@ const describeTemplate = {
 	},
 	example: [
 		['cec describe-template StarterTemplate', 'Display the properties of local template StarterTemplate'],
-		['cec describe-template StarterTemplate -s DEV', 'Display the properties of template StarterTemplate on the registered server DEV'],
-		['cec describe-template StarterTemplate -f ~/Docs/StarterTemplate.json -s DEV', 'Display the properties of template StarterTemplate on the registered server DEV and also save to the local file']
+		['cec describe-template StarterTemplate -s SampleServer ', 'Display the properties of template StarterTemplate on the registered server SampleServer'],
+		['cec describe-template StarterTemplate -f ~/Docs/StarterTemplate.json -s SampleServer ', 'Display the properties of template StarterTemplate on the registered server SampleServer and also save to the local file']
 	]
 };
 
@@ -711,8 +717,8 @@ const createTemplateFromSite = {
 	},
 	example: [
 		['cec create-template-from-site BlogTemplate -s BlogSite'],
-		['cec create-template-from-site BlogTemplate -s BlogSite -r UAT'],
-		['cec create-template-from-site BlogTemplate -s BlogSite -i -r UAT'],
+		['cec create-template-from-site BlogTemplate -s BlogSite -r SampleServer1'],
+		['cec create-template-from-site BlogTemplate -s BlogSite -i -r SampleServer1'],
 		['cec create-template-from-site EnterpriseTemplate -s StandardSite -e'],
 	]
 };
@@ -730,7 +736,7 @@ const downloadTemplate = {
 	},
 	example: [
 		['cec download-template BlogTemplate'],
-		['cec download-template BlogTemplate -s UAT']
+		['cec download-template BlogTemplate -s SampleServer1']
 	]
 };
 
@@ -759,7 +765,7 @@ const compileTemplate = {
 	example: [
 		['cec compile-template Temp1', 'Compiles the site in template Temp1 using content stored in the template.'],
 		['cec compile-template Temp1 -c channelToken', 'Compiles the site in template Temp1 using the given channelToken for any content URLs.'],
-		['cec compile-template Temp1 -c channelToken -s UAT -t draft', 'Compiles the site in template Temp1 retrieving draft content from the specified server.'],
+		['cec compile-template Temp1 -c channelToken -s SampleServer1 -t draft', 'Compiles the site in template Temp1 retrieving draft content from the specified server.'],
 		['cec compile-template Temp1 -p 104,112,183 -r', 'Compiles the specified pages in the site in template Temp1 including all child pages.'],
 		['cec compile-template Temp1 -d', 'Waits for the debugger to be attached.  Once attached, compiles the site in template Temp1.']
 	]
@@ -804,10 +810,10 @@ const compileContent = {
 		})()
 	},
 	example: [
-		['cec compile-content publishingJobId -s UAT', 'Compiles the content items in the specified publishing job retrieving content from the server.'],
-		['cec compile-content publishingJobId -s UAT -d', 'Waits for the debugger to be attached.  Once attached, compiles the content in the specified publishing job.'],
-		['cec compile-content -a GUID1,GUID2 -s UAT', 'Compiles the assets by retrieving content from the specified server.'],
-		['cec compile-content -t Blog -i REPOGUID -s UAT', 'Compiles the published assets of this content type from the specified server.']
+		['cec compile-content publishingJobId -s SampleServer1', 'Compiles the content items in the specified publishing job retrieving content from the server.'],
+		['cec compile-content publishingJobId -s SampleServer1 -d', 'Waits for the debugger to be attached.  Once attached, compiles the content in the specified publishing job.'],
+		['cec compile-content -a GUID1,GUID2 -s SampleServer1', 'Compiles the assets by retrieving content from the specified server.'],
+		['cec compile-content -t Blog -i REPOGUID -s SampleServer1', 'Compiles the published assets of this content type from the specified server.']
 	]
 };
 
@@ -824,7 +830,7 @@ const uploadCompiledContent = {
 	},
 	example: [
 		['cec upload-compiled-content dist/items.zip'],
-		['cec upload-compiled-content dist/items.zip -s UAT']
+		['cec upload-compiled-content dist/items.zip -s SampleServer1']
 	]
 };
 
@@ -842,7 +848,7 @@ const deleteTemplate = {
 	example: [
 		['cec delete-template BlogTemplate'],
 		['cec delete-template BlogTemplate -p'],
-		['cec delete-template BlogTemplate -s UAT']
+		['cec delete-template BlogTemplate -s SampleServer1']
 	]
 };
 
@@ -861,7 +867,7 @@ const shareTemplate = {
 	example: [
 		['cec share-template Template1 -u user1,user2 -r manager', 'Share template Template1 with user user1 and user2 and assign Manager role to them'],
 		['cec share-template Template1 -u user1,user2 -g group1,group2 -r manager', 'Share template Template1 with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
-		['cec share-template Template1 -u user1,user2 -r manager -s UAT', 'Share template Template1 with user user1 and user2 and assign Manager role to them on the registered server UAT']
+		['cec share-template Template1 -u user1,user2 -r manager -s SampleServer1', 'Share template Template1 with user user1 and user2 and assign Manager role to them on the registered server SampleServer1']
 	]
 };
 
@@ -879,7 +885,7 @@ const unshareTemplate = {
 	example: [
 		['cec unshare-template Template1 -u user1,user2'],
 		['cec unshare-template Template1 -u user1,user2 -g group1,group2'],
-		['cec unshare-template Template1 -u user1,user2 -s UAT']
+		['cec unshare-template Template1 -u user1,user2 -s SampleServer1']
 	]
 };
 
@@ -915,7 +921,7 @@ const listServerContentTypes = {
 	},
 	example: [
 		['cec list-server-content-types'],
-		['cec list-server-content-types -s UAT'],
+		['cec list-server-content-types -s SampleServer1'],
 	]
 };
 
@@ -936,7 +942,7 @@ const addContentLayoutMapping = {
 		['cec add-contentlayout-mapping Blog-Post-Detail-Layout -c Blog-Post -t BlogTemplate -s Details'],
 		['cec add-contentlayout-mapping Blog-Post-Overview-Layout -c Blog-Post -t BlogTemplate -s "Content List Default"'],
 		['cec add-contentlayout-mapping Blog-Post-Overview-Layout -c Blog-Post -t BlogTemplate -s Overview'],
-		['cec add-contentlayout-mapping Blog-Post-Overview-Layout -c Blog-Post -r UAT', 'Set "Content Item Default" to Blog-Post-Overview-Layout for content type Blog-Post on server UAT']
+		['cec add-contentlayout-mapping Blog-Post-Overview-Layout -c Blog-Post -r SampleServer1', 'Set "Content Item Default" to Blog-Post-Overview-Layout for content type Blog-Post on server SampleServer1']
 	]
 };
 
@@ -954,8 +960,8 @@ const removeContentLayoutMapping = {
 	example: [
 		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -t BlogTemplate'],
 		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -t BlogTemplate -m'],
-		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -c Blog-Post -r UAT'],
-		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -c Blog-Post -s Details -r UAT']
+		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -c Blog-Post -r SampleServer1'],
+		['cec remove-contentlayout-mapping Blog-Post-Detail-Layout -c Blog-Post -s Details -r SampleServer1']
 	]
 };
 
@@ -1016,7 +1022,7 @@ const downloadContent = {
 		['cec download-content Site1Channel', 'Download all assets in channel Site1Channel and save to local folder src/content/Site1Channel'],
 		['cec download-content Site1Channel -n Site1Assets', 'Download all assets in channel Site1Channel and save to local folder src/content/Site1Assets'],
 		['cec download-content Site1Channel -p', 'Download published assets in channel Site1Channel'],
-		['cec download-content Site1Channel -s UAT', 'Download all assets in channel Site1Channel on server UAT'],
+		['cec download-content Site1Channel -s SampleServer1', 'Download all assets in channel Site1Channel on server SampleServer1'],
 		['cec download-content Site1Channel -q \'fields.category eq "RECIPE"\'', 'Download assets from the channel Site1Channel, matching the query, plus any dependencies'],
 		['cec download-content Site1Channel -r Repo1 -c Collection1', 'Download assets from the repository Repo1, collection Collection1 and channel Site1Channel'],
 		['cec download-content Site1Channel -r Repo1 -c Collection1 -q \'fields.category eq "RECIPE"\'', 'Download assets from repository Repo1, collection Collection1 and channel Site1Channel, matching the query, plus any dependencies'],
@@ -1042,7 +1048,7 @@ const uploadContent = {
 		['cec upload-content Site1Channel -r Repo1 -e', 'Upload content to repository Repo1, does not update existing content if the content in Repo1 is newer than content being imported, and add to channel Site1Channel'],
 		['cec upload-content Site1Channel -r Repo1 -l Site1Collection', 'Upload content to repository Repo1 and add to collection Site1Collection and channel Site1Channel'],
 		['cec upload-content Site1Channel -r Repo1 -p', 'Upload content types from content SiteChannel to the server'],
-		['cec upload-content Site1Channel -r Repo1 -s UAT', 'Upload content to repository Repo1 on server UAT and add to channel Site1Channel'],
+		['cec upload-content Site1Channel -r Repo1 -s SampleServer1', 'Upload content to repository Repo1 on server SampleServer1 and add to channel Site1Channel'],
 		['cec upload-content Template1 -t -r Repo1 -c channel1', 'Upload content from template Template1 to repository Repo1 and add to channel channel1'],
 		['cec upload-content ~/Downloads/content.zip -f -r Repo1 -c channel1', 'Upload content from file ~/Downloads/content.zip to repository Repo1 and add to channel channel1']
 	]
@@ -1062,16 +1068,16 @@ const controlContent = {
 	example: [
 		['cec control-content publish -c Channel1', 'Publish all items in channel Channel1 on the server specified in cec.properties file'],
 		['cec control-content publish -c Channel1 -a GUID1,GUID2', 'Publish asset GUID1 and GUID2 in channel Channel1'],
-		['cec control-content publish -c Channel1 -s UAT', 'Publish all items in channel Channel1 on the registered server UAT'],
-		['cec control-content unpublish -c Channel1 -s UAT', 'Unpublish all items in channel Channel1 on the registered server UAT'],
-		['cec control-content add -c Channel1 -r Repo1 -s UAT', 'Add all items in repository Repo1 to channel Channel1 on the registered server UAT'],
-		['cec control-content add -c Channel1 -r Repo1 -q \'type eq "BlogType"\' -s UAT', 'Add all items in repository Repo1, matching the query to channel Channel1 on the registered server UAT'],
-		['cec control-content add -c Channel1 -r Repo1 -q \'channels co "CHANNELF43508F995FE582EC219EFEF03076128932B9A3F1DF6"\' -s UAT', 'Add all items in repository Repo1 and Channel2 to channel Channel1 on the registered server UAT'],
-		['cec control-content add -c Channel1 -r Repo1 -a GUID1,GUID2 -s UAT', 'Add asset GUID1 and GUID2 in repository Repo1 to channel Channel1'],
-		['cec control-content remove -c Channel1 -s UAT', 'Remove all items in channel Channel1 on the registered server UAT'],
-		['cec control-content add -l Collection1 -r Repo1 -s UAT', 'Add all items in repository Repo1 to collection Collection1 on the registered server UAT'],
-		['cec control-content remove -l Collection -s UAT', 'Remove all items in collection Collection1 on the registered server UAT'],
-		['cec control-content publish -c C1 -r R1 -s UAT -d "2021/9/21 0:30:00 PST" -n Name', 'Create a publishing job called Name to publish all items in channel C1 on the specified date. Requires server version: 21.2.1']
+		['cec control-content publish -c Channel1 -s SampleServer1', 'Publish all items in channel Channel1 on the registered server SampleServer1'],
+		['cec control-content unpublish -c Channel1 -s SampleServer1', 'Unpublish all items in channel Channel1 on the registered server SampleServer1'],
+		['cec control-content add -c Channel1 -r Repo1 -s SampleServer1', 'Add all items in repository Repo1 to channel Channel1 on the registered server SampleServer1'],
+		['cec control-content add -c Channel1 -r Repo1 -q \'type eq "BlogType"\' -s SampleServer1', 'Add all items in repository Repo1, matching the query to channel Channel1 on the registered server SampleServer1'],
+		['cec control-content add -c Channel1 -r Repo1 -q \'channels co "CHANNELF43508F995FE582EC219EFEF03076128932B9A3F1DF6"\' -s SampleServer1', 'Add all items in repository Repo1 and Channel2 to channel Channel1 on the registered server SampleServer1'],
+		['cec control-content add -c Channel1 -r Repo1 -a GUID1,GUID2 -s SampleServer1', 'Add asset GUID1 and GUID2 in repository Repo1 to channel Channel1'],
+		['cec control-content remove -c Channel1 -s SampleServer1', 'Remove all items in channel Channel1 on the registered server SampleServer1'],
+		['cec control-content add -l Collection1 -r Repo1 -s SampleServer1', 'Add all items in repository Repo1 to collection Collection1 on the registered server SampleServer1'],
+		['cec control-content remove -l Collection -s SampleServer1', 'Remove all items in collection Collection1 on the registered server SampleServer1'],
+		['cec control-content publish -c C1 -r R1 -s SampleServer1 -d "2021/9/21 0:30:00 PST" -n Name', 'Create a publishing job called Name to publish all items in channel C1 on the specified date. Requires server version: 21.2.1']
 	]
 };
 
@@ -1088,12 +1094,12 @@ const transferContent = {
 		})()
 	},
 	example: [
-		['cec transfer-content Repository1 -s DEV -d UAT', 'Generate script Repository1_downloadcontent and Repository1_uploadcontent'],
-		['cec transfer-content Repository1 -s DEV -d UAT -e', 'Generate script Repository1_downloadcontent and Repository1_uploadcontent and execute them'],
-		['cec transfer-content Repository1 -s DEV -d UAT -n 1000', 'Set the number of items in each batch to 1000'],
-		['cec transfer-content Repository1 -s DEV -d UAT -c Channel1', 'Transfer the items added to channel Channel1 in repository Repository1'],
-		['cec transfer-content Repository1 -s DEV -d UAT -c Channel1 -p', 'Transfer the items published to channel Channel1 in repository Repository1'],
-		['cec transfer-content Repository1 -s DEV -d UAT -u', 'Only import the content that is newer than the content in Repository1 on server UAT']
+		['cec transfer-content Repository1 -s SampleServer -d SampleServer1', 'Generate script Repository1_downloadcontent and Repository1_uploadcontent'],
+		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -e', 'Generate script Repository1_downloadcontent and Repository1_uploadcontent and execute them'],
+		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -n 1000', 'Set the number of items in each batch to 1000'],
+		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -c Channel1', 'Transfer the items added to channel Channel1 in repository Repository1'],
+		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -c Channel1 -p', 'Transfer the items published to channel Channel1 in repository Repository1'],
+		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -u', 'Only import the content that is newer than the content in Repository1 on server SampleServer1']
 	]
 };
 
@@ -1165,7 +1171,7 @@ const copyAssets = {
 	},
 	example: [
 		['cec copy-assets Repo1 -t Repo2', 'Copy all assets in repository Repo1 to Repo2'],
-		['cec copy-assets Repo1 -t Repo2 -s UAT', 'Copy all assets in repository Repo1 to Repo2 on server UAT'],
+		['cec copy-assets Repo1 -t Repo2 -s SampleServer1', 'Copy all assets in repository Repo1 to Repo2 on server SampleServer1'],
 		['cec copy-assets Repo1 -a GUID1,GUID2 -t Repo2', 'Copy asset GUID1 and GUID2 and all their dependencies in Repo1 to Repo2'],
 		['cec copy-assets Repo1 -q \'fields.category eq "RECIPE"\' -t Repo2', 'Copy assets from repository Repo1, matching the query, plus any dependencies to Repo2'],
 		['cec copy-assets Repo1 -c Channel1 -t Repo2', 'Copy assets from the repository Repo1 and channel Channel1 to Repo2'],
@@ -1189,7 +1195,7 @@ const downloadTaxonomy = {
 	example: [
 		['cec download-taxonomy Taxonomy1 -t promoted'],
 		['cec download-taxonomy Taxonomy1 -i 6A6DC736572C468B90F2A1C17B7CE5E4 -t promoted'],
-		['cec download-taxonomy Taxonomy1 -t published -s UAT']
+		['cec download-taxonomy Taxonomy1 -t published -s SampleServer1']
 	]
 };
 
@@ -1206,7 +1212,7 @@ const uploadTaxonomy = {
 	},
 	example: [
 		['cec upload-taxonomy Taxonomy1', 'Create a new taxonomy or a draft of existing taxonomy on upload'],
-		['cec upload-taxonomy Taxonomy1 -s UAT', 'Create a new taxonomy or a draft of existing taxonomy on upload on the registered server UAT'],
+		['cec upload-taxonomy Taxonomy1 -s SampleServer1', 'Create a new taxonomy or a draft of existing taxonomy on upload on the registered server SampleServer1'],
 		['cec upload-taxonomy Taxonomy1 -c', 'Create a new taxonomy on upload'],
 		['cec upload-taxonomy Taxonomy1 -c -n Taxonomy1_2 -a t12 -d "Taxonomy1 copy"', 'Create a new taxonomy on upload with given name, abbreviation and description'],
 		['cec upload-taxonomy ~/Documents/6A6DC736572C468B90F2A1C17B7CE5E4.json -f ', 'Create a new taxonomy or a draft of existing taxonomy on upload the JSON file']
@@ -1229,7 +1235,7 @@ const controlTaxonomy = {
 		['cec control-taxonomy promote -i 6A6DC736572C468B90F2A1C17B7CE5E4 -p false', 'Promote the taxonomy and not allow publishing'],
 		['cec control-taxonomy publish -n Taxonomy1 -c Channel1,Channel2'],
 		['cec control-taxonomy unpublish -n Taxonomy1 -c Channel1'],
-		['cec control-taxonomy publish -n Taxonomy1 -c Channel1 -s UAT']
+		['cec control-taxonomy publish -n Taxonomy1 -c Channel1 -s SampleServer1']
 	]
 };
 
@@ -1245,8 +1251,8 @@ const describeTaxonomy = {
 		})()
 	},
 	example: [
-		['cec describe-taxonomy Taxonomy1 -s UAT'],
-		['cec describe-taxonomy Taxonomy1 -f ~/Docs/Taxonomy1.json -s UAT']
+		['cec describe-taxonomy Taxonomy1 -s SampleServer1'],
+		['cec describe-taxonomy Taxonomy1 -f ~/Docs/Taxonomy1.json -s SampleServer1']
 	]
 };
 
@@ -1295,8 +1301,8 @@ const copyTheme = {
 		})()
 	},
 	example: [
-		['cec copy-theme Theme1 Theme2 -s DEV', 'Copy theme Theme1 to Theme2 on the registered server DEV'],
-		['cec copy-theme Theme1 Theme2 -d "copied from Theme1" -s DEV', 'Copy theme Theme1 to Theme2 on the registered server DEV and set the description']
+		['cec copy-theme Theme1 Theme2 -s SampleServer ', 'Copy theme Theme1 to Theme2 on the registered server SampleServer'],
+		['cec copy-theme Theme1 Theme2 -d "copied from Theme1" -s SampleServer ', 'Copy theme Theme1 to Theme2 on the registered server SampleServer and set the description']
 	]
 };
 
@@ -1313,7 +1319,7 @@ const controlTheme = {
 	},
 	example: [
 		['cec control-theme publish -t Theme1', 'Publish theme Theme1 on the server specified in cec.properties file'],
-		['cec control-theme publish -t Theme1 -s UAT', 'Publish theme Theme1 on the registered server UAT']
+		['cec control-theme publish -t Theme1 -s SampleServer1', 'Publish theme Theme1 on the registered server SampleServer1']
 	]
 };
 
@@ -1332,7 +1338,7 @@ const shareTheme = {
 	example: [
 		['cec share-theme Theme1 -u user1,user2 -r manager', 'Share theme Theme1 with user user1 and user2 and assign Manager role to them'],
 		['cec share-theme Theme1 -u user1,user2 -g group1,group2 -r manager', 'Share theme Theme1 with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
-		['cec share-theme Theme1 -u user1,user2 -r manager -s UAT', 'Share theme Theme1 with user user1 and user2 and assign Manager role to them on the registered server UAT']
+		['cec share-theme Theme1 -u user1,user2 -r manager -s SampleServer1', 'Share theme Theme1 with user user1 and user2 and assign Manager role to them on the registered server SampleServer1']
 	]
 };
 
@@ -1350,7 +1356,7 @@ const unshareTheme = {
 	example: [
 		['cec unshare-theme Theme1 -u user1,user2'],
 		['cec unshare-theme Theme1 -u user1,user2 -g group1,group2'],
-		['cec unshare-theme Theme1 -u user1,user2 -s UAT']
+		['cec unshare-theme Theme1 -u user1,user2 -s SampleServer1']
 	]
 };
 
@@ -1367,7 +1373,7 @@ const describeTheme = {
 	},
 	example: [
 		['cec describe-theme Theme1'],
-		['cec describe-theme Theme1 -s UAT']
+		['cec describe-theme Theme1 -s SampleServer1']
 	]
 };
 
@@ -1387,7 +1393,7 @@ const listResources = {
 		['cec list', 'List all local resources'],
 		['cec list -s', 'List resources on the server specified in cec.properties file'],
 		['cec list -t components,channels -s', 'List components and channels on the server specified in cec.properties file'],
-		['cec list -t components,channels -s UAT', 'List components and channels on the registered server UAT']
+		['cec list -t components,channels -s SampleServer1', 'List components and channels on the registered server SampleServer1']
 	]
 };
 
@@ -1406,9 +1412,9 @@ const createSite = {
 		['cec create-site Site1 -t StandardTemplate', 'Creates a standard site'],
 		['cec create-site Site1 -t Template1 -r Repository1 -l L10NPolicy1 -d en-US', 'Creates an enterprise site with localization policy L10NPolicy1'],
 		['cec create-site Site1 -t Template1 -r Repository1 -d en-US', 'Creates an enterprise site and uses the localization policy in Template1'],
-		['cec create-site Site1 -t Template1 -r Repository1 -d en-US -s UAT', 'Creates an enterprise site on server UAT'],
-		['cec create-site Site1 -t Template1 -u -r Repository1 -d en-US -s UAT', 'Creates an enterprise site on server UAT and keep the existing id for assets'],
-		['cec create-site Site1 -t Template1 -e -r Repository1 -d en-US -s UAT', 'Creates an enterprise site on server UAT and keep the existing id for assets and only update the assets that are older than those from the template']
+		['cec create-site Site1 -t Template1 -r Repository1 -d en-US -s SampleServer1', 'Creates an enterprise site on server SampleServer1'],
+		['cec create-site Site1 -t Template1 -u -r Repository1 -d en-US -s SampleServer1', 'Creates an enterprise site on server SampleServer1 and keep the existing id for assets'],
+		['cec create-site Site1 -t Template1 -e -r Repository1 -d en-US -s SampleServer1', 'Creates an enterprise site on server SampleServer1 and keep the existing id for assets and only update the assets that are older than those from the template']
 	]
 };
 
@@ -1448,10 +1454,10 @@ const controlSite = {
 		['cec control-site publish -s Site1 -c ', 'Compile and publish site Site1'],
 		['cec control-site publish -s Site1 -t ', 'Only publish the static files of site Site1'],
 		['cec control-site publish -s Site1 -f ', 'Do a full publish of Site1'],
-		['cec control-site publish -s Site1 -r UAT', 'Publish site Site1 on the registered server UAT'],
-		['cec control-site unpublish -s Site1 -r UAT', 'Unpublish site Site1 on the registered server UAT'],
-		['cec control-site bring-online -s Site1 -r UAT', 'Bring site Site1 online on the registered server UAT'],
-		['cec control-site take-offline -s Site1 -r UAT', 'Take site Site1 offline on the registered server UAT']
+		['cec control-site publish -s Site1 -r SampleServer1', 'Publish site Site1 on the registered server SampleServer1'],
+		['cec control-site unpublish -s Site1 -r SampleServer1', 'Unpublish site Site1 on the registered server SampleServer1'],
+		['cec control-site bring-online -s Site1 -r SampleServer1', 'Bring site Site1 online on the registered server SampleServer1'],
+		['cec control-site take-offline -s Site1 -r SampleServer1', 'Take site Site1 offline on the registered server SampleServer1']
 	]
 };
 
@@ -1468,17 +1474,17 @@ const transferSite = {
 		})()
 	},
 	example: [
-		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1', 'Creates site Site1 on server UAT based on site Site1 on server DEV'],
-		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -p', 'Creates site Site1 on server UAT based on site Site1 on server DEV with published assets'],
-		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -n', 'Creates site Site1 on server UAT based on site Site1 on server DEV with assets added to the site\'s pages'],
-		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -u', 'Creates site Site1 on server UAT based on site Site1 on server DEV and only update the content that is older than the content being transferred'],
-		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -x', 'Creates site Site1 on server UAT based on site Site1 on server DEV without content'],
-		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -e', 'Creates site Site1 on server UAT based on site Site1 on server DEV without transferring components to server UAT'],
-		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -e -c', 'Creates site Site1 on server UAT based on site Site1 on server DEV without transferring components and theme to server UAT'],
-		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -m "Shared Images:Shared Images,Shared Video:Shared Video"', 'Creates site Site1 on server UAT based on site Site1 on server DEV and transfter the assets from repository Shared Images and Shared Video'],
-		['cec transfer-site Site1 -s DEV -d UAT -r Repository1 -l L10NPolicy1 -i', 'Creates site Site1 on server UAT based on site Site1 on server DEV with static files from DEV'],
-		['cec transfer-site Site1 -s DEV -d UAT', 'Updates site Site1 on server UAT based on site Site1 on server DEV'],
-		['cec transfer-site StandardSite1 -s DEV -d UAT', 'Creates standard site on server UAT based on site StandardSite1 on server DEV']
+		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer'],
+		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -p', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer with published assets'],
+		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -n', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer with assets added to the site\'s pages'],
+		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -u', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer and only update the content that is older than the content being transferred'],
+		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -x', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer without content'],
+		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -e', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer without transferring components to server SampleServer1'],
+		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -e -c', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer without transferring components and theme to server SampleServer1'],
+		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -m "Shared Images:Shared Images,Shared Video:Shared Video"', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer and transfter the assets from repository Shared Images and Shared Video'],
+		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -i', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer with static files from SampleServer'],
+		['cec transfer-site Site1 -s SampleServer -d SampleServer1', 'Updates site Site1 on server SampleServer1 based on site Site1 on server SampleServer'],
+		['cec transfer-site StandardSite1 -s SampleServer -d SampleServer1', 'Creates standard site on server SampleServer1 based on site StandardSite1 on server SampleServer']
 	]
 };
 
@@ -1496,13 +1502,13 @@ const transferSiteContent = {
 		})()
 	},
 	example: [
-		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1', 'Generate script Site1_downloadcontent and Site1_uploadcontent'],
-		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -e', 'Generate script Site1_downloadcontent and Site1_uploadcontent and execute them'],
-		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -n 200', 'Set batch size to 200 items'],
-		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -p', 'Only the published assets will be transferred'],
-		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -u', 'Only import the content that is newer than the content in site repository on server UAT'],
-		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -l', 'The assets from the site repository will be added to site default collection on destination server'],
-		['cec transfer-site-content Site1 -s DEV -d UAT -r Repository1 -m "Shared Images:Shared Images,Shared Video:Shared Video"']
+		['cec transfer-site-content Site1 -s SampleServer -d SampleServer1 -r Repository1', 'Generate script Site1_downloadcontent and Site1_uploadcontent'],
+		['cec transfer-site-content Site1 -s SampleServer -d SampleServer1 -r Repository1 -e', 'Generate script Site1_downloadcontent and Site1_uploadcontent and execute them'],
+		['cec transfer-site-content Site1 -s SampleServer -d SampleServer1 -r Repository1 -n 200', 'Set batch size to 200 items'],
+		['cec transfer-site-content Site1 -s SampleServer -d SampleServer1 -r Repository1 -p', 'Only the published assets will be transferred'],
+		['cec transfer-site-content Site1 -s SampleServer -d SampleServer1 -r Repository1 -u', 'Only import the content that is newer than the content in site repository on server SampleServer1'],
+		['cec transfer-site-content Site1 -s SampleServer -d SampleServer1 -r Repository1 -l', 'The assets from the site repository will be added to site default collection on destination server'],
+		['cec transfer-site-content Site1 -s SampleServer -d SampleServer1 -r Repository1 -m "Shared Images:Shared Images,Shared Video:Shared Video"']
 	]
 };
 
@@ -1521,7 +1527,7 @@ const shareSite = {
 	example: [
 		['cec share-site Site1 -u user1,user2 -r manager', 'Share site Site1 with user user1 and user2 and assign Manager role to them'],
 		['cec share-site Site1 -u user1,user2 -g group1,group2 -r manager', 'Share site Site1 with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
-		['cec share-site Site1 -u user1,user2 -r manager -s UAT', 'Share site Site1 with user user1 and user2 and assign Manager role to them on the registered server UAT']
+		['cec share-site Site1 -u user1,user2 -r manager -s SampleServer1', 'Share site Site1 with user user1 and user2 and assign Manager role to them on the registered server SampleServer1']
 	]
 };
 
@@ -1539,7 +1545,7 @@ const unshareSite = {
 	example: [
 		['cec unshare-site Site1 -u user1,user2'],
 		['cec unshare-site Site1 -u user1,user2 -g group1,group2'],
-		['cec unshare-site Site1 -u user1,user2 -s UAT']
+		['cec unshare-site Site1 -u user1,user2 -s SampleServer1']
 	]
 };
 
@@ -1557,7 +1563,7 @@ const deleteSite = {
 	example: [
 		['cec delete-site BlogSite'],
 		['cec delete-site BlogSite -p'],
-		['cec delete-site BlogSite -s UAT']
+		['cec delete-site BlogSite -s SampleServer1']
 	]
 };
 
@@ -1574,7 +1580,7 @@ const getSiteSecurity = {
 	},
 	example: [
 		['cec get-site-security Site1'],
-		['cec get-site-security Site1 -s UAT']
+		['cec get-site-security Site1 -s SampleServer1']
 	]
 };
 
@@ -1594,7 +1600,7 @@ const setSiteSecurity = {
 	},
 	example: [
 		['cec set-site-security Site1 -s no', 'make the site publicly available to anyone'],
-		['cec set-site-security Site1 -s no -r UAT', 'make the site publicly available to anyone on server UAT'],
+		['cec set-site-security Site1 -s no -r SampleServer1', 'make the site publicly available to anyone on server SampleServer1'],
 		['cec set-site-security Site1 -s yes', 'Require everyone to sign in to access this site and any authenticated user can access'],
 		['cec set-site-security Site1 -s yes -a "Visitors,Service users"', 'Require everyone to sign in to access this site and all service visitors and users can access'],
 		['cec set-site-security Site1 -s yes -a "Specific users" -u user1,user2', 'Require everyone to sign in to access this site and only user1 and user2 can access'],
@@ -1615,7 +1621,7 @@ const validateSite = {
 	},
 	example: [
 		['cec validate-site Site1', 'Validate site Site1 on the server specified in cec.properties file'],
-		['cec validate-site Site1 -s UAT', 'Validate site Site1 on the registered server UAT']
+		['cec validate-site Site1 -s SampleServer1', 'Validate site Site1 on the registered server SampleServer1']
 	]
 };
 
@@ -1659,7 +1665,7 @@ const indexSite = {
 	example: [
 		['cec index-site Site1 -c PageIndex'],
 		['cec index-site Site1 -c PageIndex -p'],
-		['cec index-site Site1 -c PageIndex -s UAT']
+		['cec index-site Site1 -c PageIndex -s SampleServer1']
 	]
 };
 
@@ -1682,7 +1688,7 @@ const createSiteMap = {
 		['cec create-site-map Site1 -u http://www.example.com/site1'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -a', 'Create entry for all site assets of the types which are placed on site detail pages'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -a Blog,Author', 'Create entry for all site assets of the type Blog and Author if they are placed on site detail pages'],
-		['cec create-site-map Site1 -u http://www.example.com/site1 -s UAT'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -s SampleServer1'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -t 0.9'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -f sitemap.xml'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -p'],
@@ -1723,7 +1729,7 @@ const createAssetReport = {
 	},
 	example: [
 		['cec create-asset-report Site1'],
-		['cec create-asset-report Site1 -s UAT'],
+		['cec create-asset-report Site1 -s SampleServer1'],
 		['cec create-asset-report Site1 -o', 'The report will be saved to Site1AssetUsage.json at the current local location'],
 		['cec create-asset-report Site1 -o ~/Documents', 'The report will be saved to ~/Documents/Site1AssetUsage.json'],
 		['cec create-asset-report Site1 -o ~/Documents/Site1Report.json', 'The report will be saved to ~/Documents/Site1Report.json']
@@ -1743,7 +1749,7 @@ const uploadStaticSite = {
 	},
 	example: [
 		['cec upload-static-site-files ~/Documents/localBlog -s BlogSite'],
-		['cec upload-static-site-files ~/Documents/localBlog -s BlogSite -r UAT']
+		['cec upload-static-site-files ~/Documents/localBlog -s BlogSite -r SampleServer1']
 	]
 };
 
@@ -1762,7 +1768,7 @@ const downloadStaticSite = {
 	example: [
 		['cec download-static-site-files BlogSite', 'Download the files and save to local folder src/documents/BlogSite/static'],
 		['cec download-static-site-files BlogSite -f ~/Documents/BlogSite/static', 'Download the files and save to local folder ~/Documents/BlogSite/static'],
-		['cec download-static-site-files BlogSite -s UAT']
+		['cec download-static-site-files BlogSite -s SampleServer1']
 	]
 };
 
@@ -1779,7 +1785,7 @@ const deleteStaticSite = {
 	},
 	example: [
 		['cec delete-static-site-files BlogSite'],
-		['cec delete-static-site-files BlogSite -s UAT']
+		['cec delete-static-site-files BlogSite -s SampleServer1']
 	]
 };
 
@@ -1796,7 +1802,7 @@ const refreshPrerenderCache = {
 	},
 	example: [
 		['cec refresh-prerender-cache BlogSite'],
-		['cec refresh-prerender-cache BlogSite -s UAT']
+		['cec refresh-prerender-cache BlogSite -s SampleServer1']
 	]
 };
 
@@ -1873,7 +1879,7 @@ const createRepository = {
 	example: [
 		['cec create-repository Repo1'],
 		['cec create-repository BusinessRepo -p business'],
-		['cec create-repository Repo1 -d "Blog Repository" -t BlogType,AuthorType -c channel1,channel2 -l en-US -s UAT']
+		['cec create-repository Repo1 -d "Blog Repository" -t BlogType,AuthorType -c channel1,channel2 -l en-US -s SampleServer1']
 	]
 };
 
@@ -1892,7 +1898,7 @@ const controlRepository = {
 	example: [
 		['cec control-repository add-type -r Repo1 -t Blog,Author'],
 		['cec control-repository add-type -r Repo1,Repo2 -t Blog,Author'],
-		['cec control-repository add-type -r Repo1 -t Blog,Author -s UAT'],
+		['cec control-repository add-type -r Repo1 -t Blog,Author -s SampleServer1'],
 		['cec control-repository remove-type -r Repo1 -t Blog,Author'],
 		['cec control-repository add-channel -r Repo1 -c channel1,channel2'],
 		['cec control-repository remove-channel -r Repo1 -c channel1,channel2'],
@@ -1927,7 +1933,7 @@ const shareRepository = {
 	example: [
 		['cec share-repository Repo1 -u user1,user2 -r manager', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them'],
 		['cec share-repository Repo1 -u user1,user2 -g group1,group2 -r manager', 'Share repository Repo1 with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
-		['cec share-repository Repo1 -u user1,user2 -r manager -s UAT', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them on the registered server UAT'],
+		['cec share-repository Repo1 -u user1,user2 -r manager -s SampleServer1', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them on the registered server SampleServer1'],
 		['cec share-repository Repo1 -u user1,user2 -r manager -t', 'Share repository Repo1 and all the types in Repo1 with user user1 and user2 and assign Manager role to them'],
 		['cec share-repository Repo1 -u user1,user2 -r manager -t -y manager', 'Share repository Repo1 with user user1 and user2 and assign Manager role to them, share all types in  Repo1 with user user1 and user2 and assign Manager role to them']
 	]
@@ -1948,7 +1954,7 @@ const unshareRepository = {
 	example: [
 		['cec unshare-repository Repo1 -u user1,user2 '],
 		['cec unshare-repository Repo1 -u user1,user2 -g group1,group2'],
-		['cec unshare-repository Repo1 -u user1,user2 -s UAT'],
+		['cec unshare-repository Repo1 -u user1,user2 -s SampleServer1'],
 		['cec unshare-repository Repo1 -u user1,user2 -t']
 	]
 };
@@ -1965,8 +1971,8 @@ const describeRepository = {
 		})()
 	},
 	example: [
-		['cec describe-repository Repo1 -s UAT'],
-		['cec describe-repository Repo1 -f ~/Docs/Repo1.json -s UAT']
+		['cec describe-repository Repo1 -s SampleServer1'],
+		['cec describe-repository Repo1 -f ~/Docs/Repo1.json -s SampleServer1']
 	]
 };
 
@@ -2015,7 +2021,7 @@ const listEditorialPermission = {
 	},
 	example: [
 		['cec list-editorial-permission Repo1'],
-		['cec list-editorial-permission Repo1 -s DEV'],
+		['cec list-editorial-permission Repo1 -s SampleServer '],
 	]
 };
 
@@ -2034,7 +2040,7 @@ const listEditorialRole = {
 	example: [
 		['cec list-editorial-roles', 'List all editorial roles'],
 		['cec list-editorial-roles -n Role1', 'List editorial role Role1'],
-		['cec list-editorial-roles -s DEV'],
+		['cec list-editorial-roles -s SampleServer '],
 	]
 };
 
@@ -2099,7 +2105,7 @@ const deleteEditorialRole = {
 	},
 	example: [
 		['cec delete-editorial-role Role1'],
-		['cec delete-editorial-role Role1 -s DEV']
+		['cec delete-editorial-role Role1 -s SampleServer ']
 	]
 };
 
@@ -2118,7 +2124,7 @@ const shareType = {
 	example: [
 		['cec share-type BlogType -u user1,user2 -r manager', 'Share type BlogType with user user1 and user2 and assign Manager role to them'],
 		['cec share-type BlogType -u user1,user2 -g group1,group2 -r manager', 'Share type BlogType with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
-		['cec share-type BlogType -u user1,user2 -r manager -s UAT', 'Share type BlogType with user user1 and user2 and assign Manager role to them on the registered server UAT']
+		['cec share-type BlogType -u user1,user2 -r manager -s SampleServer1', 'Share type BlogType with user user1 and user2 and assign Manager role to them on the registered server SampleServer1']
 	]
 };
 
@@ -2136,7 +2142,7 @@ const unshareType = {
 	example: [
 		['cec unshare-type BlogType -u user1,user2 '],
 		['cec unshare-type BlogType -u user1,user2 -g group1,group2'],
-		['cec unshare-type BlogType -u user1,user2 -s UAT']
+		['cec unshare-type BlogType -u user1,user2 -s SampleServer1']
 	]
 };
 
@@ -2155,7 +2161,7 @@ const downloadType = {
 		['cec download-type BlogType', 'Download content type BlogType and save to local folder src/types/BlogType'],
 		['cec download-type BlogType,BlogAuthor', 'Download content type BlogType and BlogAuthor and save to local folder'],
 		['cec download-type BlogType -x', 'Do not download the content field editors, content forms and content layouts'],
-		['cec download-type BlogType -s UAT']
+		['cec download-type BlogType -s SampleServer1']
 	]
 };
 
@@ -2173,9 +2179,9 @@ const uploadType = {
 	example: [
 		['cec upload-type BlogType'],
 		['cec upload-type BlogType -x', 'Do not upload the content field editors, content forms and content layouts'],
-		['cec upload-type BlogType -s UAT'],
+		['cec upload-type BlogType -s SampleServer1'],
 		['cec upload-type BlogAuthor,BlogType', 'Place the referenced types first'],
-		['cec upload-type ~/Downloads/BlogType.json -f -s UAT']
+		['cec upload-type ~/Downloads/BlogType.json -f -s SampleServer1']
 	]
 };
 
@@ -2191,8 +2197,8 @@ const copyType = {
 		})()
 	},
 	example: [
-		['cec copy-type BlogType BlogType2 -s DEV', 'Copy type BlogType to BlogType2 on the registered server DEV'],
-		['cec copy-type BlogType BlogType2 -p "Blog Type" -d "Copied from BlogType" -s DEV', 'Copy type BlogType to BlogType2 on the registered server DEV and set the display name and description']
+		['cec copy-type BlogType BlogType2 -s SampleServer ', 'Copy type BlogType to BlogType2 on the registered server SampleServer'],
+		['cec copy-type BlogType BlogType2 -p "Blog Type" -d "Copied from BlogType" -s SampleServer ', 'Copy type BlogType to BlogType2 on the registered server SampleServer and set the display name and description']
 	]
 };
 
@@ -2215,8 +2221,8 @@ const updateType = {
 		['cec update-type add-content-form -o form1 -c BlogPost -t BlogTemplateContent -n ',
 			'Associate content form form1 with content type BlogPost from local template at src/content/BlogTemplateContent'
 		],
-		['cec update-type add-content-form -o form1 -c BlogPost -s UAT',
-			'Associate content form form1 with content type BlogPost on the registered server UAT'
+		['cec update-type add-content-form -o form1 -c BlogPost -s SampleServer1',
+			'Associate content form form1 with content type BlogPost on the registered server SampleServer1'
 		],
 		['cec update-type add-content-form -o form1 -c BlogPost -s',
 			'Associate content form form1 with content type BlogPost on the server specified in cec.properties file'
@@ -2227,8 +2233,8 @@ const updateType = {
 		['cec update-type remove-content-form -o form1 -c BlogPost -t BlogTemplateContent -n',
 			'Change not to use form1 when create or edit items of type BlogPost from local template at src/content/BlogTemplateContent'
 		],
-		['cec update-type remove-content-form -o form1 -c BlogPost -s UAT',
-			'Change not to use form1 when create or edit items of type BlogPost on the registered server UAT'
+		['cec update-type remove-content-form -o form1 -c BlogPost -s SampleServer1',
+			'Change not to use form1 when create or edit items of type BlogPost on the registered server SampleServer1'
 		]
 	]
 };
@@ -2253,7 +2259,7 @@ const createWordTemplate = {
 		['cec create-word-template BlogType'],
 		['cec create-word-template BlogType -f table'],
 		['cec create-word-template BlogType -n BlogTypeMS'],
-		['cec create-word-template BlogType -s UAT']
+		['cec create-word-template BlogType -s SampleServer1']
 	]
 };
 
@@ -2274,7 +2280,7 @@ const createContentItem = {
 	},
 	example: [
 		['create-content-item /Documents/item1.docx -t word -r Repo1'],
-		['create-content-item /Documents/item1.docx -t word -r Repo1 -s UAT'],
+		['create-content-item /Documents/item1.docx -t word -r Repo1 -s SampleServer1'],
 	]
 };
 */
@@ -2294,7 +2300,7 @@ const createCollection = {
 	},
 	example: [
 		['cec create-collection collection1 -r Repo1', 'Create collection collection1 in repository Repository1'],
-		['cec create-collection collection1 -r Repo1 -s UAT', 'On registered server UAT, create collection collection1 in repository Repository1'],
+		['cec create-collection collection1 -r Repo1 -s SampleServer1', 'On registered server SampleServer1, create collection collection1 in repository Repository1'],
 		['cec create-collection collection1 -r Repo1 -c channel1,channel2', 'Create collection collection1 in repository Repository1 and set channel channel1 and channel2 as the default channels']
 	]
 };
@@ -2315,10 +2321,10 @@ const controlCollection = {
 		})()
 	},
 	example: [
-		['cec control-collection add-channel -r Repo1 -l Collection1 -c channel1,channel2 -s UAT'],
-		['cec control-collection remove-channel -r Repo1 -l Collection1 -c channel1,channel2 -s UAT'],
-		['cec control-collection share -r Repo1 -l Collection1 -u user1,user2 -g group1,group2 -o manager -s UAT'],
-		['cec control-collection unshare -r Repo1 -l Collection1 -u user1,user2 -g group1,group2 -s UAT']
+		['cec control-collection add-channel -r Repo1 -l Collection1 -c channel1,channel2 -s SampleServer1'],
+		['cec control-collection remove-channel -r Repo1 -l Collection1 -c channel1,channel2 -s SampleServer1'],
+		['cec control-collection share -r Repo1 -l Collection1 -u user1,user2 -g group1,group2 -o manager -s SampleServer1'],
+		['cec control-collection unshare -r Repo1 -l Collection1 -u user1,user2 -g group1,group2 -s SampleServer1']
 	]
 };
 
@@ -2338,7 +2344,7 @@ const createChannel = {
 	},
 	example: [
 		['cec create-channel channel1', 'Create public channel channel1 and everything can be published'],
-		['cec create-channel channel1 -s UAT', 'On registered server UAT, reate public channel channel1 and everything can be published'],
+		['cec create-channel channel1 -s SampleServer1', 'On registered server SampleServer1, reate public channel channel1 and everything can be published'],
 		['cec create-channel channel1 -l en-fr', 'Create public channel channel1 with localization policy en-fr and everything can be published'],
 		['cec create-channel channel1 -t secure -p onlyApproved', 'Create secure channel channel1 and only approved items can be published']
 	]
@@ -2359,7 +2365,7 @@ const shareChannel = {
 	example: [
 		['cec share-channel Channel1 -u user1,user2 -r manager', 'Share channel Channel1 with user user1 and user2 and assign Manager role to them'],
 		['cec share-channel Channel1 -u user1,user2 -g group1,group2 -r manager', 'Share channel Channel1 with user user1 and user2 and group group1 and group2 and assign Manager role to them'],
-		['cec share-channel Channel1 -u user1,user2 -r manager -s UAT', 'Share channel Channel1 with user user1 and user2 and assign Manager role to them on the registered server UAT']
+		['cec share-channel Channel1 -u user1,user2 -r manager -s SampleServer1', 'Share channel Channel1 with user user1 and user2 and assign Manager role to them on the registered server SampleServer1']
 	]
 };
 
@@ -2377,7 +2383,7 @@ const unshareChannel = {
 	example: [
 		['cec unshare-channel Channel1 -u user1,user2 '],
 		['cec unshare-channel Channel1 -u user1,user2 -g group1,group2'],
-		['cec unshare-channel Channel1 -u user1,user2 -s UAT']
+		['cec unshare-channel Channel1 -u user1,user2 -s SampleServer1']
 	]
 };
 
@@ -2393,8 +2399,8 @@ const describeChannel = {
 		})()
 	},
 	example: [
-		['cec describe-channel Channel1 -s UAT'],
-		['cec describe-channel Channel1 -f ~/Docs/Channel1.json -s UAT']
+		['cec describe-channel Channel1 -s SampleServer1'],
+		['cec describe-channel Channel1 -f ~/Docs/Channel1.json -s SampleServer1']
 	]
 };
 
@@ -2410,8 +2416,8 @@ const describeWorkflow = {
 		})()
 	},
 	example: [
-		['cec describe-workflow OneStepReview -s UAT'],
-		['cec describe-workflow OneStepReview -f ~/Docs/OneStepReview.json -s UAT']
+		['cec describe-workflow OneStepReview -s SampleServer1'],
+		['cec describe-workflow OneStepReview -f ~/Docs/OneStepReview.json -s SampleServer1']
 	]
 };
 
@@ -2433,7 +2439,7 @@ const createLocalizationPolicy = {
 	example: [
 		['cec create-localization-policy en-us -r en-US -l en-US'],
 		['cec create-localization-policy en-fr -r en-US,fr-FR -l en-US'],
-		['cec create-localization-policy multi -r en-US,fr-FR -l en-US -o zh-CN -d "Policy for Blog" -s UAT']
+		['cec create-localization-policy multi -r en-US,fr-FR -l en-US -o zh-CN -d "Policy for Blog" -s SampleServer1']
 
 	]
 };
@@ -2451,7 +2457,7 @@ const listAssets = {
 	},
 	example: [
 		['cec list-assets', 'List all assets'],
-		['cec list-assets -s UAT', 'List all assets on registered server UAT'],
+		['cec list-assets -s SampleServer1', 'List all assets on registered server SampleServer1'],
 		['cec list-assets -r Repo1', 'List all assets from repository Repo1'],
 		['cec list-assets -r Repo1 -o "name:asc"', 'List all assets from repository Repo1 and order them by name'],
 		['cec list-assets -c Channel1', 'List all assets from channel Channel1'],
@@ -2475,7 +2481,7 @@ const createAssetUsageReport = {
 	},
 	example: [
 		['cec create-asset-usage-report GUID1'],
-		['cec create-asset-usage-report GUID1 -s UAT'],
+		['cec create-asset-usage-report GUID1 -s SampleServer1'],
 		['cec create-asset-usage-report GUID1 -o', 'The report will be saved to GUID1AssetUsage.json'],
 		['cec create-asset-usage-report GUID1,GUID2 -o', 'The report will be saved to GUID1_GUID2AssetUsage.json'],
 		['cec create-asset-usage-report GUID1,GUID2 -o ItemReport.json', 'The report will be saved to ItemReport.json']
@@ -2496,7 +2502,7 @@ const listTranslationJobs = {
 	example: [
 		['cec list-translation-jobs', 'Lists local translation jobs'],
 		['cec list-translation-jobs -s', 'Lists translation jobs on the server specified in cec.properties file'],
-		['cec list-translation-jobs -s UAT', 'Lists translation jobs on the registered server UAT']
+		['cec list-translation-jobs -s SampleServer1', 'Lists translation jobs on the registered server SampleServer1']
 	]
 };
 
@@ -2516,13 +2522,13 @@ const createTranslationJob = {
 	},
 	example: [
 		['cec create-translation-job job1 -s Site1 -l all'],
-		['cec create-translation-job job1 -s Site1 -l all -r UAT'],
+		['cec create-translation-job job1 -s Site1 -l all -r SampleServer1'],
 		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT'],
 		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT, -t siteItems'],
 		['cec create-translation-job job1 -s Site1 -l de-DE,it-IT -c Lingotek'],
-		['cec create-translation-job job1 -p Repo1 -o collection1 -l all -r UAT'],
-		['cec create-translation-job job1 -p Repo1 -a GUID1,GUID2 -l all -r UAT'],
-		['cec create-translation-job job1 -p Repo1 -q \'type eq "BlogType"\' -l all -c Lingotek -r UAT']
+		['cec create-translation-job job1 -p Repo1 -o collection1 -l all -r SampleServer1'],
+		['cec create-translation-job job1 -p Repo1 -a GUID1,GUID2 -l all -r SampleServer1'],
+		['cec create-translation-job job1 -p Repo1 -q \'type eq "BlogType"\' -l all -c Lingotek -r SampleServer1']
 	]
 };
 
@@ -2539,8 +2545,8 @@ const downloadTranslationJob = {
 	},
 	example: [
 		['cec download-translation-job Site1Job'],
-		['cec download-translation-job Site1Job -s UAT'],
-		['cec download-translation-job AssetsJob -s UAT']
+		['cec download-translation-job Site1Job -s SampleServer1'],
+		['cec download-translation-job AssetsJob -s SampleServer1']
 	]
 };
 
@@ -2557,11 +2563,11 @@ const uploadTranslationJob = {
 	},
 	example: [
 		['cec upload-translation-job Site1Job', 'File will be uploaded to the Home folder.'],
-		['cec upload-translation-job Site1Job -s UAT', 'File will be uploaded to the Home folder on registered server UAT'],
+		['cec upload-translation-job Site1Job -s SampleServer1', 'File will be uploaded to the Home folder on registered server SampleServer1'],
 		['cec upload-translation-job Site1Job -f Import/TranslationJobs', 'File will be uploaded to folder Import/TranslationJobs.'],
 		['cec upload-translation-job Site1Job -v', 'Validate the translation job without import.'],
-		['cec upload-translation-job AssetsJob -f -s UAT Import/TranslationJobs', 'File will be uploaded to folder Import/TranslationJobs.'],
-		['cec upload-translation-job AssetsJob -v -s UAT', 'Validate the translation job without import.']
+		['cec upload-translation-job AssetsJob -f -s SampleServer1 Import/TranslationJobs', 'File will be uploaded to folder Import/TranslationJobs.'],
+		['cec upload-translation-job AssetsJob -v -s SampleServer1', 'Validate the translation job without import.']
 	]
 };
 
@@ -2595,8 +2601,8 @@ const refreshTranslationJob = {
 	},
 	example: [
 		['cec refresh-translation-job Site1Job1'],
-		['cec refresh-translation-job Site1Job1 -s UAT', 'Refresh translation job Site1Job1 on the registered server UAT'],
-		['cec refresh-translation-job AssetsJob1 -s UAT', 'Refresh translation job AssetsJob1 on the registered server UAT']
+		['cec refresh-translation-job Site1Job1 -s SampleServer1', 'Refresh translation job Site1Job1 on the registered server SampleServer1'],
+		['cec refresh-translation-job AssetsJob1 -s SampleServer1', 'Refresh translation job AssetsJob1 on the registered server SampleServer1']
 	]
 };
 
@@ -2613,9 +2619,9 @@ const ingestTranslationJob = {
 	},
 	example: [
 		['cec ingest-translation-job Site1Job1', 'Ingest local translation job'],
-		['cec ingest-translation-job Site1Job1 -s DEV', 'Ingest translation job Site1Job1 on the registered server DEV'],
+		['cec ingest-translation-job Site1Job1 -s SampleServer ', 'Ingest translation job Site1Job1 on the registered server SampleServer'],
 		['cec ingest-translation-job AssetsJob1', 'Ingest local translation job'],
-		['cec ingest-translation-job AssetsJob1 -s DEV', 'Ingest translation job AssetsJob1 on the registered server DEV']
+		['cec ingest-translation-job AssetsJob1 -s SampleServer ', 'Ingest translation job AssetsJob1 on the registered server SampleServer']
 	]
 };
 
@@ -2667,7 +2673,7 @@ const registerTranslationConnector = {
 		})()
 	},
 	example: [
-		['cec register-translation-connector connector1-auto -c connector1 -s http://localhost:8084/connector/rest/api -u admin -p Welcome1 -f "BearerToken:Bearer token1,WorkflowId:machine-workflow-id,AdditionalData:{}"']
+		['cec register-translation-connector connector1-auto -c connector1 -s http://localhost:8084/connector/rest/api -u admin -p SamplePass1 -f "BearerToken:Bearer token1,WorkflowId:machine-workflow-id,AdditionalData:{}"']
 	]
 };
 
@@ -2685,7 +2691,7 @@ const createFolder = {
 	example: [
 		['cec create-folder Projects', 'Creates folder Projects under the Home folder'],
 		['cec create-folder Projects/Blogs', 'Creates folder Projects under the Home folder and folder Blogs under Projects'],
-		['cec create-folder Projects -s UAT', 'Creates folder Projects under the Home folder on the registered server UAT']
+		['cec create-folder Projects -s SampleServer1', 'Creates folder Projects under the Home folder on the registered server SampleServer1']
 	]
 };
 
@@ -2703,7 +2709,7 @@ const copyFolder = {
 	example: [
 		['cec copy-folder Projects/Blogs', 'Copy the folder in the same parent folder'],
 		['cec copy-folder Projects/Blogs -f /', 'Copy the folder to the Home folder'],
-		['cec copy-folder Projects/Blogs -f Projects2 -s UAT', 'Copy the folder to another folder'],
+		['cec copy-folder Projects/Blogs -f Projects2 -s SampleServer1', 'Copy the folder to another folder'],
 		['cec copy-folder site:blog1/pages -f site:blog2', 'Copy the site folder to another site'],
 		['cec copy-folder theme:blog1Theme/assets/img -f theme:blog1Theme/assets/css', 'Copy the theme folder to another folder of the same theme'],
 		['cec copy-folder component:Comp1/assets', 'Copy the component folder in the same component folder']
@@ -2725,7 +2731,7 @@ const shareFolder = {
 		['cec share-folder Projects/Blogs -u user1,user2 -r manager', 'Share folder Projects/Blogs with user user1 and user2 and assign Manager role to them'],
 		['cec share-folder Projects/Blogs -u user1,user2 -g group1 -r manager', 'Share folder Projects/Blogs with user user1, user2 and group group1 and assign Manager role to them'],
 		['cec share-folder Projects/Blogs -g group1,group2 -r manager', 'Share folder Projects/Blogs with group group1 and group2 and assign Manager role to them'],
-		['cec share-folder Projects/Blogs -u user1,user2 -r manager -s UAT', 'Share folder Projects/Blogs with user user1 and user2 and assign Manager role to them on the registered server UAT']
+		['cec share-folder Projects/Blogs -u user1,user2 -r manager -s SampleServer1', 'Share folder Projects/Blogs with user user1 and user2 and assign Manager role to them on the registered server SampleServer1']
 	]
 };
 
@@ -2744,7 +2750,7 @@ const unshareFolder = {
 		['cec unshare-folder Projects/Blogs -u user1,user2 '],
 		['cec unshare-folder Projects/Blogs -g group1,group2'],
 		['cec unshare-folder Projects/Blogs -u user1,user2 -g group1,group2'],
-		['cec unshare-folder Projects/Blogs -u user1,user2 -s UAT']
+		['cec unshare-folder Projects/Blogs -u user1,user2 -s SampleServer1']
 	]
 };
 
@@ -2763,7 +2769,7 @@ const downloadFolder = {
 	example: [
 		['cec download-folder Releases/1', 'Downloads folder Releases/1 from OCM server and save to local folder src/documents/'],
 		['cec download-folder /', 'Downloads all documents from OCM server and save to local folder src/documents/'],
-		['cec download-folder Releases/1 -s UAT', 'Downloads folder Releases/1 from the registered server UAT and save to local folder src/documents/'],
+		['cec download-folder Releases/1 -s SampleServer1', 'Downloads folder Releases/1 from the registered server SampleServer1 and save to local folder src/documents/'],
 		['cec download-folder Releases/1 -f ~/Downloads', 'Downloads folder Releases/1 from OCM server and save to local folder ~/Download/'],
 		['cec download-folder Releases/1 -f .', 'Downloads folder Releases/1 from OCM server and save to the current local folder'],
 		['cec download-folder site:blog1 -f ~/Downloads/blog1Files', 'Downloads all files of site blog1 and save to local folder ~/Download/blog1Files'],
@@ -2785,7 +2791,7 @@ const listFolder = {
 	},
 	example: [
 		['cec list-folder Releases/1'],
-		['cec list-folder Releases/1 -s UAT'],
+		['cec list-folder Releases/1 -s SampleServer1'],
 		['cec list-folder site:blog1'],
 		['cec list-folder theme:blog1Theme'],
 		['cec list-folder component:Comp1/assets']
@@ -2809,7 +2815,7 @@ const uploadFolder = {
 		['cec upload-folder ~/Downloads/docs/', 'Uploads all content from ~/Downloads/docs to the Home folder on the server'],
 		['cec upload-folder ~/Downloads/docs -f Mydoc', 'Uploads all content from ~/Downloads/docs to folder Mydoc/docs on the server'],
 		['cec upload-folder ~/Downloads/docs/ -f Mydoc', 'Uploads all content from ~/Downloads/docs to folder Mydoc on the server'],
-		['cec upload-folder ~/Downloads/docs -s UAT', 'Uploads all content from ~/Downloads/docs to folder docs on the registered server UAT'],
+		['cec upload-folder ~/Downloads/docs -s SampleServer1', 'Uploads all content from ~/Downloads/docs to folder docs on the registered server SampleServer1'],
 		['cec upload-folder ~/Downloads/docs/ -f site:blog1/settings/misc', 'Uploads all content from ~/Downloads/docs to folder settings/misc of site blog1'],
 		['cec upload-folder ~/Downloads/docs -f theme:blog1Theme', 'Uploads all content from ~/Downloads/docs to folder docs of theme blog1Theme'],
 		['cec upload-folder ~/Downloads/docs -f component:Comp1', 'Uploads all content from ~/Downloads/docs to folder docs of component Comp1']
@@ -2830,7 +2836,7 @@ const deleteFolder = {
 	},
 	example: [
 		['cec delete-folder Import/docs'],
-		['cec delete-folder Import/docs -s UAT'],
+		['cec delete-folder Import/docs -s SampleServer1'],
 		['cec delete-folder Import/docs -p'],
 		['cec delete-folder site:blog1/docs'],
 		['cec delete-folder theme:blog1Theme/docs'],
@@ -2852,7 +2858,7 @@ const deleteFile = {
 	},
 	example: [
 		['cec delete-file docs/Projects.pdf'],
-		['cec delete-file docs/Projects.pdf -s UAT'],
+		['cec delete-file docs/Projects.pdf -s SampleServer1'],
 		['cec delete-file docs/Projects.pdf -p'],
 		['cec delete-file site:blog1/docs/Projects.pdf'],
 		['cec delete-file theme:blog1Theme/docs/Projects.pdf'],
@@ -2874,7 +2880,7 @@ const uploadFile = {
 	},
 	example: [
 		['cec upload-file ~/Documents/Projects.pdf', 'Uploads the file to the Home folder'],
-		['cec upload-file ~/Documents/Projects.pdf -s UAT', 'Uploads the file to the Home folder on the registered server UAT'],
+		['cec upload-file ~/Documents/Projects.pdf -s SampleServer1', 'Uploads the file to the Home folder on the registered server SampleServer1'],
 		['cec upload-file ~/Documents/Projects.pdf -f Doc/Plan', 'Uploads the file to folder Doc/Plan'],
 		['cec upload-file ~/Documents/Projects.pdf -f site:blog1/settings/misc', 'Uploads the file to folder settings/misc of site blog1'],
 		['cec upload-file ~/Documents/style1.css -f theme:blog1Theme/designs/default', 'Uploads the css file to folder designs/default of theme blog1Theme'],
@@ -2896,7 +2902,7 @@ const downloadFile = {
 	},
 	example: [
 		['cec download-file Releases/Projects.pdf', 'Downloads the file from OCM server and save to local folder src/documents/'],
-		['cec download-file Releases/Projects.pdf -s UAT', 'Downloads the file from the registered server UAT and save to local folder src/documents/'],
+		['cec download-file Releases/Projects.pdf -s SampleServer1', 'Downloads the file from the registered server SampleServer1 and save to local folder src/documents/'],
 		['cec download-file Releases/Projects.pdf -f ~/Downloads', 'Downloads the file from OCM server and save to local folder ~/Download/'],
 		['cec download-file Releases/Projects.pdf -f .', 'Downloads the file from OCM server and save to the current local folder'],
 		['cec download-file site:blog1/siteinfo.json', 'Downloads the file from folder blog1 and save to local folder src/documents/blog1'],
@@ -2919,7 +2925,7 @@ const copyFile = {
 	example: [
 		['cec copy-file Releases/Projects.pdf', 'Copy the file the in the same folder'],
 		['cec copy-file Releases/Projects.pdf -f /', 'Copy the file to the Home folder'],
-		['cec copy-file Releases/Projects.pdf -f NewRelease/v1 -s UAT', 'Copy the folder to another folder'],
+		['cec copy-file Releases/Projects.pdf -f NewRelease/v1 -s SampleServer1', 'Copy the folder to another folder'],
 		['cec copy-file site:blog1/siteinfo.json -f Misc', 'Copy the site file to Home folder Misc'],
 		['cec copy-file theme:blog1Theme/designs/default/design.css -f theme:blog1Theme/designs/styles', 'Copy the theme file to another folder of the same theme'],
 		['cec copy-file component:Comp1/assets/render.js', 'Copy the component file in the same component folder']
@@ -2940,7 +2946,7 @@ const downloadRecommendation = {
 	example: [
 		['cec download-recommendation Recommendation1', 'Downloads Recommendation1'],
 		['cec download-recommendation Recommendation1 -p -c Channel1', 'Downloads Recommendation1 published to channel Channel1'],
-		['cec download-recommendation Recommendation1 -s UAT'],
+		['cec download-recommendation Recommendation1 -s SampleServer1'],
 		['cec download-recommendation Recommendation1 -r Repo1'],
 	]
 };
@@ -2958,7 +2964,7 @@ const uploadRecommendation = {
 	},
 	example: [
 		['cec upload-recommendation Recommendation1 -r Repo1'],
-		['cec upload-recommendation Recommendation1 -r Repo1 -s UAT']
+		['cec upload-recommendation Recommendation1 -r Repo1 -s SampleServer1']
 	]
 };
 
@@ -2974,12 +2980,12 @@ const controlRecommendation = {
 		})()
 	},
 	example: [
-		['cec control-recommendation add-channel -r Repo1 -m Recommendation1 -c channel1,channel2 -s UAT', 'Add channel channel1 and channel2 to Recommendation1'],
-		['cec control-recommendation remove-channel -r Repo1 -m Recommendation1 -c channel1,channel2 -s UAT', 'Remove channel channel1 and channel2 from Recommendation1'],
-		['cec control-recommendation publish -r Repo1 -m Recommendation1 -s UAT', 'Publish Recommendation1 to all channels added to Recommendation1'],
-		['cec control-recommendation publish -r Repo1 -m Recommendation1 -c channel1,channel2 -s UAT', 'Publish Recommendation1 to channel channel1 and channel2'],
-		['cec control-recommendation unpublish -r Repo1 -m Recommendation1 -s UAT', 'Unpublish Recommendation1 from all channels added to Recommendation1'],
-		['cec control-recommendation unpublish -r Repo1 -m Recommendation1 -c channel1,channel2 -s UAT', 'Unpublish Recommendation1 from channel channel1,channel2']
+		['cec control-recommendation add-channel -r Repo1 -m Recommendation1 -c channel1,channel2 -s SampleServer1', 'Add channel channel1 and channel2 to Recommendation1'],
+		['cec control-recommendation remove-channel -r Repo1 -m Recommendation1 -c channel1,channel2 -s SampleServer1', 'Remove channel channel1 and channel2 from Recommendation1'],
+		['cec control-recommendation publish -r Repo1 -m Recommendation1 -s SampleServer1', 'Publish Recommendation1 to all channels added to Recommendation1'],
+		['cec control-recommendation publish -r Repo1 -m Recommendation1 -c channel1,channel2 -s SampleServer1', 'Publish Recommendation1 to channel channel1 and channel2'],
+		['cec control-recommendation unpublish -r Repo1 -m Recommendation1 -s SampleServer1', 'Unpublish Recommendation1 from all channels added to Recommendation1'],
+		['cec control-recommendation unpublish -r Repo1 -m Recommendation1 -c channel1,channel2 -s SampleServer1', 'Unpublish Recommendation1 from channel channel1,channel2']
 	]
 };
 
@@ -3017,11 +3023,11 @@ const registerServer = {
 		})()
 	},
 	example: [
-		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -d http://identitydomain1.com -c clientid -s clientsecret -o https://primary-audience-and-scope', 'The server is a tenant on Oracle Public cloud'],
-		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1', 'The server is a tenant on Oracle Public cloud'],
-		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -m 60000', 'The server is a tenant on Oracle Public cloud'],
-		['cec register-server server1 -e http://server1.git.oraclecorp.com.com -u user1 -p Welcome1 -t dev_ec', 'The server is a standalone development instance'],
-		['cec register-server server1 -e http://server1.com -u user1 -p Welcome1 -k ~/.ceckey', 'The password will be encrypted']
+		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1 -d http://identitydomain1.com -c clientid -s clientsecret -o https://primary-audience-and-scope', 'The server is a tenant on Oracle Public cloud'],
+		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1', 'The server is a tenant on Oracle Public cloud'],
+		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1 -m 60000', 'The server is a tenant on Oracle Public cloud'],
+		['cec register-server server1 -e http://server1.git.oraclecorp.com.com -u user1 -p SamplePass1 -t dev_ec', 'The server is a standalone development instance'],
+		['cec register-server server1 -e http://server1.com -u user1 -p SamplePass1 -k ~/.ceckey', 'The password will be encrypted']
 	]
 };
 
@@ -3037,7 +3043,7 @@ const setOAuthToken = {
 		})()
 	},
 	example: [
-		['cec set-oauth-token token1 -s UAT', 'Set OAuth token for server UAT, all CLI commands using UAT will be headless'],
+		['cec set-oauth-token token1 -s SampleServer1', 'Set OAuth token for server SampleServer1, all CLI commands using SampleServer1 will be headless'],
 		['cec set-oauth-token token1', 'Set OAuth token for the server specified in cec.properties file']
 	]
 };
@@ -3077,7 +3083,7 @@ const develop = {
 	example: [
 		['cec develop'],
 		['cec develop -p 7878'],
-		['cec develop -p 7878 -s UAT']
+		['cec develop -p 7878 -s SampleServer1']
 	]
 };
 
@@ -3097,13 +3103,13 @@ const syncServer = {
 		})()
 	},
 	example: [
-		['cec sync-server -s DEV -d UAT -u admin -w welcome1', 'Use Basic authorization'],
-		['cec sync-server -s DEV -d UAT -u admin -w welcome1 -p 7878', 'Use Basic authorization and port set to 7878'],
-		['cec sync-server -s DEV -d UAT', 'Use Basic authorization and the username and password will be prompted to enter'],
-		['cec sync-server -s DEV -d UAT -u admin', 'Use Basic authorization and the password will be prompted to enter'],
-		['cec sync-server -s DEV -d UAT -a header -v key1:value1,key2:value2', 'Use Header authorization'],
-		['cec sync-server -s DEV -d UAT -a none', 'No authorization'],
-		['cec sync-server -s DEV -d UAT -k ~/keys/key.pem -c ~/keys/cert.pem', 'The sync server will start over HTTPS']
+		['cec sync-server -s SampleServer -d SampleServer1 -u admin -w SamplePass1', 'Use Basic authorization'],
+		['cec sync-server -s SampleServer -d SampleServer1 -u admin -w SamplePass1 -p 7878', 'Use Basic authorization and port set to 7878'],
+		['cec sync-server -s SampleServer -d SampleServer1', 'Use Basic authorization and the username and password will be prompted to enter'],
+		['cec sync-server -s SampleServer -d SampleServer1 -u admin', 'Use Basic authorization and the password will be prompted to enter'],
+		['cec sync-server -s SampleServer -d SampleServer1 -a header -v key1:value1,key2:value2', 'Use Header authorization'],
+		['cec sync-server -s SampleServer -d SampleServer1 -a none', 'No authorization'],
+		['cec sync-server -s SampleServer -d SampleServer1 -k ~/keys/key.pem -c ~/keys/cert.pem', 'The sync server will start over HTTPS']
 	]
 };
 
@@ -3122,9 +3128,9 @@ const webhookServer = {
 		})()
 	},
 	example: [
-		['cec webhook-server -t seo -s DEV -c Blog -d "/site/blogsite/detailpage"'],
-		['cec webhook-server -t seo -s DEV -c Blog,Author -d "/site/blogsite/blogdetail,/site/blogsite/authordetail"'],
-		['cec webhook-server -t seo -s DEV -c Blog -d "/site/blogsite/detailpage" -p 7878']
+		['cec webhook-server -t seo -s SampleServer -c Blog -d "/site/blogsite/detailpage"'],
+		['cec webhook-server -t seo -s SampleServer -c Blog,Author -d "/site/blogsite/blogdetail,/site/blogsite/authordetail"'],
+		['cec webhook-server -t seo -s SampleServer -c Blog -d "/site/blogsite/detailpage" -p 7878']
 	]
 };
 
@@ -3167,7 +3173,7 @@ const createGroup = {
 		['cec create-group Group1', 'Create group Group1, people can add themselves to the group and share content with the group'],
 		['cec create-group Group1 -t PUBLIC_CLOSED', 'Create group Group1, only group managers can add members but people can share content with the group'],
 		['cec create-group Group1 -t PRIVATE_CLOSED', 'Create group Group1, only group managers can add members and only members can share content with the group'],
-		['cec create-group Group1 -s DEV']
+		['cec create-group Group1 -s SampleServer ']
 	]
 };
 
@@ -3184,7 +3190,7 @@ const deleteGroup = {
 	},
 	example: [
 		['cec delete-group Group1'],
-		['cec delete-group Group1 -s DEV']
+		['cec delete-group Group1 -s SampleServer ']
 	]
 };
 
@@ -3202,7 +3208,7 @@ const addMemberToGroup = {
 	},
 	example: [
 		['cec add-member-to-group Group1 -u user1,user2 -g Group2,Group3 -r MEMBER'],
-		['cec add-member-to-group Group1 -u user1,user2 -g Group2,Group3 -r MEMBER -s DEV']
+		['cec add-member-to-group Group1 -u user1,user2 -g Group2,Group3 -r MEMBER -s SampleServer ']
 	]
 };
 
@@ -3219,7 +3225,7 @@ const removeMemberFromGroup = {
 	},
 	example: [
 		['cec remove-member-from-group Group1 -m user1,user2,Group2,Group3'],
-		['cec remove-member-from-group Group1 -m user1,user2,Group2,Group3 -s DEV']
+		['cec remove-member-from-group Group1 -m user1,user2,Group2,Group3 -s SampleServer ']
 	]
 };
 
@@ -3235,9 +3241,9 @@ const executeGet = {
 		})()
 	},
 	example: [
-		['cec exeg "/sites/management/api/v1/sites?links=none" -f allsites.json -s DEV'],
-		['cec exeg "/content/management/api/v1.1/channels?links=none" -f allchannels.json -s DEV'],
-		['cec exeg "/documents/api/1.2/folders/self/items" -f homefolderitems.json -s DEV']
+		['cec exeg "/sites/management/api/v1/sites?links=none" -f allsites.json -s SampleServer '],
+		['cec exeg "/content/management/api/v1.1/channels?links=none" -f allchannels.json -s SampleServer '],
+		['cec exeg "/documents/api/1.2/folders/self/items" -f homefolderitems.json -s SampleServer ']
 	]
 };
 
@@ -3253,11 +3259,11 @@ const executePost = {
 		})()
 	},
 	example: [
-		['cec exeo "/content/management/api/v1.1/channels" -b channel.json -f result.json -s DEV', 'Create a channel and save the result to result.json'],
-		['cec exeo "/sites/management/api/v1/components/name:Comp1/export" -s DEV', 'Export component Comp1'],
-		['cec exeo "/sites/management/api/v1/components/name:Comp1/hardDelete" -s DEV', 'Permanently delete component Comp1'],
-		['cec exeo "/sites/management/api/v1/templates/name:BlogTemplate/export" -a -s DEV', 'Export template BlogTemplate asynchronously'],
-		['cec exeo "/documents/api/1.2/files/fileGUID/copy"  -b ~/Downloads/copyfile.json -s DEV', 'Copy a file to a folder']
+		['cec exeo "/content/management/api/v1.1/channels" -b channel.json -f result.json -s SampleServer ', 'Create a channel and save the result to result.json'],
+		['cec exeo "/sites/management/api/v1/components/name:Comp1/export" -s SampleServer ', 'Export component Comp1'],
+		['cec exeo "/sites/management/api/v1/components/name:Comp1/hardDelete" -s SampleServer ', 'Permanently delete component Comp1'],
+		['cec exeo "/sites/management/api/v1/templates/name:BlogTemplate/export" -a -s SampleServer ', 'Export template BlogTemplate asynchronously'],
+		['cec exeo "/documents/api/1.2/files/fileGUID/copy"  -b ~/Downloads/copyfile.json -s SampleServer ', 'Copy a file to a folder']
 	]
 };
 
@@ -3274,8 +3280,8 @@ const executePut = {
 	},
 	example: [
 		['cec exeu "/content/management/api/v1.1/channels/{id}/channelSecret" -f result.json', 'Refresh secret for a channel'],
-		['cec exeu "/content/management/api/v1.1/localizationPolicies/{id}" -b policy.json -f result.json -s DEV', 'Update a localization policy and save the result to result.json'],
-		['cec exeu "/documents/api/1.2/files/{fileId}" -b file.json -f result.json -s DEV', 'Change the name of a file']
+		['cec exeu "/content/management/api/v1.1/localizationPolicies/{id}" -b policy.json -f result.json -s SampleServer ', 'Update a localization policy and save the result to result.json'],
+		['cec exeu "/documents/api/1.2/files/{fileId}" -b file.json -f result.json -s SampleServer ', 'Change the name of a file']
 	]
 };
 
@@ -3308,11 +3314,29 @@ const executeDelete = {
 		})()
 	},
 	example: [
-		['cec exed "/sites/management/api/v1/components/name:Comp1" -s DEV', 'Soft delete component Comp1'],
-		['cec exed "/sites/management/api/v1/themes/name:Theme1" -s DEV', 'Soft delete theme Theme1'],
-		['cec exed "/content/management/api/v1.1/channels/{id}" -s DEV', 'Delete a channel'],
-		['cec exed "/content/management/api/v1.1/items/{id}" -s DEV', 'Delete an item'],
-		['cec exed "/system/api/v1/webhooks/{id}" -s DEV', 'Delete a webhook']
+		['cec exed "/sites/management/api/v1/components/name:Comp1" -s SampleServer ', 'Soft delete component Comp1'],
+		['cec exed "/sites/management/api/v1/themes/name:Theme1" -s SampleServer ', 'Soft delete theme Theme1'],
+		['cec exed "/content/management/api/v1.1/channels/{id}" -s SampleServer ', 'Delete a channel'],
+		['cec exed "/content/management/api/v1.1/items/{id}" -s SampleServer ', 'Delete an item'],
+		['cec exed "/system/api/v1/webhooks/{id}" -s SampleServer ', 'Delete a webhook']
+	]
+};
+
+const setLoggerLevel = {
+	command: 'set-logger-level <level>',
+	alias: 'sll',
+	name: 'set-logger-level',
+	usage: {
+		'short': 'Set the logger level',
+		'long': (function () {
+			let desc = 'Set the logger level for commands. The valid levels are: ' + os.EOL + os.EOL;
+			desc = getLoggerLevels().reduce((acc, item) => acc + '  ' + item + os.EOL, desc);
+			desc = desc + os.EOL + 'The default level is info';
+			return desc;
+		})()
+	},
+	example: [
+		['cec sll error', 'Only the errors will be displayed']
 	]
 };
 
@@ -3461,8 +3485,6 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 
 
 _usage = _usage + os.EOL + 'Recommendations' + os.EOL +
-	_getCmdHelp(listEditorialPermission) + os.EOL +
-	_getCmdHelp(setEditorialPermission) + os.EOL +
 	_getCmdHelp(downloadRecommendation) + os.EOL +
 	_getCmdHelp(uploadRecommendation) + os.EOL +
 	_getCmdHelp(controlRecommendation) + os.EOL;
@@ -3502,6 +3524,7 @@ _usage = _usage + os.EOL + 'Groups' + os.EOL +
 	_getCmdHelp(removeMemberFromGroup) + os.EOL;
 
 _usage = _usage + os.EOL + 'Environment' + os.EOL +
+	_getCmdHelp(setLoggerLevel) + os.EOL +
 	_getCmdHelp(createEncryptionKey) + os.EOL +
 	_getCmdHelp(registerServer) + os.EOL +
 	_getCmdHelp(setOAuthToken) + os.EOL +
@@ -3520,9 +3543,9 @@ const argv = yargs.usage(_usage)
 	.command([createComponent.command, createComponent.alias], false,
 		(yargs) => {
 			yargs.option('from', {
-					alias: 'f',
-					description: '<from> Source to create from'
-				})
+				alias: 'f',
+				description: '<from> Source to create from'
+			})
 				.check((argv) => {
 					if (argv.from && !getComponentSources().includes(argv.from)) {
 						throw new Error(`${argv.from} is not a valid value for <source>`);
@@ -3539,10 +3562,10 @@ const argv = yargs.usage(_usage)
 	.command([createContentLayout.command, createContentLayout.alias], false,
 		(yargs) => {
 			yargs.option('contenttype', {
-					alias: 'c',
-					description: '<contenttype> Content layout is based on',
-					demandOption: true
-				})
+				alias: 'c',
+				description: '<contenttype> Content layout is based on',
+				demandOption: true
+			})
 				.option('template', {
 					alias: 't',
 					description: '<template> Content type is from',
@@ -3578,9 +3601,9 @@ const argv = yargs.usage(_usage)
 	.command([copyComponent.command, copyComponent.alias], false,
 		(yargs) => {
 			yargs.option('description', {
-					alias: 'd',
-					description: 'The description of the new component on OCM server'
-				})
+				alias: 'd',
+				description: 'The description of the new component on OCM server'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -3609,9 +3632,9 @@ const argv = yargs.usage(_usage)
 	.command([downloadComponent.command, downloadComponent.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: '<server> The registered OCM server'
-				})
+				alias: 's',
+				description: '<server> The registered OCM server'
+			})
 				.example(...downloadComponent.example[0])
 				.example(...downloadComponent.example[1])
 				.example(...downloadComponent.example[2])
@@ -3622,9 +3645,9 @@ const argv = yargs.usage(_usage)
 	.command([deployComponent.command, deployComponent.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
-					alias: 'f',
-					description: '<folder> Folder to upload the component zip file'
-				})
+				alias: 'f',
+				description: '<folder> Folder to upload the component zip file'
+			})
 				.option('publish', {
 					alias: 'p',
 					description: 'Publish the component'
@@ -3645,9 +3668,9 @@ const argv = yargs.usage(_usage)
 	.command([uploadComponent.command, uploadComponent.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
-					alias: 'f',
-					description: '<folder> Folder to upload the component zip file'
-				})
+				alias: 'f',
+				description: '<folder> Folder to upload the component zip file'
+			})
 				.option('publish', {
 					alias: 'p',
 					description: 'Publish the component'
@@ -3694,9 +3717,9 @@ const argv = yargs.usage(_usage)
 	.command([shareComponent.command, shareComponent.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -3729,9 +3752,9 @@ const argv = yargs.usage(_usage)
 	.command([unshareComponent.command, unshareComponent.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -3756,9 +3779,9 @@ const argv = yargs.usage(_usage)
 	.command([describeComponent.command, describeComponent.alias], false,
 		(yargs) => {
 			yargs.option('file', {
-					alias: 'f',
-					description: 'The JSON file to save the properties'
-				})
+				alias: 'f',
+				description: 'The JSON file to save the properties'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -3772,9 +3795,9 @@ const argv = yargs.usage(_usage)
 	.command([createTemplate.command, createTemplate.alias], false,
 		(yargs) => {
 			yargs.option('from', {
-					alias: 'f',
-					description: 'Source to create from'
-				})
+				alias: 'f',
+				description: 'Source to create from'
+			})
 				.option('site', {
 					alias: 's',
 					description: 'Site to create from'
@@ -3833,10 +3856,10 @@ const argv = yargs.usage(_usage)
 	.command([createTemplateFromSite.command, createTemplateFromSite.alias], false,
 		(yargs) => {
 			yargs.option('site', {
-					alias: 's',
-					description: '<site> Site to create from',
-					demandOption: true
-				})
+				alias: 's',
+				description: '<site> Site to create from',
+				demandOption: true
+			})
 				.option('includeunpublishedassets', {
 					alias: 'i',
 					description: 'flag to indicate to include unpublished content items and digital assets in your template'
@@ -3860,9 +3883,9 @@ const argv = yargs.usage(_usage)
 	.command([copyTemplate.command, copyTemplate.alias], false,
 		(yargs) => {
 			yargs.option('description', {
-					alias: 'd',
-					description: 'The description of the new template on OCM server'
-				})
+				alias: 'd',
+				description: 'The description of the new template on OCM server'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -3884,9 +3907,9 @@ const argv = yargs.usage(_usage)
 	.command([exportTemplate.command, exportTemplate.alias], false,
 		(yargs) => {
 			yargs.option('optimize', {
-					alias: 'o',
-					description: 'Optimize the template'
-				})
+				alias: 'o',
+				description: 'Optimize the template'
+			})
 				.example(...exportTemplate.example)
 				.help(false)
 				.version(false)
@@ -3895,9 +3918,9 @@ const argv = yargs.usage(_usage)
 	.command([downloadTemplate.command, downloadTemplate.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: '<server> The registered OCM server'
-				})
+				alias: 's',
+				description: '<server> The registered OCM server'
+			})
 				.example(...downloadTemplate.example[0])
 				.example(...downloadTemplate.example[1])
 				.help(false)
@@ -3907,12 +3930,12 @@ const argv = yargs.usage(_usage)
 	.command([compileTemplate.command, compileTemplate.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				}).option('channelToken', {
-					alias: 'c',
-					description: 'The channel access token to use for content URLs'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			}).option('channelToken', {
+				alias: 'c',
+				description: 'The channel access token to use for content URLs'
+			})
 				.option('type', {
 					alias: 't',
 					description: 'The type of content to retrieve from the serve [published | draft]'
@@ -3986,9 +4009,9 @@ const argv = yargs.usage(_usage)
 	.command([compileSite.command, compileSite.alias], false,
 		(yargs) => {
 			yargs.option('user', {
-					alias: 'u',
-					description: '<user> User name'
-				})
+				alias: 'u',
+				description: '<user> User name'
+			})
 				.option('password', {
 					alias: 'p',
 					description: '<password> password',
@@ -4026,9 +4049,9 @@ const argv = yargs.usage(_usage)
 	.command([deleteTemplate.command, deleteTemplate.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: '<server> The registered OCM server'
-				})
+				alias: 's',
+				description: '<server> The registered OCM server'
+			})
 				.option('permanent', {
 					alias: 'p',
 					description: 'flag to indicate to permanently delete the template'
@@ -4043,9 +4066,9 @@ const argv = yargs.usage(_usage)
 	.command([deployTemplate.command, deployTemplate.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
-					alias: 'f',
-					description: '<folder> Folder to upload the template zip file'
-				})
+				alias: 'f',
+				description: '<folder> Folder to upload the template zip file'
+			})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -4070,9 +4093,9 @@ const argv = yargs.usage(_usage)
 	.command([uploadTemplate.command, uploadTemplate.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
-					alias: 'f',
-					description: '<folder> Folder to upload the template zip file'
-				})
+				alias: 'f',
+				description: '<folder> Folder to upload the template zip file'
+			})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -4107,9 +4130,9 @@ const argv = yargs.usage(_usage)
 	.command([shareTemplate.command, shareTemplate.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -4142,9 +4165,9 @@ const argv = yargs.usage(_usage)
 	.command([unshareTemplate.command, unshareTemplate.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -4169,9 +4192,9 @@ const argv = yargs.usage(_usage)
 	.command([describeTemplate.command, describeTemplate.alias], false,
 		(yargs) => {
 			yargs.option('file', {
-					alias: 'f',
-					description: 'The JSON file to save the properties for template on OCM server',
-				})
+				alias: 'f',
+				description: 'The JSON file to save the properties for template on OCM server',
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -4186,12 +4209,12 @@ const argv = yargs.usage(_usage)
 	.command([createTemplateReport.command, createTemplateReport.alias], false,
 		(yargs) => {
 			yargs.option('includepagelinks', {
-					alias: 'i',
-					description: 'Include validating page links'
-				}).option('output', {
-					alias: 'o',
-					description: 'Output the report to a JSON file'
-				})
+				alias: 'i',
+				description: 'Include validating page links'
+			}).option('output', {
+				alias: 'o',
+				description: 'Output the report to a JSON file'
+			})
 				.example(...createTemplateReport.example[0])
 				.example(...createTemplateReport.example[1])
 				.example(...createTemplateReport.example[2])
@@ -4211,10 +4234,10 @@ const argv = yargs.usage(_usage)
 	.command([updateTemplate.command, updateTemplate.alias], false,
 		(yargs) => {
 			yargs.option('template', {
-					alias: 't',
-					description: 'The template',
-					demandOption: true
-				})
+				alias: 't',
+				description: 'The template',
+				demandOption: true
+			})
 				.option('content', {
 					alias: 'c',
 					description: 'The comma separated list of local content'
@@ -4234,9 +4257,9 @@ const argv = yargs.usage(_usage)
 	.command([listServerContentTypes.command, listServerContentTypes.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: '<server> The registered OCM server'
-				})
+				alias: 's',
+				description: '<server> The registered OCM server'
+			})
 				.example(...listServerContentTypes.example[0])
 				.example(...listServerContentTypes.example[1])
 				.help(false)
@@ -4246,10 +4269,10 @@ const argv = yargs.usage(_usage)
 	.command([addContentLayoutMapping.command, addContentLayoutMapping.alias], false,
 		(yargs) => {
 			yargs.option('contenttype', {
-					alias: 'c',
-					description: '<contenttype> Content layout is based on',
-					demandOption: true
-				})
+				alias: 'c',
+				description: '<contenttype> Content layout is based on',
+				demandOption: true
+			})
 				.option('template', {
 					alias: 't',
 					description: '<template> The mapping is for'
@@ -4285,9 +4308,9 @@ const argv = yargs.usage(_usage)
 	.command([removeContentLayoutMapping.command, removeContentLayoutMapping.alias], false,
 		(yargs) => {
 			yargs.option('contenttype', {
-					alias: 'c',
-					description: 'Content type, required when <server> is specified'
-				})
+				alias: 'c',
+				description: 'Content type, required when <server> is specified'
+			})
 				.option('template', {
 					alias: 't',
 					description: '<template> The mapping is from'
@@ -4324,10 +4347,10 @@ const argv = yargs.usage(_usage)
 	.command([addFieldEditor.command, addFieldEditor.alias], false,
 		(yargs) => {
 			yargs.option('template', {
-					alias: 't',
-					description: 'The template the content type is from',
-					demandOption: true
-				})
+				alias: 't',
+				description: 'The template the content type is from',
+				demandOption: true
+			})
 				.option('contenttype', {
 					alias: 'c',
 					description: 'The content type',
@@ -4351,10 +4374,10 @@ const argv = yargs.usage(_usage)
 	.command([removeFieldEditor.command, removeFieldEditor.alias], false,
 		(yargs) => {
 			yargs.option('template', {
-					alias: 't',
-					description: 'The template the content type is from',
-					demandOption: true
-				})
+				alias: 't',
+				description: 'The template the content type is from',
+				demandOption: true
+			})
 				.option('contenttype', {
 					alias: 'c',
 					description: 'The content type',
@@ -4378,9 +4401,9 @@ const argv = yargs.usage(_usage)
 	.command([downloadContent.command, downloadContent.alias], false,
 		(yargs) => {
 			yargs.option('publishedassets', {
-					alias: 'p',
-					description: 'The flag to indicate published assets only'
-				})
+				alias: 'p',
+				description: 'The flag to indicate published assets only'
+			})
 				.option('collection', {
 					alias: 'c',
 					description: 'Collection name'
@@ -4444,10 +4467,10 @@ const argv = yargs.usage(_usage)
 	.command([uploadContent.command, uploadContent.alias], false,
 		(yargs) => {
 			yargs.option('repository', {
-					alias: 'r',
-					description: '<repository> The repository for the types and items',
-					demandOption: true
-				})
+				alias: 'r',
+				description: '<repository> The repository for the types and items',
+				demandOption: true
+			})
 				.option('template', {
 					alias: 't',
 					description: 'Flag to indicate the content is from template'
@@ -4504,10 +4527,10 @@ const argv = yargs.usage(_usage)
 	.command([transferContent.command, transferContent.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server the content is from',
-					demandOption: true,
-				})
+				alias: 's',
+				description: 'The registered OCM server the content is from',
+				demandOption: true,
+			})
 				.option('destination', {
 					alias: 'd',
 					description: 'The registered OCM server to transfer the content',
@@ -4639,10 +4662,10 @@ const argv = yargs.usage(_usage)
 	.command([createDigitalAsset.command, createDigitalAsset.alias], false,
 		(yargs) => {
 			yargs.option('from', {
-					alias: 'f',
-					description: 'The digital asset source file',
-					demandOption: true
-				})
+				alias: 'f',
+				description: 'The digital asset source file',
+				demandOption: true
+			})
 				.option('type', {
 					alias: 't',
 					description: 'The digital asset type',
@@ -4693,9 +4716,9 @@ const argv = yargs.usage(_usage)
 	.command([updateDigitalAsset.command, updateDigitalAsset.alias], false,
 		(yargs) => {
 			yargs.option('from', {
-					alias: 'f',
-					description: 'The digital asset source file for the new version'
-				})
+				alias: 'f',
+				description: 'The digital asset source file for the new version'
+			})
 				.option('slug', {
 					alias: 'l',
 					description: 'The slug for the asset'
@@ -4729,9 +4752,9 @@ const argv = yargs.usage(_usage)
 	.command([copyAssets.command, copyAssets.alias], false,
 		(yargs) => {
 			yargs.option('collection', {
-					alias: 'l',
-					description: 'Collection name'
-				})
+				alias: 'l',
+				description: 'Collection name'
+			})
 				.option('channel', {
 					alias: 'c',
 					description: 'Channel name'
@@ -4767,10 +4790,10 @@ const argv = yargs.usage(_usage)
 	.command([downloadTaxonomy.command, downloadTaxonomy.alias], false,
 		(yargs) => {
 			yargs.option('status', {
-					alias: 't',
-					description: 'The taxonomy status [' + getTaxonomyStatus().join(' | ') + ']',
-					demandOption: true
-				})
+				alias: 't',
+				description: 'The taxonomy status [' + getTaxonomyStatus().join(' | ') + ']',
+				demandOption: true
+			})
 				.option('id', {
 					alias: 'i',
 					description: 'Taxonomy Id'
@@ -4795,9 +4818,9 @@ const argv = yargs.usage(_usage)
 	.command([uploadTaxonomy.command, uploadTaxonomy.alias], false,
 		(yargs) => {
 			yargs.option('createnew', {
-					alias: 'c',
-					description: 'To create new a taxonomy'
-				})
+				alias: 'c',
+				description: 'To create new a taxonomy'
+			})
 				.option('name', {
 					alias: 'n',
 					description: 'The name of the new taxonomy'
@@ -4880,9 +4903,9 @@ const argv = yargs.usage(_usage)
 	.command([describeTaxonomy.command, describeTaxonomy.alias], false,
 		(yargs) => {
 			yargs.option('file', {
-					alias: 'f',
-					description: 'The JSON file to save the properties'
-				})
+				alias: 'f',
+				description: 'The JSON file to save the properties'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -4896,9 +4919,9 @@ const argv = yargs.usage(_usage)
 	.command([shareTheme.command, shareTheme.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -4931,9 +4954,9 @@ const argv = yargs.usage(_usage)
 	.command([unshareTheme.command, unshareTheme.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -4958,9 +4981,9 @@ const argv = yargs.usage(_usage)
 	.command([describeTheme.command, describeTheme.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			})
 				.example(...describeTheme.example[0])
 				.example(...describeTheme.example[1])
 				.help(false)
@@ -4970,10 +4993,10 @@ const argv = yargs.usage(_usage)
 	.command([addComponentToTheme.command, addComponentToTheme.alias], false,
 		(yargs) => {
 			yargs.option('theme', {
-					alias: 't',
-					description: '<theme> Theme',
-					demandOption: true
-				})
+				alias: 't',
+				description: '<theme> Theme',
+				demandOption: true
+			})
 				.option('category', {
 					alias: 'c',
 					description: '<category> component category'
@@ -4987,10 +5010,10 @@ const argv = yargs.usage(_usage)
 	.command([removeComponentFromTheme.command, removeComponentFromTheme.alias], false,
 		(yargs) => {
 			yargs.option('theme', {
-					alias: 't',
-					description: '<theme> Theme',
-					demandOption: true
-				})
+				alias: 't',
+				description: '<theme> Theme',
+				demandOption: true
+			})
 				.example(...removeComponentFromTheme.example[0])
 				.help(false)
 				.version(false)
@@ -4999,9 +5022,9 @@ const argv = yargs.usage(_usage)
 	.command([copyTheme.command, copyTheme.alias], false,
 		(yargs) => {
 			yargs.option('description', {
-					alias: 'd',
-					description: 'The description of the new theme on OCM server'
-				})
+				alias: 'd',
+				description: 'The description of the new theme on OCM server'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -5040,9 +5063,9 @@ const argv = yargs.usage(_usage)
 	.command([listResources.command, listResources.alias], false,
 		(yargs) => {
 			yargs.option('types', {
-					alias: 't',
-					description: '<types> The comma separated list of resource types'
-				})
+				alias: 't',
+				description: '<types> The comma separated list of resource types'
+			})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -5058,10 +5081,10 @@ const argv = yargs.usage(_usage)
 	.command([createSite.command, createSite.alias], false,
 		(yargs) => {
 			yargs.option('template', {
-					alias: 't',
-					description: '<template> Template',
-					demandOption: true
-				})
+				alias: 't',
+				description: '<template> Template',
+				demandOption: true
+			})
 				.option('repository', {
 					alias: 'r',
 					description: '<repository> Repository, required for enterprise site'
@@ -5113,10 +5136,10 @@ const argv = yargs.usage(_usage)
 	.command([copySite.command, copySite.alias], false,
 		(yargs) => {
 			yargs.option('target', {
-					alias: 't',
-					description: 'Target site',
-					demandOption: true
-				})
+				alias: 't',
+				description: 'Target site',
+				demandOption: true
+			})
 				.option('repository', {
 					alias: 'r',
 					description: 'Repository, required for enterprise site'
@@ -5143,10 +5166,10 @@ const argv = yargs.usage(_usage)
 	.command([transferSite.command, transferSite.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server the site is from',
-					demandOption: true,
-				})
+				alias: 's',
+				description: 'The registered OCM server the site is from',
+				demandOption: true,
+			})
 				.option('destination', {
 					alias: 'd',
 					description: 'The registered OCM server to create or update the site',
@@ -5227,10 +5250,10 @@ const argv = yargs.usage(_usage)
 	.command([transferSiteContent.command, transferSiteContent.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server the site is from',
-					demandOption: true,
-				})
+				alias: 's',
+				description: 'The registered OCM server the site is from',
+				demandOption: true,
+			})
 				.option('destination', {
 					alias: 'd',
 					description: 'The registered OCM server to transfer the content',
@@ -5336,9 +5359,9 @@ const argv = yargs.usage(_usage)
 	.command([shareSite.command, shareSite.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -5371,9 +5394,9 @@ const argv = yargs.usage(_usage)
 	.command([unshareSite.command, unshareSite.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -5398,9 +5421,9 @@ const argv = yargs.usage(_usage)
 	.command([deleteSite.command, deleteSite.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			})
 				.option('permanent', {
 					alias: 'p',
 					description: 'Delete the site permanently'
@@ -5415,9 +5438,9 @@ const argv = yargs.usage(_usage)
 	.command([getSiteSecurity.command, getSiteSecurity.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: '<server> The registered OCM server'
-				})
+				alias: 's',
+				description: '<server> The registered OCM server'
+			})
 				.example(...getSiteSecurity.example[0])
 				.example(...getSiteSecurity.example[1])
 				.help(false)
@@ -5427,10 +5450,10 @@ const argv = yargs.usage(_usage)
 	.command([setSiteSecurity.command, setSiteSecurity.alias], false,
 		(yargs) => {
 			yargs.option('signin', {
-					alias: 's',
-					description: 'If require sign in to access site: ' + getSiteSignIn().join(' | '),
-					demandOption: true
-				})
+				alias: 's',
+				description: 'If require sign in to access site: ' + getSiteSignIn().join(' | '),
+				demandOption: true
+			})
 				.option('access', {
 					alias: 'a',
 					description: 'The comma separated list of group names'
@@ -5474,9 +5497,9 @@ const argv = yargs.usage(_usage)
 	.command([updateSite.command, updateSite.alias], false,
 		(yargs) => {
 			yargs.option('template', {
-					alias: 't',
-					description: '<template> Template'
-				})
+				alias: 't',
+				description: '<template> Template'
+			})
 				.option('excludecontenttemplate', {
 					alias: 'x',
 					description: 'Exclude content template'
@@ -5506,9 +5529,9 @@ const argv = yargs.usage(_usage)
 	.command([validateSite.command, validateSite.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: '<server> The registered OCM server'
-				})
+				alias: 's',
+				description: '<server> The registered OCM server'
+			})
 				.example(...validateSite.example[0])
 				.example(...validateSite.example[1])
 				.help(false)
@@ -5518,9 +5541,9 @@ const argv = yargs.usage(_usage)
 	.command([indexSite.command, indexSite.alias], false,
 		(yargs) => {
 			yargs.option('contenttype', {
-					alias: 'c',
-					description: '<contenttype> page index content type'
-				})
+				alias: 'c',
+				description: '<contenttype> page index content type'
+			})
 				.option('publish', {
 					alias: 'p',
 					description: 'publish page index items'
@@ -5546,10 +5569,10 @@ const argv = yargs.usage(_usage)
 	.command([createSiteMap.command, createSiteMap.alias], false,
 		(yargs) => {
 			yargs.option('url', {
-					alias: 'u',
-					description: '<url> Site URL',
-					demandOption: true
-				})
+				alias: 'u',
+				description: '<url> Site URL',
+				demandOption: true
+			})
 				.option('assettypes', {
 					alias: 'a',
 					description: 'The comma separated list of content types'
@@ -5613,10 +5636,10 @@ const argv = yargs.usage(_usage)
 	.command([createRSSFeed.command, createRSSFeed.alias], false,
 		(yargs) => {
 			yargs.option('url', {
-					alias: 'u',
-					description: '<url> Site URL',
-					demandOption: true
-				})
+				alias: 'u',
+				description: '<url> Site URL',
+				demandOption: true
+			})
 				.option('query', {
 					alias: 'q',
 					description: 'Query for content items',
@@ -5697,9 +5720,9 @@ const argv = yargs.usage(_usage)
 	.command([createAssetReport.command, createAssetReport.alias], false,
 		(yargs) => {
 			yargs.option('output', {
-					alias: 'o',
-					description: 'Output the report to a JSON file'
-				})
+				alias: 'o',
+				description: 'Output the report to a JSON file'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -5716,10 +5739,10 @@ const argv = yargs.usage(_usage)
 	.command([uploadStaticSite.command, uploadStaticSite.alias], false,
 		(yargs) => {
 			yargs.option('site', {
-					alias: 's',
-					description: 'The site on OCM server',
-					demandOption: true
-				})
+				alias: 's',
+				description: 'The site on OCM server',
+				demandOption: true
+			})
 				.option('server', {
 					alias: 'r',
 					description: 'The registered OCM server'
@@ -5733,9 +5756,9 @@ const argv = yargs.usage(_usage)
 	.command([downloadStaticSite.command, downloadStaticSite.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
-					alias: 'f',
-					description: '<folder> Local folder to save the static files'
-				})
+				alias: 'f',
+				description: '<folder> Local folder to save the static files'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -5750,9 +5773,9 @@ const argv = yargs.usage(_usage)
 	.command([deleteStaticSite.command, deleteStaticSite.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			})
 				.example(...deleteStaticSite.example[0])
 				.example(...deleteStaticSite.example[1])
 				.help(false)
@@ -5762,9 +5785,9 @@ const argv = yargs.usage(_usage)
 	.command([refreshPrerenderCache.command, refreshPrerenderCache.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			})
 				.example(...refreshPrerenderCache.example[0])
 				.example(...refreshPrerenderCache.example[1])
 				.help(false)
@@ -5774,9 +5797,9 @@ const argv = yargs.usage(_usage)
 	.command([migrateSite.command, migrateSite.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered IC server the site is from',
-				})
+				alias: 's',
+				description: 'The registered IC server the site is from',
+			})
 				.option('destination', {
 					alias: 'd',
 					description: 'The registered EC server to create the site',
@@ -5819,10 +5842,10 @@ const argv = yargs.usage(_usage)
 	.command([migrateContent.command, migrateContent.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered IC server the content is from',
-					demandOption: true
-				})
+				alias: 's',
+				description: 'The registered IC server the content is from',
+				demandOption: true
+			})
 				.option('destination', {
 					alias: 'd',
 					description: 'The registered EC server to upload the content',
@@ -5851,9 +5874,9 @@ const argv = yargs.usage(_usage)
 	.command([compileContent.command, compileContent.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			})
 				.option('assets', {
 					alias: 'a',
 					description: 'The comma separated list of asset GUIDS'
@@ -5902,9 +5925,9 @@ const argv = yargs.usage(_usage)
 	.command([uploadCompiledContent.command, uploadCompiledContent.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			})
 				.example(...uploadCompiledContent.example[0])
 				.example(...uploadCompiledContent.example[1])
 				.help(false)
@@ -5914,10 +5937,10 @@ const argv = yargs.usage(_usage)
 	.command([renameContentType.command, renameContentType.alias], false,
 		(yargs) => {
 			yargs.option('newname', {
-					alias: 'n',
-					description: 'The new name',
-					demandOption: true
-				})
+				alias: 'n',
+				description: 'The new name',
+				demandOption: true
+			})
 				.option('content', {
 					alias: 'c',
 					description: 'The local content or template',
@@ -5936,9 +5959,9 @@ const argv = yargs.usage(_usage)
 	.command([createRepository.command, createRepository.alias], false,
 		(yargs) => {
 			yargs.option('description', {
-					alias: 'd',
-					description: 'The description for the repository'
-				})
+				alias: 'd',
+				description: 'The description for the repository'
+			})
 				.option('type', {
 					alias: 'p',
 					description: 'The repository type [' + getRepositoryTypes().join(' | ') + ']. Defaults to asset'
@@ -5978,24 +6001,24 @@ const argv = yargs.usage(_usage)
 	.command([controlRepository.command, controlRepository.alias], false,
 		(yargs) => {
 			yargs.check((argv) => {
-					if (argv.action && !getRepositoryActions().includes(argv.action) && !getRepositoryHiddenActions().includes(argv.action)) {
-						throw new Error(`${os.EOL}${argv.action} is not a valid value for <action>`);
-					} else if ((argv.action === 'add-type' || argv.action === 'remove-type') && !argv.contenttypes) {
-						throw new Error(`${os.EOL}<contenttypes> is required for ${argv.action}`);
-					} else if ((argv.action === 'add-channel' || argv.action === 'remove-channel') && !argv.channels) {
-						throw new Error(`${os.EOL}<channels> is required for ${argv.action}`);
-					} else if ((argv.action === 'add-taxonomy' || argv.action === 'remove-taxonomy') && !argv.taxonomies) {
-						throw new Error(`${os.EOL}<taxonomies> is required for ${argv.action}`);
-					} else if ((argv.action === 'add-language' || argv.action === 'remove-language') && !argv.languages) {
-						throw new Error(`${os.EOL}<languages> is required for ${argv.action}`);
-					} else if ((argv.action === 'add-translation-connector' || argv.action === 'remove-translation-connector') && !argv.translationconnectors) {
-						throw new Error(`${os.EOL}<translationconnectors> is required for ${argv.action}`);
-					} else if ((argv.action === 'add-editorial-role' || argv.action === 'remove-editorial-role') && !argv.editorialroles) {
-						throw new Error(`${os.EOL}<editorialroles> is required for ${argv.action}`);
-					} else {
-						return true;
-					}
-				})
+				if (argv.action && !getRepositoryActions().includes(argv.action) && !getRepositoryHiddenActions().includes(argv.action)) {
+					throw new Error(`${os.EOL}${argv.action} is not a valid value for <action>`);
+				} else if ((argv.action === 'add-type' || argv.action === 'remove-type') && !argv.contenttypes) {
+					throw new Error(`${os.EOL}<contenttypes> is required for ${argv.action}`);
+				} else if ((argv.action === 'add-channel' || argv.action === 'remove-channel') && !argv.channels) {
+					throw new Error(`${os.EOL}<channels> is required for ${argv.action}`);
+				} else if ((argv.action === 'add-taxonomy' || argv.action === 'remove-taxonomy') && !argv.taxonomies) {
+					throw new Error(`${os.EOL}<taxonomies> is required for ${argv.action}`);
+				} else if ((argv.action === 'add-language' || argv.action === 'remove-language') && !argv.languages) {
+					throw new Error(`${os.EOL}<languages> is required for ${argv.action}`);
+				} else if ((argv.action === 'add-translation-connector' || argv.action === 'remove-translation-connector') && !argv.translationconnectors) {
+					throw new Error(`${os.EOL}<translationconnectors> is required for ${argv.action}`);
+				} else if ((argv.action === 'add-editorial-role' || argv.action === 'remove-editorial-role') && !argv.editorialroles) {
+					throw new Error(`${os.EOL}<editorialroles> is required for ${argv.action}`);
+				} else {
+					return true;
+				}
+			})
 				.option('repository', {
 					alias: 'r',
 					description: 'The comma separated list of content repositories',
@@ -6050,9 +6073,9 @@ const argv = yargs.usage(_usage)
 	.command([shareRepository.command, shareRepository.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -6101,9 +6124,9 @@ const argv = yargs.usage(_usage)
 	.command([unshareRepository.command, unshareRepository.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -6133,9 +6156,9 @@ const argv = yargs.usage(_usage)
 	.command([describeRepository.command, describeRepository.alias], false,
 		(yargs) => {
 			yargs.option('file', {
-					alias: 'f',
-					description: 'The JSON file to save the properties'
-				})
+				alias: 'f',
+				description: 'The JSON file to save the properties'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -6149,9 +6172,9 @@ const argv = yargs.usage(_usage)
 	.command([setEditorialPermission.command, setEditorialPermission.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -6226,9 +6249,9 @@ const argv = yargs.usage(_usage)
 	.command([listEditorialPermission.command, listEditorialPermission.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			})
 				.example(...listEditorialPermission.example[0])
 				.example(...listEditorialPermission.example[1])
 				.help(false)
@@ -6238,9 +6261,9 @@ const argv = yargs.usage(_usage)
 	.command([listEditorialRole.command, listEditorialRole.alias], false,
 		(yargs) => {
 			yargs.option('name', {
-					alias: 'n',
-					description: 'The editorial role name'
-				})
+				alias: 'n',
+				description: 'The editorial role name'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -6255,9 +6278,9 @@ const argv = yargs.usage(_usage)
 	.command([createEditorialRole.command, createEditorialRole.alias], false,
 		(yargs) => {
 			yargs.option('description', {
-					alias: 'd',
-					description: 'The description for the editorial role'
-				})
+				alias: 'd',
+				description: 'The description for the editorial role'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -6271,9 +6294,9 @@ const argv = yargs.usage(_usage)
 	.command([setEditorialRole.command, setEditorialRole.alias], false,
 		(yargs) => {
 			yargs.option('assettypes', {
-					alias: 'a',
-					description: 'The comma separated list of asset types'
-				})
+				alias: 'a',
+				description: 'The comma separated list of asset types'
+			})
 				.option('assetpermission', {
 					alias: 'p',
 					description: 'Asset permission [' + getAssetEditorialPermissions().join(' | ') + ']'
@@ -6336,9 +6359,9 @@ const argv = yargs.usage(_usage)
 	.command([deleteEditorialRole.command, deleteEditorialRole.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			})
 				.example(...deleteEditorialRole.example[0])
 				.example(...deleteEditorialRole.example[1])
 				.help(false)
@@ -6348,9 +6371,9 @@ const argv = yargs.usage(_usage)
 	.command([shareType.command, shareType.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -6383,9 +6406,9 @@ const argv = yargs.usage(_usage)
 	.command([unshareType.command, unshareType.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -6410,9 +6433,9 @@ const argv = yargs.usage(_usage)
 	.command([downloadType.command, downloadType.alias], false,
 		(yargs) => {
 			yargs.option('excludecomponents', {
-					alias: 'x',
-					description: 'Exclude content field editors, content forms and content layouts'
-				})
+				alias: 'x',
+				description: 'Exclude content field editors, content forms and content layouts'
+			})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -6428,9 +6451,9 @@ const argv = yargs.usage(_usage)
 	.command([copyType.command, copyType.alias], false,
 		(yargs) => {
 			yargs.option('displayname', {
-					alias: 'p',
-					description: 'The display name of the new type'
-				})
+				alias: 'p',
+				description: 'The display name of the new type'
+			})
 				.option('description', {
 					alias: 'd',
 					description: 'The description of the new type'
@@ -6448,10 +6471,10 @@ const argv = yargs.usage(_usage)
 	.command([updateType.command, updateType.alias], false,
 		(yargs) => {
 			yargs.option('objectname', {
-					alias: 'o',
-					description: 'the content form',
-					demandOption: true
-				})
+				alias: 'o',
+				description: 'the content form',
+				demandOption: true
+			})
 				.option('contenttype', {
 					alias: 'c',
 					description: 'the content type',
@@ -6492,9 +6515,9 @@ const argv = yargs.usage(_usage)
 	.command([uploadType.command, uploadType.alias], false,
 		(yargs) => {
 			yargs.option('file', {
-					alias: 'f',
-					description: 'Flag to indicate the type is from file'
-				})
+				alias: 'f',
+				description: 'Flag to indicate the type is from file'
+			})
 				.option('excludecomponents', {
 					alias: 'x',
 					description: 'Exclude content field editors, content forms and content layouts'
@@ -6515,9 +6538,9 @@ const argv = yargs.usage(_usage)
 	.command([describeWorkflow.command, describeWorkflow.alias], false,
 		(yargs) => {
 			yargs.option('file', {
-					alias: 'f',
-					description: 'The JSON file to save the properties'
-				})
+				alias: 'f',
+				description: 'The JSON file to save the properties'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -6529,7 +6552,7 @@ const argv = yargs.usage(_usage)
 				.usage(`Usage: cec ${describeWorkflow.command}\n\n${describeWorkflow.usage.long}`);
 		})
 	/** 
- 	* 2021-08-20 removed
+	  * 2021-08-20 removed
 	.command([createWordTemplate.command, createWordTemplate.alias], false,
 		(yargs) => {
 			yargs.option('name', {
@@ -6590,10 +6613,10 @@ const argv = yargs.usage(_usage)
 	.command([createCollection.command, createCollection.alias], false,
 		(yargs) => {
 			yargs.option('repository', {
-					alias: 'r',
-					description: 'The repository',
-					demandOption: true
-				})
+				alias: 'r',
+				description: 'The repository',
+				demandOption: true
+			})
 				.option('channels', {
 					alias: 'c',
 					description: 'The comma separated list of channels'
@@ -6612,10 +6635,10 @@ const argv = yargs.usage(_usage)
 	.command([controlCollection.command, controlCollection.alias], false,
 		(yargs) => {
 			yargs.option('repository', {
-					alias: 'r',
-					description: 'The repository of the collections',
-					demandOption: true
-				})
+				alias: 'r',
+				description: 'The repository of the collections',
+				demandOption: true
+			})
 				.option('collections', {
 					alias: 'l',
 					description: 'The comma separated list of collections',
@@ -6670,9 +6693,9 @@ const argv = yargs.usage(_usage)
 	.command([createChannel.command, createChannel.alias], false,
 		(yargs) => {
 			yargs.option('description', {
-					alias: 'd',
-					description: 'The description for the channel'
-				})
+				alias: 'd',
+				description: 'The description for the channel'
+			})
 				.option('type', {
 					alias: 't',
 					description: 'The channel type [public | secure]'
@@ -6709,9 +6732,9 @@ const argv = yargs.usage(_usage)
 	.command([shareChannel.command, shareChannel.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -6744,9 +6767,9 @@ const argv = yargs.usage(_usage)
 	.command([unshareChannel.command, unshareChannel.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -6771,9 +6794,9 @@ const argv = yargs.usage(_usage)
 	.command([describeChannel.command, describeChannel.alias], false,
 		(yargs) => {
 			yargs.option('file', {
-					alias: 'f',
-					description: 'The JSON file to save the properties'
-				})
+				alias: 'f',
+				description: 'The JSON file to save the properties'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -6787,10 +6810,10 @@ const argv = yargs.usage(_usage)
 	.command([createLocalizationPolicy.command, createLocalizationPolicy.alias], false,
 		(yargs) => {
 			yargs.option('requiredlanguages', {
-					alias: 'r',
-					description: 'The comma separated list of required languages for the localization policy',
-					demandOption: true
-				})
+				alias: 'r',
+				description: 'The comma separated list of required languages for the localization policy',
+				demandOption: true
+			})
 				.option('defaultlanguage', {
 					alias: 'l',
 					description: 'The default language',
@@ -6818,9 +6841,9 @@ const argv = yargs.usage(_usage)
 	.command([listAssets.command, listAssets.alias], false,
 		(yargs) => {
 			yargs.option('channel', {
-					alias: 'c',
-					description: 'Channel name'
-				})
+				alias: 'c',
+				description: 'Channel name'
+			})
 				.option('collection', {
 					alias: 'l',
 					description: 'Collection name'
@@ -6877,9 +6900,9 @@ const argv = yargs.usage(_usage)
 	.command([createAssetUsageReport.command, createAssetUsageReport.alias], false,
 		(yargs) => {
 			yargs.option('output', {
-					alias: 'o',
-					description: 'Output the report to a JSON file'
-				})
+				alias: 'o',
+				description: 'Output the report to a JSON file'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -6896,9 +6919,9 @@ const argv = yargs.usage(_usage)
 	.command([listTranslationJobs.command, listTranslationJobs.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			})
 				.example(...listTranslationJobs.example[0])
 				.example(...listTranslationJobs.example[1])
 				.example(...listTranslationJobs.example[2])
@@ -6909,9 +6932,9 @@ const argv = yargs.usage(_usage)
 	.command([createTranslationJob.command, createTranslationJob.alias], false,
 		(yargs) => {
 			yargs.option('site', {
-					alias: 's',
-					description: 'The site'
-				})
+				alias: 's',
+				description: 'The site'
+			})
 				.option('repository', {
 					alias: 'p',
 					description: 'The repository'
@@ -6978,9 +7001,9 @@ const argv = yargs.usage(_usage)
 	.command([downloadTranslationJob.command, downloadTranslationJob.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			})
 				.example(...downloadTranslationJob.example[0])
 				.example(...downloadTranslationJob.example[1])
 				.example(...downloadTranslationJob.example[2])
@@ -6991,10 +7014,10 @@ const argv = yargs.usage(_usage)
 	.command([submitTranslationJob.command, submitTranslationJob.alias], false,
 		(yargs) => {
 			yargs.option('connection', {
-					alias: 'c',
-					description: '<connection> Connection',
-					demandOption: true
-				})
+				alias: 'c',
+				description: '<connection> Connection',
+				demandOption: true
+			})
 				.check((argv) => {
 					if (!argv.connection) {
 						throw new Error('Please specify connection');
@@ -7011,9 +7034,9 @@ const argv = yargs.usage(_usage)
 	.command([refreshTranslationJob.command, refreshTranslationJob.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			})
 				.example(...refreshTranslationJob.example[0])
 				.example(...refreshTranslationJob.example[1])
 				.example(...refreshTranslationJob.example[2])
@@ -7024,9 +7047,9 @@ const argv = yargs.usage(_usage)
 	.command([ingestTranslationJob.command, ingestTranslationJob.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			})
 				.example(...ingestTranslationJob.example[0])
 				.example(...ingestTranslationJob.example[1])
 				.example(...ingestTranslationJob.example[2])
@@ -7038,9 +7061,9 @@ const argv = yargs.usage(_usage)
 	.command([uploadTranslationJob.command, uploadTranslationJob.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
-					alias: 'f',
-					description: '<folder> Folder to upload the translation zip file'
-				})
+				alias: 'f',
+				description: '<folder> Folder to upload the translation zip file'
+			})
 				.option('validateonly', {
 					alias: 'v',
 					description: 'Validate translation job without import.'
@@ -7062,9 +7085,9 @@ const argv = yargs.usage(_usage)
 	.command([createTranslationConnector.command, createTranslationConnector.alias], false,
 		(yargs) => {
 			yargs.option('from', {
-					alias: 'f',
-					description: '<source> to create from',
-				})
+				alias: 'f',
+				description: '<source> to create from',
+			})
 				.check((argv) => {
 					if (argv.from && !getTranslationConnectorSources().includes(argv.from)) {
 						throw new Error(`${argv.from} is not a valid value for <source>`);
@@ -7080,9 +7103,9 @@ const argv = yargs.usage(_usage)
 	.command([startTranslationConnector.command, startTranslationConnector.alias], false,
 		(yargs) => {
 			yargs.option('port', {
-					alias: 'p',
-					description: 'Set <port>. Defaults to 8084.'
-				})
+				alias: 'p',
+				description: 'Set <port>. Defaults to 8084.'
+			})
 				.option('debug', {
 					alias: 'd',
 					description: 'Start the translation connector server with "--inspect" option'
@@ -7141,9 +7164,9 @@ const argv = yargs.usage(_usage)
 	.command([createFolder.command, createFolder.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: '<server> The registered OCM server'
-				})
+				alias: 's',
+				description: '<server> The registered OCM server'
+			})
 				.example(...createFolder.example[0])
 				.example(...createFolder.example[1])
 				.example(...createFolder.example[2])
@@ -7154,9 +7177,9 @@ const argv = yargs.usage(_usage)
 	.command([copyFolder.command, copyFolder.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
-					alias: 'f',
-					description: 'The target folder to copy the folder to'
-				})
+				alias: 'f',
+				description: 'The target folder to copy the folder to'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -7174,9 +7197,9 @@ const argv = yargs.usage(_usage)
 	.command([shareFolder.command, shareFolder.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -7210,9 +7233,9 @@ const argv = yargs.usage(_usage)
 	.command([unshareFolder.command, unshareFolder.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -7238,9 +7261,9 @@ const argv = yargs.usage(_usage)
 	.command([listFolder.command, listFolder.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			})
 				.example(...listFolder.example[0])
 				.example(...listFolder.example[1])
 				.example(...listFolder.example[2])
@@ -7253,9 +7276,9 @@ const argv = yargs.usage(_usage)
 	.command([downloadFolder.command, downloadFolder.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
-					alias: 'f',
-					description: '<folder> Local folder to save the folder on OCM server'
-				})
+				alias: 'f',
+				description: '<folder> Local folder to save the folder on OCM server'
+			})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -7275,9 +7298,9 @@ const argv = yargs.usage(_usage)
 	.command([uploadFolder.command, uploadFolder.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
-					alias: 'f',
-					description: '<folder> The parent folder on OCM server'
-				})
+				alias: 'f',
+				description: '<folder> The parent folder on OCM server'
+			})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -7297,9 +7320,9 @@ const argv = yargs.usage(_usage)
 	.command([deleteFolder.command, deleteFolder.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: '<server> The registered OCM server'
-				})
+				alias: 's',
+				description: '<server> The registered OCM server'
+			})
 				.option('permanent', {
 					alias: 'p',
 					description: 'Delete the folder permanently'
@@ -7317,9 +7340,9 @@ const argv = yargs.usage(_usage)
 	.command([copyFile.command, copyFile.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
-					alias: 'f',
-					description: 'The target folder to copy the file to'
-				})
+				alias: 'f',
+				description: 'The target folder to copy the file to'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -7337,9 +7360,9 @@ const argv = yargs.usage(_usage)
 	.command([uploadFile.command, uploadFile.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
-					alias: 'f',
-					description: '<folder> The parent folder on OCM server'
-				})
+				alias: 'f',
+				description: '<folder> The parent folder on OCM server'
+			})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -7357,9 +7380,9 @@ const argv = yargs.usage(_usage)
 	.command([downloadFile.command, downloadFile.alias], false,
 		(yargs) => {
 			yargs.option('folder', {
-					alias: 'f',
-					description: '<folder> Local folder to save the file'
-				})
+				alias: 'f',
+				description: '<folder> Local folder to save the file'
+			})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -7378,9 +7401,9 @@ const argv = yargs.usage(_usage)
 	.command([deleteFile.command, deleteFile.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: '<server> The registered OCM server'
-				})
+				alias: 's',
+				description: '<server> The registered OCM server'
+			})
 				.option('permanent', {
 					alias: 'p',
 					description: 'Delete the file permanently'
@@ -7398,9 +7421,9 @@ const argv = yargs.usage(_usage)
 	.command([createGroup.command, createGroup.alias], false,
 		(yargs) => {
 			yargs.option('type', {
-					alias: 't',
-					description: 'The group type [' + getGroupTypes().join(' | ') + ']'
-				})
+				alias: 't',
+				description: 'The group type [' + getGroupTypes().join(' | ') + ']'
+			})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -7422,9 +7445,9 @@ const argv = yargs.usage(_usage)
 	.command([deleteGroup.command, deleteGroup.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: '<server> The registered OCM server'
-				})
+				alias: 's',
+				description: '<server> The registered OCM server'
+			})
 				.example(...deleteGroup.example[0])
 				.example(...deleteGroup.example[1])
 				.help(false)
@@ -7434,9 +7457,9 @@ const argv = yargs.usage(_usage)
 	.command([addMemberToGroup.command, addMemberToGroup.alias], false,
 		(yargs) => {
 			yargs.option('users', {
-					alias: 'u',
-					description: 'The comma separated list of user names'
-				})
+				alias: 'u',
+				description: 'The comma separated list of user names'
+			})
 				.option('groups', {
 					alias: 'g',
 					description: 'The comma separated list of group names'
@@ -7468,10 +7491,10 @@ const argv = yargs.usage(_usage)
 	.command([removeMemberFromGroup.command, removeMemberFromGroup.alias], false,
 		(yargs) => {
 			yargs.option('members', {
-					alias: 'm',
-					description: 'The comma separated list of user and group names',
-					demandOption: true
-				})
+				alias: 'm',
+				description: 'The comma separated list of user and group names',
+				demandOption: true
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -7485,9 +7508,9 @@ const argv = yargs.usage(_usage)
 	.command([downloadRecommendation.command, downloadRecommendation.alias], false,
 		(yargs) => {
 			yargs.option('repository', {
-					alias: 'r',
-					description: 'The repository'
-				})
+				alias: 'r',
+				description: 'The repository'
+			})
 				.option('published', {
 					alias: 'p',
 					description: 'The flag to indicate published version'
@@ -7517,10 +7540,10 @@ const argv = yargs.usage(_usage)
 	.command([uploadRecommendation.command, uploadRecommendation.alias], false,
 		(yargs) => {
 			yargs.option('repository', {
-					alias: 'r',
-					description: 'The repository',
-					demandOption: true
-				})
+				alias: 'r',
+				description: 'The repository',
+				demandOption: true
+			})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -7534,10 +7557,10 @@ const argv = yargs.usage(_usage)
 	.command([controlRecommendation.command, controlRecommendation.alias], false,
 		(yargs) => {
 			yargs.option('repository', {
-					alias: 'r',
-					description: 'The repository',
-					demandOption: true
-				})
+				alias: 'r',
+				description: 'The repository',
+				demandOption: true
+			})
 				.option('recommendations', {
 					alias: 'm',
 					description: 'The comma separated list of recommendations',
@@ -7676,10 +7699,10 @@ const argv = yargs.usage(_usage)
 	.command([executeGet.command, executeGet.alias], false,
 		(yargs) => {
 			yargs.option('file', {
-					alias: 'f',
-					description: 'The file to save the result',
-					demandOption: true
-				})
+				alias: 'f',
+				description: 'The file to save the result',
+				demandOption: true
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -7694,9 +7717,9 @@ const argv = yargs.usage(_usage)
 	.command([executePost.command, executePost.alias], false,
 		(yargs) => {
 			yargs.option('body', {
-					alias: 'b',
-					description: 'The JSON file for the request payload'
-				})
+				alias: 'b',
+				description: 'The JSON file for the request payload'
+			})
 				.option('file', {
 					alias: 'f',
 					description: 'The file to save the result'
@@ -7721,9 +7744,9 @@ const argv = yargs.usage(_usage)
 	.command([executePut.command, executePut.alias], false,
 		(yargs) => {
 			yargs.option('body', {
-					alias: 'b',
-					description: 'The JSON file for the request payload'
-				})
+				alias: 'b',
+				description: 'The JSON file for the request payload'
+			})
 				.option('file', {
 					alias: 'f',
 					description: 'The file to save the result'
@@ -7742,9 +7765,9 @@ const argv = yargs.usage(_usage)
 	.command([executePatch.command, executePatch.alias], false,
 		(yargs) => {
 			yargs.option('body', {
-					alias: 'b',
-					description: 'The JSON file for the request payload'
-				})
+				alias: 'b',
+				description: 'The JSON file for the request payload'
+			})
 				.option('file', {
 					alias: 'f',
 					description: 'The file to save the result'
@@ -7762,9 +7785,9 @@ const argv = yargs.usage(_usage)
 	.command([executeDelete.command, executeDelete.alias], false,
 		(yargs) => {
 			yargs.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
+				alias: 's',
+				description: 'The registered OCM server'
+			})
 				.example(...executeDelete.example[0])
 				.example(...executeDelete.example[1])
 				.example(...executeDelete.example[2])
@@ -7784,9 +7807,9 @@ const argv = yargs.usage(_usage)
 	.command([develop.command, develop.alias], false,
 		(yargs) => {
 			yargs.option('port', {
-					alias: 'p',
-					description: 'Set <port>. Defaults to 8085.'
-				})
+				alias: 'p',
+				description: 'Set <port>. Defaults to 8085.'
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -7947,6 +7970,20 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${compilationServer.command}\n\n${compilationServer.usage.long}`);
+		})
+	.command([setLoggerLevel.command, setLoggerLevel.alias], false,
+		(yargs) => {
+			yargs
+				.check((argv) => {
+					if (argv.level && !getLoggerLevels().includes(argv.level)) {
+						throw new Error(os.EOL + `${argv.level} is not a valid value for <level>`);
+					}
+					return true;
+				})
+				.example(...setLoggerLevel.example[0])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${setLoggerLevel.command}\n\n${setLoggerLevel.usage.long}`);
 		})
 	.help(false)
 	.version()
@@ -11186,6 +11223,17 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		executeDeleteArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, executeDeleteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+} else if (argv._[0] === setLoggerLevel.name || argv._[0] === setLoggerLevel.alias) {
+	let setLoggerLevelArgs = ['run', '-s', setLoggerLevel.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--level', argv.level
+	];
+
+	spawnCmd = childProcess.spawnSync(npmCmd, setLoggerLevelArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

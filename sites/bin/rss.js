@@ -11,6 +11,8 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	path = require('path'),
 	sprintf = require('sprintf-js').sprintf;
 
+var console = require('../test/server/logger.js').console;
+
 var cecDir = path.join(__dirname, ".."),
 	rssDataDir = path.join(cecDir, 'data', 'rss');
 
@@ -53,7 +55,7 @@ module.exports.createRSSFeed = function (argv, done) {
 	}
 	tempPath = path.resolve(tempPath);
 	if (!fs.existsSync(tempPath)) {
-		console.log('ERROR: file ' + tempPath + ' does not exist');
+		console.error('ERROR: file ' + tempPath + ' does not exist');
 		done();
 		return;
 	}
@@ -65,7 +67,7 @@ module.exports.createRSSFeed = function (argv, done) {
 		}
 		javascript = path.resolve(javascript);
 		if (!fs.existsSync(javascript)) {
-			console.log('ERROR: file ' + javascript + ' does not exist');
+			console.error('ERROR: file ' + javascript + ' does not exist');
 			done();
 			return;
 		}
@@ -74,7 +76,7 @@ module.exports.createRSSFeed = function (argv, done) {
 	try {
 		_createRSSFeed(server, argv, done);
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 		done();
 	}
 };
@@ -119,7 +121,7 @@ var _createRSSFeed = function (server, argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -142,7 +144,7 @@ var _getContentItems = function (server, channelToken, query, limit, orderby, la
 		url = url + '&orderBy=' + orderby;
 		url = url + '&channelToken=' + channelToken + '&fields=all';
 
-		console.log(' - query: ' + url);
+		console.info(' - query: ' + url);
 		var options = {
 			url: server.url + url,
 			headers: {
@@ -152,8 +154,8 @@ var _getContentItems = function (server, channelToken, query, limit, orderby, la
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get content');
-				console.log(err);
+				console.error('ERROR: Failed to get content');
+				console.error(err);
 				return resolve({
 					'err': 'err'
 				});
@@ -161,18 +163,18 @@ var _getContentItems = function (server, channelToken, query, limit, orderby, la
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!response || response.statusCode !== 200) {
 				var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-				console.log('ERROR: Failed to get content: ' + msg);
+				console.error('ERROR: Failed to get content: ' + msg);
 				return resolve({
 					'err': 'err'
 				});
 			}
 
 			if (!data) {
-				console.log('ERROR: Failed to get content');
+				console.error('ERROR: Failed to get content');
 				return resolve({
 					'err': 'err'
 				});
@@ -264,12 +266,12 @@ var _generateRSSFile = function (siteUrl, items, language, detailPage, tempPath,
 
 	var customHash;
 	if (javascript) {
-		console.log(' - require in javascript from ' + javascript);
+		console.info(' - require in javascript from ' + javascript);
 		try {
 			customHash = require(javascript);
 			// console.log(customHash);
 		} catch (e) {
-			console.log(e);
+			console.error(e);
 		}
 	}
 
@@ -301,8 +303,8 @@ var _generateRSSFile = function (siteUrl, items, language, detailPage, tempPath,
 
 		return true;
 	} catch (e) {
-		console.log('ERROR: failed to generate RSS file');
-		console.log(e);
+		console.error('ERROR: failed to generate RSS file');
+		console.error(e);
 		return false;
 	}
 };
@@ -333,28 +335,28 @@ var _pubishRSSFile = function (server, siteUrl, siteName, rssFile, done) {
 		name: siteName
 	});
 	sitePromise.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
+		if (result.err) {
+			return Promise.reject();
+		}
 
-			var siteId = result.id;
-			if (!siteId) {
-				console.log('ERROR: failed to get site id');
-				return Promise.reject();
-			}
+		var siteId = result.id;
+		if (!siteId) {
+			console.error('ERROR: failed to get site id');
+			return Promise.reject();
+		}
 
-			// console.log(' - site id: ' + siteId);
+		// console.log(' - site id: ' + siteId);
 
-			// get settings folder 
-			return serverRest.findFile({
-				server: server,
-				parentID: siteId,
-				filename: 'settings'
-			});
-		})
+		// get settings folder 
+		return serverRest.findFile({
+			server: server,
+			parentID: siteId,
+			filename: 'settings'
+		});
+	})
 		.then(function (result) {
 			if (!result || !result.id) {
-				console.log('ERROR: failed to get folder settings');
+				console.error('ERROR: failed to get folder settings');
 				return Promise.reject();
 			}
 			var settingsFolderId = result.id;
@@ -368,7 +370,7 @@ var _pubishRSSFile = function (server, siteUrl, siteName, rssFile, done) {
 		})
 		.then(function (result) {
 			if (!result || !result.id) {
-				console.log('ERROR: failed to get folder seo');
+				console.error('ERROR: failed to get folder seo');
 				return Promise.reject();
 			}
 			var seoFolderId = result.id;
@@ -383,7 +385,7 @@ var _pubishRSSFile = function (server, siteUrl, siteName, rssFile, done) {
 		})
 		.then(function (result) {
 			if (!result || !result.id) {
-				console.log('ERROR: failed upload RSS file');
+				console.error('ERROR: failed upload RSS file');
 				return Promise.reject();
 			}
 
@@ -416,10 +418,10 @@ var _createRSSFeedREST = function (server, siteName, url, tempPath, rssFile,
 	var items;
 
 	sitesRest.getSite({
-			server: server,
-			name: siteName,
-			expand: 'channel'
-		})
+		server: server,
+		name: siteName,
+		expand: 'channel'
+	})
 		.then(function (result) {
 			if (result.err) {
 				return Promise.reject();
@@ -427,7 +429,7 @@ var _createRSSFeedREST = function (server, siteName, url, tempPath, rssFile,
 
 			site = result;
 			if (!site.isEnterprise) {
-				console.log(' - site ' + siteName + ' is not an enterprise site');
+				console.error(' - site ' + siteName + ' is not an enterprise site');
 				return Promise.reject();
 			}
 
@@ -446,11 +448,11 @@ var _createRSSFeedREST = function (server, siteName, url, tempPath, rssFile,
 				}
 			}
 			if (!channelId || !channelToken) {
-				console.log(' - no channel found for site ' + siteName);
+				console.error(' - no channel found for site ' + siteName);
 				return Promise.reject();
 			}
 
-			console.log(' - get site (channelToken: ' + channelToken + ')');
+			console.info(' - get site (channelToken: ' + channelToken + ')');
 
 			return _getContentItems(server, channelToken, query, limit, orderby, language);
 		})
@@ -461,10 +463,10 @@ var _createRSSFeedREST = function (server, siteName, url, tempPath, rssFile,
 
 			items = result.data;
 			if (items.length === 0) {
-				console.log(' - no items');
+				console.error(' - no items');
 				return Promise.reject();
 			}
-			console.log(' - find ' + items.length + ' ' + (items.length > 1 ? 'items' : 'item'));
+			console.info(' - find ' + items.length + ' ' + (items.length > 1 ? 'items' : 'item'));
 
 			return serverRest.findFile({
 				server: server,
@@ -499,7 +501,7 @@ var _createRSSFeedREST = function (server, siteName, url, tempPath, rssFile,
 						break;
 					}
 				}
-				console.log(' - default detail page: ' + defaultDetailPage.name);
+				console.info(' - default detail page: ' + defaultDetailPage.name);
 			}
 
 			var siteUrl = url;
@@ -508,7 +510,7 @@ var _createRSSFeedREST = function (server, siteName, url, tempPath, rssFile,
 			}
 
 			if (_generateRSSFile(siteUrl, items, language, defaultDetailPage, tempPath,
-					title, description, ttl, rssFile, newlink, javascript)) {
+				title, description, ttl, rssFile, newlink, javascript)) {
 				console.log(' - create RSS file ' + rssFile);
 
 				if (publish) {

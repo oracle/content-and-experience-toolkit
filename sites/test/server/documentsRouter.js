@@ -10,17 +10,19 @@ var express = require('express'),
 	serverUtils = require('./serverUtils.js'),
 	router = express.Router();
 
+var console = require('./logger.js').console;
+
 router.get('/*', (req, res) => {
 	let location, app = req.app,
 		request = app.locals.request,
 		requestUrl = req.originalUrl;
 
 	if (app.locals.server.env !== 'dev_ec' && !app.locals.server.oauthtoken) {
-		console.log('No remote EC server access for remote traffic ', requestUrl);
+		console.error('No remote EC server access for remote traffic ', requestUrl);
 		res.end();
 		return;
 	} else if (!app.locals.connectToServer) {
-		console.log('No remote server for remote traffic ', requestUrl);
+		console.error('No remote server for remote traffic ', requestUrl);
 		res.end();
 		return;
 	}
@@ -29,7 +31,7 @@ router.get('/*', (req, res) => {
 	// For embedded pages, rewrite url
 	if (requestUrl.indexOf('/documents/embed') > -1 || requestUrl.indexOf('/documents/ssoembed') > -1) {
 		requestUrl = app.locals.serverURL + requestUrl;
-		console.log('Remote traffic embed :', requestUrl);
+		console.info('Remote traffic embed :', requestUrl);
 		var options = {
 			url: requestUrl
 		};
@@ -45,7 +47,7 @@ router.get('/*', (req, res) => {
 			requestUrl = requestUrl.replace('/published/', '/management/');
 		}
 		location = app.locals.serverURL + requestUrl;
-		console.log('Remote traffic:', location);
+		console.info('Remote traffic:', location);
 		var options = {
 			url: location
 		};
@@ -75,17 +77,17 @@ router.post('/*', (req, res) => {
 		requestUrl = req.originalUrl;
 
 	if (!app.locals.connectToServer) {
-		console.log('No remote server for remote traffic ', requestUrl);
+		console.error('No remote server for remote traffic ', requestUrl);
 		res.end();
 		return;
 	}
 
 	// all POST requests are proxied to the remote server
-	console.log('Remote traffic: POST ', requestUrl);
+	console.info('Remote traffic: POST ', requestUrl);
 	var body = '';
 
 	req.on('error', function (err) {
-		console.log('err: ' + err);
+		console.error('err: ' + err);
 	});
 
 	req.on('data', function (data) {
@@ -102,7 +104,7 @@ router.post('/*', (req, res) => {
 			bearer: app.locals.server.oauthtoken
 		};
 	}
-	
+
 	req.on('end', function () {
 		var url = require('url'),
 			queryString = url.parse(requestUrl, true),
@@ -115,7 +117,7 @@ router.post('/*', (req, res) => {
 		if (requestUrl.indexOf('/documents/api/') >= 0) {
 			var url = requestUrl,
 				params = queryString.query;
-			console.log(' document api: url=' + url + ' params=' + JSON.stringify(params));
+			console.info(' document api: url=' + url + ' params=' + JSON.stringify(params));
 		} else if (queryString.query && queryString.query.IsJson === '1') {
 			// body contains json data
 			postData.json = true;
@@ -128,7 +130,7 @@ router.post('/*', (req, res) => {
 			postData.form = body;
 		}
 
-		console.log(' postData=' + JSON.stringify(postData));
+		console.info(' postData=' + JSON.stringify(postData));
 		request(postData).on('response', function (response) {
 			// fix headers for cross-domain and capitalization issues
 			serverUtils.fixHeaders(response, res);

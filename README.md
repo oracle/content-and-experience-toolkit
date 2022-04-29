@@ -14,6 +14,18 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+
+# New in Release 22.4.3
+
+**Added**
+
+- `cec set-logger-level` - Sets the logger level for commands
+
+**Updated**
+
+- `cec register-server` - Now supports Oracle Cloud Infrastructure Identity and Access Management (IAM) Domains
+
+
 # New in Release 22.4.2
 
 **Updated**

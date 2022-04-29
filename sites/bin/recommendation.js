@@ -18,6 +18,8 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	sprintf = require('sprintf-js').sprintf,
 	zip = require('gulp-zip');
 
+var console = require('../test/server/logger.js').console;
+
 var projectDir,
 	contentSrcDir,
 	serversSrcDir,
@@ -75,14 +77,14 @@ module.exports.downloadRecommendation = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getRepositories({
-				server: server
-			})
+			server: server
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -103,10 +105,10 @@ module.exports.downloadRecommendation = function (argv, done) {
 
 				if (repositoryName) {
 					if (!repository) {
-						console.log('ERROR: repository ' + repositoryName + ' does not exist');
+						console.error('ERROR: repository ' + repositoryName + ' does not exist');
 						return Promise.reject();
 					}
-					console.log(' - verify repository');
+					console.info(' - verify repository');
 				}
 
 				return Promise.all(promises);
@@ -133,15 +135,15 @@ module.exports.downloadRecommendation = function (argv, done) {
 				});
 
 				if (nameMatched.length === 0) {
-					console.log('ERROR: recommendation ' + name + ' does not exist');
+					console.error('ERROR: recommendation ' + name + ' does not exist');
 					return Promise.reject();
 				}
 				if (repository && !recommendation) {
-					console.log('ERROR: recommendation ' + name + ' is not found in repository ' + repository.name);
+					console.error('ERROR: recommendation ' + name + ' is not found in repository ' + repository.name);
 					return Promise.reject();
 				}
 				if (!repository && nameMatched.length > 1) {
-					console.log('ERROR: there are more than one recommendations with name ' + name + '. Please specify the repository and run again.');
+					console.error('ERROR: there are more than one recommendations with name ' + name + '. Please specify the repository and run again.');
 					return Promise.reject();
 				}
 
@@ -156,11 +158,11 @@ module.exports.downloadRecommendation = function (argv, done) {
 				}
 
 				if (published && !recommendation.isPublished) {
-					console.log('ERROR: recommendation ' + name + ' has not been published yet');
+					console.error('ERROR: recommendation ' + name + ' has not been published yet');
 					return Promise.reject();
 				}
 
-				console.log(' - verify recommendation (Id: ' + recommendation.id + ' repository: ' + repository.name + ')');
+				console.info(' - verify recommendation (Id: ' + recommendation.id + ' repository: ' + repository.name + ')');
 
 				var channelPromises = [];
 				if (published && recommendation.publishedChannels && recommendation.publishedChannels.length > 0) {
@@ -184,7 +186,7 @@ module.exports.downloadRecommendation = function (argv, done) {
 						}
 					}
 					if (channels.length === 0) {
-						console.log('ERROR: no published channel is found');
+						console.error('ERROR: no published channel is found');
 						return Promise.reject();
 					}
 
@@ -196,7 +198,7 @@ module.exports.downloadRecommendation = function (argv, done) {
 					}
 
 					if (!channel) {
-						console.log('ERROR: recommendation ' + name + ' is not published to channel ' + channelName);
+						console.error('ERROR: recommendation ' + name + ' is not published to channel ' + channelName);
 						return Promise.reject();
 					}
 				}
@@ -215,7 +217,7 @@ module.exports.downloadRecommendation = function (argv, done) {
 				}
 
 				var jobId = result.jobId;
-				console.log(' - submit export job (' + jobId + ')');
+				console.info(' - submit export job (' + jobId + ')');
 				// Wait for job to finish
 				var inter = setInterval(function () {
 					var checkExportStatusPromise = serverRest.getContentJobStatus({
@@ -223,86 +225,86 @@ module.exports.downloadRecommendation = function (argv, done) {
 						jobId: jobId
 					});
 					checkExportStatusPromise.then(function (result) {
-							if (result.status !== 'success') {
-								clearInterval(inter);
-								return Promise.reject();
-							}
+						if (result.status !== 'success') {
+							clearInterval(inter);
+							return Promise.reject();
+						}
 
-							var data = result.data;
-							var status = data.status;
+						var data = result.data;
+						var status = data.status;
+						// console.log(data);
+						if (status && status === 'SUCCESS') {
+							clearInterval(inter);
+							var downloadLink = data.downloadLink[0].href;
+							if (downloadLink) {
+								var options = {
+									url: downloadLink,
+									headers: {
+										'Content-Type': 'application/zip',
+										Authorization: serverUtils.getRequestAuthorization(server)
+									},
+									encoding: null
+								};
+								//
+								// Download the export zip
+								var request = require('../test/server/requestUtils.js').request;
+								request.get(options, function (err, response, body) {
+									if (err) {
+										console.error('ERROR: Failed to download');
+										console.error(err);
+										done();
+									}
+									if (response && response.statusCode === 200) {
+
+										console.info(' - download export file');
+										var destdir = path.join(projectDir, 'dist');
+										if (!fs.existsSync(destdir)) {
+											fs.mkdirSync(destdir);
+										}
+										var exportfilepath = path.join(destdir, name + '_export.zip');
+										fs.writeFileSync(exportfilepath, body);
+										console.info(' - save export to ' + exportfilepath);
+
+										if (!fs.existsSync(recommendationSrcDir)) {
+											fs.mkdirSync(recommendationSrcDir);
+										}
+
+										// unzip to src/recommendations
+										var recoPath = path.join(recommendationSrcDir, name);
+										fileUtils.remove(recoPath);
+
+										fs.mkdirSync(recoPath);
+
+										fileUtils.extractZip(exportfilepath, recoPath)
+											.then(function (err) {
+												if (err) {
+													done();
+												} else {
+													console.log(' - recommendation ' + name + ' is available at ' + recoPath);
+													done(true);
+												}
+											});
+
+									} else {
+										console.error('ERROR: Failed to download, status=' + response.statusCode);
+										done();
+									}
+								});
+							}
+						} else if (status && status === 'FAILED') {
+							clearInterval(inter);
 							// console.log(data);
-							if (status && status === 'SUCCESS') {
-								clearInterval(inter);
-								var downloadLink = data.downloadLink[0].href;
-								if (downloadLink) {
-									var options = {
-										url: downloadLink,
-										headers: {
-											'Content-Type': 'application/zip',
-											Authorization: serverUtils.getRequestAuthorization(server)
-										},
-										encoding: null
-									};
-									//
-									// Download the export zip
-									var request = require('../test/server/requestUtils.js').request;
-									request.get(options, function (err, response, body) {
-										if (err) {
-											console.log('ERROR: Failed to download');
-											console.log(err);
-											done();
-										}
-										if (response && response.statusCode === 200) {
+							console.error('ERROR: export failed: ' + data.errorDescription);
+							clearInterval(inter);
+							done();
+						} else if (status && status === 'INPROGRESS') {
+							console.info(' - export job in progress...');
+						}
 
-											console.log(' - download export file');
-											var destdir = path.join(projectDir, 'dist');
-											if (!fs.existsSync(destdir)) {
-												fs.mkdirSync(destdir);
-											}
-											var exportfilepath = path.join(destdir, name + '_export.zip');
-											fs.writeFileSync(exportfilepath, body);
-											console.log(' - save export to ' + exportfilepath);
-
-											if (!fs.existsSync(recommendationSrcDir)) {
-												fs.mkdirSync(recommendationSrcDir);
-											}
-
-											// unzip to src/recommendations
-											var recoPath = path.join(recommendationSrcDir, name);
-											fileUtils.remove(recoPath);
-
-											fs.mkdirSync(recoPath);
-
-											fileUtils.extractZip(exportfilepath, recoPath)
-												.then(function (err) {
-													if (err) {
-														done();
-													} else {
-														console.log(' - recommendation ' + name + ' is available at ' + recoPath);
-														done(true);
-													}
-												});
-
-										} else {
-											console.log('ERROR: Failed to download, status=' + response.statusCode);
-											done();
-										}
-									});
-								}
-							} else if (status && status === 'FAILED') {
-								clearInterval(inter);
-								// console.log(data);
-								console.log('ERROR: export failed: ' + data.errorDescription);
-								clearInterval(inter);
-								done();
-							} else if (status && status === 'INPROGRESS') {
-								console.log(' - export job in progress...');
-							}
-
-						})
+					})
 						.catch((error) => {
 							if (error) {
-								console.log(error);
+								console.error(error);
 							}
 							done();
 						});
@@ -312,7 +314,7 @@ module.exports.downloadRecommendation = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -359,7 +361,7 @@ module.exports.uploadRecommendation = function (argv, done) {
 	// verify the recommendation
 	var recommendationPath = path.join(recommendationSrcDir, name);
 	if (!fs.existsSync(recommendationPath)) {
-		console.log('ERROR: recommendation folder ' + recommendationPath + ' does not exist');
+		console.error('ERROR: recommendation folder ' + recommendationPath + ' does not exist');
 		done();
 		return;
 	}
@@ -374,14 +376,14 @@ module.exports.uploadRecommendation = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getRepositories({
-				server: server
-			})
+			server: server
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -395,10 +397,10 @@ module.exports.uploadRecommendation = function (argv, done) {
 				});
 
 				if (!repository) {
-					console.log('ERROR: repository ' + repositoryName + ' does not exist');
+					console.error('ERROR: repository ' + repositoryName + ' does not exist');
 					return Promise.reject();
 				}
-				console.log(' - verify repository');
+				console.info(' - verify repository');
 
 				return _zipRecommendation(recommendationPath, fileName);
 			})
@@ -408,7 +410,7 @@ module.exports.uploadRecommendation = function (argv, done) {
 				}
 
 				var zipPath = result.zipPath;
-				console.log(' - created file ' + zipPath);
+				console.info(' - created file ' + zipPath);
 
 				// upload file
 				return serverRest.createFile({
@@ -423,7 +425,7 @@ module.exports.uploadRecommendation = function (argv, done) {
 					return Promise.reject();
 				}
 				fileId = result.id;
-				console.log(' - upload file ' + result.name + ' (Id: ' + fileId + ' version: ' + result.version + ')');
+				console.info(' - upload file ' + result.name + ' (Id: ' + fileId + ' version: ' + result.version + ')');
 
 				return serverRest.importContent({
 					server: server,
@@ -438,7 +440,7 @@ module.exports.uploadRecommendation = function (argv, done) {
 				}
 
 				var jobId = result.jobId;
-				console.log(' - submit import job (' + jobId + ')');
+				console.info(' - submit import job (' + jobId + ')');
 
 				var importEcid = result.ecid;
 
@@ -449,39 +451,39 @@ module.exports.uploadRecommendation = function (argv, done) {
 						jobId: jobId
 					});
 					checkExportStatusPromise.then(function (result) {
-							if (result.status !== 'success') {
-								clearInterval(inter);
-								return Promise.reject();
-							}
+						if (result.status !== 'success') {
+							clearInterval(inter);
+							return Promise.reject();
+						}
 
-							var data = result.data;
-							var status = data.status;
+						var data = result.data;
+						var status = data.status;
 
-							if (status && status === 'SUCCESS') {
-								clearInterval(inter);
-								console.log(' - recommendation imported');
-								// delete the zip file
-								serverRest.deleteFile({
-									server: server,
-									fFileGUID: fileId
-								}).then(function (result) {
-									done(true);
-								});
+						if (status && status === 'SUCCESS') {
+							clearInterval(inter);
+							console.log(' - recommendation imported');
+							// delete the zip file
+							serverRest.deleteFile({
+								server: server,
+								fFileGUID: fileId
+							}).then(function (result) {
+								done(true);
+							});
 
-							} else if (status && status === 'FAILED') {
-								clearInterval(inter);
-								// console.log(data);
-								console.log('ERROR: import failed: ' + data.errorDescription + ' (ecid: ' + importEcid + ')');
-								clearInterval(inter);
-								done();
-							} else if (status && status === 'INPROGRESS') {
-								console.log(' - import job in progress...');
-							}
+						} else if (status && status === 'FAILED') {
+							clearInterval(inter);
+							// console.log(data);
+							console.error('ERROR: import failed: ' + data.errorDescription + ' (ecid: ' + importEcid + ')');
+							clearInterval(inter);
+							done();
+						} else if (status && status === 'INPROGRESS') {
+							console.info(' - import job in progress...');
+						}
 
-						})
+					})
 						.catch((error) => {
 							if (error) {
-								console.log(error);
+								console.error(error);
 							}
 							done();
 						});
@@ -490,7 +492,7 @@ module.exports.uploadRecommendation = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -511,7 +513,6 @@ module.exports.controlRecommendation = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
 
 	var action = argv.action;
 	var repositoryName = argv.repository;
@@ -520,7 +521,7 @@ module.exports.controlRecommendation = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -529,9 +530,9 @@ module.exports.controlRecommendation = function (argv, done) {
 		var recommendations = [];
 
 		serverRest.getRepositoryWithName({
-				server: server,
-				name: repositoryName
-			})
+			server: server,
+			name: repositoryName
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -539,11 +540,11 @@ module.exports.controlRecommendation = function (argv, done) {
 
 				repository = result.data;
 				if (!repository || !repository.id) {
-					console.log('ERROR: repository ' + repositoryName + ' does not exist');
+					console.error('ERROR: repository ' + repositoryName + ' does not exist');
 					return Promise.reject();
 				}
 
-				console.log(' - get repository (Id: ' + repository.id + ')');
+				console.info(' - get repository (Id: ' + repository.id + ')');
 
 				return serverRest.getRecommendations({
 					server: server,
@@ -569,7 +570,7 @@ module.exports.controlRecommendation = function (argv, done) {
 						}
 					}
 					if (!found) {
-						console.log('ERROR: recommendation ' + name + ' does not exist');
+						console.error('ERROR: recommendation ' + name + ' does not exist');
 					}
 				});
 
@@ -592,7 +593,7 @@ module.exports.controlRecommendation = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -628,7 +629,7 @@ var _updateRecommendation = function (server, repository, recommendations, chann
 					}
 
 					if (!channelExist) {
-						console.log('ERROR: channel ' + channelName + ' does not exist');
+						console.error('ERROR: channel ' + channelName + ' does not exist');
 					} else {
 						// check if the channel is added to the repository
 						var channelInRepo = false;
@@ -639,7 +640,7 @@ var _updateRecommendation = function (server, repository, recommendations, chann
 							}
 						}
 						if (!channelInRepo) {
-							console.log('ERROR: channel ' + channelName + ' is not a publishing channel for repository ' + repository.name);
+							console.error('ERROR: channel ' + channelName + ' is not a publishing channel for repository ' + repository.name);
 						} else {
 							channelIds.push(channel.id);
 							goodChannelNames.push(channel.name);
@@ -650,11 +651,11 @@ var _updateRecommendation = function (server, repository, recommendations, chann
 				var updateRecommendationPromises = [];
 
 				if (channelIds.length === 0) {
-					console.log('ERROR: no channel to ' + (action === 'add-channel' ? 'add' : 'remove'));
+					console.error('ERROR: no channel to ' + (action === 'add-channel' ? 'add' : 'remove'));
 					return Promise.reject();
 
 				} else {
-					console.log(' - channels to ' + action.substring(0, action.indexOf('-')) + ': ' + goodChannelNames);
+					console.info(' - channels to ' + action.substring(0, action.indexOf('-')) + ': ' + goodChannelNames);
 
 					recommendations.forEach(function (recommendation) {
 
@@ -703,7 +704,7 @@ var _updateRecommendation = function (server, repository, recommendations, chann
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				resolve({
 					err: 'err'
@@ -740,7 +741,7 @@ var _publishUnpublishRecommendation = function (server, recommendations, channel
 					}
 
 					if (!channelExist) {
-						console.log('ERROR: channel ' + channelName + ' does not exist');
+						console.error('ERROR: channel ' + channelName + ' does not exist');
 					} else {
 						channels.push(channel);
 					}
@@ -748,7 +749,7 @@ var _publishUnpublishRecommendation = function (server, recommendations, channel
 
 				if (channelNames.length > 0 && channels.length === 0) {
 					// no valid channel
-					console.log('ERROR: no channel to ' + action);
+					console.error('ERROR: no channel to ' + action);
 					return Promise.reject();
 				}
 
@@ -768,7 +769,7 @@ var _publishUnpublishRecommendation = function (server, recommendations, channel
 								}
 							}
 							if (!found) {
-								console.log('ERROR: channel ' + channels[i].name + ' is not a publishing channel for recommendation ' + recommendation.name);
+								console.error('ERROR: channel ' + channels[i].name + ' is not a publishing channel for recommendation ' + recommendation.name);
 							} else {
 								channelsToAct.push({
 									id: channels[i].id
@@ -782,7 +783,7 @@ var _publishUnpublishRecommendation = function (server, recommendations, channel
 					}
 
 					if (channelsToAct.length === 0) {
-						console.log('ERROR: no channel to ' + action + ' recommendation ' + recommendation.name);
+						console.error('ERROR: no channel to ' + action + ' recommendation ' + recommendation.name);
 					} else {
 						recommendation.channelsToAct = channelsToAct;
 						recommendation.goodChannelNames = goodChannelNames;
@@ -796,54 +797,54 @@ var _publishUnpublishRecommendation = function (server, recommendations, channel
 
 				var err;
 				var doRecommendationAction = recommendationsToAct.reduce(function (recoPromise, recommendation) {
-						return recoPromise.then(function (result) {
-							var channelPromises = [];
-							for (var i = 0; i < recommendation.channelsToAct.length; i++) {
-								channelPromises.push(serverRest.getChannel({
-									server: server,
-									id: recommendation.channels[i].id
-								}));
-							}
-							Promise.all(channelPromises)
-								.then(function (results) {
-									// get the name of channels to act on (in case of all recommendation channels)
-									for (var i = 0; i < recommendation.channelsToAct.length; i++) {
-										for (var j = 0; j < results.length; j++) {
-											if (results[j] && results[j].name && recommendation.channelsToAct[i].id === results[j].id) {
-												if (!recommendation.goodChannelNames.includes(results[j].name)) {
-													recommendation.goodChannelNames.push(results[j].name);
-												}
+					return recoPromise.then(function (result) {
+						var channelPromises = [];
+						for (var i = 0; i < recommendation.channelsToAct.length; i++) {
+							channelPromises.push(serverRest.getChannel({
+								server: server,
+								id: recommendation.channels[i].id
+							}));
+						}
+						Promise.all(channelPromises)
+							.then(function (results) {
+								// get the name of channels to act on (in case of all recommendation channels)
+								for (var i = 0; i < recommendation.channelsToAct.length; i++) {
+									for (var j = 0; j < results.length; j++) {
+										if (results[j] && results[j].name && recommendation.channelsToAct[i].id === results[j].id) {
+											if (!recommendation.goodChannelNames.includes(results[j].name)) {
+												recommendation.goodChannelNames.push(results[j].name);
 											}
 										}
 									}
+								}
 
-									var actionPromise = action === 'publish' ?
-										serverRest.publishRecommendation({
-											server: server,
-											id: recommendation.id,
-											name: recommendation.name,
-											channels: recommendation.channelsToAct
-										}) : serverRest.unpublishRecommendation({
-											server: server,
-											id: recommendation.id,
-											name: recommendation.name,
-											channels: recommendation.channelsToAct
-										});
-
-									actionPromise.then(function (result) {
-										if (result.err) {
-											err = 'err';
-										} else {
-											if (action === 'publish') {
-												console.log(' - recommendation ' + recommendation.name + ' published to channel ' + recommendation.goodChannelNames.sort());
-											} else {
-												console.log(' - recommendation ' + recommendation.name + ' unpublished from channel ' + recommendation.goodChannelNames.sort());
-											}
-										}
+								var actionPromise = action === 'publish' ?
+									serverRest.publishRecommendation({
+										server: server,
+										id: recommendation.id,
+										name: recommendation.name,
+										channels: recommendation.channelsToAct
+									}) : serverRest.unpublishRecommendation({
+										server: server,
+										id: recommendation.id,
+										name: recommendation.name,
+										channels: recommendation.channelsToAct
 									});
+
+								actionPromise.then(function (result) {
+									if (result.err) {
+										err = 'err';
+									} else {
+										if (action === 'publish') {
+											console.log(' - recommendation ' + recommendation.name + ' published to channel ' + recommendation.goodChannelNames.sort());
+										} else {
+											console.log(' - recommendation ' + recommendation.name + ' unpublished from channel ' + recommendation.goodChannelNames.sort());
+										}
+									}
 								});
-						});
-					},
+							});
+					});
+				},
 					// Start with a previousPromise value that is a resolved promise 
 					Promise.resolve({}));
 
@@ -855,7 +856,7 @@ var _publishUnpublishRecommendation = function (server, recommendations, channel
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				resolve({
 					err: 'err'

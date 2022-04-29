@@ -23,6 +23,8 @@ var express = require('express'),
 	_ = require('underscore'),
 	sitesRest = require('./sitesRest.js');
 
+var console = require('./logger.js').console;
+
 var componentsDir,
 	connectionsDir,
 	connectorsDir,
@@ -126,6 +128,27 @@ var _closeServer = function (localServer) {
 };
 
 /**
+ * Read the logger level from src/logger/logger.json and set the level
+ */
+module.exports.readLoggerLevel = function (projectDir) {
+	var filePath = path.join(projectDir, 'src', 'logger', 'logger.json');
+	var level = 'info';
+	if (fs.existsSync(filePath)) {
+		var fileSrc = fs.readFileSync(filePath);
+		var filejson;
+		try {
+			filejson = JSON.parse(fileSrc);
+		} catch (e) {
+			// invalid
+		}
+		if (filejson && filejson.level) {
+			level = filejson && filejson.level;
+		}
+	}
+	console.setLevel(level);
+};
+
+/**
  * Get server and credentials from gradle properties
  */
 module.exports.getConfiguredServer = function (currPath) {
@@ -220,7 +243,7 @@ var _getConfiguredServer = function (currPath) {
 
 			// console.log('configured server=' + JSON.stringify(server));
 		} catch (e) {
-			console.log('Failed to read config: ' + e);
+			console.error('Failed to read config: ' + e);
 		}
 	}
 	return server;
@@ -299,7 +322,7 @@ var _verifyServer = function (serverName, currPath, showError) {
 		var serverpath = path.join(serversDir, serverName, 'server.json');
 		if (!fs.existsSync(serverpath)) {
 			if (toShowError) {
-				console.log('ERROR: server ' + serverName + ' does not exist');
+				console.error('ERROR: server ' + serverName + ' does not exist');
 			}
 			return server;
 		}
@@ -309,24 +332,24 @@ var _verifyServer = function (serverName, currPath, showError) {
 	if (!serverName) {
 		if (server.fileexist) {
 			if (toShowError) {
-				console.log(' - configuration file: ' + server.fileloc);
+				console.info(' - configuration file: ' + server.fileloc);
 			}
 		} else {
 			if (toShowError) {
-				console.log('ERROR: no server is configured');
+				console.error('ERROR: no server is configured');
 			}
 			return server;
 		}
 	}
 	if (!server.url || ((!server.username || !server.password) && !server.oauthtoken)) {
 		if (toShowError) {
-			console.log('ERROR: no valid server is configured in ' + server.fileloc);
+			console.error('ERROR: no valid server is configured in ' + server.fileloc);
 		}
 		return server;
 	}
 	if (server.key && !fs.existsSync(server.key)) {
 		if (toShowError) {
-			console.log('ERROR: missing key file ' + server.key);
+			console.error('ERROR: missing key file ' + server.key);
 		}
 		return server;
 	}
@@ -428,7 +451,7 @@ var _unescapeHTML = function (str) {
 		return he.decode(str);
 	} catch (e) {
 		// console.log('WARNING: failed processing ' + str);
-		// console.log(e);
+		// console.error(e);
 		return str;
 	}
 };
@@ -482,7 +505,7 @@ module.exports.getURLParameters = function (queryString) {
 var _getURLParameters = function (queryString) {
 	var params = {};
 	if (!queryString || queryString.indexOf('=') < 0) {
-		console.log(' queryString ' + queryString + ' is empty or not valid');
+		console.error('ERROR: queryString ' + queryString + ' is empty or not valid');
 		return params;
 	}
 	var parts = queryString.split('&');
@@ -507,11 +530,11 @@ module.exports.updateItemFolderJson = function (projectDir, type, name, propName
 	_setupSourceDir(projectDir);
 
 	if (type !== 'template' && type !== 'theme' && type !== 'component') {
-		console.log('updateItemFolderJson: invalid type ' + type);
+		console.info('updateItemFolderJson: invalid type ' + type);
 		return false;
 	}
 	if (!name) {
-		console.log('updateItemFolderJson: no name is specified');
+		console.info('updateItemFolderJson: no name is specified');
 		return false;
 	}
 
@@ -527,11 +550,11 @@ module.exports.updateItemFolderJson = function (projectDir, type, name, propName
 		oldGUID = folderjson.itemGUID,
 		newGUID = _createGUID();
 	folderjson.itemGUID = newGUID;
-	console.log(' - update ' + type + ' GUID ' + oldGUID + ' to ' + newGUID);
+	console.info(' - update ' + type + ' GUID ' + oldGUID + ' to ' + newGUID);
 	if (propName && folderjson.hasOwnProperty(propName)) {
 		var oldValue = folderjson[propName];
 		folderjson[propName] = propValue;
-		console.log(' - update ' + type + ' ' + propName + ' ' + oldValue + ' to ' + propValue);
+		console.info(' - update ' + type + ' ' + propName + ' ' + oldValue + ' to ' + propValue);
 	}
 	fs.writeFileSync(file, JSON.stringify(folderjson));
 	return true;
@@ -571,8 +594,8 @@ var _getRegisteredServer = function (projectDir, name) {
 					server.password = decrypted.toString('utf8');
 
 				} catch (e) {
-					console.log('ERROR: failed to decrypt the password');
-					console.log(e);
+					console.error('ERROR: failed to decrypt the password');
+					console.error(e);
 				}
 			}
 
@@ -582,8 +605,8 @@ var _getRegisteredServer = function (projectDir, name) {
 					server.client_id = crypto.privateDecrypt(key, Buffer.from(server.client_id, 'base64')).toString('utf8');
 
 				} catch (e) {
-					console.log('ERROR: failed to decrypt the client id');
-					console.log(e);
+					console.error('ERROR: failed to decrypt the client id');
+					console.error(e);
 				}
 			}
 			if (server.client_secret) {
@@ -592,8 +615,8 @@ var _getRegisteredServer = function (projectDir, name) {
 					server.client_secret = crypto.privateDecrypt(key, Buffer.from(server.client_secret, 'base64')).toString('utf8');
 
 				} catch (e) {
-					console.log('ERROR: failed to decrypt the client secret');
-					console.log(e);
+					console.error('ERROR: failed to decrypt the client secret');
+					console.error(e);
 				}
 			}
 		}
@@ -608,7 +631,7 @@ var _saveOAuthToken = function (server, token) {
 	}
 	if (server.configured) {
 		_setTokenToConfiguredServer(server, token);
-		console.log(' - token saved to ' + server.fileloc);
+		console.info(' - token saved to ' + server.fileloc);
 	} else {
 		var serverPath = server.fileloc;
 		var serverName = server.name;
@@ -619,7 +642,7 @@ var _saveOAuthToken = function (server, token) {
 			serverjson.oauthtoken = token;
 
 			fs.writeFileSync(serverPath, JSON.stringify(serverjson));
-			console.log(' - token saved to server ' + serverName);
+			console.info(' - token saved to server ' + serverName);
 		}
 	}
 };
@@ -628,7 +651,7 @@ var _clearOAuthToken = function (server) {
 
 	if (server.configured) {
 		_setTokenToConfiguredServer(server, '');
-		console.log(' - token cleared in file ' + server.fileloc);
+		console.info(' - token cleared in file ' + server.fileloc);
 	} else {
 		var serverPath = server.fileloc;
 		var serverName = server.name;
@@ -639,7 +662,7 @@ var _clearOAuthToken = function (server) {
 			serverjson.oauthtoken = '';
 
 			fs.writeFileSync(serverPath, JSON.stringify(serverjson));
-			console.log(' - token cleared for server ' + serverName);
+			console.info(' - token cleared for server ' + serverName);
 		}
 	}
 };
@@ -706,7 +729,7 @@ module.exports.getComponentTemplates = function (projectDir, compName) {
 		compSrcDir = path.join(componentsDir, compName);
 
 	if (!fs.existsSync(compSrcDir)) {
-		console.log('getComponentTemplates: ERROR component ' + compName + ' does not exist');
+		console.error('getComponentTemplates: ERROR component ' + compName + ' does not exist');
 		return temps;
 	}
 
@@ -796,7 +819,7 @@ var _getTemplateComponents = function (templateName, includeThemeComps) {
 		tempSrcDir = path.join(templatesDir, templateName);
 
 	if (!fs.existsSync(tempSrcDir)) {
-		console.log('getTemplateComponents: template ' + templateName + ' does not exist');
+		console.error('getTemplateComponents: template ' + templateName + ' does not exist');
 		return comps;
 	}
 
@@ -932,7 +955,7 @@ var _getTemplateIcon = function (templateName) {
 		tempSrcDir = path.join(templatesDir, templateName);
 
 	if (!fs.existsSync(tempSrcDir)) {
-		console.log('getTemplateIcon: template ' + templateName + ' does not exist');
+		console.error('getTemplateIcon: template ' + templateName + ' does not exist');
 		return icon;
 	}
 
@@ -966,7 +989,7 @@ module.exports.getContentLayoutItems = function (projectDir, layoutName) {
 		console.log('getContentLayoutItems: content layout ' + layoutName + ' does not exist');
 		return items;
 	}
-	console.log('getContentLayoutItems: ' + layoutName);
+	console.info('getContentLayoutItems: ' + layoutName);
 
 	// go through all templates
 	var temps = fs.readdirSync(templatesDir),
@@ -1001,7 +1024,7 @@ module.exports.getContentLayoutItems = function (projectDir, layoutName) {
 		console.log('getContentLayoutItems: content layout ' + layoutName + ' is not used by any content items');
 		return items;
 	}
-	console.log(' - types: ' + JSON.stringify(contenttypes));
+	console.info(' - types: ' + JSON.stringify(contenttypes));
 
 	contenttypes.forEach(function (entry) {
 		var tempname = entry.template,
@@ -1051,7 +1074,7 @@ module.exports.getContentLayoutItems = function (projectDir, layoutName) {
 		items.forEach(function (item) {
 			msgs = msgs + item.type + ':' + item.name + ' ';
 		});
-		console.log(' - items ' + msgs);
+		console.info(' - items ' + msgs);
 	}
 
 	return items;
@@ -1068,7 +1091,7 @@ module.exports.getContentFormItems = function (projectDir, formName) {
 		formSrcDir = path.join(componentsDir, formName);
 
 	if (!formName || !fs.existsSync(formSrcDir)) {
-		console.log('getContentFormItems: content form ' + formName + ' does not exist');
+		console.error('getContentFormItems: content form ' + formName + ' does not exist');
 		return items;
 	}
 
@@ -1241,11 +1264,11 @@ module.exports.getTypeContentLayouts = function (typeObj) {
 module.exports.getReferencedAssets = function (pagesPath) {
 	var assetIds = [];
 	if (!fs.existsSync(pagesPath)) {
-		console.log('ERROR: path ' + pagesPath + ' does not exist');
+		console.error('ERROR: path ' + pagesPath + ' does not exist');
 		return assetIds;
 	}
 	if (!fs.statSync(pagesPath).isDirectory()) {
-		console.log('ERROR: path ' + pagesPath + ' is not a folder');
+		console.error('ERROR: path ' + pagesPath + ' is not a folder');
 		return assetIds;
 	}
 	var pageFiles = fs.readdirSync(pagesPath) || [];
@@ -1291,8 +1314,8 @@ module.exports.getCaasCSRFToken = function (server) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get CSRF token');
-				console.log(error);
+				console.error('ERROR: failed to get CSRF token');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -1307,7 +1330,7 @@ module.exports.getCaasCSRFToken = function (server) {
 				return resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get CSRF token ' + msg);
+				console.error('ERROR: failed to get CSRF token ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -1331,8 +1354,8 @@ module.exports.getSystemCSRFToken = function (server) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get system CSRF token');
-				console.log(error);
+				console.error('ERROR: failed to get system CSRF token');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -1347,7 +1370,7 @@ module.exports.getSystemCSRFToken = function (server) {
 				return resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get system CSRF token ' + msg);
+				console.error('ERROR: failed to get system CSRF token ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -1379,13 +1402,13 @@ var _getIdcToken = function (server) {
 			request.get(options, function (error, response, body) {
 				if (error) {
 					clearInterval(inter);
-					console.log(' - failed to connect ' + error);
+					console.error('ERROR: failed to connect ' + error);
 					return resolve({
 						err: 'err'
 					});
 				} else if (response.statusCode !== 200) {
 					clearInterval(inter);
-					console.log(' - failed to connect: ' + (response.statusMessage || response.statusCode));
+					console.error('ERROR: failed to connect: ' + (response.statusMessage || response.statusCode));
 					return resolve({
 						err: 'err'
 					});
@@ -1404,7 +1427,7 @@ var _getIdcToken = function (server) {
 					total += 1;
 					if (total >= 10) {
 						clearInterval(inter);
-						console.log('ERROR: disconnect from the server, try again');
+						console.error('ERROR: disconnect from the server, try again');
 						resolve({
 							err: 'err'
 						});
@@ -1433,12 +1456,12 @@ module.exports.getSitesGovernance = function (server) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log(' - failed to call SCS_GET_TENANT_CONFIG ' + error);
+				console.error('ERROR: failed to call SCS_GET_TENANT_CONFIG ' + error);
 				return resolve({
 					err: 'err'
 				});
 			} else if (response.statusCode !== 200) {
-				console.log(' - failed to call SCS_GET_TENANT_CONFIG: ' + (response.statusMessage || response.statusCode));
+				console.error('ERROR: failed to call SCS_GET_TENANT_CONFIG: ' + (response.statusMessage || response.statusCode));
 				return resolve({
 					err: 'err'
 				});
@@ -1469,8 +1492,8 @@ module.exports.getTenantConfig = function (server) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get tenant config');
-				console.log(err);
+				console.error('ERROR: Failed to get tenant config');
+				console.error(err);
 				return resolve({
 					'err': err
 				});
@@ -1478,10 +1501,10 @@ module.exports.getTenantConfig = function (server) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get tenant config' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				console.error('ERROR: Failed to get tenant config' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
 				return resolve({
 					err: 'err'
 				});
@@ -1621,32 +1644,32 @@ module.exports.getOAuthTokenFromIDCS = function (server) {
 var _getOAuthTokenFromIDCS = function (server) {
 	var tokenPromise = new Promise(function (resolve, reject) {
 		if (!server.url || !server.username || !server.password) {
-			console.log('ERROR: no server is configured');
+			console.error('ERROR: no server is configured');
 			return resolve({
 				err: 'no server'
 			});
 		}
 
 		if (!server.idcs_url) {
-			console.log('ERROR: no IDCS url is found');
+			console.error('ERROR: no IDCS url is found');
 			return resolve({
 				err: 'no IDCS url'
 			});
 		}
 		if (!server.client_id) {
-			console.log('ERROR: no client id is found');
+			console.error('ERROR: no client id is found');
 			return resolve({
 				err: 'no client id'
 			});
 		}
 		if (!server.client_secret) {
-			console.log('ERROR: no client secret is found');
+			console.error('ERROR: no client secret is found');
 			return resolve({
 				err: 'no client secret'
 			});
 		}
 		if (!server.scope) {
-			console.log('ERROR: no scope is found');
+			console.error('ERROR: no scope is found');
 			return resolve({
 				err: 'no scope'
 			});
@@ -1676,8 +1699,8 @@ var _getOAuthTokenFromIDCS = function (server) {
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get OAuth token');
-				console.log(err);
+				console.error('ERROR: Failed to get OAuth token');
+				console.error(err);
 				return resolve({
 					err: 'err'
 				});
@@ -1691,7 +1714,7 @@ var _getOAuthTokenFromIDCS = function (server) {
 
 			if (!data || response.statusCode !== 200) {
 				var msg = (data && (data.error || data.error_description)) ? (data.error_description || data.error) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: Failed to get OAuth token - ' + msg);
+				console.error('ERROR: Failed to get OAuth token - ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -1700,7 +1723,7 @@ var _getOAuthTokenFromIDCS = function (server) {
 				server.oauthtoken = token;
 				server.login = true;
 				server.tokentype = data.token_type;
-				console.log(' - connect to remote server: ' + server.url);
+				console.info(' - connect to remote server: ' + server.url);
 				return resolve({
 					status: true,
 					oauthtoken: token
@@ -1867,8 +1890,8 @@ var _loginToDevServer = function (server) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log(' - Failed to login to ' + server.url);
-				console.log(err);
+				console.error('ERROR: Failed to login to ' + server.url);
+				console.error(err);
 				return resolve({
 					'status': false
 				});
@@ -1876,19 +1899,19 @@ var _loginToDevServer = function (server) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log(' - Failed to login to ' + server.url);
+				console.error('ERROR: Failed to login to ' + server.url);
 				if (data) {
-					console.log(data);
+					console.error(data);
 				}
 				return resolve({
 					'status': false
 				});
 			} else {
 				if (!loginReported) {
-					console.log(' - Logged in to remote server: ' + server.url);
+					console.info(' - Logged in to remote server: ' + server.url);
 					loginReported = true;
 				}
 				server.login = true;
@@ -1963,7 +1986,7 @@ var _loginToPODServer = function (server) {
 			var request = require('./requestUtils.js').request;
 			request.post(options, function (error, response, body) {
 				if (error || !response || response.statusCode !== 200) {
-					console.log('ERROR: failed to get the OAuth token');
+					console.error('ERROR: failed to get the OAuth token');
 					return resolve({
 						'status': false
 					});
@@ -1977,7 +2000,7 @@ var _loginToPODServer = function (server) {
 				}
 
 				if (!data.accessToken) {
-					console.log('ERROR: failed to get the OAuth token');
+					console.error('ERROR: failed to get the OAuth token');
 					return resolve({
 						'status': false
 					});
@@ -2025,7 +2048,7 @@ var _loginToPODServer = function (server) {
 						timeout: timeout
 					});
 				} catch (err) {
-					console.log('Failed to open the login page');
+					console.error('ERROR: Failed to open the login page');
 					await browser.close();
 					return resolve({
 						'status': false
@@ -2057,13 +2080,13 @@ var _loginToPODServer = function (server) {
 						timeout: 120000
 					});
 				} catch (err) {
-					console.log('Failed to connect to the server to get the OAuth token the first time');
+					console.error('ERROR: Failed to connect to the server to get the OAuth token the first time');
 
 					await page.goto(tokenurl);
 					try {
 						await page.waitForSelector('pre'); // smaller timeout
 					} catch (err) {
-						console.log('Failed to connect to the server to get the OAuth token the second time');
+						console.error('ERROR: Failed to connect to the server to get the OAuth token the second time');
 
 						await browser.close();
 						return resolve({
@@ -2086,13 +2109,13 @@ var _loginToPODServer = function (server) {
 				await browser.close();
 
 				if (!token || token.toLowerCase().indexOf('error') >= 0) {
-					console.log('ERROR: failed to get the OAuth token');
+					console.error('ERROR: failed to get the OAuth token');
 					return resolve({
 						'status': false
 					});
 				}
 
-				console.log(' - connect to remote server: ' + server.url);
+				console.info(' - connect to remote server: ' + server.url);
 
 				// Save the token and use till it expires
 				_saveOAuthToken(server, token);
@@ -2102,8 +2125,8 @@ var _loginToPODServer = function (server) {
 				});
 
 			} catch (err) {
-				console.log('ERROR: failed to connect to the server');
-				console.log(err);
+				console.error('ERROR: failed to connect to the server');
+				console.error(err);
 				if (browser) {
 					await browser.close();
 				}
@@ -2149,7 +2172,7 @@ var _loginToSSOServer = function (server) {
 						timeout: timeout
 					});
 				} catch (err) {
-					console.log('Failed to open the login page');
+					console.error('ERROR: Failed to open the login page');
 					await browser.close();
 					return resolve({
 						'status': false
@@ -2182,13 +2205,13 @@ var _loginToSSOServer = function (server) {
 						timeout: 120000
 					});
 				} catch (err) {
-					console.log('Failed to connect to the server to get the OAuth token the first time');
+					console.error('ERROR: Failed to connect to the server to get the OAuth token the first time');
 
 					await page.goto(tokenurl);
 					try {
 						await page.waitForSelector('pre'); // smaller timeout
 					} catch (err) {
-						console.log('Failed to connect to the server to get the OAuth token the second time');
+						console.error('ERROR: Failed to connect to the server to get the OAuth token the second time');
 
 						await browser.close();
 						return resolve({
@@ -2211,13 +2234,13 @@ var _loginToSSOServer = function (server) {
 				await browser.close();
 
 				if (!token || token.toLowerCase().indexOf('error') >= 0) {
-					console.log('ERROR: failed to get the OAuth token');
+					console.error('ERROR: failed to get the OAuth token');
 					return resolve({
 						'status': false
 					});
 				}
 
-				console.log(' - connect to remote server: ' + server.url);
+				console.info(' - connect to remote server: ' + server.url);
 
 				// Save the token and use till it expires
 				_saveOAuthToken(server, token);
@@ -2227,8 +2250,8 @@ var _loginToSSOServer = function (server) {
 				});
 
 			} catch (err) {
-				console.log('ERROR: failed to connect to the server');
-				console.log(err);
+				console.error('ERROR: failed to connect to the server');
+				console.error(err);
 				if (browser) {
 					await browser.close();
 				}
@@ -2275,7 +2298,7 @@ var _loginToICServer = function (server) {
 						timeout: timeout
 					});
 				} catch (err) {
-					console.log('Failed to open the login page');
+					console.error('ERROR: Failed to open the login page');
 					await browser.close();
 					return resolve({
 						'status': false
@@ -2326,13 +2349,13 @@ var _loginToICServer = function (server) {
 						timeout: 120000
 					});
 				} catch (err) {
-					console.log('Failed to connect to the server to get the OAuth token the first time');
+					console.error('ERROR: Failed to connect to the server to get the OAuth token the first time');
 
 					await page.goto(tokenurl);
 					try {
 						await page.waitForSelector('pre'); // smaller timeout
 					} catch (err) {
-						console.log('Failed to connect to the server to get the OAuth token the second time');
+						console.error('ERROR: Failed to connect to the server to get the OAuth token the second time');
 
 						await browser.close();
 						return resolve({
@@ -2356,21 +2379,21 @@ var _loginToICServer = function (server) {
 				await browser.close();
 
 				if (!token || token.toLowerCase().indexOf('error') >= 0) {
-					console.log('ERROR: failed to get the OAuth token');
+					console.error('ERROR: failed to get the OAuth token');
 					return resolve({
 						'status': false
 					});
 				}
 
-				console.log(' - connect to remote server: ' + server.url);
+				console.info(' - connect to remote server: ' + server.url);
 
 				return resolve({
 					'status': true
 				});
 
 			} catch (err) {
-				console.log('ERROR: failed to connect to the server');
-				console.log(err);
+				console.error('ERROR: failed to connect to the server');
+				console.error(err);
 				if (browser) {
 					await browser.close();
 				}
@@ -2416,7 +2439,7 @@ var _getServerVersion = function (server) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error || !response || response.statusCode !== 200) {
-				// console.log('ERROR: failed to query  version: ' + (response && response.statusMessage));
+				// console.error('ERROR: failed to query  version: ' + (response && response.statusMessage));
 				done();
 				return;
 			}
@@ -2488,7 +2511,7 @@ var _loginToServer = function (server) {
 	}
 
 	if (!server.username && !server.password && !server.oauthtoken) {
-		console.log('ERROR: no user credentials specified');
+		console.error('ERROR: no user credentials specified');
 		return Promise.resolve({
 			status: false
 		});
@@ -2561,8 +2584,8 @@ var _getConnection = function (server) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log(' - failed to get connect');
-				console.log(error);
+				console.error('ERROR: failed to connect');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -2577,7 +2600,7 @@ var _getConnection = function (server) {
 				resolve(data);
 			} else {
 				var msg = response.statusMessage || response.statusCode;
-				console.log(' - failed to connect : ' + msg);
+				console.error('ERROR: failed to connect : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -2631,10 +2654,10 @@ var _getSiteInfo = function (server, site) {
 		'use strict';
 
 		sitesRest.getSite({
-				server: server,
-				name: site,
-				expand: 'channel,repository,defaultCollection'
-			})
+			server: server,
+			name: site,
+			expand: 'channel,repository,defaultCollection'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return resolve({
@@ -2711,8 +2734,8 @@ module.exports.getBackgroundServiceJobStatus = function (server, idcToken, jobId
 		var request = require('./requestUtils.js').request;
 		request.get(params, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: Failed to get job status');
-				console.log(error);
+				console.error('ERROR: Failed to get job status');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -2721,10 +2744,10 @@ module.exports.getBackgroundServiceJobStatus = function (server, idcToken, jobId
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get job status' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
+				console.error('ERROR: Failed to get job status' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
 				return resolve({
 					err: 'err'
 				});
@@ -2768,8 +2791,8 @@ module.exports.getBackgroundServiceJobData = function (server, idcToken, jobId) 
 		var request = require('./requestUtils.js').request;
 		request.get(params, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: Failed to get job response data');
-				console.log(error);
+				console.error('ERROR: Failed to get job response data');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -2778,7 +2801,7 @@ module.exports.getBackgroundServiceJobData = function (server, idcToken, jobId) 
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			return resolve(data);
 		});
@@ -2815,8 +2838,8 @@ module.exports.browseSitesOnServer = function (server, fApplication, name) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get sites/templates');
-				console.log(err);
+				console.error('ERROR: Failed to get sites/templates');
+				console.error(err);
 				return resolve({
 					'err': err
 				});
@@ -2825,10 +2848,10 @@ module.exports.browseSitesOnServer = function (server, fApplication, name) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get sites/templates - ' + (data && data.LocalData ? +data.LocalData.StatusMessage : response.statusMessage));
+				console.error('ERROR: Failed to get sites/templates - ' + (data && data.LocalData ? +data.LocalData.StatusMessage : response.statusMessage));
 				return resolve({
 					err: 'err'
 				});
@@ -2904,8 +2927,8 @@ var _browseCollectionsOnServer = function (server, params) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get collections');
-				console.log(err);
+				console.error('ERROR: Failed to get collections');
+				console.error(err);
 				return resolve({
 					'err': err
 				});
@@ -2913,10 +2936,10 @@ var _browseCollectionsOnServer = function (server, params) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get collections' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				console.error('ERROR: Failed to get collections' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
 				return resolve({
 					err: 'err'
 				});
@@ -2961,8 +2984,8 @@ module.exports.browseTranslationConnectorsOnServer = function (server) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get translation connectors');
-				console.log(err);
+				console.error('ERROR: Failed to get translation connectors');
+				console.error(err);
 				return resolve({
 					'err': err
 				});
@@ -2970,10 +2993,10 @@ module.exports.browseTranslationConnectorsOnServer = function (server) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get translation connector ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				console.error('ERROR: Failed to get translation connector ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
 				return resolve({
 					err: 'err'
 				});
@@ -3053,8 +3076,8 @@ module.exports.getTranslationConnectorOnServer = function (server, connectorId) 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get translation connector');
-				console.log(err);
+				console.error('ERROR: Failed to get translation connector');
+				console.error(err);
 				return resolve({
 					'err': err
 				});
@@ -3062,10 +3085,10 @@ module.exports.getTranslationConnectorOnServer = function (server, connectorId) 
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get translation connector ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				console.error('ERROR: Failed to get translation connector ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
 				return resolve({
 					err: 'err'
 				});
@@ -3119,8 +3142,8 @@ module.exports.updateTranslationConnectorOnServer = function (server, connector)
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to update translation connector');
-				console.log(err);
+				console.error('ERROR: Failed to update translation connector');
+				console.error(err);
 				return resolve({
 					'err': err
 				});
@@ -3128,10 +3151,10 @@ module.exports.updateTranslationConnectorOnServer = function (server, connector)
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to update translation connector ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				console.error('ERROR: Failed to update translation connector ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
 				return resolve({
 					err: 'err'
 				});
@@ -3167,8 +3190,8 @@ module.exports.getTranslationConnectorJobOnServer = function (server, jobId) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get translation connector job ' + jobId);
-				console.log(err);
+				console.error('ERROR: Failed to get translation connector job ' + jobId);
+				console.error(err);
 				return resolve({
 					'err': err
 				});
@@ -3176,10 +3199,10 @@ module.exports.getTranslationConnectorJobOnServer = function (server, jobId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get translation connector job ' + jobId + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				console.error('ERROR: Failed to get translation connector job ' + jobId + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
 				return resolve({
 					err: 'err'
 				});
@@ -3225,8 +3248,8 @@ module.exports.getThemeMetadata = function (server, themeId, themeName) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get theme metadata');
-				console.log(err);
+				console.error('ERROR: Failed to get theme metadata');
+				console.error(err);
 				return resolve({
 					'err': err
 				});
@@ -3234,10 +3257,10 @@ module.exports.getThemeMetadata = function (server, themeId, themeName) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get theme metadata ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				console.error('ERROR: Failed to get theme metadata ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
 				return resolve({
 					err: 'err'
 				});
@@ -3281,8 +3304,8 @@ module.exports.getComponentMetadata = function (server, compId, compName) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get component metadata');
-				console.log(err);
+				console.error('ERROR: Failed to get component metadata');
+				console.error(err);
 				return resolve({
 					'err': err
 				});
@@ -3290,10 +3313,10 @@ module.exports.getComponentMetadata = function (server, compId, compName) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get component metadata ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				console.error('ERROR: Failed to get component metadata ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
 				return resolve({
 					err: 'err'
 				});
@@ -3337,8 +3360,8 @@ module.exports.getSiteUsedData = function (server, siteId) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get site used data');
-				console.log(err);
+				console.error('ERROR: Failed to get site used data');
+				console.error(err);
 				return resolve({
 					'err': err
 				});
@@ -3346,10 +3369,10 @@ module.exports.getSiteUsedData = function (server, siteId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to get site used data ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				console.error('ERROR: Failed to get site used data ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
 				return resolve({
 					err: 'err'
 				});
@@ -3439,12 +3462,12 @@ module.exports.setSiteUsedData = function (server, idcToken, siteId, itemsUsedAd
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
 			if (response && response.statusCode !== 200) {
-				console.log('ERROR: Failed to set site used items');
-				console.log('compilation server message: response status -', response.statusCode);
+				console.error('ERROR: Failed to set site used items');
+				console.error('compilation server message: response status - ' + response.statusCode);
 			}
 			if (err) {
-				console.log('ERROR: Failed to set site used items');
-				console.log('compilation server message: error -', err);
+				console.error('ERROR: Failed to set site used items');
+				console.error('compilation server message: error - ' +  err);
 				return reject({
 					err: err
 				});
@@ -3459,7 +3482,7 @@ module.exports.setSiteUsedData = function (server, idcToken, siteId, itemsUsedAd
 			}
 			// console.log(data);
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				// console.log('ERROR: failed to set site metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				// console.error('ERROR: failed to set site metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 				var errorMsg = data && data.LocalData ? '- ' + data.LocalData.StatusMessage : "failed to set site used items";
 				return reject({
 					err: errorMsg
@@ -3510,12 +3533,12 @@ module.exports.setSiteMetadata = function (server, idcToken, siteId, values) {
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
 			if (response && response.statusCode !== 200) {
-				console.log('ERROR: Failed to set site metadata' + ' (ecid: ' + response.ecid + ')');
-				console.log('compilation server message: response status -', response.statusCode);
+				console.error('ERROR: Failed to set site metadata' + ' (ecid: ' + response.ecid + ')');
+				console.error('compilation server message: response status - ' + response.statusCode);
 			}
 			if (err) {
-				console.log('ERROR: Failed to set site metadata' + ' (ecid: ' + response.ecid + ')');
-				console.log('compilation server message: error -', err);
+				console.error('ERROR: Failed to set site metadata' + ' (ecid: ' + response.ecid + ')');
+				console.error('compilation server message: error - ' +  err);
 				return reject({
 					err: err
 				});
@@ -3530,7 +3553,7 @@ module.exports.setSiteMetadata = function (server, idcToken, siteId, values) {
 			}
 			// console.log(data);
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				// console.log('ERROR: failed to set site metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				// console.error('ERROR: failed to set site metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 				var errorMsg = data && data.LocalData ? '- ' + data.LocalData.StatusMessage : "failed to set site metadata";
 				return reject({
 					err: errorMsg
@@ -3580,7 +3603,7 @@ module.exports.setThemeMetadata = function (server, idcToken, themeId, values) {
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to set theme metadata' + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: Failed to set theme metadata' + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -3595,7 +3618,7 @@ module.exports.setThemeMetadata = function (server, idcToken, themeId, values) {
 			}
 			// console.log(data);
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to set theme metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to set theme metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -3644,7 +3667,7 @@ module.exports.setComponentMetadata = function (server, idcToken, compId, values
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to set component metadata' + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: Failed to set component metadata' + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -3659,7 +3682,7 @@ module.exports.setComponentMetadata = function (server, idcToken, compId, values
 			}
 			// console.log(data);
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: failed to set component metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to set component metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -3818,7 +3841,7 @@ module.exports.getAdminSettings = function (server) {
 			if (response && response.statusCode === 200) {
 				return resolve(data.items);
 			} else if (response && response.statusCode !== 200) {
-				console.log('ERROR: Failed to get admin settings -', response.statusCode);
+				console.error('ERROR: Failed to get admin settings -', response.statusCode);
 				return reject({
 					err: err
 				});
@@ -3860,7 +3883,7 @@ module.exports.updateAdminSettings = function (server, settings) {
 			if (response && response.statusCode === 200) {
 				return resolve(data);
 			} else if (response && response.statusCode !== 200) {
-				console.log('ERROR: Failed to update admin settings -', response.statusCode);
+				console.error('ERROR: Failed to update admin settings -', response.statusCode);
 				return reject({
 					err: err
 				});
@@ -3899,8 +3922,8 @@ module.exports.viewGroupInfo = function (server, groupId) {
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: Failed to view group info');
-				console.log(error);
+				console.error('ERROR: Failed to view group info');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -3909,10 +3932,10 @@ module.exports.viewGroupInfo = function (server, groupId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to view group info' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
+				console.error('ERROR: Failed to view group info' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
 				return resolve({
 					err: 'err'
 				});
@@ -3955,8 +3978,8 @@ module.exports.viewGroupMembers = function (server, groupId) {
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: Failed to view group members');
-				console.log(error);
+				console.error('ERROR: Failed to view group members');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -3965,10 +3988,10 @@ module.exports.viewGroupMembers = function (server, groupId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.log('ERROR: Failed to view group members' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
+				console.error('ERROR: Failed to view group members' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
 				return resolve({
 					err: 'err'
 				});
@@ -4041,7 +4064,7 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 		_getIdcToken(server).then(function (result) {
 			idcToken = result && result.idcToken;
 			if (!idcToken) {
-				console.log('ERROR: failed to get idcToken');
+				console.error('ERROR: failed to get idcToken');
 				done();
 			}
 
@@ -4068,8 +4091,8 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 			var request = require('./requestUtils.js').request;
 			request.post(options, function (err, response, body) {
 				if (err) {
-					console.log('ERROR: Failed to delete' + ' (ecid: ' + response.ecid + ')');
-					console.log(err);
+					console.error('ERROR: Failed to delete' + ' (ecid: ' + response.ecid + ')');
+					console.error(err);
 					return resolve({
 						err: 'err'
 					});
@@ -4078,10 +4101,10 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (e) {}
+				} catch (e) { }
 
 				if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-					console.log('ERROR: failed to delete  ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
+					console.error('ERROR: failed to delete  ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
 					_deleteDone(false, resolve);
 				} else {
 					// query the GUID in the trash folder
@@ -4096,7 +4119,7 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 					request.get(options, function (err, response, body) {
 						var data = JSON.parse(body);
 						if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-							console.log('ERROR: failed to browse trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+							console.error('ERROR: failed to browse trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 							_deleteDone(false, resolve);
 						} else {
 							var fields;
@@ -4141,18 +4164,18 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 
 							request.post(options, function (err, response, body) {
 								if (err) {
-									console.log('ERROR: Failed to delete from trash');
-									console.log(err);
+									console.error('ERROR: Failed to delete from trash');
+									console.error(err);
 									_deleteDone(false, resolve);
 								}
 
 								var data;
 								try {
 									data = JSON.parse(body);
-								} catch (e) {}
+								} catch (e) { }
 
 								if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-									console.log('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
+									console.error('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
 									_deleteDone(false, resolve);
 								} else {
 									_deleteDone(true, resolve);

@@ -35,6 +35,8 @@ var gulp = require('gulp'),
 
 var serverUtils = require('../test/server/serverUtils.js');
 
+var console = require('../test/server/logger.js').console;
+
 var cecDir = path.join(__dirname, ".."),
 	configDataDir = path.join(cecDir, 'data', 'config'),
 	buildDataDir = path.join(cecDir, 'data', 'build'),
@@ -61,6 +63,11 @@ var verifyRun = function () {
 	serversSrcDir = path.join(srcfolder, 'servers');
 
 	return true;
+};
+
+// read logger level
+var _readLoggerLevel = function (projectDir) {
+	serverUtils.readLoggerLevel(projectDir);
 };
 
 /******************************* gulp tasks *******************************/
@@ -518,7 +525,7 @@ var _getExitCode = function (value) {
  */
 gulp.task('create-folder', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	doclib.createFolder(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -530,7 +537,7 @@ gulp.task('create-folder', function (done) {
  */
 gulp.task('copy-folder', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	doclib.copyFolder(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -543,7 +550,7 @@ gulp.task('copy-folder', function (done) {
  */
 gulp.task('share-folder', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	doclib.shareFolder(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -555,7 +562,7 @@ gulp.task('share-folder', function (done) {
  */
 gulp.task('unshare-folder', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	doclib.unshareFolder(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -567,7 +574,7 @@ gulp.task('unshare-folder', function (done) {
  */
 gulp.task('list-folder', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	doclib.listFolder(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -580,7 +587,7 @@ gulp.task('list-folder', function (done) {
  */
 gulp.task('download-folder', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	doclib.downloadFolder(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -592,7 +599,7 @@ gulp.task('download-folder', function (done) {
  */
 gulp.task('upload-folder', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	doclib.uploadFolder(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -604,7 +611,7 @@ gulp.task('upload-folder', function (done) {
  */
 gulp.task('delete-folder', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	doclib.deleteFolder(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -616,7 +623,7 @@ gulp.task('delete-folder', function (done) {
  */
 gulp.task('copy-file', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	doclib.copyFile(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -628,7 +635,7 @@ gulp.task('copy-file', function (done) {
  */
 gulp.task('upload-file', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	doclib.uploadFile(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -640,7 +647,7 @@ gulp.task('upload-file', function (done) {
  */
 gulp.task('download-file', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	doclib.downloadFile(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -652,7 +659,7 @@ gulp.task('download-file', function (done) {
  */
 gulp.task('delete-file', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	doclib.deleteFile(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -665,7 +672,7 @@ gulp.task('delete-file', function (done) {
  */
 gulp.task('create-component', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	componentlib.createComponent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -678,7 +685,7 @@ gulp.task('create-component', function (done) {
  */
 gulp.task('copy-component', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	componentlib.copyComponent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -691,7 +698,7 @@ gulp.task('copy-component', function (done) {
  */
 gulp.task('import-component', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	componentlib.importComponent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -703,7 +710,7 @@ gulp.task('import-component', function (done) {
  */
 gulp.task('share-component', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	componentlib.shareComponent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -715,7 +722,7 @@ gulp.task('share-component', function (done) {
  */
 gulp.task('unshare-component', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	componentlib.unshareComponent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -727,7 +734,7 @@ gulp.task('unshare-component', function (done) {
  */
 gulp.task('describe-component', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	componentlib.describeComponent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -739,7 +746,7 @@ gulp.task('describe-component', function (done) {
  */
 gulp.task('list-server-content-types', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlayoutlib.listServerContentTypes(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -752,7 +759,7 @@ gulp.task('list-server-content-types', function (done) {
  */
 gulp.task('create-contentlayout', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlayoutlib.createContentLayout(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -764,7 +771,7 @@ gulp.task('create-contentlayout', function (done) {
  */
 gulp.task('add-contentlayout-mapping', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	if (argv.server) {
 		contentlayoutlib.addContentLayoutMappingServer(argv, function (success) {
 			process.exitCode = _getExitCode(success);
@@ -783,7 +790,7 @@ gulp.task('add-contentlayout-mapping', function (done) {
  */
 gulp.task('remove-contentlayout-mapping', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	if (argv.server) {
 		contentlayoutlib.removeContentLayoutMappingServer(argv, function (success) {
 			process.exitCode = _getExitCode(success);
@@ -802,7 +809,7 @@ gulp.task('remove-contentlayout-mapping', function (done) {
  */
 gulp.task('add-field-editor', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlayoutlib.addFieldEditor(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -814,7 +821,7 @@ gulp.task('add-field-editor', function (done) {
  */
 gulp.task('remove-field-editor', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlayoutlib.removeFieldEditor(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -828,7 +835,7 @@ gulp.task('remove-field-editor', function (done) {
  */
 gulp.task('create-template', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.createTemplate(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -840,7 +847,7 @@ gulp.task('create-template', function (done) {
  */
 gulp.task('create-template-from-site', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.createTemplateFromSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -853,7 +860,7 @@ gulp.task('create-template-from-site', function (done) {
  */
 gulp.task('copy-template', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.copyTemplate(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -866,7 +873,7 @@ gulp.task('copy-template', function (done) {
  */
 gulp.task('import-template', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.importTemplate(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -879,7 +886,7 @@ gulp.task('import-template', function (done) {
  */
 gulp.task('export-template', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.exportTemplate(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -891,7 +898,7 @@ gulp.task('export-template', function (done) {
  */
 gulp.task('deploy-template', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.deployTemplate(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -903,7 +910,7 @@ gulp.task('deploy-template', function (done) {
  */
 gulp.task('upload-template', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.deployTemplate(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -915,7 +922,7 @@ gulp.task('upload-template', function (done) {
  */
 gulp.task('describe-template', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.describeTemplate(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -927,7 +934,7 @@ gulp.task('describe-template', function (done) {
  */
 gulp.task('create-template-report', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	reportlib.createTemplateReport(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -939,7 +946,7 @@ gulp.task('create-template-report', function (done) {
  */
 gulp.task('cleanup-template', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	reportlib.cleanupTemplate(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -951,7 +958,7 @@ gulp.task('cleanup-template', function (done) {
  */
 gulp.task('download-template', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.downloadTemplate(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -964,7 +971,7 @@ gulp.task('download-template', function (done) {
  */
 gulp.task('compile-template', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.compileTemplate(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -980,7 +987,7 @@ gulp.task('compile-site', function (done) {
 	projectDir = argv.projectDir;
 
 	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.compileSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -993,7 +1000,7 @@ gulp.task('compile-site', function (done) {
  */
 gulp.task('compile-content', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.compileContent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1005,7 +1012,7 @@ gulp.task('compile-content', function (done) {
  */
 gulp.task('upload-compiled-content', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlib.uploadCompiledContent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1018,7 +1025,7 @@ gulp.task('upload-compiled-content', function (done) {
  */
 gulp.task('delete-template', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.deleteTemplate(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1030,7 +1037,7 @@ gulp.task('delete-template', function (done) {
  */
 gulp.task('share-template', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.shareTemplate(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1042,7 +1049,7 @@ gulp.task('share-template', function (done) {
  */
 gulp.task('unshare-template', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.unshareTemplate(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1054,7 +1061,7 @@ gulp.task('unshare-template', function (done) {
  */
 gulp.task('update-template', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	if (argv.action === 'rename-asset-id') {
 		assetlib.renameAssetIds(argv, function (success) {
 			process.exitCode = _getExitCode(success);
@@ -1072,7 +1079,7 @@ gulp.task('update-template', function (done) {
  */
 gulp.task('download-content', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlib.downloadContent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1084,7 +1091,7 @@ gulp.task('download-content', function (done) {
  */
 gulp.task('upload-content', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlib.uploadContent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1096,7 +1103,7 @@ gulp.task('upload-content', function (done) {
  */
 gulp.task('control-content', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlib.controlContent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1108,7 +1115,7 @@ gulp.task('control-content', function (done) {
  */
 gulp.task('transfer-content', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlib.transferContent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1120,7 +1127,7 @@ gulp.task('transfer-content', function (done) {
  */
 gulp.task('create-digital-asset', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlib.createDigitalAsset(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1132,7 +1139,7 @@ gulp.task('create-digital-asset', function (done) {
  */
 gulp.task('update-digital-asset', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlib.updateDigitalAsset(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1144,7 +1151,7 @@ gulp.task('update-digital-asset', function (done) {
  */
 gulp.task('copy-assets', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlib.copyAssets(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1156,7 +1163,7 @@ gulp.task('copy-assets', function (done) {
  */
 gulp.task('migrate-content', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlib.migrateContent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1168,7 +1175,7 @@ gulp.task('migrate-content', function (done) {
  */
 gulp.task('sync-content', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlib.syncContent(argv, done);
 });
 
@@ -1177,7 +1184,7 @@ gulp.task('sync-content', function (done) {
  */
 gulp.task('download-taxonomy', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	taxonomylib.downloadTaxonomy(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1189,7 +1196,7 @@ gulp.task('download-taxonomy', function (done) {
  */
 gulp.task('upload-taxonomy', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	taxonomylib.uploadTaxonomy(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1201,7 +1208,7 @@ gulp.task('upload-taxonomy', function (done) {
  */
 gulp.task('control-taxonomy', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	taxonomylib.controlTaxonomy(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1213,7 +1220,7 @@ gulp.task('control-taxonomy', function (done) {
  */
 gulp.task('describe-taxonomy', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	taxonomylib.describeTaxonomy(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1225,7 +1232,7 @@ gulp.task('describe-taxonomy', function (done) {
  */
 gulp.task('add-theme-component', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.addThemeComponent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1237,7 +1244,7 @@ gulp.task('add-theme-component', function (done) {
  */
 gulp.task('remove-theme-component', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	templatelib.removeThemeComponent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1249,7 +1256,7 @@ gulp.task('remove-theme-component', function (done) {
  */
 gulp.task('copy-theme', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	themelib.copyTheme(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1261,7 +1268,7 @@ gulp.task('copy-theme', function (done) {
  */
 gulp.task('control-theme', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	themelib.controlTheme(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1273,7 +1280,7 @@ gulp.task('control-theme', function (done) {
  */
 gulp.task('share-theme', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	themelib.shareTheme(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1285,7 +1292,7 @@ gulp.task('share-theme', function (done) {
  */
 gulp.task('unshare-theme', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	themelib.unshareTheme(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1297,7 +1304,7 @@ gulp.task('unshare-theme', function (done) {
  */
 gulp.task('describe-theme', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	themelib.describeTheme(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1309,7 +1316,7 @@ gulp.task('describe-theme', function (done) {
  */
 gulp.task('export-component', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	componentlib.exportComponent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1320,6 +1327,7 @@ gulp.task('export-component', function (done) {
  * Download components
  */
 gulp.task('download-component', function (done) {
+	_readLoggerLevel(argv.projectDir);
 	componentlib.downloadComponent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1331,6 +1339,7 @@ gulp.task('download-component', function (done) {
  * Deploy components
  */
 gulp.task('deploy-component', function (done) {
+	_readLoggerLevel(argv.projectDir);
 	componentlib.deployComponent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1341,6 +1350,7 @@ gulp.task('deploy-component', function (done) {
  * Upload components
  */
 gulp.task('upload-component', function (done) {
+	_readLoggerLevel(argv.projectDir);
 	componentlib.deployComponent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1351,6 +1361,7 @@ gulp.task('upload-component', function (done) {
  * Control components
  */
 gulp.task('control-component', function (done) {
+	_readLoggerLevel(argv.projectDir);
 	componentlib.controlComponent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1362,7 +1373,7 @@ gulp.task('control-component', function (done) {
  */
 gulp.task('download-recommendation', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	recommendationlib.downloadRecommendation(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1374,7 +1385,7 @@ gulp.task('download-recommendation', function (done) {
  */
 gulp.task('upload-recommendation', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	recommendationlib.uploadRecommendation(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1386,7 +1397,7 @@ gulp.task('upload-recommendation', function (done) {
  */
 gulp.task('control-recommendation', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	recommendationlib.controlRecommendation(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1432,7 +1443,7 @@ gulp.task('copy-libs', function (done) {
  */
 gulp.task('list', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	if (argv.server) {
 		resourcelib.listServerResources(argv, function (success) {
 			process.exitCode = _getExitCode(success);
@@ -1451,7 +1462,7 @@ gulp.task('list', function (done) {
  */
 gulp.task('rename-content-type', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	resourcelib.renameContentType(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1463,7 +1474,7 @@ gulp.task('rename-content-type', function (done) {
  */
 gulp.task('create-site', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.createSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1475,7 +1486,7 @@ gulp.task('create-site', function (done) {
  */
 gulp.task('copy-site', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.copySite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1487,7 +1498,7 @@ gulp.task('copy-site', function (done) {
  */
 gulp.task('transfer-site', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.transferSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1499,7 +1510,7 @@ gulp.task('transfer-site', function (done) {
  */
 gulp.task('transfer-site-content', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	contentlib.transferSiteContent(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1511,7 +1522,7 @@ gulp.task('transfer-site-content', function (done) {
  */
 gulp.task('migrate-site', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.migrateSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1523,7 +1534,7 @@ gulp.task('migrate-site', function (done) {
  */
 gulp.task('control-site', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.controlSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1535,7 +1546,7 @@ gulp.task('control-site', function (done) {
  */
 gulp.task('share-site', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.shareSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1547,7 +1558,7 @@ gulp.task('share-site', function (done) {
  */
 gulp.task('unshare-site', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.unshareSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1559,7 +1570,7 @@ gulp.task('unshare-site', function (done) {
  */
 gulp.task('delete-site', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.deleteSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1571,7 +1582,7 @@ gulp.task('delete-site', function (done) {
  */
 gulp.task('get-site-security', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.getSiteSecurity(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1583,7 +1594,7 @@ gulp.task('get-site-security', function (done) {
  */
 gulp.task('set-site-security', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.setSiteSecurity(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1595,7 +1606,7 @@ gulp.task('set-site-security', function (done) {
  */
 gulp.task('update-site', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	siteUpdateLib.updateSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1607,7 +1618,7 @@ gulp.task('update-site', function (done) {
  */
 gulp.task('validate-site', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.validateSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1620,7 +1631,7 @@ gulp.task('validate-site', function (done) {
  */
 gulp.task('index-site', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	siteIndexlib.indexSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1633,7 +1644,7 @@ gulp.task('index-site', function (done) {
  */
 gulp.task('create-site-map', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	siteMaplib.createSiteMap(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1646,7 +1657,7 @@ gulp.task('create-site-map', function (done) {
  */
 gulp.task('create-rss-feed', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	rsslib.createRSSFeed(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1658,7 +1669,7 @@ gulp.task('create-rss-feed', function (done) {
  */
 gulp.task('create-asset-report', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	reportlib.createAssetReport(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1670,7 +1681,7 @@ gulp.task('create-asset-report', function (done) {
  */
 gulp.task('upload-static-site-files', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.uploadStaticSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1682,7 +1693,7 @@ gulp.task('upload-static-site-files', function (done) {
  */
 gulp.task('refresh-prerender-cache', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.refreshPrerenderCache(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1694,7 +1705,7 @@ gulp.task('refresh-prerender-cache', function (done) {
  */
 gulp.task('download-static-site-files', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.downloadStaticSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1706,7 +1717,7 @@ gulp.task('download-static-site-files', function (done) {
  */
 gulp.task('delete-static-site-files', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	sitelib.deleteStaticSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1719,7 +1730,7 @@ gulp.task('delete-static-site-files', function (done) {
  */
 gulp.task('create-repository', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.createRepository(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1731,7 +1742,7 @@ gulp.task('create-repository', function (done) {
  */
 gulp.task('control-repository', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.controlRepository(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1743,7 +1754,7 @@ gulp.task('control-repository', function (done) {
  */
 gulp.task('share-repository', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.shareRepository(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1755,7 +1766,7 @@ gulp.task('share-repository', function (done) {
  */
 gulp.task('unshare-repository', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.unShareRepository(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1767,7 +1778,7 @@ gulp.task('unshare-repository', function (done) {
  */
 gulp.task('describe-repository', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.describeRepository(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1779,7 +1790,7 @@ gulp.task('describe-repository', function (done) {
  */
 gulp.task('set-editorial-permission', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.setEditorialPermission(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1791,7 +1802,7 @@ gulp.task('set-editorial-permission', function (done) {
  */
 gulp.task('list-editorial-permission', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.listEditorialPermission(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1803,7 +1814,7 @@ gulp.task('list-editorial-permission', function (done) {
  */
 gulp.task('list-editorial-roles', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.listEditorialRole(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1815,7 +1826,7 @@ gulp.task('list-editorial-roles', function (done) {
  */
 gulp.task('create-editorial-role', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.createEditorialRole(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1827,7 +1838,7 @@ gulp.task('create-editorial-role', function (done) {
  */
 gulp.task('set-editorial-role', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.setEditorialRole(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1839,7 +1850,7 @@ gulp.task('set-editorial-role', function (done) {
  */
 gulp.task('delete-editorial-role', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.deleteEditorialRole(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1851,7 +1862,7 @@ gulp.task('delete-editorial-role', function (done) {
  */
 gulp.task('share-type', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.shareType(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1863,7 +1874,7 @@ gulp.task('share-type', function (done) {
  */
 gulp.task('unshare-type', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.unshareType(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1875,7 +1886,7 @@ gulp.task('unshare-type', function (done) {
  */
 gulp.task('download-type', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.downloadType(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1887,7 +1898,7 @@ gulp.task('download-type', function (done) {
  */
 gulp.task('upload-type', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.uploadType(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1899,7 +1910,7 @@ gulp.task('upload-type', function (done) {
  */
 gulp.task('copy-type', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.copyType(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1911,7 +1922,7 @@ gulp.task('copy-type', function (done) {
  */
 gulp.task('update-type', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	if (argv.action === 'add-content-form') {
 		if (argv.server) {
 			contentlayoutlib.addContentFormServer(argv, function (success) {
@@ -1950,7 +1961,7 @@ gulp.task('update-type', function (done) {
  */
 gulp.task('describe-workflow', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.describeWorkflow(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -1988,7 +1999,7 @@ gulp.task('create-content-item', function (done) {
  */
 gulp.task('create-collection', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.createCollection(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2000,7 +2011,7 @@ gulp.task('create-collection', function (done) {
  */
 gulp.task('control-collection', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.controlCollection(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2012,7 +2023,7 @@ gulp.task('control-collection', function (done) {
  */
 gulp.task('create-channel', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.createChannel(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2024,7 +2035,7 @@ gulp.task('create-channel', function (done) {
  */
 gulp.task('share-channel', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.shareChannel(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2036,7 +2047,7 @@ gulp.task('share-channel', function (done) {
  */
 gulp.task('unshare-channel', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.unshareChannel(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2048,7 +2059,7 @@ gulp.task('unshare-channel', function (done) {
  */
 gulp.task('describe-channel', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.describeChannel(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2060,7 +2071,7 @@ gulp.task('describe-channel', function (done) {
  */
 gulp.task('create-localization-policy', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.createLocalizationPolicy(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2072,7 +2083,7 @@ gulp.task('create-localization-policy', function (done) {
  */
 gulp.task('list-assets', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	assetlib.listAssets(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2084,7 +2095,7 @@ gulp.task('list-assets', function (done) {
  */
 gulp.task('create-asset-usage-report', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	reportlib.createAssetUsageReport(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2096,7 +2107,7 @@ gulp.task('create-asset-usage-report', function (done) {
  */
 gulp.task('download-translation-job', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	translationlib.downloadTranslationJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2108,7 +2119,7 @@ gulp.task('download-translation-job', function (done) {
  */
 gulp.task('upload-translation-job', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	translationlib.uploadTranslationJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2120,7 +2131,7 @@ gulp.task('upload-translation-job', function (done) {
  */
 gulp.task('list-translation-jobs', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	translationlib.listTranslationJobs(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2132,7 +2143,7 @@ gulp.task('list-translation-jobs', function (done) {
  */
 gulp.task('create-translation-job', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	translationlib.createTranslationJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2144,7 +2155,7 @@ gulp.task('create-translation-job', function (done) {
  */
 gulp.task('submit-translation-job', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	translationlib.submitTranslationJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2156,7 +2167,7 @@ gulp.task('submit-translation-job', function (done) {
  */
 gulp.task('refresh-translation-job', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	translationlib.refreshTranslationJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2168,7 +2179,7 @@ gulp.task('refresh-translation-job', function (done) {
  */
 gulp.task('ingest-translation-job', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	translationlib.ingestTranslationJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2181,7 +2192,7 @@ gulp.task('ingest-translation-job', function (done) {
  */
 gulp.task('register-translation-connector', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	translationlib.registerTranslationConnector(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2193,7 +2204,7 @@ gulp.task('register-translation-connector', function (done) {
  */
 gulp.task('create-translation-connector', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	translationlib.createTranslationConnector(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2205,7 +2216,7 @@ gulp.task('create-translation-connector', function (done) {
  */
 gulp.task('start-translation-connector', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	translationlib.startTranslationConnector(argv, done);
 });
 
@@ -2214,7 +2225,7 @@ gulp.task('start-translation-connector', function (done) {
  */
 gulp.task('create-group', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	grouplib.createGroup(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2226,7 +2237,7 @@ gulp.task('create-group', function (done) {
  */
 gulp.task('delete-group', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	grouplib.deleteGroup(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2238,7 +2249,7 @@ gulp.task('delete-group', function (done) {
  */
 gulp.task('add-member-to-group', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	grouplib.addMemberToGroup(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2250,7 +2261,7 @@ gulp.task('add-member-to-group', function (done) {
  */
 gulp.task('remove-member-from-group', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	grouplib.removeMemberFromGroup(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2262,7 +2273,7 @@ gulp.task('remove-member-from-group', function (done) {
  */
 gulp.task('execute-get', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	resourcelib.executeGet(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2274,7 +2285,7 @@ gulp.task('execute-get', function (done) {
  */
 gulp.task('execute-post', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	resourcelib.executePost(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2286,7 +2297,7 @@ gulp.task('execute-post', function (done) {
  */
 gulp.task('execute-put', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	resourcelib.executePut(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2298,7 +2309,7 @@ gulp.task('execute-put', function (done) {
  */
 gulp.task('execute-patch', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	resourcelib.executePatch(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2310,7 +2321,7 @@ gulp.task('execute-patch', function (done) {
  */
 gulp.task('execute-delete', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	resourcelib.executeDelete(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2428,7 +2439,7 @@ gulp.task('check-version', function (done) {
  */
 gulp.task('create-encryption-key', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	resourcelib.createEncryptionKey(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2440,7 +2451,7 @@ gulp.task('create-encryption-key', function (done) {
  */
 gulp.task('register-server', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	resourcelib.registerServer(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
@@ -2452,11 +2463,39 @@ gulp.task('register-server', function (done) {
  */
 gulp.task('set-oauth-token', function (done) {
 	'use strict';
-
+	_readLoggerLevel(argv.projectDir);
 	resourcelib.setOAuthToken(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
+});
+
+/**
+ * Set logger level
+ */
+gulp.task('set-logger-level', function (done) {
+	'use strict';
+	projectDir = argv.projectDir || projectDir;
+	var srcFolder = path.join(projectDir, 'src');
+
+	// set up src folders
+	if (!fs.existsSync(srcFolder)) {
+		fs.mkdirSync(srcFolder);
+	}
+
+	if (!fs.existsSync(path.join(srcFolder, 'logger'))) {
+		fs.mkdirSync(path.join(srcFolder, 'logger'));
+	}
+
+	var loggerjson = {
+		level: argv.level
+	};
+	fs.writeFileSync(path.join(srcFolder, 'logger', 'logger.json'), JSON.stringify(loggerjson));
+	console.log(' - logger level set to ' + argv.level);
+
+	process.exitCode = 0;
+	done();
+
 });
 
 /**

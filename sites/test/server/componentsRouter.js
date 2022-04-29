@@ -15,6 +15,8 @@ var express = require('express'),
 	path = require('path'),
 	url = require('url');
 
+var console = require('./logger.js').console;
+
 var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), ''),
 	defaultTestDir = cecDir + '/test',
 	defaultLibsDir = cecDir + '/src/libs',
@@ -81,7 +83,7 @@ router.get('/*', (req, res) => {
 
 	app.locals.currentComponent = compName;
 
-	console.log('### Component: ' + req.url);
+	console.info('### Component: ' + req.url);
 
 	if (req.path.indexOf('/_compdelivery/') === 0) {
 		// 
@@ -117,7 +119,7 @@ router.get('/*', (req, res) => {
 			var newrenderjs = renderjs.replace('_devcs_component_fieldeditor_edit_html_src', newHtmlSrc);
 			// console.log(newrenderjs);
 
-			console.log('path=' + req.path + ' filePath=' + filePath + ' field editor=' + compName);
+			console.info('path=' + req.path + ' filePath=' + filePath + ' field editor=' + compName);
 			res.write(newrenderjs);
 			res.end();
 			return;
@@ -129,7 +131,7 @@ router.get('/*', (req, res) => {
 			var newrenderjs = renderjs.replace('_devcs_component_contentform_edit_html_path', '/components/' + compName + '/assets/edit.html');
 			// console.log(newrenderjs);
 
-			console.log('path=' + req.path + ' filePath=' + filePath + ' content form=' + compName);
+			console.info('path=' + req.path + ' filePath=' + filePath + ' content form=' + compName);
 			res.write(newrenderjs);
 			res.end();
 			return;
@@ -211,23 +213,23 @@ router.get('/*', (req, res) => {
 		var mappingfile = path.join(templatesDir, temp, 'caas_contenttypemap.json'),
 			type = app.locals.currentContentItem.type,
 			types = app.locals.currentContentTypes;
-		console.log(' - component template: ' + temp);
+		console.info(' - component template: ' + temp);
 		if (fs.existsSync(mappingfile)) {
-			console.log(' - use mapping from : ' + mappingfile);
+			console.info(' - use mapping from : ' + mappingfile);
 			mappings = JSON.parse(fs.readFileSync(mappingfile));
 			for (var i = 0; i < mappings.length; i++) {
 				if (mappings[i].type === type) {
 					for (var j = 0; j < mappings[i].categoryList.length; j++) {
 						if (mappings[i].categoryList[j].categoryName === 'Default') {
 							mappings[i].categoryList[j].layoutName = compName;
-							console.log(' - set layout to ' + compName + ' for type ' + type);
+							console.info(' - set layout to ' + compName + ' for type ' + type);
 							break;
 						}
 					}
 				}
 			}
 		} else {
-			console.log(' - set content layout to ' + compName + ' for type ' + types);
+			console.info(' - set content layout to ' + compName + ' for type ' + types);
 			for (var i = 0; i < types.length; i++) {
 				mappings[i] = {
 					"type": types[i],
@@ -399,7 +401,7 @@ router.get('/*', (req, res) => {
 			compvalues.type = comptype;
 			compvalues.data = compjson.initialData;
 		}
-		console.log('*** appType=' + apptype + ' compType=' + comptype + ' page=' + pagename);
+		console.info('*** appType=' + apptype + ' compType=' + comptype + ' page=' + pagename);
 
 		res.write(JSON.stringify(pagejson));
 		res.end();
@@ -424,7 +426,7 @@ router.get('/*', (req, res) => {
 					var settingshtml = fs.readFileSync(filePath).toString(),
 						newsettingshtml = settingshtml.replace('_devcs_component_contentlayout_name', compName);
 					newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
-					console.log('path=' + req.path + ' filePath=' + filePath + ' layout=' + compName);
+					console.info('path=' + req.path + ' filePath=' + filePath + ' layout=' + compName);
 					res.write(newsettingshtml);
 					res.end();
 					return;
@@ -441,7 +443,7 @@ router.get('/*', (req, res) => {
 				newsettingshtml = newsettingshtml.replace('_devcs_component_fieldeditor_multi', handlesMultiple);
 				newsettingshtml = newsettingshtml.replace('_devcs_component_fieldeditor_types', types.join(','));
 				newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
-				console.log('path=' + req.path + ' filePath=' + filePath + ' field editor=' + compName);
+				console.info('path=' + req.path + ' filePath=' + filePath + ' field editor=' + compName);
 				res.write(newsettingshtml);
 				res.end();
 				return;
@@ -458,7 +460,7 @@ router.get('/*', (req, res) => {
 					var newsettingshtml = settingshtml.replace('_devcs_component_contentform_name', compName);
 					newsettingshtml = newsettingshtml.replace('_devcs_component_contentform_drawersize', drawerSize);
 					newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
-					console.log('path=' + req.path + ' filePath=' + filePath + ' content form=' + compName);
+					console.info('path=' + req.path + ' filePath=' + filePath + ' content form=' + compName);
 					res.write(newsettingshtml);
 					res.end();
 					return;
@@ -468,7 +470,7 @@ router.get('/*', (req, res) => {
 					var settingshtml = fs.readFileSync(filePath).toString(),
 						newsettingshtml = settingshtml.replace('_devcs_component_contentform_name', compName);
 					newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
-					console.log('path=' + req.path + ' filePath=' + filePath + ' layout=' + compName);
+					console.info('path=' + req.path + ' filePath=' + filePath + ' layout=' + compName);
 					res.write(newsettingshtml);
 					res.end();
 					return;
@@ -484,7 +486,7 @@ router.get('/*', (req, res) => {
 			filePath = path.join(componentsDir, compName, 'assets', 'edit.html');
 
 		} else if (filePathSuffix.indexOf('edit.html') > 0 && apptype === 'contentform') {
-			console.log(' - modify content form edit.html to use content published API');
+			console.info(' - modify content form edit.html to use content published API');
 			// 
 			// content form: use content published API for local testing
 			//
@@ -520,7 +522,7 @@ router.get('/*', (req, res) => {
 		}
 	}
 
-	console.log(' - filePath=' + filePath);
+	console.info(' - filePath=' + filePath);
 
 	if (filePath && existsAndIsFile(filePath)) {
 		if (filePath.indexOf('controller.html') > 0) {
@@ -558,7 +560,7 @@ router.get('/*', (req, res) => {
 			if (compType === 'remote') {
 				settingsPath = compjson.endpoints.settings.url;
 			}
-			console.log('*** component settingsPath=' + settingsPath);
+			console.info('*** component settingsPath=' + settingsPath);
 			buf = buf.replace('_devcs_component_type', compType);
 			buf = buf.replace('_devcs_component_setting_url', settingsPath);
 			buf = serverUtils.replaceAll(buf, '_devcs_component_name', compName);
@@ -591,7 +593,7 @@ router.get('/*', (req, res) => {
 					}
 					themedesigns += '>' + themes[i] + '</option>';
 				} else {
-					console.log(' - ' + themes[i] + ' is not a theme');
+					console.warn(' - ' + themes[i] + ' is not a theme');
 				}
 			}
 			themedesigns = themedesigns + '</select>';
@@ -653,7 +655,7 @@ router.get('/*', (req, res) => {
 					'<select id="localcontent" class="themedesign-select" onchange="selectLocalContent()">' +
 					'<option value="none">None</option>';
 				var templates = fs.readdirSync(templatesDir);
-				console.log('    site templates: ' + templates);
+				console.info('    site templates: ' + templates);
 				templates.forEach(function (tempName) {
 					if (fs.existsSync(path.join(templatesDir, tempName, 'assets', 'contenttemplate', 'Content Template of ' + tempName))) {
 						localContentHtml += '<option value="' + tempName + '"';
@@ -664,7 +666,7 @@ router.get('/*', (req, res) => {
 					}
 				});
 				templates = fs.readdirSync(contentDir);
-				console.log('    content templates: ' + templates);
+				console.info('    content templates: ' + templates);
 				templates.forEach(function (tempName) {
 					if (fs.existsSync(path.join(contentDir, tempName, 'contentexport'))) {
 						localContentHtml += '<option value="' + tempName + '"';
@@ -688,8 +690,8 @@ router.get('/*', (req, res) => {
 					res.end();
 				} else {
 					serverRest.getChannels({
-							server: app.locals.server
-						})
+						server: app.locals.server
+					})
 						.then(function (result) {
 							// console.log(result);
 							var channels = [];
@@ -714,7 +716,7 @@ router.get('/*', (req, res) => {
 									});
 								});
 							}
-							console.log('    server channels: ' + channelNames);
+							console.info('    server channels: ' + channelNames);
 							channels.forEach(function (channel) {
 								serverContentHtml += '<option value="' + channel.token + '"';
 								if (app.locals.channelToken && app.locals.channelToken === channel.token) {
@@ -750,7 +752,7 @@ router.get('/*', (req, res) => {
 					var data = JSON.parse(body);
 					vbcsconn = data ? data.VBCSConnection : '';
 				} else {
-					console.log('status=' + response.statusCode + ' err=' + err);
+					console.error('status=' + response.statusCode + ' err=' + err);
 				}
 
 				var structurebuf = fs.readFileSync(filePath).toString();
@@ -773,7 +775,7 @@ router.get('/*', (req, res) => {
 			res.sendFile(filePath);
 		}
 	} else {
-		console.log('404: ' + filePath);
+		console.error('404: ' + filePath);
 		res.writeHead(404, {});
 		res.end();
 	}

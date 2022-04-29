@@ -11,6 +11,7 @@ var fs = require('fs'),
 	fse = require('fs-extra'),
 	extract = require('extract-zip');
 
+var console = require('./logger.js').console;
 
 module.exports.remove = function (srcPath) {
 	try {
@@ -32,7 +33,7 @@ module.exports.remove = function (srcPath) {
 			}
 		}
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 	}
 };
 
@@ -48,8 +49,8 @@ module.exports.extractZip = function (filePath, targetPath) {
 			// console.log(' - extraction complete');
 			return err;
 		} catch (e) {
-			console.log('ERROR: failed to extract ' + filePath);
-			console.log(e);
+			console.error('ERROR: failed to extract ' + filePath);
+			console.error(e);
 			err = 'err';
 			return err;
 		}

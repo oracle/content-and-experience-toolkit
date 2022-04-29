@@ -20,6 +20,8 @@ var fs = require('fs'),
 	fileUtils = require('../test/server/fileUtils.js'),
 	serverUtils = require('../test/server/serverUtils.js');
 
+var console = require('../test/server/logger.js').console;
+
 var cecDir = path.join(__dirname, ".."),
 	themesDataDir = path.join(cecDir, 'data', 'themes');
 
@@ -114,7 +116,7 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -127,7 +129,7 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 
 				governanceEnabled = result.sitesGovernanceEnabled;
 				if (governanceEnabled) {
-					console.log(' - governance for sites is enabled');
+					console.info(' - governance for sites is enabled');
 				}
 
 				return sitesRest.resourceExist({
@@ -138,7 +140,7 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 			})
 			.then(function (result) {
 				if (!result.err) {
-					console.log('ERROR: site ' + name + ' already exists');
+					console.error('ERROR: site ' + name + ' already exists');
 					return Promise.reject();
 				}
 
@@ -159,12 +161,12 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 				localizationPolicyAllowed = template.policy && template.policy.localizationPolicyAllowed;
 
 				if (governanceEnabled && (!template.policy || !template.policy.status || template.policy.status !== 'active')) {
-					console.log('ERROR: the template is not active');
+					console.error('ERROR: the template is not active');
 					return Promise.reject();
 				}
 
 				if (template.isEnterprise && !repositoryName) {
-					console.log('ERROR: repository is required to create enterprise site');
+					console.error('ERROR: repository is required to create enterprise site');
 					return Promise.reject();
 				}
 
@@ -172,26 +174,26 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 				createEnterprise = repositoryName && (!governanceEnabled || template.isEnterprise) ? true : false;
 
 				if (createEnterprise && !template.localizationPolicy && !localizationPolicyName) {
-					console.log('ERROR: localization policy is required to create enterprise site');
+					console.error('ERROR: localization policy is required to create enterprise site');
 					return Promise.reject();
 				}
 				// Remove this condition when defaultLanguage returned from API /templates 
 				if (createEnterprise && !defaultLanguage) {
-					console.log('ERROR: default language is required to create enterprise site');
+					console.error('ERROR: default language is required to create enterprise site');
 					return Promise.reject();
 				}
 
 				if (!createEnterprise) {
-					console.log(' - creating standard site ...');
-					console.log(sprintf(format, 'name', name));
-					console.log(sprintf(format, 'template', templateName));
+					console.info(' - creating standard site ...');
+					console.info(sprintf(format, 'name', name));
+					console.info(sprintf(format, 'template', templateName));
 
 					sitesRest.createSite({
-							server: server,
-							name: name,
-							templateId: template.id,
-							templateName: templateName
-						})
+						server: server,
+						name: name,
+						templateId: template.id,
+						templateName: templateName
+					})
 						.then(function (result) {
 							if (result.err) {
 								done();
@@ -218,8 +220,8 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 				} else {
 
 					serverRest.getRepositories({
-							server: server
-						})
+						server: server
+					})
 						.then(function (result) {
 							var repositories = result || [];
 							var repositoryType;
@@ -232,15 +234,15 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 							}
 
 							if (!repositoryId) {
-								console.log('ERROR: repository ' + repositoryName + ' does not exist');
+								console.error('ERROR: repository ' + repositoryName + ' does not exist');
 								return Promise.reject();
 							}
 							if (repositoryType && repositoryType.toLowerCase() === 'business') {
-								console.log('ERROR: repository is a business repository');
+								console.error('ERROR: repository is a business repository');
 								return Promise.reject();
 							}
 
-							console.log(' - get repository (Id: ' + repositoryId + ')');
+							console.info(' - get repository (Id: ' + repositoryId + ')');
 
 							return serverRest.getLocalizationPolicies({
 								server: server
@@ -258,10 +260,10 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 									}
 								}
 								if (!localizationPolicyId) {
-									console.log('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
+									console.error('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
 									return Promise.reject();
 								}
-								console.log(' - get localization policy');
+								console.info(' - get localization policy');
 							} else {
 								for (var i = 0; i < policies.length; i++) {
 									if (policies[i].id === template.localizationPolicy.id) {
@@ -271,32 +273,32 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 									}
 								}
 								if (!localizationPolicyId) {
-									console.log('ERROR: localization policy in template does not exist');
+									console.error('ERROR: localization policy in template does not exist');
 									return Promise.reject();
 								}
-								console.log(' - use localization policy from template: ' + policy.name);
+								console.info(' - use localization policy from template: ' + policy.name);
 							}
 
 							var requiredLanguages = policy.requiredValues;
 							if (!requiredLanguages.includes(defaultLanguage)) {
-								console.log('ERROR: language ' + defaultLanguage + ' is not in localization policy ' + policy.name);
+								console.error('ERROR: language ' + defaultLanguage + ' is not in localization policy ' + policy.name);
 								return Promise.reject();
 							}
 
 							//
 							// create enterprise site
 							//
-							console.log(' - creating enterprise site ...');
-							console.log(sprintf(format, 'name', name));
-							console.log(sprintf(format, 'template', templateName));
+							console.info(' - creating enterprise site ...');
+							console.info(sprintf(format, 'name', name));
+							console.info(sprintf(format, 'template', templateName));
 							if (!governanceEnabled || sitePrefixAllowed) {
-								console.log(sprintf(format, 'site prefix', sitePrefix));
+								console.info(sprintf(format, 'site prefix', sitePrefix));
 							}
-							console.log(sprintf(format, 'repository', repositoryName));
+							console.info(sprintf(format, 'repository', repositoryName));
 							if (!governanceEnabled && localizationPolicyAllowed) {
-								console.log(sprintf(format, 'localization policy', policy.name));
+								console.info(sprintf(format, 'localization policy', policy.name));
 							}
-							console.log(sprintf(format, 'default language', defaultLanguage));
+							console.info(sprintf(format, 'default language', defaultLanguage));
 
 							return sitesRest.createSite({
 								server: server,
@@ -341,6 +343,9 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 				}
 			})
 			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
 				done();
 			});
 	});
@@ -378,26 +383,26 @@ module.exports.copySite = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		sitesRest.getSite({
-				server: server,
-				name: name,
-				expand: 'channel,repository'
-			})
+			server: server,
+			name: name,
+			expand: 'channel,repository'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
 				}
 
-				console.log(' - verify source site');
+				console.info(' - verify source site');
 				site = result;
 
 				if (site.isEnterprise && !repositoryName) {
-					console.log('ERROR: repository is required to copy enterprise site');
+					console.error('ERROR: repository is required to copy enterprise site');
 					return Promise.reject();
 				}
 
@@ -409,7 +414,7 @@ module.exports.copySite = function (argv, done) {
 			})
 			.then(function (result) {
 				if (result && result.id) {
-					console.log('ERROR: site ' + targetName + ' already exists');
+					console.error('ERROR: site ' + targetName + ' already exists');
 					return Promise.reject();
 				}
 
@@ -423,17 +428,17 @@ module.exports.copySite = function (argv, done) {
 			.then(function (results) {
 				if (site.isEnterprise && repositoryName) {
 					if (!results || !results[0] || results[0].err || !results[0].data) {
-						console.log('ERROR: repository ' + repositoryName + ' does not exist');
+						console.error('ERROR: repository ' + repositoryName + ' does not exist');
 						return Promise.reject();
 					}
 					targetRepository = results[0].data;
 
 					if (targetRepository.repositoryType && targetRepository.repositoryType.toLowerCase() === 'business') {
-						console.log('ERROR: repository is a business repository');
+						console.error('ERROR: repository is a business repository');
 						return Promise.reject();
 					}
 
-					console.log(' - verify repository');
+					console.info(' - verify repository');
 				}
 
 				var channelId = site.channel && site.channel.id;
@@ -449,7 +454,7 @@ module.exports.copySite = function (argv, done) {
 				var otherItems = [];
 				if (site.isEnterprise && repositoryName) {
 					if (results && results[0] && results[0].data && results[0].data.length > 0) {
-						console.log(' - site has assets from other repositories, only the assets from the default repository will be copied');
+						console.info(' - site has assets from other repositories, only the assets from the default repository will be copied');
 						copyUsingAPI = false;
 
 						var items = results[0].data;
@@ -474,7 +479,7 @@ module.exports.copySite = function (argv, done) {
 					}
 				}
 
-				console.log(' - will copy ' + (site.isEnterprise ? 'enterprise' : 'standard') + ' site ' + name);
+				console.info(' - will copy ' + (site.isEnterprise ? 'enterprise' : 'standard') + ' site ' + name);
 				if (copyUsingAPI) {
 					return sitesRest.copySite({
 						server: server,
@@ -512,7 +517,7 @@ module.exports.copySite = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -566,7 +571,7 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 
 				var items = result && result.data || [];
 				if (items.length === 0) {
-					console.log(' - site ' + site.name + ' does not have any asset');
+					console.info(' - site ' + site.name + ' does not have any asset');
 					siteHasAssets = false;
 
 				} else {
@@ -587,7 +592,7 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 
 					}));
 
-					console.log(' - downloading assets ...');
+					console.info(' - downloading assets ...');
 				}
 
 				return Promise.all(exportContentPromises);
@@ -625,7 +630,7 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 
 				var templatePath = path.join(destdir, fileName);
 				if (!fs.existsSync(templatePath)) {
-					console.log('ERROR: failed to download template ' + templateName);
+					console.error('ERROR: failed to download template ' + templateName);
 					return Promise.reject();
 				}
 
@@ -640,13 +645,13 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 			})
 			.then(function (result) {
 				if (!result || result.err || !result.id) {
-					console.log('ERROR: failed to upload template file');
+					console.error('ERROR: failed to upload template file');
 					return Promise.reject();
 				}
 
 				var uploadedFile = result;
 				fileId = uploadedFile.id;
-				console.log(' - file ' + fileName + ' uploaded to Home folder (Id: ' + fileId + ' version:' + uploadedFile.version + ')' +
+				console.info(' - file ' + fileName + ' uploaded to Home folder (Id: ' + fileId + ' version:' + uploadedFile.version + ')' +
 					' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 
 				return sitesRest.importTemplate({
@@ -658,7 +663,7 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 			})
 			.then(function (result) {
 				if (!result || result.err) {
-					console.log('ERROR: failed to import template');
+					console.error('ERROR: failed to import template');
 					return Promise.reject();
 				}
 
@@ -670,7 +675,7 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 			})
 			.then(function (result) {
 				if (!result || result.err || !result.id) {
-					console.log('ERROR: failed to query template');
+					console.error('ERROR: failed to query template');
 					return Promise.reject();
 				}
 
@@ -693,10 +698,10 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 			})
 			.then(function (result) {
 				if (!result || result.err) {
-					console.log('ERROR: failed to set template theme back to ' + site.themeName);
+					console.error('ERROR: failed to set template theme back to ' + site.themeName);
 					return Promise.reject();
 				}
-				console.log(' - set template theme back to ' + site.themeName);
+				console.info(' - set template theme back to ' + site.themeName);
 
 				// preserve asset Ids
 				return sitesRest.createSite({
@@ -714,7 +719,7 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 			})
 			.then(function (result) {
 				if (!result || result.err) {
-					console.log('ERROR: failed to create site');
+					console.error('ERROR: failed to create site');
 					return Promise.reject();
 				}
 
@@ -727,7 +732,7 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 			})
 			.then(function (result) {
 				if (!result || result.err || !result.id) {
-					console.log('ERROR: failed to query site ' + targetName);
+					console.error('ERROR: failed to query site ' + targetName);
 					return Promise.reject();
 				}
 				targetSite = result;
@@ -770,7 +775,7 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 
 				results.forEach(function (result) {
 					if (result && result.id) {
-						console.log(' - channel ' + targetSite.channel.name + ' added to repository ' + result.name);
+						console.info(' - channel ' + targetSite.channel.name + ' added to repository ' + result.name);
 					}
 				});
 
@@ -790,7 +795,7 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 			})
 			.then(function (results) {
 
-				console.log(' - items from other repositories added to site channel ' + targetSite.channel.name);
+				console.info(' - items from other repositories added to site channel ' + targetSite.channel.name);
 
 				// delete template file
 				return serverRest.deleteFile({
@@ -854,7 +859,7 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				return resolve({
 					err: 'err'
@@ -917,7 +922,7 @@ var _transferSiteTemplateId;
 
 var _transferStandardSite = function (argv, server, destServer, site, excludecomponents, excludetheme, suppressgovernance) {
 	return new Promise(function (resolve, reject) {
-		console.log(' - site ' + site.name + ' is a standard site');
+		console.info(' - site ' + site.name + ' is a standard site');
 
 		var destServerName = destServer.name;
 
@@ -945,16 +950,16 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 		var idcToken;
 
 		sitesRest.resourceExist({
-				server: destServer,
-				type: 'themes',
-				name: site.themeName
-			})
+			server: destServer,
+			type: 'themes',
+			name: site.themeName
+		})
 			.then(function (result) {
 				if (result && result.id) {
-					console.log(' - theme ' + site.themeName + ' exists on server ' + destServerName);
+					console.info(' - theme ' + site.themeName + ' exists on server ' + destServerName);
 				} else {
 					if (excludetheme) {
-						console.log(' - theme does not exist on server ' + destServerName + ' and will not exclude the theme');
+						console.info(' - theme does not exist on server ' + destServerName + ' and will not exclude the theme');
 						excludetheme = false;
 					}
 				}
@@ -966,7 +971,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 				if (!result || result.err) {
 					return Promise.reject();
 				}
-				console.log(' - get site metadata');
+				console.info(' - get site metadata');
 
 				siteUsedData = result;
 
@@ -985,7 +990,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 				} else {
 					destSite = result;
 				}
-				console.log(' - will ' + (creatNewSite ? 'create' : 'update') + ' site ' + siteName + ' on ' + destServer.url);
+				console.info(' - will ' + (creatNewSite ? 'create' : 'update') + ' site ' + siteName + ' on ' + destServer.url);
 
 				// create a local template based on the site
 				var enterprisetemplate = false;
@@ -996,6 +1001,8 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 				if (!result || result.err) {
 					return Promise.reject();
 				}
+
+				console.info(' - create template ' + templateName);
 
 				// the result contains theme and components (itemGUID)
 
@@ -1080,7 +1087,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 				fileName = templateName + '.zip';
 				templatePath = path.join(destdir, fileName);
 				if (!fs.existsSync(templatePath)) {
-					console.log('ERROR: failed to download template ' + templateName);
+					console.error('ERROR: failed to download template ' + templateName);
 					return Promise.reject();
 				}
 
@@ -1096,12 +1103,12 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 			.then(function (result) {
 
 				if (!result || result.err || !result.id) {
-					console.log('ERROR: failed to upload template file');
+					console.error('ERROR: failed to upload template file');
 					return Promise.reject();
 				}
 				var uploadedFile = result;
 				fileId = uploadedFile.id;
-				console.log(' - file ' + fileName + ' uploaded to Home folder (Id: ' + fileId + ' version:' + uploadedFile.version + ')' +
+				console.info(' - file ' + fileName + ' uploaded to Home folder (Id: ' + fileId + ' version:' + uploadedFile.version + ')' +
 					' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 
 				return sitesRest.importTemplate({
@@ -1113,7 +1120,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 			})
 			.then(function (result) {
 				if (!result || result.err) {
-					console.log('ERROR: failed to import template');
+					console.error('ERROR: failed to import template');
 					return Promise.reject();
 				}
 
@@ -1125,7 +1132,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 			})
 			.then(function (result) {
 				if (!result || result.err || !result.id) {
-					console.log('ERROR: failed to query template');
+					console.error('ERROR: failed to query template');
 					return Promise.reject();
 				}
 
@@ -1149,7 +1156,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 			.then(function (results) {
 				if (excludetheme) {
 					if (results && results[0] && !results[0].err) {
-						console.log(' - set template theme back to ' + site.themeName);
+						console.info(' - set template theme back to ' + site.themeName);
 					}
 				}
 
@@ -1202,7 +1209,8 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 						file: templateName + '.zip',
 						permanent: 'true'
 					};
-					deleteTemplatePromises.push(documentUtils.deleteFile(deleteArgv, destServer, false));
+					var showMsg = console.showInfo();
+					deleteTemplatePromises.push(documentUtils.deleteFile(deleteArgv, destServer, false, showMsg));
 				}
 
 				return Promise.all(deleteTemplatePromises);
@@ -1246,7 +1254,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 								.then(function (result) {
 									idcToken = result && result.idcToken;
 									if (!idcToken) {
-										console.log('ERROR: failed to get idcToken');
+										console.error('ERROR: failed to get idcToken');
 										return Promise.reject();
 									}
 
@@ -1261,7 +1269,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 								})
 								.then(function (result) {
 									if (result && !result.err) {
-										console.log(' - update site static delivery options');
+										console.info(' - update site static delivery options');
 									}
 
 									return serverUtils.getSiteUsedData(destServer, destSite.id);
@@ -1279,7 +1287,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 								})
 								.catch((error) => {
 									if (error) {
-										console.log(error);
+										console.error(error);
 									}
 									return resolve({
 										err: 'err'
@@ -1296,7 +1304,7 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				return resolve({
 					err: 'err'
@@ -1332,7 +1340,7 @@ module.exports.transferSite = function (argv, done) {
 	}
 
 	if (server.url === destServer.url) {
-		console.log('ERROR: source and destination server are the same');
+		console.error('ERROR: source and destination server are the same');
 		done();
 		return;
 	}
@@ -1408,7 +1416,7 @@ module.exports.transferSite = function (argv, done) {
 	serverUtils.loginToServer(server)
 		.then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage + ' ' + server.url);
+				console.error(result.statusMessage + ' ' + server.url);
 				return Promise.reject();
 			}
 
@@ -1416,16 +1424,16 @@ module.exports.transferSite = function (argv, done) {
 		})
 		.then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage + ' ' + destServer.url);
+				console.error(result.statusMessage + ' ' + destServer.url);
 				return Promise.reject();
 			}
 
 			// verify site on source server
 			sitesRest.getSite({
-					server: server,
-					name: siteName,
-					expand: 'channel,repository,staticSiteDeliveryOptions'
-				})
+				server: server,
+				name: siteName,
+				expand: 'channel,repository,staticSiteDeliveryOptions'
+			})
 				.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
@@ -1452,25 +1460,25 @@ module.exports.transferSite = function (argv, done) {
 
 					} else {
 
-						console.log(' - verify site (Id: ' + site.id + ' defaultLanguage: ' + site.defaultLanguage + ' theme: ' + site.themeName + ')');
+						console.info(' - verify site (Id: ' + site.id + ' defaultLanguage: ' + site.defaultLanguage + ' theme: ' + site.themeName + ')');
 
 						if (!site.channel || !site.channel.localizationPolicy) {
-							console.log('ERROR: failed to get site channel ' + (site.channel ? JSON.stringify(site.channel) : ''));
+							console.error('ERROR: failed to get site channel ' + (site.channel ? JSON.stringify(site.channel) : ''));
 							_cmdEnd(done);
 							return;
 						}
 
 						sitesRest.resourceExist({
-								server: destServer,
-								type: 'themes',
-								name: site.themeName
-							})
+							server: destServer,
+							type: 'themes',
+							name: site.themeName
+						})
 							.then(function (result) {
 								if (result && result.id) {
-									console.log(' - theme ' + site.themeName + ' exists on server ' + destServerName);
+									console.info(' - theme ' + site.themeName + ' exists on server ' + destServerName);
 								} else {
 									if (excludetheme) {
-										console.log(' - theme does not exist on server ' + destServerName + ' and will not exclude the theme');
+										console.info(' - theme does not exist on server ' + destServerName + ' and will not exclude the theme');
 										excludetheme = false;
 									}
 								}
@@ -1495,7 +1503,7 @@ module.exports.transferSite = function (argv, done) {
 									return Promise.reject();
 								}
 								srcPolicy = result;
-								console.log(' - verify site localization policy: ' + srcPolicy.name +
+								console.info(' - verify site localization policy: ' + srcPolicy.name +
 									' (defaultValue: ' + srcPolicy.defaultValue +
 									' requiredValues: ' + srcPolicy.requiredValues +
 									' optionalValues: ' + srcPolicy.optionalValues + ')');
@@ -1515,15 +1523,20 @@ module.exports.transferSite = function (argv, done) {
 								} else {
 									destSite = result;
 								}
-								console.log(' - will ' + (creatNewSite ? 'create' : 'update') + ' site ' + siteName + ' on ' + destServer.url);
+								console.info(' - will ' + (creatNewSite ? 'create' : 'update') + ' site ' + siteName + ' on ' + destServer.url);
 
 								if (creatNewSite) {
 									if (!repositoryName) {
-										console.log('ERROR: no repository is specified');
+										console.error('ERROR: no repository is specified');
 										return Promise.reject();
 									}
 									if (!localizationPolicyName) {
-										console.log('ERROR: no localization policy is specified');
+										console.error('ERROR: no localization policy is specified');
+										return Promise.reject();
+									}
+									var prefixToUse = sitePrefix || site.sitePrefix;
+									if (prefixToUse.length > 15) {
+										console.error('ERROR: site prefix ' + prefixToUse + ' is longer than 15 characters');
 										return Promise.reject();
 									}
 								}
@@ -1541,17 +1554,17 @@ module.exports.transferSite = function (argv, done) {
 							.then(function (results) {
 								if (creatNewSite) {
 									if (!results || !results[0] || results[0].err || !results[0].data) {
-										console.log('ERROR: repository ' + repositoryName + ' does not exist');
+										console.error('ERROR: repository ' + repositoryName + ' does not exist');
 										return Promise.reject();
 									}
 									repository = results[0].data;
 
 									if (repository.repositoryType && repository.repositoryType.toLowerCase() === 'business') {
-										console.log('ERROR: repository is a business repository');
+										console.error('ERROR: repository is a business repository');
 										return Promise.reject();
 									}
 
-									console.log(' - verify repository');
+									console.info(' - verify repository');
 								}
 
 								// get all source repos
@@ -1579,11 +1592,11 @@ module.exports.transferSite = function (argv, done) {
 											}
 										}
 										if (!found) {
-											console.log('ERROR: repository ' + repoMappings[j].srcName + ' does not exist on server ' + server.name);
+											console.error('ERROR: repository ' + repoMappings[j].srcName + ' does not exist on server ' + server.name);
 											return Promise.reject();
 										}
 									}
-									console.log(' - verify repository ' + srcRepoNames + ' on server ' + server.name);
+									console.info(' - verify repository ' + srcRepoNames + ' on server ' + server.name);
 								}
 								var destRepoPromises = [];
 								repoMappings.forEach(function (mapping) {
@@ -1610,11 +1623,11 @@ module.exports.transferSite = function (argv, done) {
 											}
 										}
 										if (!found) {
-											console.log('ERROR: repository ' + repoMappings[j].destName + ' does not exist on server ' + destServer.name);
+											console.error('ERROR: repository ' + repoMappings[j].destName + ' does not exist on server ' + destServer.name);
 											return Promise.reject();
 										}
 									}
-									console.log(' - verify repository ' + destRepoNames + ' on server ' + destServer.name);
+									console.info(' - verify repository ' + destRepoNames + ' on server ' + destServer.name);
 									// console.log(repoMappings);
 								}
 
@@ -1631,7 +1644,7 @@ module.exports.transferSite = function (argv, done) {
 							.then(function (results) {
 								if (creatNewSite) {
 									if (!results || !results[0] || results[0].err) {
-										console.log('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
+										console.error('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
 										return Promise.reject();
 									}
 									var policies = results[0] || [];
@@ -1642,16 +1655,16 @@ module.exports.transferSite = function (argv, done) {
 										}
 									}
 									if (!policy) {
-										console.log('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
+										console.error('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
 										return Promise.reject();
 									}
 
 									var requiredLanguages = policy.requiredValues;
 									if (!requiredLanguages.includes(site.defaultLanguage)) {
-										console.log('ERROR: site default language ' + site.defaultLanguage + ' is not in localization policy ' + policy.name);
+										console.error('ERROR: site default language ' + site.defaultLanguage + ' is not in localization policy ' + policy.name);
 										return Promise.reject();
 									}
-									console.log(' - verify localization policy');
+									console.info(' - verify localization policy');
 								}
 
 								var checkSitePrefixPromises = [];
@@ -1671,7 +1684,7 @@ module.exports.transferSite = function (argv, done) {
 								if (creatNewSite) {
 									// console.log(results);
 									if (results && results[0] && results[0].data && results[0].data.length > 0) {
-										console.log('ERROR: site prefix "' + (sitePrefix || site.sitePrefix) + '" is used by some content, please specify a different prefix');
+										console.error('ERROR: site prefix "' + (sitePrefix || site.sitePrefix) + '" is used by some content, please specify a different prefix');
 										return Promise.reject();
 									}
 								}
@@ -1686,6 +1699,8 @@ module.exports.transferSite = function (argv, done) {
 								if (!result || result.err) {
 									return Promise.reject();
 								}
+
+								console.info(' - create template ' + templateName);
 
 								// console.log(result);
 								// the result contains theme and components (itemGUID)
@@ -1775,10 +1790,9 @@ module.exports.transferSite = function (argv, done) {
 								fileName = templateName + '.zip';
 								templatePath = path.join(destdir, fileName);
 								if (!fs.existsSync(templatePath)) {
-									console.log('ERROR: failed to download template ' + templateName);
+									console.error('ERROR: failed to export template ' + templateName);
 									return Promise.reject();
 								}
-
 
 								// upload template file to destination server
 								startTime = new Date();
@@ -1793,12 +1807,12 @@ module.exports.transferSite = function (argv, done) {
 							.then(function (result) {
 
 								if (!result || result.err || !result.id) {
-									console.log('ERROR: failed to upload template file');
+									console.error('ERROR: failed to upload template file');
 									return Promise.reject();
 								}
 								var uploadedFile = result;
 								fileId = uploadedFile.id;
-								console.log(' - file ' + fileName + ' uploaded to Home folder (Id: ' + fileId + ' version:' + uploadedFile.version + ')' +
+								console.info(' - file ' + fileName + ' uploaded to Home folder (Id: ' + fileId + ' version:' + uploadedFile.version + ')' +
 									' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 
 								return sitesRest.importTemplate({
@@ -1810,7 +1824,7 @@ module.exports.transferSite = function (argv, done) {
 							})
 							.then(function (result) {
 								if (!result || result.err) {
-									console.log('ERROR: failed to import template');
+									console.error('ERROR: failed to import template');
 									return Promise.reject();
 								}
 
@@ -1822,7 +1836,7 @@ module.exports.transferSite = function (argv, done) {
 							})
 							.then(function (result) {
 								if (!result || result.err || !result.id) {
-									console.log('ERROR: failed to query template');
+									console.error('ERROR: failed to query template');
 									return Promise.reject();
 								}
 
@@ -1853,7 +1867,7 @@ module.exports.transferSite = function (argv, done) {
 							.then(function (results) {
 								if (excludetheme) {
 									if (results && results[0] && !results[0].err) {
-										console.log(' - set template theme back to ' + site.themeName);
+										console.info(' - set template theme back to ' + site.themeName);
 									}
 								}
 
@@ -1940,7 +1954,8 @@ module.exports.transferSite = function (argv, done) {
 										file: templateName + '.zip',
 										permanent: 'true'
 									};
-									deleteTemplatePromises.push(documentUtils.deleteFile(deleteArgv, destServer, false));
+									var showMsg = console.showInfo();
+									deleteTemplatePromises.push(documentUtils.deleteFile(deleteArgv, destServer, false, showMsg));
 								}
 
 								return Promise.all(deleteTemplatePromises);
@@ -1991,7 +2006,7 @@ module.exports.transferSite = function (argv, done) {
 							})
 							.then(function (results) {
 								if (includestaticfiles) {
-									console.log(' - download site static files');
+									console.info(' - download site static files');
 								}
 
 								// upload static files
@@ -2012,7 +2027,7 @@ module.exports.transferSite = function (argv, done) {
 							})
 							.then(function (results) {
 								if (includestaticfiles) {
-									console.log(' - upload site static files');
+									console.info(' - upload site static files');
 								}
 
 								if (creatNewSite) {
@@ -2033,7 +2048,7 @@ module.exports.transferSite = function (argv, done) {
 												actionSuccess = false;
 											} else {
 												var newPolicy = result;
-												console.log(' - update site localization policy ' + newPolicy.name);
+												console.info(' - update site localization policy ' + newPolicy.name);
 											}
 											_cmdEnd(done, actionSuccess);
 										});
@@ -2057,7 +2072,7 @@ module.exports.transferSite = function (argv, done) {
 												.then(function (result) {
 													idcToken = result && result.idcToken;
 													if (!idcToken) {
-														console.log('ERROR: failed to get idcToken');
+														console.error('ERROR: failed to get idcToken');
 														return Promise.reject();
 													}
 
@@ -2072,7 +2087,7 @@ module.exports.transferSite = function (argv, done) {
 												})
 												.then(function (result) {
 													if (result && !result.err) {
-														console.log(' - update site static delivery options');
+														console.info(' - update site static delivery options');
 													}
 
 													return serverUtils.getSiteUsedData(destServer, destSite.id);
@@ -2114,12 +2129,12 @@ module.exports.transferSite = function (argv, done) {
 														return Promise.reject();
 													}
 													var newPolicy = result;
-													console.log(' - update site localization policy ' + newPolicy.name);
+													console.info(' - update site localization policy ' + newPolicy.name);
 													_cmdEnd(done, success);
 												})
 												.catch((error) => {
 													if (error) {
-														console.log(error);
+														console.error(error);
 													}
 													_cmdEnd(done);
 												});
@@ -2133,7 +2148,7 @@ module.exports.transferSite = function (argv, done) {
 							})
 							.catch((error) => {
 								if (error) {
-									console.log(error);
+									console.error(error);
 								}
 								_cmdEnd(done);
 							});
@@ -2142,14 +2157,14 @@ module.exports.transferSite = function (argv, done) {
 				})
 				.catch((error) => {
 					if (error) {
-						console.log(error);
+						console.error(error);
 					}
 					_cmdEnd(done);
 				}); // get site
 		}) // login
 		.catch((error) => {
 			if (error) {
-				console.log(error);
+				console.error(error);
 			}
 			_cmdEnd(done);
 		});
@@ -2168,7 +2183,7 @@ var _transferOtherAssets = function (argv, server, destServer, site, destSite, r
 					return resolve({});
 				}
 
-				console.log(' - total assets from other repositories: ' + items.length);
+				console.info(' - total assets from other repositories: ' + items.length);
 				var destRepoIds = [];
 				repoMappings.forEach(function (mapping) {
 					if (!destRepoIds.includes(mapping.destId)) {
@@ -2199,7 +2214,7 @@ var _transferOtherAssets = function (argv, server, destServer, site, destSite, r
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				return resolve({
 					err: err
@@ -2243,49 +2258,49 @@ var _transferRepoAssets = function (argv, repoMappings, server, destServer, site
 		var total = repoMappings.length;
 		var destdir = path.join(projectDir, 'dist');
 		var transferAssets = repoMappings.reduce(function (transferPromise, mapping) {
-				return transferPromise.then(function (result) {
-					if (mapping.items.length > 0) {
-						console.log(' - *** transfering assets from repository ' + mapping.srcName + ' to repository ' + mapping.destName + ' (' + mapping.items.length + ') ...');
+			return transferPromise.then(function (result) {
+				if (mapping.items.length > 0) {
+					console.info(' - *** transfering assets from repository ' + mapping.srcName + ' to repository ' + mapping.destName + ' (' + mapping.items.length + ') ...');
 
-						// download assets from the source server
-						var name = site.name + '_' + mapping.srcName + '_assets';
-						var downloadArgs = {
-							projectDir: projectDir,
-							server: server,
-							channel: site.name,
-							assetGUIDS: mapping.items,
-							name: name,
-							publishedassets: publishedassets
-						};
-						return contentUtils.downloadContent(downloadArgs).then(function (result) {
-							// console.log(' - * assets downloaded');
+					// download assets from the source server
+					var name = site.name + '_' + mapping.srcName + '_assets';
+					var downloadArgs = {
+						projectDir: projectDir,
+						server: server,
+						channel: site.name,
+						assetGUIDS: mapping.items,
+						name: name,
+						publishedassets: publishedassets
+					};
+					return contentUtils.downloadContent(downloadArgs).then(function (result) {
+						// console.log(' - * assets downloaded');
 
-							// upload the downloaded assets to the target server
-							var fileName = site.name + '_' + mapping.srcName + '_assets_export.zip';
-							var filePath = path.join(destdir, fileName);
-							if (fs.existsSync(filePath)) {
-								var uploadArgs = {
-									argv: argv,
-									server: destServer,
-									name: filePath,
-									isFile: true,
-									repositoryName: mapping.destName,
-									channelName: destSite.name,
-									reuseContent: reuseContent,
-									updateContent: true,
-									contentpath: destdir,
-									contentfilename: fileName
-								};
+						// upload the downloaded assets to the target server
+						var fileName = site.name + '_' + mapping.srcName + '_assets_export.zip';
+						var filePath = path.join(destdir, fileName);
+						if (fs.existsSync(filePath)) {
+							var uploadArgs = {
+								argv: argv,
+								server: destServer,
+								name: filePath,
+								isFile: true,
+								repositoryName: mapping.destName,
+								channelName: destSite.name,
+								reuseContent: reuseContent,
+								updateContent: true,
+								contentpath: destdir,
+								contentfilename: fileName
+							};
 
-								return contentUtils.uploadContent(uploadArgs).then(function (result) {
-									// console.log(' - * assets uploaded');
-								});
+							return contentUtils.uploadContent(uploadArgs).then(function (result) {
+								// console.log(' - * assets uploaded');
+							});
 
-							}
-						});
-					}
-				});
-			},
+						}
+					});
+				}
+			});
+		},
 			// Start with a previousPromise value that is a resolved promise 
 			Promise.resolve({}));
 
@@ -2300,10 +2315,10 @@ var _transferRepoAssets = function (argv, repoMappings, server, destServer, site
 var _verifyThemeItemGUID = function (server, themeName, itemGUID) {
 	return new Promise(function (resolve, reject) {
 		sitesRest.resourceExist({
-				server: server,
-				type: 'themes',
-				name: themeName
-			})
+			server: server,
+			type: 'themes',
+			name: themeName
+		})
 			.then(function (result) {
 				if (result && result.id) {
 
@@ -2314,15 +2329,15 @@ var _verifyThemeItemGUID = function (server, themeName, itemGUID) {
 						.then(function (result) {
 							var targetItemGUID = result && result.metadata && result.metadata.scsItemGUID;
 							if (targetItemGUID === itemGUID) {
-								console.log(' - theme ' + themeName + ' itemGUID ' + targetItemGUID + ' is in sync');
+								console.info(' - theme ' + themeName + ' itemGUID ' + targetItemGUID + ' is in sync');
 								return resolve({});
 							} else {
 								serverUtils.setThemeMetadata(server, result && result.idcToken, themeId, {
-										scsItemGUID: itemGUID
-									})
+									scsItemGUID: itemGUID
+								})
 									.then(function (result) {
 										if (!result.err) {
-											console.log(' - update theme ' + themeName + ' itemGUID to ' + itemGUID);
+											console.info(' - update theme ' + themeName + ' itemGUID to ' + itemGUID);
 											return resolve({});
 										} else {
 											resolve({
@@ -2343,11 +2358,11 @@ var _verifyThemeItemGUID = function (server, themeName, itemGUID) {
 var _verifyOneComponentItemGUID = function (server, compName, itemGUID) {
 	return new Promise(function (resolve, reject) {
 		sitesRest.resourceExist({
-				server: server,
-				type: 'components',
-				name: compName,
-				showInfo: false
-			})
+			server: server,
+			type: 'components',
+			name: compName,
+			showInfo: false
+		})
 			.then(function (result) {
 				if (result && result.id) {
 					// component exists
@@ -2362,11 +2377,11 @@ var _verifyOneComponentItemGUID = function (server, compName, itemGUID) {
 							} else {
 								// console.log(' - component ' + compName + ' itemGUID ' + targetItemGUID + ' needs update');
 								serverUtils.setComponentMetadata(server, result && result.idcToken, compId, {
-										scsItemGUID: itemGUID
-									})
+									scsItemGUID: itemGUID
+								})
 									.then(function (result) {
 										if (!result.err) {
-											console.log(' - update component ' + compName + ' itemGUID to ' + itemGUID);
+											console.info(' - update component ' + compName + ' itemGUID to ' + itemGUID);
 											return resolve({});
 										} else {
 											resolve({
@@ -2388,15 +2403,15 @@ var _verifyOneComponentItemGUID = function (server, compName, itemGUID) {
 var _verifyComponentItemGUID = function (server, comps) {
 	return new Promise(function (resolve, reject) {
 
-		console.log(' - verify component itemGUID ...');
+		console.info(' - verify component itemGUID ...');
 		var doUpdate = comps.reduce(function (compPromise, comp) {
-				return compPromise.then(function (result) {
-					return _verifyOneComponentItemGUID(server, comp.name, comp.itemGUID)
-						.then(function (result) {
-							// console.log(' - verify component ' + comp.name);
-						});
-				});
-			},
+			return compPromise.then(function (result) {
+				return _verifyOneComponentItemGUID(server, comp.name, comp.itemGUID)
+					.then(function (result) {
+						// console.log(' - verify component ' + comp.name);
+					});
+			});
+		},
 			// Start with a previousPromise value that is a resolved promise 
 			Promise.resolve({})
 		);
@@ -2603,22 +2618,22 @@ var _updateSiteUsedData = function (destServer, idcToken, destSite, siteUsedData
 		// console.log(' - itemsUsedDeleted: \n' + JSON.stringify(itemsUsedDeleted, null, 4));
 
 		if (itemsUsedAdded.length === 0 && itemsUsedAdded.length === 0) {
-			console.log(' - no change for site used items')
+			console.info(' - no change for site used items')
 			return resolve({});
 		} else {
 			serverUtils.setSiteUsedData(destServer, idcToken, destSite.id, itemsUsedAdded, itemsUsedDeleted)
 				.then(function (result) {
 					if (!result || result.err) {
-						console.log('ERROR: failed to set site used data');
+						console.error('ERROR: failed to set site used data');
 						return Promise.reject();
 					}
 
-					console.log(' - update site used items');
+					console.info(' - update site used items');
 					return resolve({});
 				})
 				.catch((error) => {
 					if (error) {
-						console.log(error);
+						console.error(error);
 					}
 					return resolve({
 						err: 'err'
@@ -2662,7 +2677,7 @@ module.exports.controlSite = function (argv, done) {
 
 		serverUtils.loginToServer(server).then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage);
+				console.error(result.statusMessage);
 				done();
 				return;
 			}
@@ -2679,7 +2694,7 @@ module.exports.controlSite = function (argv, done) {
 		});
 
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 		done();
 	}
 
@@ -2699,9 +2714,9 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 	return new Promise(function (resolve, reject) {
 		var exitCode;
 		sitesRest.getSite({
-				server: server,
-				name: siteName
-			})
+			server: server,
+			name: siteName
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -2710,7 +2725,7 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 				var site = result;
 				var runtimeStatus = site.runtimeStatus;
 				var publishStatus = site.publishStatus;
-				console.log(' - get site: runtimeStatus: ' + runtimeStatus + '  publishStatus: ' + publishStatus);
+				console.info(' - get site: runtimeStatus: ' + runtimeStatus + '  publishStatus: ' + publishStatus);
 
 				if (action === 'take-offline' && runtimeStatus === 'offline') {
 					console.log(' - site is already offline');
@@ -2723,16 +2738,16 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 					return Promise.reject();
 				}
 				if (action === 'bring-online' && publishStatus === 'unpublished') {
-					console.log('ERROR: site ' + siteName + ' is draft, publish it first');
+					console.error('ERROR: site ' + siteName + ' is draft, publish it first');
 					return Promise.reject();
 				}
 
 				if (action === 'unpublish' && runtimeStatus === 'online') {
-					console.log('ERROR: site ' + siteName + ' is online, take it offline first');
+					console.error('ERROR: site ' + siteName + ' is online, take it offline first');
 					return Promise.reject();
 				}
 				if (action === 'unpublish' && publishStatus === 'unpublished') {
-					console.log('ERROR: site ' + siteName + ' is draft');
+					console.error('ERROR: site ' + siteName + ' is draft');
 					return Promise.reject();
 				}
 
@@ -2766,7 +2781,7 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 						name: siteName
 					});
 				} else {
-					console.log('ERROR: invalid action ' + action);
+					console.error('ERROR: invalid action ' + action);
 					return Promise.reject();
 				}
 
@@ -2789,7 +2804,7 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				return resolve({
 					err: 'err',
@@ -2810,7 +2825,7 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 			.then(function (result) {
 				var idcToken = result && result.idcToken;
 				if (!idcToken) {
-					console.log('ERROR: failed to get idcToken');
+					console.error('ERROR: failed to get idcToken');
 					return Promise.reject();
 				}
 				var url = server.url + '/documents/integration?IdcService=SCS_PUBLISH_SITE&IsJson=1';
@@ -2856,10 +2871,10 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 				var request = require('../test/server/requestUtils.js').request;
 				request.post(postData, function (err, response, body) {
 					if (response && response.statusCode !== 200) {
-						console.log('ERROR: Failed to publish site: ' + response.statusCode);
+						console.error('ERROR: Failed to publish site: ' + response.statusCode);
 					}
 					if (err) {
-						console.log('ERROR: Failed to publish site');
+						console.error('ERROR: Failed to publish site');
 						console.log(err);
 						return reject({
 							err: err
@@ -2875,9 +2890,9 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 					}
 					// console.log(data);
 					if (!data || !data.LocalData || data.LocalData.StatusCode !== '0' || !data.LocalData.JobID) {
-						// console.log('ERROR: failed to set site metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+						// console.error('ERROR: failed to set site metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 						var errorMsg = data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '';
-						console.log('ERROR: failed to publish site ' + errorMsg);
+						console.error('ERROR: failed to publish site ' + errorMsg);
 						return resolve({
 							err: 'err'
 						});
@@ -2904,7 +2919,7 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 									if (data && data.error) {
 										msg = msg + ' ' + (data.error.detail || data.error.title);
 									}
-									console.log('ERROR: failed to publish site ' + siteName + ' : ' + msg);
+									console.error('ERROR: failed to publish site ' + siteName + ' : ' + msg);
 									return resolve({
 										err: 'err'
 									});
@@ -2927,7 +2942,7 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				return ({
 					err: 'err'
@@ -2969,7 +2984,7 @@ module.exports.shareSite = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage);
+				console.error(result.statusMessage);
 				done();
 				return;
 			}
@@ -2979,30 +2994,30 @@ module.exports.shareSite = function (argv, done) {
 				name: name
 			});
 			sitePromise.then(function (result) {
-					if (!result || result.err) {
-						return Promise.reject();
-					}
-					if (!result.id) {
-						console.log('ERROR: site ' + name + ' does not exist');
-						return Promise.reject();
-					}
-					siteId = result.id;
-					console.log(' - verify site');
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				if (!result.id) {
+					console.error('ERROR: site ' + name + ' does not exist');
+					return Promise.reject();
+				}
+				siteId = result.id;
+				console.info(' - verify site');
 
-					var groupPromises = [];
-					groupNames.forEach(function (gName) {
-						groupPromises.push(
-							serverRest.getGroup({
-								server: server,
-								name: gName
-							}));
-					});
-					return Promise.all(groupPromises);
-				})
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+			})
 				.then(function (result) {
 
 					if (groupNames.length > 0) {
-						console.log(' - verify groups');
+						console.info(' - verify groups');
 
 						// verify groups
 						var allGroups = result || [];
@@ -3016,7 +3031,7 @@ module.exports.shareSite = function (argv, done) {
 								}
 							}
 							if (!found) {
-								console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+								console.error('ERROR: group ' + groupNames[i] + ' does not exist');
 							}
 						}
 					}
@@ -3039,7 +3054,7 @@ module.exports.shareSite = function (argv, done) {
 						}
 					}
 					if (userNames.length > 0) {
-						console.log(' - verify users');
+						console.info(' - verify users');
 					}
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
@@ -3055,7 +3070,7 @@ module.exports.shareSite = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log('ERROR: user ' + userNames[k] + ' does not exist');
+							console.error('ERROR: user ' + userNames[k] + ' does not exist');
 						}
 					}
 
@@ -3119,7 +3134,7 @@ module.exports.shareSite = function (argv, done) {
 							console.log(' - ' + typeLabel + ' ' + (results[i].user.loginName || results[i].user.displayName) + ' granted "' +
 								results[i].role + '" on site ' + name);
 						} else {
-							console.log('ERROR: ' + results[i].title);
+							console.error('ERROR: ' + results[i].title);
 						}
 					}
 					_cmdEnd(done, shared);
@@ -3165,7 +3180,7 @@ module.exports.unshareSite = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage);
+				console.error(result.statusMessage);
 				done();
 				return;
 			}
@@ -3175,30 +3190,30 @@ module.exports.unshareSite = function (argv, done) {
 				name: name
 			});
 			sitePromise.then(function (result) {
-					if (!result || result.err) {
-						return Promise.reject();
-					}
-					if (!result.id) {
-						console.log('ERROR: site ' + name + ' does not exist');
-						return Promise.reject();
-					}
-					siteId = result.id;
-					console.log(' - verify site');
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				if (!result.id) {
+					console.error('ERROR: site ' + name + ' does not exist');
+					return Promise.reject();
+				}
+				siteId = result.id;
+				console.info(' - verify site');
 
-					var groupPromises = [];
-					groupNames.forEach(function (gName) {
-						groupPromises.push(
-							serverRest.getGroup({
-								server: server,
-								name: gName
-							}));
-					});
-					return Promise.all(groupPromises);
-				})
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+			})
 				.then(function (result) {
 
 					if (groupNames.length > 0) {
-						console.log(' - verify groups');
+						console.info(' - verify groups');
 
 						// verify groups
 						var allGroups = result || [];
@@ -3212,7 +3227,7 @@ module.exports.unshareSite = function (argv, done) {
 								}
 							}
 							if (!found) {
-								console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+								console.error('ERROR: group ' + groupNames[i] + ' does not exist');
 							}
 						}
 					}
@@ -3235,7 +3250,7 @@ module.exports.unshareSite = function (argv, done) {
 						}
 					}
 					if (userNames.length > 0) {
-						console.log(' - verify users');
+						console.info(' - verify users');
 					}
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
@@ -3251,7 +3266,7 @@ module.exports.unshareSite = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log('ERROR: user ' + userNames[k] + ' does not exist');
+							console.error('ERROR: user ' + userNames[k] + ' does not exist');
 						}
 					}
 
@@ -3317,7 +3332,7 @@ module.exports.unshareSite = function (argv, done) {
 							var typeLabel = results[i].user.loginName ? 'user' : 'group';
 							console.log(' - ' + typeLabel + ' ' + (results[i].user.loginName || results[i].user.displayName) + '\'s access to the site removed');
 						} else {
-							console.log('ERROR: ' + results[i].title);
+							console.error('ERROR: ' + results[i].title);
 						}
 					}
 					_cmdEnd(done, unshared);
@@ -3356,7 +3371,7 @@ module.exports.deleteSite = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -3364,33 +3379,33 @@ module.exports.deleteSite = function (argv, done) {
 		var exitCode;
 
 		sitesRest.getSite({
-				server: server,
-				name: name,
-				includeDeleted: true
-			}).then(function (result) {
-				if (result.err) {
+			server: server,
+			name: name,
+			includeDeleted: true
+		}).then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			var site = result;
+
+			console.info(' - site GUID: ' + site.id);
+			if (site.isDeleted) {
+				console.log(' - site is already in the trash');
+
+				if (!permanent) {
+					console.log(' - run the command with parameter --permanent to delete permanently');
+					exitCode = 2;
 					return Promise.reject();
 				}
+			}
 
-				var site = result;
-
-				console.log(' - site GUID: ' + site.id);
-				if (site.isDeleted) {
-					console.log(' - site is already in the trash');
-
-					if (!permanent) {
-						console.log(' - run the command with parameter --permanent to delete permanently');
-						exitCode = 2;
-						return Promise.reject();
-					}
-				}
-
-				return sitesRest.deleteSite({
-					server: server,
-					name: name,
-					hard: permanent
-				});
-			})
+			return sitesRest.deleteSite({
+				server: server,
+				name: name,
+				hard: permanent
+			});
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -3437,7 +3452,7 @@ module.exports.validateSite = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage);
+				console.error(result.statusMessage);
 				done();
 				return;
 			}
@@ -3446,7 +3461,7 @@ module.exports.validateSite = function (argv, done) {
 
 		}); // login
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 		done();
 	}
 };
@@ -3522,10 +3537,10 @@ var _validateSiteREST = function (server, siteName, done) {
 	var repositoryId, channelId, channelToken;
 	var itemIds = [];
 	sitesRest.getSite({
-			server: server,
-			name: siteName,
-			expand: 'channel,repository'
-		})
+		server: server,
+		name: siteName,
+		expand: 'channel,repository'
+	})
 		.then(function (result) {
 			if (!result || result.err) {
 				return Promise.reject();
@@ -3556,11 +3571,11 @@ var _validateSiteREST = function (server, siteName, done) {
 				channelToken = tokens[0].value;
 			}
 
-			console.log(' - get site');
-			console.log('   repository: ' + repositoryId);
-			console.log('   channel: ' + channelId);
-			console.log('   channelToken: ' + channelToken);
-			console.log('   defaultLanguage: ' + site.defaultLanguage);
+			console.info(' - get site');
+			console.info('   repository: ' + repositoryId);
+			console.info('   channel: ' + channelId);
+			console.info('   channelToken: ' + channelToken);
+			console.info('   defaultLanguage: ' + site.defaultLanguage);
 
 			return sitesRest.validateSite({
 				server: server,
@@ -3609,11 +3624,11 @@ var _validateSiteREST = function (server, siteName, done) {
 
 			var statusId = result && result.statusId;
 			if (!statusId) {
-				console.log('ERROR: failed to submit validation');
+				console.error('ERROR: failed to submit validation');
 				return Promise.reject();
 			}
 
-			console.log(' - submit validation job (' + statusId + ')');
+			console.info(' - submit validation job (' + statusId + ')');
 			_getValidateAssetsStatus(server, statusId)
 				.then(function (data) {
 
@@ -3636,7 +3651,7 @@ var _validateSiteREST = function (server, siteName, done) {
 		})
 		.catch((error) => {
 			if (error) {
-				console.log(error);
+				console.error(error);
 			}
 			done();
 		});
@@ -3658,20 +3673,24 @@ var _getValidateAssetsStatus = function (server, statusId) {
 						process.stdout.write(os.EOL);
 					}
 					var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
-					console.log('ERROR: assets validation failed: ' + msg);
+					console.error('ERROR: assets validation failed: ' + msg);
 					return resolve({
 						err: 'err'
 					});
 				}
 				if (data.completed) {
 					clearInterval(inter);
-					process.stdout.write(' - assets validation finished [' + serverUtils.timeUsed(startTime, new Date()) + ']        ');
-					process.stdout.write(os.EOL);
+					if (console.showInfo()) {
+						process.stdout.write(' - assets validation finished [' + serverUtils.timeUsed(startTime, new Date()) + ']        ');
+						process.stdout.write(os.EOL);
+					}
 					return resolve(data);
 				} else {
-					process.stdout.write(' - assets validation in progress [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
-					readline.cursorTo(process.stdout, 0);
-					needNewLine = true;
+					if (console.showInfo()) {
+						process.stdout.write(' - assets validation in progress [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
+						readline.cursorTo(process.stdout, 0);
+						needNewLine = true;
+					}
 				}
 			});
 		}, 5000);
@@ -3702,17 +3721,17 @@ module.exports.getSiteSecurity = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		var apiResult;
 		sitesRest.getSite({
-				server: server,
-				name: name,
-				expand: 'access'
-			})
+			server: server,
+			name: name,
+			expand: 'access'
+		})
 			.then(function (result) {
 				apiResult = result;
 				if (!result || result.err) {
@@ -3764,9 +3783,9 @@ module.exports.getSiteSecurity = function (argv, done) {
 				done(true);
 			})
 			.catch((error) => {
-				console.log('ERROR: failed to get site security');
+				console.error('ERROR: failed to get site security');
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				console.log(apiResult);
 				done();
@@ -3813,7 +3832,7 @@ module.exports.setSiteSecurity = function (argv, done) {
 		for (var i = 0; i < deleteUserNames.length; i++) {
 			for (var j = 0; j < addUserNames.length; j++) {
 				if (deleteUserNames[i].toLowerCase() === addUserNames[j].toLowerCase()) {
-					console.log('ERROR: user ' + deleteUserNames[i] + ' in both <addusers> and <deleteusers>');
+					console.error('ERROR: user ' + deleteUserNames[i] + ' in both <addusers> and <deleteusers>');
 					_cmdEnd(done);
 					return;
 				}
@@ -3833,7 +3852,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage);
+				console.error(result.statusMessage);
 				done();
 				return;
 			}
@@ -3845,10 +3864,10 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 			var accessValues = [];
 
 			sitesRest.getSite({
-					server: server,
-					name: name,
-					expand: 'access'
-				})
+				server: server,
+				name: name,
+				expand: 'access'
+			})
 				.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
@@ -3859,7 +3878,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 					var siteOnline = site.runtimeStatus === 'online' ? true : false;
 					siteSecurity = site.security && site.security.access || [];
 					var siteSecured = siteSecurity.includes('everyone') ? false : true;
-					console.log(' - get site: runtimeStatus: ' + site.runtimeStatus + ' securityStatus: ' + (siteSecured ? 'secured' : 'public'));
+					console.info(' - get site: runtimeStatus: ' + site.runtimeStatus + ' securityStatus: ' + (siteSecured ? 'secured' : 'public'));
 
 					if (signin === 'no' && !siteSecured) {
 						console.log(' - site is already publicly available to anyone');
@@ -3867,7 +3886,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 						return Promise.reject();
 					}
 					if (siteOnline) {
-						console.log('ERROR: site is currently online. In order to change the security setting you must first bring this site offline.');
+						console.error('ERROR: site is currently online. In order to change the security setting you must first bring this site offline.');
 						return Promise.reject();
 					}
 
@@ -3907,7 +3926,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 								}
 							}
 
-							console.log(' - verify users');
+							console.info(' - verify users');
 							var err = false;
 							// verify users
 							for (var k = 0; k < addUserNames.length; k++) {
@@ -3927,7 +3946,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 									}
 								}
 								if (!found) {
-									console.log('ERROR: user ' + addUserNames[k] + ' does not exist');
+									console.error('ERROR: user ' + addUserNames[k] + ' does not exist');
 									err = true;
 								}
 							}
@@ -3948,7 +3967,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 									}
 								}
 								if (!found) {
-									console.log('ERROR: user ' + deleteUserNames[k] + ' does not exist');
+									console.error('ERROR: user ' + deleteUserNames[k] + ' does not exist');
 									err = true;
 								}
 							}
@@ -4087,7 +4106,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 				});
 		});
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 		done();
 	}
 };
@@ -4118,17 +4137,17 @@ module.exports.uploadStaticSite = function (argv, done) {
 	srcPath = path.resolve(srcPath);
 
 	if (!fs.existsSync(srcPath)) {
-		console.log('ERROR: folder ' + srcPath + ' does not exist');
+		console.error('ERROR: folder ' + srcPath + ' does not exist');
 		done();
 		return;
 	}
 	if (!fs.statSync(srcPath).isDirectory()) {
-		console.log('ERROR: ' + srcPath + ' is not a folder');
+		console.error('ERROR: ' + srcPath + ' is not a folder');
 		done();
 		return;
 	}
 
-	console.log(' - static site folder: ' + srcPath);
+	console.info(' - static site folder: ' + srcPath);
 
 	var siteName = argv.site;
 
@@ -4136,25 +4155,25 @@ module.exports.uploadStaticSite = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		sitesRest.getSite({
-				server: server,
-				name: siteName
-			})
+			server: server,
+			name: siteName
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
 				}
 				if (!result.id) {
-					console.log('ERROR: site ' + siteName + ' does not exist');
+					console.error('ERROR: site ' + siteName + ' does not exist');
 					return Promise.reject();
 				}
 				siteId = result.id;
-				console.log(' - verify site');
+				console.info(' - verify site');
 
 				return _prepareStaticSite(srcPath);
 
@@ -4182,7 +4201,7 @@ module.exports.uploadStaticSite = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -4190,52 +4209,19 @@ module.exports.uploadStaticSite = function (argv, done) {
 	});
 };
 
-var _deleteOldStaticFiles = function (server, items) {
-	return new Promise(function (resolve, reject) {
-		if (items.length === 0) {
-			return resolve({});
-		}
-
-		var doDelete = items.reduce(function (deletePromise, item) {
-				return deletePromise.then(function (result) {
-					var promise = item.type === 'Folder' ? serverRest.deleteFolder({
-						server: server,
-						fFolderGUID: item.id,
-						folderPath: item.path
-					}) : serverRest.deleteFile({
-						server: server,
-						fFileGUID: item.id,
-						filePath: item.path
-					});
-					return promise.then(function (result) {
-						if (result && !result.err) {
-							console.log(' - deleted old ' + item.type.toLowerCase() + ' ' + item.path);
-						}
-					});
-
-				});
-			},
-			// Start with a previousPromise value that is a resolved promise 
-			Promise.resolve({}));
-
-		doDelete.then(function (result) {
-			resolve({});
-		});
-	});
-};
 
 var _prepareStaticSite = function (srcPath) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.paths(srcPath, function (err, paths) {
 			if (err) {
-				console.log(err);
+				console.error(err);
 				return resolve({
 					err: 'err'
 				});
 			} else {
 				try {
 					if (paths.files.length === 0 && paths.dirs.length === 0) {
-						console.log('ERROR: no file nor folder under ' + srcPath);
+						console.error('ERROR: no file nor folder under ' + srcPath);
 						return resolve({
 							err: 'err'
 						});
@@ -4295,7 +4281,7 @@ var _prepareStaticSite = function (srcPath) {
 						localFolder: staticFolder
 					});
 				} catch (e) {
-					console.log(e);
+					console.error(e);
 					return resolve({
 						err: 'err'
 					});
@@ -4334,12 +4320,12 @@ module.exports.downloadStaticSite = function (argv, done) {
 		}
 		targetPath = path.resolve(targetPath);
 		if (!fs.existsSync(targetPath)) {
-			console.log('ERROR: folder ' + targetPath + ' does not exist');
+			console.error('ERROR: folder ' + targetPath + ' does not exist');
 			done();
 			return;
 		}
 		if (!fs.statSync(targetPath).isDirectory()) {
-			console.log('ERROR: ' + targetPath + ' is not a folder');
+			console.error('ERROR: ' + targetPath + ' is not a folder');
 			done();
 			return;
 		}
@@ -4347,30 +4333,30 @@ module.exports.downloadStaticSite = function (argv, done) {
 		targetPath = path.join(documentsSrcDir, siteName, 'static');
 		saveToSrc = true;
 	}
-	console.log(' - local folder ' + targetPath);
+	console.info(' - local folder ' + targetPath);
 
 	var siteId;
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		sitesRest.getSite({
-				server: server,
-				name: siteName
-			})
+			server: server,
+			name: siteName
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
 				}
 				if (!result.id) {
-					console.log('ERROR: site ' + siteName + ' does not exist');
+					console.error('ERROR: site ' + siteName + ' does not exist');
 					return Promise.reject();
 				}
 				siteId = result.id;
-				console.log(' - verify site');
+				console.info(' - verify site');
 
 				return serverRest.findFolderHierarchy({
 					server: server,
@@ -4380,7 +4366,7 @@ module.exports.downloadStaticSite = function (argv, done) {
 			})
 			.then(function (result) {
 				if (!result || result.err) {
-					console.log('ERROR: site ' + siteName + ' does not have static files');
+					console.error('ERROR: site ' + siteName + ' does not have static files');
 					return Promise.reject();
 				}
 
@@ -4423,14 +4409,14 @@ var _processDownloadedStaticSite = function (srcPath) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.paths(srcPath, function (err, paths) {
 			if (err) {
-				console.log(err);
+				console.error(err);
 				return resolve({
 					err: 'err'
 				});
 			} else {
 				try {
 					if (paths.files.length === 0 && paths.dirs.length === 0) {
-						console.log('ERROR: no file nor folder under ' + srcPath);
+						console.error('ERROR: no file nor folder under ' + srcPath);
 						return resolve({
 							err: 'err'
 						});
@@ -4461,7 +4447,7 @@ var _processDownloadedStaticSite = function (srcPath) {
 
 					return resolve({});
 				} catch (e) {
-					console.log(e);
+					console.error(e);
 					return resolve({
 						err: 'err'
 					});
@@ -4494,26 +4480,26 @@ module.exports.deleteStaticSite = function (argv, done) {
 	var siteId;
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 
 		sitesRest.getSite({
-				server: server,
-				name: siteName
-			})
+			server: server,
+			name: siteName
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
 				}
 				if (!result.id) {
-					console.log('ERROR: site ' + siteName + ' does not exist');
+					console.error('ERROR: site ' + siteName + ' does not exist');
 					return Promise.reject();
 				}
 				siteId = result.id;
-				console.log(' - verify site');
+				console.info(' - verify site');
 
 				return serverRest.findFolderHierarchy({
 					server: server,
@@ -4523,7 +4509,7 @@ module.exports.deleteStaticSite = function (argv, done) {
 			})
 			.then(function (result) {
 				if (!result || result.err) {
-					console.log('ERROR: site ' + siteName + ' does not have static files');
+					console.error('ERROR: site ' + siteName + ' does not have static files');
 					return Promise.reject();
 				}
 
@@ -4573,7 +4559,7 @@ module.exports.refreshPrerenderCache = function (argv, done) {
 	var siteId;
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -4587,24 +4573,24 @@ module.exports.refreshPrerenderCache = function (argv, done) {
 				var isSitesPrerenderEnabled = result.IsSitesPrerenderEnabled ? result.IsSitesPrerenderEnabled.toLowerCase() === 'true' : false;
 				// console.log(' - isSitesPrerenderEnabled: ' + isSitesPrerenderEnabled);
 				if (!isSitesPrerenderEnabled) {
-					console.log('ERROR: Pre-render is not enabled');
+					console.error('ERROR: Pre-render is not enabled');
 					return Promise.reject();
 				}
 
 				return sitesRest.getSite({
-						server: server,
-						name: siteName
-					})
+					server: server,
+					name: siteName
+				})
 					.then(function (result) {
 						if (!result || result.err) {
 							return Promise.reject();
 						}
 						if (!result.id) {
-							console.log('ERROR: site ' + siteName + ' does not exist');
+							console.error('ERROR: site ' + siteName + ' does not exist');
 							return Promise.reject();
 						}
 						siteId = result.id;
-						console.log(' - verify site');
+						console.info(' - verify site');
 
 						return sitesRest.refreshSiteContent({
 							server: server,
@@ -4638,17 +4624,17 @@ var _migrateICGUID = function (templateName) {
 		var digitalAssetPath = path.join(tempSrc, 'assets', 'contenttemplate',
 			'Content Template of ' + templateName, 'ContentItems', 'DigitalAsset');
 		if (!fs.existsSync(digitalAssetPath)) {
-			console.log(' - template does not have digital assets');
+			console.info(' - template does not have digital assets');
 			return resolve({});
 		}
 
 		var jsonFiles = fs.readdirSync(digitalAssetPath);
 		if (!jsonFiles || jsonFiles.length === 0) {
-			console.log(' - template does not have digital assets');
+			console.info(' - template does not have digital assets');
 			return resolve({});
 		}
 
-		console.log(' - processing template digital assets');
+		console.info(' - processing template digital assets');
 
 		var idMap = new Map();
 
@@ -4668,7 +4654,7 @@ var _migrateICGUID = function (templateName) {
 				var newFile = newId + '.json';
 				var newFilePath = path.join(digitalAssetPath, newFile);
 				fs.renameSync(filePath, newFilePath);
-				console.log('   rename file ' + file + ' => ' + newFile);
+				console.info('   rename file ' + file + ' => ' + newFile);
 			}
 		});
 
@@ -4687,7 +4673,7 @@ var _migrateICGUID = function (templateName) {
 				var newFolder = idMap.get(folder);
 				if (newFolder) {
 					fse.moveSync(folderPath, path.join(digitalAssetPath, 'files', newFolder));
-					console.log(' - rename folder ' + folder + ' => ' + newFolder);
+					console.info(' - rename folder ' + folder + ' => ' + newFolder);
 				}
 			}
 		});
@@ -4696,7 +4682,7 @@ var _migrateICGUID = function (templateName) {
 		var pagesPath = path.join(tempSrc, 'pages');
 		var pageFiles = fs.readdirSync(pagesPath);
 		if (!pageFiles || pageFiles.length === 0) {
-			console.log(' - template does not have pages');
+			console.info(' - template does not have pages');
 		} else {
 			pageFiles.forEach(function (file) {
 				var filePath = path.join(pagesPath, file);
@@ -4710,7 +4696,7 @@ var _migrateICGUID = function (templateName) {
 
 					if (fileSrc !== newFileSrc) {
 						fs.writeFileSync(filePath, newFileSrc);
-						console.log(' - update ' + filePath.replace((projectDir + path.sep), '') + ' with new IDs');
+						console.info(' - update ' + filePath.replace((projectDir + path.sep), '') + ' with new IDs');
 					}
 				}
 			});
@@ -4720,7 +4706,7 @@ var _migrateICGUID = function (templateName) {
 		var contenttemplatePath = path.join(tempSrc, 'assets', 'contenttemplate');
 		serverUtils.paths(contenttemplatePath, function (err, paths) {
 			if (err) {
-				console.log(err);
+				console.error(err);
 			} else {
 				var files = paths.files;
 				for (var i = 0; i < files.length; i++) {
@@ -4734,7 +4720,7 @@ var _migrateICGUID = function (templateName) {
 
 						if (fileSrc !== newFileSrc) {
 							fs.writeFileSync(filePath, newFileSrc);
-							console.log(' - update ' + filePath.replace((projectDir + path.sep), '') + ' with new IDs');
+							console.info(' - update ' + filePath.replace((projectDir + path.sep), '') + ' with new IDs');
 						}
 					}
 				}
@@ -4765,7 +4751,7 @@ module.exports.migrateSite = function (argv, done) {
 			return;
 		}
 		if (server.env !== 'pod_ic') {
-			console.log('ERROR: server ' + server.url + ' is not a valid source to migrate site');
+			console.error('ERROR: server ' + server.url + ' is not a valid source to migrate site');
 			done();
 			return;
 		}
@@ -4778,7 +4764,7 @@ module.exports.migrateSite = function (argv, done) {
 		return;
 	}
 	if (destServer.env === 'pod_ic') {
-		console.log('ERROR: server ' + destServer.url + ' is not a valid destination to migrate site');
+		console.error('ERROR: server ' + destServer.url + ' is not a valid destination to migrate site');
 		done();
 		return;
 	}
@@ -4791,12 +4777,12 @@ module.exports.migrateSite = function (argv, done) {
 		tempPath = path.resolve(tempPath);
 
 		if (!fs.existsSync(tempPath)) {
-			console.log('ERROR: file ' + tempPath + ' does not exist');
+			console.error('ERROR: file ' + tempPath + ' does not exist');
 			done();
 			return;
 		}
 		if (fs.statSync(tempPath).isDirectory()) {
-			console.log('ERROR: ' + tempPath + ' is not a file');
+			console.error('ERROR: ' + tempPath + ' is not a file');
 			done();
 			return;
 		}
@@ -4820,7 +4806,7 @@ module.exports.migrateSite = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(destServer);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage + ' ' + destServer.url);
+			console.error(result.statusMessage + ' ' + destServer.url);
 			done();
 			return;
 		}
@@ -4830,13 +4816,13 @@ module.exports.migrateSite = function (argv, done) {
 
 		// verify site
 		sitesRest.resourceExist({
-				server: destServer,
-				type: 'sites',
-				name: siteName
-			})
+			server: destServer,
+			type: 'sites',
+			name: siteName
+		})
 			.then(function (result) {
 				if (result && result.id) {
-					console.log('ERROR: site ' + siteName + ' already exists');
+					console.error('ERROR: site ' + siteName + ' already exists');
 					return Promise.reject();
 				}
 
@@ -4848,12 +4834,12 @@ module.exports.migrateSite = function (argv, done) {
 			})
 			.then(function (result) {
 				if (!result || result.err || !result.data) {
-					console.log('ERROR: repository ' + repositoryName + ' does not exist');
+					console.error('ERROR: repository ' + repositoryName + ' does not exist');
 					return Promise.reject();
 				}
 
 				repositoryId = result.data && result.data.id;
-				console.log(' - verify repository (Id: ' + repositoryId + ')');
+				console.info(' - verify repository (Id: ' + repositoryId + ')');
 
 				var createTemplatePromises = [];
 				if (!tempPath) {
@@ -4884,7 +4870,7 @@ module.exports.migrateSite = function (argv, done) {
 					fileName = tempPath.substring(tempPath.lastIndexOf(path.sep) + 1);
 					templateName = fileName.substring(0, fileName.indexOf('.'));
 					templatePath = tempPath;
-					console.log(' - template file ' + templatePath + ' name ' + templateName);
+					console.info(' - template file ' + templatePath + ' name ' + templateName);
 				} else {
 					fileName = templateName + '.zip';
 					var destdir = path.join(projectDir, 'dist');
@@ -4893,7 +4879,7 @@ module.exports.migrateSite = function (argv, done) {
 					}
 					templatePath = path.join(destdir, fileName);
 					if (!fs.existsSync(templatePath)) {
-						console.log('ERROR: failed to download template ' + templateName);
+						console.error('ERROR: failed to download template ' + templateName);
 						return Promise.reject();
 					}
 				}
@@ -4918,7 +4904,7 @@ module.exports.migrateSite = function (argv, done) {
 					return Promise.reject();
 				}
 				var templatePath = result.zipfile;
-				console.log(' - template file: ' + templatePath);
+				console.info(' - template file: ' + templatePath);
 
 				// upload template file
 				return serverRest.createFile({
@@ -4933,7 +4919,7 @@ module.exports.migrateSite = function (argv, done) {
 					return Promise.reject();
 				}
 				fileId = result.id;
-				console.log(' - file ' + fileName + ' uploaded to Home folder (Id: ' + result.id + ' version:' + result.version + ')');
+				console.info(' - file ' + fileName + ' uploaded to Home folder (Id: ' + result.id + ' version:' + result.version + ')');
 
 				return sitesRest.importTemplate({
 					server: destServer,
@@ -5011,7 +4997,7 @@ module.exports.migrateSite = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				_cmdEnd(done);
 			});
@@ -5032,10 +5018,10 @@ module.exports.syncControlSiteSite = function (argv, done) {
 	}
 
 	var srcServer = argv.server;
-	console.log(' - source server: ' + srcServer.url);
+	console.info(' - source server: ' + srcServer.url);
 
 	var destServer = argv.destination;
-	console.log(' - destination server: ' + destServer.url);
+	console.info(' - destination server: ' + destServer.url);
 
 	var siteId = argv.id;
 	var siteName = argv.name;
@@ -5043,16 +5029,16 @@ module.exports.syncControlSiteSite = function (argv, done) {
 
 	serverUtils.loginToServer(srcServer).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		// verify the site
 		sitesRest.getSite({
-				server: destServer,
-				name: siteName
-			})
+			server: destServer,
+			name: siteName
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -5146,16 +5132,16 @@ var _refreshPrerenderCache = function (urls) {
 		// console.log(' - total number of groups: ' + groups.length);
 
 		var doSendUrl = groups.reduce(function (urlPromise, param) {
-				return urlPromise.then(function (result) {
-					var urlPromises = [];
-					for (var i = param.start; i <= param.end; i++) {
-						urlPromises.push(_doGet(urls[i]));
-					}
+			return urlPromise.then(function (result) {
+				var urlPromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					urlPromises.push(_doGet(urls[i]));
+				}
 
-					return Promise.all(urlPromises).then(function (results) {});
+				return Promise.all(urlPromises).then(function (results) { });
 
-				});
-			},
+			});
+		},
 			// Start with a previousPromise value that is a resolved promise 
 			Promise.resolve({}));
 
@@ -5181,7 +5167,7 @@ var _doGet = function (url) {
 			}
 			// console.log(' - status: ' + response.statusCode + ' (' + response.statusMessage + ')');
 			if (response && response.statusCode === 200) {
-				console.log('GET ' + url + ' : OK ');
+				console.info('GET ' + url + ' : OK ');
 				resolve({});
 			} else {
 				console.log(' - ' + url + ' : ' + (response.statusMessage | response.statusCode));
@@ -5218,7 +5204,7 @@ module.exports.compileSite = function (argv, done) {
 	jobParams.serverName = argv.server;
 	jobParams.token = argv.token;
 
-	console.log(jobParams);
+	console.info(jobParams);
 
 
 	var persistenceStore = require('../test/job-manager/sampleFilePersistenceStore.js');

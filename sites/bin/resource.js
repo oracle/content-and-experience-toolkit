@@ -13,6 +13,8 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	path = require('path'),
 	sprintf = require('sprintf-js').sprintf;
 
+var console = require('../test/server/logger.js').console;
+
 var projectDir,
 	componentsSrcDir,
 	connectionsSrcDir,
@@ -61,18 +63,18 @@ module.exports.createEncryptionKey = function (argv, done) {
 	file = path.resolve(file);
 
 	if (fs.existsSync(file) && fs.statSync(file).isDirectory()) {
-		console.log('ERROR: no file specified');
+		console.error('ERROR: no file specified');
 		done();
 		return;
 	}
 	var folder = file.substring(0, file.lastIndexOf(path.sep));
 	if (!fs.existsSync(folder)) {
-		console.log('ERROR: directory ' + folder + ' does not exist');
+		console.error('ERROR: directory ' + folder + ' does not exist');
 		done();
 		return;
 	}
 	if (folder.indexOf(projectDir) === 0) {
-		console.log('ERROR: key file cannot be saved in sites-toolkit directory');
+		console.error('ERROR: key file cannot be saved in sites-toolkit directory');
 		done();
 		return;
 	}
@@ -98,7 +100,7 @@ module.exports.createEncryptionKey = function (argv, done) {
 		done(true);
 	} catch (e) {
 		if (e && e.message === 'crypto.generateKeyPairSync is not a function') {
-			console.log('ERROR: require NodeJS 10.12.0 and later');
+			console.error('ERROR: require NodeJS 10.12.0 and later');
 		}
 		done();
 	}
@@ -115,7 +117,7 @@ module.exports.registerServer = function (argv, done) {
 
 	var keyFile = argv.key;
 	if (keyFile && !fs.existsSync(keyFile)) {
-		console.log('ERROR: key file ' + keyFile + ' does not exist');
+		console.error('ERROR: key file ' + keyFile + ' does not exist');
 		done();
 		return;
 	}
@@ -148,10 +150,10 @@ module.exports.registerServer = function (argv, done) {
 				key: key,
 			}, Buffer.from(password, 'utf8'));
 			savedPassword = encrypted.toString('base64');
-			console.log(' - encrypt the password');
+			console.info(' - encrypt the password');
 		} catch (e) {
-			console.log('ERROR: failed to encrypt the password');
-			console.log(e);
+			console.error('ERROR: failed to encrypt the password');
+			console.error(e);
 			done();
 			return;
 		}
@@ -162,10 +164,10 @@ module.exports.registerServer = function (argv, done) {
 					key: key,
 				}, Buffer.from(client_id, 'utf8'));
 				savedClientId = encrypted.toString('base64');
-				console.log(' - encrypt the client id');
+				console.info(' - encrypt the client id');
 			} catch (e) {
-				console.log('ERROR: failed to encrypt the client id');
-				console.log(e);
+				console.error('ERROR: failed to encrypt the client id');
+				console.error(e);
 				done();
 				return;
 			}
@@ -177,10 +179,10 @@ module.exports.registerServer = function (argv, done) {
 					key: key,
 				}, Buffer.from(client_secret, 'utf8'));
 				savedClientSecret = encrypted.toString('base64');
-				console.log(' - encrypt the client secret');
+				console.info(' - encrypt the client secret');
 			} catch (e) {
-				console.log('ERROR: failed to encrypt the client secret');
-				console.log(e);
+				console.error('ERROR: failed to encrypt the client secret');
+				console.error(e);
 				done();
 				return;
 			}
@@ -455,7 +457,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 	if (!listChannels && !listComponents && !listLocalizationpolicies && !listRecommendations &&
 		!listRankingPolicies && !listRepositories && !listSites &&
 		!listTemplates && !listThemes && !listTaxonomies && !listWorkflows && !listTranslationConnectors) {
-		console.log('ERROR: invalid resource types: ' + argv.types);
+		console.error('ERROR: invalid resource types: ' + argv.types);
 		done();
 		return;
 	}
@@ -467,7 +469,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -478,42 +480,42 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 		var channels;
 
 		Promise.all(promises).then(function (results) {
-				//
-				// List channels
-				//
-				var channelFormat = '  %-36s  %-36s  %-8s  %-s';
-				channels = results.length > 0 ? results[0] : [];
-				if (listChannels) {
-					console.log('Channels:');
-					console.log(sprintf(channelFormat, 'Name', 'Token', 'Access', 'Publishing'));
-					for (var i = 0; i < channels.length; i++) {
-						var channel = channels[i];
-						var channelToken;
-						var tokens = channel.channelTokens || [];
-						for (var j = 0; j < tokens.length; j++) {
-							if (tokens[j].name === 'defaultToken') {
-								channelToken = tokens[j].token;
-								break;
-							}
+			//
+			// List channels
+			//
+			var channelFormat = '  %-36s  %-36s  %-8s  %-s';
+			channels = results.length > 0 ? results[0] : [];
+			if (listChannels) {
+				console.log('Channels:');
+				console.log(sprintf(channelFormat, 'Name', 'Token', 'Access', 'Publishing'));
+				for (var i = 0; i < channels.length; i++) {
+					var channel = channels[i];
+					var channelToken;
+					var tokens = channel.channelTokens || [];
+					for (var j = 0; j < tokens.length; j++) {
+						if (tokens[j].name === 'defaultToken') {
+							channelToken = tokens[j].token;
+							break;
 						}
-						if (!channelToken && tokens.length > 0) {
-							channelToken = tokens[0].token;
-						}
-						var publishPolicy = channel.publishPolicy === 'anythingPublished' ? 'Anything can be published' : 'Only approved items can be published';
-						console.log(sprintf(channelFormat, channel.name, channelToken, channel.channelType, publishPolicy));
 					}
-					if (channels.length > 0) {
-						console.log('Total: ' + channels.length);
+					if (!channelToken && tokens.length > 0) {
+						channelToken = tokens[0].token;
 					}
-					console.log('');
+					var publishPolicy = channel.publishPolicy === 'anythingPublished' ? 'Anything can be published' : 'Only approved items can be published';
+					console.log(sprintf(channelFormat, channel.name, channelToken, channel.channelType, publishPolicy));
 				}
+				if (channels.length > 0) {
+					console.log('Total: ' + channels.length);
+				}
+				console.log('');
+			}
 
-				promises = listComponents ? [sitesRest.getComponents({
-					server: server
-				})] : [];
+			promises = listComponents ? [sitesRest.getComponents({
+				server: server
+			})] : [];
 
-				return Promise.all(promises);
-			})
+			return Promise.all(promises);
+		})
 			.then(function (results) {
 				//
 				// list components
@@ -898,30 +900,30 @@ var _create10000Assets = function (server) {
 		// console.log(items);
 
 		var doCreate = items.reduce(function (createPromise, itemData) {
-				var item = {
-					type: 'SimpleType',
-					name: itemData.name,
-					fields: {
-						title: itemData.title
+			var item = {
+				type: 'SimpleType',
+				name: itemData.name,
+				fields: {
+					title: itemData.title
+				}
+			};
+			// console.log(item);
+			var repoId = 'F4FF138980864725A135C2D3EFB79371';
+			return createPromise.then(function (result) {
+				return serverRest.createItem({
+					server: server,
+					repositoryId: repoId,
+					type: item.type,
+					name: item.name,
+					fields: item.fields,
+					language: 'en-US'
+				}).then(function (result) {
+					if (result.id) {
+						console.log(' - create content item ' + result.name + ' (Id: ' + result.id + ')');
 					}
-				};
-				// console.log(item);
-				var repoId = 'F4FF138980864725A135C2D3EFB79371';
-				return createPromise.then(function (result) {
-					return serverRest.createItem({
-						server: server,
-						repositoryId: repoId,
-						type: item.type,
-						name: item.name,
-						fields: item.fields,
-						language: 'en-US'
-					}).then(function (result) {
-						if (result.id) {
-							console.log(' - create content item ' + result.name + ' (Id: ' + result.id + ')');
-						}
-					});
 				});
-			},
+			});
+		},
 			Promise.resolve({}));
 
 		doCreate.then(function (result) {
@@ -944,7 +946,6 @@ module.exports.executeGet = function (argv, done) {
 		done();
 		return;
 	}
-	// console.log(' - server: ' + server.url);
 
 	var output = argv.file;
 
@@ -956,13 +957,13 @@ module.exports.executeGet = function (argv, done) {
 	var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
 	// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
 	if (!fs.existsSync(outputFolder)) {
-		console.log('ERROR: folder ' + outputFolder + ' does not exist');
+		console.error('ERROR: folder ' + outputFolder + ' does not exist');
 		done();
 		return;
 	}
 
 	if (!fs.statSync(outputFolder).isDirectory()) {
-		console.log('ERROR: ' + outputFolder + ' is not a folder');
+		console.error('ERROR: ' + outputFolder + ' is not a folder');
 		done();
 		return;
 	}
@@ -971,7 +972,7 @@ module.exports.executeGet = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -986,10 +987,11 @@ module.exports.executeGet = function (argv, done) {
 
 		var writer = fs.createWriteStream(output);
 		serverRest.executeGetStream({
-				server: server,
-				endpoint: endpoint,
-				writer: writer
-			})
+			server: server,
+			endpoint: endpoint,
+			writer: writer,
+			noMsg: console.showInfo() ? false : true
+		})
 			.then(function (result) {
 
 				if (!result || result.err) {
@@ -1030,13 +1032,13 @@ module.exports.executePost = function (argv, done) {
 		bodyPath = path.resolve(bodyPath);
 
 		if (!fs.existsSync(bodyPath)) {
-			console.log('ERROR: file ' + bodyPath + ' does not exist');
+			console.error('ERROR: file ' + bodyPath + ' does not exist');
 			done();
 			return;
 		}
 
 		if (!fs.statSync(bodyPath).isFile()) {
-			console.log('ERROR: ' + bodyPath + ' is not a file');
+			console.error('ERROR: ' + bodyPath + ' is not a file');
 			done();
 			return;
 		}
@@ -1045,7 +1047,7 @@ module.exports.executePost = function (argv, done) {
 		try {
 			body = JSON.parse(fs.readFileSync(bodyPath));
 		} catch (e) {
-			console.log('ERROR: file ' + bodyPath + ' is not a valid JSON file');
+			console.error('ERROR: file ' + bodyPath + ' is not a valid JSON file');
 			done();
 			return;
 		}
@@ -1061,13 +1063,13 @@ module.exports.executePost = function (argv, done) {
 		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
 		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
 		if (!fs.existsSync(outputFolder)) {
-			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
 			done();
 			return;
 		}
 
 		if (!fs.statSync(outputFolder).isDirectory()) {
-			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
 			done();
 			return;
 		}
@@ -1081,17 +1083,17 @@ module.exports.executePost = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.executePost({
-				server: server,
-				endpoint: endpoint,
-				body: body,
-				async: async
-			})
+			server: server,
+			endpoint: endpoint,
+			body: body,
+			async: async
+		})
 			.then(function (result) {
 				if (result && result.err) {
 					done();
@@ -1134,13 +1136,13 @@ module.exports.executePut = function (argv, done) {
 		bodyPath = path.resolve(bodyPath);
 
 		if (!fs.existsSync(bodyPath)) {
-			console.log('ERROR: file ' + bodyPath + ' does not exist');
+			console.error('ERROR: file ' + bodyPath + ' does not exist');
 			done();
 			return;
 		}
 
 		if (!fs.statSync(bodyPath).isFile()) {
-			console.log('ERROR: ' + bodyPath + ' is not a file');
+			console.error('ERROR: ' + bodyPath + ' is not a file');
 			done();
 			return;
 		}
@@ -1149,7 +1151,7 @@ module.exports.executePut = function (argv, done) {
 		try {
 			body = JSON.parse(fs.readFileSync(bodyPath));
 		} catch (e) {
-			console.log('ERROR: file ' + bodyPath + ' is not a valid JSON file');
+			console.error('ERROR: file ' + bodyPath + ' is not a valid JSON file');
 			done();
 			return;
 		}
@@ -1165,13 +1167,13 @@ module.exports.executePut = function (argv, done) {
 		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
 		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
 		if (!fs.existsSync(outputFolder)) {
-			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
 			done();
 			return;
 		}
 
 		if (!fs.statSync(outputFolder).isDirectory()) {
-			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
 			done();
 			return;
 		}
@@ -1181,16 +1183,16 @@ module.exports.executePut = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.executePut({
-				server: server,
-				endpoint: endpoint,
-				body: body
-			})
+			server: server,
+			endpoint: endpoint,
+			body: body
+		})
 			.then(function (result) {
 				if (result && result.err) {
 					done();
@@ -1233,13 +1235,13 @@ module.exports.executePatch = function (argv, done) {
 		bodyPath = path.resolve(bodyPath);
 
 		if (!fs.existsSync(bodyPath)) {
-			console.log('ERROR: file ' + bodyPath + ' does not exist');
+			console.error('ERROR: file ' + bodyPath + ' does not exist');
 			done();
 			return;
 		}
 
 		if (!fs.statSync(bodyPath).isFile()) {
-			console.log('ERROR: ' + bodyPath + ' is not a file');
+			console.error('ERROR: ' + bodyPath + ' is not a file');
 			done();
 			return;
 		}
@@ -1248,7 +1250,7 @@ module.exports.executePatch = function (argv, done) {
 		try {
 			body = JSON.parse(fs.readFileSync(bodyPath));
 		} catch (e) {
-			console.log('ERROR: file ' + bodyPath + ' is not a valid JSON file');
+			console.error('ERROR: file ' + bodyPath + ' is not a valid JSON file');
 			done();
 			return;
 		}
@@ -1264,13 +1266,13 @@ module.exports.executePatch = function (argv, done) {
 		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
 		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
 		if (!fs.existsSync(outputFolder)) {
-			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
 			done();
 			return;
 		}
 
 		if (!fs.statSync(outputFolder).isDirectory()) {
-			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
 			done();
 			return;
 		}
@@ -1280,16 +1282,16 @@ module.exports.executePatch = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.executePatch({
-				server: server,
-				endpoint: endpoint,
-				body: body
-			})
+			server: server,
+			endpoint: endpoint,
+			body: body
+		})
 			.then(function (result) {
 				if (result && result.err) {
 					done();
@@ -1326,15 +1328,15 @@ module.exports.executeDelete = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.executeDelete({
-				server: server,
-				endpoint: endpoint
-			})
+			server: server,
+			endpoint: endpoint
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					done();
@@ -1359,7 +1361,7 @@ module.exports.renameContentType = function (argv, done) {
 	var newName = argv.newname;
 
 	if (typeName.toLowerCase() === newName.toLowerCase()) {
-		console.log('ERROR: the new name is the same as the original one');
+		console.error('ERROR: the new name is the same as the original one');
 		done();
 		return;
 	}
@@ -1372,7 +1374,7 @@ module.exports.renameContentType = function (argv, done) {
 	if (isTemplate) {
 		templatePath = path.join(templatesSrcDir, name);
 		if (!fs.existsSync(templatePath)) {
-			console.log('ERROR: template folder ' + templatePath + ' does not exist');
+			console.error('ERROR: template folder ' + templatePath + ' does not exist');
 			done();
 			return;
 		}
@@ -1380,20 +1382,20 @@ module.exports.renameContentType = function (argv, done) {
 		// check if the template has content
 		contentTopDir = path.join(templatePath, 'assets', 'contenttemplate');
 		if (!fs.existsSync(contentTopDir)) {
-			console.log('ERROR: template ' + name + ' does not have content');
+			console.error('ERROR: template ' + name + ' does not have content');
 			done();
 			return;
 		}
 	} else {
 		contentTopDir = path.join(contentSrcDir, name);
 		if (!fs.existsSync(contentTopDir)) {
-			console.log('ERROR: content folder ' + contentTopDir + ' does not exist');
+			console.error('ERROR: content folder ' + contentTopDir + ' does not exist');
 			done();
 			return;
 		}
 	}
 
-	console.log(' - content at ' + contentTopDir);
+	console.info(' - content at ' + contentTopDir);
 	var contentDir = isTemplate ? path.join(contentTopDir, 'Content Template of ' + name) :
 		path.join(contentTopDir, 'contentexport');
 
@@ -1401,14 +1403,14 @@ module.exports.renameContentType = function (argv, done) {
 	var typesDir = path.join(contentDir, 'ContentTypes');
 	var typePath = path.join(typesDir, typeName + '.json');
 	if (!fs.existsSync(typePath)) {
-		console.log('ERROR: type ' + typeName + ' does not exist');
+		console.error('ERROR: type ' + typeName + ' does not exist');
 		done();
 		return;
 	}
 
 	var newTypePath = path.join(typesDir, newName + '.json');
 	if (fs.existsSync(newTypePath)) {
-		console.log('ERROR: type ' + newName + ' already exists');
+		console.error('ERROR: type ' + newName + ' already exists');
 		done();
 		return;
 	}
@@ -1437,10 +1439,10 @@ module.exports.renameContentType = function (argv, done) {
 				summaryJson.categoryLayoutMappings = mappings;
 			}
 
-			console.log(' - update summary.json');
+			console.info(' - update summary.json');
 			fs.writeFileSync(summaryPath, JSON.stringify(summaryJson, null, 4));
 		} else {
-			console.log(' - template ' + name + ' does not have summary.json');
+			console.info(' - template ' + name + ' does not have summary.json');
 		}
 	}
 
@@ -1452,7 +1454,7 @@ module.exports.renameContentType = function (argv, done) {
 			var typesArr = cntSummaryJson.types.split(',');
 			typesArr[typesArr.indexOf(typeName)] = newName;
 			cntSummaryJson.types = typesArr.join(',');
-			console.log(' - update Summary.json');
+			console.info(' - update Summary.json');
 			fs.writeFileSync(contentSummaryPath, JSON.stringify(cntSummaryJson, null, 4));
 		}
 	}
@@ -1478,7 +1480,7 @@ module.exports.renameContentType = function (argv, done) {
 			}
 		});
 
-		console.log(' - update metadata.json');
+		console.info(' - update metadata.json');
 		fs.writeFileSync(metadataPath, JSON.stringify(metadataJson, null, 4));
 	}
 
@@ -1487,7 +1489,7 @@ module.exports.renameContentType = function (argv, done) {
 	typeJson.name = newName;
 	fs.writeFileSync(typePath, JSON.stringify(typeJson, null, 4));
 	fs.renameSync(typePath, newTypePath);
-	console.log(' - create new type file ' + newName + '.json');
+	console.info(' - create new type file ' + newName + '.json');
 
 	// update type reference by other types
 	var types = fs.readdirSync(typesDir);
@@ -1515,7 +1517,7 @@ module.exports.renameContentType = function (argv, done) {
 			}
 			if (needUpdate) {
 				fs.writeFileSync(path.join(typesDir, type), JSON.stringify(typeJson, null, 4));
-				console.log(' - update references in ' + type);
+				console.info(' - update references in ' + type);
 			}
 		}
 	});
@@ -1526,7 +1528,7 @@ module.exports.renameContentType = function (argv, done) {
 	// rename the type folder
 	if (fs.existsSync(path.join(itemsDir, typeName))) {
 		fs.renameSync(path.join(itemsDir, typeName), path.join(itemsDir, newName));
-		console.log(' - rename items folder ' + typeName + ' to ' + newName);
+		console.info(' - rename items folder ' + typeName + ' to ' + newName);
 	}
 
 	var _updateItem = function (itemPath) {
@@ -1572,7 +1574,7 @@ module.exports.renameContentType = function (argv, done) {
 		}
 		if (needUpdate) {
 			fs.writeFileSync(itemPath, JSON.stringify(itemJson, null, 4));
-			console.log(' - update item ' + itemPath.substring(itemPath.indexOf('/ContentItems')));
+			console.info(' - update item ' + itemPath.substring(itemPath.indexOf('/ContentItems')));
 		}
 	};
 
@@ -1612,11 +1614,13 @@ module.exports.renameContentType = function (argv, done) {
 				}
 				if (needUpdate) {
 					fs.writeFileSync(pagePath, JSON.stringify(pageJson, null, 4));
-					console.log(' - update page ' + pageFile);
+					console.info(' - update page ' + pageFile);
 				}
 			}
 		});
 	}
+
+	console.log(' - type ' + typeName + ' renamed to ' + newName);
 
 	done(true);
 };

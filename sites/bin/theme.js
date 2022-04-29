@@ -9,6 +9,7 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	sprintf = require('sprintf-js').sprintf,
 	path = require('path');
 
+var console = require('../test/server/logger.js').console;
 
 var projectDir,
 	serversSrcDir;
@@ -49,7 +50,7 @@ module.exports.controlTheme = function (argv, done) {
 	try {
 		_controlTheme(serverName, server, action, theme, done);
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 	}
 };
 
@@ -58,7 +59,7 @@ var _controlTheme = function (serverName, server, action, themeName, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -79,9 +80,9 @@ var _controlTheme = function (serverName, server, action, themeName, done) {
 var _controlThemeREST = function (server, action, themeName, done) {
 
 	sitesRest.getTheme({
-			server: server,
-			name: themeName
-		})
+		server: server,
+		name: themeName
+	})
 		.then(function (result) {
 			if (result.err) {
 				return Promise.reject();
@@ -136,7 +137,7 @@ module.exports.shareTheme = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage);
+				console.error(result.statusMessage);
 				done();
 				return;
 			}
@@ -146,33 +147,33 @@ module.exports.shareTheme = function (argv, done) {
 				name: name
 			});
 			themePromise.then(function (result) {
-					if (!result || result.err) {
-						return Promise.reject();
-					}
-					themeId = result.id;
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				themeId = result.id;
 
-					if (!themeId) {
-						console.log('ERROR: theme ' + name + ' does not exist');
-						return Promise.reject();
-					}
-					console.log(' - verify theme');
+				if (!themeId) {
+					console.error('ERROR: theme ' + name + ' does not exist');
+					return Promise.reject();
+				}
+				console.info(' - verify theme');
 
-					var groupPromises = [];
-					groupNames.forEach(function (gName) {
-						groupPromises.push(
-							serverRest.getGroup({
-								server: server,
-								name: gName
-							}));
-					});
-					return Promise.all(groupPromises);
-				})
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+			})
 				.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
 					}
 					if (groupNames.length > 0) {
-						console.log(' - verify groups');
+						console.info(' - verify groups');
 
 						// verify groups
 						var allGroups = result || [];
@@ -186,7 +187,7 @@ module.exports.shareTheme = function (argv, done) {
 								}
 							}
 							if (!found) {
-								console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+								console.error('ERROR: group ' + groupNames[i] + ' does not exist');
 							}
 						}
 					}
@@ -209,7 +210,7 @@ module.exports.shareTheme = function (argv, done) {
 						}
 					}
 					if (userNames.length > 0) {
-						console.log(' - verify users');
+						console.info(' - verify users');
 					}
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
@@ -225,7 +226,7 @@ module.exports.shareTheme = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log('ERROR: user ' + userNames[k] + ' does not exist');
+							console.error('ERROR: user ' + userNames[k] + ' does not exist');
 						}
 					}
 
@@ -332,7 +333,7 @@ module.exports.unshareTheme = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage);
+				console.error(result.statusMessage);
 				done();
 				return;
 			}
@@ -342,33 +343,33 @@ module.exports.unshareTheme = function (argv, done) {
 				name: name
 			});
 			themePromise.then(function (result) {
-					if (!result || result.err) {
-						return Promise.reject();
-					}
-					themeId = result.id;
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				themeId = result.id;
 
-					if (!themeId) {
-						console.log('ERROR: theme ' + name + ' does not exist');
-						return Promise.reject();
-					}
-					console.log(' - verify theme');
+				if (!themeId) {
+					console.error('ERROR: theme ' + name + ' does not exist');
+					return Promise.reject();
+				}
+				console.info(' - verify theme');
 
-					var groupPromises = [];
-					groupNames.forEach(function (gName) {
-						groupPromises.push(
-							serverRest.getGroup({
-								server: server,
-								name: gName
-							}));
-					});
-					return Promise.all(groupPromises);
-				})
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+			})
 				.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
 					}
 					if (groupNames.length > 0) {
-						console.log(' - verify groups');
+						console.info(' - verify groups');
 
 						// verify groups
 						var allGroups = result || [];
@@ -382,7 +383,7 @@ module.exports.unshareTheme = function (argv, done) {
 								}
 							}
 							if (!found) {
-								console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+								console.error('ERROR: group ' + groupNames[i] + ' does not exist');
 							}
 						}
 					}
@@ -405,7 +406,7 @@ module.exports.unshareTheme = function (argv, done) {
 						}
 					}
 					if (userNames.length > 0) {
-						console.log(' - verify users');
+						console.info(' - verify users');
 					}
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
@@ -421,7 +422,7 @@ module.exports.unshareTheme = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log('ERROR: user ' + userNames[k] + ' does not exist');
+							console.error('ERROR: user ' + userNames[k] + ' does not exist');
 						}
 					}
 
@@ -487,7 +488,7 @@ module.exports.unshareTheme = function (argv, done) {
 							var typeLabel = results[i].user.loginName ? 'user' : 'group';
 							console.log(' - ' + typeLabel + ' ' + (results[i].user.loginName || results[i].user.displayName) + '\'s access to the theme removed');
 						} else {
-							console.log('ERROR: ' + results[i].title);
+							console.error('ERROR: ' + results[i].title);
 						}
 					}
 					done(unshared);
@@ -525,7 +526,7 @@ module.exports.describeTheme = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -535,10 +536,10 @@ module.exports.describeTheme = function (argv, done) {
 		var format1 = '%-38s  %-s';
 
 		sitesRest.getTheme({
-				server: server,
-				name: name,
-				expand: 'all'
-			})
+			server: server,
+			name: name,
+			expand: 'all'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -637,7 +638,7 @@ module.exports.describeTheme = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -669,22 +670,22 @@ module.exports.copyTheme = function (argv, done) {
 	serverUtils.loginToServer(server)
 		.then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage);
+				console.error(result.statusMessage);
 				done();
 				return;
 			}
 
 			sitesRest.getTheme({
-					server: server,
-					name: srcName
-				})
+				server: server,
+				name: srcName
+			})
 				.then(function (result) {
 					if (!result || result.err || !result.id) {
 						return Promise.reject();
 					}
 
 					var srcTheme = result;
-					console.log(' - validate theme (Id: ' + srcTheme.id + ')');
+					console.info(' - validate theme (Id: ' + srcTheme.id + ')');
 
 					return sitesRest.copyTheme({
 						server: server,
@@ -716,7 +717,7 @@ module.exports.copyTheme = function (argv, done) {
 				})
 				.catch((error) => {
 					if (error) {
-						console.log(error);
+						console.error(error);
 					}
 					done();
 				});

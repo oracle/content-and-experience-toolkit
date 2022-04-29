@@ -7,7 +7,9 @@ https://docs.oracle.com/en/cloud/paas/content-cloud/developer/develop-oracle-con
 
 [Test to Production](doc/T2P.md) – Use the Content Toolkit for Test to Production
 
-[Headless CLI](doc/IDCS-App.md) - Setup IDCS Application for headless CLI (No popup Chromium for authentication)
+[Headless CLI using IAM](doc/IAM-App.md) - Setup IAM Application for headless CLI (No popup Chromium for authentication)
+
+[Headless CLI using IDCS](doc/IDCS-App.md) - Setup IDCS Application for headless CLI (No popup Chromium for authentication)
 
 [Build Test](doc/Build-Test.md) - Build, optimize and test updates for OCM source
 
@@ -94,7 +96,10 @@ Test your registered server
 cec list --server DEV
 ```
 
+## Using an IAM Application to access CEC Instance to have a CLI without Chromium popup for Authentication
+Instructions on how to setup the IAM application for headless CLI are [here](doc/IAM-App.md)
+
 ## Using an IDCS Application to access CEC Instance to have a CLI without Chromium popup for Authentication
-Instructions on how to setup the IDCS for headless CLI are [here](doc/IDCS-App.md)
+Instructions on how to setup the IDCS application for headless CLI are [here](doc/IDCS-App.md)
 
 
