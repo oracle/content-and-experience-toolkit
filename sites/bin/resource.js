@@ -527,17 +527,23 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					for (var i = 0; i < comps.length; i++) {
 						var comp = comps[i];
 						var compType = comp.type || 'local';
-						var typeLabel = 'Local component';
+						var typeLabel = 'Local Component';
 						if (compType.toLowerCase() === 'componentgroup') {
-							typeLabel = 'Component group';
+							typeLabel = 'Component Group';
 						} else if (compType === 'remote') {
-							typeLabel = 'Remote component';
+							typeLabel = 'Remote Component';
 						} else if (compType.toLowerCase() === 'contentlayout') {
-							typeLabel = 'Content layout';
+							typeLabel = 'Content Layout';
 						} else if (compType === 'sandboxed') {
 							typeLabel = 'Local component in an iframe';
 						} else if (compType.toLowerCase() === 'sectionlayout') {
-							typeLabel = 'Section layout';
+							typeLabel = 'Section Layout';
+						} else if (compType.toLowerCase() === 'fieldeditor') {
+							typeLabel = 'Content Field Editor';
+						} else if (compType.toLowerCase() === 'contentform') {
+							typeLabel = 'Content Form';
+						} else if (compType.toLowerCase() === 'visualbuilder') {
+							typeLabel = 'Visual Builder Component';
 						}
 						var published = comp.publishStatus === 'published' ? '    √' : '';
 						console.log(sprintf(format3, comp.name, typeLabel, published));

@@ -149,6 +149,17 @@ module.exports.readLoggerLevel = function (projectDir) {
 };
 
 /**
+ * Display the request options if the logger is debug
+ */
+module.exports.showRequestOptions = function (options) {
+	_showRequestOptions(options);
+};
+
+var _showRequestOptions = function (options) {
+	console.debug(options);
+};
+
+/**
  * Get server and credentials from gradle properties
  */
 module.exports.getConfiguredServer = function (currPath) {
@@ -1311,6 +1322,9 @@ module.exports.getCaasCSRFToken = function (server) {
 				Authorization: _getRequestAuthorization(server)
 			}
 		};
+
+		_showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -1351,6 +1365,9 @@ module.exports.getSystemCSRFToken = function (server) {
 				Authorization: _getRequestAuthorization(server)
 			}
 		};
+
+		_showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -1397,6 +1414,9 @@ var _getIdcToken = function (server) {
 		if (server.cookies) {
 			options.headers.Cookie = server.cookies;
 		}
+
+		_showRequestOptions(options);
+
 		var total = 0;
 		var inter = setInterval(function () {
 			request.get(options, function (error, response, body) {
@@ -1453,6 +1473,8 @@ module.exports.getSitesGovernance = function (server) {
 			options.headers.Cookie = server.cookies;
 		}
 
+		_showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -1489,6 +1511,9 @@ module.exports.getTenantConfig = function (server) {
 				Authorization: _getRequestAuthorization(server)
 			}
 		};
+
+		_showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -1556,6 +1581,9 @@ module.exports.setTenantConfig = function (server, localData, tenantOptionRows) 
 				body: JSON.stringify(payload),
 				json: true
 			};
+
+			_showRequestOptions(options);
+
 			var request = require('./requestUtils.js').request;
 			request.post(options, function (err, response, body) {
 				if (err) {
@@ -1694,7 +1722,8 @@ var _getOAuthTokenFromIDCS = function (server) {
 			body: formData,
 			json: true
 		};
-		// console.log(postData);
+
+		// _showRequestOptions(postData);
 
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
@@ -1759,6 +1788,9 @@ module.exports.getDocumentRendition = function (app, doc, callback) {
 		method: 'GET',
 		url: resturl
 	};
+
+	_showRequestOptions(options);
+
 	var request = require('./requestUtils.js').request;
 	request.get(options, function (err, response, body) {
 		if (response && response.statusCode === 200) {
@@ -2434,7 +2466,7 @@ var _getServerVersion = function (server) {
 				Authorization: _getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		_showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -2731,6 +2763,9 @@ module.exports.getBackgroundServiceJobStatus = function (server, idcToken, jobId
 		if (server.cookies) {
 			params.headers.Cookie = server.cookies;
 		}
+
+		// _showRequestOptions(params);
+
 		var request = require('./requestUtils.js').request;
 		request.get(params, function (error, response, body) {
 			if (error) {
@@ -2788,6 +2823,9 @@ module.exports.getBackgroundServiceJobData = function (server, idcToken, jobId) 
 		if (server.cookies) {
 			params.headers.Cookie = server.cookies;
 		}
+
+		_showRequestOptions(params);
+
 		var request = require('./requestUtils.js').request;
 		request.get(params, function (error, response, body) {
 			if (error) {
@@ -2834,7 +2872,8 @@ module.exports.browseSitesOnServer = function (server, fApplication, name) {
 		if (server.cookies) {
 			options.headers.Cookie = server.cookies
 		}
-		// console.log(options);
+		_showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -2924,6 +2963,9 @@ var _browseCollectionsOnServer = function (server, params) {
 		if (server.cookies) {
 			options.headers.Cookie = server.cookies;
 		}
+
+		_showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -2980,6 +3022,8 @@ module.exports.browseTranslationConnectorsOnServer = function (server) {
 				Authorization: _getRequestAuthorization(server)
 			}
 		};
+
+		_showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
@@ -3073,6 +3117,8 @@ module.exports.getTranslationConnectorOnServer = function (server, connectorId) 
 			}
 		};
 
+		_showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -3139,6 +3185,8 @@ module.exports.updateTranslationConnectorOnServer = function (server, connector)
 			}
 		};
 
+		_showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -3186,6 +3234,8 @@ module.exports.getTranslationConnectorJobOnServer = function (server, jobId) {
 				Authorization: _getRequestAuthorization(server)
 			}
 		};
+
+		_showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
@@ -3245,6 +3295,8 @@ module.exports.getThemeMetadata = function (server, themeId, themeName) {
 			}
 		};
 
+		_showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -3301,6 +3353,8 @@ module.exports.getComponentMetadata = function (server, compId, compName) {
 			}
 		};
 
+		_showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -3356,6 +3410,8 @@ module.exports.getSiteUsedData = function (server, siteId) {
 				Authorization: _getRequestAuthorization(server)
 			}
 		};
+
+		_showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
@@ -3459,6 +3515,8 @@ module.exports.setSiteUsedData = function (server, idcToken, siteId, itemsUsedAd
 			json: true
 		};
 
+		_showRequestOptions(postData);
+		
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
 			if (response && response.statusCode !== 200) {
@@ -3467,7 +3525,7 @@ module.exports.setSiteUsedData = function (server, idcToken, siteId, itemsUsedAd
 			}
 			if (err) {
 				console.error('ERROR: Failed to set site used items');
-				console.error('compilation server message: error - ' +  err);
+				console.error('compilation server message: error - ' + err);
 				return reject({
 					err: err
 				});
@@ -3528,7 +3586,7 @@ module.exports.setSiteMetadata = function (server, idcToken, siteId, values) {
 			body: JSON.stringify(formData),
 			json: true
 		};
-		// console.log(postData);
+		_showRequestOptions(postData);
 
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
@@ -3538,7 +3596,7 @@ module.exports.setSiteMetadata = function (server, idcToken, siteId, values) {
 			}
 			if (err) {
 				console.error('ERROR: Failed to set site metadata' + ' (ecid: ' + response.ecid + ')');
-				console.error('compilation server message: error - ' +  err);
+				console.error('compilation server message: error - ' + err);
 				return reject({
 					err: err
 				});
@@ -3598,7 +3656,7 @@ module.exports.setThemeMetadata = function (server, idcToken, themeId, values) {
 			body: JSON.stringify(formData),
 			json: true
 		};
-		// console.log(postData);
+		_showRequestOptions(postData);
 
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
@@ -3662,7 +3720,7 @@ module.exports.setComponentMetadata = function (server, idcToken, compId, values
 			body: JSON.stringify(formData),
 			json: true
 		};
-		// console.log(postData);
+		_showRequestOptions(postData);
 
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
@@ -3826,7 +3884,7 @@ module.exports.getAdminSettings = function (server) {
 				Authorization: _getRequestAuthorization(server)
 			}
 		};
-		// console.log(postData);
+		_showRequestOptions(postData);
 
 		var request = require('./requestUtils.js').request;
 		request.get(postData, function (err, response, body) {
@@ -3868,7 +3926,7 @@ module.exports.updateAdminSettings = function (server, settings) {
 			body: JSON.stringify(configRequest),
 			json: true
 		};
-		// console.log(postData);
+		_showRequestOptions(postData);
 
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
@@ -3917,7 +3975,7 @@ module.exports.viewGroupInfo = function (server, groupId) {
 			body: JSON.stringify(formData),
 			json: true
 		};
-		// console.log(postData);
+		_showRequestOptions(postData);
 
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (error, response, body) {
@@ -3973,7 +4031,7 @@ module.exports.viewGroupMembers = function (server, groupId) {
 			body: JSON.stringify(formData),
 			json: true
 		};
-		// console.log(postData);
+		_showRequestOptions(postData);
 
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (error, response, body) {
@@ -4086,7 +4144,7 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 				url: url,
 				headers: headers
 			};
-			// console.log(options);
+			_showRequestOptions(options);
 
 			var request = require('./requestUtils.js').request;
 			request.post(options, function (err, response, body) {
@@ -4115,7 +4173,7 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 						url: url,
 						headers: headers
 					};
-					// console.log(options);
+					_showRequestOptions(options);
 					request.get(options, function (err, response, body) {
 						var data = JSON.parse(body);
 						if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
@@ -4160,7 +4218,7 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 								url: url,
 								headers: headers
 							};
-							// console.log(options);
+							_showRequestOptions(options);
 
 							request.post(options, function (err, response, body) {
 								if (err) {

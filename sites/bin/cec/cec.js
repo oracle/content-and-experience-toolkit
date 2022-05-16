@@ -307,7 +307,7 @@ var getRepositoryTypes = function () {
 };
 
 var getLoggerLevels = function () {
-	const types = ['error', 'warn', 'info'];
+	const types = ['error', 'warn', 'info', 'debug'];
 	return types;
 };
 
@@ -3336,7 +3336,8 @@ const setLoggerLevel = {
 		})()
 	},
 	example: [
-		['cec sll error', 'Only the errors will be displayed']
+		['cec sll error', 'Only the errors will be displayed'],
+		['cec sll debug', 'The request options will be displayed'],
 	]
 };
 
@@ -3451,7 +3452,7 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(createDigitalAsset) + os.EOL +
 	_getCmdHelp(updateDigitalAsset) + os.EOL +
 	_getCmdHelp(copyAssets) + os.EOL +
-	_getCmdHelp(createAssetUsageReport) +
+	_getCmdHelp(createAssetUsageReport) + os.EOL +
 	_getCmdHelp(migrateContent) + os.EOL +
 	_getCmdHelp(compileContent) + os.EOL +
 	_getCmdHelp(uploadCompiledContent) + os.EOL;
@@ -7981,6 +7982,7 @@ const argv = yargs.usage(_usage)
 					return true;
 				})
 				.example(...setLoggerLevel.example[0])
+				.example(...setLoggerLevel.example[1])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${setLoggerLevel.command}\n\n${setLoggerLevel.usage.long}`);

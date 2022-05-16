@@ -1400,6 +1400,8 @@ var _readFile = function (server, fFileGUID, fileName, folderPath) {
 			encoding: null
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {

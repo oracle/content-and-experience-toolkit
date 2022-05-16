@@ -202,16 +202,15 @@ var _getDefaultDetailPageId = function () {
 var _getPageData = function (server, locale, isMaster) {
 	// console.log(' isMaster: ' + isMaster + ' locale: ' + locale);
 	return new Promise(function (resolve, reject) {
-		serverRest.getChildItems({
+		serverRest.findFolderItems({
 			server: server,
-			parentID: _pagesFolderId,
-			limit: 9999
+			parentID: _pagesFolderId
 		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
 				}
-				var items = result && result.items || [];
+				var items = result || [];
 				var files = [];
 				for (var i = 0; i < items.length; i++) {
 					var name = items[i].name;
@@ -254,6 +253,9 @@ var _readFile = function (server, id, fileName) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -356,7 +358,7 @@ var _getPageContentTypes = function (pageData) {
 
 			if (data && data.contentTypes && data.contentTypes.length > 0) {
 				for (var j = 0; j < data.contentTypes.length; j++) {
-					if (!pageContentTypes.includes(data.contentTypes[j])) {
+					if (data.contentTypes[j] && !pageContentTypes.includes(data.contentTypes[j])) {
 						pageContentTypes.push(data.contentTypes[j]);
 					}
 				}
@@ -390,7 +392,7 @@ var _getDetailPageContentTypes = function (pageData) {
 				var data = componentInstances[key].data;
 				if (data && (data.contentPlaceholder || type === 'scs-contentlist') && data.contentTypes && data.contentTypes.length > 0) {
 					for (var j = 0; j < data.contentTypes.length; j++) {
-						if (!pageContentTypes.includes(data.contentTypes[j])) {
+						if (data.contentTypes[j] && !pageContentTypes.includes(data.contentTypes[j])) {
 							pageContentTypes.push(data.contentTypes[j]);
 						}
 					}
@@ -552,6 +554,9 @@ var _getPageContent = function (server, channelToken, locale, q, pageId, detailP
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -1327,9 +1332,12 @@ var _getSiteDataWithLocale = function (server, site, locale, isMaster) {
 			var siteStructure = result;
 			pages = siteStructure && siteStructure.pages;
 
-			var sitePageFilesPromise = _getSitePageFiles(server);
+			var sitePageFilesPromise = serverRest.findFolderItems({
+				server: server,
+				parentID: _pagesFolderId
+			});
 			sitePageFilesPromise.then(function (result) {
-				pageFiles = result.files || [];
+				pageFiles = result || [];
 				if (!pageFiles || pageFiles.length === 0) {
 					console.warn('WARNING: failed to get page files');
 				}
@@ -1544,7 +1552,7 @@ var _calculatePageChangeFraq = function (server, serverName, allPageFiles) {
 		var total = allPageFiles.length;
 		console.info(' - total number of pages: ' + total);
 		var groups = [];
-		var limit = 20;
+		var limit = 12;
 		var start, end;
 		for (var i = 0; i < total / limit; i++) {
 			start = i * limit;
@@ -1577,8 +1585,7 @@ var _calculatePageChangeFraq = function (server, serverName, allPageFiles) {
 					}));
 				}
 
-				count.push('.');
-				process.stdout.write(' - calculating page change frequency ' + count.join(''));
+				process.stdout.write(' - calculating page change frequency [' + param.start + ', ' + param.end + '] ...');
 				readline.cursorTo(process.stdout, 0);
 
 				return Promise.all(versionPromises).then(function (results) {
@@ -1631,8 +1638,6 @@ var _calculatePageChangeFraq = function (server, serverName, allPageFiles) {
 									break;
 								}
 							}
-						} else {
-							console.info(' - ' + i + ' is empty');
 						}
 					}
 				});

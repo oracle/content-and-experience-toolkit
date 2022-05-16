@@ -101,6 +101,9 @@ var _getTranslationJob = function (server, jobId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -152,7 +155,8 @@ var _updateTranslationJobStatus = function (server, csrfToken, job, status) {
 			},
 			body: formDataStr
 		};
-		// console.log(postData);
+
+		serverUtils.showRequestOptions(postData);
 
 		var request = require('../test/server/requestUtils.js').request;
 		request.put(postData, function (error, response, body) {
@@ -225,7 +229,8 @@ var _validateTranslationJobSCS = function (server, idcToken, jobName, file) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(params);
+
+		serverUtils.showRequestOptions(params);
 
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(params, function (error, response, body) {
@@ -276,6 +281,8 @@ var _deployTranslationJobSCS = function (server, idcToken, jobName, file) {
 			}
 		};
 
+		serverUtils.showRequestOptions(params);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(params, function (error, response, body) {
 			if (error) {
@@ -320,6 +327,8 @@ var _getImportValidateStatusSCS = function (server, idcToken, jobId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(params);
 
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(params, function (error, response, body) {
@@ -371,6 +380,8 @@ var _getJobReponseDataSCS = function (server, idcToken, jobId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(params);
 
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(params, function (error, response, body) {
@@ -617,7 +628,8 @@ var _exportTranslationJobSCS = function (server, idcToken, jobName, siteInfo, ta
 			},
 			body: JSON.stringify(data)
 		};
-		// console.log(options);
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(options, function (err, response, body) {
@@ -825,7 +837,8 @@ var _createConnectorJob = function (translationconnector, jobName) {
 			headers: headers,
 			body: JSON.stringify(formData)
 		};
-		// console.log(postData);
+
+		serverUtils.showRequestOptions(postData);
 
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(postData, function (error, response, body) {
@@ -877,6 +890,9 @@ var _sendFileToConnector = function (translationconnector, jobId, filePath) {
 			headers: headers,
 			body: fs.createReadStream(filePath)
 		};
+
+		serverUtils.showRequestOptions(postData);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(postData, function (error, response, body) {
 			if (error) {
@@ -921,6 +937,9 @@ var _refreshConnectorJob = function (translationconnector, connection, jobId) {
 			url: url,
 			headers: headers
 		};
+
+		serverUtils.showRequestOptions(postData);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(postData, function (error, response, body) {
 			if (error) {
@@ -969,6 +988,9 @@ var _getJobFromConnector = function (translationconnector, jobId, jobName) {
 			url: url,
 			headers: headers
 		};
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -1012,6 +1034,8 @@ var _getTranslationFromConnector = function (translationconnector, jobId, target
 			headers: headers,
 			encoding: null
 		};
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
@@ -1315,6 +1339,9 @@ var _getconnectorServerInfo = function (connectorServer, user, password) {
 			method: 'GET',
 			url: url
 		};
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -2434,7 +2461,8 @@ var _ingestTranslationJobSCS = function (server, idcToken, jobId, connectorId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(params);
+
+		serverUtils.showRequestOptions(params);
 
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(params, function (error, response, body) {
@@ -2520,7 +2548,8 @@ var _refreshTranslationJobSCS = function (server, idcToken, jobId, connectorId) 
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(params);
+
+		serverUtils.showRequestOptions(params);
 
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(params, function (error, response, body) {

@@ -283,6 +283,8 @@ var _readFile = function (server, id, fileName) {
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -506,6 +508,8 @@ var _getPageContent = function (server, channelToken, q, pageId, queryType) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -984,7 +988,8 @@ var _createPageIndexItem = function (server, repositoryId, contenttype, dataInde
 				body: JSON.stringify(formData),
 				json: true
 			};
-			// console.log(JSON.stringify(postData));
+
+			serverUtils.showRequestOptions(postData);
 
 			var request = require('../test/server/requestUtils.js').request;
 			request.post(postData, function (err, response, body) {
@@ -1035,6 +1040,9 @@ var _itemPublishInfo = function (server, itemId, pageName) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -1175,6 +1183,9 @@ var _updatePageIndexItem = function (server, dataIndex, locale, isMaster) {
 				body: JSON.stringify(indexData),
 				json: true
 			};
+
+			serverUtils.showRequestOptions(postData);
+			
 			var request = require('../test/server/requestUtils.js').request;
 			request.post(postData, function (err, response, body) {
 				if (err) {

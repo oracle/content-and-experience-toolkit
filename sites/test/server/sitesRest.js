@@ -33,6 +33,8 @@ var _getResources = function (server, type, expand, offset) {
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		request.get(options, function (error, response, body) {
 			var result = {};
 
@@ -161,6 +163,8 @@ var _getResource = function (server, type, id, name, expand, showError, includeD
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -291,6 +295,8 @@ var _getSiteContentTypes = function (server, id, name) {
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			var result = {};
@@ -366,6 +372,8 @@ var _getSiteAccess = function (server, id, name) {
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			var result = {};
@@ -428,6 +436,8 @@ var _removeSiteAccess = function (server, id, name, member) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.delete(options, function (error, response, body) {
@@ -498,6 +508,8 @@ var _grantSiteAccess = function (server, id, name, member) {
 			json: true
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
@@ -566,7 +578,9 @@ var _setSiteRuntimeAccess = function (server, id, name, accessList) {
 			body: JSON.stringify(body),
 			json: true
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.patch(options, function (error, response, body) {
@@ -636,7 +650,9 @@ var _setSiteStaticDeliveryOptions = function (server, id, name, staticDeliveryOp
 			body: JSON.stringify(body),
 			json: true
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.patch(options, function (error, response, body) {
@@ -703,7 +719,8 @@ var _refreshSiteContent = function (server, id, name) {
 			}
 		};
 
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
+		
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
@@ -790,7 +807,9 @@ var _exportResource = function (server, type, id, name) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
@@ -859,7 +878,8 @@ var _exportResourceAsync = function (server, type, id, name) {
 			},
 			url: server.url + url
 		};
-		// console.log(options);
+		
+		serverUtils.showRequestOptions(options);
 
 		var resource = type.substring(0, type.length - 1);
 
@@ -969,7 +989,8 @@ var _publishResource = function (server, type, id, name, hideAPI) {
 			},
 			timeout: 3600000
 		};
-		// console.log(options);
+
+		serverUtils.showRequestOptions(options);
 
 		var startTime = new Date();
 		var request = require('./requestUtils.js').request;
@@ -1061,7 +1082,8 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 			options.body = JSON.stringify(body);
 			options.json = true;
 		}
-		// console.log(options);
+
+		serverUtils.showRequestOptions(options);
 
 		var resTitle = type.substring(0, type.length - 1);
 
@@ -1183,7 +1205,8 @@ var _unpublishResource = function (server, type, id, name) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
@@ -1252,7 +1275,8 @@ var _setSiteOnlineStatus = function (server, id, name, status) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
@@ -1332,7 +1356,8 @@ var _validateSite = function (server, id, name) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
@@ -1396,7 +1421,8 @@ var _softDeleteResource = function (server, type, id, name) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.delete(options, function (error, response, body) {
@@ -1449,7 +1475,8 @@ var _hardDeleteResource = function (server, type, id, name, showError) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.delete(options, function (error, response, body) {
@@ -1569,7 +1596,8 @@ var _importComponent = function (server, name, fileId) {
 			timeout: 3600000,
 			json: true
 		};
-		// console.log(options);
+		
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
@@ -1658,6 +1686,8 @@ var _getBackgroundJobStatus = function (server, url) {
 			endpoint = endpoint.substring(endpoint.indexOf('/'));
 		}
 
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 
@@ -1724,7 +1754,8 @@ var _createTemplateFromSite = function (server, name, siteName, includeUnpublish
 			body: JSON.stringify(body),
 			json: true
 		};
-		// console.log(options);
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
@@ -1830,8 +1861,7 @@ var _importTemplate = function (server, name, fileId) {
 			json: true
 		};
 
-		// console.log(JSON.stringify(options, null, 4));
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
@@ -1970,7 +2000,8 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 			body: JSON.stringify(body),
 			json: true
 		};
-		// console.log(options);
+		
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
@@ -2134,7 +2165,8 @@ var _copySite = function (server, sourceSiteName, name, description, sitePrefix,
 			body: JSON.stringify(body),
 			json: true
 		};
-		// console.log(options);
+		
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
@@ -2242,7 +2274,8 @@ var _siteUpdated = function (server, name) {
 						body: JSON.stringify(body),
 						json: true
 					};
-					// console.log(options);
+
+					serverUtils.showRequestOptions(options);
 
 					var request = require('./requestUtils.js').request;
 					request.patch(options, function (error, response, body) {
@@ -2310,6 +2343,8 @@ var _createUpdate = function (server, siteId, name) {
 			}),
 			json: true
 		};
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (err, response, body) {
@@ -2388,6 +2423,8 @@ var _shareSite = function (server, id, name, member, role) {
 			json: true
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
@@ -2457,7 +2494,8 @@ var _copyResource = function (server, type, srcId, srcName, name, desc) {
 			body: JSON.stringify(body),
 			json: true
 		};
-		// console.log(options);
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -2536,7 +2574,8 @@ var _copyResourceAsync = function (server, type, srcId, srcName, name, desc) {
 			body: JSON.stringify(body),
 			json: true
 		};
-		// console.log(options);
+		
+		serverUtils.showRequestOptions(options);
 
 		var typeLabel = type.substring(0, type.length - 1);
 

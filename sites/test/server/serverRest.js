@@ -35,7 +35,7 @@ var _createFolder = function (server, parentID, foldername) {
 			body: JSON.stringify(body),
 			json: true
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
@@ -91,6 +91,9 @@ var _copyFolder = function (server, folderId, targetFolderId) {
 			},
 			body: JSON.stringify(body)
 		};
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
@@ -273,7 +276,9 @@ var _findFolderItems = function (server, parentId, parentPath, _files) {
 							id: items[i].id,
 							path: parentPath ? parentPath + '/' + items[i].name : items[i].name,
 							size: items[i].size,
-							version: items[i].version
+							version: items[i].version,
+							name: items[i].name,
+							lastModifiedDate: items[i].modifiedTime
 						});
 					} else {
 						_files.push({
@@ -317,6 +322,8 @@ var _deleteFolder = function (server, fFolderGUID, folderPath) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			},
 		};
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.delete(options, function (error, response, body) {
@@ -372,7 +379,7 @@ var _getChildItems = function (server, parentID, limit, offset) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -425,6 +432,8 @@ var _getFolderMetadata = function (server, folderId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -487,7 +496,7 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -564,6 +573,8 @@ var _createFile = function (server, parentID, filename, contents, filepath) {
 			body: form
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		// console.log(' - uploading file ...');
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
@@ -621,6 +632,8 @@ var _readFile = function (server, fFileGUID) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -670,6 +683,8 @@ var _getFile = function (server, id) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -718,6 +733,8 @@ var _downloadFile = function (server, fFileGUID) {
 			},
 			encoding: null
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -779,6 +796,8 @@ var _deleteFile = function (server, fFileGUID, filePath) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.delete(options, function (error, response, body) {
 			if (error) {
@@ -831,6 +850,8 @@ var _copyFile = function (server, fileId, targetFolderId) {
 			},
 			body: JSON.stringify(body)
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
@@ -881,7 +902,8 @@ var _getFileVersions = function (server, fFileGUID) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -916,6 +938,51 @@ module.exports.getFileVersions = function (args) {
 	return _getFileVersions(args.server, args.fFileGUID);
 };
 
+// Create folder public link on server
+var _createFolderPublicLink = function (server, folderId, role) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/api/1.2/publiclinks/folder/' + folderId;
+		var payload = {
+			roleName: role,
+			assignedUsers: '@everybody'
+		};
+		var options = {
+			method: 'POST',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(payload)
+		};
+		serverUtils.showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: failed to create folder public link ' + folderId + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
+				resolve();
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve(data && data.id);
+			} else {
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.error('ERROR: failed to create folder public link ' + folderId + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				resolve();
+			}
+		});
+	});
+};
+module.exports.createFolderPublicLink = function (args) {
+	return _createFolderPublicLink(args.server, args.folderId, args.role);
+};
+
 var _getUser = function (server, userName) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/documents/api/1.2/users/items?info=' + userName;
@@ -926,6 +993,8 @@ var _getUser = function (server, userName) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -974,6 +1043,8 @@ var _getFolderUsers = function (server, folderId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -1046,6 +1117,7 @@ var _shareFolder = function (server, folderId, userId, role, createNew) {
 			body: JSON.stringify(body),
 			json: true
 		};
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
@@ -1105,6 +1177,7 @@ var _unshareFolder = function (server, folderId, userId) {
 			body: JSON.stringify(body),
 			json: true
 		};
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.delete(options, function (error, response, body) {
@@ -1162,6 +1235,8 @@ var _getItem = function (server, id, expand) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -1211,6 +1286,8 @@ var _getItemRelationships = function (server, id) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -1277,6 +1354,8 @@ var _getItemVariations = function (server, id) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -1361,9 +1440,12 @@ var _queryItems = function (useDelivery, server, q, fields, orderBy, limit, offs
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
+
 		var query = url.substring(url.indexOf('?') + 1);
 		// console.log(query);
-		var request = require('./requestUtils.js').request;
+		var request = server.request || require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
 				console.error('ERROR: failed to query items with ' + query + ' (ecid: ' + response.ecid + ')');
@@ -1407,6 +1489,8 @@ var _scrollItems = function (server, url) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var query = url.substring(url.indexOf('?') + 1);
 		// console.log(query);
 		var request = require('./requestUtils.js').request;
@@ -1579,6 +1663,8 @@ var _getAllItemIds = function (server, repositoryId, channelId, publishedassets)
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var query = url.substring(url.indexOf('?') + 1);
 		// console.log(query);
 		var request = require('./requestUtils.js').request;
@@ -1656,7 +1742,8 @@ var _createItem = function (server, repositoryId, type, name, desc, fields, lang
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
@@ -1749,7 +1836,8 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 					},
 					body: form
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
@@ -1855,7 +1943,7 @@ var _createDigitalItemFromDocuments = function (server, repositoryId, type, docI
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
@@ -2009,7 +2097,8 @@ var _updateDigitalItem = function (server, item, contents) {
 					postData.headers['Content-Type'] = 'application/json';
 					postData.body = JSON.stringify(item);
 				}
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
@@ -2089,7 +2178,8 @@ var _createCollection = function (server, repositoryId, name, channels) {
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
@@ -2155,7 +2245,7 @@ var _updateCollection = function (server, repositoryId, collection) {
 					body: JSON.stringify(collection),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
@@ -2230,6 +2320,7 @@ var _deleteCollection = function (server, repositoryId, collection) {
 						Authorization: serverUtils.getRequestAuthorization(server)
 					}
 				};
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
@@ -2309,6 +2400,8 @@ var _createChannel = function (server, name, channelType, description, publishPo
 					json: true
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
@@ -2375,6 +2468,8 @@ var _deleteChannel = function (server, id) {
 					}
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
@@ -2433,6 +2528,8 @@ var _deleteRepository = function (server, id) {
 						Authorization: serverUtils.getRequestAuthorization(server)
 					}
 				};
+
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
@@ -2493,6 +2590,8 @@ var _deleteContentType = function (server, name) {
 						Authorization: serverUtils.getRequestAuthorization(server)
 					}
 				};
+
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
@@ -2566,7 +2665,7 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 					body: JSON.stringify(data),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
@@ -2648,6 +2747,8 @@ var _getResources = function (server, endpoint, type, fields, offset, q, orderBy
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
 
 		request.get(options, function (error, response, body) {
 			var result = {};
@@ -2733,6 +2834,8 @@ var _getChannel = function (server, channelId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -2798,7 +2901,7 @@ module.exports.getChannelWithName = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -2937,7 +3040,7 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 					body: JSON.stringify(formData),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
@@ -2961,7 +3064,8 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 						statusId = statusId.substring(statusId.lastIndexOf('/') + 1);
 						return resolve({
 							statusId: statusId,
-							data: data
+							data: data,
+							ecid: response.ecid
 						});
 					} else {
 						var msg = data ? (data.detail || data.title) : response.statusMessage;
@@ -3155,6 +3259,8 @@ var _getPublishingJobItems = function (server, jobId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -3202,6 +3308,9 @@ var _getItemOperationStatus = function (server, statusId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -3306,6 +3415,7 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 					body: JSON.stringify(formData),
 					json: true
 				};
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
@@ -3409,6 +3519,8 @@ var _getLocalizationPolicy = function (server, id) {
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -3476,6 +3588,8 @@ var _createLocalizationPolicy = function (server, name, description, requiredLan
 					body: JSON.stringify(payload),
 					json: true
 				};
+
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
@@ -3550,6 +3664,8 @@ var _updateLocalizationPolicy = function (server, id, name, data) {
 					json: true
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
 					if (error) {
@@ -3612,6 +3728,8 @@ var _deleteLocalizationPolicy = function (server, id) {
 					}
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
@@ -3672,6 +3790,8 @@ var _getRepository = function (server, repoId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -3737,7 +3857,7 @@ module.exports.getRepositoryWithName = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -3822,7 +3942,7 @@ module.exports.getCollectionWithName = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -3885,6 +4005,8 @@ var _getTaxonomies = function (server, offset) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -3979,7 +4101,7 @@ module.exports.getTaxonomy = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -4036,7 +4158,7 @@ module.exports.getTaxonomyWithName = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -4125,6 +4247,8 @@ var _getResourcePermissions = function (server, id, type, repositoryId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -4215,7 +4339,7 @@ var _setPermissionSets = function (server, id, name, action, permissions) {
 					body: JSON.stringify(permissions),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
@@ -4304,7 +4428,8 @@ var _createRepository = function (server, name, description, contentTypes, chann
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
@@ -4396,7 +4521,8 @@ var _updateRepository = function (server, repository, contentTypes, channels,
 					body: JSON.stringify(data),
 					json: true
 				};
-				// console.log(JSON.stringify(data, null, 4));
+
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
@@ -4519,6 +4645,8 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 					json: true
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
@@ -4621,7 +4749,7 @@ module.exports.getEditorialRoleWithName = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -4706,7 +4834,7 @@ var _createEditorialRole = function (server, name, description) {
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
@@ -4772,7 +4900,7 @@ var _updateEditorialRole = function (server, role) {
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
 
 				var request = require('./requestUtils.js').request;
 				request.put(options, function (error, response, body) {
@@ -4834,7 +4962,7 @@ var _deleteEditorialRole = function (server, id, name) {
 						Authorization: serverUtils.getRequestAuthorization(server)
 					}
 				};
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
 
 				var request = require('./requestUtils.js').request;
 				request.delete(options, function (error, response, body) {
@@ -4904,6 +5032,8 @@ var _getContentType = function (server, typeName, expand, showError) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -4973,6 +5103,8 @@ var _createContentType = function (server, typeObj) {
 					json: true
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
@@ -5022,6 +5154,9 @@ var _getUpdateTypeStatus = function (server, statusUrl) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -5074,6 +5209,8 @@ var _updateContentType = function (server, typeObj) {
 					body: JSON.stringify(payload),
 					json: true
 				};
+
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
@@ -5298,6 +5435,8 @@ var _getTaxonomyExportStatus = function (server, id, jobId) {
 			}
 		};
 
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -5351,6 +5490,8 @@ var _exportTaxonomy = function (server, id, name, status) {
 					body: JSON.stringify(payload),
 					json: true
 				};
+
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
@@ -5459,6 +5600,8 @@ var _getTaxonomyImportStatus = function (server, jobId) {
 			}
 		};
 
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -5516,7 +5659,7 @@ var _importTaxonomy = function (server, fileId, name, isNew, hasNewIds, taxonomy
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
@@ -5610,6 +5753,9 @@ var _getTaxonomyActionStatus = function (server, url, action) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -5667,7 +5813,7 @@ var _controlTaxonomy = function (server, id, name, action, isPublishable, channe
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
@@ -5784,7 +5930,8 @@ var _createTaxonomy = function (server, name, description, shortName) {
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
@@ -5856,7 +6003,8 @@ var _addCategorytoTaxonomy = function (server, taxonomyId, name, description, pa
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
@@ -5920,7 +6068,8 @@ var _deleteTaxonomy = function (server, id, name, status) {
 						Authorization: serverUtils.getRequestAuthorization(server)
 					},
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
@@ -5995,6 +6144,9 @@ var _getContentJobStatus = function (server, jobId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -6064,7 +6216,7 @@ var _exportRecommendation = function (server, id, name, published, publishedChan
 					},
 					body: JSON.stringify(postData)
 				};
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
 
 				var request = require('./requestUtils.js').request;
 				request.post(options, function (err, response, body) {
@@ -6148,7 +6300,7 @@ var _updateRecommendation = function (server, recommendation) {
 					body: JSON.stringify(recommendation2),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
@@ -6251,6 +6403,9 @@ var _getRecommendationActionStatus = function (server, url, action) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -6304,7 +6459,7 @@ var _publishUnpublishRecommendation = function (server, id, name, channels, acti
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
@@ -6435,7 +6590,8 @@ var _importContent = function (server, fileId, repositoryId, channelId, update) 
 					},
 					body: JSON.stringify(postData)
 				};
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
+
 				var request = require('./requestUtils.js').request;
 				request.post(options, function (err, response, body) {
 					if (err) {
@@ -6582,7 +6738,7 @@ var _exportContentItem = function (server, id, name, published) {
 					auth: auth,
 					body: JSON.stringify(postData)
 				};
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
 
 				request(options, function (err, response, body) {
 					if (err) {
@@ -6659,6 +6815,8 @@ var _updateRenditionStatus = function (server, isMultiPart, jobId, status, progr
 						'X-REQUESTED-WITH': 'XMLHttpRequest'
 					};
 
+					serverUtils.showRequestOptions(options);
+
 					var multiPartFormRequest = request.post(options, function optionalCallback(error, response, body) {
 						if (error) {
 							console.error('updateRenditionStatus: ' + error);
@@ -6715,6 +6873,7 @@ var _updateRenditionStatus = function (server, isMultiPart, jobId, status, progr
 						"compiledAt": compiledAt
 					});
 
+					serverUtils.showRequestOptions(options);
 
 					// console.log(' - uploading file ...');
 					request(options, function (error, response, body) {
@@ -6784,7 +6943,7 @@ var _importCompiledContent = function (server, filePath) {
 					},
 					body: form
 				};
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
 
 				var request = require('./requestUtils.js').request;
 				request.post(options, function (err, response, body) {
@@ -6892,7 +7051,7 @@ var _publishLaterChannelItems = function (server, name, items, channelId, reposi
 					auth: auth,
 					body: JSON.stringify(postData)
 				};
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
 
 				request(options, function (err, response, body) {
 					if (err) {
@@ -6966,7 +7125,8 @@ var _getGroups = function (server, count, offset) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -7213,6 +7373,8 @@ var _getGroupMembers = function (server, id, name) {
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -7271,7 +7433,7 @@ var _createConnection = function (request, server) {
 			},
 		};
 
-		// console.log(postData);
+		serverUtils.showRequestOptions(postData);
 
 		request.post(postData, function (error, response, body) {
 			if (error) {
@@ -7333,7 +7495,8 @@ var _getGroup = function (server, name) {
 			}
 		};
 
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -7398,7 +7561,9 @@ var _createGroup = function (server, name, type) {
 						json: true
 					};
 					addCachedCookiesForRequest(server, postData);
-					// console.log(postData);
+
+					serverUtils.showRequestOptions(postData);
+
 					request.post(postData, function (error, response, body) {
 						if (error) {
 							console.error('ERROR: create group ' + name + ' (ecid: ' + response.ecid + ')');
@@ -7479,6 +7644,9 @@ var _deleteGroup = function (server, id, name) {
 						}
 					};
 					addCachedCookiesForRequest(server, postData);
+
+					serverUtils.showRequestOptions(postData);
+
 					request.delete(postData, function (error, response, body) {
 						if (error) {
 							console.error('ERROR: delete group ' + (name || id) + ' (ecid: ' + response.ecid + ')');
@@ -7539,7 +7707,9 @@ var _addMemberToGroup = function (request, cookieStore, server, apiRandomID, id,
 			json: true
 		};
 		addCachedCookiesForRequest(server, postData);
-		// console.log(JSON.stringify(postData, null, 4));
+
+		serverUtils.showRequestOptions(postData);
+
 		request.post(postData, function (error, response, body) {
 			if (error) {
 				console.error('ERROR: add member ' + (memberName || memberId) + ' to group ' + (name || id) + ' (ecid: ' + response.ecid + ')');
@@ -7629,7 +7799,9 @@ var _removeMemberFromGroup = function (request, cookieStore, server, apiRandomID
 			}
 		};
 		addCachedCookiesForRequest(server, postData);
-		// console.log(postData);
+
+		serverUtils.showRequestOptions(postData);
+
 		request.delete(postData, function (error, response, body) {
 			if (error) {
 				console.error('ERROR: remove member ' + (memberName || memberId) + ' from group ' + (name || id) + ' (ecid: ' + response.ecid + ')');
@@ -7729,11 +7901,14 @@ var _executeGet = function (server, endpoint, noMsg) {
 		if (server.cookies) {
 			options.headers.Cookie = server.cookies;
 		}
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		if (showDetail) {
 			console.log(' - executing endpoint: ' + endpoint);
 		}
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
@@ -7787,11 +7962,14 @@ var _executeGetStream = function (server, endpoint, writer, noMsg) {
 		if (server.cookies) {
 			options.headers.Cookie = server.cookies;
 		}
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		if (showDetail) {
 			console.log(' - executing endpoint: ' + endpoint);
 		}
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.getStream(options, function (err, response, body) {
 			if (err) {
@@ -7833,6 +8011,7 @@ var _executeGetStream = function (server, endpoint, writer, noMsg) {
  * @param {object} args JavaScript object containing parameters.
  * @param {string} args.server The server object
  * @param {string} args.endpoint The REST endpoint
+ * @param {string} args.contentType The request content type
  * @param {string} args.body The JSON object for the request payload
  * @param {boolean} args.async Send asynchronous request
  * @returns
@@ -7847,6 +8026,7 @@ module.exports.executePost = function (args) {
 		var body = args.body;
 		var isFormDataStream = args.isStream;
 		var async = args.async;
+		var contentType = args.contentType;
 
 		var caasTokenPromises = [];
 		if (isCAAS) {
@@ -7871,6 +8051,9 @@ module.exports.executePost = function (args) {
 				if (async) {
 					postData.headers['Prefer'] = 'respond-async';
 				}
+				if (contentType) {
+					postData.headers['Content-Type'] = contentType;
+				}
 				if (body) {
 					if (isFormDataStream) {
 						postData.body = body;
@@ -7880,7 +8063,7 @@ module.exports.executePost = function (args) {
 						postData.body = JSON.stringify(body);
 					}
 				}
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				console.info(' - executing endpoint: POST ' + endpoint);
 				var request = require('./requestUtils.js').request;
@@ -7997,7 +8180,7 @@ module.exports.executePut = function (args) {
 					postData.headers['Content-Type'] = 'application/json';
 					postData.body = JSON.stringify(body);
 				}
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				console.info(' - executing endpoint: PUT ' + endpoint);
 				var request = require('./requestUtils.js').request;
@@ -8068,7 +8251,7 @@ module.exports.executePatch = function (args) {
 					postData.headers['Content-Type'] = 'application/json';
 					postData.body = JSON.stringify(body);
 				}
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				console.info(' - executing endpoint: PATCH ' + endpoint);
 				var request = require('./requestUtils.js').request;
@@ -8138,7 +8321,7 @@ module.exports.executeDelete = function (args) {
 				if (csrfToken) {
 					options.headers['X-CSRF-TOKEN'] = csrfToken;
 				}
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
 
 				console.info(' - executing endpoint: DELETE ' + endpoint);
 				var request = require('./requestUtils.js').request;
@@ -8201,6 +8384,8 @@ var _queryScheduledJobs = function (server, repositoryId, startDate, endDate) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -8266,7 +8451,8 @@ var _cancelScheduledJob = function (server, id) {
 					})
 				};
 
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
@@ -8364,6 +8550,8 @@ var _createAssetTranslation = function (server, name, repositoryId, collectionId
 					body: JSON.stringify(payload),
 					json: true
 				};
+
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
@@ -8517,6 +8705,8 @@ var _createTaxonomy = function (server, name, shortName) {
 					body: JSON.stringify(postData)
 				};
 
+				serverUtils.showRequestOptions(options);
+
 				var request = require('./requestUtils.js').request;
 				request.post(options, function (err, response, body) {
 					if (err) {
@@ -8586,6 +8776,8 @@ var _deleteTaxonomy = function (server, id, status) {
 					}
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
@@ -8652,6 +8844,8 @@ var _createCategory = function (server, name, parentId, position) {
 					},
 					body: JSON.stringify(postData)
 				};
+
+				serverUtils.showRequestOptions(options);
 
 				var request = require('./requestUtils.js').request;
 				request.post(options, function (error, response, body) {
@@ -8749,7 +8943,7 @@ module.exports.getWorkflowsWithName = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -8827,7 +9021,7 @@ module.exports.getTranslationConnector = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -8880,6 +9074,9 @@ var _getTranslationStatus = function (server, statusUrl, action) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -8940,6 +9137,8 @@ var _importAssetTranslation = function (server, csrfToken, action, job, fFileGUI
 			body: JSON.stringify(payload),
 			json: true
 		};
+
+		serverUtils.showRequestOptions(postData);
 
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (error, response, body) {
@@ -9080,7 +9279,8 @@ var _createConversation = function (server, name, isDiscoverable) {
 						json: true
 					};
 					addCachedCookiesForRequest(server, postData);
-					// console.log(postData);
+
+					serverUtils.showRequestOptions(postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
 							console.error('ERROR: create conversation ' + name);
@@ -9224,7 +9424,7 @@ var _getConversation = function (server, conversationId) {
 						json: true
 					};
 					addCachedCookiesForRequest(server, postData);
-					// console.log(postData);
+					serverUtils.showRequestOptions(postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
 							console.error('ERROR: get conversation ' + conversationId);
@@ -9293,7 +9493,7 @@ var _deleteConversation = function (server, conversationId) {
 						json: true
 					};
 					addCachedCookiesForRequest(server, postData);
-					// console.log(postData);
+					serverUtils.showRequestOptions(postData);
 					request.patch(postData, function (error, response, body) {
 						if (error) {
 							console.error('ERROR: delete conversation ' + conversationId);
@@ -9887,7 +10087,7 @@ var _createFolderConversation = function (server, folderId, name) {
 			json: true,
 			body: JSON.stringify(payload)
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {

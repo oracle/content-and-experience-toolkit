@@ -280,7 +280,7 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 						if (q) {
 							q = q + ' AND ';
 						}
-						q = q + 'status eq "published" AND publishedChannels co "' + channelId + '"';
+						q = q + 'isPublished eq "true" AND publishedChannels co "' + channelId + '"';
 					} else {
 						if (channelId) {
 							if (q) {
@@ -620,6 +620,7 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 					Authorization: serverUtils.getRequestAuthorization(server)
 				}
 			};
+
 			request.get(options, function (err, response, body) {
 				if (err) {
 					console.error('ERROR: Failed to get CSRF token');
@@ -679,7 +680,8 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 				},
 				body: JSON.stringify(postData)
 			};
-			// console.log(JSON.stringify(options));
+			
+			serverUtils.showRequestOptions(options);
 
 			request.post(options, function (err, response, body) {
 				if (err) {
@@ -1434,7 +1436,8 @@ var _importContent = function (server, csrfToken, contentZipFileId, repositoryId
 			},
 			body: JSON.stringify(postData)
 		};
-		// console.log(options);
+		
+		serverUtils.showRequestOptions(options);
 
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(options, function (err, response, body) {
@@ -2016,6 +2019,8 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror, asy
 			if (!result || !result.statusId) {
 				return resolve({});
 			} else {
+
+				var ecid = result.ecid;
 				//
 				// wait the action to finish
 				//
@@ -2044,7 +2049,8 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror, asy
 							}
 							var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
 							if (showerror) {
-								console.error('ERROR: ' + action + ' failed: ' + msg);
+								console.error('ERROR: ' + action + ' failed: ' + msg + (ecid ? ' (ecid: ' + ecid + ')' : ''));
+								console.error(data);
 								if (data && data.error && data.error.validation) {
 									_displayValidation(data.error.validation, action);
 								}
@@ -3179,7 +3185,8 @@ var _exportContentIC = function (server, collectionId, exportfilepath) {
 			},
 			body: JSON.stringify(postData)
 		};
-		// console.log(options);
+		
+		serverUtils.showRequestOptions(options);
 
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(options, function (err, response, body) {
@@ -3233,6 +3240,9 @@ var _exportContentIC = function (server, collectionId, exportfilepath) {
 									},
 									encoding: null
 								};
+
+								serverUtils.showRequestOptions(options);
+
 								//
 								// Download the export zip
 								request.get(options, function (err, response, body) {
@@ -3293,7 +3303,7 @@ var _getSiteAssetsFromOtherRepos = function (server, siteChannelId, siteReposito
 		}
 		var q = 'repositoryId ne "' + siteRepositoryId + '" AND channels co "' + siteChannelId + '"';
 		if (publishedassets) {
-			q = q + ' AND status eq "published"';
+			q = q + ' AND isPublished eq "true"';
 		}
 		return serverRest.queryItems({
 			server: server,
@@ -3313,7 +3323,7 @@ var _siteHasAssets = function (server, siteChannelId, siteRepositoryId, publishe
 		}
 		var q = 'repositoryId eq "' + siteRepositoryId + '" AND channels co "' + siteChannelId + '"';
 		if (publishedassets) {
-			q = q + ' AND status eq "published"';
+			q = q + ' AND isPublished eq "true"';
 		}
 		serverRest.queryItems({
 			server: server,

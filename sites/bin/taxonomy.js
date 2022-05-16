@@ -161,6 +161,9 @@ module.exports.downloadTaxonomy = function (argv, done) {
 						},
 						encoding: null
 					};
+
+					serverUtils.showRequestOptions(options);
+
 					//
 					// Download the export zip
 					var request = require('../test/server/requestUtils.js').request;

@@ -2866,7 +2866,8 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 					body: JSON.stringify(body),
 					json: true
 				};
-				// console.log(postData);
+
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('../test/server/requestUtils.js').request;
 				request.post(postData, function (err, response, body) {
@@ -3490,19 +3491,27 @@ var _displaySiteValidation = function (validation) {
 
 var _displayAssetValidation = function (validations) {
 	var policyValidation;
+	var error = '';
 	for (var i = 0; i < validations.length; i++) {
 		var val = validations[i];
 		Object.keys(val).forEach(function (key) {
 			if (key === 'policyValidation') {
 				policyValidation = val[key];
 			}
+			if (key === 'error') {
+				error = val[key];
+			}
 		});
+	}
+
+	var valid = policyValidation.hasOwnProperty('valid') ? policyValidation.valid : true;
+	if (policyValidation.error) {
+		error = error + ' ' + policyValidation.error;
 	}
 
 	var format = '  %-12s : %-s';
 
 	var items = policyValidation.items;
-	var valid = true;
 	for (var i = 0; i < items.length; i++) {
 		var val = items[i].validations;
 
@@ -3527,6 +3536,10 @@ var _displayAssetValidation = function (validations) {
 	}
 	if (valid) {
 		console.log('  is valid: ' + valid);
+	}
+	if (error) {
+		console.log('  is valid: ' + valid);
+		console.error('ERROR: ' + error);
 	}
 
 };
@@ -3584,9 +3597,11 @@ var _validateSiteREST = function (server, siteName, done) {
 		})
 		.then(function (result) {
 			if (!result || result.err) {
-				return Promise.reject();
+				// return Promise.reject();
+				// continue to validate assets
+			} else {
+				siteValidation = result;
 			}
-			siteValidation = result;
 
 			// query channel items
 			var q = 'channelToken eq "' + channelToken + '"';
@@ -3635,8 +3650,10 @@ var _validateSiteREST = function (server, siteName, done) {
 					//
 					// Display result
 					//
-					console.log('Site Validation:');
-					_displaySiteValidation(siteValidation);
+					if (siteValidation) {
+						console.log('Site Validation:');
+						_displaySiteValidation(siteValidation);
+					}
 
 					console.log('Assets Validation:');
 					if (data.result && data.result.body && data.result.body.operations && data.result.body.operations.validatePublish && data.result.body.operations.validatePublish.validationResults) {
@@ -5157,6 +5174,9 @@ var _doGet = function (url) {
 		var options = {
 			url: url
 		};
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {

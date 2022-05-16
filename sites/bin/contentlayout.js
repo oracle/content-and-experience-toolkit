@@ -192,53 +192,59 @@ module.exports.createContentLayout = function (argv, done) {
 	}
 
 	var addcustomsettings = typeof argv.addcustomsettings === 'string' && argv.addcustomsettings.toLowerCase() === 'true';
-console.log(useserver);
+	
 	if (useserver) {
 
-		// verify the content type
-		var typesPromise = serverRest.getContentTypes({
-			server: server
-		});
-		typesPromise.then(function (result) {
-			var types = result || [];
-			var foundtype = false,
-				contenttype;
-			for (var i = 0; i < types.length; i++) {
-				if (types[i].name === contenttypename) {
-					contenttype = types[i];
-					foundtype = true;
-					break;
+		serverUtils.loginToServer(server).then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage);
+				done();
+				return;
+			}
+			// verify the content type
+			var typesPromise = serverRest.getContentTypes({
+				server: server
+			});
+			typesPromise.then(function (result) {
+				var types = result || [];
+				var foundtype = false,
+					contenttype;
+				for (var i = 0; i < types.length; i++) {
+					if (types[i].name === contenttypename) {
+						contenttype = types[i];
+						foundtype = true;
+						break;
+					}
 				}
-			}
-			if (!foundtype) {
-				console.error('ERROR: invalid content type ' + contenttypename);
-				done();
-				return;
-			}
+				if (!foundtype) {
+					console.error('ERROR: invalid content type ' + contenttypename);
+					done();
+					return;
+				}
 
-			var typefields = contenttype.fields;
+				var typefields = contenttype.fields;
 
-			if (!typefields || typefields.length === 0) {
-				console.error('ERROR: content type ' + contenttypename + ' does not have any field');
-				done();
-				return;
-			}
-			var fields = [],
-				typeprefix = contenttypename.toLowerCase();
+				if (!typefields || typefields.length === 0) {
+					console.error('ERROR: content type ' + contenttypename + ' does not have any field');
+					done();
+					return;
+				}
+				var fields = [],
+					typeprefix = contenttypename.toLowerCase();
 
-			for (var i = 0; i < typefields.length; i++) {
-				var field = typefields[i];
-				fields[fields.length] = field;
-			}
-			if (fields.length === 0) {
-				console.error('ERROR: content type ' + contenttypename + ' does not have any field');
-				done();
-				return;
-			}
+				for (var i = 0; i < typefields.length; i++) {
+					var field = typefields[i];
+					fields[fields.length] = field;
+				}
+				if (fields.length === 0) {
+					console.error('ERROR: content type ' + contenttypename + ' does not have any field');
+					done();
+					return;
+				}
 
-			contenttype['fields'] = fields;
-			_createContentLayout(contenttypename, contenttype, layoutname, layoutstyle, true, addcustomsettings, done);
-
+				contenttype['fields'] = fields;
+				_createContentLayout(contenttypename, contenttype, layoutname, layoutstyle, true, addcustomsettings, done);
+			});
 		});
 
 	} else {

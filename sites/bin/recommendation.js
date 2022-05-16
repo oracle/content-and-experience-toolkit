@@ -245,6 +245,9 @@ module.exports.downloadRecommendation = function (argv, done) {
 									},
 									encoding: null
 								};
+
+								serverUtils.showRequestOptions(options);
+								
 								//
 								// Download the export zip
 								var request = require('../test/server/requestUtils.js').request;

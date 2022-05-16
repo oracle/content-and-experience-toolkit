@@ -108,6 +108,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 			var contentLayoutNames = [];
 			var typePromises = [];
 			var comps = [];
+			var contentDownloaded = false;
 
 			var otherAssets = [];
 			var hasAssets = false;
@@ -167,12 +168,12 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					console.info(' - content types: ' + contentTypeNames);
 
 					// query content layout mappings if needed
-					if (excludeContent && contentTypeNames.length > 0) {
+					if (!excludeType && contentTypeNames.length > 0) {
 						contentTypeNames.forEach(function (typeName) {
 							typePromises.push(serverRest.getContentType({
 								server: server,
 								name: typeName,
-								expand: 'layoutMapping'
+								expand: 'all'
 							}));
 						});
 					}
@@ -273,7 +274,6 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					hasAssets = result && result.hasAssets;
 					if (isEnterprise && !hasAssets) {
 						console.info(' - site does not have any asset');
-						excludeContent = true;
 					}
 
 					return contentUtils.getSiteAssetsFromOtherRepos(server, channelId, repositoryId);
@@ -292,20 +292,19 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						console.info(' - referenced items: ' + referenceAssetIds.length);
 						if (referenceAssetIds.length === 0) {
 							// no content to include
-							excludeContent = true;
 							hasAssets = false;
 						}
 					}
 
-					var downloadContentPromises = (excludeContent || !isEnterprise) ? [] : [_downloadContent(server, name, channelName, channelId, repositoryName, repositoryId, excludeType, publishedassets, referenceAssetIds)];
-
+					var downloadContentPromises = (!hasAssets || excludeContent || !isEnterprise) ? [] : [_downloadContent(server, name, channelName, channelId, repositoryName, repositoryId, excludeType, publishedassets, referenceAssetIds)];
 					return Promise.all(downloadContentPromises);
 				})
 				.then(function (results) {
-					if (!excludeContent && isEnterprise) {
+					if (!excludeContent && isEnterprise && hasAssets) {
 						if (!results || !results[0] || results[0].err) {
 							return Promise.reject();
 						}
+						contentDownloaded = true;
 					}
 
 					// query content layout mappings
@@ -313,8 +312,8 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 				})
 				.then(function (results) {
-					if (hasAssets && excludeContent && !excludeType) {
-						var types = results || [];
+					var types = results || [];
+					if (!contentDownloaded && !excludeType && types.length > 0) {
 						var categoryLayoutMappings = [];
 						types.forEach(function (type) {
 							var mapping = type.layoutMapping;
@@ -381,25 +380,6 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						var summaryPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate', 'summary.json');
 						console.info(' - creating ' + summaryPath);
 						fs.writeFileSync(summaryPath, JSON.stringify(summaryJson, null, 4));
-					}
-
-					var contentTypePromises = [];
-					if (excludeContent && !excludeType && contentTypeNames.length > 0) {
-						contentTypeNames.forEach(function (typeName) {
-							contentTypePromises.push(serverRest.getContentType({
-								server: server,
-								name: typeName,
-								expand: 'all'
-							}));
-						});
-					}
-
-					return Promise.all(contentTypePromises);
-
-				})
-				.then(function (results) {
-					if (hasAssets && excludeContent && !excludeType) {
-						var types = results || [];
 
 						var folderPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate',
 							'Content Template of ' + name);
@@ -2623,7 +2603,8 @@ var _exportServerTemplate = function (server, idcToken, templateId, homeFolderGU
 		if (server.cookies) {
 			postData.headers.Cookie = server.cookies
 		}
-		// console.log(postData);
+
+		serverUtils.showRequestOptions(postData);
 
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
@@ -2670,6 +2651,8 @@ var _downloadServerFile = function (server, fFileGUID, fileName) {
 			headers: headers,
 			encoding: null
 		};
+
+		serverUtils.showRequestOptions(options);
 
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (error, response, body) {
@@ -2742,7 +2725,8 @@ var _IdcCopySites2 = function (server, idcToken, name, fFolderGUID, exportPublis
 		if (server.cookies) {
 			postData.headers.Cookie = server.cookies
 		}
-		// console.log(postData);
+
+		serverUtils.showRequestOptions(postData);
 
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
