@@ -15,6 +15,16 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.5.2
+
+**Updated**
+
+- `cec control-site` - Added option to change site's theme on OCM server
+- `cec upload-template` - Added option to exclude theme
+- `cec create-site` - Added option to suppress site governance controls for SitesAdmin users
+- `cec transfer-site` - Now also updates the theme if the site's theme has changed
+
+
 # New in Release 22.5.1
 
 **Updated**

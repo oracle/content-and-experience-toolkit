@@ -151,7 +151,7 @@ var getTranslationJobExportTypes = function () {
 };
 
 var getSiteActions = function () {
-	const actions = ['publish', 'unpublish', 'bring-online', 'take-offline'];
+	const actions = ['publish', 'unpublish', 'bring-online', 'take-offline', 'set-theme'];
 	return actions;
 };
 
@@ -646,7 +646,8 @@ const uploadTemplate = {
 		['cec upload-template StarterTemplate -p', 'Publish the theme and all components in StarterTemplate.zip after import'],
 		['cec upload-template StarterTemplate -o', 'Optimizes and uploads the template StarterTemplate.'],
 		['cec upload-template StarterTemplate -x', 'Exclude the "Content Template" from the template upload. "Content Template" upload can be managed independently.'],
-		['cec upload-template StarterTemplate -e', 'Exclude all components from the template upload. Components can be uploaded independently.']
+		['cec upload-template StarterTemplate -e', 'Exclude all components from the template upload. Components can be uploaded independently.'],
+		['cec upload-template StarterTemplate -c', 'Exclude theme if the theme exists on the OCM server.']
 	]
 };
 
@@ -758,6 +759,7 @@ const compileTemplate = {
 				'Optionally specify -l <includeLocale> include default locale when creating pages.\n' +
 				'Optionally specify -a <targetDevice> [desktop | mobile] target device type when using adaptive layouts.\n' +
 				'Optionally specify -v <verbose> to display all warning messages during compilation.\n' +
+				'Optionally specify -g <localeGroup> comma separated list of locales to compile.\n' +
 				'Optionally specify -i <ignoreErrors> ignore compilation errors when calculating the exit code for the process.\n';
 			return desc;
 		})()
@@ -1026,7 +1028,7 @@ const downloadContent = {
 		['cec download-content Site1Channel -q \'fields.category eq "RECIPE"\'', 'Download assets from the channel Site1Channel, matching the query, plus any dependencies'],
 		['cec download-content Site1Channel -r Repo1 -c Collection1', 'Download assets from the repository Repo1, collection Collection1 and channel Site1Channel'],
 		['cec download-content Site1Channel -r Repo1 -c Collection1 -q \'fields.category eq "RECIPE"\'', 'Download assets from repository Repo1, collection Collection1 and channel Site1Channel, matching the query, plus any dependencies'],
-		['cec download-content -a GUID1,GUID2', 'Download asset GUID1 and GUID2 and all their dependencies'],
+		['cec download-content -a GUID1,GUID2 -n items', 'Download asset GUID1 and GUID2 and all their dependencies'],
 		['cec download-content -r Repo1', 'Download assets from the repository Repo1']
 	]
 };
@@ -1100,6 +1102,23 @@ const transferContent = {
 		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -c Channel1', 'Transfer the items added to channel Channel1 in repository Repository1'],
 		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -c Channel1 -p', 'Transfer the items published to channel Channel1 in repository Repository1'],
 		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -u', 'Only import the content that is newer than the content in Repository1 on server SampleServer1']
+	]
+};
+
+const validateContent = {
+	command: 'validate-content <name>',
+	alias: 'vlc',
+	name: 'validate-content',
+	usage: {
+		'short': 'Validates local content.',
+		'long': (function () {
+			let desc = 'Validates local content.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec validate Site1Channel', 'Validate the content located at src/content/Site1Channel'],
+		['cec validate-content Template1 -t', 'Validate content from template Template1 located at src/templates/Template1']
 	]
 };
 
@@ -1457,7 +1476,8 @@ const controlSite = {
 		['cec control-site publish -s Site1 -r SampleServer1', 'Publish site Site1 on the registered server SampleServer1'],
 		['cec control-site unpublish -s Site1 -r SampleServer1', 'Unpublish site Site1 on the registered server SampleServer1'],
 		['cec control-site bring-online -s Site1 -r SampleServer1', 'Bring site Site1 online on the registered server SampleServer1'],
-		['cec control-site take-offline -s Site1 -r SampleServer1', 'Take site Site1 offline on the registered server SampleServer1']
+		['cec control-site take-offline -s Site1 -r SampleServer1', 'Take site Site1 offline on the registered server SampleServer1'],
+		['cec control-site set-theme -s Site1 -e Theme2', 'Change site Site1 to use theme Theme2']
 	]
 };
 
@@ -3448,6 +3468,7 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(uploadContent) + os.EOL +
 	_getCmdHelp(controlContent) + os.EOL +
 	_getCmdHelp(transferContent) + os.EOL +
+	// _getCmdHelp(validateContent) + os.EOL +
 	_getCmdHelp(listAssets) + os.EOL +
 	_getCmdHelp(createDigitalAsset) + os.EOL +
 	_getCmdHelp(updateDigitalAsset) + os.EOL +
@@ -3981,6 +4002,10 @@ const argv = yargs.usage(_usage)
 					alias: 'v',
 					description: 'Run in verbose mode to display all warning messages during compilation.'
 				})
+				.option('localeGroup', {
+					alias: 'g',
+					description: 'Comma separated list of locales to compile.'
+				})
 				.option('ignoreErrors', {
 					alias: 'i',
 					description: 'Ignore compilation errors when calculating the exit code for the process.'
@@ -4113,6 +4138,10 @@ const argv = yargs.usage(_usage)
 					alias: 'e',
 					description: 'Exclude components'
 				})
+				.option('excludetheme', {
+					alias: 'c',
+					description: 'Exclude theme'
+				})
 				.option('publish', {
 					alias: 'p',
 					description: 'Publish theme and components'
@@ -4124,6 +4153,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadTemplate.example[4])
 				.example(...uploadTemplate.example[5])
 				.example(...uploadTemplate.example[6])
+				.example(...uploadTemplate.example[7])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadTemplate.command}\n\n${uploadTemplate.usage.long}`);
@@ -4576,6 +4606,66 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${transferContent.command}\n\n${transferContent.usage.long}`);
 		})
+	.command([uploadContent.command, uploadContent.alias], false,
+		(yargs) => {
+			yargs.option('repository', {
+				alias: 'r',
+				description: '<repository> The repository for the types and items',
+				demandOption: true
+			})
+				.option('template', {
+					alias: 't',
+					description: 'Flag to indicate the content is from template'
+				})
+				.option('file', {
+					alias: 'f',
+					description: 'Flag to indicate the content is from file'
+				})
+				.option('channel', {
+					alias: 'c',
+					description: '<channel> The channel to add the content'
+				})
+				.option('collection', {
+					alias: 'l',
+					description: '<collection> The collection to add the content'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered OCM server'
+				})
+				.option('update', {
+					alias: 'u',
+					description: 'Update any existing content instead of creating new items'
+				})
+				.option('reuse', {
+					alias: 'e',
+					description: 'Only update the existing content that is older than the content being imported'
+				})
+				.option('types', {
+					alias: 'p',
+					description: 'Upload content types and taxonomies only'
+				})
+				.check((argv) => {
+					if (argv.template && !argv.channel) {
+						throw new Error(os.EOL + 'Please specify channel to add template content');
+					}
+					if (argv.update && argv.reuse) {
+						throw new Error(os.EOL + 'Set either update or reuse');
+					}
+					return true;
+				})
+				.example(...uploadContent.example[0])
+				.example(...uploadContent.example[1])
+				.example(...uploadContent.example[2])
+				.example(...uploadContent.example[3])
+				.example(...uploadContent.example[4])
+				.example(...uploadContent.example[5])
+				.example(...uploadContent.example[6])
+				.example(...uploadContent.example[7])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${uploadContent.command}\n\n${uploadContent.usage.long}`);
+		})
 	.command([controlContent.command, controlContent.alias], false,
 		(yargs) => {
 			yargs
@@ -4659,6 +4749,18 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlContent.command}\n\n${controlContent.usage.long}`);
+		})
+	.command([validateContent.command, validateContent.alias], false,
+		(yargs) => {
+			yargs.option('template', {
+				alias: 't',
+				description: 'Flag to indicate the content is from template'
+			})
+				.example(...validateContent.example[0])
+				.example(...validateContent.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${validateContent.command}\n\n${validateContent.usage.long}`);
 		})
 	.command([createDigitalAsset.command, createDigitalAsset.alias], false,
 		(yargs) => {
@@ -5114,6 +5216,10 @@ const argv = yargs.usage(_usage)
 					alias: 'e',
 					description: 'Keep the existing id for assets and only update the assets that are older than those from the template'
 				})
+				.option('suppressgovernance', {
+					alias: 'g',
+					description: 'Suppress site governance controls'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -5315,9 +5421,12 @@ const argv = yargs.usage(_usage)
 				.check((argv) => {
 					if (argv.action && !getSiteActions().includes(argv.action) && argv.action !== 'publish-internal') {
 						throw new Error(`${argv.action} is not a valid value for <action>`);
-					} else {
-						return true;
 					}
+					if (argv.action && argv.action === 'set-theme' && !argv.theme) {
+						throw new Error(os.EOL + 'Please specify the theme');
+					}
+
+					return true;
 				})
 				.option('site', {
 					alias: 's',
@@ -5340,6 +5449,10 @@ const argv = yargs.usage(_usage)
 					alias: 'f',
 					description: 'Do a full publish'
 				})
+				.option('theme', {
+					alias: 'e',
+					description: 'The new theme'
+				})
 				.option('server', {
 					alias: 'r',
 					description: '<server> The registered OCM server'
@@ -5353,6 +5466,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlSite.example[6])
 				.example(...controlSite.example[7])
 				.example(...controlSite.example[8])
+				.example(...controlSite.example[9])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlSite.command}\n\n${controlSite.usage.long}`);
@@ -8408,6 +8522,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.excludecomponents) {
 		uploadTemplateArgs.push(...['--excludecomponents', argv.excludecomponents]);
 	}
+	if (argv.excludetheme) {
+		uploadTemplateArgs.push(...['--excludetheme', argv.excludetheme]);
+	}
 	if (argv.publish) {
 		uploadTemplateArgs.push(...['--publish', argv.publish]);
 	}
@@ -8494,6 +8611,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.siteName) {
 		compileTemplateArgs.push(...['--siteName', argv.siteName]);
+	}
+	if (argv.localeGroup && typeof argv.localeGroup === 'string') {
+		compileTemplateArgs.push(...['--localeGroup', argv.localeGroup]);
 	}
 	if (argv.secureSite) {
 		compileTemplateArgs.push(...['--secureSite', argv.secureSite]);
@@ -8878,6 +8998,22 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		transferContentArgs.push(...['--execute', argv.execute]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, transferContentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === validateContent.name || argv._[0] === validateContent.alias) {
+	let validateContentArgs = ['run', '-s', validateContent.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+
+	if (argv.template) {
+		validateContentArgs.push(...['--template', argv.template]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, validateContentArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -9296,6 +9432,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.reuse) {
 		createSiteArgs.push(...['--reuse', argv.reuse]);
 	}
+	if (argv.suppressgovernance) {
+		createSiteArgs.push(...['--suppressgovernance', argv.suppressgovernance]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createSiteArgs.push(...['--server', argv.server]);
 	}
@@ -9430,6 +9569,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.fullpublish) {
 		controlSiteArgs.push(...['--fullpublish', argv.fullpublish]);
+	}
+	if (argv.theme) {
+		controlSiteArgs.push(...['--theme', argv.theme]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlSiteArgs.push(...['--server', argv.server]);

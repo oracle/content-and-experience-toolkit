@@ -3,6 +3,8 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
+const { disconnect } = require('process');
+
 /**
  * Site library
  */
@@ -680,7 +682,7 @@ var _exportChannelContent = function (request, server, channelId, publishedasset
 				},
 				body: JSON.stringify(postData)
 			};
-			
+
 			serverUtils.showRequestOptions(options);
 
 			request.post(options, function (err, response, body) {
@@ -1000,7 +1002,6 @@ var _uploadContentFromZipFile = function (args) {
 					}
 					importSuccess = true;
 				}
-				// delete the zip file
 
 				var importAgainPromises = [];
 				if (!typesOnly && hasTax) {
@@ -1032,6 +1033,7 @@ var _uploadContentFromZipFile = function (args) {
 					importSuccess = true;
 				}
 
+				// delete the zip file
 				var deleteArgv = {
 					file: contentfilename,
 					permanent: 'true'
@@ -1436,7 +1438,7 @@ var _importContent = function (server, csrfToken, contentZipFileId, repositoryId
 			},
 			body: JSON.stringify(postData)
 		};
-		
+
 		serverUtils.showRequestOptions(options);
 
 		var request = require('../test/server/requestUtils.js').request;
@@ -3185,7 +3187,7 @@ var _exportContentIC = function (server, collectionId, exportfilepath) {
 			},
 			body: JSON.stringify(postData)
 		};
-		
+
 		serverUtils.showRequestOptions(options);
 
 		var request = require('../test/server/requestUtils.js').request;
@@ -4168,6 +4170,179 @@ module.exports.uploadCompiledContent = function (argv, done) {
 			}
 			done();
 		});
+};
+
+/**
+ * Validate local content. Check for missing items in an asset export
+ */
+module.exports.validateContent = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+	var contentpath;
+
+	var isTemplate = typeof argv.template === 'string' && argv.template.toLowerCase() === 'true';
+
+	if (isTemplate) {
+		var templatepath = path.join(templatesSrcDir, name);
+		if (!fs.existsSync(templatepath)) {
+			console.error('ERROR: template folder ' + templatepath + ' does not exist');
+			done();
+			return;
+		}
+
+		// check if the template has content
+		contentpath = path.join(templatepath, 'assets', 'contenttemplate');
+		if (!fs.existsSync(contentpath)) {
+			console.error('ERROR: template ' + name + ' does not have content');
+			done();
+			return;
+		}
+
+	} else {
+		contentpath = path.join(contentSrcDir, name);
+		if (!fs.existsSync(contentpath)) {
+			console.error('ERROR: content folder ' + contentpath + ' does not exist');
+			done();
+			return;
+		}
+	}
+
+	var cntDir;
+	var items = fs.readdirSync(contentpath);
+	for (var i = 0; i < items.length; i++) {
+		if (fs.statSync(path.join(contentpath, items[i])).isDirectory() &&
+			(items[i] === 'contentexport' || items[i].indexOf('Content Template of ')) >= 0) {
+			cntDir = path.join(contentpath, items[i]);
+			break;
+		}
+	}
+
+	if (!cntDir) {
+		console.error('ERROR: no content is found');
+		disconnect();
+		return;
+	}
+	console.info(' - content at ' + cntDir);
+
+
+	if (!fs.existsSync(path.join(cntDir, 'metadata.json'))) {
+		console.error('ERROR: no metadata file');
+		done();
+		return;
+	}
+
+	var metadata;
+	try {
+		metadata = JSON.parse(fs.readFileSync(path.join(cntDir, 'metadata.json')));
+	} catch (e) {
+		console.error(e);
+		console.error('ERROR: invalid metadata file');
+		done();
+		return;
+	}
+
+	console.debug(' - groups: ' + metadata.groups + ' count: ' + metadata.count + ' varsetcount: ' + metadata.varsetcount);
+
+	var contentTypes = metadata.group0 || [];
+	if (!contentTypes || contentTypes.length === 0) {
+		console.error('ERROR: no content type');
+	}
+
+	if (contentTypes.length > 0) {
+		console.debug(' - content types: ' + contentTypes);
+	}
+
+	//
+	// check if the type json file exists for each content type
+	//
+	contentTypes.forEach(function (name) {
+		var typePath = path.join(cntDir, 'ContentTypes', name + '.json');
+		if (name !== 'DigitalAsset' && !fs.existsSync(typePath)) {
+			console.error('ERROR: type ' + name + ' does not have json file');
+		}
+	});
+
+	//
+	// Check if the json file exists for each item in metadata file
+	//
+	var items = [];
+	for (var i = 1; i < metadata.groups; i++) {
+		var groupName = 'group' + i;
+		if (metadata.hasOwnProperty(groupName)) {
+			var group = metadata[groupName] || [];
+			group.forEach(function (name) {
+				var item = name.split(':');
+				if (item.length !== 2) {
+					console.error('ERROR: invalid item ' + name + ' in group ' + groupName);
+				} else {
+					var itemPath = path.join(cntDir, 'ContentItems', item[0], item[1] + '.json');
+					// console.log(' - checking ' + itemPath);
+					if (!fs.existsSync(itemPath)) {
+						console.error('ERROR: item ' + itemPath + ' does not exist');
+					} else {
+						items.push(itemPath);
+					}
+				}
+			});
+		}
+	}
+
+	console.debug(' - items: ' + items.length);
+
+	var _checkItem = function (type, id) {
+		var itemPath = path.join(cntDir, 'ContentItems', type, id + '.json');
+		return fs.existsSync(itemPath);
+	};
+
+	//
+	// check item's reference items exist
+	//
+	items.forEach(function (itemPath) {
+		var item;
+		try {
+			item = JSON.parse(fs.readFileSync(itemPath));
+			console.debug(' - item (Id: ' + item.id + ' type: ' + item.type + ')');
+			if (item.fields) {
+				Object.keys(item.fields).forEach(function (fieldName) {
+					var field = item.fields[fieldName];
+					if (field && Array.isArray(field)) {
+						field.forEach(function (sub) {
+							var refType = sub.type;
+							var refId = sub.id;
+							if (refId && refType) {
+								if (_checkItem(refType, refId)) {
+									console.debug('   check arrayed reference item (Id: ' + refId + ' type: ' + refType + ')');
+								} else {
+									console.error('ERROR: item (Id: ' + item.id + ' type: ' + item.type + '): cannot find reference item: ' + refId + ' (' + refType + ')');
+								}
+							}
+						});
+					} else if (field && typeof field === 'object') {
+						var refType = field.type;
+						var refId = field.id;
+						if (refId && refType) {
+							if (_checkItem(refType, refId)) {
+								console.debug('   check reference item (Id: ' + refId + ' type: ' + refType + ')');
+							} else {
+								console.error('ERROR: item (Id: ' + item.id + ' type: ' + item.type + '): cannot find reference item: ' + refId + ' (' + refType + ')');
+							}
+						}
+					}
+				});
+			}
+		} catch (e) {
+
+		}
+	});
+
+	console.log(' - validation finished');
+	done(true);
 };
 
 //////////////////////////////////////////////////////////////////////////

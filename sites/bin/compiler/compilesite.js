@@ -67,6 +67,7 @@ var siteFolder, // Z:/sitespublish/SiteC/
 	isSecureSite, // Is this a secure site -- used to populate the siteRootPath in the siteinfo properties
 	targetDevice = '', // 'mobile' or 'desktop' (no value implies compile for both if RegEx is specified)
 	mobilePages = false, // whether we are compiling mobile pages
+	localeGroup = [], // list of locales to compile
 	folderProperties; // _folder.json values
 
 
@@ -144,6 +145,7 @@ function initialize() {
 // Determine the available languages from the aggregated structure.json OR by enumerating the file system
 // for language code prefixes.
 function getAvailableLanguages() {
+	var defaultLanguage = rootSiteInfo && rootSiteInfo.properties && rootSiteInfo.properties.defaultLanguage;
 	var languages = [''];
 	var filePath = path.join(siteFolder, '');
 	var entries = fs.readdirSync(filePath);
@@ -156,6 +158,23 @@ function getAvailableLanguages() {
 	});
 
 	trace("Available Languages: " + languages);
+
+	// remove any languages not in the localeGroup
+	if (Array.isArray(localeGroup) && localeGroup.length > 0) {
+		languages = languages.filter(function (entry) {
+			var checkLocale = entry === '' ? defaultLanguage : entry; 
+			return localeGroup.indexOf(checkLocale) !== -1;
+		});
+		trace("Filtered Languages: " + languages);
+	}
+
+	// make sure there is at least one language
+	if (languages.length === 0) {
+		compilationReporter.warn({
+			message: 'no matching site locales for localeGroup: "' + localeGroup.join(',') + '"'
+		});
+	}
+
 	return languages;
 }
 
@@ -2233,7 +2252,17 @@ function createDirectory(dirName) {
 	if (!fs.existsSync(dirName)) {
 		parentDirName = path.dirname(dirName);
 		createDirectory(parentDirName); // <<< RECURSION
-		fs.mkdirSync(dirName);
+		
+		// check again in case another process has created the folder
+		if (!fs.existsSync(dirName)) {
+			try {
+				fs.mkdirSync(dirName);
+			} catch (e) {
+				// if you have two processes running, one may have created the folder even with the check
+				// so we ignore the error for directory create and it will fail later if there is an actual issue
+				console.log('failed in creating directory - may already exist: ' + dirName);
+			}
+		}
 	}
 }
 
@@ -2755,6 +2784,7 @@ var compileSite = function (args) {
 	pages = args.pages;
 	recurse = args.recurse;
 	includeLocale = args.includeLocale;
+	localeGroup = args.localeGroup ? args.localeGroup.split(',') : [];
 	verbose = args.verbose;
 	useInlineSiteInfo = args.useInlineSiteInfo;
 	targetDevice = args.targetDevice;
@@ -2808,6 +2838,9 @@ var compileSite = function (args) {
 						break
 					case 'targetDevice':
 						targetDevice = value;
+						break
+					case 'localeGroup':
+						localeGroup = value ? value.split(',') : [];
 						break
 					case 'type':
 						defaultContentType = (value === 'draft' ? 'draft' : 'published');

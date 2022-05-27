@@ -21,9 +21,13 @@ var express = require('express'),
 	semver = require('semver'),
 	url = require('url'),
 	_ = require('underscore'),
+	fileUtils = require('./fileUtils.js'),
 	sitesRest = require('./sitesRest.js');
 
 var console = require('./logger.js').console;
+
+var cecDir = path.join(__dirname, "..", '..'),
+	themesDataDir = path.join(cecDir, 'data', 'themes');
 
 var componentsDir,
 	connectionsDir,
@@ -1312,6 +1316,58 @@ module.exports.getReferencedAssets = function (pagesPath) {
 };
 
 
+var _createDefaultTheme = function (projectDir) {
+	var defaultThemeName = '__toolkit_theme';
+
+	return new Promise(function (resolve, reject) {
+
+		var buildfolder = _getBuildFolder(projectDir);
+		if (!fs.existsSync(buildfolder)) {
+			fs.mkdirSync(buildfolder);
+		}
+		var themesBuildDir = path.join(buildfolder, 'themes');
+		if (!fs.existsSync(themesBuildDir)) {
+			fs.mkdirSync(themesBuildDir);
+		}
+		newThemeGUID = _createGUID();
+		newThemeName = defaultThemeName + newThemeGUID;
+		newThemePath = path.join(themesBuildDir, newThemeName);
+		if (fs.existsSync(newThemePath)) {
+			fileUtils.remove(newThemePath);
+		}
+		fs.mkdirSync(newThemePath);
+		var themePath = path.join(themesDataDir, defaultThemeName + '.zip');
+
+		fileUtils.extractZip(themePath, newThemePath)
+			.then(function (result) {
+
+				var newTheme;
+				if (!result) {
+					// update the name and itemGUID
+					var filePath = path.join(newThemePath, '_folder.json');
+					if (fs.existsSync(filePath)) {
+						var folderStr = fs.readFileSync(path.join(filePath));
+						var folderJson = JSON.parse(folderStr);
+						folderJson.itemGUID = newThemeGUID;
+						folderJson.themeName = newThemeName;
+						fs.writeFileSync(filePath, JSON.stringify(folderJson));
+					}
+					newTheme = {
+						name: newThemeName,
+						srcPath: newThemePath
+					};
+				}
+
+				return resolve(newTheme);
+			});
+	});
+
+};
+
+module.exports.createDefaultTheme = function (projectDir) {
+	return _createDefaultTheme(projectDir);
+};
+
 module.exports.getCaasCSRFToken = function (server) {
 	var csrfTokenPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/token';
@@ -1546,6 +1602,46 @@ module.exports.getTenantConfig = function (server) {
 				}
 			}
 			resolve(config);
+		});
+	});
+};
+
+module.exports.getUserRoles = function (server) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/integration?IdcService=GET_USER_INFO&IsJson=1';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+
+		_showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.error('ERROR: Failed to get user info');
+				console.error(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) { }
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.error('ERROR: Failed to get user info' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			} else {
+				return resolve({
+					'userRoles': data.LocalData.UserRoles
+				});
+			}
 		});
 	});
 };
@@ -3516,7 +3612,7 @@ module.exports.setSiteUsedData = function (server, idcToken, siteId, itemsUsedAd
 		};
 
 		_showRequestOptions(postData);
-		
+
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
 			if (response && response.statusCode !== 200) {
@@ -3552,7 +3648,6 @@ module.exports.setSiteUsedData = function (server, idcToken, siteId, itemsUsedAd
 	});
 
 };
-
 
 /**
  * Set metadata for a site using IdcService

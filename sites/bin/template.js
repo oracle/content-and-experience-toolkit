@@ -1336,6 +1336,7 @@ module.exports.deployTemplate = function (argv, done) {
 	var excludeContentTemplate = argv.excludecontenttemplate;
 	var publish = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
 	var excludeComponents = typeof argv.excludecomponents === 'string' && argv.excludecomponents.toLowerCase() === 'true';
+	var excludeTheme = typeof argv.excludetheme === 'string' && argv.excludetheme.toLowerCase() === 'true';
 
 	var name = argv.template,
 		tempExist = false,
@@ -1361,69 +1362,167 @@ module.exports.deployTemplate = function (argv, done) {
 		return;
 	}
 
-	console.info(' - exporting template ...');
-	var extraComponents = [];
-	var excludeSiteContent = false;
-	_exportTemplate(name, optimize, excludeContentTemplate, extraComponents, excludeSiteContent, excludeComponents).then(function (result) {
-		var zipfile = result && result.zipfile;
-		if (fs.existsSync(zipfile)) {
-			console.info(' - template exported to ' + zipfile);
+	// find out the theme
+	var themeName = serverUtils.getTemplateTheme(projectDir, name);
 
-			// import the template to the server
-			_importTemplate(server, name, folder, zipfile).then(function (result) {
-				if (result.err) {
-					done();
+	var loginPromise = serverUtils.loginToServer(server);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var newTheme;
+
+		sitesRest.resourceExist({
+			server: server,
+			type: 'themes',
+			name: themeName
+		})
+			.then(function (result) {
+				if (result && result.id) {
+					console.info(' - theme ' + themeName + ' exists on server');
 				} else {
-					if (publish) {
-						// get components on the pages and the components included in the theme
-						var themeName = serverUtils.getTemplateTheme(projectDir, name);
-						var tempComps = serverUtils.getTemplateComponents(projectDir, name);
-						var themeComps = serverUtils.getThemeComponents(projectDir, themeName);
-						themeComps.forEach(function (comp) {
-							if (!tempComps.includes(comp.id)) {
-								tempComps.push(comp.id);
-							}
-						});
-
-						// fileter out none-custom components
-						var comps = [];
-						tempComps.forEach(function (compName) {
-							if (fs.existsSync(path.join(componentsSrcDir, compName, 'appinfo.json'))) {
-								comps.push(compName);
-							}
-						});
-
-						var publishThemePromises = [];
-						if (themeName) {
-							console.info(' - publishing theme ...');
-							publishThemePromises.push(sitesRest.publishTheme({
-								server: server,
-								name: themeName
-							}));
-						}
-
-						Promise.all(publishThemePromises)
-							.then(function (results) {
-								if (themeName && results && results[0] && !results[0].err) {
-									console.log(' - theme ' + themeName + ' published');
-								}
-
-								// console.log(' - components ' + comps);
-								_publishComponents(server, comps).then(function (result) {
-									done(true);
-								});
-							});
-
-					} else {
-						done(true);
+					if (excludeTheme) {
+						console.info(' - theme does not exist on server and will not exclude the theme');
+						excludeTheme = false;
 					}
 				}
-			});
 
-		} else {
-			console.error('ERROR: file ' + zipfile + ' does not exist');
-			done();
-		}
+				var createThemePromises = [];
+				if (excludeTheme) {
+					createThemePromises.push(serverUtils.createDefaultTheme(projectDir));
+				}
+				return Promise.all(createThemePromises);
+
+			})
+			.then(function (results) {
+
+				if (excludeTheme) {
+					newTheme = results && results[0];
+				}
+
+				console.info(' - exporting template ...');
+				var extraComponents = [];
+				var excludeSiteContent = false;
+				return _exportTemplate(name, optimize, excludeContentTemplate, extraComponents, excludeSiteContent, excludeComponents, newTheme);
+
+			})
+			.then(function (result) {
+				var zipfile = result && result.zipfile;
+				if (!fs.existsSync(zipfile)) {
+					console.error('ERROR: file ' + zipfile + ' does not exist');
+					return Promise.reject();
+				}
+				console.info(' - template exported to ' + zipfile);
+
+				// import the template to the server
+				return _importTemplateToServerRest(server, name, folder, zipfile);
+
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				// query the template
+				return sitesRest.getTemplate({
+					server: server,
+					name: name
+				});
+
+			})
+			.then(function (result) {
+				if (result.err || !result.id) {
+					return Promise.reject();
+				}
+
+				var template = result;
+				console.info(' - template id: ' + template.id);
+
+				var updateThemePromise = [];
+				if (excludeTheme) {
+					updateThemePromise.push(sitesRest.setSiteTheme(
+						{
+							server: server,
+							site: template,
+							themeName: themeName
+						}));
+				}
+
+				return Promise.all(updateThemePromise);
+
+			})
+			.then(function (results) {
+				var deleteThemePromises = [];
+				if (excludeTheme) {
+					if (results && results[0] && !results[0].err) {
+						console.info(' - set template theme back to ' + themeName);
+					}
+
+					deleteThemePromises.push(sitesRest.deleteTheme({
+						server: server,
+						name: newTheme.name,
+						hard: true,
+						showError: false
+					}));
+				}
+
+				return Promise.all(deleteThemePromises);
+
+			})
+			.then(function (result) {
+				if (publish) {
+					// get components on the pages and the components included in the theme
+					var tempComps = serverUtils.getTemplateComponents(projectDir, name);
+					var themeComps = serverUtils.getThemeComponents(projectDir, themeName);
+					themeComps.forEach(function (comp) {
+						if (!tempComps.includes(comp.id)) {
+							tempComps.push(comp.id);
+						}
+					});
+
+					// fileter out none-custom components
+					var comps = [];
+					tempComps.forEach(function (compName) {
+						if (fs.existsSync(path.join(componentsSrcDir, compName, 'appinfo.json'))) {
+							comps.push(compName);
+						}
+					});
+
+					var publishThemePromises = [];
+					if (themeName) {
+						console.info(' - publishing theme ...');
+						publishThemePromises.push(sitesRest.publishTheme({
+							server: server,
+							name: themeName
+						}));
+					}
+
+					Promise.all(publishThemePromises)
+						.then(function (results) {
+							if (themeName && results && results[0] && !results[0].err) {
+								console.log(' - theme ' + themeName + ' published');
+							}
+
+							// console.log(' - components ' + comps);
+							_publishComponents(server, comps).then(function (result) {
+								done(true);
+							});
+						});
+
+				} else {
+					done(true);
+				}
+
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
 	});
 };
 
@@ -2799,6 +2898,7 @@ module.exports.compileTemplate = function (argv, done) {
 		siteName = argv.siteName || '',
 		secureSite = typeof argv.secureSite === 'boolean' ? argv.secureSite : argv.secureSite === 'true',
 		includeLocale = typeof argv.includeLocale === 'boolean' ? argv.includeLocale : argv.includeLocale === 'true',
+		localeGroup = argv.localeGroup || '',
 		noDetailPages = typeof argv.noDetailPages === 'boolean' ? argv.noDetailPages : argv.noDetailPages === 'true',
 		noDefaultDetailPageLink = typeof argv.noDefaultDetailPageLink === 'boolean' ? argv.noDefaultDetailPageLink : argv.noDefaultDetailPageLink === 'true',
 		contentLayoutSnippet = typeof argv.contentLayoutSnippet === 'boolean' ? argv.contentLayoutSnippet : argv.contentLayoutSnippet === 'true',
@@ -2864,6 +2964,7 @@ module.exports.compileTemplate = function (argv, done) {
 		noDefaultDetailPageLink: noDefaultDetailPageLink,
 		contentLayoutSnippet: contentLayoutSnippet,
 		includeLocale: includeLocale,
+		localeGroup: localeGroup,
 		logLevel: 'log',
 		outputURL: serverURL + '/templates/' + tempName + '/'
 	}).then(function (result) {

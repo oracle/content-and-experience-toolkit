@@ -562,7 +562,11 @@ var _createFile = function (server, parentID, filename, contents, filepath) {
 		form.append('jsonInputParameters', JSON.stringify({
 			'parentID': parentID
 		}));
-		form.append('primaryFile', contents);
+		if (filename) {
+			form.append('primaryFile', contents, { filename: filename });
+		} else {
+			form.append('primaryFile', contents);
+		}
 
 		var options = {
 			method: 'POST',

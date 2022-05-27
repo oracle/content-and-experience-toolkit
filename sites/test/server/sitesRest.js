@@ -5,6 +5,7 @@
 
 var os = require('os'),
 	readline = require('readline'),
+	serverRest = require('./serverRest'),
 	serverUtils = require('./serverUtils');
 
 var console = require('./logger.js').console;
@@ -720,7 +721,7 @@ var _refreshSiteContent = function (server, id, name) {
 		};
 
 		serverUtils.showRequestOptions(options);
-		
+
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
@@ -787,6 +788,110 @@ var _refreshSiteContent = function (server, id, name) {
  */
 module.exports.refreshSiteContent = function (args) {
 	return _refreshSiteContent(args.server, args.id, args.name);
+};
+
+/**
+ * Update the theme for a site or template
+ */
+var _setSiteTheme = function (server, site, themeName, showMsg) {
+	return new Promise(function (resolve, reject) {
+		if (site.themeName === themeName) {
+			return resolve({});
+		} else {
+			// check of the theme exist
+			_getResource(server, 'themes', '', themeName, '', true)
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
+					}
+
+					// get file siteinfo.json
+					return serverRest.findFile({
+						server: server,
+						parentID: site.id,
+						filename: 'siteinfo.json',
+						itemtype: 'file'
+					});
+				})
+				.then(function (result) {
+					if (result.err || !result.id) {
+						return Promise.reject();
+					}
+
+					return serverRest.readFile({
+						server: server,
+						fFileGUID: result.id
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err || !result.properties) {
+						return Promise.reject();
+					}
+
+					var siteinfo = result;
+					siteinfo.properties.themeName = themeName;
+
+					const { Readable } = require('stream');
+					const newSiteInfo = Readable.from(JSON.stringify(siteinfo));
+					return serverRest.createFile({
+						server: server,
+						parentID: site.id,
+						filename: 'siteinfo.json',
+						contents: newSiteInfo
+					});
+
+				})
+				.then(function (result) {
+					if (!result || result.err || !result.id) {
+						return Promise.reject();
+					}
+
+					return serverUtils.getIdcToken(server);
+				})
+				.then(function (result) {
+					// fetch token
+					var idcToken = result && result.idcToken;
+
+					// update template to the original template
+					var values = {
+						'scsSiteTheme': themeName
+					};
+					return serverUtils.setSiteMetadata(server, idcToken, site.id, values);
+
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						console.error('ERROR: failed to set theme to ' + themeName);
+						return Promise.reject();
+					}
+
+					if (showMsg) {
+						console.info(' - set theme to ' + themeName);
+					}
+
+					return resolve({});
+				})
+				.catch((error) => {
+					if (error) {
+						console.error(error);
+					}
+					return resolve({
+						err: 'err'
+					});
+				});
+		}
+	});
+};
+/**
+ * Update the theme for a site or a template
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {object} site the site or template object
+ * @param {object} themeName the name of the theme
+ * @returns 
+ */
+module.exports.setSiteTheme = function (args) {
+	return _setSiteTheme(args.server, args.site, args.themeName, args.showMsg)
 };
 
 var _exportResource = function (server, type, id, name) {
@@ -878,7 +983,7 @@ var _exportResourceAsync = function (server, type, id, name) {
 			},
 			url: server.url + url
 		};
-		
+
 		serverUtils.showRequestOptions(options);
 
 		var resource = type.substring(0, type.length - 1);
@@ -1275,7 +1380,7 @@ var _setSiteOnlineStatus = function (server, id, name, status) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		
+
 		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
@@ -1356,7 +1461,7 @@ var _validateSite = function (server, id, name) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		
+
 		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
@@ -1421,7 +1526,7 @@ var _softDeleteResource = function (server, type, id, name) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		
+
 		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
@@ -1596,7 +1701,7 @@ var _importComponent = function (server, name, fileId) {
 			timeout: 3600000,
 			json: true
 		};
-		
+
 		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
@@ -2000,7 +2105,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 			body: JSON.stringify(body),
 			json: true
 		};
-		
+
 		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
@@ -2165,7 +2270,7 @@ var _copySite = function (server, sourceSiteName, name, description, sitePrefix,
 			body: JSON.stringify(body),
 			json: true
 		};
-		
+
 		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
@@ -2574,7 +2679,7 @@ var _copyResourceAsync = function (server, type, srcId, srcName, name, desc) {
 			body: JSON.stringify(body),
 			json: true
 		};
-		
+
 		serverUtils.showRequestOptions(options);
 
 		var typeLabel = type.substring(0, type.length - 1);

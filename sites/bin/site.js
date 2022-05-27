@@ -84,8 +84,9 @@ module.exports.createSite = function (argv, done) {
 	sitePrefix = sitePrefix.substring(0, 15);
 	var updateContent = typeof argv.update === 'string' && argv.update.toLowerCase() === 'true';
 	var reuseContent = typeof argv.reuse === 'string' && argv.reuse.toLowerCase() === 'true';
+	var suppressgovernance = typeof argv.suppressgovernance === 'string' && argv.suppressgovernance.toLowerCase() === 'true';
 
-	_createSiteREST(server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, updateContent, reuseContent, done);
+	_createSiteREST(server, name, templateName, repositoryName, localizationPolicyName, defaultLanguage, description, sitePrefix, updateContent, reuseContent, suppressgovernance, done);
 
 };
 
@@ -104,13 +105,14 @@ module.exports.createSite = function (argv, done) {
  * @param {*} done 
  */
 var _createSiteREST = function (server, name, templateName, repositoryName, localizationPolicyName,
-	defaultLanguage, description, sitePrefix, updateContent, reuseContent, done) {
+	defaultLanguage, description, sitePrefix, updateContent, reuseContent, suppressgovernance, done) {
 	var template, templateGUID;
 	var repositoryId, localizationPolicyId;
 	var createEnterprise;
 	var governanceEnabled;
 	var localizationPolicyAllowed;
 	var sitePrefixAllowed;
+	var isUserSitesAdmin = false;
 
 	var format = '   %-20s %-s';
 	var loginPromise = serverUtils.loginToServer(server);
@@ -130,6 +132,17 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 				governanceEnabled = result.sitesGovernanceEnabled;
 				if (governanceEnabled) {
 					console.info(' - governance for sites is enabled');
+				}
+
+				return serverUtils.getUserRoles(server);
+
+			})
+			.then(function (result) {
+				var userRoles = result && result.userRoles;
+				isUserSitesAdmin = userRoles && userRoles.indexOf('CECSitesAdministrator') >= 0;
+				if (!isUserSitesAdmin && suppressgovernance) {
+					console.log(' - suppressgovernance only for SitesAdmin');
+					suppressgovernance = false;
 				}
 
 				return sitesRest.resourceExist({
@@ -160,7 +173,7 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 				sitePrefixAllowed = template.policy && template.policy.sitePrefixAllowed;
 				localizationPolicyAllowed = template.policy && template.policy.localizationPolicyAllowed;
 
-				if (governanceEnabled && (!template.policy || !template.policy.status || template.policy.status !== 'active')) {
+				if (!suppressgovernance && governanceEnabled && (!template.policy || !template.policy.status || template.policy.status !== 'active')) {
 					console.error('ERROR: the template is not active');
 					return Promise.reject();
 				}
@@ -192,7 +205,8 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 						server: server,
 						name: name,
 						templateId: template.id,
-						templateName: templateName
+						templateName: templateName,
+						suppressgovernance: suppressgovernance
 					})
 						.then(function (result) {
 							if (result.err) {
@@ -291,11 +305,11 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 							console.info(' - creating enterprise site ...');
 							console.info(sprintf(format, 'name', name));
 							console.info(sprintf(format, 'template', templateName));
-							if (!governanceEnabled || sitePrefixAllowed) {
+							if (suppressgovernance || !governanceEnabled || sitePrefixAllowed) {
 								console.info(sprintf(format, 'site prefix', sitePrefix));
 							}
 							console.info(sprintf(format, 'repository', repositoryName));
-							if (!governanceEnabled && localizationPolicyAllowed) {
+							if (suppressgovernance || !governanceEnabled && localizationPolicyAllowed) {
 								console.info(sprintf(format, 'localization policy', policy.name));
 							}
 							console.info(sprintf(format, 'default language', defaultLanguage));
@@ -304,14 +318,15 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 								server: server,
 								name: name,
 								description: description,
-								sitePrefix: !governanceEnabled || sitePrefixAllowed ? sitePrefix : '',
+								sitePrefix: suppressgovernance || !governanceEnabled || sitePrefixAllowed ? sitePrefix : '',
 								templateName: templateName,
 								templateId: template.id,
 								repositoryId: repositoryId,
-								localizationPolicyId: !governanceEnabled || localizationPolicyAllowed ? localizationPolicyId : '',
+								localizationPolicyId: suppressgovernance || !governanceEnabled || localizationPolicyAllowed ? localizationPolicyId : '',
 								defaultLanguage: defaultLanguage,
 								updateContent: updateContent,
-								reuseContent: reuseContent
+								reuseContent: reuseContent,
+								suppressgovernance: suppressgovernance
 							});
 						})
 						.then(function (result) {
@@ -611,7 +626,7 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 			.then(function (result) {
 
 				// create a default theme
-				return _createDefaultTheme();
+				return serverUtils.createDefaultTheme(projectDir);
 
 			})
 			.then(function (result) {
@@ -869,57 +884,6 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 };
 
 
-var _createDefaultTheme = function () {
-	var defaultThemeName = '__toolkit_theme';
-	var newTheme;
-
-	return new Promise(function (resolve, reject) {
-
-		var buildfolder = serverUtils.getBuildFolder(projectDir);
-		if (!fs.existsSync(buildfolder)) {
-			fs.mkdirSync(buildfolder);
-		}
-		var themesBuildDir = path.join(buildfolder, 'themes');
-		if (!fs.existsSync(themesBuildDir)) {
-			fs.mkdirSync(themesBuildDir);
-		}
-		newThemeGUID = serverUtils.createGUID();
-		newThemeName = defaultThemeName + newThemeGUID;
-		newThemePath = path.join(themesBuildDir, newThemeName);
-		if (fs.existsSync(newThemePath)) {
-			fileUtils.remove(newThemePath);
-		}
-		fs.mkdirSync(newThemePath);
-		var themePath = path.join(themesDataDir, defaultThemeName + '.zip');
-
-		fileUtils.extractZip(themePath, newThemePath)
-			.then(function (result) {
-
-				var newTheme;
-				if (!result) {
-					// update the name and itemGUID
-					var filePath = path.join(newThemePath, '_folder.json');
-					if (fs.existsSync(filePath)) {
-						var folderStr = fs.readFileSync(path.join(filePath));
-						var folderJson = JSON.parse(folderStr);
-						folderJson.itemGUID = newThemeGUID;
-						folderJson.themeName = newThemeName;
-						fs.writeFileSync(filePath, JSON.stringify(folderJson));
-					}
-					newTheme = {
-						name: newThemeName,
-						srcPath: newThemePath
-					};
-				}
-
-				return resolve(newTheme);
-			});
-	});
-
-};
-
-var _transferSiteTemplateId;
-
 var _transferStandardSite = function (argv, server, destServer, site, excludecomponents, excludetheme, suppressgovernance) {
 	return new Promise(function (resolve, reject) {
 		console.info(' - site ' + site.name + ' is a standard site');
@@ -1137,7 +1101,6 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 				}
 
 				templateId = result.id;
-				_transferSiteTemplateId = templateId;
 
 				// update template to the original theme
 				var updateTemplatePromises = [];
@@ -1280,6 +1243,17 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 
 									// update site used items
 									return _updateSiteUsedData(destServer, idcToken, destSite, siteUsedData, destSiteUsedData);
+								})
+								.then(function (result) {
+
+									// update site theme if needed
+									return sitesRest.setSiteTheme({
+										server: destServer,
+										site: destSite,
+										themeName: site.themeName,
+										showMsg: true
+									});
+
 								})
 								.then(function (result) {
 
@@ -2101,6 +2075,17 @@ module.exports.transferSite = function (argv, done) {
 												})
 												.then(function (result) {
 
+													// update site theme if needed
+													return sitesRest.setSiteTheme({
+														server: destServer,
+														site: destSite,
+														themeName: site.themeName,
+														showMsg: true
+													});
+
+												})
+												.then(function (result) {
+
 													return _transferOtherAssets(argv, server, destServer, site, destSite, repoMappings, excludecontent, publishedassets, reuseContent);
 
 												})
@@ -2669,6 +2654,7 @@ module.exports.controlSite = function (argv, done) {
 
 		var action = argv.action;
 		var siteName = argv.site;
+		var theme = argv.theme;
 
 		var usedContentOnly = typeof argv.usedcontentonly === 'string' && argv.usedcontentonly.toLowerCase() === 'true';
 		var compileSite = typeof argv.compilesite === 'string' && argv.compilesite.toLowerCase() === 'true';
@@ -2682,7 +2668,7 @@ module.exports.controlSite = function (argv, done) {
 				return;
 			}
 			// if (server.useRest) {
-			_controlSiteREST(server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish)
+			_controlSiteREST(server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish, theme)
 				.then(function (result) {
 					if (result.err) {
 						done(result.exitCode);
@@ -2709,7 +2695,7 @@ module.exports.controlSite = function (argv, done) {
  * @param {*} siteName 
  * @param {*} done 
  */
-var _controlSiteREST = function (server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish) {
+var _controlSiteREST = function (server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish, newTheme) {
 
 	return new Promise(function (resolve, reject) {
 		var exitCode;
@@ -2725,7 +2711,9 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 				var site = result;
 				var runtimeStatus = site.runtimeStatus;
 				var publishStatus = site.publishStatus;
-				console.info(' - get site: runtimeStatus: ' + runtimeStatus + '  publishStatus: ' + publishStatus);
+				var themeName = site.themeName;
+
+				console.info(' - get site: runtimeStatus: ' + runtimeStatus + '  publishStatus: ' + publishStatus + '  theme: ' + themeName);
 
 				if (action === 'take-offline' && runtimeStatus === 'offline') {
 					console.log(' - site is already offline');
@@ -2748,6 +2736,11 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 				}
 				if (action === 'unpublish' && publishStatus === 'unpublished') {
 					console.error('ERROR: site ' + siteName + ' is draft');
+					return Promise.reject();
+				}
+				if (action === 'set-theme' && themeName === newTheme) {
+					console.log(' - site\'s theme is already ' + newTheme);
+					exitCode = 2;
 					return Promise.reject();
 				}
 
@@ -2780,6 +2773,14 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 						server: server,
 						name: siteName
 					});
+				} else if (action === 'set-theme') {
+
+					actionPromise = sitesRest.setSiteTheme({
+						server: server,
+						site: site,
+						themeName: newTheme
+					});
+
 				} else {
 					console.error('ERROR: invalid action ' + action);
 					return Promise.reject();
@@ -2796,6 +2797,8 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 					console.log(' - site ' + siteName + ' is online now');
 				} else if (action === 'take-offline') {
 					console.log(' - site ' + siteName + ' is offline now');
+				} else if (action === 'set-theme') {
+					console.log(' - set theme to ' + newTheme);
 				} else {
 					console.log(' - ' + action + ' ' + siteName + ' finished');
 				}
@@ -2945,7 +2948,7 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 				if (error) {
 					console.error(error);
 				}
-				return ({
+				return resolve({
 					err: 'err'
 				});
 			});

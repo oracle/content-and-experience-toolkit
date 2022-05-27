@@ -1123,6 +1123,18 @@ gulp.task('transfer-content', function (done) {
 });
 
 /**
+ * upload content to server
+ */
+ gulp.task('validate-content', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	contentlib.validateContent(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Create digital asset
  */
 gulp.task('create-digital-asset', function (done) {
