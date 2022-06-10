@@ -196,7 +196,6 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 
 					channelId = results[0].data.id;
 					channelName = results[0].data.name;
-					channelToken = results[0].data.token;
 
 					if (!channelId) {
 						console.error('ERROR: channel ' + channel + ' does not exist');
@@ -565,7 +564,8 @@ var _getChannelsFromServer = function (server) {
 			});
 		}
 		serverRest.getChannels({
-			server: server
+			server: server,
+			fields: 'channelTokens'
 		})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -1220,9 +1220,11 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 		var createChannelPromises = [];
 		var addChannelToRepositoryPromises = [];
 
+		// Need to get all fields which are required when add channel or collection
 		var repositoryPromise = serverRest.getRepositoryWithName({
 			server: server,
-			name: repositoryName
+			name: repositoryName,
+			fields: 'all'
 		});
 		repositoryPromise.then(function (result) {
 			if (!result || result.err) {
@@ -1666,7 +1668,8 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					if (channelName) {
 						channelPromises.push(serverRest.getChannelWithName({
 							server: server,
-							name: channelName
+							name: channelName,
+							fields: 'publishPolicy,channelTokens'
 						}));
 					}
 
@@ -1833,6 +1836,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 								}
 							});
 						}
+
 
 						if (publishPolicy) {
 							if (publishPolicy === 'onlyApproved') {
@@ -2242,7 +2246,8 @@ module.exports.createDigitalAsset = function (argv, done) {
 
 				return serverRest.getRepositoryWithName({
 					server: server,
-					name: repositoryName
+					name: repositoryName,
+					fields: 'contentTypes,defaultLanguage,languageOptions,configuredLanguages'
 				});
 			})
 			.then(function (result) {
@@ -2932,9 +2937,11 @@ module.exports.migrateContent = function (argv, done) {
 
 				console.info(' - verify collection ' + collectionName + '(Id: ' + collectionId + ')');
 
+				// Need to get all fields which are required when add channel or collection
 				return serverRest.getRepositoryWithName({
 					server: destServer,
-					name: repositoryName
+					name: repositoryName,
+					fields: 'all'
 				});
 			})
 			.then(function (result) {
@@ -3794,7 +3801,6 @@ module.exports.transferContent = function (argv, done) {
 	var total;
 	var items = [];
 	var channelId;
-	var channelToken;
 
 	var isWindows = /^win/.test(process.platform) ? true : false;
 
@@ -3868,7 +3874,6 @@ module.exports.transferContent = function (argv, done) {
 				srcChannel = results[0].data;
 				channelId = srcChannel.id;
 				channelName = srcChannel.name;
-				channelToken = _getChannelToken(srcChannel);
 
 				console.info(' - verify channel on source server');
 			}

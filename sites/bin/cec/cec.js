@@ -151,7 +151,7 @@ var getTranslationJobExportTypes = function () {
 };
 
 var getSiteActions = function () {
-	const actions = ['publish', 'unpublish', 'bring-online', 'take-offline', 'set-theme'];
+	const actions = ['publish', 'unpublish', 'bring-online', 'take-offline', 'set-theme', 'set-metadata'];
 	return actions;
 };
 
@@ -1477,7 +1477,8 @@ const controlSite = {
 		['cec control-site unpublish -s Site1 -r SampleServer1', 'Unpublish site Site1 on the registered server SampleServer1'],
 		['cec control-site bring-online -s Site1 -r SampleServer1', 'Bring site Site1 online on the registered server SampleServer1'],
 		['cec control-site take-offline -s Site1 -r SampleServer1', 'Take site Site1 offline on the registered server SampleServer1'],
-		['cec control-site set-theme -s Site1 -e Theme2', 'Change site Site1 to use theme Theme2']
+		['cec control-site set-theme -s Site1 -e Theme2', 'Change site Site1 to use theme Theme2'],
+		['cec control-site set-metadata -s Site1 -n scsCompileStatus -v \'{"jobId":"job604911","status":"COMPILED","progress":100,"compiledAt":"2022-05-05T08:33:20.203Z"}\'', 'Update compile status for site Site1']
 	]
 };
 
@@ -1584,6 +1585,23 @@ const deleteSite = {
 		['cec delete-site BlogSite'],
 		['cec delete-site BlogSite -p'],
 		['cec delete-site BlogSite -s SampleServer1']
+	]
+};
+
+const describeSite = {
+	command: 'describe-site <name>',
+	alias: 'dss',
+	name: 'describe-site',
+	usage: {
+		'short': 'Lists the properties of a site.',
+		'long': (function () {
+			let desc = 'Lists the properties of a site on OCM server. Optionally specify -f <file> to save the properties to a JSON file. Specify the server with -r <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-site Site1'],
+		['cec describe-site Site1 -f ~/Docs/Site1.json -s SampleServer ', 'Display the properties of site Site1 on the registered server SampleServer and also save to the local file']
 	]
 };
 
@@ -3450,6 +3468,7 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(shareSite) + os.EOL +
 	_getCmdHelp(unshareSite) + os.EOL +
 	_getCmdHelp(deleteSite) + os.EOL +
+	_getCmdHelp(describeSite) + os.EOL +
 	_getCmdHelp(getSiteSecurity) + os.EOL +
 	_getCmdHelp(setSiteSecurity) + os.EOL +
 	_getCmdHelp(indexSite) + os.EOL +
@@ -5425,6 +5444,9 @@ const argv = yargs.usage(_usage)
 					if (argv.action && argv.action === 'set-theme' && !argv.theme) {
 						throw new Error(os.EOL + 'Please specify the theme');
 					}
+					if (argv.action && argv.action === 'set-metadata' && !argv.name) {
+						throw new Error(os.EOL + 'Please specify the metadata name');
+					}
 
 					return true;
 				})
@@ -5453,6 +5475,14 @@ const argv = yargs.usage(_usage)
 					alias: 'e',
 					description: 'The new theme'
 				})
+				.option('name', {
+					alias: 'n',
+					description: 'The site metadata name'
+				})
+				.option('value', {
+					alias: 'v',
+					description: 'The site metadata value'
+				})
 				.option('server', {
 					alias: 'r',
 					description: '<server> The registered OCM server'
@@ -5467,6 +5497,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlSite.example[7])
 				.example(...controlSite.example[8])
 				.example(...controlSite.example[9])
+				.example(...controlSite.example[10])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlSite.command}\n\n${controlSite.usage.long}`);
@@ -5549,6 +5580,22 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${deleteSite.command}\n\n${deleteSite.usage.long}`);
+		})
+	.command([describeSite.command, describeSite.alias], false,
+		(yargs) => {
+			yargs.option('file', {
+					alias: 'f',
+					description: 'The JSON file to save the properties for site on OCM server',
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...describeSite.example[0])
+				.example(...describeSite.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeSite.command}\n\n${describeSite.usage.long}`);
 		})
 	.command([getSiteSecurity.command, getSiteSecurity.alias], false,
 		(yargs) => {
@@ -9573,6 +9620,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.theme) {
 		controlSiteArgs.push(...['--theme', argv.theme]);
 	}
+	if (argv.name) {
+		controlSiteArgs.push(...['--name', argv.name]);
+	}
+	if (argv.value) {
+		controlSiteArgs.push(...['--value', argv.value]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlSiteArgs.push(...['--server', argv.server]);
 	}
@@ -9636,6 +9689,24 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, deleteSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeSite.name || argv._[0] === describeSite.alias) {
+	let describeSiteArgs = ['run', '-s', describeSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	
+	if (argv.file) {
+		describeSiteArgs.push(...['--file', argv.file]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeSiteArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, describeSiteArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

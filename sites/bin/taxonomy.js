@@ -71,7 +71,8 @@ module.exports.downloadTaxonomy = function (argv, done) {
 		}
 
 		serverRest.getTaxonomies({
-			server: server
+			server: server,
+			fields: 'availableStates'
 		})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -310,7 +311,8 @@ module.exports.uploadTaxonomy = function (argv, done) {
 			return;
 		}
 		serverRest.getTaxonomies({
-			server: server
+			server: server,
+			fields: 'availableStates'
 		})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -438,7 +440,8 @@ module.exports.controlTaxonomy = function (argv, done) {
 		}
 
 		serverRest.getTaxonomies({
-			server: server
+			server: server,
+			fields: 'availableStates,publishedChannels'
 		})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -699,7 +702,8 @@ module.exports.describeTaxonomy = function (argv, done) {
 
 		serverRest.getTaxonomyWithName({
 			server: server,
-			name: name
+			name: name,
+			fields: 'availableStates,publishedChannels'
 		})
 			.then(function (result) {
 				if (!result || result.err || !result.data || !result.data.id) {
@@ -759,6 +763,7 @@ module.exports.describeTaxonomy = function (argv, done) {
 					taxonomyId: tax.id,
 					taxonomyName: tax.name,
 					status: promotedVersion ? 'promoted' : 'draft',
+					fields: 'all',
 					orderBy: 'position:asc'
 				});
 

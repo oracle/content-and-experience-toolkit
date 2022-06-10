@@ -2661,6 +2661,9 @@ module.exports.controlSite = function (argv, done) {
 		var staticOnly = typeof argv.staticonly === 'string' && argv.staticonly.toLowerCase() === 'true';
 		var fullpublish = typeof argv.fullpublish === 'string' && argv.fullpublish.toLowerCase() === 'true';
 
+		var metadataName = argv.name;
+		var metadataValue = argv.value ? argv.value : '';
+
 		serverUtils.loginToServer(server).then(function (result) {
 			if (!result.status) {
 				console.error(result.statusMessage);
@@ -2668,7 +2671,7 @@ module.exports.controlSite = function (argv, done) {
 				return;
 			}
 			// if (server.useRest) {
-			_controlSiteREST(server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish, theme)
+			_controlSiteREST(server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish, theme, metadataName, metadataValue)
 				.then(function (result) {
 					if (result.err) {
 						done(result.exitCode);
@@ -2695,7 +2698,7 @@ module.exports.controlSite = function (argv, done) {
  * @param {*} siteName 
  * @param {*} done 
  */
-var _controlSiteREST = function (server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish, newTheme) {
+var _controlSiteREST = function (server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish, newTheme, metadataName, metadataValue) {
 
 	return new Promise(function (resolve, reject) {
 		var exitCode;
@@ -2781,6 +2784,10 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 						themeName: newTheme
 					});
 
+				} else if (action === 'set-metadata') {
+
+					actionPromise = _setSiteMetadata(server, site.id, site.name, metadataName, metadataValue);
+
 				} else {
 					console.error('ERROR: invalid action ' + action);
 					return Promise.reject();
@@ -2799,6 +2806,12 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 					console.log(' - site ' + siteName + ' is offline now');
 				} else if (action === 'set-theme') {
 					console.log(' - set theme to ' + newTheme);
+				} else if (action === 'set-metadata') {
+					if (metadataValue) {
+						console.log(' - set site metadata ' + metadataName + ' to ' + metadataValue);
+					} else {
+						console.log(' - clear site metadata ' + metadataName);
+					}
 				} else {
 					console.log(' - ' + action + ' ' + siteName + ' finished');
 				}
@@ -2817,6 +2830,45 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 	});
 };
 
+var _setSiteMetadata = function (server, siteId, siteName, metadataName, metadataValue) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getSiteMetadata(server, siteId, siteName)
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				var metadata = result.metadata;
+				var idcToken = result.idcToken;
+
+				// validate metadata
+				if (!metadata.hasOwnProperty(metadataName)) {
+					console.error('ERROR: invalid site metadata ' + metadataName);
+					return Promise.reject();
+				}
+
+				var values = {};
+				values[metadataName] = metadataValue ? metadataValue : '';
+
+				return serverUtils.setSiteMetadata(server, idcToken, siteId, values);
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				return resolve({});
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				return resolve({
+					err: 'err'
+				});
+			});
+	});
+};
 
 /**
  * Publish a site using IdcService (compile site workaround)
@@ -3716,6 +3768,233 @@ var _getValidateAssetsStatus = function (server, statusId) {
 		}, 5000);
 	});
 };
+
+/**
+ * Describe a site
+ */
+module.exports.describeSite = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var output = argv.file;
+
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+		if (!fs.existsSync(outputFolder)) {
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(outputFolder).isDirectory()) {
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
+			done();
+			return;
+		}
+	}
+
+	var name = argv.name;
+
+	var loginPromise = serverUtils.loginToServer(server);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var site;
+		var siteMetadata;
+		var totalItems = 0;
+		var format1 = '%-38s  %-s';
+
+		sitesRest.getSite({
+			server: server,
+			name: name,
+			expand: 'ownedBy,createdBy,lastModifiedBy,members,repository,channel,vanityDomain'
+		})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+
+				if (output) {
+					fs.writeFileSync(output, JSON.stringify(result, null, 4));
+					console.log(' - site properties saved to ' + output);
+				}
+
+				site = result;
+				// console.log(site);
+
+				// find items in the site channel
+				var itemPromises = [];
+				if (site.isEnterprise && site.channel && site.channel.id) {
+					var q = 'channels co "' + site.channel.id + '" AND languageIsMaster eq "true"';
+					itemPromises.push(serverRest.queryItems({
+						server: server,
+						q: q,
+						limit: 1,
+						showTotal: false
+					}));
+				}
+
+				return Promise.all(itemPromises);
+			})
+			.then(function (results) {
+
+				if (site.isEnterprise) {
+					// console.log(results[0]);
+					totalItems = results && results[0] && results[0].limit;
+				}
+
+				// get site metadata
+
+				return serverUtils.getSiteMetadata(server, site.id, site.name);
+
+			})
+			.then(function (result) {
+
+				siteMetadata = result && result.metadata;
+				// console.log(siteMetadata);
+
+				var accValues = site.security && site.security.access || [];
+				var signin = accValues.length === 0 || accValues.includes('everyone') ? 'no' : 'yes';
+
+				var siteUrl = server.url + '/site/' + (signin === 'yes' ? 'authsite/' : '') + site.name;
+
+				var managers = [];
+				var contributors = [];
+				var downloaders = [];
+				var viewers = [];
+				var members = site.members && site.members.items || [];
+				members.forEach(function (member) {
+					if (member.role === 'manager') {
+						managers.push(member.displayName || member.name);
+					} else if (member.role === 'contributor') {
+						contributors.push(member.displayName || member.name);
+					} else if (member.role === 'downloader') {
+						downloaders.push(member.displayName || member.name);
+					} else if (member.role === 'viewer') {
+						viewers.push(member.displayName || member.name);
+					}
+				});
+
+				var memberLabel = '';
+				if (managers.length > 0) {
+					memberLabel = 'Manager: ' + managers + ' ';
+				}
+				if (contributors.length > 0) {
+					memberLabel = memberLabel + 'Contributor: ' + contributors + ' ';
+				}
+				if (downloaders.length > 0) {
+					memberLabel = memberLabel + 'Downloader: ' + downloaders + ' ';
+				}
+				if (viewers.length > 0) {
+					memberLabel = memberLabel + 'Viewer: ' + viewers;
+				}
+
+				console.log('');
+				console.log(sprintf(format1, 'Id', site.id));
+				console.log(sprintf(format1, 'Name', site.name));
+				console.log(sprintf(format1, 'Description', site.description || ''));
+				console.log(sprintf(format1, 'Site URL', siteUrl));
+				console.log(sprintf(format1, 'Vanity domain', site.vanityDomain && site.vanityDomain.name ? site.vanityDomain.name : ''));
+				console.log(sprintf(format1, 'Embeddable site', site.isIframeEmbeddingAllowed));
+				console.log(sprintf(format1, 'Owner', site.ownedBy ? (site.ownedBy.displayName || site.ownedBy.name) : ''));
+				console.log(sprintf(format1, 'Members', memberLabel));
+				console.log(sprintf(format1, 'Created', site.createdAt + ' by ' + (site.createdBy ? (site.createdBy.displayName || site.createdBy.name) : '')));
+				console.log(sprintf(format1, 'Updated', site.lastModifiedAt + ' by ' + (site.lastModifiedBy ? (site.lastModifiedBy.displayName || site.lastModifiedBy.name) : '')));
+				console.log(sprintf(format1, 'Type', (site.isEnterprise ? 'Enterprise' : 'Standard')));
+				console.log(sprintf(format1, 'Template', site.templateName));
+				console.log(sprintf(format1, 'Theme', site.themeName));
+				console.log(sprintf(format1, 'Published', site.publishStatus === 'published' && site.publishedAt ? '√ (published at ' + site.publishedAt + ')' : ''));
+				console.log(sprintf(format1, 'Online', site.runtimeStatus === 'online' && site.onlineAt ? '√ (online since ' + site.onlineAt + ')' : ''));
+
+				if (site.isEnterprise) {
+					var tokens = site.channel && site.channel.channelTokens || [];
+					var channelToken = '';
+					for (var i = 0; i < tokens.length; i++) {
+						if (tokens[i].name === 'defaultToken') {
+							channelToken = tokens[i].token;
+							break;
+						}
+					}
+					console.log(sprintf(format1, 'Site prefix', site.sitePrefix));
+					console.log(sprintf(format1, 'Default language', site.defaultLanguage));
+					console.log(sprintf(format1, 'Repository', site.repository ? site.repository.name : ''));
+					console.log(sprintf(format1, 'Site channel token', channelToken));
+				}
+
+				console.log(sprintf(format1, 'Updates', site.numberOfUpdates));
+
+				// get the number of pages
+				return serverRest.findFile({
+					server: server,
+					parentID: site.id,
+					filename: 'structure.json',
+					itemtype: 'file'
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+				var structureFileId = result.id;
+
+				return serverRest.readFile({
+					server: server,
+					fFileGUID: structureFileId
+				});
+
+			})
+			.then(function (result) {
+
+				var pages = result && result.pages || [];
+
+				console.log(sprintf(format1, 'Total pages', pages.length));
+
+				if (site.isEnterprise) {
+					console.log(sprintf(format1, 'Total items', totalItems));
+				}
+
+				if (siteMetadata) {
+					console.log(sprintf(format1, 'Compile site after publish', siteMetadata.scsCompileSite === '1' ? '√' : ''));
+					if (siteMetadata.scsCompileSite === '1') {
+						console.log(sprintf(format1, 'Compile status', siteMetadata.scsCompileStatus));
+					}
+					console.log(sprintf(format1, 'Caching Response Headers', siteMetadata.scsStaticResponseHeaders));
+					console.log(sprintf(format1, 'Mobile User-Agent', siteMetadata.scsMobileUserAgents));
+				}
+
+				console.log('');
+				done(true);
+			}).catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
+
 
 /**
  * get site security

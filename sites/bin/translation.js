@@ -1871,7 +1871,8 @@ var _createAssetTranslationJob = function (server, repositoryName, name, langs, 
 
 		serverRest.getRepositoryWithName({
 			server: server,
-			name: repositoryName
+			name: repositoryName,
+			fields: 'defaultLanguage,languageOptions,configuredLanguages'
 		})
 			.then(function (result) {
 				if (!result || result.err || !result.data) {

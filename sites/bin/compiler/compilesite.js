@@ -754,6 +754,14 @@ function getPageLinkData(pageEntry, sitePrefix, structureMap, pageLocale, locale
 					if (includeLocale) {
 						var siteLocalePrefix = combineUrlSegments(sitePrefix, locale);
 						url = combineUrlSegments(siteLocalePrefix, pageUrl);
+
+						// The actual sitePrefix produces a link back to root of the site, before any locale strings or aliases.  Assume that
+						// we are not trying to make a cross-locale link, and omit the locale prefix from the link, and only backtrack
+						// to the root of the locale.That will allow us to use the same set of compiled pages for several similar languages.
+						if (sitePrefix.startsWith('../')) {
+							var tempPrefix = sitePrefix.substr('../'.length) || './';
+							url = combineUrlSegments(tempPrefix, pageUrl);
+						}
 					} else {
 						url = combineUrlSegments(sitePrefix, pageUrl);
 					}
@@ -2268,6 +2276,12 @@ function createDirectory(dirName) {
 
 function writePage(pageUrl, pageMarkup) {
 	trace('writePage: pageUrl=' + pageUrl + ', pageMarkup=' + pageMarkup);
+
+	// Mimic the behavior of a "Default Document" served from a webserver.  If the URL ends
+	// with a slash, then assume that we actually want to write out "index.html" to the disk.
+	if (pageUrl.endsWith("/")) {
+		pageUrl += "index.html";
+	}
 
 	if (outputAlternateHierarchy) {
 		// Add an extra "_files" folder into the path just before the file name

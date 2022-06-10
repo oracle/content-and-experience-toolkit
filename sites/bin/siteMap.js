@@ -40,6 +40,8 @@ var _contentTypesOnPages = [];
 var _pageContentIds = [];
 var _detailPages = [];
 var _typesToQuery = [];
+// include siteinfo and structure files
+var _siteTopItems = [];
 
 //
 // Private functions
@@ -60,96 +62,113 @@ var _cmdEnd = function (done, success) {
 	done(success);
 };
 
-var _getSiteInfoFile = function (server, locale, isMaster) {
+var _getSiteInfoFile = function (server, items, locale, isMaster) {
 	// console.log(' - siteId: ' + _siteId);
 	var siteInfoFilePromise = new Promise(function (resolve, reject) {
-		serverRest.getChildItems({
-			server: server,
-			parentID: _siteId
-		}).then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			var items = result && result.items || [];
-			var name = (isMaster || !locale) ? 'siteinfo.json' : locale + '_siteinfo.json';
-			var fileId;
-			for (var i = 0; i < items.length; i++) {
-				if (items[i].name === name) {
-					fileId = items[i].id;
-					break;
-				}
-			}
 
-			if (!fileId) {
-				return Promise.reject();
+		var name = (isMaster || !locale) ? 'siteinfo.json' : locale + '_siteinfo.json';
+		var fileId;
+		for (var i = 0; i < items.length; i++) {
+			if (items[i].name === name) {
+				fileId = items[i].id;
+				break;
 			}
-
-			return serverRest.readFile({
+		}
+		// console.log(' - file name: ' + name + ' id: ' + fileId);
+		if (!fileId) {
+			return resolve({
+				err: 'err'
+			});
+		} else {
+			serverRest.readFile({
 				server: server,
 				fFileGUID: fileId
-			});
-		})
-			.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
 
-				var siteInfoFileContent = typeof result === 'string' ? JSON.parse(result) : result;
-				return resolve({
-					'locale': locale || 'master',
-					'data': siteInfoFileContent
-				});
 			})
-			.catch((error) => {
-				return resolve({
-					err: 'err'
+				.then(function (result) {
+					if (result.err) {
+						return resolve({
+							err: 'err'
+						});
+					} else {
+
+						var siteInfoFileContent = typeof result === 'string' ? JSON.parse(result) : result;
+						return resolve({
+							'locale': locale || 'master',
+							'data': siteInfoFileContent
+						});
+					}
+				})
+				.catch((error) => {
+					return resolve({
+						err: 'err'
+					});
 				});
-			});
+		}
 	});
 	return siteInfoFilePromise;
 };
 
-var _getSiteStructure = function (server, locale, isMaster) {
+var _getSiteInfoFiles = function (server, items, locales) {
+	return new Promise(function (resolve, reject) {
+		var values = [];
+		var doGet = locales.reduce(function (siteInfoPromise, locale) {
+			return siteInfoPromise.then(function (result) {
+				return _getSiteInfoFile(server, items, locale, false)
+					.then(function (result) {
+						values.push(result);
+					});
+			});
+		},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doGet.then(function (result) {
+			resolve(values);
+		});
+	});
+};
+
+var _getSiteStructure = function (server, items, locale, isMaster) {
 	var siteStructurePromise = new Promise(function (resolve, reject) {
-		serverRest.getChildItems({
-			server: server,
-			parentID: _siteId
-		}).then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			var items = result && result.items || [];
-			var name = (isMaster || !locale) ? 'structure.json' : locale + '_structure.json';
-			var fileId;
-			for (var i = 0; i < items.length; i++) {
-				if (items[i].name === name) {
-					fileId = items[i].id;
-					break;
-				}
-			}
 
-			if (!fileId) {
-				return Promise.reject();
+		var name = (isMaster || !locale) ? 'structure.json' : locale + '_structure.json';
+		var fileId;
+		for (var i = 0; i < items.length; i++) {
+			if (items[i].name === name) {
+				fileId = items[i].id;
+				break;
 			}
+		}
+		// console.log(' - file name: ' + name + ' id: ' + fileId);
 
-			return serverRest.readFile({
+		if (!fileId) {
+			return resolve({
+				err: 'err'
+			});
+		} else {
+
+			serverRest.readFile({
 				server: server,
 				fFileGUID: fileId
-			});
-		})
-			.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
-
-				var structureFileContent = typeof result === 'string' ? JSON.parse(result) : result;
-				return resolve(structureFileContent);
 			})
-			.catch((error) => {
-				return resolve({
-					err: 'err'
+				.then(function (result) {
+					if (result.err) {
+						return resolve({
+							err: 'err'
+						});
+					} else {
+
+						var structureFileContent = typeof result === 'string' ? JSON.parse(result) : result;
+						return resolve(structureFileContent);
+					}
+				})
+				.catch((error) => {
+					return resolve({
+						err: 'err'
+					});
 				});
-			});
+		}
 	});
 	return siteStructurePromise;
 };
@@ -287,7 +306,7 @@ var _readPageFiles = function (server, files) {
 		var total = files.length;
 		console.info(' - total number of files: ' + total);
 		var groups = [];
-		var limit = 12;
+		var limit = 10;
 		var start, end;
 		for (var i = 0; i < total / limit; i++) {
 			start = i * limit;
@@ -766,7 +785,7 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ty
 				}
 			}
 			if (!found) {
-				console.info('*** page ' + fileName);
+				// console.info('*** page ' + fileName + ' not found');
 			}
 			// calculate priority
 			var priority;
@@ -941,40 +960,6 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ty
 };
 
 
-var _getSitePageFiles = function (server) {
-	return new Promise(function (resolve, reject) {
-		serverRest.getChildItems({
-			server: server,
-			parentID: _pagesFolderId,
-			limit: 9999
-		})
-			.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
-				var items = result && result.items || [];
-				var files = [];
-				for (var i = 0; i < items.length; i++) {
-					files.push({
-						id: items[i].id,
-						name: items[i].name,
-						lastModifiedDate: items[i].modifiedTime
-					});
-				}
-				// console.log(files);
-				return resolve({
-					'files': files
-				});
-			})
-			.catch((error) => {
-				return resolve({
-					err: 'err'
-				});
-			});
-	});
-};
-
-
 var _uploadSiteMapToServer = function (server, localFilePath) {
 	var uploadPromise = new Promise(function (resolve, reject) {
 		var fileName = localFilePath;
@@ -1035,26 +1020,37 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 				}
 				_siteId = result.id;
 
-				//
-				// Get pages folder id
-				//
-				return serverRest.findFolderHierarchy({
+				// get all site top level files
+				return serverRest.getChildItems({
 					server: server,
 					parentID: _siteId,
-					folderPath: 'pages'
+					limit: 9999
 				});
 
 			})
 			.then(function (result) {
-				if (!result || result.err || !result.id) {
-					return Promise.reject();
+
+				_siteTopItems = result && result.items || [];
+				console.log(' - site top level items: ' + _siteTopItems.length);
+
+				for (var i = 0; i < _siteTopItems.length; i++) {
+					var item = _siteTopItems[i];
+					if (item.name === 'pages') {
+						_pagesFolderId = item.id;
+						break;
+					}
 				}
-				_pagesFolderId = result.id;
+				if (!_pagesFolderId) {
+					console.log('ERROR: failed to find folder pages');
+					return Promise.reject();
+
+				}
+				// console.log(' - folder pages: ' + _pagesFolderId);
 
 				//
 				// Get site info
 				//
-				var siteInfoPromise = _getSiteInfoFile(server);
+				var siteInfoPromise = _getSiteInfoFile(server, _siteTopItems);
 				return siteInfoPromise;
 			})
 			.then(function (result) {
@@ -1129,12 +1125,8 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 				//
 				// verify the site has the translation
 				//
-				var siteinfoPromises = [];
-				for (var i = 0; i < locales.length; i++) {
-					siteinfoPromises[i] = _getSiteInfoFile(server, locales[i], false);
-				}
+				return _getSiteInfoFiles(server, _siteTopItems, locales);
 
-				return Promise.all(siteinfoPromises);
 			})
 			.then(function (values) {
 				_validLocales = [];
@@ -1143,7 +1135,7 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 						_validLocales.push(values[i].locale);
 					}
 				}
-				// console.log('valid site languages: ' + _validLocales + ' param languages: ' + languages);
+				// console.log('valid site languages: ' + _validLocales + ' (' + _validLocales.length + ') param languages: ' + languages);
 
 				//
 				// validate languages parameter
@@ -1180,7 +1172,7 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 				repository = result;
 				console.info(' - query site repository');
 
-				return _getSiteStructure(server);
+				return _getSiteStructure(server, _siteTopItems);
 			})
 			.then(function (result) {
 				// 
@@ -1223,10 +1215,12 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 				console.info(' - query page data');
 				var pages = result;
 				for (var i = 0; i < pages.length; i++) {
-					pageData.push({
-						id: pages[i].id,
-						data: pages[i].data
-					});
+					if (pages[i] && pages[i].id) {
+						pageData.push({
+							id: pages[i].id,
+							data: pages[i].data
+						});
+					}
 				}
 				_masterPageData = pageData;
 
@@ -1309,6 +1303,9 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 				}
 			})
 			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
 				_cmdEnd(done);
 			});
 	});
@@ -1322,7 +1319,7 @@ var _getSiteDataWithLocale = function (server, site, locale, isMaster) {
 		var pageFiles = [];
 		var pageData = [];
 
-		var siteStructurePromise = _getSiteStructure(server, locale, isMaster);
+		var siteStructurePromise = _getSiteStructure(server, _siteTopItems, locale, isMaster);
 		siteStructurePromise.then(function (result) {
 			if (result.err) {
 				return resolve(result);
@@ -1351,10 +1348,12 @@ var _getSiteDataWithLocale = function (server, site, locale, isMaster) {
 						console.info(' - query page data (' + locale + ')');
 						var values = result || [];
 						for (var i = 0; i < values.length; i++) {
-							pageData.push({
-								id: values[i].id,
-								data: values[i].data
-							});
+							if (values[i] && values[i].id) {
+								pageData.push({
+									id: values[i].id,
+									data: values[i].data
+								});
+							}
 						}
 
 						//
@@ -1595,18 +1594,11 @@ var _calculatePageChangeFraq = function (server, serverName, allPageFiles) {
 						versions = pages[i];
 
 						if (versions) {
-							if (versions.length > 5) {
-								// use the latest 5 versions
-								var byVersion = versions.slice(0);
-								byVersion.sort(function (a, b) {
-									var x = a.version;
-									var y = b.version;
-									return (x < y ? 1 : x > y ? -1 : 0);
-								});
-								versions = byVersion;
-							}
 
-							var oldestVersionIdx = versions.length > 5 ? versions.length - 5 : 0;
+							// the versions returned in order, the latest in front
+							// if there are more than 5 versions, use the 5th latest to calculate
+
+							var oldestVersionIdx = versions.length > 5 ? 4 : versions.length - 1;
 							var versionNum = versions.length > 5 ? 5 : versions.length;
 							var oldest = new Date(versions[oldestVersionIdx].modifiedTime);
 							var diffDays = Math.round(Math.abs((todayDate.getTime() - oldest.getTime()) / oneDay));
@@ -1627,11 +1619,10 @@ var _calculatePageChangeFraq = function (server, serverName, allPageFiles) {
 								calculatedChangefreq = 'never';
 							}
 
-							/*
-							console.log(' - page : ' + versions[0].name + ' versions: ' + versions.length +
-								' oldest update: ' + versions[oldestVersionIdx].modifiedTime +
+							console.debug(' - page : ' + versions[0].name + ' versions: ' + versions.length +
+								' 5th latest: v' + versions[oldestVersionIdx].version + ' update: ' + versions[oldestVersionIdx].modifiedTime +
 								' days: ' + diffDays + ' changefreq: ' + changefreq.toFixed(2) + ' roundDown: ' + roundDown.toFixed(2) + ' => ' + calculatedChangefreq);
-							*/
+
 							for (var j = 0; j < allPageFiles.length; j++) {
 								if (allPageFiles[j].name === versions[0].name) {
 									allPageFiles[j].changefreq = calculatedChangefreq;

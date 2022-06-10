@@ -534,7 +534,8 @@ module.exports.controlRecommendation = function (argv, done) {
 
 		serverRest.getRepositoryWithName({
 			server: server,
-			name: repositoryName
+			name: repositoryName,
+			fields: 'channels'
 		})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -552,7 +553,8 @@ module.exports.controlRecommendation = function (argv, done) {
 				return serverRest.getRecommendations({
 					server: server,
 					repositoryId: repository.id,
-					repositoryName: repository.name
+					repositoryName: repository.name,
+					fields: 'all'
 				});
 
 			})

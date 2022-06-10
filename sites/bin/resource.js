@@ -474,8 +474,9 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 			return;
 		}
 
-		var promises = (listChannels || listRepositories) ? [serverRest.getChannels({
-			server: server
+		var promises = (listChannels || listRepositories || listRecommendations) ? [serverRest.getChannels({
+			server: server,
+			fields: 'channelType,publishPolicy,channelTokens'
 		})] : [];
 		var channels;
 
@@ -609,7 +610,8 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 				}
 
 				promises = (listRepositories || listRecommendations) ? [serverRest.getRepositories({
-					server: server
+					server: server,
+					fields: 'contentTypes,channels,defaultLanguage'
 				})] : [];
 
 				return Promise.all(promises);
@@ -652,7 +654,8 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 						promises.push(serverRest.getRecommendations({
 							server: server,
 							repositoryId: repo.id,
-							repositoryName: repo.name
+							repositoryName: repo.name,
+							fields: 'all'
 						}));
 					});
 				}
@@ -668,7 +671,6 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					var allRecommendations = results.length > 0 ? results : [];
 					var recFormat = '  %-36s  %-7s  %-16s  %-10s  %-10s  %-24s  %-32s  %-s';
 					// console.log(sprintf(recFormat, 'Name', 'Version', 'API Name', 'Status', 'Published', 'Content Type', 'Channels', 'Published Channels'));
-
 					allRecommendations.forEach(function (value) {
 						if (value && value.repositoryId && value.data) {
 							var recommendations = value.data;
@@ -795,7 +797,8 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 				console.log('');
 
 				promises = listTaxonomies ? [serverRest.getTaxonomies({
-					server: server
+					server: server,
+					fields: 'availableStates,publishedChannels'
 				})] : [];
 
 				return Promise.all(promises);

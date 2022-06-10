@@ -2824,7 +2824,7 @@ var _getAllResources = function (server, endpoint, type, fields, q, orderBy) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getChannels = function (args) {
-	return _getAllResources(args.server, '/content/management/api/v1.1/channels', 'channels', 'all');
+	return _getAllResources(args.server, '/content/management/api/v1.1/channels', 'channels', args.fields);
 };
 
 // Get channel from server
@@ -2896,7 +2896,9 @@ module.exports.getChannelWithName = function (args) {
 
 		var url = server.url + '/content/management/api/v1.1/channels';
 		url = url + '?q=(name mt "' + encodeURIComponent(channelName) + '")';
-		url = url + '&fields=all';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -3508,7 +3510,7 @@ module.exports.copyAssets = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getLocalizationPolicies = function (args) {
-	return _getAllResources(args.server, '/content/management/api/v1.1/localizationPolicies', 'localizationPolicies', 'all');
+	return _getAllResources(args.server, '/content/management/api/v1.1/localizationPolicies', 'localizationPolicies', args.fields);
 };
 
 // Get a localization policy from server
@@ -3780,7 +3782,7 @@ module.exports.deleteLocalizationPolicy = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getRepositories = function (args) {
-	return _getAllResources(args.server, '/content/management/api/v1.1/repositories', 'repositories', 'all');
+	return _getAllResources(args.server, '/content/management/api/v1.1/repositories', 'repositories', args.fields);
 };
 
 // Get a repository from server
@@ -3852,7 +3854,9 @@ module.exports.getRepositoryWithName = function (args) {
 
 		var url = server.url + '/content/management/api/v1.1/repositories';
 		url = url + '?q=(name mt "' + encodeURIComponent(repoName) + '")';
-		url = url + '&fields=all';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -3917,7 +3921,7 @@ module.exports.getRepositoryWithName = function (args) {
 module.exports.getCollections = function (args) {
 	return _getAllResources(args.server,
 		'/content/management/api/v1.1/repositories/' + args.repositoryId + '/collections',
-		'collections', 'all');
+		'collections', args.fields);
 };
 
 /**
@@ -3937,7 +3941,9 @@ module.exports.getCollectionWithName = function (args) {
 
 		var url = server.url + '/content/management/api/v1.1/repositories/' + args.repositoryId + '/collections';
 		url = url + '?q=(name mt "' + encodeURIComponent(colName) + '")';
-		url = url + '&fields=all';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -3995,10 +4001,13 @@ module.exports.getCollectionWithName = function (args) {
 
 var TAX_MAX_LIMIT = 100;
 // Get taxonomies from server
-var _getTaxonomies = function (server, offset) {
+var _getTaxonomies = function (server, fields, offset) {
 	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/taxonomies?fields=all&q=(status eq "all")&totalResults=true';
+		var url = server.url + '/content/management/api/v1.1/taxonomies?q=(status eq "all")';
 		url = url + '&limit=' + TAX_MAX_LIMIT;
+		if (fields) {
+			url = url + '&fields=' + fields;
+		}
 		if (offset) {
 			url = url + '&offset=' + offset;
 		}
@@ -4041,7 +4050,7 @@ var _getTaxonomies = function (server, offset) {
 };
 
 // get all taxonomies with pagination
-var _getAllTaxonomies = function (server) {
+var _getAllTaxonomies = function (server, fields) {
 	return new Promise(function (resolve, reject) {
 		var groups = [];
 		// 1000 * 100 should be enough
@@ -4057,12 +4066,12 @@ var _getAllTaxonomies = function (server) {
 					resources = resources.concat(result.items);
 				}
 				if (result && result.hasMore) {
-					return _getTaxonomies(server, offset);
+					return _getTaxonomies(server, fields, offset);
 				}
 			});
 		},
 			// Start with a previousPromise value that is a resolved promise
-			_getTaxonomies(server));
+			_getTaxonomies(server, fields));
 
 		doGetResources.then(function (result) {
 			// console.log(resources.length);
@@ -4077,7 +4086,7 @@ var _getAllTaxonomies = function (server) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getTaxonomies = function (args) {
-	return _getAllTaxonomies(args.server);
+	return _getAllTaxonomies(args.server, args.fields);
 };
 
 /**
@@ -4096,7 +4105,9 @@ module.exports.getTaxonomy = function (args) {
 		var server = args.server;
 
 		var url = server.url + '/content/management/api/v1.1/taxonomies/' + taxonomyId;
-		url = url + '?fields=all';
+		if (args.fields) {
+			url = url + '?fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -4153,7 +4164,9 @@ module.exports.getTaxonomyWithName = function (args) {
 
 		var url = server.url + '/content/management/api/v1.1/taxonomies';
 		url = url + '?q=(name mt "' + encodeURIComponent(taxonomyName) + '" AND status eq "all")';
-		url = url + '&fields=all';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -4222,7 +4235,7 @@ module.exports.getCategories = function (args) {
 			q = 'status eq "' + args.status + '"';
 		}
 		_getAllResources(args.server, '/content/management/api/v1.1/taxonomies/' + args.taxonomyId + '/categories',
-			'categories', 'all', q, args.orderBy)
+			'categories', args.fields, q, args.orderBy)
 			.then(function (result) {
 				resolve({
 					taxonomyName: args.taxonomyName,
@@ -4724,7 +4737,7 @@ module.exports.performPermissionOperation = function (args) {
  */
 module.exports.getEditorialRoles = function (args) {
 	return _getAllResources(args.server, '/content/management/api/v1.1/editorialRoles',
-		'editorialRoles', 'all', '', 'name:asc');
+		'editorialRoles', args.fields, '', 'name:asc');
 };
 
 /**
@@ -4744,7 +4757,9 @@ module.exports.getEditorialRoleWithName = function (args) {
 
 		var url = server.url + '/content/management/api/v1.1/editorialRoles';
 		url = url + '?q=(name mt "' + encodeURIComponent(roleName) + '")';
-		url = url + '&fields=all';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -6128,7 +6143,7 @@ module.exports.getRecommendations = function (args) {
 	return new Promise(function (resolve, reject) {
 		var q = '(repositoryId eq "' + args.repositoryId + '")';
 		_getAllResources(args.server, '/content/management/api/v1.1/personalization/recommendations',
-			'recommendations', 'all', q)
+			'recommendations', args.fields, q)
 			.then(function (result) {
 				resolve({
 					repositoryId: args.repositoryId,
@@ -8900,7 +8915,7 @@ module.exports.createCategory = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getWorkflows = function (args) {
-	return _getAllResources(args.server, '/content/management/api/v1.1/workflows', 'workflows', 'all');
+	return _getAllResources(args.server, '/content/management/api/v1.1/workflows', 'workflows', args.fields);
 };
 
 /**
@@ -8911,7 +8926,7 @@ module.exports.getWorkflows = function (args) {
  */
 module.exports.getWorkflowPermissions = function (args) {
 	return new Promise(function (resolve, reject) {
-		_getAllResources(args.server, '/content/management/api/v1.1/workflows/' + args.id + '/permissions', 'workflow permissions', 'all')
+		_getAllResources(args.server, '/content/management/api/v1.1/workflows/' + args.id + '/permissions', 'workflow permissions', args.fields)
 			.then(function (result) {
 				return resolve({
 					workflowId: args.id,
@@ -8938,7 +8953,9 @@ module.exports.getWorkflowsWithName = function (args) {
 
 		var url = server.url + '/content/management/api/v1.1/workflows';
 		url = url + '?q=(name mt "' + encodeURIComponent(workflowName) + '")';
-		url = url + '&fields=all';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -8986,7 +9003,7 @@ module.exports.getWorkflowsWithName = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getRankingPolicies = function (args) {
-	return _getAllResources(args.server, '/content/management/api/v1.1/search/rankingPolicies', 'rankingPolicies', 'all');
+	return _getAllResources(args.server, '/content/management/api/v1.1/search/rankingPolicies', 'rankingPolicies', args.fields);
 };
 
 /**
@@ -8996,7 +9013,7 @@ module.exports.getRankingPolicies = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getRankingPolicyDescriptors = function (args) {
-	return _getAllResources(args.server, '/content/management/api/v1.1/search/rankingPolicyDescriptors', 'rankingPolicyDescriptors', 'all');
+	return _getAllResources(args.server, '/content/management/api/v1.1/search/rankingPolicyDescriptors', 'rankingPolicyDescriptors', args.fields);
 };
 
 /**
@@ -9016,7 +9033,10 @@ module.exports.getTranslationConnector = function (args) {
 
 		var url = server.url + '/content/management/api/v1.1/connectors';
 		url = url + '?q=(name mt "' + encodeURIComponent(connectorName) + '") AND (connectorType eq "translation")';
-		url = url + '&fields=all&links=none';
+		url = url + '&links=none';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',

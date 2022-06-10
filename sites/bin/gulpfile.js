@@ -136,6 +136,14 @@ gulp.task('install-src', function (done) {
 		fse.copySync(testDataDir, path.join(projectDir, 'test'));
 	}
 
+	// ./samples/ 
+	if (!fs.existsSync(path.join(projectDir, 'samples'))) {
+		fs.mkdirSync(path.join(projectDir, 'samples'));
+	}
+	if (!fs.existsSync(path.join(projectDir, 'samples', 'compile_site.sh'))) {
+		fse.copySync(path.join(configDataDir, 'src-compile_site.sh'), path.join(projectDir, 'samples', 'compile_site.sh'));
+	}
+
 	// set the server in config with existing settings
 	if (newConfig && currserver.url) {
 		// console.log(' - set CEC server with ' + currserver.fileloc);
@@ -1125,7 +1133,7 @@ gulp.task('transfer-content', function (done) {
 /**
  * upload content to server
  */
- gulp.task('validate-content', function (done) {
+gulp.task('validate-content', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	contentlib.validateContent(argv, function (success) {
@@ -1584,6 +1592,18 @@ gulp.task('delete-site', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.deleteSite(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Describe site
+ */
+gulp.task('describe-site', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.describeSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});

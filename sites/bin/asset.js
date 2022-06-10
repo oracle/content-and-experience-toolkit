@@ -235,8 +235,10 @@ module.exports.controlRepository = function (argv, done) {
 		}
 
 		var exitCode;
+		// Need to get all fields for updating 
 		serverRest.getRepositories({
-			server: server
+			server: server,
+			fields: 'all'
 		})
 			.then(function (result) {
 				if (result.err) {
@@ -347,7 +349,8 @@ module.exports.controlRepository = function (argv, done) {
 				var taxPromises = [];
 				if (taxNames.length > 0) {
 					taxPromises.push(serverRest.getTaxonomies({
-						server: server
+						server: server,
+						fields: 'availableStates'
 					}));
 				}
 
@@ -398,7 +401,8 @@ module.exports.controlRepository = function (argv, done) {
 				for (var i = 0; i < connectorNames.length; i++) {
 					connectorPromises.push(serverRest.getTranslationConnector({
 						server: server,
-						name: connectorNames[i]
+						name: connectorNames[i],
+						fields: 'all'
 					}));
 				}
 
@@ -576,7 +580,7 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 						}
 					}
 				} else if (action === 'add-translation-connector') {
-					finalConnectors = finalChannels.concat(connectors);
+					finalConnectors = finalConnectors.concat(connectors);
 				} else if (action === 'remove-translation-connector') {
 					for (i = 0; i < connectors.length; i++) {
 						idx = undefined;
@@ -710,7 +714,8 @@ module.exports.shareRepository = function (argv, done) {
 		}
 
 		serverRest.getRepositories({
-			server: server
+			server: server,
+			fields: 'contentTypes'
 		})
 			.then(function (result) {
 				if (result.err) {
@@ -1065,7 +1070,8 @@ module.exports.unShareRepository = function (argv, done) {
 		}
 
 		serverRest.getRepositories({
-			server: server
+			server: server,
+			fields: 'contentTypes'
 		})
 			.then(function (result) {
 				if (result.err) {
@@ -1301,9 +1307,11 @@ module.exports.describeRepository = function (argv, done) {
 		var channels = [];
 		var taxonomies = [];
 
+		// need all fields, otherwise channel language not returned
 		serverRest.getRepositoryWithName({
 			server: server,
-			name: name
+			name: name,
+			fields: 'all'
 		})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -2313,7 +2321,8 @@ module.exports.createCollection = function (argv, done) {
 
 		serverRest.getRepositoryWithName({
 			server: server,
-			name: repositoryName
+			name: repositoryName,
+			fields: 'channels'
 		})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -2465,7 +2474,8 @@ module.exports.controlCollection = function (argv, done) {
 
 		serverRest.getRepositoryWithName({
 			server: server,
-			name: repositoryName
+			name: repositoryName,
+			fields: 'channels'
 		})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -2480,9 +2490,11 @@ module.exports.controlCollection = function (argv, done) {
 
 				console.info(' - get repository (Id: ' + repository.id + ')');
 
+				// Get all fields for updating
 				return serverRest.getCollections({
 					server: server,
-					repositoryId: repository.id
+					repositoryId: repository.id,
+					fields: 'all'
 				});
 			})
 			.then(function (result) {
@@ -3413,7 +3425,8 @@ module.exports.describeChannel = function (argv, done) {
 
 		serverRest.getChannelWithName({
 			server: server,
-			name: name
+			name: name,
+			fields: 'channelType,publishPolicy,localizationPolicy,channelTokens'
 		})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -3949,10 +3962,12 @@ module.exports.setEditorialPermission = function (argv, done) {
 
 				var categoryPromises = [];
 				for (var i = 0; i < taxonomies.length; i++) {
+					// Need all to get whole hierarchy
 					categoryPromises.push(serverRest.getCategories({
 						server: server,
 						taxonomyId: taxonomies[i].id,
-						taxonomyName: taxonomies[i].name
+						taxonomyName: taxonomies[i].name,
+						fields: 'all'
 					}));
 				}
 
@@ -4316,7 +4331,8 @@ module.exports.listEditorialRole = function (argv, done) {
 		}
 
 		serverRest.getEditorialRoles({
-			server: server
+			server: server,
+			fields: 'all'
 		})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -4469,9 +4485,11 @@ module.exports.createEditorialRole = function (argv, done) {
 			return;
 		}
 		var exitCode;
+		// CAAS API does not support specific field
 		serverRest.getEditorialRoleWithName({
 			server: server,
-			name: name
+			name: name,
+			fields: 'all'
 		})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -4556,9 +4574,11 @@ module.exports.setEditorialRole = function (argv, done) {
 
 		var role;
 
+		// CAAS API does not support specific field
 		serverRest.getEditorialRoleWithName({
 			server: server,
-			name: name
+			name: name,
+			fields: 'all'
 		})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -4680,10 +4700,12 @@ module.exports.setEditorialRole = function (argv, done) {
 
 				var categoryPromises = [];
 				for (var i = 0; i < taxonomies.length; i++) {
+					// Need all to get whole hierarchy
 					categoryPromises.push(serverRest.getCategories({
 						server: server,
 						taxonomyId: taxonomies[i].id,
-						taxonomyName: taxonomies[i].name
+						taxonomyName: taxonomies[i].name,
+						fields: 'all'
 					}));
 				}
 
@@ -4881,13 +4903,13 @@ module.exports.setEditorialRole = function (argv, done) {
 				}
 
 				if (!anyTypeExist && !anyTaxExist) {
-					console.error('ERROR: "Any" content type rule and "Any" taxonomy category rule are missing for ' + pal.name);
+					console.error('ERROR: "Any" content type rule and "Any" taxonomy category rule are missing for ' + name);
 					return Promise.reject();
 				} else if (!anyTypeExist) {
-					console.error('ERROR: "Any" content type rule is missing for ' + pal.name);
+					console.error('ERROR: "Any" content type rule is missing for ' + name);
 					return Promise.reject();
 				} else if (!anyTaxExist) {
-					console.error('ERROR: "Any" taxonomy category rule is missing for ' + pal.name);
+					console.error('ERROR: "Any" taxonomy category rule is missing for ' + name);
 					return Promise.reject();
 				}
 				// console.log(contentPrivileges);
@@ -5112,7 +5134,8 @@ module.exports.describeWorkflow = function (argv, done) {
 
 		serverRest.getWorkflowsWithName({
 			server: server,
-			name: name
+			name: name,
+			fields: 'repositories,roles,properties'
 		})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -5330,7 +5353,8 @@ module.exports.listAssets = function (argv, done) {
 				if (channelName) {
 					channelPromises.push(serverRest.getChannelWithName({
 						server: server,
-						name: channelName
+						name: channelName,
+						fields: 'channelTokens'
 					}));
 				}
 

@@ -3373,6 +3373,63 @@ module.exports.getTranslationConnectorJobOnServer = function (server, jobId) {
 	return jobPromise;
 };
 
+/**
+ * Get site metadata
+ */
+module.exports.getSiteMetadata = function (server, siteId, siteName) {
+	return new Promise(function (resolve, reject) {
+
+		var url = server.url + '/documents/integration?IdcService=SCS_GET_SITE_METADATA&item=fFolderGUID:' + siteId;
+		url = url + '&IsJson=1';
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+
+		_showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.error('ERROR: Failed to get site metadata');
+				console.error(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) { }
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.error('ERROR: Failed to get site metadata ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.SiteMetadata && data.ResultSets.SiteMetadata.fields || [];
+			var rows = data.ResultSets && data.ResultSets.SiteMetadata && data.ResultSets.SiteMetadata.rows || [];
+			var metadata = {};
+
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				metadata[attr] = rows[0][i];
+			}
+
+			resolve({
+				folderId: siteId,
+				metadata: metadata,
+				idcToken: data.LocalData.idcToken
+			});
+		});
+	});
+};
 
 /**
  * Get theme metadata
@@ -3704,7 +3761,7 @@ module.exports.setSiteMetadata = function (server, idcToken, siteId, values) {
 					data = body;
 				}
 			}
-			// console.log(data);
+
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				// console.error('ERROR: failed to set site metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 				var errorMsg = data && data.LocalData ? '- ' + data.LocalData.StatusMessage : "failed to set site metadata";
