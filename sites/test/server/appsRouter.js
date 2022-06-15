@@ -11,20 +11,22 @@ var express = require('express'),
 	router = express.Router(),
 	url = require('url');
 
+var console = require('./logger.js').console;
+
 router.get('/*', (req, res) => {
 	let location, app = req.app,
 		requestUrl = req.originalUrl;
 
-	console.log('~~~ Apps GET: ' + req.url);
+	console.info('~~~ Apps GET: ' + req.url);
 
 	if (!app.locals.connectToServer) {
-		console.log('No remote server for remote traffic ', requestUrl);
+		console.error('No remote server for remote traffic ', requestUrl);
 		res.end();
 		return;
 	}
 
 	location = app.locals.serverURL + (requestUrl.indexOf('/_sitescloud') == 0 ? requestUrl : '/_sitescloud' + requestUrl);
-	console.log('Apps Remote traffic: path=' + requestUrl + ' remote=' + location);
+	console.info('Apps Remote traffic: path=' + requestUrl + ' remote=' + location);
 
 	var options = {
 		url: location,
@@ -38,8 +40,8 @@ router.get('/*', (req, res) => {
 
 	request.get(options, function (error, response, body) {
 		if (error) {
-			console.log('ERROR: request failed:');
-			console.log(error);
+			console.error('ERROR: request failed:');
+			console.error(error);
 			res.writeHead(response.statusCode, {});
 			res.end();
 			return;
@@ -51,7 +53,7 @@ router.get('/*', (req, res) => {
 			return;
 		} else {
 			var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-			console.log('ERROR: request failed : ' + msg);
+			console.error('ERROR: request failed : ' + msg);
 			res.writeHead(response.statusCode, {});
 			res.end();
 			return;
@@ -64,20 +66,20 @@ router.post('/*', (req, res) => {
 		request = app.locals.request,
 		requestUrl = req.originalUrl;
 
-	console.log('~~~ Apps POST: ' + req.url);
+	console.info('~~~ Apps POST: ' + req.url);
 
 	if (!app.locals.connectToServer) {
-		console.log('No remote server for remote traffic ', requestUrl);
+		console.error('No remote server for remote traffic ', requestUrl);
 		res.end();
 		return;
 	}
 
 	// all POST requests are proxied to the remote server
-	console.log('Apps Remote traffic: POST ', requestUrl);
+	console.info('Apps Remote traffic: POST ', requestUrl);
 	var body = '';
 
 	req.on('error', function (err) {
-		console.log('err: ' + err);
+		console.error('err: ' + err);
 	});
 
 	req.on('data', function (data) {
@@ -102,7 +104,7 @@ router.post('/*', (req, res) => {
 			postData.form = body;
 		}
 
-		console.log(' postData=' + JSON.stringify(postData));
+		console.info(' postData=' + JSON.stringify(postData));
 		request(postData).on('response', function (response) {
 			// fix headers for cross-domain and capitalization issues
 			serverUtils.fixHeaders(response, res);

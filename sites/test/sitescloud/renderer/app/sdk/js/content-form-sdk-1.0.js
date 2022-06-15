@@ -948,7 +948,7 @@
                 };
             }
             function u(e) {
-                s.debug("Item update recived data: ", e), i(e);
+                s.debug("Item update recived data: ", e), i(e), e.formOptions && (K = e.formOptions);
                 var t = e.fieldData;
                 t && Array.isArray(t) && t.forEach(function(e) {
                     var t = e.definition.id, r = e.value, i = J.filter(function(e) {

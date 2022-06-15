@@ -12,6 +12,8 @@ var express = require('express'),
 	fs = require('fs'),
 	path = require('path');
 
+var console = require('./logger.js').console;
+
 var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), ''),
 	defaultTestDir = cecDir + '/test',
 	defaultLibsDir = cecDir + '/src/libs',
@@ -61,7 +63,7 @@ router.get('/*', (req, res) => {
 		return;
 	}
 
-	console.log('+++ Template: ' + req.url);
+	console.info('+++ Template: ' + req.url);
 	filePathSuffix = decodeURIComponent(filePathSuffix);
 
 	if (filePathSuffix.indexOf('/_compdelivery/') > 0) {
@@ -83,7 +85,7 @@ router.get('/*', (req, res) => {
 			useServer = filePathSuffix.indexOf('/app/apps/') > 0;
 
 		if (useServer) {
-			console.log(' - redirect to: /' + fpath);
+			console.info(' - redirect to: /' + fpath);
 			res.redirect('/' + fpath);
 			res.end();
 			return;
@@ -103,17 +105,17 @@ router.get('/*', (req, res) => {
 			mappings = summaryJson.categoryLayoutMappings || summaryJson.contentTypeMappings || [];
 		}
 		if (mappings.length > 0) {
-			console.log(' - content layout mapping from file ' + summaryPath);
+			console.info(' - content layout mapping from file ' + summaryPath);
 			res.write(JSON.stringify(mappings));
 			res.end();
 			return;
 		} else {
 			filePath = path.resolve(templatesDir + '/' + filePathSuffix);
 			if (existsAndIsFile(filePath)) {
-				console.log(' - content layout mapping from file ' + filePath);
+				console.info(' - content layout mapping from file ' + filePath);
 				res.sendFile(filePath);
 			} else {
-				console.log(' - no content layout mapping found');
+				console.info(' - no content layout mapping found');
 				res.write(JSON.stringify(mappings));
 				res.end();
 				return;
@@ -153,7 +155,7 @@ router.get('/*', (req, res) => {
 			res.redirect(url);
 			res.end();
 		} else {
-			console.log(' - docname: ' + docname + ' page: ' + page + ' - no rendition is available');
+			console.info(' - docname: ' + docname + ' page: ' + page + ' - no rendition is available');
 			res.write('');
 			res.end();
 		}
@@ -227,7 +229,7 @@ router.get('/*', (req, res) => {
 		filePath = path.join(compSiteDir, 'controller.html');
 	}
 
-	console.log(' - filePath=' + filePath);
+	console.info(' - filePath=' + filePath);
 
 	if (existsAndIsFile(filePath)) {
 		if (filePath.indexOf('controller.html') > 0) {
@@ -259,7 +261,7 @@ router.get('/*', (req, res) => {
 					var data = JSON.parse(body);
 					vbcsconn = data ? data.VBCSConnection : '';
 				} else {
-					console.log('status=' + response.statusCode + ' err=' + err);
+					console.error('status=' + response.statusCode + ' err=' + err);
 				}
 
 				//
@@ -339,9 +341,9 @@ router.get('/*', (req, res) => {
 				});
 			}
 			if (docs.length > 0) {
-				console.log(' -- scs-document docs: ' + JSON.stringify(docs));
+				console.info(' -- scs-document docs: ' + JSON.stringify(docs));
 				if (!app.locals.connectToServer) {
-					console.log(' - No remote server to get document rendition');
+					console.error(' - No remote server to get document rendition');
 					// send the new pages
 					res.write(JSON.stringify(newpagesjson));
 					res.end();
@@ -351,7 +353,7 @@ router.get('/*', (req, res) => {
 						var doc = docs[i];
 						serverUtils.getDocumentRendition(app, doc, function (newdoc) {
 							doc = newdoc;
-							console.log(' -- current status: ' + JSON.stringify(docs));
+							console.info(' -- current status: ' + JSON.stringify(docs));
 
 							// check if all are fone
 							var done = 0;
@@ -380,7 +382,7 @@ router.get('/*', (req, res) => {
 			res.sendFile(filePath);
 		}
 	} else {
-		console.log('404: ' + filePath);
+		console.error('404: ' + filePath);
 		res.writeHead(404, {});
 		res.end();
 	}

@@ -6,6 +6,8 @@
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js');
 
+var console = require('../test/server/logger.js').console;
+
 var projectDir;
 
 /**
@@ -42,15 +44,15 @@ module.exports.createGroup = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getGroup({
-				server: server,
-				name: name
-			})
+			server: server,
+			name: name
+		})
 			.then(function (result) {
 
 				var found = result && result.name;
@@ -103,21 +105,21 @@ module.exports.deleteGroup = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getGroup({
-				server: server,
-				name: name
-			})
+			server: server,
+			name: name
+		})
 			.then(function (result) {
 
 				var groupId = result && result.id;
 
 				if (!groupId) {
-					console.log('ERROR: group ' + name + ' does not exist');
+					console.error('ERROR: group ' + name + ' does not exist');
 					return Promise.reject();
 				}
 
@@ -156,7 +158,6 @@ module.exports.addMemberToGroup = function (argv, done) {
 		done();
 		return;
 	}
-	// console.log(' - server: ' + server.url);
 
 	var name = argv.name;
 	var role = 'GROUP_' + argv.role.toUpperCase();
@@ -170,40 +171,40 @@ module.exports.addMemberToGroup = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 
 		serverRest.getGroup({
-				server: server,
-				name: name
-			}).then(function (result) {
+			server: server,
+			name: name
+		}).then(function (result) {
 
-				console.log(' - verify group');
+			console.info(' - verify group');
 
-				groupId = result && result.id;
-				if (!groupId) {
-					console.log('ERROR: group ' + name + ' does not exist');
-					return Promise.reject();
-				}
+			groupId = result && result.id;
+			if (!groupId) {
+				console.error('ERROR: group ' + name + ' does not exist');
+				return Promise.reject();
+			}
 
-				var groupPromises = [];
-				groupNames.forEach(function (gName) {
-					groupPromises.push(
-						serverRest.getGroup({
-							server: server,
-							name: gName
-						}));
-				});
-				return Promise.all(groupPromises);
+			var groupPromises = [];
+			groupNames.forEach(function (gName) {
+				groupPromises.push(
+					serverRest.getGroup({
+						server: server,
+						name: gName
+					}));
+			});
+			return Promise.all(groupPromises);
 
-			})
+		})
 			.then(function (result) {
 
 				if (groupNames.length > 0) {
-					console.log(' - verify groups');
+					console.info(' - verify groups');
 
 					// verify groups
 					var allGroups = result || [];
@@ -217,7 +218,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							console.error('ERROR: group ' + groupNames[i] + ' does not exist');
 							return Promise.reject();
 						}
 					}
@@ -242,7 +243,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 					}
 				}
 				if (userNames.length > 0) {
-					console.log(' - verify users');
+					console.info(' - verify users');
 				}
 				// verify users
 				for (var k = 0; k < userNames.length; k++) {
@@ -258,7 +259,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 						}
 					}
 					if (!found) {
-						console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						console.error('ERROR: user ' + userNames[k] + ' does not exist');
 					}
 				}
 
@@ -306,7 +307,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -328,7 +329,6 @@ module.exports.removeMemberFromGroup = function (argv, done) {
 		done();
 		return;
 	}
-	// console.log(' - server: ' + server.url);
 
 	var name = argv.name;
 	var memberNames = argv.members ? argv.members.split(',') : [];
@@ -339,22 +339,22 @@ module.exports.removeMemberFromGroup = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getGroup({
-				server: server,
-				name: name
-			})
+			server: server,
+			name: name
+		})
 			.then(function (result) {
-				console.log(' - verify group');
+				console.info(' - verify group');
 
 				// verify group
 				groupId = result && result.id;
 				if (!groupId) {
-					console.log('ERROR: group ' + name + ' does not exist');
+					console.error('ERROR: group ' + name + ' does not exist');
 					return Promise.reject();
 				}
 
@@ -369,7 +369,7 @@ module.exports.removeMemberFromGroup = function (argv, done) {
 				if (!result || result.err) {
 					return Promise.reject();
 				}
-				console.log(' - verify members');
+				console.info(' - verify members');
 				var allMembers = result || [];
 				for (var i = 0; i < memberNames.length; i++) {
 					var found = false;
@@ -381,7 +381,7 @@ module.exports.removeMemberFromGroup = function (argv, done) {
 						}
 					}
 					if (!found) {
-						console.log('ERROR: ' + memberNames[i] + ' is not a member of group ' + name);
+						console.error('ERROR: ' + memberNames[i] + ' is not a member of group ' + name);
 					}
 				}
 				if (members.length === 0) {

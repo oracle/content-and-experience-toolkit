@@ -35,10 +35,14 @@ var srcfolder = serverUtils.getSourceFolder(projectDir);
 var componentsDir = path.join(srcfolder, 'components'),
 	themesDir = path.join(srcfolder, 'themes');
 
+// set the logger level
+serverUtils.readLoggerLevel(projectDir);
+var console = require('./server/logger.js').console;
+
 var port = process.env.CEC_TOOLKIT_PORT || 8085;
 var serverName = process.env.CEC_TOOLKIT_SERVER || '';
 if (serverName && !fs.existsSync(path.join(srcfolder, 'servers', serverName, 'server.json'))) {
-	console.log('ERROR: server ' + serverName + ' does not exist');
+	console.error('ERROR: server ' + serverName + ' does not exist');
 	process.exit(1);
 }
 var useCAASServer = serverName ? true : false;
@@ -49,7 +53,7 @@ if (serverName && (!server || !server.valid)) {
 // console.log('cecDir: ' + cecDir + ' projectDir: ' + projectDir + ' port: ' + port + ' server: ' + serverName);
 
 // console.log('Configured server=' + JSON.stringify(server));
-console.log('Use config file: ' + server.fileloc);
+console.info('Use config file: ' + server.fileloc);
 
 // Store these in the app locals to be shared by routers
 app.locals.projectDir = projectDir;
@@ -88,7 +92,7 @@ app.use(function (req, res, next) {
 			cacheStr = cacheStr.substring(0, cacheStr.indexOf('/'));
 			if (cacheStr) {
 				req.url = req.url.replace('/' + cacheStr, '');
-				console.log(origPath + ' ===> ' + req.path);
+				console.info(origPath + ' ===> ' + req.path);
 			}
 		}
 	}
@@ -100,17 +104,17 @@ app.use(function (req, res, next) {
 	var needLogin = false,
 		reqpath = req.path,
 		remote = reqpath.indexOf('/documents') === 0 ||
-		reqpath.indexOf('/osn') === 0 ||
-		reqpath.indexOf('/content') === 0 ||
-		reqpath.indexOf('/_sitescloud/renderer/app/apps/js/ojL10n.js') === 0 ||
-		reqpath.indexOf('/_sitescloud/renderer/app/dist') === 0 ||
-		reqpath.indexOf('/_sitescloud/renderer/libs') === 0 ||
-		reqpath.indexOf('/renderer/app/sdk/images') === 0 ||
-		reqpath.indexOf('/renderer/app/sdk/css/app-settings.css') === 0 ||
-		reqpath.indexOf('/renderer/app/apps') === 0 ||
-		reqpath.indexOf('/renderer/app/js') === 0 ||
-		reqpath.indexOf('/getvbcsconnection') === 0 ||
-		reqpath.indexOf('/getcontentlayoutmappings') === 0;
+			reqpath.indexOf('/osn') === 0 ||
+			reqpath.indexOf('/content') === 0 ||
+			reqpath.indexOf('/_sitescloud/renderer/app/apps/js/ojL10n.js') === 0 ||
+			reqpath.indexOf('/_sitescloud/renderer/app/dist') === 0 ||
+			reqpath.indexOf('/_sitescloud/renderer/libs') === 0 ||
+			reqpath.indexOf('/renderer/app/sdk/images') === 0 ||
+			reqpath.indexOf('/renderer/app/sdk/css/app-settings.css') === 0 ||
+			reqpath.indexOf('/renderer/app/apps') === 0 ||
+			reqpath.indexOf('/renderer/app/js') === 0 ||
+			reqpath.indexOf('/getvbcsconnection') === 0 ||
+			reqpath.indexOf('/getcontentlayoutmappings') === 0;
 
 	if (app.locals.serverURL && remote) {
 		// check if the session still authenticated
@@ -124,47 +128,47 @@ app.use(function (req, res, next) {
 				if (!authenticated) {
 					authenticateUser(
 						server.env, {
-							username: server.username,
-							password: server.password,
-							onsuccess: function () {
-								// make sure user session is established
-								console.log('Establishing user session');
-								var total = 0;
-								var inter = setInterval(function () {
-									// console.log(' - getting login user: ' + total);
-									var url = 'http://localhost:' + port + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-									request.get(url, function (err, response, body) {
-										var data = JSON.parse(body);
-										var dUser = data && data.LocalData && data.LocalData.dUser;
-										var idcToken = data && data.LocalData && data.LocalData.idcToken;
-										if (dUser && dUser !== 'anonymous' && idcToken) {
-											// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-											clearInterval(inter);
-											app.locals.connectToServer = true;
-											console.log('!!! the server is reconnected');
-											next();
-										}
-										total += 1;
-										if (total >= 10) {
-											clearInterval(inter);
-											console.log('Disconnected from the server');
-											next();
-										}
-									});
-								}, 6000);
-							},
-							onfailure: function (error, resp) {
-								console.log('Login to server failed - unexpected response from server');
-								next();
-							}
-						});
+						username: server.username,
+						password: server.password,
+						onsuccess: function () {
+							// make sure user session is established
+							console.info('Establishing user session');
+							var total = 0;
+							var inter = setInterval(function () {
+								// console.log(' - getting login user: ' + total);
+								var url = 'http://localhost:' + port + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
+								request.get(url, function (err, response, body) {
+									var data = JSON.parse(body);
+									var dUser = data && data.LocalData && data.LocalData.dUser;
+									var idcToken = data && data.LocalData && data.LocalData.idcToken;
+									if (dUser && dUser !== 'anonymous' && idcToken) {
+										// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
+										clearInterval(inter);
+										app.locals.connectToServer = true;
+										console.info('!!! the server is reconnected');
+										next();
+									}
+									total += 1;
+									if (total >= 10) {
+										clearInterval(inter);
+										console.info('Disconnected from the server');
+										next();
+									}
+								});
+							}, 6000);
+						},
+						onfailure: function (error, resp) {
+							console.error('Login to server failed - unexpected response from server');
+							next();
+						}
+					});
 				} else {
 					// session already authenticated
 					// console.log(' - the session is already authenticated');
 					next();
 				}
 			} else {
-				console.log('status=' + response.statusCode + ' err=' + err);
+				console.error('status=' + response.statusCode + ' err=' + err);
 				// continure without login
 				next();
 			}
@@ -259,7 +263,7 @@ app.get('/getcomponenttemplates*', function (req, res) {
 
 	if (!compname || compname.indexOf('/') < 0) {
 		// no component name specified
-		console.log('getcomponenttemplates: invalid component name: ' + compname);
+		console.error('getcomponenttemplates: invalid component name: ' + compname);
 		res.writeHead(404, {});
 		res.end();
 		return;
@@ -280,7 +284,7 @@ app.get('/gettemplatecomponents*', function (req, res) {
 
 	if (!tempname || tempname.indexOf('/') < 0) {
 		// no template name specified
-		console.log('gettemplatecomponents: invalid template name: ' + tempname);
+		console.error('gettemplatecomponents: invalid template name: ' + tempname);
 		res.writeHead(404, {});
 		res.end();
 		return;
@@ -295,7 +299,7 @@ app.get('/gettemplateicon*', function (req, res) {
 
 	if (!tempname || tempname.indexOf('/') < 0) {
 		// no template name specified
-		console.log('gettemplateicon: invalid template name: ' + tempname);
+		console.error('gettemplateicon: invalid template name: ' + tempname);
 		res.writeHead(200, {});
 		res.end();
 		return;
@@ -311,7 +315,7 @@ app.get('/getcontentlayoutitems*', function (req, res) {
 
 	if (!layoutname || layoutname.indexOf('/') < 0) {
 		// no content layout name specified
-		console.log('getcontentlayoutitems: invalid layout name: ' + layoutname);
+		console.error('getcontentlayoutitems: invalid layout name: ' + layoutname);
 		res.writeHead(404, {});
 		res.end();
 		return;
@@ -327,7 +331,7 @@ app.get('/getcontentformitems*', function (req, res) {
 
 	if (!formname || formname.indexOf('/') < 0) {
 		// no content form name specified
-		console.log('getcontentformitems: invalid name: ' + formname);
+		console.error('getcontentformitems: invalid name: ' + formname);
 		res.writeHead(404, {});
 		res.end();
 		return;
@@ -392,7 +396,7 @@ app.post('/setcontentlayoutitem*', function (req, res) {
 			app.locals.currentContentItem.type = itemtype;
 			app.locals.currentContentItem.id = itemid;
 			app.locals.currentContentItem.isRemote = (isRemote === 'true');
-			console.log('%%% setcontentlayoutitem: ' + JSON.stringify(app.locals.currentContentItem) +
+			console.info('%%% setcontentlayoutitem: ' + JSON.stringify(app.locals.currentContentItem) +
 				' currentContentTypes: ' + app.locals.currentContentTypes);
 		}
 	}
@@ -434,14 +438,14 @@ app.post('/updatefieldeditor', function (req, res) {
 			multi = params['multi'],
 			types = params['types'];
 
-		console.log('field editor: ' + compName + ' multi: ' + multi + ' types: ' + types);
+		console.info('field editor: ' + compName + ' multi: ' + multi + ' types: ' + types);
 		var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
 		if (appInfo) {
 			appInfo.handlesMultiple = multi && multi === 'true' ? true : false;
 			appInfo.supportedDatatypes = types ? types.split(',') : [];
 			var filePath = path.join(componentsDir, compName, 'appinfo.json');
 			fs.writeFileSync(filePath, JSON.stringify(appInfo));
-			console.log(' - saved file ' + filePath);
+			console.info(' - saved file ' + filePath);
 		}
 	}
 
@@ -457,13 +461,13 @@ app.post('/updatecontentform', function (req, res) {
 	var compName = params && params.name;
 	var drawerSize = params && params.drawerSize;
 	if (compName && drawerSize) {
-		console.log('content form: ' + compName + ' drawer size: ' + drawerSize);
+		console.info('content form: ' + compName + ' drawer size: ' + drawerSize);
 		var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
 		if (appInfo) {
 			appInfo.drawerSize = drawerSize.toLowerCase();
 			var filePath = path.join(componentsDir, compName, 'appinfo.json');
 			fs.writeFileSync(filePath, JSON.stringify(appInfo));
-			console.log(' - saved file ' + filePath);
+			console.info(' - saved file ' + filePath);
 		}
 	}
 
@@ -500,7 +504,7 @@ app.get('/isAuthenticated', function (req, res) {
 			user = data && data.LocalData && data.LocalData.dUser && data.LocalData.dUser;
 			authenticated = user && user !== 'anonymous';
 		} else {
-			console.log('status=' + JSON.stringify(response) + ' err=' + err);
+			console.error('status=' + JSON.stringify(response) + ' err=' + err);
 		}
 		// console.log(' - user: ' + user + ' authenticated: ' + authenticated);	
 		var result = {
@@ -520,7 +524,7 @@ app.get('/getvbcsconnection', function (req, res) {
 		return;
 	}
 	var location = app.locals.serverURL + '/documents/web?IdcService=AF_GET_APP_INFO_SIMPLE&dAppName=VBCS';
-	console.log('Remote traffic:', location);
+	console.info('Remote traffic:', location);
 	var options = {
 		isJson: true,
 		timeout: 1000
@@ -544,9 +548,9 @@ app.get('/getvbcsconnection', function (req, res) {
 				}
 			}
 		} else {
-			console.log('status=' + JSON.stringify(response) + ' err=' + err);
+			console.error('status=' + JSON.stringify(response) + ' err=' + err);
 		}
-		console.log(' - vbcs connection: ' + vbcsconn);
+		console.info(' - vbcs connection: ' + vbcsconn);
 		var result = {
 			VBCSConnection: vbcsconn
 		};
@@ -554,7 +558,7 @@ app.get('/getvbcsconnection', function (req, res) {
 		res.end();
 	});
 });
-	
+
 
 app.get('/public/components', function (req, res) {
 	"use strict";
@@ -602,16 +606,16 @@ app.get('/translationconnections*', function (req, res) {
 	var connectionName = req.path.replace('/translationconnections', '');
 	if (!connectionName || connectionName.indexOf('/') < 0) {
 		// no connector name specified
-		console.log('translationconnections: invalid connector name: ' + connectionName);
+		console.error('translationconnections: invalid connector name: ' + connectionName);
 		res.writeHead(200, {});
 		res.end();
 		return;
 	}
 	connectionName = connectionName.substring(1);
-	console.log('+++ Connection: ' + connectionName);
+	console.info('+++ Connection: ' + connectionName);
 
 	var testpage = path.join(testDir, 'public', 'testconnector.html');
-	console.log(' - filePath=' + testpage);
+	console.info(' - filePath=' + testpage);
 
 	res.sendFile(testpage);
 });
@@ -642,40 +646,38 @@ if (!app.locals.serverURL) {
 	// start the server without remote server
 	app.listen(port, function () {
 		"use strict";
-		console.log('NodeJS running...:');
-		console.log('Components UI demo page: http://localhost:' + port);
-		console.log('Components Unit test page: http://localhost:' + port + '/unit');
+		console.info('NodeJS running...:');
+		console.log('Toolkit local server: http://localhost:' + port);
 	});
 } else {
 	// open a user session using the given credentials
 	authenticateUser(
 		server.env, {
-			username: server.username,
-			password: server.password,
-			onsuccess: function () {
-				app.locals.connectToServer = true;
-				var wait = server.env === 'dev_ec' ? 1500 : 15000;
-				app.listen(port, function () {
-					"use strict";
-					setTimeout(function () {
-						console.log('Server is listening on port: ' + port);
-						console.log('NodeJS running...:');
-						console.log('Components UI demo page: http://localhost:' + port);
-						console.log('Components Unit test page: http://localhost:' + port + '/unit');
-					}, wait);
-				});
-			},
-			onfailure: function (error, resp) {
-				console.log('Login to server failed - unexpected response from server');
-				console.log(error);
-				process.exit(0);
-			}
-		});
+		username: server.username,
+		password: server.password,
+		onsuccess: function () {
+			app.locals.connectToServer = true;
+			var wait = server.env === 'dev_ec' ? 1500 : 15000;
+			app.listen(port, function () {
+				"use strict";
+				setTimeout(function () {
+					console.info('Server is listening on port: ' + port);
+					console.info('NodeJS running...:');
+					console.log('Toolkit local server: http://localhost:' + port);
+				}, wait);
+			});
+		},
+		onfailure: function (error, resp) {
+			console.error('Login to server failed - unexpected response from server');
+			console.error(error);
+			process.exit(0);
+		}
+	});
 }
 
 function authenticateUser(env, params) {
 	if (app.locals.server.env === 'dev_osso' && app.locals.server.oauthtoken) {
-		console.log('The OAuth token exists');
+		console.info('The OAuth token exists');
 		params.onsuccess.apply();
 	} else {
 		var authFn = {
@@ -689,7 +691,7 @@ function authenticateUser(env, params) {
 		if (authFn[env]) {
 			authFn[env].call(null, params);
 		} else {
-			console.log('Unknown env type: ' + env);
+			console.error('Unknown env type: ' + env);
 		}
 	}
 }
@@ -720,7 +722,7 @@ function authenticateUserOnDevInstance(params) {
 					return;
 				}
 
-				console.log('Logged in to remote server: ' + app.locals.serverURL);
+				console.info('Logged in to remote server: ' + app.locals.serverURL);
 				params.onsuccess.apply();
 			});
 		} else {
@@ -754,7 +756,7 @@ function authenticateUserOnDevECInstance(params) {
 					return;
 				}
 
-				console.log('Logged in to remote server: ' + app.locals.serverURL);
+				console.info('Logged in to remote server: ' + app.locals.serverURL);
 				params.onsuccess.apply();
 			});
 		} else {
@@ -778,7 +780,7 @@ function authenticateUserOnPod(params) {
 
 		while ((match = regexp.exec(body)) !== null) {
 			if (match.length !== 3) {
-				console.log('ignored invalid match for regexp:', match);
+				console.warn('ignored invalid match for regexp:', match);
 				continue;
 			}
 
@@ -791,7 +793,7 @@ function authenticateUserOnPod(params) {
 	// open user session
 	request.get(app.locals.serverURL + '/sites', function (err, resp, body) {
 		if (err) {
-			console.log('Unable to connect to server ' + app.locals.serverURL + '\nconnection failed with error:' + err.code);
+			console.error('Unable to connect to server ' + app.locals.serverURL + '\nconnection failed with error:' + err.code);
 			process.exit(-1);
 		}
 
@@ -815,7 +817,7 @@ function authenticateUserOnPod(params) {
 						return;
 					}
 
-					console.log('Logged in to remote server: ' + app.locals.serverURL);
+					console.info('Logged in to remote server: ' + app.locals.serverURL);
 					params.onsuccess.apply();
 				});
 			} else {
@@ -850,20 +852,20 @@ function authenticateUserOnPodEC(params) {
 					timeout: 50000
 				});
 			} catch (err) {
-				console.log('Could not connect to the server, check if the server is up');
+				console.error('Could not connect to the server, check if the server is up');
 				params.onfailure.apply(null, null);
 			}
 
 			await page.waitForSelector(usernameid);
-			console.log('Enter username ' + username);
+			console.info('Enter username ' + username);
 			await page.type(usernameid, username);
 
 			await page.waitForSelector(passwordid);
-			console.log('Enter password');
+			console.info('Enter password');
 			await page.type(passwordid, password);
 
 			var button = await page.waitForSelector(submitid);
-			console.log('Click Login');
+			console.info('Click Login');
 			await button.click();
 
 			try {
@@ -875,20 +877,20 @@ function authenticateUserOnPodEC(params) {
 			}
 
 			var tokenurl = app.locals.serverURL + '/documents/web?IdcService=GET_OAUTH_TOKEN';
-			console.log('Go to ' + tokenurl);
+			console.info('Go to ' + tokenurl);
 			await page.goto(tokenurl);
 			try {
 				await page.waitForSelector('pre', {
 					timeout: 120000
 				});
 			} catch (err) {
-				console.log('Failed to connect to the server to get the OAuth token the first time');
+				console.error('Failed to connect to the server to get the OAuth token the first time');
 
 				await page.goto(tokenurl);
 				try {
 					await page.waitForSelector('pre'); // smaller timeout
 				} catch (err) {
-					console.log('Failed to connect to the server to get the OAuth token the second time');
+					console.error('Failed to connect to the server to get the OAuth token the second time');
 
 					await browser.close();
 					params.onfailure.apply(null, null);
@@ -911,15 +913,15 @@ function authenticateUserOnPodEC(params) {
 
 			if (status && status === '0' && token) {
 				app.locals.server.oauthtoken = token;
-				console.log('The OAuth token recieved');
+				console.info('The OAuth token recieved');
 				params.onsuccess.apply();
 			} else {
-				console.log('Failed to get the OAuth token: status=' + status + ' token=' + token);
+				console.error('Failed to get the OAuth token: status=' + status + ' token=' + token);
 				params.onfailure.apply(null, null);
 			}
 
 		} catch (err) {
-			console.log('ERROR!', err);
+			console.error('ERROR!', err);
 			params.onfailure.apply(null, null);
 		}
 	}
@@ -953,20 +955,20 @@ function authenticateUserOnOSSO(params) {
 					timeout: 50000
 				});
 			} catch (err) {
-				console.log('Could not connect to the server, check if the server is up');
+				console.error('Could not connect to the server, check if the server is up');
 				params.onfailure.apply(null, null);
 			}
 
 			await page.waitForSelector(usernameid);
-			console.log('Enter username ' + username);
+			console.info('Enter username ' + username);
 			await page.type(usernameid, username);
 
 			await page.waitForSelector(passwordid);
-			console.log('Enter password');
+			console.info('Enter password');
 			await page.type(passwordid, password);
 
 			var button = await page.waitForSelector(submitid);
-			console.log('Click Login');
+			console.info('Click Login');
 			await button.click();
 
 			try {
@@ -978,20 +980,20 @@ function authenticateUserOnOSSO(params) {
 			}
 
 			var tokenurl = app.locals.serverURL + '/documents/web?IdcService=GET_OAUTH_TOKEN';
-			console.log('Go to ' + tokenurl);
+			console.info('Go to ' + tokenurl);
 			await page.goto(tokenurl);
 			try {
 				await page.waitForSelector('pre', {
 					timeout: 120000
 				});
 			} catch (err) {
-				console.log('Failed to connect to the server to get the OAuth token the first time');
+				console.error('Failed to connect to the server to get the OAuth token the first time');
 
 				await page.goto(tokenurl);
 				try {
 					await page.waitForSelector('pre'); // smaller timeout
 				} catch (err) {
-					console.log('Failed to connect to the server to get the OAuth token the second time');
+					console.error('Failed to connect to the server to get the OAuth token the second time');
 
 					await browser.close();
 					params.onfailure.apply(null, null);
@@ -1014,15 +1016,15 @@ function authenticateUserOnOSSO(params) {
 
 			if (status && status === '0' && token) {
 				app.locals.server.oauthtoken = token;
-				console.log('The OAuth token recieved');
+				console.info('The OAuth token recieved');
 				params.onsuccess.apply();
 			} else {
-				console.log('Failed to get the OAuth token: status=' + status + ' token=' + token);
+				console.error('Failed to get the OAuth token: status=' + status + ' token=' + token);
 				params.onfailure.apply(null, null);
 			}
 
 		} catch (err) {
-			console.log('ERROR!', err);
+			console.error('ERROR!', err);
 			params.onfailure.apply(null, null);
 		}
 	}

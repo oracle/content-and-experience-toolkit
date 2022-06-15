@@ -14,6 +14,57 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+
+
+# New in Release 22.6.1
+
+**Added**
+
+- `cec describe-site` - List all of the properties of a site on an OCM server
+
+**Updated**
+
+- `cec control-site` - Added action to set site metadata
+
+**Fixed**
+
+- `cec create-site-map` - Now handles large number of file versions and large number of site translations
+
+
+
+# New in Release 22.5.2
+
+**Updated**
+
+- `cec control-site` - Added option to change site's theme on OCM server
+- `cec upload-template` - Added option to exclude theme
+- `cec create-site` - Added option to suppress site governance controls for SitesAdmin users
+- `cec transfer-site` - Now also updates the theme if the site's theme has changed
+
+
+# New in Release 22.5.1
+
+**Updated**
+
+- `cec set-logger-level` - Added `debug` option
+- `cec create-site-map` - Supports Sites with over 10k pages
+
+**Fixed**
+
+- `cec download-content` - Now correctly handles published assets that are in draft state
+
+
+# New in Release 22.4.3
+
+**Added**
+
+- `cec set-logger-level` - Sets the logger level for commands
+
+**Updated**
+
+- `cec register-server` - Now supports Oracle Cloud Infrastructure Identity and Access Management (IAM) Domains
+
+
 # New in Release 22.4.2
 
 **Updated**

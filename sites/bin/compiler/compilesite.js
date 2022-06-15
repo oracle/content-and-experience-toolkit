@@ -67,6 +67,7 @@ var siteFolder, // Z:/sitespublish/SiteC/
 	isSecureSite, // Is this a secure site -- used to populate the siteRootPath in the siteinfo properties
 	targetDevice = '', // 'mobile' or 'desktop' (no value implies compile for both if RegEx is specified)
 	mobilePages = false, // whether we are compiling mobile pages
+	localeGroup = [], // list of locales to compile
 	folderProperties; // _folder.json values
 
 
@@ -144,6 +145,7 @@ function initialize() {
 // Determine the available languages from the aggregated structure.json OR by enumerating the file system
 // for language code prefixes.
 function getAvailableLanguages() {
+	var defaultLanguage = rootSiteInfo && rootSiteInfo.properties && rootSiteInfo.properties.defaultLanguage;
 	var languages = [''];
 	var filePath = path.join(siteFolder, '');
 	var entries = fs.readdirSync(filePath);
@@ -156,6 +158,23 @@ function getAvailableLanguages() {
 	});
 
 	trace("Available Languages: " + languages);
+
+	// remove any languages not in the localeGroup
+	if (Array.isArray(localeGroup) && localeGroup.length > 0) {
+		languages = languages.filter(function (entry) {
+			var checkLocale = entry === '' ? defaultLanguage : entry; 
+			return localeGroup.indexOf(checkLocale) !== -1;
+		});
+		trace("Filtered Languages: " + languages);
+	}
+
+	// make sure there is at least one language
+	if (languages.length === 0) {
+		compilationReporter.warn({
+			message: 'no matching site locales for localeGroup: "' + localeGroup.join(',') + '"'
+		});
+	}
+
 	return languages;
 }
 
@@ -407,21 +426,33 @@ async function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 	});
 	trace('compileThemeLayout: layoutMarkup=' + layoutMarkup);
 
+	var defaultPageCompiler = {
+		afterPageCompile: function(compiledMarkup) {
+			// no post-processing
+			return Promise.resolve(compiledMarkup);
+		}
+	};
+	var defaultResponsePromise = Promise.resolve({
+		layoutMarkup: layoutMarkup,
+		pageCompiler: defaultPageCompiler
+	});
+
+
 	// now compile the page if compiler supplied
 	var baseName = layoutName.replace(/\.(htm|html)$/i, '') + '-compile';
-		compileFile = path.join(themesFolder, themeName, "layouts", baseName + '.js'),
+	compileFile = path.join(themesFolder, themeName, "layouts", baseName + '.js'),
 		moduleFile = path.join(themesFolder, themeName, "layouts", baseName + '.mjs'),
 		useModuleCompiler = fs.existsSync(moduleFile);
 
 	if (!useModuleCompiler) {
-		try { 
+		try {
 			// verify if file exists for CommonJS
-			require.resolve(compileFile); 
-		} catch (e) { 
-			compilationReporter.warn({ 
+			require.resolve(compileFile);
+		} catch (e) {
+			compilationReporter.warn({
 				message: 'compileThemeLayout: no page compiler found: ' + moduleFile
-			}); 
-			return Promise.resolve(layoutMarkup);
+			});
+			return defaultResponsePromise;
 		}
 	}
 
@@ -429,7 +460,7 @@ async function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 		// ok, file's there, load it in
 		var pageCompiler = {};
 		if (useModuleCompiler) {
-			const { default: PageCompiler} = await import(url.pathToFileURL(moduleFile));
+			const { default: PageCompiler } = await import(url.pathToFileURL(moduleFile));
 			if (PageCompiler) {
 				pageCompiler = new PageCompiler();
 			} else {
@@ -448,25 +479,47 @@ async function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 			return pageCompiler.compile({
 				layoutMarkup: layoutMarkup,
 				SCSCompileAPI: compiler.getSCSCompileAPI()
+			}).then(function (compiledMarkup) {
+				// get the compiler to use for post-processing the page
+				if (typeof pageCompiler.afterPageCompile === 'function') {
+					return Promise.resolve({
+						layoutMarkup: compiledMarkup, 
+						pageCompiler: {
+							afterPageCompile: function(compiledMarkup) {
+								// custom post-processing
+								// Wrap in a Promise.resolve in case it doesn't return a promise
+								return Promise.resolve(pageCompiler.afterPageCompile({
+									layoutMarkup: compiledMarkup,
+									SCSCompileAPI: compiler.getSCSCompileAPI()
+								}));
+							}
+						}
+					});
+				} else  {
+					return Promise.resolve({
+						layoutMarkup: compiledMarkup, 
+						pageCompiler: defaultPageCompiler
+					});
+				}
 			}).catch(function (e) {
 				compilationReporter.error({
 					message: 'compileThemeLayout: error trying to compile page layout with: ' + compileFile,
 					error: e
 				});
-				return Promise.resolve(layoutMarkup);
+				return defaultResponsePromise;
 			});
 		} else {
 			compilationReporter.warn({
 				message: 'compileThemeLayout: no compile() function in page compiler for page layout: ' + compileFile
 			});
-			return Promise.resolve(layoutMarkup);
+			return defaultResponsePromise;
 		}
 	} catch (e) {
 		compilationReporter.info({
 			message: 'compileThemeLayout: fail to load page compiler ' + compileFile,
 			error: e
 		});
-		return Promise.resolve(layoutMarkup);
+		return defaultResponsePromise;
 	}
 }
 
@@ -701,6 +754,14 @@ function getPageLinkData(pageEntry, sitePrefix, structureMap, pageLocale, locale
 					if (includeLocale) {
 						var siteLocalePrefix = combineUrlSegments(sitePrefix, locale);
 						url = combineUrlSegments(siteLocalePrefix, pageUrl);
+
+						// The actual sitePrefix produces a link back to root of the site, before any locale strings or aliases.  Assume that
+						// we are not trying to make a cross-locale link, and omit the locale prefix from the link, and only backtrack
+						// to the root of the locale.That will allow us to use the same set of compiled pages for several similar languages.
+						if (sitePrefix.startsWith('../')) {
+							var tempPrefix = sitePrefix.substr('../'.length) || './';
+							url = combineUrlSegments(tempPrefix, pageUrl);
+						}
 					} else {
 						url = combineUrlSegments(sitePrefix, pageUrl);
 					}
@@ -1084,10 +1145,10 @@ var compiler = {
 				var value,
 					navNode;
 
-				var isValidPageId = function(pageId) {
+				var isValidPageId = function (pageId) {
 					var isValid = false;
-					if( ( typeof pageId === "number" ) ||
-						( ( typeof pageId === "string" ) && pageId )
+					if ((typeof pageId === "number") ||
+						((typeof pageId === "string") && pageId)
 					) {
 						isValid = true;
 					}
@@ -1098,9 +1159,9 @@ var compiler = {
 
 				// Find the supplied pageId in the navigation, and obtain the named property
 				if (propertyName && (typeof propertyName === 'string') && this.structureMap &&
-					isValidPageId(pageId) ) {
+					isValidPageId(pageId)) {
 					navNode = this.structureMap[pageId];
-					if(navNode && navNode.properties && (typeof navNode.properties === 'object') &&
+					if (navNode && navNode.properties && (typeof navNode.properties === 'object') &&
 						(typeof navNode.properties[propertyName] === 'string') &&
 						Object.prototype.hasOwnProperty.call(navNode.properties, propertyName)) {
 						value = navNode.properties[propertyName];
@@ -2094,7 +2155,7 @@ function getWebAnalyticsMarkup(pageModel, context) {
 	}
 
 	// If Asset Analytics Tracking is enabled, insert the relevant script
-	if( context.siteInfo && context.siteInfo.properties && ( context.siteInfo.properties.isAssetAnalyticsEnabled === true ) ) {
+	if (context.siteInfo && context.siteInfo.properties && (context.siteInfo.properties.isAssetAnalyticsEnabled === true)) {
 		if (context.siteInfo.properties.assetAnalyticsScript) {
 			markup = context.siteInfo.properties.assetAnalyticsScript + (markup || '');
 		}
@@ -2160,7 +2221,7 @@ function getLayoutSlotIds(layoutName, layoutMarkup) {
 		try {
 			var layoutInfo = JSON.parse(json);
 			slotIds = layoutInfo.slotIds;
-		} catch (e) {}
+		} catch (e) { }
 
 		return "";
 	});
@@ -2199,12 +2260,28 @@ function createDirectory(dirName) {
 	if (!fs.existsSync(dirName)) {
 		parentDirName = path.dirname(dirName);
 		createDirectory(parentDirName); // <<< RECURSION
-		fs.mkdirSync(dirName);
+		
+		// check again in case another process has created the folder
+		if (!fs.existsSync(dirName)) {
+			try {
+				fs.mkdirSync(dirName);
+			} catch (e) {
+				// if you have two processes running, one may have created the folder even with the check
+				// so we ignore the error for directory create and it will fail later if there is an actual issue
+				console.log('failed in creating directory - may already exist: ' + dirName);
+			}
+		}
 	}
 }
 
 function writePage(pageUrl, pageMarkup) {
 	trace('writePage: pageUrl=' + pageUrl + ', pageMarkup=' + pageMarkup);
+
+	// Mimic the behavior of a "Default Document" served from a webserver.  If the URL ends
+	// with a slash, then assume that we actually want to write out "index.html" to the disk.
+	if (pageUrl.endsWith("/")) {
+		pageUrl += "index.html";
+	}
 
 	if (outputAlternateHierarchy) {
 		// Add an extra "_files" folder into the path just before the file name
@@ -2300,23 +2377,33 @@ function createPage(context, pageInfo) {
 					"pageInfo": pageInfo
 				});
 
-				compileThemeLayout(context.themeName, layoutName, pageData, pageInfo).then(function (layoutMarkup) {
+				compileThemeLayout(context.themeName, layoutName, pageData, pageInfo).then(function (result) {
+					var layoutMarkup = result.layoutMarkup, 
+						pageCompiler = result.pageCompiler;
 
-						pageData = fixupPageDataWithSlotReuseData(context, pageData, layoutName, layoutMarkup);
-						// now fixup the page 
-						fixupPage(pageInfo.id, pageInfo.pageUrl, layoutMarkup, (pageData.base || pageData), pageDatas.localePageData, context, sitePrefix).then(function (pageMarkup) {
-								var pagePrefix = (localeAlias || locale) ? ((localeAlias || locale) + '/') : '';
-								writePage(pagePrefix + pageInfo.pageUrl, pageMarkup);
-								resolve();
-							})
-							.catch(function (err) {
-								compilationReporter.error({
-									message: 'Failed to write ' + errorPageName,
-									error: err
-								});
-								resolve(); // Resolve, instead of reject because we want to continue processing other pages
+					pageData = fixupPageDataWithSlotReuseData(context, pageData, layoutName, layoutMarkup);
+					// now fixup the page 
+					fixupPage(pageInfo.id, pageInfo.pageUrl, layoutMarkup, (pageData.base || pageData), pageDatas.localePageData, context, sitePrefix).then(function (pageMarkup) {
+						pageCompiler.afterPageCompile(pageMarkup).then(function (finalMarkup) {
+							var pagePrefix = (localeAlias || locale) ? ((localeAlias || locale) + '/') : '';
+							writePage(pagePrefix + pageInfo.pageUrl, finalMarkup);
+							resolve();
+						}).catch(function (err) {
+							compilationReporter.error({
+								message: 'Failed in afterPageCompile call for the page ' + errorPageName,
+								error: err
 							});
+							resolve(); // Resolve, instead of reject because we want to continue processing other pages
+						});
 					})
+						.catch(function (err) {
+							compilationReporter.error({
+								message: 'Failed to write ' + errorPageName,
+								error: err
+							});
+							resolve(); // Resolve, instead of reject because we want to continue processing other pages
+						});
+				})
 					.catch(function (err) {
 						compilationReporter.error({
 							message: 'Failed to generate ' + errorPageName,
@@ -2517,11 +2604,11 @@ function createDetailPages() {
 
 	// execute page promises serially
 	var doCreateDetailPages = createDetailPagePromises.reduce(function (previousPromise, nextPromise) {
-			return previousPromise.then(function () {
-				// wait for the previous promise to complete and then call the function to start executing the next promise
-				return nextPromise();
-			});
-		},
+		return previousPromise.then(function () {
+			// wait for the previous promise to complete and then call the function to start executing the next promise
+			return nextPromise();
+		});
+	},
 		// Start with a previousPromise value that is a resolved promise 
 		Promise.resolve());
 
@@ -2672,11 +2759,11 @@ var compilePages = function (compileTargetDevice) {
 
 	// execute page promises serially
 	var doCreatePages = createPagePromises.reduce(function (previousPromise, nextPromise) {
-			return previousPromise.then(function () {
-				// wait for the previous promise to complete and then call the function to start executing the next promise
-				return nextPromise();
-			});
-		},
+		return previousPromise.then(function () {
+			// wait for the previous promise to complete and then call the function to start executing the next promise
+			return nextPromise();
+		});
+	},
 		// Start with a previousPromise value that is a resolved promise 
 		Promise.resolve());
 
@@ -2711,6 +2798,7 @@ var compileSite = function (args) {
 	pages = args.pages;
 	recurse = args.recurse;
 	includeLocale = args.includeLocale;
+	localeGroup = args.localeGroup ? args.localeGroup.split(',') : [];
 	verbose = args.verbose;
 	useInlineSiteInfo = args.useInlineSiteInfo;
 	targetDevice = args.targetDevice;
@@ -2726,6 +2814,61 @@ var compileSite = function (args) {
 	server = args.server;
 	projectDir = args.currPath;
 	defaultContentType = args.type === 'published' ? 'published' : 'draft'; // default to draft content, URLs will still be published
+
+	// apply any overrides
+	var compileConfigPath = path.join(siteFolder, 'compile_config.json');
+	if (fs.existsSync(compileConfigPath)) {
+		// read in the config override
+		var compileConfig = {};
+		var compileConfigSource = fs.readFileSync(compileConfigPath, {
+			encoding: 'utf8'
+		});
+		try {
+			compileConfig = JSON.parse(compileConfigSource);
+			console.log('');
+			console.log('Compile Configuration File: ', compileConfig);
+
+			// apply configuration updates
+			var configOptions = (compileConfig || {}).options || {};
+			Object.keys(configOptions).forEach(function (entry) {
+				var value = configOptions[entry];
+				var key = entry.replace('--', ''); // allow for both '--includeLocale' & 'includeLocale'
+				console.log(' option override: --' + key + '=' + value);
+				switch (key) {
+					case 'includeLocale':
+						includeLocale = value;
+						break
+					case 'verbose':
+						verbose = value;
+						break
+					case 'noDetailPages':
+						compileDetailPages = !value; // inverse of noDetailPages
+						break
+					case 'noDefaultDetailPageLink':
+						useDefaultDetailPageLink = !value; // inverse of noDefaultDetailPageLink
+						break
+					case 'channelToken':
+						channelAccessToken = value;
+						break
+					case 'targetDevice':
+						targetDevice = value;
+						break
+					case 'localeGroup':
+						localeGroup = value ? value.split(',') : [];
+						break
+					case 'type':
+						defaultContentType = (value === 'draft' ? 'draft' : 'published');
+						break
+					default:
+						console.log('  unsupported option: ' + entry);
+						break;
+				}
+			});
+		} catch (e) {
+			console.log('failed to parse configuration file: ', e);
+		}
+		console.log('');
+	}
 
 	console.log("Oracle Content Management Site Compiler");
 	console.log("");

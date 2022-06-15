@@ -12,6 +12,8 @@ var request = require('request'),
 	readline = require('readline'),
 	serverUtils = require('./serverUtils');
 
+var console = require('./logger.js').console;
+
 ///////////////////////////////////////////////////////////
 //                 Documents Management APIs
 ///////////////////////////////////////////////////////////
@@ -33,13 +35,13 @@ var _createFolder = function (server, parentID, foldername) {
 			body: JSON.stringify(body),
 			json: true
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to create folder ' + foldername + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to create folder ' + foldername + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -49,10 +51,10 @@ var _createFolder = function (server, parentID, foldername) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (e) {}
+				} catch (e) { }
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to create folder ' + foldername + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to create folder ' + foldername + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -89,11 +91,14 @@ var _copyFolder = function (server, folderId, targetFolderId) {
 			},
 			body: JSON.stringify(body)
 		};
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to copy folder ' + folderId + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to copy folder ' + folderId + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -101,13 +106,13 @@ var _copyFolder = function (server, folderId, targetFolderId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to copy folder ' + folderId + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to copy folder ' + folderId + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -177,19 +182,19 @@ var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
 
 		// get the folders in sequence
 		var doFindFolder = folderPromises.reduce(function (previousPromise, nextPromise) {
-				return previousPromise.then(function (folderDetails) {
-					// store the parent
-					if (folderDetails && folderDetails.id) {
-						if (folderDetails.id !== rootParentId) {
-							console.log(' - find ' + folderDetails.type + ' ' + folderDetails.name + ' (Id: ' + folderDetails.id + ')');
-						}
-						parentGUID = folderDetails.id;
-
-						// wait for the previous promise to complete and then return a new promise for the next
-						return nextPromise(parentGUID);
+			return previousPromise.then(function (folderDetails) {
+				// store the parent
+				if (folderDetails && folderDetails.id) {
+					if (folderDetails.id !== rootParentId) {
+						console.info(' - find ' + folderDetails.type + ' ' + folderDetails.name + ' (Id: ' + folderDetails.id + ')');
 					}
-				});
-			},
+					parentGUID = folderDetails.id;
+
+					// wait for the previous promise to complete and then return a new promise for the next
+					return nextPromise(parentGUID);
+				}
+			});
+		},
 			// Start with a previousPromise value that is a resolved promise passing in the home folder id as the parentID
 			Promise.resolve({
 				id: rootParentId
@@ -198,7 +203,7 @@ var _findFolderHierarchy = function (server, rootParentId, folderPathStr) {
 		doFindFolder.then(function (parentFolder) {
 			if (parentFolder && parentFolder.id) {
 				if (parentFolder.id !== rootParentId) {
-					console.log(' - find ' + parentFolder.type + ' ' + parentFolder.name + ' (Id: ' + parentFolder.id + ')');
+					console.info(' - find ' + parentFolder.type + ' ' + parentFolder.name + ' (Id: ' + parentFolder.id + ')');
 				}
 			}
 			resolve(parentFolder);
@@ -271,7 +276,9 @@ var _findFolderItems = function (server, parentId, parentPath, _files) {
 							id: items[i].id,
 							path: parentPath ? parentPath + '/' + items[i].name : items[i].name,
 							size: items[i].size,
-							version: items[i].version
+							version: items[i].version,
+							name: items[i].name,
+							lastModifiedDate: items[i].modifiedTime
 						});
 					} else {
 						_files.push({
@@ -316,11 +323,13 @@ var _deleteFolder = function (server, fFolderGUID, folderPath) {
 			},
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.delete(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to delete folder ' + fFolderGUID + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to delete folder ' + fFolderGUID + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -329,11 +338,11 @@ var _deleteFolder = function (server, fFolderGUID, folderPath) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (e) {}
+				} catch (e) { }
 
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to delete folder ' + (folderPath || fFolderGUID) + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to delete folder ' + (folderPath || fFolderGUID) + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -370,13 +379,13 @@ var _getChildItems = function (server, parentID, limit, offset) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get folder child items ' + parentID + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to get folder child items ' + parentID + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -390,7 +399,7 @@ var _getChildItems = function (server, parentID, limit, offset) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to get folder items ' + parentID + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to get folder items ' + parentID + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -424,11 +433,13 @@ var _getFolderMetadata = function (server, folderId) {
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get folder metadata ' + folderId + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to get folder metadata ' + folderId + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -453,7 +464,7 @@ var _getFolderMetadata = function (server, folderId) {
 					metadata: metadata
 				});
 			} else {
-				console.log('ERROR: failed to get folder metadata ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to get folder metadata ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -485,13 +496,13 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get folder child items ' + parentID + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to get folder child items ' + parentID + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -516,7 +527,7 @@ var _findFile = function (server, parentID, filename, showError, itemtype) {
 			if (showError) {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				msg = msg === 'OK' ? '' : msg;
-				console.log('ERROR: failed to find ' + (itemtype ? itemtype : ' File') + ': ' + filename + ' ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to find ' + (itemtype ? itemtype : ' File') + ': ' + filename + ' ' + msg + ' (ecid: ' + response.ecid + ')');
 			}
 			return resolve({
 				err: 'err'
@@ -551,7 +562,11 @@ var _createFile = function (server, parentID, filename, contents, filepath) {
 		form.append('jsonInputParameters', JSON.stringify({
 			'parentID': parentID
 		}));
-		form.append('primaryFile', contents);
+		if (filename) {
+			form.append('primaryFile', contents, { filename: filename });
+		} else {
+			form.append('primaryFile', contents);
+		}
 
 		var options = {
 			method: 'POST',
@@ -562,12 +577,14 @@ var _createFile = function (server, parentID, filename, contents, filepath) {
 			body: form
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		// console.log(' - uploading file ...');
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to create file ' + filename + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to create file ' + filename + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -586,7 +603,7 @@ var _createFile = function (server, parentID, filename, contents, filepath) {
 				resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to create file ' + filename + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to create file ' + filename + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -619,11 +636,13 @@ var _readFile = function (server, fFileGUID) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to read file ' + fFileGUID + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to read file ' + fFileGUID + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -637,7 +656,7 @@ var _readFile = function (server, fFileGUID) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to read file ' + fFileGUID + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to read file ' + fFileGUID + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -668,11 +687,13 @@ var _getFile = function (server, id) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get file ' + id + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to get file ' + id + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -686,7 +707,7 @@ var _getFile = function (server, id) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to get file ' + id + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to get file ' + id + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -716,11 +737,13 @@ var _downloadFile = function (server, fFileGUID) {
 			},
 			encoding: null
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to download file' + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to download file' + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -731,7 +754,7 @@ var _downloadFile = function (server, fFileGUID) {
 					data: body
 				});
 			} else {
-				console.log('ERROR: failed to download file: ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to download file: ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -777,11 +800,13 @@ var _deleteFile = function (server, fFileGUID, filePath) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.delete(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to delete file ' + fFileGUID + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to delete file ' + fFileGUID + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -790,11 +815,11 @@ var _deleteFile = function (server, fFileGUID, filePath) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (e) {}
+				} catch (e) { }
 
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to delete file ' + (filePath || fFileGUID) + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to delete file ' + (filePath || fFileGUID) + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -829,11 +854,13 @@ var _copyFile = function (server, fileId, targetFolderId) {
 			},
 			body: JSON.stringify(body)
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to copy file ' + fileId + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to copy file ' + fileId + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -841,13 +868,13 @@ var _copyFile = function (server, fileId, targetFolderId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to copy file ' + fileId + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to copy file ' + fileId + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -879,12 +906,13 @@ var _getFileVersions = function (server, fFileGUID) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get file version ' + fFileGUID + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to get file version ' + fFileGUID + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve();
 			}
 			var data;
@@ -897,7 +925,7 @@ var _getFileVersions = function (server, fFileGUID) {
 				resolve(data && data.items);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get file version ' + fFileGUID + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to get file version ' + fFileGUID + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve();
 			}
 		});
@@ -930,12 +958,13 @@ var _createFolderPublicLink = function (server, folderId, role) {
 			},
 			body: JSON.stringify(payload)
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to create folder public link ' + folderId + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to create folder public link ' + folderId + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve();
 			}
 			var data;
@@ -948,7 +977,7 @@ var _createFolderPublicLink = function (server, folderId, role) {
 				resolve(data && data.id);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to create folder public link ' + folderId + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to create folder public link ' + folderId + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve();
 			}
 		});
@@ -968,11 +997,13 @@ var _getUser = function (server, userName) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get user ' + userName + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to get user ' + userName + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -987,7 +1018,7 @@ var _getUser = function (server, userName) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get user ' + userName + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to get user ' + userName + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -1016,11 +1047,13 @@ var _getFolderUsers = function (server, folderId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get folder users ' + folderId + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to get folder users ' + folderId + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -1049,7 +1082,7 @@ var _getFolderUsers = function (server, folderId) {
 				});
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get folder users ' + folderId + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to get folder users ' + folderId + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -1088,12 +1121,13 @@ var _shareFolder = function (server, folderId, userId, role, createNew) {
 			body: JSON.stringify(body),
 			json: true
 		};
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to share folder ' + folderId + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to share folder ' + folderId + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -1102,14 +1136,14 @@ var _shareFolder = function (server, folderId, userId, role, createNew) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
 			} else {
 				var objName = body && body.user ? body.user.displayName : 'folder ' + folderId;
 				var msg = body && body.errorMessage ? body.errorMessage : (response ? (response.statusMessage || response.statusCode) : '');
-				console.log('ERROR: failed to share ' + objName + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to share ' + objName + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -1147,12 +1181,13 @@ var _unshareFolder = function (server, folderId, userId) {
 			body: JSON.stringify(body),
 			json: true
 		};
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.delete(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to unshare folder ' + folderId + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to unshare folder ' + folderId + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -1160,11 +1195,11 @@ var _unshareFolder = function (server, folderId, userId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) {}
+			} catch (e) { }
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to unshare folder ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to unshare folder ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -1204,11 +1239,13 @@ var _getItem = function (server, id, expand) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get item ' + id + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to get item ' + id + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -1223,7 +1260,7 @@ var _getItem = function (server, id, expand) {
 				return resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get item ' + id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to get item ' + id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -1253,11 +1290,13 @@ var _getItemRelationships = function (server, id) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get item relationships ' + id + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to get item relationships ' + id + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -1288,7 +1327,7 @@ var _getItemRelationships = function (server, id) {
 				});
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get item relationships ' + id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to get item relationships ' + id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -1319,11 +1358,13 @@ var _getItemVariations = function (server, id) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get item variations ' + id + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to get item variations ' + id + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -1341,7 +1382,7 @@ var _getItemVariations = function (server, id) {
 				});
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get item variations ' + id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to get item variations ' + id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -1403,13 +1444,16 @@ var _queryItems = function (useDelivery, server, q, fields, orderBy, limit, offs
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
+
 		var query = url.substring(url.indexOf('?') + 1);
 		// console.log(query);
-		var request = require('./requestUtils.js').request;
+		var request = server.request || require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to query items with ' + query + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to query items with ' + query + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -1431,7 +1475,7 @@ var _queryItems = function (useDelivery, server, q, fields, orderBy, limit, offs
 				});
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to query items with ' + query + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to query items with ' + query + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -1449,13 +1493,15 @@ var _scrollItems = function (server, url) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var query = url.substring(url.indexOf('?') + 1);
 		// console.log(query);
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to scroll items with ' + query + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to scroll items with ' + query + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -1471,7 +1517,7 @@ var _scrollItems = function (server, url) {
 				return resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to scroll items with ' + query + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to scroll items with ' + query + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -1519,22 +1565,22 @@ var _scrollAllItems = function (useDelivery, server, q, fields, orderBy, limit, 
 
 		var startTime = new Date();
 		var doGetItems = groups.reduce(function (itemPromise) {
-				return itemPromise.then(function (result) {
-					if (result) {
-						if (result.items && result.items.length > 0) {
-							items = items.concat(result.items);
-							process.stdout.write(' - fetching items ' + items.length +
-								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-							readline.cursorTo(process.stdout, 0);
-						}
-						// console.log(' - count: ' + result.count + ' limit: ' + result.limit);
-						if (result.count > 0 && result.scrollId) {
-							// continue to next scroll
-							return _scrollItems(server, url + '&scrollId=' + result.scrollId);
-						}
+			return itemPromise.then(function (result) {
+				if (result) {
+					if (result.items && result.items.length > 0) {
+						items = items.concat(result.items);
+						process.stdout.write(' - fetching items ' + items.length +
+							' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						readline.cursorTo(process.stdout, 0);
 					}
-				});
-			},
+					// console.log(' - count: ' + result.count + ' limit: ' + result.limit);
+					if (result.count > 0 && result.scrollId) {
+						// continue to next scroll
+						return _scrollItems(server, url + '&scrollId=' + result.scrollId);
+					}
+				}
+			});
+		},
 			// first scroll
 			_scrollItems(server, url));
 
@@ -1578,7 +1624,7 @@ module.exports.queryItems = function (args) {
 
 				var totalCount = result.limit;
 				if (showTotal) {
-					console.log(' - total items: ' + totalCount);
+					console.info(' - total items: ' + totalCount);
 				}
 				var offset = args.offset ? args.offset : 0;
 				if (totalCount < MAX_ITEM_LIMIT || (args.limit && (offset + args.limit < MAX_ITEM_LIMIT))) {
@@ -1621,13 +1667,15 @@ var _getAllItemIds = function (server, repositoryId, channelId, publishedassets)
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var query = url.substring(url.indexOf('?') + 1);
 		// console.log(query);
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get all item Ids ' + query + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to get all item Ids ' + query + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -1648,7 +1696,7 @@ var _getAllItemIds = function (server, repositoryId, channelId, publishedassets)
 				});
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get all item Ids ' + query + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to get all item Ids ' + query + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -1698,12 +1746,13 @@ var _createItem = function (server, repositoryId, type, name, desc, fields, lang
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create create ' + name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('Failed to create create ' + name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -1718,8 +1767,8 @@ var _createItem = function (server, repositoryId, type, name, desc, fields, lang
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to create item ' + name + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
-						console.log(data);
+						console.error('Failed to create item ' + name + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
+						console.error(data);
 						resolve({
 							err: 'err'
 						});
@@ -1791,12 +1840,13 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 					},
 					body: form
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('ERROR: Failed to create create digital item for ' + filename + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to create create digital item for ' + filename + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						// Do we really want to resolve on an error?
 						resolve({
 							err: 'err'
@@ -1816,10 +1866,10 @@ var _createDigitalItem = function (server, repositoryId, type, filename, content
 						if (data && (data.detail || data.title)) {
 							msg = (data.detail || data.title);
 						}
-						console.log('ERROR: Failed to create digital item for ' + filename + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to create digital item for ' + filename + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						// console.log(data);
 						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
-							console.log(data['o:errorDetails']);
+							console.error(data['o:errorDetails']);
 						}
 						// Shouldn't this reject on an error?
 						resolve({
@@ -1897,13 +1947,13 @@ var _createDigitalItemFromDocuments = function (server, repositoryId, type, docI
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create digital asset from ' + docName + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('Failed to create digital asset from ' + docName + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -1920,7 +1970,7 @@ var _createDigitalItemFromDocuments = function (server, repositoryId, type, docI
 						var statusId = response.location || '';
 						statusId = statusId.substring(statusId.lastIndexOf('/') + 1);
 
-						console.log(' - submit request (job id: ' + statusId + ')');
+						console.info(' - submit request (job id: ' + statusId + ')');
 						var startTime = new Date();
 						var needNewLine = false;
 						var inter = setInterval(function () {
@@ -1933,7 +1983,7 @@ var _createDigitalItemFromDocuments = function (server, repositoryId, type, docI
 									}
 									// console.log(data);
 									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
-									console.log('ERROR: failed to create digital asset from ' + docName + ': ' + msg + ' (ecid: ' + response.ecid + ')');
+									console.error('ERROR: failed to create digital asset from ' + docName + ': ' + msg + ' (ecid: ' + response.ecid + ')');
 
 									return resolve({
 										err: 'err'
@@ -1941,8 +1991,10 @@ var _createDigitalItemFromDocuments = function (server, repositoryId, type, docI
 								}
 								if (data.completed) {
 									clearInterval(inter);
-									process.stdout.write(' - create digital asset in progress [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-									process.stdout.write(os.EOL);
+									if (console.showInfo()) {
+										process.stdout.write(' - create digital asset in progress [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+										process.stdout.write(os.EOL);
+									}
 									// console.log(JSON.stringify(data, null, 4));
 									if (data.result && data.result.body && data.result.body.operations &&
 										data.result.body.operations.addToRepository &&
@@ -1958,22 +2010,24 @@ var _createDigitalItemFromDocuments = function (server, repositoryId, type, docI
 											data.result.body.operations.addToRepository.failedExternalIds.items) {
 											msg = msg + ' : ' + Object.values(data.result.body.operations.addToRepository.failedExternalIds.items)[0];
 										}
-										console.log('ERROR: ' + msg);
+										console.error('ERROR: ' + msg);
 										return resolve({
 											err: 'err'
 										});
 									}
 
 								} else {
-									process.stdout.write(' - create digital asset in progress [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-									readline.cursorTo(process.stdout, 0);
-									needNewLine = true;
+									if (console.showInfo()) {
+										process.stdout.write(' - create digital asset in progress [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+										readline.cursorTo(process.stdout, 0);
+										needNewLine = true;
+									}
 								}
 							});
 						}, 6000);
 					} else {
 						var msg = data ? (data.detail || data.title) : response.statusMessage;
-						console.log('ERROR: Failed to create digital asset - ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to create digital asset - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -2047,12 +2101,13 @@ var _updateDigitalItem = function (server, item, contents) {
 					postData.headers['Content-Type'] = 'application/json';
 					postData.body = JSON.stringify(item);
 				}
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('ERROR: Failed to update create digital item ' + item.id + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to update create digital item ' + item.id + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -2071,10 +2126,10 @@ var _updateDigitalItem = function (server, item, contents) {
 						if (data && (data.detail || data.title)) {
 							msg = (data.detail || data.title);
 						}
-						console.log('ERROR: Failed to update digital item ' + item.id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to update digital item ' + item.id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						// console.log(data);
 						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
-							console.log(data['o:errorDetails']);
+							console.error(data['o:errorDetails']);
 						}
 						resolve({
 							err: 'err'
@@ -2127,12 +2182,13 @@ var _createCollection = function (server, repositoryId, name, channels) {
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create collection ' + name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to create collection ' + name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -2147,7 +2203,7 @@ var _createCollection = function (server, repositoryId, name, channels) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to create collection ' + name + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
+						console.log('ERROR: Failed to create collection ' + name + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -2193,13 +2249,13 @@ var _updateCollection = function (server, repositoryId, collection) {
 					body: JSON.stringify(collection),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to update collection ' + collection.name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to update collection ' + collection.name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -2215,9 +2271,9 @@ var _updateCollection = function (server, repositoryId, collection) {
 						resolve(data);
 					} else {
 						var msg = response.statusMessage || response.statusCode;
-						console.log('Failed to update collection ' + collection.name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to update collection ' + collection.name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						if (data) {
-							console.log(JSON.stringify(data, null, 4));
+							console.error(JSON.stringify(data, null, 4));
 						}
 						resolve({
 							err: 'err'
@@ -2268,12 +2324,13 @@ var _deleteCollection = function (server, repositoryId, collection) {
 						Authorization: serverUtils.getRequestAuthorization(server)
 					}
 				};
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete collection ' + collection.name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to delete collection ' + collection.name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -2289,9 +2346,9 @@ var _deleteCollection = function (server, repositoryId, collection) {
 						resolve(data);
 					} else {
 						var msg = response.statusMessage || response.statusCode;
-						console.log('Failed to delete collection ' + collection.name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to delete collection ' + collection.name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						if (data) {
-							console.log(JSON.stringify(data, null, 4));
+							console.error(JSON.stringify(data, null, 4));
 						}
 						resolve({
 							err: 'err'
@@ -2347,11 +2404,13 @@ var _createChannel = function (server, name, channelType, description, publishPo
 					json: true
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create channel ' + name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to create channel ' + name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -2366,7 +2425,7 @@ var _createChannel = function (server, name, channelType, description, publishPo
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to create channel ' + name + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to create channel ' + name + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -2413,11 +2472,13 @@ var _deleteChannel = function (server, id) {
 					}
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete channel ' + id + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to delete channel ' + id + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -2431,7 +2492,7 @@ var _deleteChannel = function (server, id) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to delete channel ' + id + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to delete channel ' + id + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -2472,11 +2533,13 @@ var _deleteRepository = function (server, id) {
 					}
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete repository ' + id + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to delete repository ' + id + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -2490,7 +2553,7 @@ var _deleteRepository = function (server, id) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to delete repository ' + id + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to delete repository ' + id + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -2532,11 +2595,13 @@ var _deleteContentType = function (server, name) {
 					}
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete contennt type ' + name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to delete contennt type ' + name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -2550,7 +2615,7 @@ var _deleteContentType = function (server, name) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to delete content type ' + name + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to delete content type ' + name + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -2604,13 +2669,13 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 					body: JSON.stringify(data),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to add channel ' + channelName + ' to repository ' + repository.name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to add channel ' + channelName + ' to repository ' + repository.name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -2626,7 +2691,7 @@ var _addChannelToRepository = function (server, channelId, channelName, reposito
 						resolve(data);
 					} else {
 						var msg = data ? JSON.stringify(data) : (response.statusMessage || response.statusCode);
-						console.log('Failed to add channel ' + channelName + ' to repository ' + repository.name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to add channel ' + channelName + ' to repository ' + repository.name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -2687,12 +2752,14 @@ var _getResources = function (server, endpoint, type, fields, offset, q, orderBy
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		request.get(options, function (error, response, body) {
 			var result = {};
 
 			if (error) {
-				console.log('ERROR: failed to get ' + type + ':');
-				console.log(error);
+				console.error('ERROR: failed to get ' + type + ':');
+				console.error(error);
 				resolve({
 					err: error
 				});
@@ -2708,7 +2775,7 @@ var _getResources = function (server, endpoint, type, fields, offset, q, orderBy
 				resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get ' + type + '  : ' + msg);
+				console.error('ERROR: failed to get ' + type + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -2731,15 +2798,15 @@ var _getAllResources = function (server, endpoint, type, fields, q, orderBy) {
 		var resources = [];
 
 		var doGetResources = groups.reduce(function (resPromise, offset) {
-				return resPromise.then(function (result) {
-					if (result && result.items && result.items.length > 0) {
-						resources = resources.concat(result.items);
-					}
-					if (result && result.hasMore) {
-						return _getResources(server, endpoint, type, fields, offset, q, orderBy);
-					}
-				});
-			},
+			return resPromise.then(function (result) {
+				if (result && result.items && result.items.length > 0) {
+					resources = resources.concat(result.items);
+				}
+				if (result && result.hasMore) {
+					return _getResources(server, endpoint, type, fields, offset, q, orderBy);
+				}
+			});
+		},
 			// Start with a previousPromise value that is a resolved promise
 			_getResources(server, endpoint, type, fields, 0, q, orderBy));
 
@@ -2757,7 +2824,7 @@ var _getAllResources = function (server, endpoint, type, fields, q, orderBy) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getChannels = function (args) {
-	return _getAllResources(args.server, '/content/management/api/v1.1/channels', 'channels', 'all');
+	return _getAllResources(args.server, '/content/management/api/v1.1/channels', 'channels', args.fields);
 };
 
 // Get channel from server
@@ -2771,11 +2838,13 @@ var _getChannel = function (server, channelId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get channel ' + channelId);
-				console.log(error);
+				console.error('ERROR: failed to get channel ' + channelId);
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -2790,7 +2859,7 @@ var _getChannel = function (server, channelId) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get channel ' + channelId + '  : ' + msg);
+				console.error('ERROR: failed to get channel ' + channelId + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -2827,7 +2896,9 @@ module.exports.getChannelWithName = function (args) {
 
 		var url = server.url + '/content/management/api/v1.1/channels';
 		url = url + '?q=(name mt "' + encodeURIComponent(channelName) + '")';
-		url = url + '&fields=all';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -2836,13 +2907,13 @@ module.exports.getChannelWithName = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get channel ' + channelName);
-				console.log(error);
+				console.error('ERROR: failed to get channel ' + channelName);
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -2868,12 +2939,12 @@ module.exports.getChannelWithName = function (args) {
 						data: channel
 					});
 				} else {
-					// console.log('ERROR:  channel ' + channelName + ' not found');
+					// console.error('ERROR:  channel ' + channelName + ' not found');
 					return resolve({});
 				}
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get channel ' + channelName + '  : ' + msg);
+				console.error('ERROR: failed to get channel ' + channelName + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -2965,7 +3036,7 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 					'X-REQUESTED-WITH': 'XMLHttpRequest',
 					Authorization: serverUtils.getRequestAuthorization(server)
 				};
-				if (async &&async ==='true') {
+				if (async && async === 'true') {
 					headers.Prefer = 'respond-async';
 				}
 				var postData = {
@@ -2975,13 +3046,13 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 					body: JSON.stringify(formData),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to ' + operation + ' items ' + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to ' + operation + ' items ' + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -2999,11 +3070,12 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 						statusId = statusId.substring(statusId.lastIndexOf('/') + 1);
 						return resolve({
 							statusId: statusId,
-							data: data
+							data: data,
+							ecid: response.ecid
 						});
 					} else {
 						var msg = data ? (data.detail || data.title) : response.statusMessage;
-						console.log('Failed to ' + operation + ' items - ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to ' + operation + ' items - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -3193,6 +3265,8 @@ var _getPublishingJobItems = function (server, jobId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -3240,11 +3314,14 @@ var _getItemOperationStatus = function (server, statusId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: get channel operation status');
-				console.log(error);
+				console.error('ERROR: get channel operation status');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -3259,7 +3336,7 @@ var _getItemOperationStatus = function (server, statusId) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get channel operation status' + '  : ' + msg);
+				console.error('ERROR: failed to get channel operation status' + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -3344,12 +3421,13 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 					body: JSON.stringify(formData),
 					json: true
 				};
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to copy assets ' + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to copy assets ' + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -3366,7 +3444,7 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 						var statusId = response.location || '';
 						statusId = statusId.substring(statusId.lastIndexOf('/') + 1);
 
-						console.log(' - submit request');
+						console.info(' - submit request');
 						var startTime = new Date();
 						var needNewLine = false;
 						var inter = setInterval(function () {
@@ -3379,7 +3457,7 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 									}
 									// console.log(data);
 									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
-									console.log('ERROR: copy assets failed: ' + msg + ' (ecid: ' + response.ecid + ')');
+									console.error('ERROR: copy assets failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 
 									return resolve({
 										err: 'err'
@@ -3392,15 +3470,17 @@ var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, c
 									}
 									return resolve({});
 								} else {
-									process.stdout.write(' - copy assets in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-									readline.cursorTo(process.stdout, 0);
-									needNewLine = true;
+									if (console.showInfo()) {
+										process.stdout.write(' - copy assets in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+										readline.cursorTo(process.stdout, 0);
+										needNewLine = true;
+									}
 								}
 							});
 						}, 6000);
 					} else {
 						var msg = data ? (data.detail || data.title) : response.statusMessage;
-						console.log('Failed to copy assets - ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to copy assets - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -3430,7 +3510,7 @@ module.exports.copyAssets = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getLocalizationPolicies = function (args) {
-	return _getAllResources(args.server, '/content/management/api/v1.1/localizationPolicies', 'localizationPolicies', 'all');
+	return _getAllResources(args.server, '/content/management/api/v1.1/localizationPolicies', 'localizationPolicies', args.fields);
 };
 
 // Get a localization policy from server
@@ -3445,11 +3525,13 @@ var _getLocalizationPolicy = function (server, id) {
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get localization policy ' + id);
-				console.log(error);
+				console.error('ERROR: failed to get localization policy ' + id);
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -3464,7 +3546,7 @@ var _getLocalizationPolicy = function (server, id) {
 				return resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get localization policy ' + id + ' : ' + msg);
+				console.error('ERROR: failed to get localization policy ' + id + ' : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -3513,11 +3595,13 @@ var _createLocalizationPolicy = function (server, name, description, requiredLan
 					json: true
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create localization policy ' + name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to create localization policy ' + name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -3532,7 +3616,7 @@ var _createLocalizationPolicy = function (server, name, description, requiredLan
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to create localization policy ' + name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to create localization policy ' + name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -3586,11 +3670,13 @@ var _updateLocalizationPolicy = function (server, id, name, data) {
 					json: true
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to update localization policy ' + (name || id) + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to update localization policy ' + (name || id) + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -3605,7 +3691,7 @@ var _updateLocalizationPolicy = function (server, id, name, data) {
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to update localization policy ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to update localization policy ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -3648,11 +3734,13 @@ var _deleteLocalizationPolicy = function (server, id) {
 					}
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete localization policy ' + id + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to delete localization policy ' + id + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -3666,7 +3754,7 @@ var _deleteLocalizationPolicy = function (server, id) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to delete localization policy ' + id + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to delete localization policy ' + id + ' : ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -3694,7 +3782,7 @@ module.exports.deleteLocalizationPolicy = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getRepositories = function (args) {
-	return _getAllResources(args.server, '/content/management/api/v1.1/repositories', 'repositories', 'all');
+	return _getAllResources(args.server, '/content/management/api/v1.1/repositories', 'repositories', args.fields);
 };
 
 // Get a repository from server
@@ -3709,11 +3797,13 @@ var _getRepository = function (server, repoId) {
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get repository ' + repoId);
-				console.log(error);
+				console.error('ERROR: failed to get repository ' + repoId);
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -3728,7 +3818,7 @@ var _getRepository = function (server, repoId) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get repository ' + repoId + ' : ' + msg);
+				console.error('ERROR: failed to get repository ' + repoId + ' : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -3764,7 +3854,9 @@ module.exports.getRepositoryWithName = function (args) {
 
 		var url = server.url + '/content/management/api/v1.1/repositories';
 		url = url + '?q=(name mt "' + encodeURIComponent(repoName) + '")';
-		url = url + '&fields=all';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -3773,13 +3865,13 @@ module.exports.getRepositoryWithName = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get repository ' + repoName);
-				console.log(error);
+				console.error('ERROR: failed to get repository ' + repoName);
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -3809,7 +3901,7 @@ module.exports.getRepositoryWithName = function (args) {
 				}
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get repository ' + repoName + '  : ' + msg);
+				console.error('ERROR: failed to get repository ' + repoName + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -3829,7 +3921,7 @@ module.exports.getRepositoryWithName = function (args) {
 module.exports.getCollections = function (args) {
 	return _getAllResources(args.server,
 		'/content/management/api/v1.1/repositories/' + args.repositoryId + '/collections',
-		'collections', 'all');
+		'collections', args.fields);
 };
 
 /**
@@ -3849,7 +3941,9 @@ module.exports.getCollectionWithName = function (args) {
 
 		var url = server.url + '/content/management/api/v1.1/repositories/' + args.repositoryId + '/collections';
 		url = url + '?q=(name mt "' + encodeURIComponent(colName) + '")';
-		url = url + '&fields=all';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -3858,13 +3952,13 @@ module.exports.getCollectionWithName = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get collection ' + colName);
-				console.log(error);
+				console.error('ERROR: failed to get collection ' + colName);
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -3894,7 +3988,7 @@ module.exports.getCollectionWithName = function (args) {
 				}
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get collection ' + colName + '  : ' + msg);
+				console.error('ERROR: failed to get collection ' + colName + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -3907,10 +4001,13 @@ module.exports.getCollectionWithName = function (args) {
 
 var TAX_MAX_LIMIT = 100;
 // Get taxonomies from server
-var _getTaxonomies = function (server, offset) {
+var _getTaxonomies = function (server, fields, offset) {
 	return new Promise(function (resolve, reject) {
-		var url = server.url + '/content/management/api/v1.1/taxonomies?fields=all&q=(status eq "all")&totalResults=true';
+		var url = server.url + '/content/management/api/v1.1/taxonomies?q=(status eq "all")';
 		url = url + '&limit=' + TAX_MAX_LIMIT;
+		if (fields) {
+			url = url + '&fields=' + fields;
+		}
 		if (offset) {
 			url = url + '&offset=' + offset;
 		}
@@ -3922,11 +4019,13 @@ var _getTaxonomies = function (server, offset) {
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get taxonomies');
-				console.log(error);
+				console.error('ERROR: failed to get taxonomies');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -3941,7 +4040,7 @@ var _getTaxonomies = function (server, offset) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get taxonomies : ' + msg);
+				console.error('ERROR: failed to get taxonomies : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -3951,7 +4050,7 @@ var _getTaxonomies = function (server, offset) {
 };
 
 // get all taxonomies with pagination
-var _getAllTaxonomies = function (server) {
+var _getAllTaxonomies = function (server, fields) {
 	return new Promise(function (resolve, reject) {
 		var groups = [];
 		// 1000 * 100 should be enough
@@ -3962,17 +4061,17 @@ var _getAllTaxonomies = function (server) {
 		var resources = [];
 
 		var doGetResources = groups.reduce(function (resPromise, offset) {
-				return resPromise.then(function (result) {
-					if (result && result.items && result.items.length > 0) {
-						resources = resources.concat(result.items);
-					}
-					if (result && result.hasMore) {
-						return _getTaxonomies(server, offset);
-					}
-				});
-			},
+			return resPromise.then(function (result) {
+				if (result && result.items && result.items.length > 0) {
+					resources = resources.concat(result.items);
+				}
+				if (result && result.hasMore) {
+					return _getTaxonomies(server, fields, offset);
+				}
+			});
+		},
 			// Start with a previousPromise value that is a resolved promise
-			_getTaxonomies(server));
+			_getTaxonomies(server, fields));
 
 		doGetResources.then(function (result) {
 			// console.log(resources.length);
@@ -3987,7 +4086,7 @@ var _getAllTaxonomies = function (server) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getTaxonomies = function (args) {
-	return _getAllTaxonomies(args.server);
+	return _getAllTaxonomies(args.server, args.fields);
 };
 
 /**
@@ -4006,7 +4105,9 @@ module.exports.getTaxonomy = function (args) {
 		var server = args.server;
 
 		var url = server.url + '/content/management/api/v1.1/taxonomies/' + taxonomyId;
-		url = url + '?fields=all';
+		if (args.fields) {
+			url = url + '?fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -4015,13 +4116,13 @@ module.exports.getTaxonomy = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get taxonomy ' + taxonomyId);
-				console.log(error);
+				console.error('ERROR: failed to get taxonomy ' + taxonomyId);
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -4037,7 +4138,7 @@ module.exports.getTaxonomy = function (args) {
 				return resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get taxonomy ' + taxonomyId + '  : ' + msg);
+				console.error('ERROR: failed to get taxonomy ' + taxonomyId + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -4063,7 +4164,9 @@ module.exports.getTaxonomyWithName = function (args) {
 
 		var url = server.url + '/content/management/api/v1.1/taxonomies';
 		url = url + '?q=(name mt "' + encodeURIComponent(taxonomyName) + '" AND status eq "all")';
-		url = url + '&fields=all';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -4072,13 +4175,13 @@ module.exports.getTaxonomyWithName = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get taxonomy ' + taxonomyName);
-				console.log(error);
+				console.error('ERROR: failed to get taxonomy ' + taxonomyName);
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -4104,12 +4207,12 @@ module.exports.getTaxonomyWithName = function (args) {
 						data: taxonomy
 					});
 				} else {
-					// console.log('ERROR:  channel ' + channelName + ' not found');
+					// console.error('ERROR:  channel ' + channelName + ' not found');
 					return resolve({});
 				}
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get taxonomy ' + taxonomyName + '  : ' + msg);
+				console.error('ERROR: failed to get taxonomy ' + taxonomyName + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -4132,7 +4235,7 @@ module.exports.getCategories = function (args) {
 			q = 'status eq "' + args.status + '"';
 		}
 		_getAllResources(args.server, '/content/management/api/v1.1/taxonomies/' + args.taxonomyId + '/categories',
-				'categories', 'all', q, args.orderBy)
+			'categories', args.fields, q, args.orderBy)
 			.then(function (result) {
 				resolve({
 					taxonomyName: args.taxonomyName,
@@ -4161,11 +4264,13 @@ var _getResourcePermissions = function (server, id, type, repositoryId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get ' + type + ' permissions for ' + id);
-				console.log(error);
+				console.error('ERROR: failed to get ' + type + ' permissions for ' + id);
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -4184,7 +4289,7 @@ var _getResourcePermissions = function (server, id, type, repositoryId) {
 				});
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get ' + type + ' permissions for ' + id + ' : ' + msg);
+				console.error('ERROR: failed to get ' + type + ' permissions for ' + id + ' : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -4251,13 +4356,13 @@ var _setPermissionSets = function (server, id, name, action, permissions) {
 					body: JSON.stringify(permissions),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to ' + action + ' permission sets for ' + name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to ' + action + ' permission sets for ' + name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -4272,7 +4377,7 @@ var _setPermissionSets = function (server, id, name, action, permissions) {
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to ' + action + ' permission sets for ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to ' + action + ' permission sets for ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -4340,13 +4445,14 @@ var _createRepository = function (server, name, description, contentTypes, chann
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create repository ' + name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to create repository ' + name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -4361,7 +4467,7 @@ var _createRepository = function (server, name, description, contentTypes, chann
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to create repository ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to create repository ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -4432,13 +4538,14 @@ var _updateRepository = function (server, repository, contentTypes, channels,
 					body: JSON.stringify(data),
 					json: true
 				};
-				// console.log(JSON.stringify(data, null, 4));
+
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to update repository ' + repository.name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to update repository ' + repository.name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -4457,10 +4564,10 @@ var _updateRepository = function (server, repository, contentTypes, channels,
 						if (data && (data.detail || data.title)) {
 							msg = (data.detail || data.title);
 						}
-						console.log('Failed to update repository ' + repository.name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to update repository ' + repository.name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						// console.log(data);
 						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
-							console.log(data['o:errorDetails']);
+							console.error(data['o:errorDetails']);
 						}
 						resolve({
 							err: 'err'
@@ -4555,11 +4662,13 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 					json: true
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('ERROR: failed to ' + operation + ' resource ' + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: failed to ' + operation + ' resource ' + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -4582,7 +4691,7 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 									msg = msg + ' ' + (failedRoles[i].users[j].name || failedRoles[i].users[j].id) + ': ' + failedRoles[i].users[j].message;
 								}
 							}
-							console.log('ERROR: failed to ' + operation + ' resource: ' + msg + ' (ecid: ' + response.ecid + ')');
+							console.error('ERROR: failed to ' + operation + ' resource: ' + msg + ' (ecid: ' + response.ecid + ')');
 							resolve({
 								err: 'err'
 							});
@@ -4592,7 +4701,7 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 						}
 					} else {
 						var msg = data ? (data.detail || data.title) : response.statusMessage;
-						console.log('ERROR: failed to ' + operation + ' resource ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: failed to ' + operation + ' resource ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -4628,7 +4737,7 @@ module.exports.performPermissionOperation = function (args) {
  */
 module.exports.getEditorialRoles = function (args) {
 	return _getAllResources(args.server, '/content/management/api/v1.1/editorialRoles',
-		'editorialRoles', 'all', '', 'name:asc');
+		'editorialRoles', args.fields, '', 'name:asc');
 };
 
 /**
@@ -4648,7 +4757,9 @@ module.exports.getEditorialRoleWithName = function (args) {
 
 		var url = server.url + '/content/management/api/v1.1/editorialRoles';
 		url = url + '?q=(name mt "' + encodeURIComponent(roleName) + '")';
-		url = url + '&fields=all';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -4657,13 +4768,13 @@ module.exports.getEditorialRoleWithName = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get editorial role ' + roleName + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to get editorial role ' + roleName + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -4693,7 +4804,7 @@ module.exports.getEditorialRoleWithName = function (args) {
 				}
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get editorial role ' + roleName + '  : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to get editorial role ' + roleName + '  : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -4742,13 +4853,13 @@ var _createEditorialRole = function (server, name, description) {
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create editorial role ' + name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to create editorial role ' + name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -4763,7 +4874,7 @@ var _createEditorialRole = function (server, name, description) {
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to create editorial role ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to create editorial role ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -4808,13 +4919,13 @@ var _updateEditorialRole = function (server, role) {
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
 
 				var request = require('./requestUtils.js').request;
 				request.put(options, function (error, response, body) {
 					if (error) {
-						console.log('Failed to update editorial role ' + role.name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to update editorial role ' + role.name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -4829,7 +4940,7 @@ var _updateEditorialRole = function (server, role) {
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to update editorial role ' + role.name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to update editorial role ' + role.name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -4870,13 +4981,13 @@ var _deleteEditorialRole = function (server, id, name) {
 						Authorization: serverUtils.getRequestAuthorization(server)
 					}
 				};
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
 
 				var request = require('./requestUtils.js').request;
 				request.delete(options, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete editorial role ' + name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to delete editorial role ' + name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -4891,7 +5002,7 @@ var _deleteEditorialRole = function (server, id, name) {
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to delete editorial role ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to delete editorial role ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -4940,12 +5051,14 @@ var _getContentType = function (server, typeName, expand, showError) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
 				if (showError) {
-					console.log('ERROR: failed to get type ' + typeName);
-					console.log(error);
+					console.error('ERROR: failed to get type ' + typeName);
+					console.error(error);
 				}
 				return resolve({
 					err: 'err'
@@ -4962,7 +5075,7 @@ var _getContentType = function (server, typeName, expand, showError) {
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				if (showError) {
-					console.log('ERROR: failed to get type ' + typeName + ' : ' + msg);
+					console.error('ERROR: failed to get type ' + typeName + ' : ' + msg);
 				}
 				return resolve({
 					err: 'err'
@@ -5009,11 +5122,13 @@ var _createContentType = function (server, typeObj) {
 					json: true
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create type ' + name + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to create type ' + name + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -5028,7 +5143,7 @@ var _createContentType = function (server, typeObj) {
 						resolve(data);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to create type ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to create type ' + name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
 						});
@@ -5058,11 +5173,14 @@ var _getUpdateTypeStatus = function (server, statusUrl) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: get update type status');
-				console.log(error);
+				console.error('ERROR: get update type status');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -5077,7 +5195,7 @@ var _getUpdateTypeStatus = function (server, statusUrl) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get update type status' + '  : ' + msg);
+				console.error('ERROR: failed to get update type status' + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -5111,11 +5229,13 @@ var _updateContentType = function (server, typeObj) {
 					json: true
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to update type ' + name);
-						console.log(error);
+						console.error('ERROR: Failed to update type ' + name);
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -5129,7 +5249,7 @@ var _updateContentType = function (server, typeObj) {
 
 					var statusUrl = response.location;
 					if (response && response.statusCode >= 200 && response.statusCode < 300 && statusUrl) {
-						console.log(' - submit request to update ' + name);
+						console.info(' - submit request to update ' + name);
 						var startTime = new Date();
 						var needNewLine = false;
 						var inter = setInterval(function () {
@@ -5142,7 +5262,7 @@ var _updateContentType = function (server, typeObj) {
 										process.stdout.write(os.EOL);
 									}
 									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
-									console.log('ERROR: update type ' + name + ' failed: ' + msg);
+									console.error('ERROR: update type ' + name + ' failed: ' + msg);
 
 									return resolve({
 										err: 'err'
@@ -5150,21 +5270,25 @@ var _updateContentType = function (server, typeObj) {
 								}
 								if (data.completed) {
 									clearInterval(inter);
-									process.stdout.write(' - update type ' + name + ' in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-									process.stdout.write(os.EOL);
+									if (console.showInfo()) {
+										process.stdout.write(' - update type ' + name + ' in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+										process.stdout.write(os.EOL);
+									}
 
 									// return the type itself
 									return resolve(typeObj);
 								} else {
-									process.stdout.write(' - update type ' + name + ' in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-									readline.cursorTo(process.stdout, 0);
-									needNewLine = true;
+									if (console.showInfo()) {
+										process.stdout.write(' - update type ' + name + ' in process [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+										readline.cursorTo(process.stdout, 0);
+										needNewLine = true;
+									}
 								}
 							});
 						}, 5000);
 					} else {
 						var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
-						console.log('Failed to update type ' + name + ' - ' + msg);
+						console.error('ERROR: Failed to update type ' + name + ' - ' + msg);
 						resolve({
 							err: 'err'
 						});
@@ -5244,7 +5368,7 @@ module.exports.addContentTypeLayoutMapping = function (args) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				resolve({
 					err: 'err'
@@ -5310,7 +5434,7 @@ module.exports.removeContentTypeLayoutMapping = function (args) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				resolve({
 					err: 'err'
@@ -5330,11 +5454,13 @@ var _getTaxonomyExportStatus = function (server, id, jobId) {
 			}
 		};
 
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: get taxonomy export status');
-				console.log(error);
+				console.error('ERROR: get taxonomy export status');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -5349,7 +5475,7 @@ var _getTaxonomyExportStatus = function (server, id, jobId) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get taxonomy export status' + '  : ' + msg);
+				console.error('ERROR: failed to get taxonomy export status' + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -5384,11 +5510,13 @@ var _exportTaxonomy = function (server, id, name, status) {
 					json: true
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('ERROR: failed to export taxonomy ' + name);
-						console.log(error);
+						console.error('ERROR: failed to export taxonomy ' + name);
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -5403,7 +5531,7 @@ var _exportTaxonomy = function (server, id, name, status) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						var jobId = data && data.jobId;
 						if (jobId) {
-							console.log(' - job id: ' + jobId);
+							console.info(' - job id: ' + jobId);
 							var count = [];
 							var needNewLine = false;
 							var inter = setInterval(function () {
@@ -5415,7 +5543,7 @@ var _exportTaxonomy = function (server, id, name, status) {
 											process.stdout.write(os.EOL);
 										}
 										var msg = data && data.summary ? data.summary : '';
-										console.log('ERROR: export taxonomy failed: ' + msg);
+										console.error('ERROR: export taxonomy failed: ' + msg);
 
 										return resolve({
 											err: 'err'
@@ -5441,22 +5569,24 @@ var _exportTaxonomy = function (server, id, name, status) {
 											downloadLink: downloadLink
 										});
 									} else {
-										count.push('.');
-										process.stdout.write(' - export taxonomy in process ' + count.join(''));
-										readline.cursorTo(process.stdout, 0);
-										needNewLine = true;
+										if (console.showInfo()) {
+											count.push('.');
+											process.stdout.write(' - export taxonomy in process ' + count.join(''));
+											readline.cursorTo(process.stdout, 0);
+											needNewLine = true;
+										}
 									}
 								});
-							}, 6000);
+							}, 5000);
 						} else {
-							console.log('ERROR: no job Id is found');
+							console.error('ERROR: no job Id is found');
 							resolve({
 								err: 'err'
 							});
 						}
 					} else {
 						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-						console.log('ERROR: failed to export taxonomy ' + name + ' - ' + msg);
+						console.error('ERROR: failed to export taxonomy ' + name + ' - ' + msg);
 						resolve({
 							err: 'err'
 						});
@@ -5489,11 +5619,13 @@ var _getTaxonomyImportStatus = function (server, jobId) {
 			}
 		};
 
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: get taxonomy import status');
-				console.log(error);
+				console.error('ERROR: get taxonomy import status');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -5509,7 +5641,7 @@ var _getTaxonomyImportStatus = function (server, jobId) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get taxonomy import status' + '  : ' + msg);
+				console.error('ERROR: failed to get taxonomy import status' + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -5546,13 +5678,13 @@ var _importTaxonomy = function (server, fileId, name, isNew, hasNewIds, taxonomy
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('ERROR: failed to import taxonomy ' + name);
-						console.log(error);
+						console.error('ERROR: failed to import taxonomy ' + name);
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -5567,7 +5699,7 @@ var _importTaxonomy = function (server, fileId, name, isNew, hasNewIds, taxonomy
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						var jobId = data && data.jobId;
 						if (jobId) {
-							console.log(' - job id: ' + jobId);
+							console.info(' - job id: ' + jobId);
 							var count = [];
 							var needNewLine = false;
 							var inter = setInterval(function () {
@@ -5579,7 +5711,7 @@ var _importTaxonomy = function (server, fileId, name, isNew, hasNewIds, taxonomy
 											process.stdout.write(os.EOL);
 										}
 										var msg = data && data.errorDescription ? data.errorDescription : '';
-										console.log('ERROR: import taxonomy failed: ' + msg);
+										console.error('ERROR: import taxonomy failed: ' + msg);
 
 										return resolve({
 											err: 'err'
@@ -5593,22 +5725,24 @@ var _importTaxonomy = function (server, fileId, name, isNew, hasNewIds, taxonomy
 										return resolve({});
 
 									} else {
-										count.push('.');
-										process.stdout.write(' - import taxonomy in process ' + count.join(''));
-										readline.cursorTo(process.stdout, 0);
-										needNewLine = true;
+										if (console.showInfo()) {
+											count.push('.');
+											process.stdout.write(' - import taxonomy in process ' + count.join(''));
+											readline.cursorTo(process.stdout, 0);
+											needNewLine = true;
+										}
 									}
 								});
 							}, 6000);
 						} else {
-							console.log('ERROR: no job Id is found');
+							console.error('ERROR: no job Id is found');
 							resolve({
 								err: 'err'
 							});
 						}
 					} else {
 						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-						console.log('ERROR: failed to import taxonomy ' + name + ' - ' + msg);
+						console.error('ERROR: failed to import taxonomy ' + name + ' - ' + msg);
 						resolve({
 							err: 'err'
 						});
@@ -5638,11 +5772,14 @@ var _getTaxonomyActionStatus = function (server, url, action) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: get ' + action + ' taxonomy  status');
-				console.log(error);
+				console.error('ERROR: get ' + action + ' taxonomy  status');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -5658,7 +5795,7 @@ var _getTaxonomyActionStatus = function (server, url, action) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get ' + action + ' taxonomy status' + '  : ' + msg);
+				console.error('ERROR: failed to get ' + action + ' taxonomy status' + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -5695,13 +5832,13 @@ var _controlTaxonomy = function (server, id, name, action, isPublishable, channe
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('ERROR: failed to ' + action + ' taxonomy ' + name);
-						console.log(error);
+						console.error('ERROR: failed to ' + action + ' taxonomy ' + name);
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -5717,7 +5854,7 @@ var _controlTaxonomy = function (server, id, name, action, isPublishable, channe
 						var statusUrl = response.location;
 						if (statusUrl) {
 							var jobId = statusUrl.substring(statusUrl.lastIndexOf('/') + 1);
-							console.log(' - submit request (job id: ' + jobId + ')');
+							console.info(' - submit request (job id: ' + jobId + ')');
 							var count = [];
 							var needNewLine = false;
 							var inter = setInterval(function () {
@@ -5729,7 +5866,7 @@ var _controlTaxonomy = function (server, id, name, action, isPublishable, channe
 											process.stdout.write(os.EOL);
 										}
 										var msg = data && data.summary ? data.summary : '';
-										console.log('ERROR: export taxonomy failed: ' + msg);
+										console.error('ERROR: export taxonomy failed: ' + msg);
 
 										return resolve({
 											err: 'err'
@@ -5743,22 +5880,24 @@ var _controlTaxonomy = function (server, id, name, action, isPublishable, channe
 										return resolve({});
 
 									} else {
-										count.push('.');
-										process.stdout.write(' - ' + action + ' taxonomy in process ' + count.join(''));
-										readline.cursorTo(process.stdout, 0);
-										needNewLine = true;
+										if (console.showInfo()) {
+											count.push('.');
+											process.stdout.write(' - ' + action + ' taxonomy in process ' + count.join(''));
+											readline.cursorTo(process.stdout, 0);
+											needNewLine = true;
+										}
 									}
 								});
 							}, 5000);
 						} else {
-							console.log('ERROR: no job info is found');
+							console.error('ERROR: no job info is found');
 							resolve({
 								err: 'err'
 							});
 						}
 					} else {
 						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-						console.log('ERROR: failed to ' + action + ' taxonomy ' + name + ' - ' + msg);
+						console.error('ERROR: failed to ' + action + ' taxonomy ' + name + ' - ' + msg);
 						resolve({
 							err: 'err'
 						});
@@ -5810,12 +5949,13 @@ var _createTaxonomy = function (server, name, description, shortName) {
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create taxonomy ' + name);
-						console.log(error);
+						console.error('ERROR: Failed to create taxonomy ' + name);
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -5830,7 +5970,7 @@ var _createTaxonomy = function (server, name, description, shortName) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to create taxonomy ' + name + ' : ' + (response.statusMessage || response.statusCode));
+						console.error('ERROR: Failed to create taxonomy ' + name + ' : ' + (response.statusMessage || response.statusCode));
 						resolve({
 							err: 'err'
 						});
@@ -5882,12 +6022,13 @@ var _addCategorytoTaxonomy = function (server, taxonomyId, name, description, pa
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to add category sibling ' + name);
-						console.log(error);
+						console.error('ERROR: Failed to add category sibling ' + name);
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -5902,7 +6043,7 @@ var _addCategorytoTaxonomy = function (server, taxonomyId, name, description, pa
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to add category sibling ' + name + ' : ' + (response.statusMessage || response.statusCode));
+						console.error('ERROR: Failed to add category sibling ' + name + ' : ' + (response.statusMessage || response.statusCode));
 						resolve({
 							err: 'err'
 						});
@@ -5946,12 +6087,13 @@ var _deleteTaxonomy = function (server, id, name, status) {
 						Authorization: serverUtils.getRequestAuthorization(server)
 					},
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete taxonomy ' + name);
-						console.log(error);
+						console.error('ERROR: Failed to delete taxonomy ' + name);
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -5966,7 +6108,7 @@ var _deleteTaxonomy = function (server, id, name, status) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to delete taxonomy ' + name + ' : ' + (response.statusMessage || response.statusCode));
+						console.error('ERROR: Failed to delete taxonomy ' + name + ' : ' + (response.statusMessage || response.statusCode));
 						resolve({
 							err: 'err'
 						});
@@ -6001,7 +6143,7 @@ module.exports.getRecommendations = function (args) {
 	return new Promise(function (resolve, reject) {
 		var q = '(repositoryId eq "' + args.repositoryId + '")';
 		_getAllResources(args.server, '/content/management/api/v1.1/personalization/recommendations',
-				'recommendations', 'all', q)
+			'recommendations', args.fields, q)
 			.then(function (result) {
 				resolve({
 					repositoryId: args.repositoryId,
@@ -6021,11 +6163,14 @@ var _getContentJobStatus = function (server, jobId) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get export job status' + ' (ecid: ' + response.ecid + ')');
-				console.log(err);
+				console.error('ERROR: Failed to get job status' + ' (ecid: ' + response.ecid + ')');
+				console.error(err);
 				return resolve({
 					status: 'err'
 				});
@@ -6037,7 +6182,7 @@ var _getContentJobStatus = function (server, jobId) {
 					data: data
 				});
 			} else {
-				console.log('ERROR: Failed to get export job status: ' + response.statusCode + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: Failed to get job status: ' + response.statusCode + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					status: response.statusCode
 				});
@@ -6090,13 +6235,13 @@ var _exportRecommendation = function (server, id, name, published, publishedChan
 					},
 					body: JSON.stringify(postData)
 				};
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
 
 				var request = require('./requestUtils.js').request;
 				request.post(options, function (err, response, body) {
 					if (err) {
-						console.log('ERROR: Failed to export recommendation ' + name);
-						console.log(err);
+						console.error('ERROR: Failed to export recommendation ' + name);
+						console.error(err);
 						resolve({
 							err: 'err'
 						});
@@ -6122,7 +6267,7 @@ var _exportRecommendation = function (server, id, name, published, publishedChan
 					} else {
 						// console.log(data);
 						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-						console.log('ERROR: failed to export: ' + msg);
+						console.error('ERROR: failed to export: ' + msg);
 						return resolve({
 							err: 'err'
 						});
@@ -6174,13 +6319,13 @@ var _updateRecommendation = function (server, recommendation) {
 					body: JSON.stringify(recommendation2),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to update recommendation ' + recommendation.name);
-						console.log(error);
+						console.error('ERROR: Failed to update recommendation ' + recommendation.name);
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -6196,9 +6341,9 @@ var _updateRecommendation = function (server, recommendation) {
 						resolve(data);
 					} else {
 						var msg = response.statusMessage || response.statusCode;
-						console.log('Failed to update recommendation ' + recommendation.name + ' : ' + msg);
+						console.error('ERROR: Failed to update recommendation ' + recommendation.name + ' : ' + msg);
 						if (data) {
-							console.log(JSON.stringify(data, null, 4));
+							console.error(JSON.stringify(data, null, 4));
 						}
 						resolve({
 							err: 'err'
@@ -6277,11 +6422,14 @@ var _getRecommendationActionStatus = function (server, url, action) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: get ' + action + ' recommendation status');
-				console.log(error);
+				console.error('ERROR: get ' + action + ' recommendation status');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -6297,7 +6445,7 @@ var _getRecommendationActionStatus = function (server, url, action) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get ' + action + ' recommendation status' + '  : ' + msg);
+				console.error('ERROR: failed to get ' + action + ' recommendation status' + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -6330,13 +6478,13 @@ var _publishUnpublishRecommendation = function (server, id, name, channels, acti
 					body: JSON.stringify(payload),
 					json: true
 				};
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('ERROR: failed to ' + action + ' recommendation ' + name);
-						console.log(error);
+						console.error('ERROR: failed to ' + action + ' recommendation ' + name);
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -6352,7 +6500,7 @@ var _publishUnpublishRecommendation = function (server, id, name, channels, acti
 						var statusUrl = response.location;
 						if (statusUrl) {
 							var jobId = statusUrl.substring(statusUrl.lastIndexOf('/') + 1);
-							console.log(' - submit request (job id: ' + jobId + ')');
+							console.info(' - submit request (job id: ' + jobId + ')');
 							var startTime = new Date();
 							var needNewLine = false;
 							var inter = setInterval(function () {
@@ -6364,7 +6512,7 @@ var _publishUnpublishRecommendation = function (server, id, name, channels, acti
 											process.stdout.write(os.EOL);
 										}
 										var msg = data && data.summary ? data.summary : '';
-										console.log('ERROR: ' + action + ' recommendation failed: ' + msg);
+										console.error('ERROR: ' + action + ' recommendation failed: ' + msg);
 
 										return resolve({
 											err: 'err'
@@ -6372,27 +6520,31 @@ var _publishUnpublishRecommendation = function (server, id, name, channels, acti
 									}
 									if (data.completed && data.progress === 'succeeded') {
 										clearInterval(inter);
-										process.stdout.write(' - ' + action + ' recommendation ' + name + ' in process [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
-										readline.cursorTo(process.stdout, 0);
-										process.stdout.write(os.EOL);
+										if (console.showInfo()) {
+											process.stdout.write(' - ' + action + ' recommendation ' + name + ' in process [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
+											readline.cursorTo(process.stdout, 0);
+											process.stdout.write(os.EOL);
+										}
 										return resolve({});
 
 									} else {
-										process.stdout.write(' - ' + action + ' recommendation in process [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
-										readline.cursorTo(process.stdout, 0);
-										needNewLine = true;
+										if (console.showInfo()) {
+											process.stdout.write(' - ' + action + ' recommendation in process [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
+											readline.cursorTo(process.stdout, 0);
+											needNewLine = true;
+										}
 									}
 								});
 							}, 5000);
 						} else {
-							console.log('ERROR: no job info is found');
+							console.error('ERROR: no job info is found');
 							resolve({
 								err: 'err'
 							});
 						}
 					} else {
 						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-						console.log('ERROR: failed to ' + action + ' recommendation ' + name + ' - ' + msg);
+						console.error('ERROR: failed to ' + action + ' recommendation ' + name + ' - ' + msg);
 						resolve({
 							err: 'err'
 						});
@@ -6457,12 +6609,13 @@ var _importContent = function (server, fileId, repositoryId, channelId, update) 
 					},
 					body: JSON.stringify(postData)
 				};
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
+
 				var request = require('./requestUtils.js').request;
 				request.post(options, function (err, response, body) {
 					if (err) {
-						console.log('ERROR: Failed to import' + ' (ecid: ' + response.ecid + ')');
-						console.log(err);
+						console.error('ERROR: Failed to import' + ' (ecid: ' + response.ecid + ')');
+						console.error(err);
 						return resolve({
 							err: 'err'
 						});
@@ -6489,7 +6642,7 @@ var _importContent = function (server, fileId, repositoryId, channelId, update) 
 					} else {
 						// console.log(data);
 						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-						console.log('ERROR: failed to import: ' + msg + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: failed to import: ' + msg + ' (ecid: ' + response.ecid + ')');
 						return resolve({
 							err: 'err'
 						});
@@ -6549,9 +6702,9 @@ module.exports.importContent = function (args) {
 									if (needNewline) {
 										process.stdout.write(os.EOL);
 									}
-									console.log('ERROR: import failed: ' + data.errorDescription + ' (ecid: ' + importEcid + ')');
+									console.error('ERROR: import failed: ' + data.errorDescription + ' (ecid: ' + importEcid + ')');
 									if (!data.errorDescription) {
-										console.log(data);
+										console.error(data);
 									}
 									return resolve({
 										err: 'err'
@@ -6604,12 +6757,12 @@ var _exportContentItem = function (server, id, name, published) {
 					auth: auth,
 					body: JSON.stringify(postData)
 				};
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
 
 				request(options, function (err, response, body) {
 					if (err) {
-						console.log('ERROR: Failed to export content item ' + (name || id));
-						console.log(err);
+						console.error('ERROR: Failed to export content item ' + (name || id));
+						console.error(err);
 						resolve({
 							err: 'err'
 						});
@@ -6635,7 +6788,7 @@ var _exportContentItem = function (server, id, name, published) {
 					} else {
 						// console.log(data);
 						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-						console.log('ERROR: failed to export: ' + msg);
+						console.error('ERROR: failed to export: ' + msg);
 						return resolve({
 							err: 'err'
 						});
@@ -6681,9 +6834,11 @@ var _updateRenditionStatus = function (server, isMultiPart, jobId, status, progr
 						'X-REQUESTED-WITH': 'XMLHttpRequest'
 					};
 
+					serverUtils.showRequestOptions(options);
+
 					var multiPartFormRequest = request.post(options, function optionalCallback(error, response, body) {
 						if (error) {
-							console.log('updateRenditionStatus: ' + error);
+							console.error('updateRenditionStatus: ' + error);
 							return resolve({
 								error: error
 							});
@@ -6699,7 +6854,7 @@ var _updateRenditionStatus = function (server, isMultiPart, jobId, status, progr
 							return resolve(data);
 						} else {
 							var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response ? (response.statusMessage || response.statusCode) : '');
-							console.log('updateRenditionStatus: ' + msg);
+							console.error('updateRenditionStatus: ' + msg);
 							return resolve({
 								error: data
 							});
@@ -6737,11 +6892,12 @@ var _updateRenditionStatus = function (server, isMultiPart, jobId, status, progr
 						"compiledAt": compiledAt
 					});
 
+					serverUtils.showRequestOptions(options);
 
 					// console.log(' - uploading file ...');
 					request(options, function (error, response, body) {
 						if (error) {
-							console.log('updateRenditionStatus: ' + error);
+							console.error('updateRenditionStatus: ' + error);
 							return resolve({
 								error: error
 							});
@@ -6757,7 +6913,7 @@ var _updateRenditionStatus = function (server, isMultiPart, jobId, status, progr
 							return resolve(data);
 						} else {
 							var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response ? (response.statusMessage || response.statusCode) : '');
-							console.log('updateRenditionStatus: ' + msg);
+							console.error('updateRenditionStatus: ' + msg);
 							return resolve({
 								error: data
 							});
@@ -6806,13 +6962,13 @@ var _importCompiledContent = function (server, filePath) {
 					},
 					body: form
 				};
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
 
 				var request = require('./requestUtils.js').request;
 				request.post(options, function (err, response, body) {
 					if (err) {
-						console.log('ERROR: Failed to import compiled content from ' + filePath);
-						console.log(err);
+						console.error('ERROR: Failed to import compiled content from ' + filePath);
+						console.error(err);
 						return resolve({
 							err: 'err'
 						});
@@ -6841,7 +6997,7 @@ var _importCompiledContent = function (server, filePath) {
 										process.stdout.write(os.EOL);
 									}
 									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
-									console.log('ERROR: import compiled content failed: ' + msg);
+									console.error('ERROR: import compiled content failed: ' + msg);
 
 									return resolve({
 										err: 'err'
@@ -6863,7 +7019,7 @@ var _importCompiledContent = function (server, filePath) {
 					} else {
 						// console.log(data);
 						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-						console.log('ERROR: failed to import compiled content : ' + msg);
+						console.error('ERROR: failed to import compiled content : ' + msg);
 						return resolve({
 							err: 'err'
 						});
@@ -6914,12 +7070,12 @@ var _publishLaterChannelItems = function (server, name, items, channelId, reposi
 					auth: auth,
 					body: JSON.stringify(postData)
 				};
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
 
 				request(options, function (err, response, body) {
 					if (err) {
-						console.log('ERROR: Failed to schedule publishing of items ' + name);
-						console.log(err);
+						console.error('ERROR: Failed to schedule publishing of items ' + name);
+						console.error(err);
 						resolve({
 							err: 'err'
 						});
@@ -6948,7 +7104,7 @@ var _publishLaterChannelItems = function (server, name, items, channelId, reposi
 					} else {
 						// console.log(data);
 						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-						console.log('ERROR: failed to schedule publishing of items: ' + msg);
+						console.error('ERROR: failed to schedule publishing of items: ' + msg);
 						return resolve({
 							err: 'err'
 						});
@@ -6988,12 +7144,13 @@ var _getGroups = function (server, count, offset) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get groups');
-				console.log(error);
+				console.error('ERROR: failed to get groups');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -7010,7 +7167,7 @@ var _getGroups = function (server, count, offset) {
 				resolve(data);
 			} else {
 				var msg = response.statusMessage || response.statusCode;
-				console.log('ERROR: failed to get groups ' + msg);
+				console.error('ERROR: failed to get groups ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -7032,7 +7189,7 @@ module.exports.getGroups = function (args) {
 		//
 		// Currently support up to 12000 groups
 		//
-		console.log(' - querying groups ...');
+		console.info(' - querying groups ...');
 		_getGroups(args.server, count, offset)
 			.then(function (result) {
 				if (!result || result.err) {
@@ -7045,7 +7202,7 @@ module.exports.getGroups = function (args) {
 					return resolve(items);
 				}
 
-				console.log(' - querying groups ...');
+				console.info(' - querying groups ...');
 				offset = offset + count;
 				return _getGroups(args.server, count, offset);
 			})
@@ -7060,7 +7217,7 @@ module.exports.getGroups = function (args) {
 					return resolve(items);
 				}
 
-				console.log(' - querying groups ...');
+				console.info(' - querying groups ...');
 				offset = offset + count;
 				return _getGroups(args.server, count, offset);
 			})
@@ -7075,7 +7232,7 @@ module.exports.getGroups = function (args) {
 					return resolve(items);
 				}
 
-				console.log(' - querying groups ...');
+				console.info(' - querying groups ...');
 				offset = offset + count;
 				return _getGroups(args.server, count, offset);
 			})
@@ -7090,7 +7247,7 @@ module.exports.getGroups = function (args) {
 					return resolve(items);
 				}
 
-				console.log(' - querying groups ...');
+				console.info(' - querying groups ...');
 				offset = offset + count;
 				return _getGroups(args.server, count, offset);
 			})
@@ -7105,7 +7262,7 @@ module.exports.getGroups = function (args) {
 					return resolve(items);
 				}
 
-				console.log(' - querying groups ...');
+				console.info(' - querying groups ...');
 				offset = offset + count;
 				return _getGroups(args.server, count, offset);
 			})
@@ -7120,7 +7277,7 @@ module.exports.getGroups = function (args) {
 					return resolve(items);
 				}
 
-				console.log(' - querying groups ...');
+				console.info(' - querying groups ...');
 				offset = offset + count;
 				return _getGroups(args.server, count, offset);
 			})
@@ -7135,7 +7292,7 @@ module.exports.getGroups = function (args) {
 					return resolve(items);
 				}
 
-				console.log(' - querying groups ...');
+				console.info(' - querying groups ...');
 				offset = offset + count;
 				return _getGroups(args.server, count, offset);
 			})
@@ -7150,7 +7307,7 @@ module.exports.getGroups = function (args) {
 					return resolve(items);
 				}
 
-				console.log(' - querying groups ...');
+				console.info(' - querying groups ...');
 				offset = offset + count;
 				return _getGroups(args.server, count, offset);
 			})
@@ -7165,7 +7322,7 @@ module.exports.getGroups = function (args) {
 					return resolve(items);
 				}
 
-				console.log(' - querying groups ...');
+				console.info(' - querying groups ...');
 				offset = offset + count;
 				return _getGroups(args.server, count, offset);
 			})
@@ -7180,7 +7337,7 @@ module.exports.getGroups = function (args) {
 					return resolve(items);
 				}
 
-				console.log(' - querying groups ...');
+				console.info(' - querying groups ...');
 				offset = offset + count;
 				return _getGroups(args.server, count, offset);
 			})
@@ -7195,7 +7352,7 @@ module.exports.getGroups = function (args) {
 					return resolve(items);
 				}
 
-				console.log(' - querying groups ...');
+				console.info(' - querying groups ...');
 				offset = offset + count;
 				return _getGroups(args.server, count, offset);
 			})
@@ -7210,7 +7367,7 @@ module.exports.getGroups = function (args) {
 					return resolve(items);
 				}
 
-				console.log(' - querying groups ...');
+				console.info(' - querying groups ...');
 				offset = offset + count;
 				return _getGroups(args.server, count, offset);
 			})
@@ -7235,11 +7392,13 @@ var _getGroupMembers = function (server, id, name) {
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get members of group ' + (name || id));
-				console.log(error);
+				console.error('ERROR: failed to get members of group ' + (name || id));
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -7254,7 +7413,7 @@ var _getGroupMembers = function (server, id, name) {
 				resolve(data && data.items);
 			} else {
 				var msg = response.statusMessage || response.statusCode;
-				console.log('ERROR: failed to get members of group ' + (name || id) + ' : ' + msg);
+				console.error('ERROR: failed to get members of group ' + (name || id) + ' : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -7293,12 +7452,12 @@ var _createConnection = function (request, server) {
 			},
 		};
 
-		// console.log(postData);
+		serverUtils.showRequestOptions(postData);
 
 		request.post(postData, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to create connection' + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: failed to create connection' + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -7325,7 +7484,7 @@ var _createConnection = function (request, server) {
 				});
 			} else {
 				var msg = response.statusMessage || response.statusCode;
-				console.log('ERROR: failed to create connection' + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to create connection' + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -7355,12 +7514,13 @@ var _getGroup = function (server, name) {
 			}
 		};
 
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				// console.log('ERROR: failed to get group ' + name);
-				// console.log(error);
+				// console.error('ERROR: failed to get group ' + name);
+				// console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -7376,7 +7536,7 @@ var _getGroup = function (server, name) {
 				resolve(data);
 			} else {
 				var msg = response.statusMessage || response.statusCode;
-				// console.log('ERROR: failed to get group ' + name + ' ' + msg);
+				// console.error('ERROR: failed to get group ' + name + ' ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -7420,11 +7580,13 @@ var _createGroup = function (server, name, type) {
 						json: true
 					};
 					addCachedCookiesForRequest(server, postData);
-					// console.log(postData);
+
+					serverUtils.showRequestOptions(postData);
+
 					request.post(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: create group ' + name + ' (ecid: ' + response.ecid + ')');
-							console.log(error);
+							console.error('ERROR: create group ' + name + ' (ecid: ' + response.ecid + ')');
+							console.error(error);
 							return resolve({
 								err: 'err'
 							});
@@ -7441,7 +7603,7 @@ var _createGroup = function (server, name, type) {
 							resolve(data);
 						} else {
 							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.log('ERROR: failed to create group ' + name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+							console.error('ERROR: failed to create group ' + name + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 							return resolve({
 								err: 'err'
 							});
@@ -7501,10 +7663,13 @@ var _deleteGroup = function (server, id, name) {
 						}
 					};
 					addCachedCookiesForRequest(server, postData);
+
+					serverUtils.showRequestOptions(postData);
+
 					request.delete(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: delete group ' + (name || id) + ' (ecid: ' + response.ecid + ')');
-							console.log(error);
+							console.error('ERROR: delete group ' + (name || id) + ' (ecid: ' + response.ecid + ')');
+							console.error(error);
 							return resolve({
 								err: 'err'
 							});
@@ -7521,7 +7686,7 @@ var _deleteGroup = function (server, id, name) {
 							resolve({});
 						} else {
 							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.log('ERROR: failed to delete group ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+							console.error('ERROR: failed to delete group ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 							return resolve({
 								err: 'err'
 							});
@@ -7561,11 +7726,13 @@ var _addMemberToGroup = function (request, cookieStore, server, apiRandomID, id,
 			json: true
 		};
 		addCachedCookiesForRequest(server, postData);
-		// console.log(JSON.stringify(postData, null, 4));
+
+		serverUtils.showRequestOptions(postData);
+
 		request.post(postData, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: add member ' + (memberName || memberId) + ' to group ' + (name || id) + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: add member ' + (memberName || memberId) + ' to group ' + (name || id) + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -7582,7 +7749,7 @@ var _addMemberToGroup = function (request, cookieStore, server, apiRandomID, id,
 				resolve(data);
 			} else {
 				var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-				console.log('ERROR: add member ' + (memberName || memberId) + ' to group ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: add member ' + (memberName || memberId) + ' to group ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -7615,14 +7782,14 @@ module.exports.addMembersToGroup = function (args) {
 					var cookieStore = result.cookieStore;
 
 					var doAddMember = members.reduce(function (addPromise, member) {
-							return addPromise.then(function (result) {
-								return _addMemberToGroup(request, cookieStore, server, apiRandomID, id, name, member.id,
-										member.name, member.role, member.isGroup)
-									.then(function (result) {
-										results.push(result);
-									});
-							});
-						},
+						return addPromise.then(function (result) {
+							return _addMemberToGroup(request, cookieStore, server, apiRandomID, id, name, member.id,
+								member.name, member.role, member.isGroup)
+								.then(function (result) {
+									results.push(result);
+								});
+						});
+					},
 						// Start with a previousPromise value that is a resolved promise
 						Promise.resolve({}));
 
@@ -7651,11 +7818,13 @@ var _removeMemberFromGroup = function (request, cookieStore, server, apiRandomID
 			}
 		};
 		addCachedCookiesForRequest(server, postData);
-		// console.log(postData);
+
+		serverUtils.showRequestOptions(postData);
+
 		request.delete(postData, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: remove member ' + (memberName || memberId) + ' from group ' + (name || id) + ' (ecid: ' + response.ecid + ')');
-				console.log(error);
+				console.error('ERROR: remove member ' + (memberName || memberId) + ' from group ' + (name || id) + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -7672,7 +7841,7 @@ var _removeMemberFromGroup = function (request, cookieStore, server, apiRandomID
 				resolve(data);
 			} else {
 				var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-				console.log('ERROR: remove member ' + (memberName || memberId) + ' from group ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: remove member ' + (memberName || memberId) + ' from group ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -7725,7 +7894,7 @@ module.exports.removeMembersFromGroup = function (args) {
  * @param {string} args.server The server object
  * @param {string} args.endpoint The REST endpoint
  * @returns {Promise.<object>} The data returned by the server.
- * @returns 
+ * @returns
  */
 module.exports.executeGet = function (args) {
 	return _executeGet(args.server, args.endpoint);
@@ -7751,16 +7920,19 @@ var _executeGet = function (server, endpoint, noMsg) {
 		if (server.cookies) {
 			options.headers.Cookie = server.cookies;
 		}
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		if (showDetail) {
 			console.log(' - executing endpoint: ' + endpoint);
 		}
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to execute' + ' (ecid: ' + response.ecid + ')');
-				console.log(err);
+				console.error('ERROR: Failed to execute' + ' (ecid: ' + response.ecid + ')');
+				console.error(err);
 				return resolve({
 					err: 'err'
 				});
@@ -7771,12 +7943,12 @@ var _executeGet = function (server, endpoint, noMsg) {
 			if (response && response.statusCode === 200) {
 				return resolve(body);
 			} else {
-				console.log('ERROR: Failed to execute' + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: Failed to execute' + ' (ecid: ' + response.ecid + ')');
 				var data;
 				try {
 					data = JSON.parse(body);
-					console.log(data);
-				} catch (e) {}
+					console.error(data);
+				} catch (e) { }
 				return resolve({
 					err: 'err'
 				});
@@ -7809,16 +7981,19 @@ var _executeGetStream = function (server, endpoint, writer, noMsg) {
 		if (server.cookies) {
 			options.headers.Cookie = server.cookies;
 		}
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		if (showDetail) {
 			console.log(' - executing endpoint: ' + endpoint);
 		}
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.getStream(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to execute' + ' (ecid: ' + response.ecid + ')');
-				console.log(err);
+				console.error('ERROR: Failed to execute' + ' (ecid: ' + response.ecid + ')');
+				console.error(err);
 				return resolve({
 					err: 'err'
 				});
@@ -7836,12 +8011,12 @@ var _executeGetStream = function (server, endpoint, writer, noMsg) {
 					return resolve({});
 				});
 			} else {
-				console.log('ERROR: Failed to execute ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: Failed to execute ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
 				var data;
 				try {
 					data = JSON.parse(body);
-					console.log(data);
-				} catch (e) {}
+					console.error(data);
+				} catch (e) { }
 				return resolve({
 					err: 'err'
 				});
@@ -7855,9 +8030,10 @@ var _executeGetStream = function (server, endpoint, writer, noMsg) {
  * @param {object} args JavaScript object containing parameters.
  * @param {string} args.server The server object
  * @param {string} args.endpoint The REST endpoint
+ * @param {string} args.contentType The request content type
  * @param {string} args.body The JSON object for the request payload
  * @param {boolean} args.async Send asynchronous request
- * @returns 
+ * @returns
  */
 module.exports.executePost = function (args) {
 	return new Promise(function (resolve, reject) {
@@ -7867,7 +8043,9 @@ module.exports.executePost = function (args) {
 		var server = args.server;
 		var url = server.url + args.endpoint;
 		var body = args.body;
+		var isFormDataStream = args.isStream;
 		var async = args.async;
+		var contentType = args.contentType;
 
 		var caasTokenPromises = [];
 		if (isCAAS) {
@@ -7892,25 +8070,33 @@ module.exports.executePost = function (args) {
 				if (async) {
 					postData.headers['Prefer'] = 'respond-async';
 				}
-				if (body && Object.keys(body).length > 0) {
-					postData.headers['Content-Type'] = 'application/json';
-					postData.body = JSON.stringify(body);
+				if (contentType) {
+					postData.headers['Content-Type'] = contentType;
 				}
-				// console.log(postData);
+				if (body) {
+					if (isFormDataStream) {
+						postData.body = body;
+					}
+					else if (Object.keys(body).length > 0) {
+						postData.headers['Content-Type'] = 'application/json';
+						postData.body = JSON.stringify(body);
+					}
+				}
+				serverUtils.showRequestOptions(postData);
 
-				console.log(' - executing endpoint: POST ' + endpoint);
+				console.info(' - executing endpoint: POST ' + endpoint);
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to post ' + endpoint + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to post ' + endpoint + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						done();
 						return;
 					}
 					var data;
 					try {
 						data = JSON.parse(body);
-					} catch (e) {}
+					} catch (e) { }
 					if (async) {
 						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
 						var statusUrl = response.location;
@@ -7926,7 +8112,7 @@ module.exports.executePost = function (args) {
 										var data;
 										try {
 											data = JSON.parse(result);
-										} catch (e) {}
+										} catch (e) { }
 										// console.log(data);
 										if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
 											clearInterval(inter);
@@ -7934,7 +8120,7 @@ module.exports.executePost = function (args) {
 												process.stdout.write(os.EOL);
 											}
 											var msg = data && data.error ? (data.error.detail || data.error.title) : '';
-											console.log('ERROR: request failed: ' + msg + ' (ecid: ' + response.ecid + ')');
+											console.error('ERROR: request failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 											return resolve({
 												err: 'err'
 											});
@@ -7977,7 +8163,7 @@ module.exports.executePost = function (args) {
  * @param {string} args.server The server object
  * @param {string} args.endpoint The REST endpoint
  * @param {string} args.body The JSON object for the request payload
- * @returns 
+ * @returns
  */
 module.exports.executePut = function (args) {
 	return new Promise(function (resolve, reject) {
@@ -8013,14 +8199,14 @@ module.exports.executePut = function (args) {
 					postData.headers['Content-Type'] = 'application/json';
 					postData.body = JSON.stringify(body);
 				}
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
-				console.log(' - executing endpoint: PUT ' + endpoint);
+				console.info(' - executing endpoint: PUT ' + endpoint);
 				var request = require('./requestUtils.js').request;
 				request.put(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to put ' + endpoint + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to put ' + endpoint + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						return resolve({
 							err: 'err'
 						});
@@ -8028,7 +8214,7 @@ module.exports.executePut = function (args) {
 					var data;
 					try {
 						data = JSON.parse(body);
-					} catch (e) {}
+					} catch (e) { }
 
 					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
 					if (response.location || response.url) {
@@ -8048,7 +8234,7 @@ module.exports.executePut = function (args) {
  * @param {string} args.server The server object
  * @param {string} args.endpoint The REST endpoint
  * @param {string} args.body The JSON object for the request payload
- * @returns 
+ * @returns
  */
 module.exports.executePatch = function (args) {
 	return new Promise(function (resolve, reject) {
@@ -8084,14 +8270,14 @@ module.exports.executePatch = function (args) {
 					postData.headers['Content-Type'] = 'application/json';
 					postData.body = JSON.stringify(body);
 				}
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
 
-				console.log(' - executing endpoint: PATCH ' + endpoint);
+				console.info(' - executing endpoint: PATCH ' + endpoint);
 				var request = require('./requestUtils.js').request;
 				request.patch(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to patch ' + endpoint + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to patch ' + endpoint + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						return resolve({
 							err: 'err'
 						});
@@ -8099,7 +8285,7 @@ module.exports.executePatch = function (args) {
 					var data;
 					try {
 						data = JSON.parse(body);
-					} catch (e) {}
+					} catch (e) { }
 
 					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
 					if (response.location || response.url) {
@@ -8118,7 +8304,7 @@ module.exports.executePatch = function (args) {
  * @param {object} args JavaScript object containing parameters.
  * @param {string} args.server The server object
  * @param {string} args.endpoint The REST endpoint
- * @returns 
+ * @returns
  */
 module.exports.executeDelete = function (args) {
 	return new Promise(function (resolve, reject) {
@@ -8154,15 +8340,15 @@ module.exports.executeDelete = function (args) {
 				if (csrfToken) {
 					options.headers['X-CSRF-TOKEN'] = csrfToken;
 				}
-				// console.log(options);
+				serverUtils.showRequestOptions(options);
 
-				console.log(' - executing endpoint: DELETE ' + endpoint);
+				console.info(' - executing endpoint: DELETE ' + endpoint);
 				var request = require('./requestUtils.js').request;
 				request.delete(options, function (error, response, body) {
 
 					if (error) {
-						console.log('Failed to delete ' + endpoint + ' (ecid: ' + response.ecid + ')');
-						console.log(error);
+						console.error('ERROR: Failed to delete ' + endpoint + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
 						return resolve({
 							err: 'err'
 						});
@@ -8218,11 +8404,13 @@ var _queryScheduledJobs = function (server, repositoryId, startDate, endDate) {
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to query scheduled jobs for: ' + repositoryId);
-				console.log(error);
+				console.error('ERROR: failed to query scheduled jobs for: ' + repositoryId);
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -8236,7 +8424,7 @@ var _queryScheduledJobs = function (server, repositoryId, startDate, endDate) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to query scheduled jobs for: ' + repositoryId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.error('ERROR: failed to query scheduled jobs for: ' + repositoryId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 				resolve({
 					err: 'err'
 				});
@@ -8282,12 +8470,13 @@ var _cancelScheduledJob = function (server, id) {
 					})
 				};
 
-				// console.log(postData);
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to cancel scheduled job: ' + id);
-						console.log(error);
+						console.error('ERROR: Failed to cancel scheduled job: ' + id);
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -8306,7 +8495,7 @@ var _cancelScheduledJob = function (server, id) {
 						if (data && (data.detail || data.title)) {
 							msg = (data.detail || data.title);
 						}
-						console.log('Failed to cancel scheduled job: ' + id + ' : ' + msg);
+						console.error('ERROR: Failed to cancel scheduled job: ' + id + ' : ' + msg);
 						// console.log(data);
 						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
 							console.log(data['o:errorDetails']);
@@ -8381,11 +8570,13 @@ var _createAssetTranslation = function (server, name, repositoryId, collectionId
 					json: true
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('ERROR: failed to create translation job ' + name);
-						console.log(error);
+						console.error('ERROR: failed to create translation job ' + name);
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -8412,7 +8603,7 @@ var _createAssetTranslation = function (server, name, repositoryId, collectionId
 											process.stdout.write(os.EOL);
 										}
 										var msg = data && data.message ? data.message : '';
-										console.log('ERROR: create translation failed: ' + msg);
+										console.error('ERROR: create translation failed: ' + msg);
 
 										return resolve({
 											err: 'err'
@@ -8433,14 +8624,14 @@ var _createAssetTranslation = function (server, name, repositoryId, collectionId
 								});
 							}, 5000);
 						} else {
-							console.log('ERROR: no job Id is found');
+							console.error('ERROR: no job Id is found');
 							resolve({
 								err: 'err'
 							});
 						}
 					} else {
 						var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-						console.log('ERROR: failed to create tanslation job ' + name + ' - ' + msg);
+						console.error('ERROR: failed to create tanslation job ' + name + ' - ' + msg);
 						resolve({
 							err: 'err'
 						});
@@ -8485,11 +8676,11 @@ var _cancelScheduledJobs = function (server, ids) {
 
 	// return the sequence of cancalled promises
 	return cancelPromises.reduce(function (previousPromise, nextPromise) {
-			return previousPromise.then(function () {
-				// wait for the previous promise to complete and then call the function to start executing the next promise
-				return nextPromise();
-			});
-		},
+		return previousPromise.then(function () {
+			// wait for the previous promise to complete and then call the function to start executing the next promise
+			return nextPromise();
+		});
+	},
 		// Start with a previousPromise value that is a resolved promise
 		Promise.resolve());
 };
@@ -8533,11 +8724,13 @@ var _createTaxonomy = function (server, name, shortName) {
 					body: JSON.stringify(postData)
 				};
 
+				serverUtils.showRequestOptions(options);
+
 				var request = require('./requestUtils.js').request;
 				request.post(options, function (err, response, body) {
 					if (err) {
-						console.log('ERROR: Failed to create taxonomy ' + name);
-						console.log(err);
+						console.error('ERROR: Failed to create taxonomy ' + name);
+						console.error(err);
 						resolve({
 							err: 'err'
 						});
@@ -8553,7 +8746,7 @@ var _createTaxonomy = function (server, name, shortName) {
 						return resolve(data);
 					} else {
 						var msg = data && (data.detail || data.title) || response.statusCode;
-						console.log('ERROR: Failed to create taxonomy ' + name + ' : ' + msg);
+						console.error('ERROR: Failed to create taxonomy ' + name + ' : ' + msg);
 						return resolve({
 							err: 'err'
 						});
@@ -8602,11 +8795,13 @@ var _deleteTaxonomy = function (server, id, status) {
 					}
 				};
 
+				serverUtils.showRequestOptions(postData);
+
 				var request = require('./requestUtils.js').request;
 				request.delete(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to delete taxonomy ' + id);
-						console.log(error);
+						console.error('ERROR: Failed to delete taxonomy ' + id);
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -8620,7 +8815,7 @@ var _deleteTaxonomy = function (server, id, status) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to delete taxonomy ' + id + ' : ' + (response.statusMessage || response.statusCode));
+						console.error('ERROR: Failed to delete taxonomy ' + id + ' : ' + (response.statusMessage || response.statusCode));
 						resolve({
 							err: 'err'
 						});
@@ -8669,11 +8864,13 @@ var _createCategory = function (server, name, parentId, position) {
 					body: JSON.stringify(postData)
 				};
 
+				serverUtils.showRequestOptions(options);
+
 				var request = require('./requestUtils.js').request;
 				request.post(options, function (error, response, body) {
 					if (error) {
-						console.log('Failed to create category ' + name);
-						console.log(error);
+						console.error('ERROR: Failed to create category ' + name);
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -8688,7 +8885,7 @@ var _createCategory = function (server, name, parentId, position) {
 					if (response && response.statusCode >= 200 && response.statusCode < 300) {
 						resolve(data);
 					} else {
-						console.log('Failed to create category ' + name + ' : ' + (response.statusMessage || response.statusCode));
+						console.error('ERROR: Failed to create category ' + name + ' : ' + (response.statusMessage || response.statusCode));
 						resolve({
 							err: 'err'
 						});
@@ -8718,7 +8915,7 @@ module.exports.createCategory = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getWorkflows = function (args) {
-	return _getAllResources(args.server, '/content/management/api/v1.1/workflows', 'workflows', 'all');
+	return _getAllResources(args.server, '/content/management/api/v1.1/workflows', 'workflows', args.fields);
 };
 
 /**
@@ -8729,7 +8926,7 @@ module.exports.getWorkflows = function (args) {
  */
 module.exports.getWorkflowPermissions = function (args) {
 	return new Promise(function (resolve, reject) {
-		_getAllResources(args.server, '/content/management/api/v1.1/workflows/' + args.id + '/permissions', 'workflow permissions', 'all')
+		_getAllResources(args.server, '/content/management/api/v1.1/workflows/' + args.id + '/permissions', 'workflow permissions', args.fields)
 			.then(function (result) {
 				return resolve({
 					workflowId: args.id,
@@ -8756,7 +8953,9 @@ module.exports.getWorkflowsWithName = function (args) {
 
 		var url = server.url + '/content/management/api/v1.1/workflows';
 		url = url + '?q=(name mt "' + encodeURIComponent(workflowName) + '")';
-		url = url + '&fields=all';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -8765,13 +8964,13 @@ module.exports.getWorkflowsWithName = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get workflow ' + workflowName);
-				console.log(error);
+				console.error('ERROR: failed to get workflow ' + workflowName);
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -8788,7 +8987,7 @@ module.exports.getWorkflowsWithName = function (args) {
 				return resolve(workflows);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get workflow ' + workflowName + '  : ' + msg);
+				console.error('ERROR: failed to get workflow ' + workflowName + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -8804,7 +9003,7 @@ module.exports.getWorkflowsWithName = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getRankingPolicies = function (args) {
-	return _getAllResources(args.server, '/content/management/api/v1.1/search/rankingPolicies', 'rankingPolicies', 'all');
+	return _getAllResources(args.server, '/content/management/api/v1.1/search/rankingPolicies', 'rankingPolicies', args.fields);
 };
 
 /**
@@ -8814,7 +9013,7 @@ module.exports.getRankingPolicies = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getRankingPolicyDescriptors = function (args) {
-	return _getAllResources(args.server, '/content/management/api/v1.1/search/rankingPolicyDescriptors', 'rankingPolicyDescriptors', 'all');
+	return _getAllResources(args.server, '/content/management/api/v1.1/search/rankingPolicyDescriptors', 'rankingPolicyDescriptors', args.fields);
 };
 
 /**
@@ -8834,7 +9033,10 @@ module.exports.getTranslationConnector = function (args) {
 
 		var url = server.url + '/content/management/api/v1.1/connectors';
 		url = url + '?q=(name mt "' + encodeURIComponent(connectorName) + '") AND (connectorType eq "translation")';
-		url = url + '&fields=all&links=none';
+		url = url + '&links=none';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
 
 		var options = {
 			method: 'GET',
@@ -8843,13 +9045,13 @@ module.exports.getTranslationConnector = function (args) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get translation connector ' + connectorName);
-				console.log(error);
+				console.error('ERROR: failed to get translation connector ' + connectorName);
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -8877,7 +9079,7 @@ module.exports.getTranslationConnector = function (args) {
 				}
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get translation connector ' + connectorlName + '  : ' + msg);
+				console.error('ERROR: failed to get translation connector ' + connectorlName + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -8896,11 +9098,14 @@ var _getTranslationStatus = function (server, statusUrl, action) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		// serverUtils.showRequestOptions(options);
+
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: get ' + action + ' translation status');
-				console.log(error);
+				console.error('ERROR: get ' + action + ' translation status');
+				console.error(error);
 				return resolve({
 					err: 'err'
 				});
@@ -8915,7 +9120,7 @@ var _getTranslationStatus = function (server, statusUrl, action) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get ' + action + ' translation status' + '  : ' + msg);
+				console.error('ERROR: failed to get ' + action + ' translation status' + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -8957,11 +9162,13 @@ var _importAssetTranslation = function (server, csrfToken, action, job, fFileGUI
 			json: true
 		};
 
+		serverUtils.showRequestOptions(postData);
+
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to ' + action + ' translation job ' + job.name);
-				console.log(error);
+				console.error('ERROR: failed to ' + action + ' translation job ' + job.name);
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -8989,7 +9196,7 @@ var _importAssetTranslation = function (server, csrfToken, action, job, fFileGUI
 									process.stdout.write(os.EOL);
 								}
 								var msg = data && data.message ? data.message : '';
-								console.log('ERROR: ' + action + ' translation failed: ' + msg);
+								console.error('ERROR: ' + action + ' translation failed: ' + msg);
 
 								return resolve({
 									err: 'err'
@@ -9010,14 +9217,14 @@ var _importAssetTranslation = function (server, csrfToken, action, job, fFileGUI
 						});
 					}, 5000);
 				} else {
-					console.log('ERROR: no job Id is found');
+					console.error('ERROR: no job Id is found');
 					resolve({
 						err: 'err'
 					});
 				}
 			} else {
 				var msg = data && (data.detail || data.title) ? (data.detail || data.title) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to ' + action + ' tanslation job ' + job.name + ' - ' + msg);
+				console.error('ERROR: failed to ' + action + ' tanslation job ' + job.name + ' - ' + msg);
 				resolve({
 					err: 'err'
 				});
@@ -9053,7 +9260,7 @@ module.exports.importAssetTranslation = function (args) {
 							// console.log(result);
 							var fFileGUID = result.result && result.result.body && result.result.body.fFileGUID;
 							if (!fFileGUID) {
-								console.log('ERROR: failed to get translation file');
+								console.error('ERROR: failed to get translation file');
 								return resolve({
 									err: 'err'
 								});
@@ -9096,11 +9303,12 @@ var _createConversation = function (server, name, isDiscoverable) {
 						json: true
 					};
 					addCachedCookiesForRequest(server, postData);
-					// console.log(postData);
+
+					serverUtils.showRequestOptions(postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: create conversation ' + name);
-							console.log(error);
+							console.error('ERROR: create conversation ' + name);
+							console.error(error);
 							return resolve({
 								err: 'err'
 							});
@@ -9117,7 +9325,7 @@ var _createConversation = function (server, name, isDiscoverable) {
 							resolve(data);
 						} else {
 							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.log('ERROR: failed to create conversation ' + name + ' : ' + msg);
+							console.error('ERROR: failed to create conversation ' + name + ' : ' + msg);
 							return resolve({
 								err: 'err'
 							});
@@ -9178,8 +9386,8 @@ var _createAssetConversation = function (server, props = []) {
 					addCachedCookiesForRequest(server, postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: failed to create asset conversation ' + props);
-							console.log(error);
+							console.error('ERROR: failed to create asset conversation ' + props);
+							console.error(error);
 							resolve({
 								err: 'err'
 							});
@@ -9197,7 +9405,7 @@ var _createAssetConversation = function (server, props = []) {
 							}
 							resolve(conversationData);
 						} else {
-							console.log('ERROR: failed to create asset conversation ' + props + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+							console.error('ERROR: failed to create asset conversation ' + props + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 							resolve({
 								err: 'err'
 							});
@@ -9240,11 +9448,11 @@ var _getConversation = function (server, conversationId) {
 						json: true
 					};
 					addCachedCookiesForRequest(server, postData);
-					// console.log(postData);
+					serverUtils.showRequestOptions(postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: get conversation ' + conversationId);
-							console.log(error);
+							console.error('ERROR: get conversation ' + conversationId);
+							console.error(error);
 							return resolve({
 								err: 'err'
 							});
@@ -9261,7 +9469,7 @@ var _getConversation = function (server, conversationId) {
 							resolve(data);
 						} else {
 							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.log('ERROR: failed to get conversation ' + conversationId + ' : ' + msg);
+							console.error('ERROR: failed to get conversation ' + conversationId + ' : ' + msg);
 							return resolve({
 								err: 'err'
 							});
@@ -9309,11 +9517,11 @@ var _deleteConversation = function (server, conversationId) {
 						json: true
 					};
 					addCachedCookiesForRequest(server, postData);
-					// console.log(postData);
+					serverUtils.showRequestOptions(postData);
 					request.patch(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: delete conversation ' + conversationId);
-							console.log(error);
+							console.error('ERROR: delete conversation ' + conversationId);
+							console.error(error);
 							return resolve({
 								err: 'err'
 							});
@@ -9330,7 +9538,7 @@ var _deleteConversation = function (server, conversationId) {
 							resolve(data);
 						} else {
 							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.log('ERROR: failed to delete conversation ' + conversationId + ' : ' + msg);
+							console.error('ERROR: failed to delete conversation ' + conversationId + ' : ' + msg);
 							return resolve({
 								err: 'err'
 							});
@@ -9374,8 +9582,8 @@ var _removeMemberFromConversation = function (server, conversationId, memberId) 
 					addCachedCookiesForRequest(server, postData);
 					request.delete(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: remove conversation member ' + memberId);
-							console.log(error);
+							console.error('ERROR: remove conversation member ' + memberId);
+							console.error(error);
 							return resolve({
 								err: 'err'
 							});
@@ -9392,7 +9600,7 @@ var _removeMemberFromConversation = function (server, conversationId, memberId) 
 							resolve({});
 						} else {
 							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.log('ERROR: failed to remove conversation member ' + memberId + ' : ' + msg);
+							console.error('ERROR: failed to remove conversation member ' + memberId + ' : ' + msg);
 							return resolve({
 								err: 'err'
 							});
@@ -9454,8 +9662,8 @@ var _addMemberToConversation = function (server, conversationId, memberId) {
 					addCachedCookiesForRequest(server, postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: add conversation member ' + memberId);
-							console.log(error);
+							console.error('ERROR: add conversation member ' + memberId);
+							console.error(error);
 							return resolve({
 								err: 'err'
 							});
@@ -9472,7 +9680,7 @@ var _addMemberToConversation = function (server, conversationId, memberId) {
 							resolve({});
 						} else {
 							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.log('ERROR: failed to add conversation member ' + memberId + ' : ' + msg);
+							console.error('ERROR: failed to add conversation member ' + memberId + ' : ' + msg);
 							return resolve({
 								err: 'err'
 							});
@@ -9506,8 +9714,8 @@ var _getConversationMembers = function (server, id) {
 					addCachedCookiesForRequest(server, postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: get conversation members ' + id);
-							console.log(error);
+							console.error('ERROR: get conversation members ' + id);
+							console.error(error);
 							return resolve({
 								err: 'err'
 							});
@@ -9524,7 +9732,7 @@ var _getConversationMembers = function (server, id) {
 							resolve(data);
 						} else {
 							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.log('ERROR: failed to get conversation members ' + id + ' : ' + msg);
+							console.error('ERROR: failed to get conversation members ' + id + ' : ' + msg);
 							return resolve({
 								err: 'err'
 							});
@@ -9569,8 +9777,8 @@ var _addMemberToConversation = function (server, conversationId, memberId) {
 					addCachedCookiesForRequest(server, postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: add conversation member ' + memberId);
-							console.log(error);
+							console.error('ERROR: add conversation member ' + memberId);
+							console.error(error);
 							return resolve({
 								err: 'err'
 							});
@@ -9587,7 +9795,7 @@ var _addMemberToConversation = function (server, conversationId, memberId) {
 							resolve(data);
 						} else {
 							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.log('ERROR: failed to add conversation member ' + memberId + ' : ' + msg);
+							console.error('ERROR: failed to add conversation member ' + memberId + ' : ' + msg);
 							return resolve({
 								err: 'err'
 							});
@@ -9635,8 +9843,8 @@ var _postMessageToConversation = function (server, conversationId, text) {
 					addCachedCookiesForRequest(server, postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: post conversation message ' + conversationId);
-							console.log(error);
+							console.error('ERROR: post conversation message ' + conversationId);
+							console.error(error);
 							return resolve({
 								err: 'err'
 							});
@@ -9653,7 +9861,7 @@ var _postMessageToConversation = function (server, conversationId, text) {
 							resolve(data);
 						} else {
 							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.log('ERROR: failed to post conversation message ' + conversationId + ' : ' + msg);
+							console.error('ERROR: failed to post conversation message ' + conversationId + ' : ' + msg);
 							return resolve({
 								err: 'err'
 							});
@@ -9713,8 +9921,8 @@ var _postMessageToAssetConversation = function (server, props = []) {
 					addCachedCookiesForRequest(server, postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: failed to add post to asset conversation ' + props);
-							console.log(error);
+							console.error('ERROR: failed to add post to asset conversation ' + props);
+							console.error(error);
 							resolve({
 								err: 'err'
 							});
@@ -9732,7 +9940,7 @@ var _postMessageToAssetConversation = function (server, props = []) {
 							}
 							resolve(chatId);
 						} else {
-							console.log('ERROR: failed to add post to asset conversation ' + props + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+							console.error('ERROR: failed to add post to asset conversation ' + props + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 							resolve({
 								err: 'err'
 							});
@@ -9780,8 +9988,8 @@ var _postReplyToMessage = function (server, messageId, text) {
 					addCachedCookiesForRequest(server, postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: post message reply ' + messageId);
-							console.log(error);
+							console.error('ERROR: post message reply ' + messageId);
+							console.error(error);
 							return resolve({
 								err: 'err'
 							});
@@ -9798,7 +10006,7 @@ var _postReplyToMessage = function (server, messageId, text) {
 							resolve(data);
 						} else {
 							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.log('ERROR: failed to post message reply ' + messageId + ' : ' + msg);
+							console.error('ERROR: failed to post message reply ' + messageId + ' : ' + msg);
 							return resolve({
 								err: 'err'
 							});
@@ -9847,8 +10055,8 @@ var _assignFlagOnMessage = function (server, messageId, assigneeId, flagType) {
 					addCachedCookiesForRequest(server, postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: assign flag to message ' + messageId);
-							console.log(error);
+							console.error('ERROR: assign flag to message ' + messageId);
+							console.error(error);
 							return resolve({
 								err: 'err'
 							});
@@ -9865,7 +10073,7 @@ var _assignFlagOnMessage = function (server, messageId, assigneeId, flagType) {
 							resolve(data);
 						} else {
 							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.log('ERROR: failed to assign flag to message ' + messageId + ' : ' + msg);
+							console.error('ERROR: failed to assign flag to message ' + messageId + ' : ' + msg);
 							return resolve({
 								err: 'err'
 							});
@@ -9903,13 +10111,13 @@ var _createFolderConversation = function (server, folderId, name) {
 			json: true,
 			body: JSON.stringify(payload)
 		};
-		// console.log(options);
+		serverUtils.showRequestOptions(options);
 
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to create conversation for folder ' + folderId);
-				console.log(error);
+				console.error('ERROR: failed to create conversation for folder ' + folderId);
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -9919,10 +10127,10 @@ var _createFolderConversation = function (server, folderId, name) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (e) {}
+				} catch (e) { }
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to create conversation for folder ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.error('ERROR: failed to create conversation for folder ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 				resolve({
 					err: 'err'
 				});
@@ -9968,8 +10176,8 @@ var _createHybridLinkForConversation = function (server, conversationId, siteId)
 					addCachedCookiesForRequest(server, options);
 					request.post(options, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: failed to create Hybrid Link for the conversation ' + conversationId);
-							console.log(error);
+							console.error('ERROR: failed to create Hybrid Link for the conversation ' + conversationId);
+							console.error(error);
 							resolve({
 								err: 'err'
 							});
@@ -9984,7 +10192,7 @@ var _createHybridLinkForConversation = function (server, conversationId, siteId)
 							}
 							resolve(data.hybridLinkID);
 						} else {
-							console.log('ERROR: failed to create Hybrid Link for conversation ' + conversationId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+							console.error('ERROR: failed to create Hybrid Link for conversation ' + conversationId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 							resolve({
 								err: 'err'
 							});
@@ -10014,7 +10222,7 @@ module.exports.getRankingPolicyEndpoint = function (server) {
 };
 
 var _sendRankingPolicyRequest = function (server, method, url, payload, requestUtils) {
-	return new Promise(function (resolve /*, reject*/ ) {
+	return new Promise(function (resolve /*, reject*/) {
 		var postData = {
 			method: method,
 			url,
@@ -10034,7 +10242,7 @@ var _sendRankingPolicyRequest = function (server, method, url, payload, requestU
 		requestUtils.request.post(postData, function (error, response, body) {
 			if (error) {
 				console.log(`Failed to ${method} ${url}`);
-				console.log(error);
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -10135,8 +10343,8 @@ var _setUserSocialPreferences = function (server, userId, props = []) {
 					addCachedCookiesForRequest(server, postData);
 					request.post(postData, function (error, response, body) {
 						if (error) {
-							console.log('ERROR: failed to set user preferences ' + props);
-							console.log(error);
+							console.error('ERROR: failed to set user preferences ' + props);
+							console.error(error);
 							resolve({
 								err: 'err'
 							});
@@ -10152,7 +10360,7 @@ var _setUserSocialPreferences = function (server, userId, props = []) {
 							}
 							resolve(data);
 						} else {
-							console.log('ERROR: failed to set user preferences ' + props + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+							console.error('ERROR: failed to set user preferences ' + props + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 							resolve({
 								err: 'err'
 							});
@@ -10189,8 +10397,8 @@ var _getAssetActivity = function (server, assetType, assetId) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to get activity for: ' + assetId);
-				console.log(error);
+				console.error('ERROR: failed to get activity for: ' + assetId);
+				console.error(error);
 				resolve({
 					err: 'err'
 				});
@@ -10204,7 +10412,7 @@ var _getAssetActivity = function (server, assetType, assetId) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
-				console.log('ERROR: failed to get activity for: ' + assetId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.error('ERROR: failed to get activity for: ' + assetId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 				resolve({
 					err: 'err'
 				});
@@ -10301,7 +10509,7 @@ var _archiveBulkOpItems = function (server, operation, itemIds, queryString, asy
 					Authorization: serverUtils.getRequestAuthorization(server)
 				};
 
-				if (async &&async ==='true') {
+				if (async && async === 'true') {
 					headers.Prefer = 'respond-async';
 				}
 				var postData = {
@@ -10315,8 +10523,8 @@ var _archiveBulkOpItems = function (server, operation, itemIds, queryString, asy
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.log('Failed to ' + operation + ' items ');
-						console.log(error);
+						console.error('ERROR: Failed to ' + operation + ' items ');
+						console.error(error);
 						resolve({
 							err: 'err'
 						});
@@ -10345,7 +10553,7 @@ var _archiveBulkOpItems = function (server, operation, itemIds, queryString, asy
 										process.stdout.write(os.EOL);
 									}
 									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
-									console.log('ERROR: Failed to' + operation + ' items ', msg);
+									console.error('ERROR: Failed to' + operation + ' items ', msg);
 
 									return resolve({
 										err: 'err'
@@ -10366,7 +10574,7 @@ var _archiveBulkOpItems = function (server, operation, itemIds, queryString, asy
 						}, 6000);
 					} else {
 						var msg = data ? (data.detail || data.title) : response.statusMessage;
-						console.log('Failed to ' + operation + ' items - ' + msg);
+						console.error('ERROR: Failed to ' + operation + ' items - ' + msg);
 						resolve({
 							err: 'err'
 						});

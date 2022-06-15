@@ -10,6 +10,8 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	path = require('path'),
 	sprintf = require('sprintf-js').sprintf;
 
+var console = require('../test/server/logger.js').console;
+
 var projectDir,
 	serversSrcDir,
 	taxonomiesSrcDir,
@@ -63,14 +65,15 @@ module.exports.downloadTaxonomy = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getTaxonomies({
-				server: server
-			})
+			server: server,
+			fields: 'availableStates'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -89,11 +92,11 @@ module.exports.downloadTaxonomy = function (argv, done) {
 				}
 
 				if (!idMatched && nameMatched.length === 0) {
-					console.log('ERROR: taxonomy does not exist');
+					console.error('ERROR: taxonomy does not exist');
 					return Promise.reject();
 				}
 				if (!idMatched && nameMatched.length > 1) {
-					console.log('ERROR: there are ' + nameMatched.length + ' taxonomies with name ' + name + ':');
+					console.error('ERROR: there are ' + nameMatched.length + ' taxonomies with name ' + name + ':');
 					var format = '   %-32s  %-12s  %-24s  %-12s %-s';
 					console.log(sprintf(format, 'Id', 'Abbreviation', 'Creation Date', 'Publishable', 'Status'));
 					nameMatched.forEach(function (tax) {
@@ -110,7 +113,7 @@ module.exports.downloadTaxonomy = function (argv, done) {
 				}
 
 				taxonomy = idMatched || nameMatched[0];
-				console.log(' - validate taxonomy ' + taxonomy.name + ' (id: ' + taxonomy.id + ')');
+				console.info(' - validate taxonomy ' + taxonomy.name + ' (id: ' + taxonomy.id + ')');
 				// console.log(taxonomy);
 				var availableStates = taxonomy.availableStates || [];
 
@@ -128,11 +131,11 @@ module.exports.downloadTaxonomy = function (argv, done) {
 				});
 
 				if (status === 'promoted' && !foundPromoted) {
-					console.log('ERROR: taxonomy ' + taxonomy.name + ' does not have promoted version');
+					console.error('ERROR: taxonomy ' + taxonomy.name + ' does not have promoted version');
 					return Promise.reject();
 				}
 				if (status === 'published' && !foundPublished) {
-					console.log('ERROR: taxonomy ' + taxonomy.name + ' has not been published yet');
+					console.error('ERROR: taxonomy ' + taxonomy.name + ' has not been published yet');
 					return Promise.reject();
 				}
 
@@ -148,7 +151,7 @@ module.exports.downloadTaxonomy = function (argv, done) {
 					return Promise.reject();
 				}
 
-				console.log(' - taxonomy exported');
+				console.info(' - taxonomy exported');
 
 				var downloadLink = result.downloadLink;
 				if (downloadLink) {
@@ -159,13 +162,16 @@ module.exports.downloadTaxonomy = function (argv, done) {
 						},
 						encoding: null
 					};
+
+					serverUtils.showRequestOptions(options);
+
 					//
 					// Download the export zip
 					var request = require('../test/server/requestUtils.js').request;
 					request.get(options, function (err, response, body) {
 						if (err) {
-							console.log('ERROR: Failed to download');
-							console.log(err);
+							console.error('ERROR: Failed to download');
+							console.error(err);
 							return Promise.reject();
 						}
 						if (response && response.statusCode === 200) {
@@ -175,25 +181,25 @@ module.exports.downloadTaxonomy = function (argv, done) {
 							}
 							var fileName = downloadLink.substring(downloadLink.lastIndexOf('/') + 1);
 							var filePath = path.join(taxPath, fileName);
-							console.log(' - download export file');
+							console.info(' - download export file');
 							fs.writeFileSync(filePath, body);
 							console.log(' - save export to ' + filePath);
 
 							done(true);
 						} else {
-							console.log('ERROR: Failed to download, status=' + response.statusCode);
+							console.error('ERROR: Failed to download, status=' + response.statusCode);
 							return Promise.reject();
 						}
 					});
 				} else {
-					console.log('ERROR: no download link');
+					console.error('ERROR: no download link');
 					return Promise.reject();
 				}
 
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -228,14 +234,14 @@ module.exports.uploadTaxonomy = function (argv, done) {
 		jsonPath = path.resolve(jsonPath);
 
 		if (!fs.existsSync(jsonPath)) {
-			console.log('ERROR: file ' + jsonPath + ' does not exist');
+			console.error('ERROR: file ' + jsonPath + ' does not exist');
 			done();
 			return;
 		}
 
 		jsonFile = jsonPath.substring(jsonPath.lastIndexOf(path.sep) + 1);
 		if (!serverUtils.endsWith(jsonFile, '.json')) {
-			console.log('ERROR: file ' + jsonPath + ' is not a JSON file');
+			console.error('ERROR: file ' + jsonPath + ' is not a JSON file');
 			done();
 			return;
 		}
@@ -244,18 +250,18 @@ module.exports.uploadTaxonomy = function (argv, done) {
 		var taxPath = path.join(taxonomiesSrcDir, name);
 
 		if (!fs.existsSync(taxPath)) {
-			console.log('ERROR: taxonomy ' + name + ' does not exist');
+			console.error('ERROR: taxonomy ' + name + ' does not exist');
 			done();
 			return;
 		}
 		if (!fs.statSync(taxPath).isDirectory()) {
-			console.log('ERROR: ' + name + ' is not a valid taxonomy');
+			console.error('ERROR: ' + name + ' is not a valid taxonomy');
 			done();
 			return;
 		}
 		var files = fs.readdirSync(taxPath);
 		if (!files || files.length === 0) {
-			console.log('ERROR: no JSON file found for ' + name);
+			console.error('ERROR: no JSON file found for ' + name);
 			done();
 			return;
 		}
@@ -266,7 +272,7 @@ module.exports.uploadTaxonomy = function (argv, done) {
 			}
 		});
 		if (!jsonFile) {
-			console.log('ERROR: no JSON file found for ' + name);
+			console.error('ERROR: no JSON file found for ' + name);
 			done();
 			return;
 		}
@@ -281,10 +287,10 @@ module.exports.uploadTaxonomy = function (argv, done) {
 		taxonomyName = jsonData && jsonData.name;
 		taxonomyAbbr = jsonData && jsonData.shortName;
 		taxonomyDesc = jsonData && jsonData.description;
-	} catch (e) {}
+	} catch (e) { }
 
 	if (!taxonomyId || !taxonomyName) {
-		console.log('ERROR: file ' + jsonPath + ' is not a valid taxonomy JSON file');
+		console.error('ERROR: file ' + jsonPath + ' is not a valid taxonomy JSON file');
 		done();
 		return;
 	}
@@ -300,13 +306,14 @@ module.exports.uploadTaxonomy = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 		serverRest.getTaxonomies({
-				server: server
-			})
+			server: server,
+			fields: 'availableStates'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -320,7 +327,7 @@ module.exports.uploadTaxonomy = function (argv, done) {
 					}
 				}
 				if (taxonomy && taxonomy.id) {
-					console.log(' - taxonomy ' + taxonomyName + ' (Id: ' + taxonomyId + ') exists');
+					console.info(' - taxonomy ' + taxonomyName + ' (Id: ' + taxonomyId + ') exists');
 					// console.log(taxonomy);
 					var availableStates = taxonomy.availableStates || [];
 					var foundDraft = false;
@@ -330,11 +337,11 @@ module.exports.uploadTaxonomy = function (argv, done) {
 						}
 					});
 					if (foundDraft && !createNew) {
-						console.log('ERROR: taxonomy ' + name + ' already has a draft version, promote it first');
+						console.error('ERROR: taxonomy ' + name + ' already has a draft version, promote it first');
 						return Promise.reject();
 					}
 					if (createNew) {
-						console.log(' - will create new taxonomy ' + (newName || taxonomyName));
+						console.info(' - will create new taxonomy ' + (newName || taxonomyName));
 					}
 				}
 
@@ -349,7 +356,7 @@ module.exports.uploadTaxonomy = function (argv, done) {
 				if (!result || result.err || !result.id) {
 					return Promise.reject();
 				}
-				console.log(' - upload taxonomy file ' + jsonPath);
+				console.info(' - upload taxonomy file ' + jsonPath);
 				fileId = result.id;
 
 				return serverRest.importTaxonomy({
@@ -386,7 +393,7 @@ module.exports.uploadTaxonomy = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -427,14 +434,15 @@ module.exports.controlTaxonomy = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getTaxonomies({
-				server: server
-			})
+			server: server,
+			fields: 'availableStates,publishedChannels'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -453,11 +461,11 @@ module.exports.controlTaxonomy = function (argv, done) {
 				}
 
 				if (!idMatched && nameMatched.length === 0) {
-					console.log('ERROR: taxonomy does not exist');
+					console.error('ERROR: taxonomy does not exist');
 					return Promise.reject();
 				}
 				if (!idMatched && nameMatched.length > 1) {
-					console.log('ERROR: there are ' + nameMatched.length + ' taxonomies with name ' + name + ':');
+					console.error('ERROR: there are ' + nameMatched.length + ' taxonomies with name ' + name + ':');
 					var format = '   %-32s  %-12s  %-24s  %-12s %-s';
 					console.log(sprintf(format, 'Id', 'Abbreviation', 'Creation Date', 'Publishable', 'Status'));
 					nameMatched.forEach(function (tax) {
@@ -475,7 +483,7 @@ module.exports.controlTaxonomy = function (argv, done) {
 				}
 
 				taxonomy = idMatched || nameMatched[0];
-				console.log(' - validate taxonomy ' + taxonomy.name + ' (id: ' + taxonomy.id + ')');
+				console.info(' - validate taxonomy ' + taxonomy.name + ' (id: ' + taxonomy.id + ')');
 				// console.log(taxonomy);
 
 				var availableStates = taxonomy.availableStates || [];
@@ -492,25 +500,25 @@ module.exports.controlTaxonomy = function (argv, done) {
 				});
 				if (action === 'promote') {
 					if (!foundDraft) {
-						console.log('ERROR: taxonomy ' + taxonomy.name + ' does not have draft version');
+						console.error('ERROR: taxonomy ' + taxonomy.name + ' does not have draft version');
 						return Promise.reject();
 					}
 				} else if (action === 'publish') {
 					if (!foundPromoted) {
-						console.log('ERROR: taxonomy ' + taxonomy.name + ' does not have promoted version');
+						console.error('ERROR: taxonomy ' + taxonomy.name + ' does not have promoted version');
 						return Promise.reject();
 					}
 					if (!taxonomy.isPublishable) {
-						console.log('ERROR: taxonomy ' + taxonomy.name + ' is not publishable');
+						console.error('ERROR: taxonomy ' + taxonomy.name + ' is not publishable');
 						return Promise.reject();
 					}
 				} else if (action === 'unpublish') {
 					if (!taxonomy.isPublishable) {
-						console.log('ERROR: taxonomy ' + taxonomy.name + ' is not publishable');
+						console.error('ERROR: taxonomy ' + taxonomy.name + ' is not publishable');
 						return Promise.reject();
 					}
 					if (!taxonomy.publishedChannels || taxonomy.publishedChannels.length === 0) {
-						console.log('ERROR: taxonomy ' + taxonomy.name + ' is not currently published');
+						console.error('ERROR: taxonomy ' + taxonomy.name + ' is not currently published');
 						return Promise.reject();
 					}
 				}
@@ -540,12 +548,12 @@ module.exports.controlTaxonomy = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log('ERROR: channel ' + channelNames[i] + ' does not exist');
+							console.error('ERROR: channel ' + channelNames[i] + ' does not exist');
 						}
 					}
 
 					if (channels.length === 0) {
-						// console.log('ERROR: no valid channel is defined');
+						// console.error('ERROR: no valid channel is defined');
 						return Promise.reject();
 					}
 
@@ -579,7 +587,7 @@ module.exports.controlTaxonomy = function (argv, done) {
 						});
 
 						if (channels2.length === 0) {
-							// console.log('ERROR: no channel to publish');
+							// console.error('ERROR: no channel to publish');
 							return Promise.reject();
 						}
 					} else if (action === 'unpublish') {
@@ -601,12 +609,12 @@ module.exports.controlTaxonomy = function (argv, done) {
 						});
 
 						if (channels2.length === 0) {
-							// console.log('ERROR: no channel to publish');
+							// console.error('ERROR: no channel to publish');
 							return Promise.reject();
 						}
 					}
 
-					console.log(' - verify channels');
+					console.info(' - verify channels');
 				}
 
 				return serverRest.controlTaxonomy({
@@ -636,7 +644,7 @@ module.exports.controlTaxonomy = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done(exitCode);
 			});
@@ -669,13 +677,13 @@ module.exports.describeTaxonomy = function (argv, done) {
 		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
 		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
 		if (!fs.existsSync(outputFolder)) {
-			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
 			done();
 			return;
 		}
 
 		if (!fs.statSync(outputFolder).isDirectory()) {
-			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
 			done();
 			return;
 		}
@@ -685,7 +693,7 @@ module.exports.describeTaxonomy = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -693,12 +701,13 @@ module.exports.describeTaxonomy = function (argv, done) {
 		var tax;
 
 		serverRest.getTaxonomyWithName({
-				server: server,
-				name: name
-			})
+			server: server,
+			name: name,
+			fields: 'availableStates,publishedChannels'
+		})
 			.then(function (result) {
 				if (!result || result.err || !result.data || !result.data.id) {
-					console.log('ERROR: taxonomy ' + name + ' does not exist');
+					console.error('ERROR: taxonomy ' + name + ' does not exist');
 					return Promise.reject();
 				}
 				if (output) {
@@ -754,6 +763,7 @@ module.exports.describeTaxonomy = function (argv, done) {
 					taxonomyId: tax.id,
 					taxonomyName: tax.name,
 					status: promotedVersion ? 'promoted' : 'draft',
+					fields: 'all',
 					orderBy: 'position:asc'
 				});
 
@@ -772,7 +782,7 @@ module.exports.describeTaxonomy = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});

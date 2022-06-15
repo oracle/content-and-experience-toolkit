@@ -16,6 +16,8 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	sprintf = require('sprintf-js').sprintf,
 	zip = require('gulp-zip');
 
+var console = require('../test/server/logger.js').console;
+
 const npmCmd = /^win/.test(process.platform) ? 'npm.cmd' : 'npm';
 
 var cecDir = path.join(__dirname, ".."),
@@ -112,7 +114,7 @@ module.exports.createComponent = function (argv, done) {
 		}
 	}
 
-	console.log('Create Component: creating new component ' + compName + ' from ' + srcCompName);
+	console.info('Create Component: creating new component ' + compName + ' from ' + srcCompName);
 	_createComponent(comp, compName, done);
 };
 
@@ -150,7 +152,7 @@ var _createComponent = function (componentZipName, compName, done) {
 					if (appinfojson.initialData) {
 						appinfojson.initialData.componentId = newId;
 					}
-					console.log(' - update component Id ' + oldId + ' to ' + newId);
+					console.info(' - update component Id ' + oldId + ' to ' + newId);
 					fs.writeFileSync(filepath, JSON.stringify(appinfojson));
 				}
 
@@ -162,7 +164,7 @@ var _createComponent = function (componentZipName, compName, done) {
 						oldGUID = folderjson.itemGUID,
 						newGUID = serverUtils.createGUID();
 					folderjson.itemGUID = newGUID;
-					console.log(' - update component GUID ' + oldGUID + ' to ' + newGUID);
+					console.info(' - update component GUID ' + oldGUID + ' to ' + newGUID);
 					fs.writeFileSync(filepath, JSON.stringify(folderjson));
 				}
 
@@ -256,7 +258,7 @@ module.exports.copyComponent = function (argv, done) {
 			if (fs.existsSync(appinfoPath)) {
 				var appinfojson = JSON.parse(fs.readFileSync(appinfoPath));
 				appinfojson.id = compName;
-				console.log(' - update component id to ' + compName);
+				console.info(' - update component id to ' + compName);
 				fs.writeFileSync(appinfoPath, JSON.stringify(appinfojson));
 				// fs.writeFileSync(appinfoPath, JSON.stringify(appinfojson, null, 4));
 			}
@@ -271,31 +273,31 @@ module.exports.copyComponent = function (argv, done) {
 
 		serverUtils.loginToServer(server).then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage);
+				console.error(result.statusMessage);
 				done();
 				return;
 			}
 
 			sitesRest.getComponent({
+				server: server,
+				name: srcCompName
+			}).then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+
+				var srcComp = result;
+				// console.log(srcComp);
+				console.info(' - verify component (Id: ' + srcComp.id + ' type: ' + srcComp.type + ')');
+
+				return sitesRest.copyComponent({
 					server: server,
-					name: srcCompName
-				}).then(function (result) {
-					if (!result || result.err || !result.id) {
-						return Promise.reject();
-					}
-
-					var srcComp = result;
-					// console.log(srcComp);
-					console.log(' - verify component (Id: ' + srcComp.id + ' type: ' + srcComp.type + ')');
-
-					return sitesRest.copyComponent({
-						server: server,
-						srcId: srcComp.id,
-						srcName: srcComp.name,
-						name: compName,
-						description: description
-					});
-				})
+					srcId: srcComp.id,
+					srcName: srcComp.name,
+					name: compName,
+					description: description
+				});
+			})
 				.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
@@ -316,7 +318,7 @@ module.exports.copyComponent = function (argv, done) {
 				})
 				.catch((error) => {
 					if (error) {
-						console.log(error);
+						console.error(error);
 					}
 					done();
 				});
@@ -334,13 +336,12 @@ gulp.task('dist', function (done) {
 
 	// console.log(' - clean up folder ' + buildDir);
 	fileUtils.remove(buildDir);
-
 	if (_argv_component) {
 
 		var components = _argv_component.split(',');
 		for (var i = 0; i < components.length; i++) {
 			if (fs.existsSync(componentsSrcDir + '/' + components[i])) {
-				console.log(` - copying ${components[i]} component `);
+				console.info(' - copying ' + components[i] + ' component');
 				// Copy the components to the build folder
 				fse.copySync(path.join(componentsSrcDir, components[i]), path.join(componentsBuildDir, components[i]));
 			}
@@ -369,7 +370,7 @@ var optimizeComponent = function (componentName) {
 		});
 		return compBuild.status;
 	} else {
-		console.log(`Optimization is not enabled for the component ${componentName}`);
+		console.info('Optimization is not enabled for the component ' + componentName);
 		return 0;
 	}
 };
@@ -384,7 +385,7 @@ gulp.task('optimize', function (done) {
 		var components = _argv_component.split(',');
 		for (var i = 0; i < components.length; i++) {
 			if (fs.existsSync(path.join(componentsSrcDir, components[i]))) {
-				console.log(` - optimizing component ${components[i]}`);
+				console.info(' - optimizing component ' + components[i]);
 				optimizeComponent(components[i]);
 			}
 		}
@@ -403,15 +404,15 @@ gulp.task('create-component-zip', function (done) {
 	var tasks = components.map(function (comp, idx) {
 		if (fs.existsSync(path.join(componentsSrcDir, comp))) {
 			return gulp.src(`${componentsBuildDir}/${comp}/**/*`, {
-					base: componentsBuildDir
-				})
+				base: componentsBuildDir
+			})
 				.pipe(zip(`${comp}.zip`), {
 					buffer: false
 				})
 				.pipe(gulp.dest(destDir))
 				.on('end', function () {
 					var zippath = path.join(destDir, comp + '.zip');
-					console.log(' - created zip file ' + zippath);
+					console.info(' - created zip file ' + zippath);
 					if (idx === components.length - 1) {
 						done();
 					}
@@ -445,7 +446,7 @@ var _exportComponent = function (argv) {
 	return new Promise(function (resolve, reject) {
 
 		if (!fs.existsSync(componentsSrcDir)) {
-			console.log('ERROR: folder ' + componentsSrcDir + ' does not exist. Check your configuration');
+			console.error('ERROR: folder ' + componentsSrcDir + ' does not exist. Check your configuration');
 			return resolve({
 				err: 'err'
 			});
@@ -461,7 +462,7 @@ var _exportComponent = function (argv) {
 			var validCompNum = 0;
 			for (var i = 0; i < components.length; i++) {
 				if (!fs.existsSync(path.join(componentsSrcDir, components[i]))) {
-					console.error(`Error: Component ${components[i]} doesn't exist`);
+					console.error('Error: Component ' + components[i] + ' does not exist');
 				} else {
 					validCompNum += 1;
 				}
@@ -517,7 +518,7 @@ module.exports.deployComponent = function (argv, done) {
 	if (folder === '/') {
 		folder = '';
 	} else if (folder && !serverUtils.replaceAll(folder, '/', '')) {
-		console.log('ERROR: invalid folder');
+		console.error('ERROR: invalid folder');
 		done();
 		return;
 	}
@@ -528,7 +529,7 @@ module.exports.deployComponent = function (argv, done) {
 
 	for (var i = 0; i < components.length; i++) {
 		if (!fs.existsSync(path.join(componentsSrcDir, components[i]))) {
-			console.error(`Error: Component ${components[i]} doesn't exist`);
+			console.error('Error: Component ' + components[i] + ' does not exist');
 		} else {
 			allComps.push(components[i]);
 		}
@@ -551,7 +552,7 @@ module.exports.deployComponent = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage);
+				console.error(result.statusMessage);
 				done();
 				return;
 			}
@@ -603,15 +604,15 @@ var _uploadComponents = function (server, folder, folderId, comps, publish) {
 	return new Promise(function (resolve, reject) {
 		var err;
 		var doUploadComp = comps.reduce(function (compPromise, comp) {
-				return compPromise.then(function (result) {
-					return _deployOneComponentREST(server, folder, folderId, comp.zipfile, comp.name, publish)
-						.then(function (result) {
-							if (!result || result.err) {
-								err = 'err';
-							}
-						});
-				});
-			},
+			return compPromise.then(function (result) {
+				return _deployOneComponentREST(server, folder, folderId, comp.zipfile, comp.name, publish)
+					.then(function (result) {
+						if (!result || result.err) {
+							err = 'err';
+						}
+					});
+			});
+		},
 			// Start with a previousPromise value that is a resolved promise 
 			Promise.resolve({}));
 
@@ -647,20 +648,22 @@ var unzipComponent = function (compName, compPath) {
 	});
 };
 
-var _deployOneComponentREST = function (server, folder, folderId, zipfile, name, publish) {
+var _deployOneComponentREST = function (server, folder, folderId, zipfile, name, publish, noMsg) {
 	return new Promise(function (resolve, reject) {
 		var fileId;
 		var fileName = name + '.zip';
 		var startTime;
 		var componentId;
 
+		var showDetail = noMsg ? false : true;
+
 		// check if component exist on the server
 		var compExist = false;
 		sitesRest.resourceExist({
-				server: server,
-				type: 'components',
-				name: name
-			})
+			server: server,
+			type: 'components',
+			name: name
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					compExist = false;
@@ -688,7 +691,7 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 					if (!results || !results[0] || !results[0].id) {
 						return Promise.reject();
 					}
-					console.log(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + results[0].version);
+					console.info(' - file ' + fileName + ' uploaded to ' + (folder ? 'folder ' + folder : 'home folder') + ', version ' + results[0].version);
 					fileId = results[0].id;
 				}
 
@@ -717,21 +720,27 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 			.then(function (result) {
 				if (result.err || !result) {
 					if (compExist) {
-						console.log('ERROR: failed to update component ' + name);
+						console.error('ERROR: failed to update component ' + name);
 					}
 					return Promise.reject();
 				}
 				// console.log(result);
 				if (!compExist) {
 					if (result.newName && result.newName !== name) {
-						console.log(' - component imported and renamed to ' + result.newName + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						if (showDetail) {
+							console.log(' - component imported and renamed to ' + result.newName + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						}
 						name = result.newName;
 					} else {
-						console.log(' - component ' + name + ' imported [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						if (showDetail) {
+							console.log(' - component ' + name + ' imported [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+						}
 					}
 					componentId = result && result.id;
 				} else {
-					console.log(' - component ' + name + ' updated');
+					if (showDetail) {
+						console.log(' - component ' + name + ' updated');
+					}
 				}
 
 				// console.log(' - component id: ' + componentId);
@@ -754,7 +763,9 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 						return Promise.reject();
 					} else {
 						// console.log(' - component ' + name + ' published/republished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-						console.log(' - component ' + name + ' published/republished');
+						if (showDetail) {
+							console.log(' - component ' + name + ' published/republished');
+						}
 						resolve({
 							fileId: fileId
 						});
@@ -767,7 +778,7 @@ var _deployOneComponentREST = function (server, folder, folderId, zipfile, name,
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				resolve({
 					err: 'err',
@@ -799,7 +810,7 @@ module.exports.importComponent = function (argv, done) {
 	compPath = path.resolve(compPath);
 
 	if (!fs.existsSync(compPath)) {
-		console.log('ERROR: file ' + compPath + ' does not exist');
+		console.error('ERROR: file ' + compPath + ' does not exist');
 		done();
 		return;
 	}
@@ -837,7 +848,7 @@ module.exports.downloadComponent = function (argv, done) {
 	try {
 		_downloadComponents(serverName, server, components, done);
 	} catch (e) {
-		console.log(e);
+		console.error(e);
 		done();
 	}
 };
@@ -847,7 +858,7 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -864,10 +875,11 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 	}); // login
 };
 
-var _downloadComponentsREST = function (server, componentNames, argv) {
+var _downloadComponentsREST = function (server, componentNames, argv, noMsg) {
 	if (argv) {
 		verifyRun(argv);
 	}
+	var showDetail = noMsg ? false : true;
 	return new Promise(function (resolve, reject) {
 		var compPromises = [];
 		for (var i = 0; i < componentNames.length; i++) {
@@ -881,35 +893,35 @@ var _downloadComponentsREST = function (server, componentNames, argv) {
 		var exportedComps = [];
 		var exportSuccess = false;
 		Promise.all(compPromises).then(function (results) {
-				var allComps = results || [];
-				for (var i = 0; i < componentNames.length; i++) {
-					var found = false;
-					var compName = componentNames[i];
-					for (var j = 0; j < allComps.length; j++) {
-						if (allComps[j].name && compName.toLowerCase() === allComps[j].name.toLowerCase()) {
-							found = true;
-							comps.push(allComps[j]);
-							break;
-						}
-					}
-
-					if (!found) {
-						// console.log('ERROR: component ' + compName + ' does not exist');
-						// return Promise.reject();
+			var allComps = results || [];
+			for (var i = 0; i < componentNames.length; i++) {
+				var found = false;
+				var compName = componentNames[i];
+				for (var j = 0; j < allComps.length; j++) {
+					if (allComps[j].name && compName.toLowerCase() === allComps[j].name.toLowerCase()) {
+						found = true;
+						comps.push(allComps[j]);
+						break;
 					}
 				}
-				// console.log(' - get components');
-				var exportPromises = [];
-				for (var i = 0; i < comps.length; i++) {
-					exportPromises.push(sitesRest.exportComponent({
-						server: server,
-						id: comps[i].id
-					}));
+
+				if (!found) {
+					// console.log('ERROR: component ' + compName + ' does not exist');
+					// return Promise.reject();
 				}
+			}
+			// console.log(' - get components');
+			var exportPromises = [];
+			for (var i = 0; i < comps.length; i++) {
+				exportPromises.push(sitesRest.exportComponent({
+					server: server,
+					id: comps[i].id
+				}));
+			}
 
-				return Promise.all(exportPromises);
+			return Promise.all(exportPromises);
 
-			})
+		})
 			.then(function (results) {
 				var exportFiles = results || [];
 				var prefix = '/documents/api/1.2/files/';
@@ -932,7 +944,7 @@ var _downloadComponentsREST = function (server, componentNames, argv) {
 					}
 
 					if (!exported) {
-						console.log('ERROR: failed to export component ' + comps[i].name);
+						console.error('ERROR: failed to export component ' + comps[i].name);
 					}
 				}
 				if (exportedComps.length === 0) {
@@ -962,7 +974,7 @@ var _downloadComponentsREST = function (server, componentNames, argv) {
 						if (exportedComps[i].fileId === results[j].id) {
 							var targetFile = path.join(destdir, exportedComps[i].name + '.zip');
 							fs.writeFileSync(targetFile, results[i].data);
-							console.log(' - save file ' + targetFile);
+							console.info(' - save file ' + targetFile);
 							exportSuccess = true;
 							unzipPromises.push(unzipComponent(exportedComps[i].name, targetFile));
 						}
@@ -972,7 +984,7 @@ var _downloadComponentsREST = function (server, componentNames, argv) {
 			})
 			.then(function (results) {
 				for (var i = 0; i < results.length; i++) {
-					if (results[i].comp) {
+					if (results[i].comp && showDetail) {
 						console.log(' - import component to ' + path.join(componentsSrcDir, results[i].comp));
 					}
 				}
@@ -1029,7 +1041,7 @@ module.exports.controlComponent = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -1070,32 +1082,32 @@ var _controlComponentsREST = function (server, componentNames) {
 				end: total - 1
 			});
 		}
-		console.log(' - publishing ' + total + (total === 1 ? ' component ...' : ' components ...'));
+		console.info(' - publishing ' + total + (total === 1 ? ' component ...' : ' components ...'));
 		var doPublishComps = groups.reduce(function (compPromise, param) {
-				return compPromise.then(function (result) {
-					var publishPromises = [];
-					for (var i = param.start; i <= param.end; i++) {
-						publishPromises.push(sitesRest.publishComponent({
-							server: server,
-							name: componentNames[i],
-							hideAPI: true,
-							async: true
-						}));
-					}
+			return compPromise.then(function (result) {
+				var publishPromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					publishPromises.push(sitesRest.publishComponent({
+						server: server,
+						name: componentNames[i],
+						hideAPI: true,
+						async: true
+					}));
+				}
 
-					return Promise.all(publishPromises).then(function (results) {
-						for (var i = 0; i < results.length; i++) {
-							if (!results[i] || results[i].err) {
-								err = 'err';
-							} else {
-								// console.log(' - publish ' + results[i].name + ' finished  [' + results[i].timeUsed + ']');
-								console.log(' - publish ' + results[i].name + ' finished');
-							}
+				return Promise.all(publishPromises).then(function (results) {
+					for (var i = 0; i < results.length; i++) {
+						if (!results[i] || results[i].err) {
+							err = 'err';
+						} else {
+							// console.log(' - publish ' + results[i].name + ' finished  [' + results[i].timeUsed + ']');
+							console.log(' - publish ' + results[i].name + ' finished');
 						}
-					});
-
+					}
 				});
-			},
+
+			});
+		},
 			// Start with a previousPromise value that is a resolved promise 
 			Promise.resolve({}));
 
@@ -1141,7 +1153,7 @@ module.exports.shareComponent = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage);
+				console.error(result.statusMessage);
 				done();
 				return;
 			}
@@ -1151,32 +1163,32 @@ module.exports.shareComponent = function (argv, done) {
 				name: name
 			});
 			compPromise.then(function (result) {
-					if (!result || result.err) {
-						return Promise.reject();
-					}
+				if (!result || result.err) {
+					return Promise.reject();
+				}
 
-					compId = result.id;
+				compId = result.id;
 
-					if (!compId) {
-						console.log('ERROR: component ' + name + ' does not exist');
-						return Promise.reject();
-					}
-					console.log(' - verify component');
+				if (!compId) {
+					console.error('ERROR: component ' + name + ' does not exist');
+					return Promise.reject();
+				}
+				console.info(' - verify component');
 
-					var groupPromises = [];
-					groupNames.forEach(function (gName) {
-						groupPromises.push(
-							serverRest.getGroup({
-								server: server,
-								name: gName
-							}));
-					});
-					return Promise.all(groupPromises);
-				})
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+			})
 				.then(function (results) {
 
 					if (groupNames.length > 0) {
-						console.log(' - verify groups');
+						console.info(' - verify groups');
 						// verify groups
 						var allGroups = results || [];
 						for (i = 0; i < groupNames.length; i++) {
@@ -1189,7 +1201,7 @@ module.exports.shareComponent = function (argv, done) {
 								}
 							}
 							if (!found) {
-								console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+								console.error('ERROR: group ' + groupNames[i] + ' does not exist');
 							}
 						}
 					}
@@ -1212,7 +1224,7 @@ module.exports.shareComponent = function (argv, done) {
 						}
 					}
 					if (userNames.length > 0) {
-						console.log(' - verify users');
+						console.info(' - verify users');
 					}
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
@@ -1228,7 +1240,7 @@ module.exports.shareComponent = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log('ERROR: user ' + userNames[k] + ' does not exist');
+							console.error('ERROR: user ' + userNames[k] + ' does not exist');
 						}
 					}
 
@@ -1337,7 +1349,7 @@ module.exports.unshareComponent = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage);
+				console.error(result.statusMessage);
 				done();
 				return;
 			}
@@ -1347,32 +1359,32 @@ module.exports.unshareComponent = function (argv, done) {
 				name: name
 			});
 			compPromise.then(function (result) {
-					if (!result || result.err) {
-						return Promise.reject();
-					}
+				if (!result || result.err) {
+					return Promise.reject();
+				}
 
-					compId = result.id;
+				compId = result.id;
 
-					if (!compId) {
-						console.log('ERROR: component ' + name + ' does not exist');
-						return Promise.reject();
-					}
-					console.log(' - verify component');
+				if (!compId) {
+					console.error('ERROR: component ' + name + ' does not exist');
+					return Promise.reject();
+				}
+				console.info(' - verify component');
 
-					var groupPromises = [];
-					groupNames.forEach(function (gName) {
-						groupPromises.push(
-							serverRest.getGroup({
-								server: server,
-								name: gName
-							}));
-					});
-					return Promise.all(groupPromises);
-				})
+				var groupPromises = [];
+				groupNames.forEach(function (gName) {
+					groupPromises.push(
+						serverRest.getGroup({
+							server: server,
+							name: gName
+						}));
+				});
+				return Promise.all(groupPromises);
+			})
 				.then(function (result) {
 
 					if (groupNames.length > 0) {
-						console.log(' - verify groups');
+						console.info(' - verify groups');
 
 						// verify groups
 						var allGroups = result || [];
@@ -1386,7 +1398,7 @@ module.exports.unshareComponent = function (argv, done) {
 								}
 							}
 							if (!found) {
-								console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+								console.error('ERROR: group ' + groupNames[i] + ' does not exist');
 							}
 						}
 					}
@@ -1409,7 +1421,7 @@ module.exports.unshareComponent = function (argv, done) {
 						}
 					}
 					if (userNames.length > 0) {
-						console.log(' - verify users');
+						console.info(' - verify users');
 					}
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
@@ -1425,7 +1437,7 @@ module.exports.unshareComponent = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log('ERROR: user ' + userNames[k] + ' does not exist');
+							console.error('ERROR: user ' + userNames[k] + ' does not exist');
 						}
 					}
 
@@ -1491,7 +1503,7 @@ module.exports.unshareComponent = function (argv, done) {
 							var typeLabel = results[i].user.loginName ? 'user' : 'group';
 							console.log(' - ' + typeLabel + ' ' + (results[i].user.loginName || results[i].user.displayName) + '\'s access to the component removed');
 						} else {
-							console.log('ERROR: ' + results[i].title);
+							console.error('ERROR: ' + results[i].title);
 						}
 					}
 					done(unshared);
@@ -1534,13 +1546,13 @@ module.exports.describeComponent = function (argv, done) {
 		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
 		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
 		if (!fs.existsSync(outputFolder)) {
-			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
 			done();
 			return;
 		}
 
 		if (!fs.statSync(outputFolder).isDirectory()) {
-			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
 			done();
 			return;
 		}
@@ -1550,7 +1562,7 @@ module.exports.describeComponent = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -1558,71 +1570,71 @@ module.exports.describeComponent = function (argv, done) {
 		var comp;
 
 		sitesRest.getComponent({
-				server: server,
-				name: name,
-				expand: 'all'
-			}).then(function (result) {
-				if (!result || result.err) {
-					return Promise.reject();
-				}
+			server: server,
+			name: name,
+			expand: 'all'
+		}).then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
 
-				if (output) {
-					fs.writeFileSync(output, JSON.stringify(result, null, 4));
-					console.log(' - component properties saved to ' + output);
-				}
+			if (output) {
+				fs.writeFileSync(output, JSON.stringify(result, null, 4));
+				console.log(' - component properties saved to ' + output);
+			}
 
-				comp = result;
+			comp = result;
 
-				var managers = [];
-				var contributors = [];
-				var downloaders = [];
-				var viewers = [];
-				var members = comp.members && comp.members.items || [];
-				members.forEach(function (member) {
-					if (member.role === 'manager') {
-						managers.push(member.displayName || member.name);
-					} else if (member.role === 'contributor') {
-						contributors.push(member.displayName || member.name);
-					} else if (member.role === 'downloader') {
-						downloaders.push(member.displayName || member.name);
-					} else if (member.role === 'viewer') {
-						viewers.push(member.displayName || member.name);
-					}
-				});
-				var memberLabel = '';
-				if (managers.length > 0) {
-					memberLabel = 'Manager: ' + managers + ' ';
+			var managers = [];
+			var contributors = [];
+			var downloaders = [];
+			var viewers = [];
+			var members = comp.members && comp.members.items || [];
+			members.forEach(function (member) {
+				if (member.role === 'manager') {
+					managers.push(member.displayName || member.name);
+				} else if (member.role === 'contributor') {
+					contributors.push(member.displayName || member.name);
+				} else if (member.role === 'downloader') {
+					downloaders.push(member.displayName || member.name);
+				} else if (member.role === 'viewer') {
+					viewers.push(member.displayName || member.name);
 				}
-				if (contributors.length > 0) {
-					memberLabel = memberLabel + 'Contributor: ' + contributors + ' ';
-				}
-				if (downloaders.length > 0) {
-					memberLabel = memberLabel + 'Downloader: ' + downloaders + ' ';
-				}
-				if (viewers.length > 0) {
-					memberLabel = memberLabel + 'Viewer: ' + viewers;
-				}
+			});
+			var memberLabel = '';
+			if (managers.length > 0) {
+				memberLabel = 'Manager: ' + managers + ' ';
+			}
+			if (contributors.length > 0) {
+				memberLabel = memberLabel + 'Contributor: ' + contributors + ' ';
+			}
+			if (downloaders.length > 0) {
+				memberLabel = memberLabel + 'Downloader: ' + downloaders + ' ';
+			}
+			if (viewers.length > 0) {
+				memberLabel = memberLabel + 'Viewer: ' + viewers;
+			}
 
-				var format1 = '%-41s %-s';
-				console.log('');
-				console.log(sprintf(format1, 'Id', comp.id));
-				console.log(sprintf(format1, 'Type', comp.type));
-				console.log(sprintf(format1, 'Name', comp.name));
-				console.log(sprintf(format1, 'Description', comp.description || ''));
-				console.log(sprintf(format1, 'Owner', comp.ownedBy ? (comp.ownedBy.displayName || comp.ownedBy.name) : ''));
-				console.log(sprintf(format1, 'Members', memberLabel));
-				console.log(sprintf(format1, 'Created', comp.createdAt + ' by ' + (comp.createdBy ? (comp.createdBy.displayName || comp.createdBy.name) : '')));
-				console.log(sprintf(format1, 'Updated', comp.lastModifiedAt + ' by ' + (comp.lastModifiedBy ? (comp.lastModifiedBy.displayName || comp.lastModifiedBy.name) : '')));
-				console.log(sprintf(format1, 'Status', comp.publishStatus));
-				console.log(sprintf(format1, 'Hide on custom palette in the site editor', comp.isHidden));
+			var format1 = '%-41s %-s';
+			console.log('');
+			console.log(sprintf(format1, 'Id', comp.id));
+			console.log(sprintf(format1, 'Type', comp.type));
+			console.log(sprintf(format1, 'Name', comp.name));
+			console.log(sprintf(format1, 'Description', comp.description || ''));
+			console.log(sprintf(format1, 'Owner', comp.ownedBy ? (comp.ownedBy.displayName || comp.ownedBy.name) : ''));
+			console.log(sprintf(format1, 'Members', memberLabel));
+			console.log(sprintf(format1, 'Created', comp.createdAt + ' by ' + (comp.createdBy ? (comp.createdBy.displayName || comp.createdBy.name) : '')));
+			console.log(sprintf(format1, 'Updated', comp.lastModifiedAt + ' by ' + (comp.lastModifiedBy ? (comp.lastModifiedBy.displayName || comp.lastModifiedBy.name) : '')));
+			console.log(sprintf(format1, 'Status', comp.publishStatus));
+			console.log(sprintf(format1, 'Hide on custom palette in the site editor', comp.isHidden));
 
-				console.log('');
+			console.log('');
 
-				done(true);
-			})
+			done(true);
+		})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});

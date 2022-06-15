@@ -15,6 +15,8 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	path = require('path'),
 	zip = require('gulp-zip');
 
+var console = require('../test/server/logger.js').console;
+
 var projectDir,
 	buildDir,
 	componentsSrcDir,
@@ -61,7 +63,7 @@ module.exports.createRepository = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
 
 	var name = argv.name;
 	var repoType = argv.type && argv.type === 'business' ? 'Business' : 'Standard';
@@ -76,13 +78,13 @@ module.exports.createRepository = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 		serverRest.getRepositories({
-				server: server
-			})
+			server: server
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -96,7 +98,7 @@ module.exports.createRepository = function (argv, done) {
 						return Promise.reject();
 					}
 				}
-				console.log(' - verify repository name');
+				console.info(' - verify repository name');
 
 				// get content types
 				var typePromises = [];
@@ -116,7 +118,7 @@ module.exports.createRepository = function (argv, done) {
 					}
 				}
 				if (typeNames.length > 0) {
-					console.log(' - verify content types');
+					console.info(' - verify content types');
 				}
 
 				// get channels
@@ -144,12 +146,12 @@ module.exports.createRepository = function (argv, done) {
 						}
 					}
 					if (!found) {
-						console.log('ERROR: channel ' + channelNames[i] + ' does not exist');
+						console.error('ERROR: channel ' + channelNames[i] + ' does not exist');
 						return Promise.reject();
 					}
 				}
 				if (channelNames.length > 0) {
-					console.log(' - verify channels');
+					console.info(' - verify channels');
 				}
 
 				for (var i = 0; i < typeNames.length; i++) {
@@ -179,7 +181,7 @@ module.exports.createRepository = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done(exitCode);
 			});
@@ -200,7 +202,7 @@ module.exports.controlRepository = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
 
 	var action = argv.action;
 	var name = argv.repository;
@@ -227,15 +229,17 @@ module.exports.controlRepository = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		var exitCode;
+		// Need to get all fields for updating 
 		serverRest.getRepositories({
-				server: server
-			})
+			server: server,
+			fields: 'all'
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -249,9 +253,9 @@ module.exports.controlRepository = function (argv, done) {
 							var repoType = repositories[i].repositoryType;
 							if (repoType && repoType.toLowerCase() === 'business' && (action === 'add-channel' || action === 'remove-channel')) {
 								if (action === 'add-channel') {
-									console.log('ERROR: repository ' + name + ' is a business repository');
+									console.error('ERROR: repository ' + name + ' is a business repository');
 								} else if (action === 'remove-channel') {
-									console.log(' - repository ' + name + ' is a business repository');
+									console.error(' - repository ' + name + ' is a business repository');
 									exitCode = 2;
 								}
 							} else {
@@ -264,14 +268,14 @@ module.exports.controlRepository = function (argv, done) {
 					}
 					if (!found) {
 						exitCode = 1;
-						console.log('ERROR: repository ' + name + ' does not exist');
+						console.error('ERROR: repository ' + name + ' does not exist');
 					}
 				});
 
 				if (allRepos.length === 0) {
 					return Promise.reject();
 				}
-				console.log(' - verify ' + (allRepos.length === 1 ? 'repository' : 'repositories'));
+				console.info(' - verify ' + (allRepos.length === 1 ? 'repository' : 'repositories'));
 
 				var typePromises = [];
 				for (var i = 0; i < typeNames.length; i++) {
@@ -302,7 +306,7 @@ module.exports.controlRepository = function (argv, done) {
 					if (types.length === 0) {
 						return Promise.reject();
 					}
-					console.log(' - verify content types');
+					console.info(' - verify content types');
 				}
 
 				// get channels
@@ -331,21 +335,22 @@ module.exports.controlRepository = function (argv, done) {
 						}
 					}
 					if (!found) {
-						console.log('ERROR: channel ' + channelNames[i] + ' does not exist');
+						console.error('ERROR: channel ' + channelNames[i] + ' does not exist');
 					}
 				}
 				if (channelNames.length > 0) {
 					if (channels.length === 0) {
 						return Promise.reject();
 					}
-					console.log(' - verify channels');
+					console.info(' - verify channels');
 				}
 
 				// get taxonomies
 				var taxPromises = [];
 				if (taxNames.length > 0) {
 					taxPromises.push(serverRest.getTaxonomies({
-						server: server
+						server: server,
+						fields: 'availableStates'
 					}));
 				}
 
@@ -378,15 +383,15 @@ module.exports.controlRepository = function (argv, done) {
 						}
 					}
 					if (!found) {
-						console.log('ERROR: taxonomy ' + taxNames[i] + ' does not exist');
+						console.error('ERROR: taxonomy ' + taxNames[i] + ' does not exist');
 						// return Promise.reject();
 					} else if (!foundPromoted) {
-						console.log('ERROR: taxonomy ' + taxNames[i] + ' does not have promoted version');
+						console.error('ERROR: taxonomy ' + taxNames[i] + ' does not have promoted version');
 						// return Promise.reject();
 					}
 				}
 				if (finalTaxNames.length > 0) {
-					console.log(' - verify ' + (finalTaxNames.length > 1 ? 'taxonomies' : 'taxonomy'));
+					console.info(' - verify ' + (finalTaxNames.length > 1 ? 'taxonomies' : 'taxonomy'));
 				} else if (taxNames.length > 0) {
 					return Promise.reject();
 				}
@@ -396,7 +401,8 @@ module.exports.controlRepository = function (argv, done) {
 				for (var i = 0; i < connectorNames.length; i++) {
 					connectorPromises.push(serverRest.getTranslationConnector({
 						server: server,
-						name: connectorNames[i]
+						name: connectorNames[i],
+						fields: 'all'
 					}));
 				}
 
@@ -420,12 +426,12 @@ module.exports.controlRepository = function (argv, done) {
 						}
 					}
 					if (!connectorExist) {
-						console.log('ERROR: translation connector ' + connectorName + ' does not exist or is not enabled');
+						console.error('ERROR: translation connector ' + connectorName + ' does not exist or is not enabled');
 					}
 				});
 				if (connectorNames.length > 0) {
 					if (finalConnectorNames.length > 0) {
-						console.log(' - verify translation connector' + (finalConnectorNames.length > 1 ? 's' : ''));
+						console.info(' - verify translation connector' + (finalConnectorNames.length > 1 ? 's' : ''));
 					} else {
 						return Promise.reject();
 					}
@@ -462,11 +468,11 @@ module.exports.controlRepository = function (argv, done) {
 							}
 						}
 						if (!roleExist) {
-							console.log('ERROR: editorial role ' + name + ' does not exist');
+							console.error('ERROR: editorial role ' + name + ' does not exist');
 						}
 					});
 					if (finalRoleNames.length > 0) {
-						console.log(' - verify editorial role' + (finalRoleNames.length > 1 ? 's' : ''));
+						console.info(' - verify editorial role' + (finalRoleNames.length > 1 ? 's' : ''));
 					} else {
 						return Promise.reject();
 					}
@@ -486,7 +492,7 @@ module.exports.controlRepository = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done(exitCode);
 			});
@@ -499,159 +505,159 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 	return new Promise(function (resolve, reject) {
 		var err;
 		var doUpdateRepos = repositories.reduce(function (updatePromise, repository) {
-				var name = repository.name;
+			var name = repository.name;
 
-				return updatePromise.then(function (result) {
-					var finalTypes = repository.contentTypes;
-					var finalChannels = repository.channels;
-					var finalTaxonomies = repository.taxonomies;
-					var finalLanguages = repository.languageOptions;
-					var finalConnectors = repository.connectors;
-					var finalEditorialRoles = repository.editorialRoles;
-					var idx;
-					var i, j;
+			return updatePromise.then(function (result) {
+				var finalTypes = repository.contentTypes;
+				var finalChannels = repository.channels;
+				var finalTaxonomies = repository.taxonomies;
+				var finalLanguages = repository.languageOptions;
+				var finalConnectors = repository.connectors;
+				var finalEditorialRoles = repository.editorialRoles;
+				var idx;
+				var i, j;
 
-					if (action === 'add-type') {
-						finalTypes = finalTypes.concat(types);
-					} else if (action === 'remove-type') {
-						for (i = 0; i < typeNames.length; i++) {
-							idx = undefined;
-							for (j = 0; j < finalTypes.length; j++) {
-								if (typeNames[i].toLowerCase() === finalTypes[j].name.toLowerCase()) {
-									idx = j;
-									break;
-								}
-							}
-							if (idx !== undefined) {
-								finalTypes.splice(idx, 1);
+				if (action === 'add-type') {
+					finalTypes = finalTypes.concat(types);
+				} else if (action === 'remove-type') {
+					for (i = 0; i < typeNames.length; i++) {
+						idx = undefined;
+						for (j = 0; j < finalTypes.length; j++) {
+							if (typeNames[i].toLowerCase() === finalTypes[j].name.toLowerCase()) {
+								idx = j;
+								break;
 							}
 						}
-					} else if (action === 'add-channel') {
-						finalChannels = finalChannels.concat(channels);
-					} else if (action === 'remove-channel') {
-						for (i = 0; i < channels.length; i++) {
-							idx = undefined;
-							for (j = 0; j < finalChannels.length; j++) {
-								if (channels[i].id === finalChannels[j].id) {
-									idx = j;
-									break;
-								}
-							}
-							if (idx !== undefined) {
-								finalChannels.splice(idx, 1);
-							}
+						if (idx !== undefined) {
+							finalTypes.splice(idx, 1);
 						}
-					} else if (action === 'add-taxonomy') {
-
-						finalTaxonomies = finalTaxonomies.concat(taxonomies);
-
-					} else if (action === 'remove-taxonomy') {
-						for (i = 0; i < taxonomies.length; i++) {
-							idx = undefined;
-							for (j = 0; j < finalTaxonomies.length; j++) {
-								if (taxonomies[i].id === finalTaxonomies[j].id) {
-									idx = j;
-									break;
-								}
-							}
-							if (idx !== undefined) {
-								finalTaxonomies.splice(idx, 1);
-							}
-						}
-					} else if (action === 'add-language') {
-						finalLanguages = finalLanguages.concat(languages);
-					} else if (action === 'remove-language') {
-						for (i = 0; i < languages.length; i++) {
-							idx = undefined;
-							for (j = 0; j < finalLanguages.length; j++) {
-								if (languages[i] === finalLanguages[j]) {
-									idx = j;
-									break;
-								}
-							}
-							if (idx !== undefined) {
-								finalLanguages.splice(idx, 1);
-							}
-						}
-					} else if (action === 'add-translation-connector') {
-						finalConnectors = finalChannels.concat(connectors);
-					} else if (action === 'remove-translation-connector') {
-						for (i = 0; i < connectors.length; i++) {
-							idx = undefined;
-							for (j = 0; j < finalConnectors.length; j++) {
-								if (connectors[i].connectorId === finalConnectors[j].connectorId) {
-									idx = j;
-									break;
-								}
-							}
-							if (idx !== undefined) {
-								finalConnectors.splice(idx, 1);
-							}
-						}
-					} else if (action === 'add-role') {
-						finalEditorialRoles = finalEditorialRoles.concat(editorialRoles);
-					} else if (action === 'remove-role') {
-						for (i = 0; i < editorialRoles.length; i++) {
-							idx = undefined;
-							for (j = 0; j < finalEditorialRoles.length; j++) {
-								if (editorialRoles[i].id === finalEditorialRoles[j].id) {
-									idx = j;
-									break;
-								}
-							}
-							if (idx !== undefined) {
-								finalEditorialRoles.splice(idx, 1);
-							}
-						}
-					} else {
-						console.log('ERROR: invalid action ' + action);
 					}
-
-					return serverRest.updateRepository({
-						server: server,
-						repository: repository,
-						contentTypes: finalTypes,
-						channels: finalChannels,
-						taxonomies: finalTaxonomies,
-						languages: finalLanguages,
-						connectors: finalConnectors,
-						editorialRoles: finalEditorialRoles
-					}).then(function (result) {
-
-						if (result.err) {
-							err = 'err';
-						} else {
-							// console.log(result);
-							if (action === 'add-type') {
-								console.log(' - added type ' + typeNames + ' to repository ' + name);
-							} else if (action === 'remove-type') {
-								console.log(' - removed type ' + typeNames + ' from repository ' + name);
-							} else if (action === 'add-channel') {
-								console.log(' - added channel ' + channelNames + ' to repository ' + name);
-							} else if (action === 'remove-channel') {
-								console.log(' - removed channel ' + channelNames + ' from repository ' + name);
-							} else if (action === 'add-taxonomy') {
-								console.log(' - added taxonomy ' + taxonomyNames + ' to repository ' + name);
-							} else if (action === 'remove-taxonomy') {
-								console.log(' - removed taxonomy ' + taxonomyNames + ' from repository ' + name);
-							} else if (action === 'add-language') {
-								console.log(' - added language ' + languages + ' to repository ' + name);
-							} else if (action === 'remove-language') {
-								console.log(' - removed language ' + languages + ' from repository ' + name);
-							} else if (action === 'add-translation-connector') {
-								console.log(' - added translation connector ' + connectorNames + ' to repository ' + name);
-							} else if (action === 'remove-translation-connector') {
-								console.log(' - removed translation connector ' + connectorNames + ' from repository ' + name);
-							} else if (action === 'add-role') {
-								console.log(' - added editorial role ' + roleNames + ' to repository ' + name);
-							} else if (action === 'remove-role') {
-								console.log(' - removed editorial-role ' + roleNames + ' from repository ' + name);
+				} else if (action === 'add-channel') {
+					finalChannels = finalChannels.concat(channels);
+				} else if (action === 'remove-channel') {
+					for (i = 0; i < channels.length; i++) {
+						idx = undefined;
+						for (j = 0; j < finalChannels.length; j++) {
+							if (channels[i].id === finalChannels[j].id) {
+								idx = j;
+								break;
 							}
 						}
-					});
+						if (idx !== undefined) {
+							finalChannels.splice(idx, 1);
+						}
+					}
+				} else if (action === 'add-taxonomy') {
 
+					finalTaxonomies = finalTaxonomies.concat(taxonomies);
+
+				} else if (action === 'remove-taxonomy') {
+					for (i = 0; i < taxonomies.length; i++) {
+						idx = undefined;
+						for (j = 0; j < finalTaxonomies.length; j++) {
+							if (taxonomies[i].id === finalTaxonomies[j].id) {
+								idx = j;
+								break;
+							}
+						}
+						if (idx !== undefined) {
+							finalTaxonomies.splice(idx, 1);
+						}
+					}
+				} else if (action === 'add-language') {
+					finalLanguages = finalLanguages.concat(languages);
+				} else if (action === 'remove-language') {
+					for (i = 0; i < languages.length; i++) {
+						idx = undefined;
+						for (j = 0; j < finalLanguages.length; j++) {
+							if (languages[i] === finalLanguages[j]) {
+								idx = j;
+								break;
+							}
+						}
+						if (idx !== undefined) {
+							finalLanguages.splice(idx, 1);
+						}
+					}
+				} else if (action === 'add-translation-connector') {
+					finalConnectors = finalConnectors.concat(connectors);
+				} else if (action === 'remove-translation-connector') {
+					for (i = 0; i < connectors.length; i++) {
+						idx = undefined;
+						for (j = 0; j < finalConnectors.length; j++) {
+							if (connectors[i].connectorId === finalConnectors[j].connectorId) {
+								idx = j;
+								break;
+							}
+						}
+						if (idx !== undefined) {
+							finalConnectors.splice(idx, 1);
+						}
+					}
+				} else if (action === 'add-role') {
+					finalEditorialRoles = finalEditorialRoles.concat(editorialRoles);
+				} else if (action === 'remove-role') {
+					for (i = 0; i < editorialRoles.length; i++) {
+						idx = undefined;
+						for (j = 0; j < finalEditorialRoles.length; j++) {
+							if (editorialRoles[i].id === finalEditorialRoles[j].id) {
+								idx = j;
+								break;
+							}
+						}
+						if (idx !== undefined) {
+							finalEditorialRoles.splice(idx, 1);
+						}
+					}
+				} else {
+					console.error('ERROR: invalid action ' + action);
+				}
+
+				return serverRest.updateRepository({
+					server: server,
+					repository: repository,
+					contentTypes: finalTypes,
+					channels: finalChannels,
+					taxonomies: finalTaxonomies,
+					languages: finalLanguages,
+					connectors: finalConnectors,
+					editorialRoles: finalEditorialRoles
+				}).then(function (result) {
+
+					if (result.err) {
+						err = 'err';
+					} else {
+						// console.log(result);
+						if (action === 'add-type') {
+							console.log(' - added type ' + typeNames + ' to repository ' + name);
+						} else if (action === 'remove-type') {
+							console.log(' - removed type ' + typeNames + ' from repository ' + name);
+						} else if (action === 'add-channel') {
+							console.log(' - added channel ' + channelNames + ' to repository ' + name);
+						} else if (action === 'remove-channel') {
+							console.log(' - removed channel ' + channelNames + ' from repository ' + name);
+						} else if (action === 'add-taxonomy') {
+							console.log(' - added taxonomy ' + taxonomyNames + ' to repository ' + name);
+						} else if (action === 'remove-taxonomy') {
+							console.log(' - removed taxonomy ' + taxonomyNames + ' from repository ' + name);
+						} else if (action === 'add-language') {
+							console.log(' - added language ' + languages + ' to repository ' + name);
+						} else if (action === 'remove-language') {
+							console.log(' - removed language ' + languages + ' from repository ' + name);
+						} else if (action === 'add-translation-connector') {
+							console.log(' - added translation connector ' + connectorNames + ' to repository ' + name);
+						} else if (action === 'remove-translation-connector') {
+							console.log(' - removed translation connector ' + connectorNames + ' from repository ' + name);
+						} else if (action === 'add-role') {
+							console.log(' - added editorial role ' + roleNames + ' to repository ' + name);
+						} else if (action === 'remove-role') {
+							console.log(' - removed editorial-role ' + roleNames + ' from repository ' + name);
+						}
+					}
 				});
-			},
+
+			});
+		},
 			Promise.resolve({})
 		);
 
@@ -682,7 +688,7 @@ module.exports.shareRepository = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
 
 	var name = argv.name;
 	var userNames = argv.users ? argv.users.split(',') : [];
@@ -702,14 +708,15 @@ module.exports.shareRepository = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getRepositories({
-				server: server
-			})
+			server: server,
+			fields: 'contentTypes'
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -723,10 +730,10 @@ module.exports.shareRepository = function (argv, done) {
 					}
 				}
 				if (!repository) {
-					console.log('ERROR: repository ' + name + ' does not exist');
+					console.error('ERROR: repository ' + name + ' does not exist');
 					return Promise.reject();
 				}
-				console.log(' - verify repository');
+				console.info(' - verify repository');
 
 				if (repository.contentTypes) {
 					for (var i = 0; i < repository.contentTypes.length; i++) {
@@ -737,9 +744,9 @@ module.exports.shareRepository = function (argv, done) {
 				}
 				if (shareTypes) {
 					if (typeNames.length === 0) {
-						console.log(' - no content types in the repository');
+						console.info(' - no content types in the repository');
 					} else {
-						console.log(' - repository includes content type ' + typeNames.join(', '));
+						console.info(' - repository includes content type ' + typeNames.join(', '));
 					}
 				}
 
@@ -756,7 +763,7 @@ module.exports.shareRepository = function (argv, done) {
 			.then(function (result) {
 
 				if (groupNames.length > 0) {
-					console.log(' - verify groups');
+					console.info(' - verify groups');
 
 					// verify groups
 					var allGroups = result || [];
@@ -770,7 +777,7 @@ module.exports.shareRepository = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							console.error('ERROR: group ' + groupNames[i] + ' does not exist');
 							// return Promise.reject();
 						}
 					}
@@ -794,7 +801,7 @@ module.exports.shareRepository = function (argv, done) {
 					}
 				}
 				if (userNames.length > 0) {
-					console.log(' - verify users');
+					console.info(' - verify users');
 				}
 				// verify users
 				for (var k = 0; k < userNames.length; k++) {
@@ -810,7 +817,7 @@ module.exports.shareRepository = function (argv, done) {
 						}
 					}
 					if (!found) {
-						console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						console.error('ERROR: user ' + userNames[k] + ' does not exist');
 					}
 				}
 
@@ -902,113 +909,113 @@ module.exports.shareRepository = function (argv, done) {
 					var success = true;
 
 					Promise.all(typePromises).then(function (results) {
-							for (var i = 0; i < results.length; i++) {
-								if (results[i].id) {
-									goodTypeNames.push(results[i].name);
-								}
+						for (var i = 0; i < results.length; i++) {
+							if (results[i].id) {
+								goodTypeNames.push(results[i].name);
 							}
+						}
 
-							if (goodTypeNames.length === 0) {
-								return Promise.reject();
-							}
+						if (goodTypeNames.length === 0) {
+							return Promise.reject();
+						}
 
-							var typePermissionPromises = [];
-							for (var i = 0; i < goodTypeNames.length; i++) {
-								typePermissionPromises.push(serverRest.getResourcePermissions({
-									server: server,
-									id: goodTypeNames[i],
-									type: 'type'
-								}));
-							}
+						var typePermissionPromises = [];
+						for (var i = 0; i < goodTypeNames.length; i++) {
+							typePermissionPromises.push(serverRest.getResourcePermissions({
+								server: server,
+								id: goodTypeNames[i],
+								type: 'type'
+							}));
+						}
 
-							Promise.all(typePermissionPromises)
-								.then(function (results) {
-									var shareTypePromises = [];
+						Promise.all(typePermissionPromises)
+							.then(function (results) {
+								var shareTypePromises = [];
 
-									for (var i = 0; i < results.length; i++) {
-										var resource = results[i].resource;
-										var perms = results[i] && results[i].permissions || [];
-										var typeUsersToGrant = [];
-										var typeGroupsToGrant = [];
+								for (var i = 0; i < results.length; i++) {
+									var resource = results[i].resource;
+									var perms = results[i] && results[i].permissions || [];
+									var typeUsersToGrant = [];
+									var typeGroupsToGrant = [];
 
-										groups.forEach(function (group) {
-											var granted = false;
-											for (var j = 0; j < perms.length; j++) {
-												if (perms[j].roleName === typeRole && perms[j].fullName === group.name &&
-													perms[j].type === 'group' && perms[j].groupType === group.groupOriginType) {
-													granted = true;
-													break;
-												}
-											}
-											if (granted) {
-												console.log(' - group ' + group.name + ' already granted with role ' + typeRole + ' on type ' + resource);
-											} else {
-												typeGroupsToGrant.push(group);
-											}
-										});
-
-										users.forEach(function (user) {
-											var granted = false;
-											for (var j = 0; j < perms.length; j++) {
-												if (perms[j].roleName === typeRole && perms[j].type === 'user' && perms[j].id === user.loginName) {
-													granted = true;
-													break;
-												}
-											}
-											if (granted) {
-												console.log(' - user ' + user.loginName + ' already granted with role ' + typeRole + ' on type ' + resource);
-											} else {
-												typeUsersToGrant.push(user);
-											}
-										});
-
-										shareTypePromises.push(serverRest.performPermissionOperation({
-											server: server,
-											operation: 'share',
-											resourceName: resource,
-											resourceType: 'type',
-											role: typeRole,
-											users: typeUsersToGrant,
-											groups: typeGroupsToGrant
-										}));
-									}
-
-									return Promise.all(shareTypePromises);
-								})
-								.then(function (results) {
-
-									for (var i = 0; i < results.length; i++) {
-										if (results[i].operations) {
-											var obj = results[i].operations.share;
-											var resourceName = obj.resource && obj.resource.name;
-											var grants = obj.roles && obj.roles[0] && obj.roles[0].users || [];
-											var userNames = [];
-											var groupNames = [];
-											grants.forEach(function (grant) {
-												if (grant.type === 'group') {
-													groupNames.push(grant.name);
-												} else {
-													userNames.push(grant.name);
-												}
-											});
-											if (userNames.length > 0 || groupNames.length > 0) {
-												var msg = ' -';
-												if (userNames.length > 0) {
-													msg = msg + ' user ' + userNames.join(', ');
-												}
-												if (groupNames.length > 0) {
-													msg = msg + ' group ' + groupNames.join(', ');
-												}
-												msg = msg + ' granted with role ' + typeRole + ' on type ' + resourceName;
-												console.log(msg);
+									groups.forEach(function (group) {
+										var granted = false;
+										for (var j = 0; j < perms.length; j++) {
+											if (perms[j].roleName === typeRole && perms[j].fullName === group.name &&
+												perms[j].type === 'group' && perms[j].groupType === group.groupOriginType) {
+												granted = true;
+												break;
 											}
 										}
+										if (granted) {
+											console.log(' - group ' + group.name + ' already granted with role ' + typeRole + ' on type ' + resource);
+										} else {
+											typeGroupsToGrant.push(group);
+										}
+									});
+
+									users.forEach(function (user) {
+										var granted = false;
+										for (var j = 0; j < perms.length; j++) {
+											if (perms[j].roleName === typeRole && perms[j].type === 'user' && perms[j].id === user.loginName) {
+												granted = true;
+												break;
+											}
+										}
+										if (granted) {
+											console.log(' - user ' + user.loginName + ' already granted with role ' + typeRole + ' on type ' + resource);
+										} else {
+											typeUsersToGrant.push(user);
+										}
+									});
+
+									shareTypePromises.push(serverRest.performPermissionOperation({
+										server: server,
+										operation: 'share',
+										resourceName: resource,
+										resourceType: 'type',
+										role: typeRole,
+										users: typeUsersToGrant,
+										groups: typeGroupsToGrant
+									}));
+								}
+
+								return Promise.all(shareTypePromises);
+							})
+							.then(function (results) {
+
+								for (var i = 0; i < results.length; i++) {
+									if (results[i].operations) {
+										var obj = results[i].operations.share;
+										var resourceName = obj.resource && obj.resource.name;
+										var grants = obj.roles && obj.roles[0] && obj.roles[0].users || [];
+										var userNames = [];
+										var groupNames = [];
+										grants.forEach(function (grant) {
+											if (grant.type === 'group') {
+												groupNames.push(grant.name);
+											} else {
+												userNames.push(grant.name);
+											}
+										});
+										if (userNames.length > 0 || groupNames.length > 0) {
+											var msg = ' -';
+											if (userNames.length > 0) {
+												msg = msg + ' user ' + userNames.join(', ');
+											}
+											if (groupNames.length > 0) {
+												msg = msg + ' group ' + groupNames.join(', ');
+											}
+											msg = msg + ' granted with role ' + typeRole + ' on type ' + resourceName;
+											console.log(msg);
+										}
 									}
+								}
 
-									done(true);
+								done(true);
 
-								});
-						})
+							});
+					})
 						.catch((error) => {
 							done(success);
 						});
@@ -1041,7 +1048,7 @@ module.exports.unShareRepository = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
 
 	var name = argv.name;
 	var userNames = argv.users ? argv.users.split(',') : [];
@@ -1057,14 +1064,15 @@ module.exports.unShareRepository = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getRepositories({
-				server: server
-			})
+			server: server,
+			fields: 'contentTypes'
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -1078,10 +1086,10 @@ module.exports.unShareRepository = function (argv, done) {
 					}
 				}
 				if (!repository) {
-					console.log('ERROR: repository ' + name + ' does not exist');
+					console.error('ERROR: repository ' + name + ' does not exist');
 					return Promise.reject();
 				}
-				console.log(' - verify repository');
+				console.info(' - verify repository');
 
 				if (repository.contentTypes) {
 					for (var i = 0; i < repository.contentTypes.length; i++) {
@@ -1090,9 +1098,9 @@ module.exports.unShareRepository = function (argv, done) {
 				}
 				if (unshareTypes) {
 					if (typeNames.length === 0) {
-						console.log(' - no content types in the repository');
+						console.info(' - no content types in the repository');
 					} else {
-						console.log(' - repository includes content type ' + typeNames.join(', '));
+						console.info(' - repository includes content type ' + typeNames.join(', '));
 					}
 				}
 
@@ -1110,7 +1118,7 @@ module.exports.unShareRepository = function (argv, done) {
 			.then(function (result) {
 
 				if (groupNames.length > 0) {
-					console.log(' - verify groups');
+					console.info(' - verify groups');
 
 					// verify groups
 					var allGroups = result || [];
@@ -1125,7 +1133,7 @@ module.exports.unShareRepository = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							console.error('ERROR: group ' + groupNames[i] + ' does not exist');
 							// return Promise.reject();
 						}
 					}
@@ -1149,7 +1157,7 @@ module.exports.unShareRepository = function (argv, done) {
 					}
 				}
 				if (userNames.length > 0) {
-					console.log(' - verify users');
+					console.info(' - verify users');
 				}
 
 				// verify users
@@ -1167,7 +1175,7 @@ module.exports.unShareRepository = function (argv, done) {
 						}
 					}
 					if (!found) {
-						console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						console.error('ERROR: user ' + userNames[k] + ' does not exist');
 					}
 				}
 
@@ -1205,21 +1213,21 @@ module.exports.unShareRepository = function (argv, done) {
 						}));
 					}
 					Promise.all(typePromises).then(function (results) {
-							var shareTypePromises = [];
-							for (var i = 0; i < results.length; i++) {
-								if (results[i].id) {
-									shareTypePromises.push(serverRest.performPermissionOperation({
-										server: server,
-										operation: 'unshare',
-										resourceName: results[i].name,
-										resourceType: 'type',
-										users: users,
-										groups: groups
-									}));
-								}
+						var shareTypePromises = [];
+						for (var i = 0; i < results.length; i++) {
+							if (results[i].id) {
+								shareTypePromises.push(serverRest.performPermissionOperation({
+									server: server,
+									operation: 'unshare',
+									resourceName: results[i].name,
+									resourceType: 'type',
+									users: users,
+									groups: groups
+								}));
 							}
-							return Promise.all(shareTypePromises);
-						})
+						}
+						return Promise.all(shareTypePromises);
+					})
 						.then(function (results) {
 							var unsharedTypes = [];
 							for (var i = 0; i < results.length; i++) {
@@ -1274,13 +1282,13 @@ module.exports.describeRepository = function (argv, done) {
 		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
 		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
 		if (!fs.existsSync(outputFolder)) {
-			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
 			done();
 			return;
 		}
 
 		if (!fs.statSync(outputFolder).isDirectory()) {
-			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
 			done();
 			return;
 		}
@@ -1299,10 +1307,12 @@ module.exports.describeRepository = function (argv, done) {
 		var channels = [];
 		var taxonomies = [];
 
+		// need all fields, otherwise channel language not returned
 		serverRest.getRepositoryWithName({
-				server: server,
-				name: name
-			})
+			server: server,
+			name: name,
+			fields: 'all'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -1311,7 +1321,7 @@ module.exports.describeRepository = function (argv, done) {
 				repo = result.data;
 				// console.log(repo);
 				if (!repo || !repo.id) {
-					console.log('ERROR: repository ' + name + ' does not exist');
+					console.error('ERROR: repository ' + name + ' does not exist');
 					return Promise.reject();
 				}
 
@@ -1426,7 +1436,7 @@ module.exports.shareType = function (argv, done) {
 		return;
 	}
 
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
 
 	var name = argv.name;
 	var userNames = argv.users ? argv.users.split(',') : [];
@@ -1446,30 +1456,30 @@ module.exports.shareType = function (argv, done) {
 		}
 
 		serverRest.getContentType({
-				server: server,
-				name: name
-			}).then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
+			server: server,
+			name: name
+		}).then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
 
-				console.log(' - verify type');
+			console.info(' - verify type');
 
-				var groupPromises = [];
-				groupNames.forEach(function (gName) {
-					groupPromises.push(
-						serverRest.getGroup({
-							server: server,
-							name: gName
-						}));
-				});
-				return Promise.all(groupPromises);
+			var groupPromises = [];
+			groupNames.forEach(function (gName) {
+				groupPromises.push(
+					serverRest.getGroup({
+						server: server,
+						name: gName
+					}));
+			});
+			return Promise.all(groupPromises);
 
-			})
+		})
 			.then(function (result) {
 
 				if (groupNames.length > 0) {
-					console.log(' - verify groups');
+					console.info(' - verify groups');
 
 					// verify groups
 					var allGroups = result || [];
@@ -1483,7 +1493,7 @@ module.exports.shareType = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							console.error('ERROR: group ' + groupNames[i] + ' does not exist');
 						}
 					}
 				}
@@ -1506,7 +1516,7 @@ module.exports.shareType = function (argv, done) {
 					}
 				}
 				if (userNames.length > 0) {
-					console.log(' - verify users');
+					console.info(' - verify users');
 				}
 
 				// verify users
@@ -1523,7 +1533,7 @@ module.exports.shareType = function (argv, done) {
 						}
 					}
 					if (!found) {
-						console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						console.error('ERROR: user ' + userNames[k] + ' does not exist');
 					}
 				}
 
@@ -1625,7 +1635,7 @@ module.exports.unshareType = function (argv, done) {
 		return;
 	}
 
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
 
 	var name = argv.name;
 	var userNames = argv.users ? argv.users.split(',') : [];
@@ -1638,34 +1648,34 @@ module.exports.unshareType = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getContentType({
-				server: server,
-				name: name
-			}).then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
+			server: server,
+			name: name
+		}).then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
 
-				var groupPromises = [];
-				groupNames.forEach(function (gName) {
-					groupPromises.push(
-						serverRest.getGroup({
-							server: server,
-							name: gName
-						}));
-				});
-				return Promise.all(groupPromises);
+			var groupPromises = [];
+			groupNames.forEach(function (gName) {
+				groupPromises.push(
+					serverRest.getGroup({
+						server: server,
+						name: gName
+					}));
+			});
+			return Promise.all(groupPromises);
 
-			})
+		})
 			.then(function (result) {
 
 				if (groupNames.length > 0) {
-					console.log(' - verify groups');
+					console.info(' - verify groups');
 
 					// verify groups
 					var allGroups = result || [];
@@ -1680,7 +1690,7 @@ module.exports.unshareType = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							console.error('ERROR: group ' + groupNames[i] + ' does not exist');
 						}
 					}
 				}
@@ -1703,7 +1713,7 @@ module.exports.unshareType = function (argv, done) {
 					}
 				}
 				if (userNames.length > 0) {
-					console.log(' - verify users');
+					console.info(' - verify users');
 				}
 
 				// verify users
@@ -1721,7 +1731,7 @@ module.exports.unshareType = function (argv, done) {
 						}
 					}
 					if (!found) {
-						console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						console.error('ERROR: user ' + userNames[k] + ' does not exist');
 					}
 				}
 
@@ -1773,8 +1783,6 @@ module.exports.downloadType = function (argv, done) {
 		return;
 	}
 
-	console.log(' - server: ' + server.url);
-
 	var names = argv.name.split(',');
 	var goodNames = [];
 	var types = [];
@@ -1788,7 +1796,7 @@ module.exports.downloadType = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -1866,19 +1874,20 @@ module.exports.downloadType = function (argv, done) {
 				});
 
 				if (customEditors.length > 0) {
-					console.log(' - will download content field editor ' + customEditors.join(', '));
+					console.info(' - will download content field editor ' + customEditors.join(', '));
 				}
 				if (customForms.length > 0) {
-					console.log(' - will download content form ' + customForms.join(', '));
+					console.info(' - will download content form ' + customForms.join(', '));
 				}
 				if (contentLayouts.length > 0) {
-					console.log(' - will download content layout ' + contentLayouts.join(', '));
+					console.info(' - will download content layout ' + contentLayouts.join(', '));
 				}
 
 				if (comps.length === 0) {
 					done(true);
 				} else {
-					componentUtils.downloadComponents(server, comps, argv)
+					var noMsg = console.showInfo() ? false : true;
+					componentUtils.downloadComponents(server, comps, argv, noMsg)
 						.then(function (result) {
 							done(result.err ? false : true);
 						});
@@ -1909,7 +1918,8 @@ module.exports.uploadType = function (argv, done) {
 		return;
 	}
 
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
+
 	var isFile = typeof argv.file === 'string' && argv.file.toLowerCase() === 'true';
 	var allNames = argv.name.split(',');
 	var names = [];
@@ -1933,7 +1943,7 @@ module.exports.uploadType = function (argv, done) {
 			filePath = path.resolve(filePath);
 
 			if (!fs.existsSync(filePath)) {
-				console.log('ERROR: file ' + filePath + ' does not exist');
+				console.error('ERROR: file ' + filePath + ' does not exist');
 			} else {
 				var typeObj;
 				try {
@@ -1942,7 +1952,7 @@ module.exports.uploadType = function (argv, done) {
 
 				}
 				if (!typeObj || !typeObj.id || !typeObj.name || !typeObj.typeCategory) {
-					console.log('ERROR: file ' + filePath + ' is not a valid type definition');
+					console.error('ERROR: file ' + filePath + ' is not a valid type definition');
 				} else {
 					if (!names.includes(typeObj.name)) {
 						names.push(typeObj.name);
@@ -1954,7 +1964,7 @@ module.exports.uploadType = function (argv, done) {
 		} else {
 			filePath = path.join(typesSrcDir, name, name + '.json');
 			if (!fs.existsSync(filePath)) {
-				console.log('ERROR: type ' + name + ' does not exist');
+				console.error('ERROR: type ' + name + ' does not exist');
 			} else if (!names.includes(name)) {
 				names.push(name);
 				typePaths.push(filePath);
@@ -2015,13 +2025,13 @@ module.exports.uploadType = function (argv, done) {
 		}
 
 		if (customEditors.length > 0) {
-			console.log(' - will upload content field editor ' + customEditors.join(', '));
+			console.info(' - will upload content field editor ' + customEditors.join(', '));
 		}
 		if (customForms.length > 0) {
-			console.log(' - will upload content form ' + customForms.join(', '));
+			console.info(' - will upload content form ' + customForms.join(', '));
 		}
 		if (contentLayouts.length > 0) {
-			console.log(' - will upload content layout ' + contentLayouts.join(', '));
+			console.info(' - will upload content layout ' + contentLayouts.join(', '));
 		}
 
 		_uploadTypeComponents(server, comps)
@@ -2059,10 +2069,10 @@ module.exports.uploadType = function (argv, done) {
 				}
 
 				if (typesToCreate.length > 0) {
-					console.log(' - will create type ' + typeNamesToCreate.join(', '));
+					console.info(' - will create type ' + typeNamesToCreate.join(', '));
 				}
 				if (typesToUpdate.length > 0) {
-					console.log(' - will update type ' + typeNamesToUpdate.join(', '));
+					console.info(' - will update type ' + typeNamesToUpdate.join(', '));
 				}
 
 				return _createContentTypes(server, typesToCreate);
@@ -2123,7 +2133,7 @@ var _uploadTypeComponents = function (server, allcomps) {
 		if (fs.existsSync(path.join(componentsSrcDir, comp))) {
 			comps.push(comp);
 		} else {
-			console.log('ERROR: component ' + comp + ' does not exist');
+			console.error('ERROR: component ' + comp + ' does not exist');
 		}
 	});
 
@@ -2143,24 +2153,25 @@ var _uploadTypeComponents = function (server, allcomps) {
 					var publish = true;
 
 					var doUploadComp = comps.reduce(function (compPromise, comp) {
-							return compPromise.then(function (result) {
-								var name = comp;
-								var zipfile = path.join(projectDir, "dist", name) + ".zip";
-								return componentUtils.uploadComponent(server, folder, folderId, zipfile, name, publish)
-									.then(function (result) {
-										if (result && result.fileId) {
-											// delete the zip file
-											return serverRest.deleteFile({
-												server: server,
-												fFileGUID: result.fileId
-											}).then(function (result) {
-												// done
-											});
-										}
+						return compPromise.then(function (result) {
+							var name = comp;
+							var zipfile = path.join(projectDir, "dist", name) + ".zip";
+							var noMsg = console.showInfo() ? false : true;
+							return componentUtils.uploadComponent(server, folder, folderId, zipfile, name, publish, noMsg)
+								.then(function (result) {
+									if (result && result.fileId) {
+										// delete the zip file
+										return serverRest.deleteFile({
+											server: server,
+											fFileGUID: result.fileId
+										}).then(function (result) {
+											// done
+										});
+									}
 
-									});
-							});
-						},
+								});
+						});
+					},
 						// Start with a previousPromise value that is a resolved promise 
 						Promise.resolve({}));
 
@@ -2181,22 +2192,22 @@ var _createContentTypes = function (server, typePaths) {
 	return new Promise(function (resolve, reject) {
 		var results = [];
 		var doCreateType = typePaths.reduce(function (typePromise, filePath) {
-				return typePromise.then(function (result) {
-					var typeObj;
-					try {
-						typeObj = JSON.parse(fs.readFileSync(filePath));
-					} catch (e) {
-						console.log(e);
-					}
+			return typePromise.then(function (result) {
+				var typeObj;
+				try {
+					typeObj = JSON.parse(fs.readFileSync(filePath));
+				} catch (e) {
+					console.log(e);
+				}
 
-					return serverRest.createContentType({
-						server: server,
-						type: typeObj
-					}).then(function (result) {
-						results.push(result);
-					});
+				return serverRest.createContentType({
+					server: server,
+					type: typeObj
+				}).then(function (result) {
+					results.push(result);
 				});
-			},
+			});
+		},
 			// Start with a previousPromise value that is a resolved promise 
 			Promise.resolve({}));
 
@@ -2230,22 +2241,22 @@ module.exports.copyType = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getContentType({
-				server: server,
-				name: srcTypeName,
-				expand: 'all'
-			})
+			server: server,
+			name: srcTypeName,
+			expand: 'all'
+		})
 			.then(function (result) {
 				if (!result || result.err || !result.id) {
 					return Promise.reject();
 				}
 
-				console.log(' - validate type ' + srcTypeName);
+				console.info(' - validate type ' + srcTypeName);
 				var typeObj = result;
 				typeObj.name = name;
 				typeObj.displayName = displayName;
@@ -2289,7 +2300,7 @@ module.exports.createCollection = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
 
 	var name = argv.name;
 	var repositoryName = argv.repository;
@@ -2309,9 +2320,10 @@ module.exports.createCollection = function (argv, done) {
 		var exitCode;
 
 		serverRest.getRepositoryWithName({
-				server: server,
-				name: repositoryName
-			})
+			server: server,
+			name: repositoryName,
+			fields: 'channels'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -2319,11 +2331,11 @@ module.exports.createCollection = function (argv, done) {
 
 				repository = result.data;
 				if (!repository || !repository.id) {
-					console.log('ERROR: repository ' + repositoryName + ' does not exist');
+					console.error('ERROR: repository ' + repositoryName + ' does not exist');
 					return Promise.reject();
 				}
 
-				console.log(' - get repository (Id: ' + repository.id + ')');
+				console.info(' - get repository (Id: ' + repository.id + ')');
 
 				return serverRest.getCollections({
 					server: server,
@@ -2376,7 +2388,7 @@ module.exports.createCollection = function (argv, done) {
 						}
 
 						if (!channelExist) {
-							console.log('ERROR: channel ' + channelName + ' does not exist');
+							console.error('ERROR: channel ' + channelName + ' does not exist');
 						} else {
 							// check if the channel is added to the repository
 							var channelInRepo = false;
@@ -2387,7 +2399,7 @@ module.exports.createCollection = function (argv, done) {
 								}
 							}
 							if (!channelInRepo) {
-								console.log('ERROR: channel ' + channelName + ' is not a publishing channel for repository ' + repositoryName);
+								console.error('ERROR: channel ' + channelName + ' is not a publishing channel for repository ' + repositoryName);
 							} else {
 								defaultChannels.push({
 									id: channel.id,
@@ -2398,7 +2410,7 @@ module.exports.createCollection = function (argv, done) {
 						}
 					});
 
-					console.log(' - default channels: ' + defaultChannelNames);
+					console.info(' - default channels: ' + defaultChannelNames);
 				}
 
 				return serverRest.createCollection({
@@ -2440,7 +2452,7 @@ module.exports.controlCollection = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
 
 	var action = argv.action;
 	var repositoryName = argv.repository;
@@ -2452,7 +2464,7 @@ module.exports.controlCollection = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -2461,9 +2473,10 @@ module.exports.controlCollection = function (argv, done) {
 		var collections = [];
 
 		serverRest.getRepositoryWithName({
-				server: server,
-				name: repositoryName
-			})
+			server: server,
+			name: repositoryName,
+			fields: 'channels'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -2471,15 +2484,17 @@ module.exports.controlCollection = function (argv, done) {
 
 				repository = result.data;
 				if (!repository || !repository.id) {
-					console.log('ERROR: repository ' + repositoryName + ' does not exist');
+					console.error('ERROR: repository ' + repositoryName + ' does not exist');
 					return Promise.reject();
 				}
 
-				console.log(' - get repository (Id: ' + repository.id + ')');
+				console.info(' - get repository (Id: ' + repository.id + ')');
 
+				// Get all fields for updating
 				return serverRest.getCollections({
 					server: server,
-					repositoryId: repository.id
+					repositoryId: repository.id,
+					fields: 'all'
 				});
 			})
 			.then(function (result) {
@@ -2493,7 +2508,7 @@ module.exports.controlCollection = function (argv, done) {
 					repoCollectionNames.push(col.name);
 				});
 				if (repoCollectionNames.length > 0) {
-					console.log(' - repository collections: ' + repoCollectionNames);
+					console.info(' - repository collections: ' + repoCollectionNames);
 				}
 
 				collectionNames.forEach(function (name) {
@@ -2506,7 +2521,7 @@ module.exports.controlCollection = function (argv, done) {
 						}
 					}
 					if (!found) {
-						console.log('ERROR: collection ' + name + ' does not exist');
+						console.error('ERROR: collection ' + name + ' does not exist');
 					}
 				});
 
@@ -2565,7 +2580,7 @@ var _updateCollection = function (server, repository, collections, channelNames,
 					}
 
 					if (!channelExist) {
-						console.log('ERROR: channel ' + channelName + ' does not exist');
+						console.error('ERROR: channel ' + channelName + ' does not exist');
 					} else {
 						// check if the channel is added to the repository
 						var channelInRepo = false;
@@ -2576,7 +2591,7 @@ var _updateCollection = function (server, repository, collections, channelNames,
 							}
 						}
 						if (!channelInRepo) {
-							console.log('ERROR: channel ' + channelName + ' is not a publishing channel for repository ' + repository.name);
+							console.error('ERROR: channel ' + channelName + ' is not a publishing channel for repository ' + repository.name);
 						} else {
 							defaultChannels.push({
 								id: channel.id,
@@ -2587,12 +2602,12 @@ var _updateCollection = function (server, repository, collections, channelNames,
 					}
 				});
 
-				console.log(' - channels to ' + action.substring(0, action.indexOf('-')) + ': ' + defaultChannelNames);
+				console.info(' - channels to ' + action.substring(0, action.indexOf('-')) + ': ' + defaultChannelNames);
 
 				var updateCollectionPromises = [];
 
 				if (defaultChannels.length === 0) {
-					console.log('ERROR: no valid channel to add or remove');
+					console.error('ERROR: no valid channel to add or remove');
 					return Promise.reject();
 
 				} else {
@@ -2691,37 +2706,37 @@ var _updateCollectionPermission = function (server, repository, collections, use
 		});
 		Promise.all(groupPromises).then(function (result) {
 
-				if (groupNames.length > 0) {
-					console.log(' - verify groups');
+			if (groupNames.length > 0) {
+				console.info(' - verify groups');
 
-					// verify groups
-					var allGroups = result || [];
-					for (var i = 0; i < groupNames.length; i++) {
-						var found = false;
-						for (var j = 0; j < allGroups.length; j++) {
-							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
-								found = true;
-								groups.push(allGroups[j]);
-								goodGroupNames.push(groupNames[i]);
-								break;
-							}
-						}
-						if (!found) {
-							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+				// verify groups
+				var allGroups = result || [];
+				for (var i = 0; i < groupNames.length; i++) {
+					var found = false;
+					for (var j = 0; j < allGroups.length; j++) {
+						if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
+							found = true;
+							groups.push(allGroups[j]);
+							goodGroupNames.push(groupNames[i]);
+							break;
 						}
 					}
+					if (!found) {
+						console.error('ERROR: group ' + groupNames[i] + ' does not exist');
+					}
 				}
+			}
 
-				var usersPromises = [];
-				for (var i = 0; i < userNames.length; i++) {
-					usersPromises.push(serverRest.getUser({
-						server: server,
-						name: userNames[i]
-					}));
-				}
+			var usersPromises = [];
+			for (var i = 0; i < userNames.length; i++) {
+				usersPromises.push(serverRest.getUser({
+					server: server,
+					name: userNames[i]
+				}));
+			}
 
-				return Promise.all(usersPromises);
-			})
+			return Promise.all(usersPromises);
+		})
 			.then(function (results) {
 				var allUsers = [];
 				for (var i = 0; i < results.length; i++) {
@@ -2730,7 +2745,7 @@ var _updateCollectionPermission = function (server, repository, collections, use
 					}
 				}
 				if (userNames.length > 0) {
-					console.log(' - verify users');
+					console.info(' - verify users');
 				}
 
 				// verify users
@@ -2748,7 +2763,7 @@ var _updateCollectionPermission = function (server, repository, collections, use
 						}
 					}
 					if (!found) {
-						console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						console.error('ERROR: user ' + userNames[k] + ' does not exist');
 					}
 				}
 
@@ -2775,103 +2790,103 @@ var _updateCollectionPermission = function (server, repository, collections, use
 				// console.log(JSON.stringify(results, null, 4));
 				var actionErr;
 				var doAction = collections.reduce(function (permPromise, collection) {
-						return permPromise.then(function (result) {
+					return permPromise.then(function (result) {
 
-							if (action === 'share') {
-								goodUserName = [];
-								goodGroupNames = [];
-								var existingPermissions = [];
-								var i, j;
+						if (action === 'share') {
+							goodUserName = [];
+							goodGroupNames = [];
+							var existingPermissions = [];
+							var i, j;
 
-								for (i = 0; i < results.length; i++) {
-									if (results[i] && results[i].resource === collection.id) {
-										existingPermissions = results[i].permissions || [];
+							for (i = 0; i < results.length; i++) {
+								if (results[i] && results[i].resource === collection.id) {
+									existingPermissions = results[i].permissions || [];
+									break;
+								}
+							}
+
+							var groupsToGrant = [];
+							for (i = 0; i < groups.length; i++) {
+								var groupGranted = false;
+								for (j = 0; j < existingPermissions.length; j++) {
+									var perm = existingPermissions[j];
+									if (perm.roleName === role && perm.type === 'group' &&
+										perm.groupType === groups[i].groupOriginType && perm.fullName === groups[i].name) {
+										groupGranted = true;
 										break;
 									}
 								}
-
-								var groupsToGrant = [];
-								for (i = 0; i < groups.length; i++) {
-									var groupGranted = false;
-									for (j = 0; j < existingPermissions.length; j++) {
-										var perm = existingPermissions[j];
-										if (perm.roleName === role && perm.type === 'group' &&
-											perm.groupType === groups[i].groupOriginType && perm.fullName === groups[i].name) {
-											groupGranted = true;
-											break;
-										}
-									}
-									if (groupGranted) {
-										console.log(' - group ' + groups[i].name + ' already granted with role ' + role + ' on collection ' + collection.name);
-									} else {
-										groupsToGrant.push(groups[i]);
-										goodGroupNames.push(groups[i].name);
-									}
+								if (groupGranted) {
+									console.log(' - group ' + groups[i].name + ' already granted with role ' + role + ' on collection ' + collection.name);
+								} else {
+									groupsToGrant.push(groups[i]);
+									goodGroupNames.push(groups[i].name);
 								}
-
-								var usersToGrant = [];
-								for (i = 0; i < users.length; i++) {
-									var granted = false;
-									for (j = 0; j < existingPermissions.length; j++) {
-										var perm = existingPermissions[j];
-										if (perm.roleName === role && perm.type === 'user' && perm.id === users[i].loginName) {
-											granted = true;
-											break;
-										}
-									}
-									if (granted) {
-										console.log(' - user ' + users[i].loginName + ' already granted with role ' + role + ' on collection ' + collection.name);
-									} else {
-										usersToGrant.push(users[i]);
-										goodUserName.push(users[i].loginName);
-									}
-								}
-
-								return serverRest.performPermissionOperation({
-									server: server,
-									operation: 'share',
-									resourceId: collection.id,
-									resourceType: 'collection',
-									role: role,
-									users: usersToGrant,
-									groups: groupsToGrant
-								}).then(function (result) {
-									if (result.err) {
-										actionErr = 'err';
-									} else {
-										if (goodUserName.length > 0) {
-											console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on collection ' + collection.name);
-										}
-										if (goodGroupNames.length > 0) {
-											console.log(' - group ' + (goodGroupNames.join(', ')) + ' granted with role ' + role + ' on collection ' + collection.name);
-										}
-									}
-								});
-
-							} else {
-
-								return serverRest.performPermissionOperation({
-									server: server,
-									operation: 'unshare',
-									resourceId: collection.id,
-									resourceType: 'collection',
-									users: users,
-									groups: groups
-								}).then(function (result) {
-									if (result.err) {
-										actionErr = 'err';
-									} else {
-										if (goodUserName.length > 0) {
-											console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to collection ' + collection.name + ' removed');
-										}
-										if (goodGroupNames.length > 0) {
-											console.log(' - the access of group ' + (goodGroupNames.join(', ')) + ' to collection ' + collection.name + ' removed');
-										}
-									}
-								});
 							}
-						});
-					},
+
+							var usersToGrant = [];
+							for (i = 0; i < users.length; i++) {
+								var granted = false;
+								for (j = 0; j < existingPermissions.length; j++) {
+									var perm = existingPermissions[j];
+									if (perm.roleName === role && perm.type === 'user' && perm.id === users[i].loginName) {
+										granted = true;
+										break;
+									}
+								}
+								if (granted) {
+									console.log(' - user ' + users[i].loginName + ' already granted with role ' + role + ' on collection ' + collection.name);
+								} else {
+									usersToGrant.push(users[i]);
+									goodUserName.push(users[i].loginName);
+								}
+							}
+
+							return serverRest.performPermissionOperation({
+								server: server,
+								operation: 'share',
+								resourceId: collection.id,
+								resourceType: 'collection',
+								role: role,
+								users: usersToGrant,
+								groups: groupsToGrant
+							}).then(function (result) {
+								if (result.err) {
+									actionErr = 'err';
+								} else {
+									if (goodUserName.length > 0) {
+										console.log(' - user ' + (goodUserName.join(', ')) + ' granted with role ' + role + ' on collection ' + collection.name);
+									}
+									if (goodGroupNames.length > 0) {
+										console.log(' - group ' + (goodGroupNames.join(', ')) + ' granted with role ' + role + ' on collection ' + collection.name);
+									}
+								}
+							});
+
+						} else {
+
+							return serverRest.performPermissionOperation({
+								server: server,
+								operation: 'unshare',
+								resourceId: collection.id,
+								resourceType: 'collection',
+								users: users,
+								groups: groups
+							}).then(function (result) {
+								if (result.err) {
+									actionErr = 'err';
+								} else {
+									if (goodUserName.length > 0) {
+										console.log(' - the access of user ' + (goodUserName.join(', ')) + ' to collection ' + collection.name + ' removed');
+									}
+									if (goodGroupNames.length > 0) {
+										console.log(' - the access of group ' + (goodGroupNames.join(', ')) + ' to collection ' + collection.name + ' removed');
+									}
+								}
+							});
+						}
+					});
+				},
 					Promise.resolve({}));
 
 				doAction.then(function (result) {
@@ -2883,7 +2898,7 @@ var _updateCollectionPermission = function (server, repository, collections, use
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				resolve({
 					err: 'err'
@@ -2908,7 +2923,7 @@ module.exports.createChannel = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
 
 	var name = argv.name;
 	var desc = argv.description;
@@ -2920,14 +2935,14 @@ module.exports.createChannel = function (argv, done) {
 	var exitCode;
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getChannels({
-				server: server
-			})
+			server: server
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -2959,11 +2974,11 @@ module.exports.createChannel = function (argv, done) {
 				}
 
 				if (localizationPolicyName && !localizationId) {
-					console.log('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
+					console.error('ERROR: localization policy ' + localizationPolicyName + ' does not exist');
 					return Promise.reject();
 				}
 				if (localizationPolicyName) {
-					console.log(' - verify localization policy ');
+					console.info(' - verify localization policy ');
 				}
 
 				return serverRest.createChannel({
@@ -3006,7 +3021,7 @@ module.exports.shareChannel = function (argv, done) {
 		return;
 	}
 
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
 
 	var name = argv.name;
 	var userNames = argv.users ? argv.users.split(',') : [];
@@ -3027,39 +3042,39 @@ module.exports.shareChannel = function (argv, done) {
 		}
 
 		serverRest.getChannelWithName({
-				server: server,
-				name: name
-			}).then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				} else if (!result.data) {
-					console.log('ERROR: channel ' + name + ' not found');
-					return Promise.reject();
-				}
-				channel = result.data;
+			server: server,
+			name: name
+		}).then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			} else if (!result.data) {
+				console.error('ERROR: channel ' + name + ' not found');
+				return Promise.reject();
+			}
+			channel = result.data;
 
-				if (channel.isSiteChannel) {
-					console.log('ERROR: channel ' + name + ' is a site channel');
-					return Promise.reject();
-				}
+			if (channel.isSiteChannel) {
+				console.error('ERROR: channel ' + name + ' is a site channel');
+				return Promise.reject();
+			}
 
-				console.log(' - verify channel');
+			console.info(' - verify channel');
 
-				var groupPromises = [];
-				groupNames.forEach(function (gName) {
-					groupPromises.push(
-						serverRest.getGroup({
-							server: server,
-							name: gName
-						}));
-				});
-				return Promise.all(groupPromises);
+			var groupPromises = [];
+			groupNames.forEach(function (gName) {
+				groupPromises.push(
+					serverRest.getGroup({
+						server: server,
+						name: gName
+					}));
+			});
+			return Promise.all(groupPromises);
 
-			})
+		})
 			.then(function (result) {
 
 				if (groupNames.length > 0) {
-					console.log(' - verify groups');
+					console.info(' - verify groups');
 
 					// verify groups
 					var allGroups = result || [];
@@ -3073,7 +3088,7 @@ module.exports.shareChannel = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							console.error('ERROR: group ' + groupNames[i] + ' does not exist');
 						}
 					}
 				}
@@ -3096,7 +3111,7 @@ module.exports.shareChannel = function (argv, done) {
 					}
 				}
 				if (userNames.length > 0) {
-					console.log(' - verify users');
+					console.info(' - verify users');
 				}
 
 				// verify users
@@ -3113,7 +3128,7 @@ module.exports.shareChannel = function (argv, done) {
 						}
 					}
 					if (!found) {
-						console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						console.error('ERROR: user ' + userNames[k] + ' does not exist');
 					}
 				}
 
@@ -3215,7 +3230,7 @@ module.exports.unshareChannel = function (argv, done) {
 		return;
 	}
 
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
 
 	var name = argv.name;
 	var userNames = argv.users ? argv.users.split(',') : [];
@@ -3228,45 +3243,45 @@ module.exports.unshareChannel = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getChannelWithName({
-				server: server,
-				name: name
-			}).then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				} else if (!result.data) {
-					console.log('ERROR: channel ' + name + ' not found');
-					return Promise.reject();
-				}
-				channel = result.data;
+			server: server,
+			name: name
+		}).then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			} else if (!result.data) {
+				console.error('ERROR: channel ' + name + ' not found');
+				return Promise.reject();
+			}
+			channel = result.data;
 
-				if (channel.isSiteChannel) {
-					console.log('ERROR: channel ' + name + ' is a site channel');
-					return Promise.reject();
-				}
+			if (channel.isSiteChannel) {
+				console.error('ERROR: channel ' + name + ' is a site channel');
+				return Promise.reject();
+			}
 
-				console.log(' - verify channel');
+			console.info(' - verify channel');
 
-				var groupPromises = [];
-				groupNames.forEach(function (gName) {
-					groupPromises.push(
-						serverRest.getGroup({
-							server: server,
-							name: gName
-						}));
-				});
-				return Promise.all(groupPromises);
+			var groupPromises = [];
+			groupNames.forEach(function (gName) {
+				groupPromises.push(
+					serverRest.getGroup({
+						server: server,
+						name: gName
+					}));
+			});
+			return Promise.all(groupPromises);
 
-			})
+		})
 			.then(function (result) {
 
 				if (groupNames.length > 0) {
-					console.log(' - verify groups');
+					console.info(' - verify groups');
 
 					// verify groups
 					var allGroups = result || [];
@@ -3281,7 +3296,7 @@ module.exports.unshareChannel = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log('ERROR: group ' + groupNames[i] + ' does not exist');
+							console.error('ERROR: group ' + groupNames[i] + ' does not exist');
 						}
 					}
 				}
@@ -3304,7 +3319,7 @@ module.exports.unshareChannel = function (argv, done) {
 					}
 				}
 				if (userNames.length > 0) {
-					console.log(' - verify users');
+					console.info(' - verify users');
 				}
 
 				// verify users
@@ -3322,7 +3337,7 @@ module.exports.unshareChannel = function (argv, done) {
 						}
 					}
 					if (!found) {
-						console.log('ERROR: user ' + userNames[k] + ' does not exist');
+						console.error('ERROR: user ' + userNames[k] + ' does not exist');
 					}
 				}
 
@@ -3384,13 +3399,13 @@ module.exports.describeChannel = function (argv, done) {
 		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
 		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
 		if (!fs.existsSync(outputFolder)) {
-			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
 			done();
 			return;
 		}
 
 		if (!fs.statSync(outputFolder).isDirectory()) {
-			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
 			done();
 			return;
 		}
@@ -3400,7 +3415,7 @@ module.exports.describeChannel = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -3409,9 +3424,10 @@ module.exports.describeChannel = function (argv, done) {
 		var policyName;
 
 		serverRest.getChannelWithName({
-				server: server,
-				name: name
-			})
+			server: server,
+			name: name,
+			fields: 'channelType,publishPolicy,localizationPolicy,channelTokens'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -3419,7 +3435,7 @@ module.exports.describeChannel = function (argv, done) {
 
 				channel = result.data;
 				if (!channel || !channel.id) {
-					console.log('ERROR: channel ' + name + ' does not exist');
+					console.error('ERROR: channel ' + name + ' does not exist');
 					return Promise.reject();
 				}
 
@@ -3531,7 +3547,7 @@ module.exports.listEditorialPermission = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -3539,9 +3555,9 @@ module.exports.listEditorialPermission = function (argv, done) {
 		var repository;
 
 		serverRest.getRepositoryWithName({
-				server: server,
-				name: name
-			})
+			server: server,
+			name: name
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -3549,11 +3565,11 @@ module.exports.listEditorialPermission = function (argv, done) {
 
 				repository = result.data;
 				if (!repository || !repository.id) {
-					console.log('ERROR: repository ' + name + ' does not exist');
+					console.error('ERROR: repository ' + name + ' does not exist');
 					return Promise.reject();
 				}
 
-				console.log(' - get repository (Id: ' + repository.id + ')');
+				console.info(' - get repository (Id: ' + repository.id + ')');
 
 				return serverRest.getPermissionSets({
 					server: server,
@@ -3576,7 +3592,7 @@ module.exports.listEditorialPermission = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -3703,7 +3719,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -3731,9 +3747,9 @@ module.exports.setEditorialPermission = function (argv, done) {
 
 		var err;
 		serverRest.getRepositoryWithName({
-				server: server,
-				name: name
-			})
+			server: server,
+			name: name
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -3741,11 +3757,11 @@ module.exports.setEditorialPermission = function (argv, done) {
 
 				repository = result.data;
 				if (!repository || !repository.id) {
-					console.log('ERROR: repository ' + name + ' does not exist');
+					console.error('ERROR: repository ' + name + ' does not exist');
 					return Promise.reject();
 				}
 
-				console.log(' - get repository (Id: ' + repository.id + ')');
+				console.info(' - get repository (Id: ' + repository.id + ')');
 
 				var groupPromises = [];
 				groupNames.forEach(function (gName) {
@@ -3778,11 +3794,11 @@ module.exports.setEditorialPermission = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log(' - WARNING: group ' + groupNames[i] + ' does not exist');
+							console.warn(' - WARNING: group ' + groupNames[i] + ' does not exist');
 						}
 					}
 					if (goodGroupNames.length) {
-						console.log(' - valid groups: ' + goodGroupNames);
+						console.info(' - valid groups: ' + goodGroupNames);
 					}
 					// console.log(groups);
 				}
@@ -3823,17 +3839,17 @@ module.exports.setEditorialPermission = function (argv, done) {
 							}
 						}
 						if (!found) {
-							console.log(' - WARNING: user ' + userNames[k] + ' does not exist');
+							console.warn(' - WARNING: user ' + userNames[k] + ' does not exist');
 						}
 					}
 					if (goodUserNames.length) {
-						console.log(' - valid user: ' + goodUserNames);
+						console.info(' - valid user: ' + goodUserNames);
 					}
 					// console.log(users);
 				}
 
 				if (principals.length === 0) {
-					console.log('ERROR: no valid user nor group');
+					console.error('ERROR: no valid user nor group');
 					return Promise.reject();
 				}
 
@@ -3876,12 +3892,12 @@ module.exports.setEditorialPermission = function (argv, done) {
 							}
 						}
 						if (!found && typeNames[k] !== ANY_TYPE) {
-							console.log(' - WARNING: asset type ' + typeNames[k] + ' does not exist, ignore');
+							console.warn(' - WARNING: asset type ' + typeNames[k] + ' does not exist, ignore');
 						}
 					}
 
 					if (goodTypeNames.length > 0) {
-						console.log(' - valid asset types: ' + goodTypeNames);
+						console.info(' - valid asset types: ' + goodTypeNames);
 					}
 					if (typeNames.includes(ANY_TYPE)) {
 						types.push({
@@ -3936,7 +3952,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 								}
 							}
 							if (!found) {
-								console.log(' - WARNING: taxonomy ' + taxName + ' does not exist, ignore');
+								console.warn(' - WARNING: taxonomy ' + taxName + ' does not exist, ignore');
 							}
 						}
 					}
@@ -3946,10 +3962,12 @@ module.exports.setEditorialPermission = function (argv, done) {
 
 				var categoryPromises = [];
 				for (var i = 0; i < taxonomies.length; i++) {
+					// Need all to get whole hierarchy
 					categoryPromises.push(serverRest.getCategories({
 						server: server,
 						taxonomyId: taxonomies[i].id,
-						taxonomyName: taxonomies[i].name
+						taxonomyName: taxonomies[i].name,
+						fields: 'all'
 					}));
 				}
 
@@ -4018,13 +4036,13 @@ module.exports.setEditorialPermission = function (argv, done) {
 							}
 
 							if (!found) {
-								console.log(' - WARNING: category ' + cateName + ' does not exist, ignore');
+								console.warn(' - WARNING: category ' + cateName + ' does not exist, ignore');
 							}
 						}
 					}
 
 					if (goodCateNames.length > 0) {
-						console.log(' - valid categories: ' + goodCateNames);
+						console.info(' - valid categories: ' + goodCateNames);
 					}
 
 					if (categoryNames.includes(ANY_CATEGORY)) {
@@ -4039,7 +4057,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 				}
 
 				if (types.length === 0 && taxCategories.length === 0) {
-					console.log('ERROR: no valid asset type nor category');
+					console.error('ERROR: no valid asset type nor category');
 					return Promise.reject();
 				}
 
@@ -4175,11 +4193,11 @@ module.exports.setEditorialPermission = function (argv, done) {
 					}
 
 					if (!anyTypeExist && !anyTaxExist) {
-						console.log('ERROR: "Any" content type rule and "Any" taxonomy category rule are missing for ' + pal.name);
+						console.error('ERROR: "Any" content type rule and "Any" taxonomy category rule are missing for ' + pal.name);
 					} else if (!anyTypeExist) {
-						console.log('ERROR: "Any" content type rule is missing for ' + pal.name);
+						console.error('ERROR: "Any" content type rule is missing for ' + pal.name);
 					} else if (!anyTaxExist) {
-						console.log('ERROR: "Any" taxonomy category rule is missing for ' + pal.name);
+						console.error('ERROR: "Any" taxonomy category rule is missing for ' + pal.name);
 					} else {
 						if (found) {
 							// update permission for the principal
@@ -4241,7 +4259,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 					done();
 				}
 				done();
@@ -4257,23 +4275,23 @@ var _setPermissions = function (server, repository, permissions, action) {
 		}
 		var err;
 		var doSet = permissions.reduce(function (setPromise, permission) {
-				return setPromise.then(function (result) {
-					return serverRest.setPermissionSets({
-							server: server,
-							id: repository.id,
-							name: repository.name,
-							permissions: permission,
-							action: action
-						})
-						.then(function (result) {
-							if (!result || result.err) {
-								err = 'err';
-							} else {
-								console.log(' - ' + action + ' editorial permissions for ' + (result.principal && result.principal.name));
-							}
-						});
-				});
-			},
+			return setPromise.then(function (result) {
+				return serverRest.setPermissionSets({
+					server: server,
+					id: repository.id,
+					name: repository.name,
+					permissions: permission,
+					action: action
+				})
+					.then(function (result) {
+						if (!result || result.err) {
+							err = 'err';
+						} else {
+							console.log(' - ' + action + ' editorial permissions for ' + (result.principal && result.principal.name));
+						}
+					});
+			});
+		},
 			// Start with a previousPromise value that is a resolved promise 
 			Promise.resolve({}));
 
@@ -4307,14 +4325,15 @@ module.exports.listEditorialRole = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getEditorialRoles({
-				server: server
-			})
+			server: server,
+			fields: 'all'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -4333,7 +4352,7 @@ module.exports.listEditorialRole = function (argv, done) {
 						}
 					});
 					if (name && !displayed) {
-						console.log('ERROR: editorial role ' + name + ' does not exist');
+						console.error('ERROR: editorial role ' + name + ' does not exist');
 						exitCode = 1;
 					}
 				}
@@ -4346,7 +4365,7 @@ module.exports.listEditorialRole = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -4461,15 +4480,17 @@ module.exports.createEditorialRole = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 		var exitCode;
+		// CAAS API does not support specific field
 		serverRest.getEditorialRoleWithName({
-				server: server,
-				name: name
-			})
+			server: server,
+			name: name,
+			fields: 'all'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -4501,7 +4522,7 @@ module.exports.createEditorialRole = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done(exitCode);
 			});
@@ -4534,7 +4555,7 @@ module.exports.setEditorialRole = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -4553,10 +4574,12 @@ module.exports.setEditorialRole = function (argv, done) {
 
 		var role;
 
+		// CAAS API does not support specific field
 		serverRest.getEditorialRoleWithName({
-				server: server,
-				name: name
-			})
+			server: server,
+			name: name,
+			fields: 'all'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -4564,10 +4587,10 @@ module.exports.setEditorialRole = function (argv, done) {
 
 				role = result && result.data;
 				if (!role || !role.id) {
-					console.log('ERROR: editorial role ' + name + ' does not exist');
+					console.error('ERROR: editorial role ' + name + ' does not exist');
 					return Promise.reject();
 				}
-				console.log(' - verify editorial role');
+				console.info(' - verify editorial role');
 
 				var typesPromises = [];
 				for (var i = 0; i < typeNames.length; i++) {
@@ -4607,12 +4630,12 @@ module.exports.setEditorialRole = function (argv, done) {
 							}
 						}
 						if (!found && typeNames[k] !== ANY_TYPE) {
-							console.log(' - WARNING: asset type ' + typeNames[k] + ' does not exist, ignore');
+							console.warn(' - WARNING: asset type ' + typeNames[k] + ' does not exist, ignore');
 						}
 					}
 
 					if (goodTypeNames.length > 0) {
-						console.log(' - valid asset types: ' + goodTypeNames);
+						console.info(' - valid asset types: ' + goodTypeNames);
 					}
 					if (typeNames.includes(ANY_TYPE)) {
 						types.push({
@@ -4667,7 +4690,7 @@ module.exports.setEditorialRole = function (argv, done) {
 								}
 							}
 							if (!found) {
-								console.log(' - WARNING: taxonomy ' + taxName + ' does not exist, ignore');
+								console.warn(' - WARNING: taxonomy ' + taxName + ' does not exist, ignore');
 							}
 						}
 					}
@@ -4677,10 +4700,12 @@ module.exports.setEditorialRole = function (argv, done) {
 
 				var categoryPromises = [];
 				for (var i = 0; i < taxonomies.length; i++) {
+					// Need all to get whole hierarchy
 					categoryPromises.push(serverRest.getCategories({
 						server: server,
 						taxonomyId: taxonomies[i].id,
-						taxonomyName: taxonomies[i].name
+						taxonomyName: taxonomies[i].name,
+						fields: 'all'
 					}));
 				}
 
@@ -4749,13 +4774,13 @@ module.exports.setEditorialRole = function (argv, done) {
 							}
 
 							if (!found) {
-								console.log(' - WARNING: category ' + cateName + ' does not exist, ignore');
+								console.warn(' - WARNING: category ' + cateName + ' does not exist, ignore');
 							}
 						}
 					}
 
 					if (goodCateNames.length > 0) {
-						console.log(' - valid categories: ' + goodCateNames);
+						console.info(' - valid categories: ' + goodCateNames);
 					}
 
 					if (categoryNames.includes(ANY_CATEGORY)) {
@@ -4770,7 +4795,7 @@ module.exports.setEditorialRole = function (argv, done) {
 				}
 
 				if (types.length === 0 && taxCategories.length === 0) {
-					console.log('ERROR: no valid asset type nor category');
+					console.error('ERROR: no valid asset type nor category');
 					return Promise.reject();
 				}
 
@@ -4878,13 +4903,13 @@ module.exports.setEditorialRole = function (argv, done) {
 				}
 
 				if (!anyTypeExist && !anyTaxExist) {
-					console.log('ERROR: "Any" content type rule and "Any" taxonomy category rule are missing for ' + pal.name);
+					console.error('ERROR: "Any" content type rule and "Any" taxonomy category rule are missing for ' + name);
 					return Promise.reject();
 				} else if (!anyTypeExist) {
-					console.log('ERROR: "Any" content type rule is missing for ' + pal.name);
+					console.error('ERROR: "Any" content type rule is missing for ' + name);
 					return Promise.reject();
 				} else if (!anyTaxExist) {
-					console.log('ERROR: "Any" taxonomy category rule is missing for ' + pal.name);
+					console.error('ERROR: "Any" taxonomy category rule is missing for ' + name);
 					return Promise.reject();
 				}
 				// console.log(contentPrivileges);
@@ -4911,7 +4936,7 @@ module.exports.setEditorialRole = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -4940,15 +4965,15 @@ module.exports.deleteEditorialRole = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getEditorialRoleWithName({
-				server: server,
-				name: name
-			})
+			server: server,
+			name: name
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -4956,7 +4981,7 @@ module.exports.deleteEditorialRole = function (argv, done) {
 
 				var role = result && result.data;
 				if (!role || !role.id) {
-					console.log('ERROR: editorial role ' + name + ' does not exist');
+					console.error('ERROR: editorial role ' + name + ' does not exist');
 					return Promise.reject();
 				}
 
@@ -4977,7 +5002,7 @@ module.exports.deleteEditorialRole = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -4999,7 +5024,7 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
 
 	var name = argv.name;
 	var desc = argv.description;
@@ -5009,14 +5034,14 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 	var exitCode;
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 
 		serverRest.getLocalizationPolicies({
-				server: server
-			})
+			server: server
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -5032,7 +5057,7 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 					}
 				}
 
-				console.log(' - verify localization policy name');
+				console.info(' - verify localization policy name');
 
 				return serverRest.createLocalizationPolicy({
 					server: server,
@@ -5084,13 +5109,13 @@ module.exports.describeWorkflow = function (argv, done) {
 		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
 		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
 		if (!fs.existsSync(outputFolder)) {
-			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
 			done();
 			return;
 		}
 
 		if (!fs.statSync(outputFolder).isDirectory()) {
-			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
 			done();
 			return;
 		}
@@ -5100,7 +5125,7 @@ module.exports.describeWorkflow = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -5108,14 +5133,15 @@ module.exports.describeWorkflow = function (argv, done) {
 		var workflows;
 
 		serverRest.getWorkflowsWithName({
-				server: server,
-				name: name
-			})
+			server: server,
+			name: name,
+			fields: 'repositories,roles,properties'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
 				} else if (result.length === 0) {
-					console.log('ERROR: workflow ' + name + ' not found');
+					console.error('ERROR: workflow ' + name + ' not found');
 					return Promise.reject();
 				}
 				workflows = result;
@@ -5190,7 +5216,7 @@ module.exports.describeWorkflow = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -5213,14 +5239,14 @@ module.exports.listAssets = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - server: ' + server.url);
+	console.info(' - server: ' + server.url);
 
 	var channelName = argv.channel;
 	var query = argv.query;
 	var repositoryName = argv.repository;
 	var collectionName = argv.collection;
 	if (collectionName && !repositoryName) {
-		console.log('ERROR: no repository is specified');
+		console.error('ERROR: no repository is specified');
 		done();
 		return;
 	}
@@ -5240,7 +5266,7 @@ module.exports.listAssets = function (argv, done) {
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -5253,38 +5279,38 @@ module.exports.listAssets = function (argv, done) {
 			}));
 		}
 		Promise.all(repositoryPromises).then(function (results) {
-				if (repositoryName) {
-					if (!results || !results[0] || results[0].err) {
-						return Promise.reject();
-					} else if (!results[0].data) {
-						console.log('ERROR: repository ' + repositoryName + ' not found');
-						return Promise.reject();
-					}
-					repository = results[0].data;
-					console.log(' - validate repository (Id: ' + repository.id + ')');
+			if (repositoryName) {
+				if (!results || !results[0] || results[0].err) {
+					return Promise.reject();
+				} else if (!results[0].data) {
+					console.error('ERROR: repository ' + repositoryName + ' not found');
+					return Promise.reject();
 				}
+				repository = results[0].data;
+				console.info(' - validate repository (Id: ' + repository.id + ')');
+			}
 
-				var collectionPromises = [];
-				if (collectionName) {
-					collectionPromises.push(serverRest.getCollectionWithName({
-						server: server,
-						repositoryId: repository.id,
-						name: collectionName
-					}));
-				}
+			var collectionPromises = [];
+			if (collectionName) {
+				collectionPromises.push(serverRest.getCollectionWithName({
+					server: server,
+					repositoryId: repository.id,
+					name: collectionName
+				}));
+			}
 
-				return Promise.all(collectionPromises);
-			})
+			return Promise.all(collectionPromises);
+		})
 			.then(function (results) {
 				if (collectionName) {
 					if (!results || !results[0] || results[0].err) {
 						return Promise.reject();
 					} else if (!results[0].data) {
-						console.log('ERROR: collection ' + collectionName + ' not found');
+						console.error('ERROR: collection ' + collectionName + ' not found');
 						return Promise.reject();
 					}
 					collection = results[0].data;
-					console.log(' - validate collection (Id: ' + collection.id + ')');
+					console.info(' - validate collection (Id: ' + collection.id + ')');
 				}
 
 				var rankingPromises = [];
@@ -5317,9 +5343,9 @@ module.exports.listAssets = function (argv, done) {
 						}
 					}
 					if (!rankingApiName) {
-						console.log(' - WARNING: ranking policy is not found with API name ' + ranking);
+						console.warn(' - WARNING: ranking policy is not found with API name ' + ranking);
 					} else {
-						console.log(' - verify ranking policy (API name: ' + rankingApiName + ')');
+						console.info(' - verify ranking policy (API name: ' + rankingApiName + ')');
 					}
 				}
 
@@ -5327,7 +5353,8 @@ module.exports.listAssets = function (argv, done) {
 				if (channelName) {
 					channelPromises.push(serverRest.getChannelWithName({
 						server: server,
-						name: channelName
+						name: channelName,
+						fields: 'channelTokens'
 					}));
 				}
 
@@ -5338,7 +5365,7 @@ module.exports.listAssets = function (argv, done) {
 					if (!results || !results[0] || results[0].err) {
 						return Promise.reject();
 					} else if (!results[0].data) {
-						console.log('ERROR: channel ' + channelName + ' not found');
+						console.error('ERROR: channel ' + channelName + ' not found');
 						return Promise.reject();
 					}
 					channel = results[0].data;
@@ -5359,7 +5386,7 @@ module.exports.listAssets = function (argv, done) {
 						}
 					}
 					channelToken = token;
-					console.log(' - validate channel (Id: ' + channel.id + ' token: ' + channelToken + ')');
+					console.info(' - validate channel (Id: ' + channel.id + ' token: ' + channelToken + ')');
 				}
 
 				// query items
@@ -5387,9 +5414,9 @@ module.exports.listAssets = function (argv, done) {
 				}
 
 				if (q) {
-					console.log(' - query: ' + q);
+					console.info(' - query: ' + q);
 				} else {
-					console.log(' - query all assets');
+					console.info(' - query all assets');
 				}
 
 				startTime = new Date();
@@ -5408,7 +5435,6 @@ module.exports.listAssets = function (argv, done) {
 				}
 
 				var timeSpent = serverUtils.timeUsed(startTime, new Date());
-				fs.writeFileSync(path.join(projectDir, 'Netsuite_Headstart_items.json'), JSON.stringify(result.data, null, 2));
 				items = result && result.data || [];
 				total = items.length;
 				limit = result.limit;
@@ -5467,7 +5493,7 @@ module.exports.listAssets = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -5594,7 +5620,7 @@ module.exports.renameAssetIds = function (argv, done) {
 		done();
 		return;
 	}
-	console.log(' - template ' + templateName);
+	console.info(' - template ' + templateName);
 
 	var contentNames = argv.content ? argv.content.split(',') : [];
 	var goodContent = [];
@@ -5608,7 +5634,7 @@ module.exports.renameAssetIds = function (argv, done) {
 		});
 	}
 	if (goodContent.length > 0) {
-		console.log(' - other content ' + goodContent);
+		console.info(' - other content ' + goodContent);
 	}
 
 	_renameAssetIds(argv, templateName, goodContent)
@@ -5625,7 +5651,7 @@ var _renameAssetIds = function (argv, templateName, goodContent) {
 		var idMap = new Map();
 
 		var _processItems = function (itemsPath) {
-			console.log(' - process content items in ' + itemsPath.substring(projectDir.length + 1));
+			console.info(' - process content items in ' + itemsPath.substring(projectDir.length + 1));
 			var types = fs.readdirSync(itemsPath);
 			types.forEach(function (type) {
 				if (type !== 'VariationSets') {
@@ -5690,7 +5716,7 @@ var _renameAssetIds = function (argv, templateName, goodContent) {
 			}
 		});
 
-		console.log(' - total Ids: ' + idMap.size);
+		console.info(' - total Ids: ' + idMap.size);
 		// console.log(idMap);
 
 		// update all json files under content assets
@@ -5705,32 +5731,32 @@ var _renameAssetIds = function (argv, templateName, goodContent) {
 		contentFolders.push(path.join(templatesSrcDir, templateName, 'pages'));
 
 		var doIdUpdate = contentFolders.reduce(function (idPromise, contentPath) {
-				return idPromise.then(function (result) {
-					return _updateIdInFiles(contentPath, idMap).then(function (result) {
-							// done
-						})
-						.catch((error) => {
-							// 
-						});
-				});
-			},
+			return idPromise.then(function (result) {
+				return _updateIdInFiles(contentPath, idMap).then(function (result) {
+					// done
+				})
+					.catch((error) => {
+						// 
+					});
+			});
+		},
 			// Start with a previousPromise value that is a resolved promise 
 			Promise.resolve({}));
 
 		doIdUpdate.then(function (result) {
 			var doZip = goodContent.reduce(function (zipPromise, content) {
-					return zipPromise.then(function (result) {
-						var contentpath = path.join(contentSrcDir, content);
-						// same file name as in the upload script from transfer-site-content
-						var contentfilename = content + '_export.zip';
-						return _zipContent(contentpath, contentfilename).then(function (result) {
-								// done
-							})
-							.catch((error) => {
-								// 
-							});
-					});
-				},
+				return zipPromise.then(function (result) {
+					var contentpath = path.join(contentSrcDir, content);
+					// same file name as in the upload script from transfer-site-content
+					var contentfilename = content + '_export.zip';
+					return _zipContent(contentpath, contentfilename).then(function (result) {
+						// done
+					})
+						.catch((error) => {
+							// 
+						});
+				});
+			},
 				// Start with a previousPromise value that is a resolved promise 
 				Promise.resolve({}));
 
@@ -5742,11 +5768,11 @@ var _renameAssetIds = function (argv, templateName, goodContent) {
 };
 
 var _updateIdInFiles = function (folderPath, idMap) {
-	console.log(' - replace Id in files under ' + folderPath.substring(projectDir.length + 1));
+	console.info(' - replace Id in files under ' + folderPath.substring(projectDir.length + 1));
 	return new Promise(function (resolve, reject) {
 		serverUtils.paths(folderPath, function (err, paths) {
 			if (err) {
-				console.log(err);
+				console.error(err);
 			} else {
 				var files = paths.files;
 				for (var i = 0; i < files.length; i++) {
@@ -5760,7 +5786,7 @@ var _updateIdInFiles = function (folderPath, idMap) {
 								fileJson.slug = fileJson.slug + '_' + fileJson.id;
 								fileSrc = JSON.stringify(fileJson);
 							}
-						} catch (e) {}
+						} catch (e) { }
 
 						var newFileSrc = fileSrc;
 						for (const [id, newId] of idMap.entries()) {
@@ -5785,15 +5811,15 @@ var _zipContent = function (contentpath, contentfilename) {
 		// create the content zip file
 		// 
 		gulp.src(contentpath + '/**', {
-				base: contentpath
-			})
+			base: contentpath
+		})
 			.pipe(zip(contentfilename, {
 				buffer: false
 			}))
 			.pipe(gulp.dest(path.join(projectDir, 'dist')))
 			.on('end', function () {
 				var zippath = path.join(projectDir, 'dist', contentfilename);
-				console.log(' - created content file ' + zippath);
+				console.info(' - created content file ' + zippath);
 				return resolve({});
 			});
 

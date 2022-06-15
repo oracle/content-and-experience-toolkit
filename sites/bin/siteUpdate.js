@@ -16,16 +16,17 @@ var gulp = require('gulp'),
 	documentUtils = require('./document.js').utils,
 	path = require('path');
 
+var console = require('../test/server/logger.js').console;
 
 var SITE_INFO_FILE = 'siteinfo.json',
 	server = {};
 
-var SiteUpdate = function () {};
+var SiteUpdate = function () { };
 
 var _logFiles = function (updateStep, folder, currentFileIndex, totalFiles) {
 	var context = (folder || updateStep).padEnd(20);
 	if (totalFiles === 0) {
-		console.log(' - ' + context + ': no files in update, removing files on server');
+		console.info(' - ' + context + ': no files in update, removing files on server');
 	} else {
 		if (currentFileIndex) {
 			if (typeof process.stdout.clearLine === 'function') {
@@ -111,14 +112,14 @@ var _recreateFolder = function (siteGUID, folderPath) {
 
 			// get the folders in sequence
 			var doFindFolder = folderPromises.reduce(function (previousPromise, nextPromise) {
-					return previousPromise.then(function (folderDetails) {
-						// store the parent
-						parentGUID = folderDetails.id;
+				return previousPromise.then(function (folderDetails) {
+					// store the parent
+					parentGUID = folderDetails.id;
 
-						// wait for the previous promise to complete and then return a new promise for the next 
-						return nextPromise(parentGUID);
-					});
-				},
+					// wait for the previous promise to complete and then return a new promise for the next 
+					return nextPromise(parentGUID);
+				});
+			},
 				// Start with a previousPromise value that is a resolved promise passing in the siteGUID as the parentID
 				Promise.resolve({
 					id: siteGUID
@@ -173,7 +174,7 @@ SiteUpdate.prototype.updateSiteFiles = function (argv, siteEntry, updateStep, fo
 		folderPromise.then(function (folderGUID) {
 			// make sure we have a folder to update
 			if (!folderGUID) {
-				console.log('Error - failed to locate site folder');
+				console.error('Error - failed to locate site folder');
 				return resolve({
 					errors: numErrors + 1,
 					name: updateStep
@@ -193,7 +194,9 @@ SiteUpdate.prototype.updateSiteFiles = function (argv, siteEntry, updateStep, fo
 
 			// note how may files to update
 			var currentFileIndex = 0;
-			_logFiles(updateStep, folderName, currentFileIndex, files.length);
+			if (console.showInfo()) {
+				_logFiles(updateStep, folderName, currentFileIndex, files.length);
+			}
 
 
 			// upload all the template files
@@ -201,7 +204,9 @@ SiteUpdate.prototype.updateSiteFiles = function (argv, siteEntry, updateStep, fo
 			files.forEach(function (file) {
 				createFilePromises.push(function () {
 					currentFileIndex++;
-					_logFiles(updateStep, folderName, currentFileIndex, files.length);
+					if (console.showInfo()) {
+						_logFiles(updateStep, folderName, currentFileIndex, files.length);
+					}
 
 					// get the content from the filesystem
 					var contents = fs.createReadStream(file.filePath);
@@ -224,11 +229,11 @@ SiteUpdate.prototype.updateSiteFiles = function (argv, siteEntry, updateStep, fo
 			});
 			// run promises sequentially
 			var doFileCreate = createFilePromises.reduce(function (previousPromise, nextPromise) {
-					return previousPromise.then(function () {
-						// wait for the previous promise to complete and then return a new promise for the next 
-						return nextPromise();
-					});
-				},
+				return previousPromise.then(function () {
+					// wait for the previous promise to complete and then return a new promise for the next 
+					return nextPromise();
+				});
+			},
 				// Start with a previousPromise value that is a resolved promise 
 				Promise.resolve());
 
@@ -240,8 +245,8 @@ SiteUpdate.prototype.updateSiteFiles = function (argv, siteEntry, updateStep, fo
 					name: updateStep
 				});
 			}).catch(function (e) {
-				console.log('Error: ' + updateStep + ' - failed');
-				console.log(e);
+				console.error('Error: ' + updateStep + ' - failed');
+				console.error(e);
 				return resolve({
 					errors: numErrors + 1,
 					name: updateStep
@@ -271,25 +276,25 @@ SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
 			// get the siteinfo file from the server
 			// copy across the properties that are site specific
 			var nonUpdatableProperties = [
-					'themeName',
-					'siteName',
-					'isLive',
-					'repositoryId',
-					'channelId',
-					'channelAccessTokens',
-					'collectionId',
-					'targetId',
-					'targetAccessTokens',
-					'arCollectionId',
-					'conversationId',
-					'isEnterprise',
-					'defaultLanguage',
-					'localizationPolicy',
-					'siteRootPrefix',
-					'siteURL',
-					'siteConnections',
-					'availableLanguages',
-				],
+				'themeName',
+				'siteName',
+				'isLive',
+				'repositoryId',
+				'channelId',
+				'channelAccessTokens',
+				'collectionId',
+				'targetId',
+				'targetAccessTokens',
+				'arCollectionId',
+				'conversationId',
+				'isEnterprise',
+				'defaultLanguage',
+				'localizationPolicy',
+				'siteRootPrefix',
+				'siteURL',
+				'siteConnections',
+				'availableLanguages',
+			],
 				updatableProperties = [
 					'description',
 					'keywords',
@@ -316,7 +321,7 @@ SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
 				filename: SITE_INFO_FILE
 			}).then(function (fileDetails) {
 				if (!fileDetails || fileDetails.err) {
-					console.log('Error: failed to locate siteinfo file for site');
+					console.error('Error: failed to locate siteinfo file for site');
 					return resolve(false);
 				}
 
@@ -325,7 +330,7 @@ SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
 					fFileGUID: fileDetails.id
 				}).then(function (fileContent) {
 					if (!fileContent) {
-						console.log('Error: failed to get siteinfo file from server, changes to the file will not be propagated');
+						console.error('Error: failed to get siteinfo file from server, changes to the file will not be propagated');
 						return resolve(false);
 					}
 
@@ -352,7 +357,7 @@ SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
 			});
 		} catch (e) {
 			// failed to update the siteinfo file, make sure we don't include it
-			console.log('Error: failed to update siteinfo file, changes to the file will not be propagated');
+			console.error('Error: failed to update siteinfo file, changes to the file will not be propagated');
 			return resolve(false);
 		}
 	});
@@ -369,13 +374,14 @@ SiteUpdate.prototype.updateSiteFolder = function (argv, siteEntry, stepName, fol
 	if (fs.existsSync(folderPath)) {
 		// delete the current site folder on the server
 
+		var noMsg = console.showInfo() ? false : true;
 		return documentUtils.findFolder(server, siteEntry.siteGUID, [folder], false)
 			.then(function (result) {
 				var deletePromises = [];
 				if (result && result.id) {
 					deletePromises.push(documentUtils.deleteFolder({
 						path: siteFolder + '/' + folder
-					}, server));
+					}, server, noMsg));
 				}
 				return Promise.all(deletePromises);
 			})
@@ -393,7 +399,7 @@ SiteUpdate.prototype.updateSiteFolder = function (argv, siteEntry, stepName, fol
 				});
 			}).catch(function (e) {
 				var error = 'Error: failed to update site folder: ' + folder + '. Previous versions can be re-stored from trash on the server.';
-				console.log(error);
+				console.error(error);
 				return Promise.resolve({
 					name: stepName,
 					error: error,
@@ -401,7 +407,7 @@ SiteUpdate.prototype.updateSiteFolder = function (argv, siteEntry, stepName, fol
 				});
 			});
 	} else {
-		console.log(' - folder does not exist for update step: "' + stepName + '". Changes to the folder will not be propagated');
+		console.info(' - folder does not exist for update step: "' + stepName + '". Changes to the folder will not be propagated');
 	}
 };
 
@@ -498,6 +504,7 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 	contentArgv.action = 'remove'; // remove items from the channel
 	contentArgv.channel = argv.name || argv.site; // channel name is the same as the site name
 	contentArgv.repository = siteInfo.repositoryName;
+	contentArgv.noMsg = console.showInfo() ? false : true;
 
 	// ToDo:  At the moment you can't remove the content from the channel as it doesn't get added back in
 	//        For now (for testing/demo) don't remove the content from the channel.
@@ -513,7 +520,7 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 						fields: 'isPublished,status'
 					}).then(function (results) {
 						var items = results && results.data || [];
-						console.log(' - removing items in progress: channel has ' + items.length + ' items...');
+						console.info(' - removing items in progress: channel has ' + items.length + ' items...');
 
 						if (items.length === 0) {
 							// if there are no items, we're done
@@ -526,7 +533,7 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 									waitForCleanChannel();
 								}, 3000);
 							} else {
-								console.log(' - max wait for removal of content from channel exceeded, continuing');
+								console.info(' - max wait for removal of content from channel exceeded, continuing');
 								numErrors++;
 								resolve({});
 							}
@@ -534,7 +541,7 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 
 					});
 				} catch (e) {
-					console.log('Error: retreiving channel item count while waiting for deletion to complete');
+					console.error('Error: retreiving channel item count while waiting for deletion to complete');
 					numErrors++;
 					resolve({});
 				}
@@ -546,7 +553,7 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 			},
 			function () {
 				// success callback - wait for clean channel
-				console.log(' - removing items in progress: waiting for items to be removed');
+				console.info(' - removing items in progress: waiting for items to be removed');
 				setTimeout(function () {
 					waitForCleanChannel();
 				});
@@ -562,7 +569,7 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 	// wait for remove content to complete and then import the assets
 	return removeContentPromise.then(function (removeResult) {
 		if (!serverUtils.templateHasContentItems(projectDir, argv.template)) {
-			console.log(' - site does not have content');
+			console.info(' - site does not have content');
 			return Promise.resolve({
 				errors: numErrors,
 				name: stepName
@@ -575,7 +582,8 @@ SiteUpdate.prototype.updateSiteContent = function (argv, siteInfo) {
 				siteInfo: siteInfo,
 				templateName: argv.template,
 				reuseContent: argv.reuseContent,
-				updateContent: true
+				updateContent: true,
+				noMsg: console.showInfo() ? false : true
 			}).then(function (result) {
 				numErrors += (result.error ? 1 : 0);
 
@@ -599,7 +607,7 @@ SiteUpdate.prototype.updateMetadata = function (server, siteResults, metadata) {
 	try {
 		siteSettings = JSON.parse(metadata);
 	} catch (e) {
-		console.log('Error: failed to update site with metadata: ' + metadata);
+		console.error('Error: failed to update site with metadata: ' + metadata);
 		return Promise.reject();
 	}
 
@@ -611,18 +619,18 @@ SiteUpdate.prototype.updateMetadata = function (server, siteResults, metadata) {
 			siteSettings[key] = JSON.stringify(siteSettings[key]);
 		}
 	});
-	console.log('updating site metadata with: ' + metadata);
+	console.info('updating site metadata with: ' + metadata);
 
 	return serverUtils.getIdcToken(server).then(function (idcToken) {
 		return serverUtils.setSiteMetadata(server, idcToken, siteId, siteSettings, {}).then(function (result) {
 			if (!result || result.err) {
-				console.log('ERROR: failed to update site metadata');
+				console.error('Error: failed to update site metadata');
 				if (result.err) {
-					console.log(result.err);
+					console.error(result.err);
 				}
 				return Promise.reject();
 			} else {
-				console.log('successfully updated site metadata');
+				console.info('successfully updated site metadata');
 				return Promise.resolve();
 			}
 		});
@@ -649,7 +657,7 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
-				console.log(result.statusMessage);
+				console.error(result.statusMessage);
 				done();
 				return;
 			}
@@ -657,7 +665,7 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 			var excludeContentTemplate = typeof argv.excludecontenttemplate === 'string' && argv.excludecontenttemplate.toLowerCase() === 'true';
 
 			// logon and get the site folder GUID and Site info for the Channel/Repository/Collection details
-			console.log('Updating site: ' + siteName);
+			console.info('Updating site: ' + siteName);
 			var serverInfoPromise = serverUtils.getSiteInfo(server, siteName);
 
 			serverInfoPromise.then(function (siteResult) {
@@ -671,14 +679,14 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 					} else {
 						// console.log(siteResult);
 						var siteEntry = {
-								siteGUID: siteResult.siteId
-							},
+							siteGUID: siteResult.siteId
+						},
 							siteInfo = siteResult.siteInfo;
 						// console.log(siteInfo);
 
 						// if can't locate the site, return
 						if (!(siteEntry && siteEntry.siteGUID)) {
-							console.log('Error: failed to locate site: ' + siteName);
+							console.error('Error: failed to locate site: ' + siteName);
 							done();
 							return;
 						}
@@ -713,16 +721,16 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 
 						// run through the update steps
 						var doUpdateSteps = updateSitePromises.reduce(function (previousPromise, nextPromise) {
-								return previousPromise.then(function (result) {
-									// store the result of this step
-									if (result) {
-										results.push(result);
-									}
+							return previousPromise.then(function (result) {
+								// store the result of this step
+								if (result) {
+									results.push(result);
+								}
 
-									// wait for the previous promise to complete and then return a new promise for the next 
-									return nextPromise();
-								});
-							},
+								// wait for the previous promise to complete and then return a new promise for the next 
+								return nextPromise();
+							});
+						},
 							// Start with a previousPromise value that is a resolved promise 
 							Promise.resolve());
 
@@ -743,14 +751,14 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 							if (totalErr === 0) {
 								// mark the site as updated
 								sitesRest.siteUpdated({
-										server: server,
-										name: siteName
-									})
+									server: server,
+									name: siteName
+								})
 									.then(function (result) {
 										if (result.err) {
 											done();
 										} else {
-											console.log(' - update site timestamp');
+											console.info(' - update site timestamp');
 											done(true);
 										}
 									});
@@ -758,20 +766,20 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 								done();
 							}
 						}).catch(function (err) {
-							console.log('Error: failed to update site: ');
-							console.log(err);
+							console.error('Error: failed to update site: ');
+							console.error(err);
 						});
 					}
 				}).catch(function (err) {
-					console.log('Error: failed to update site metadata');
+					console.error('Error: failed to update site metadata');
 					done();
 				});
 			});
 
 		});
 	} catch (e) {
-		console.log('ERROR: cec update-site failed');
-		console.log(e);
+		console.error('Error: cec update-site failed');
+		console.error(e);
 		done();
 	}
 };

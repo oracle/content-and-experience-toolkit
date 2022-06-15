@@ -12,6 +12,8 @@ var he = require('he'),
 	sitesRest = require('../test/server/sitesRest.js'),
 	serverUtils = require('../test/server/serverUtils.js');
 
+var console = require('../test/server/logger.js').console;
+
 var projectDir,
 	serversSrcDir;
 
@@ -31,6 +33,9 @@ var verifyRun = function (argv) {
 };
 
 var _indexSiteEnd = function (done, success) {
+	if (success) {
+		console.log(' - index site finished');
+	}
 	done(success);
 };
 
@@ -38,31 +43,31 @@ var _getSiteInfoFile = function (server, locale, isMaster) {
 	// console.log(' - siteId: ' + _siteId);
 	var siteInfoFilePromise = new Promise(function (resolve, reject) {
 		serverRest.getChildItems({
+			server: server,
+			parentID: _siteId
+		}).then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+			var items = result && result.items || [];
+			var name = (isMaster || !locale) ? 'siteinfo.json' : locale + '_siteinfo.json';
+			var fileId;
+			for (var i = 0; i < items.length; i++) {
+				if (items[i].name === name) {
+					fileId = items[i].id;
+					break;
+				}
+			}
+
+			if (!fileId) {
+				return Promise.reject();
+			}
+
+			return serverRest.readFile({
 				server: server,
-				parentID: _siteId
-			}).then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
-				var items = result && result.items || [];
-				var name = (isMaster || !locale) ? 'siteinfo.json' : locale + '_siteinfo.json';
-				var fileId;
-				for (var i = 0; i < items.length; i++) {
-					if (items[i].name === name) {
-						fileId = items[i].id;
-						break;
-					}
-				}
-
-				if (!fileId) {
-					return Promise.reject();
-				}
-
-				return serverRest.readFile({
-					server: server,
-					fFileGUID: fileId
-				});
-			})
+				fFileGUID: fileId
+			});
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -86,31 +91,31 @@ var _getSiteInfoFile = function (server, locale, isMaster) {
 var _getSiteStructure = function (server, locale, isMaster) {
 	var siteStructurePromise = new Promise(function (resolve, reject) {
 		serverRest.getChildItems({
+			server: server,
+			parentID: _siteId
+		}).then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+			var items = result && result.items || [];
+			var name = (isMaster || !locale) ? 'structure.json' : locale + '_structure.json';
+			var fileId;
+			for (var i = 0; i < items.length; i++) {
+				if (items[i].name === name) {
+					fileId = items[i].id;
+					break;
+				}
+			}
+
+			if (!fileId) {
+				return Promise.reject();
+			}
+
+			return serverRest.readFile({
 				server: server,
-				parentID: _siteId
-			}).then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
-				var items = result && result.items || [];
-				var name = (isMaster || !locale) ? 'structure.json' : locale + '_structure.json';
-				var fileId;
-				for (var i = 0; i < items.length; i++) {
-					if (items[i].name === name) {
-						fileId = items[i].id;
-						break;
-					}
-				}
-
-				if (!fileId) {
-					return Promise.reject();
-				}
-
-				return serverRest.readFile({
-					server: server,
-					fFileGUID: fileId
-				});
-			})
+				fFileGUID: fileId
+			});
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -131,7 +136,7 @@ var _getSiteStructure = function (server, locale, isMaster) {
 var _validatePageIndexFields = function (contenttype, result) {
 	var fields = result && result.fields;
 	if (!fields || fields.length === 0) {
-		console.log('ERROR: content type ' + contenttype + ' has no field');
+		console.error('ERROR: content type ' + contenttype + ' has no field');
 		return false;
 	}
 	// Require fields: site, pageid, pagename, pageurl, pagetitle, pagedescription, keywords
@@ -140,77 +145,77 @@ var _validatePageIndexFields = function (contenttype, result) {
 		if (fields[i].name === 'site') {
 			site = true;
 			if (fields[i].datatype !== 'text') {
-				console.log('ERROR: field site should be text');
+				console.error('ERROR: field site should be text');
 				return false;
 			}
 		} else if (fields[i].name === 'pageid') {
 			pageid = true;
 			if (fields[i].datatype !== 'text') {
-				console.log('ERROR: field pageid should be text');
+				console.error('ERROR: field pageid should be text');
 				return false;
 			}
 		} else if (fields[i].name === 'pagename') {
 			pagename = true;
 			if (fields[i].datatype !== 'text') {
-				console.log('ERROR: field pagename should be text');
+				console.error('ERROR: field pagename should be text');
 				return false;
 			}
 		} else if (fields[i].name === 'pageurl') {
 			pageurl = true;
 			if (fields[i].datatype !== 'text') {
-				console.log('ERROR: field pageurl should be text');
+				console.error('ERROR: field pageurl should be text');
 				return false;
 			}
 		} else if (fields[i].name === 'pagetitle') {
 			pagetitle = true;
 			if (fields[i].datatype !== 'text') {
-				console.log('ERROR: field pagetitle should be text');
+				console.error('ERROR: field pagetitle should be text');
 				return false;
 			}
 		} else if (fields[i].name === 'pagedescription') {
 			pagedescription = true;
 			if (fields[i].datatype !== 'text' && fields[i].datatype !== 'largetext') {
-				console.log('ERROR: field pagedescription should be text');
+				console.error('ERROR: field pagedescription should be text');
 				return false;
 			}
 		} else if (fields[i].name === 'keywords') {
 			keywords = true;
 			if (fields[i].datatype !== 'text') {
-				console.log('ERROR: field keywords should be text');
+				console.error('ERROR: field keywords should be text');
 				return false;
 			}
 			if (fields[i].valuecount !== 'list') {
-				console.log('ERROR: field keywords should allow multiple values');
+				console.error('ERROR: field keywords should allow multiple values');
 				return false;
 			}
 		}
 	}
 	if (!site) {
-		console.log('ERROR: field site is missing from type ' + contenttype);
+		console.error('ERROR: field site is missing from type ' + contenttype);
 		return false;
 	}
 	if (!pageid) {
-		console.log('ERROR: field pageid is missing from type ' + contenttype);
+		console.error('ERROR: field pageid is missing from type ' + contenttype);
 		return false;
 	}
 	if (!pagename) {
-		console.log('ERROR: field pagename is missing from type ' + contenttype);
+		console.error('ERROR: field pagename is missing from type ' + contenttype);
 		return false;
 	}
 	if (!pageurl) {
-		console.log('ERROR: field pageurl is missing from type ' + contenttype);
+		console.error('ERROR: field pageurl is missing from type ' + contenttype);
 		return false;
 	}
 	if (!pagetitle) {
-		console.log('ERROR: field pagetitle is missing from type ' + contenttype);
+		console.error('ERROR: field pagetitle is missing from type ' + contenttype);
 		return false;
 	}
 	if (!pagedescription) {
-		console.log('ERROR: field pagedescription is missing from type ' + contenttype);
+		console.error('ERROR: field pagedescription is missing from type ' + contenttype);
 		return false;
 	}
 	if (!keywords) {
-		console.log('ERROR: field keywords is missing from type ' + contenttype);
+		console.error('ERROR: field keywords is missing from type ' + contenttype);
 		return false;
 	}
 
@@ -225,10 +230,10 @@ var _getPageData = function (server, locale, isMaster) {
 	// console.log(' isMaster: ' + isMaster + ' locale: ' + locale);
 	return new Promise(function (resolve, reject) {
 		serverRest.getChildItems({
-				server: server,
-				parentID: _pagesFolderId,
-				limit: 9999
-			})
+			server: server,
+			parentID: _pagesFolderId,
+			limit: 9999
+		})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -278,11 +283,13 @@ var _readFile = function (server, id, fileName) {
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to download file ' + fileName);
-				console.log(error);
+				console.error('ERROR: failed to download file ' + fileName);
+				console.error(error);
 				resolve();
 			}
 			var data;
@@ -297,7 +304,7 @@ var _readFile = function (server, id, fileName) {
 					data: data
 				});
 			} else {
-				console.log('ERROR: failed to download file: ' + fileName + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.error('ERROR: failed to download file: ' + fileName + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 				resolve();
 			}
 
@@ -307,7 +314,7 @@ var _readFile = function (server, id, fileName) {
 var _readPageFiles = function (server, files) {
 	return new Promise(function (resolve, reject) {
 		var total = files.length;
-		console.log(' - total number of files: ' + total);
+		console.info(' - total number of files: ' + total);
 		var groups = [];
 		var limit = 12;
 		var start, end;
@@ -333,26 +340,32 @@ var _readPageFiles = function (server, files) {
 		var fileData = [];
 		var count = [];
 
+		var needNewLine = false;
 		var doReadFile = groups.reduce(function (filePromise, param) {
-				return filePromise.then(function (result) {
-					var filePromises = [];
-					for (var i = param.start; i <= param.end; i++) {
-						filePromises.push(_readFile(server, files[i].id, files[i].name));
-					}
+			return filePromise.then(function (result) {
+				var filePromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					filePromises.push(_readFile(server, files[i].id, files[i].name));
+				}
 
+				if (console.showInfo()) {
+					needNewLine = true;
 					process.stdout.write(' - downloading files [' + param.start + ', ' + param.end + '] ...');
 					readline.cursorTo(process.stdout, 0);
-					return Promise.all(filePromises).then(function (results) {
-						fileData = fileData.concat(results);
-					});
-
+				}
+				return Promise.all(filePromises).then(function (results) {
+					fileData = fileData.concat(results);
 				});
-			},
+
+			});
+		},
 			// Start with a previousPromise value that is a resolved promise 
 			Promise.resolve({}));
 
 		doReadFile.then(function (result) {
-			process.stdout.write(os.EOL);
+			if (needNewLine) {
+				process.stdout.write(os.EOL);
+			}
 			// console.log(' - total number of downloaded files: ' + fileData.length);
 			resolve(fileData);
 		});
@@ -495,17 +508,19 @@ var _getPageContent = function (server, channelToken, q, pageId, queryType) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+		serverUtils.showRequestOptions(options);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get content: url: ' + url.replace(server.url, ''));
-				console.log(err);
+				console.error('ERROR: Failed to get content: url: ' + url.replace(server.url, ''));
+				console.error(err);
 				return resolve({
 					'err': err
 				});
 			}
 			if (!response || response.statusCode !== 200) {
-				console.log('ERROR: Failed to get content: page: ' + pageId + ' status: ' + (response ? response.statusCode : '') + ' url: ' + url.replace(server.url, ''));
+				console.error('ERROR: Failed to get content: page: ' + pageId + ' status: ' + (response ? response.statusCode : '') + ' url: ' + url.replace(server.url, ''));
 				return resolve({
 					'err': (response ? response.statusCode : 'error')
 				});
@@ -513,7 +528,7 @@ var _getPageContent = function (server, channelToken, q, pageId, queryType) {
 			try {
 				var data = JSON.parse(body);
 				if (!data) {
-					console.log('ERROR: Failed to get content: page: ' + pageId + ' url: ' + url.replace(server.url, ''));
+					console.error('ERROR: Failed to get content: page: ' + pageId + ' url: ' + url.replace(server.url, ''));
 					return resolve({
 						'err': 'error'
 					});
@@ -524,7 +539,7 @@ var _getPageContent = function (server, channelToken, q, pageId, queryType) {
 					data: data.items ? data.items : [data]
 				});
 			} catch (error) {
-				console.log('ERROR: Failed to get page data');
+				console.error('ERROR: Failed to get page data');
 				return resolve({
 					'err': 'error'
 				});
@@ -668,7 +683,7 @@ var _getTitleText = function (comp) {
 
 var _getInlineTextText = function (comp) {
 	var str = (comp && comp.data && comp.data.userText ? comp.data.innerHTML : '');
-	console.log('inline text: ' + str);
+	console.info('inline text: ' + str);
 	return str;
 };
 
@@ -883,7 +898,7 @@ var _generatePageIndex = function (site, pages, pageData, pageContent, typeTextF
 				keywords: keywords
 			});
 		} else {
-			console.log(' - page ' + pageId + ' is set hidden from search');
+			console.info(' - page ' + pageId + ' is set hidden from search');
 		}
 	}
 	// console.log(pageIndex);
@@ -893,7 +908,7 @@ var _generatePageIndex = function (site, pages, pageData, pageContent, typeTextF
 
 var _getPageIndexItem = function (server, channelToken, contenttype, locale) {
 	return new Promise(function (resolve, reject) {
-		
+
 		var q;
 		if (locale) {
 			q = 'type eq "' + contenttype + '" and language eq "' + locale + '"';
@@ -902,13 +917,13 @@ var _getPageIndexItem = function (server, channelToken, contenttype, locale) {
 		}
 
 		serverRest.queryItems({
-				server: server,
-				q: q,
-				channelToken: channelToken
-			})
+			server: server,
+			q: q,
+			channelToken: channelToken
+		})
 			.then(function (result) {
 				if (!result || result.err) {
-					console.log('ERROR: Failed to get page index');
+					console.error('ERROR: Failed to get page index');
 					return resolve({
 						'err': 'error'
 					});
@@ -973,13 +988,14 @@ var _createPageIndexItem = function (server, repositoryId, contenttype, dataInde
 				body: JSON.stringify(formData),
 				json: true
 			};
-			// console.log(JSON.stringify(postData));
+
+			serverUtils.showRequestOptions(postData);
 
 			var request = require('../test/server/requestUtils.js').request;
 			request.post(postData, function (err, response, body) {
 				if (err) {
-					console.log('ERROR: Failed to create page index item for page ' + pageName + localemsg + ' (ecid: ' + response.ecid + ')');
-					console.log(err);
+					console.error('ERROR: Failed to create page index item for page ' + pageName + localemsg + ' (ecid: ' + response.ecid + ')');
+					console.error(err);
 					return resolve({
 						err: 'err'
 					});
@@ -993,18 +1009,18 @@ var _createPageIndexItem = function (server, repositoryId, contenttype, dataInde
 				}
 
 				if (response && (response.statusCode === 200 || response.statusCode === 201)) {
-					console.log(' - create page index item for ' + pageName + localemsg);
+					console.info(' - create page index item for ' + pageName + localemsg);
 					return resolve(data);
 				} else {
 					var msg = data ? (data.detail || data.title) : response.statusMessage;
-					console.log('ERROR: Failed to create page index item for page ' + pageName + localemsg + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+					console.error('ERROR: Failed to create page index item for page ' + pageName + localemsg + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 					return resolve({
 						err: 'err'
 					});
 				}
 			});
 		} else {
-			console.log('ERROR: invalid parameters to create content item' + ' (ecid: ' + response.ecid + ')');
+			console.error('ERROR: invalid parameters to create content item' + ' (ecid: ' + response.ecid + ')');
 			return resolve({
 				err: 'err'
 			});
@@ -1024,11 +1040,14 @@ var _itemPublishInfo = function (server, itemId, pageName) {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
+
+		serverUtils.showRequestOptions(options);
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.log('ERROR: Failed to get page index item publish info (' + pageName + ')');
-				console.log(err);
+				console.error('ERROR: Failed to get page index item publish info (' + pageName + ')');
+				console.error(err);
 				return resolve({
 					err: 'err'
 				});
@@ -1037,7 +1056,7 @@ var _itemPublishInfo = function (server, itemId, pageName) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (error) {}
+			} catch (error) { }
 
 			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
 				resolve({
@@ -1046,7 +1065,7 @@ var _itemPublishInfo = function (server, itemId, pageName) {
 				});
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.log('ERROR: failed to get page index item publish info (' + pageName + ') : ' + msg);
+				console.error('ERROR: failed to get page index item publish info (' + pageName + ') : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -1069,37 +1088,37 @@ var _unpublishPageIndexItems = function (server, itemIds, pageNames, locale, isM
 		var publisedPageNames = [];
 		Promise.all(ifPublishedPromise).then(function (values) {
 
-				for (var i = 0; i < values.length; i++) {
-					var id = values[i].itemId;
-					var data = values[i].data;
-					for (var j = 0; j < data.length; j++) {
-						if (data[j].channel === _SiteInfo.channelId && itemIds.indexOf(id) >= 0) {
-							publishedItemIds.push(id);
-							break;
-						}
+			for (var i = 0; i < values.length; i++) {
+				var id = values[i].itemId;
+				var data = values[i].data;
+				for (var j = 0; j < data.length; j++) {
+					if (data[j].channel === _SiteInfo.channelId && itemIds.indexOf(id) >= 0) {
+						publishedItemIds.push(id);
+						break;
 					}
 				}
+			}
 
-				var unpublishRequestPromise = [];
-				if (publishedItemIds.length > 0) {
-					for (var i = 0; i < publishedItemIds.length; i++) {
-						var idx = itemIds.indexOf(publishedItemIds[i]);
-						publisedPageNames[i] = idx >= 0 && idx < pageNames.length ? pageNames[idx] : '';
-					}
-					unpublishRequestPromise.push(
-						serverRest.unpublishChannelItems({
-							server: server,
-							channelId: _SiteInfo.channelId,
-							itemIds: publishedItemIds,
-							async: true
-						})
-					);
+			var unpublishRequestPromise = [];
+			if (publishedItemIds.length > 0) {
+				for (var i = 0; i < publishedItemIds.length; i++) {
+					var idx = itemIds.indexOf(publishedItemIds[i]);
+					publisedPageNames[i] = idx >= 0 && idx < pageNames.length ? pageNames[idx] : '';
 				}
-				// console.log(itemIds + ',' + pageNames + ' => ' + publishedItemIds + ',' + publisedPageNames);
+				unpublishRequestPromise.push(
+					serverRest.unpublishChannelItems({
+						server: server,
+						channelId: _SiteInfo.channelId,
+						itemIds: publishedItemIds,
+						async: true
+					})
+				);
+			}
+			// console.log(itemIds + ',' + pageNames + ' => ' + publishedItemIds + ',' + publisedPageNames);
 
-				return Promise.all(unpublishRequestPromise);
+			return Promise.all(unpublishRequestPromise);
 
-			})
+		})
 			.then(function (result) {
 				if (!result || result.length === 0) {
 					return resolve({});
@@ -1110,7 +1129,7 @@ var _unpublishPageIndexItems = function (server, itemIds, pageNames, locale, isM
 				} else {
 					var statusId = result[0].statusId;
 					if (!statusId) {
-						console.log('ERROR: failed to unsubmit publish job');
+						console.error('ERROR: failed to unsubmit publish job');
 						return resolve({
 							err: 'err'
 						});
@@ -1124,15 +1143,15 @@ var _unpublishPageIndexItems = function (server, itemIds, pageNames, locale, isM
 							if (!data || data.error || data.progress === 'failed') {
 								clearInterval(inter);
 								var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
-								console.log('ERROR: ' + msg);
+								console.error('ERROR: ' + msg);
 								return Promise.reject();
 							} else if (data.completed) {
 								clearInterval(inter);
 								var localemsg = isMaster ? '' : ' (' + locale + ')';
-								console.log(' - unpublish page index items for page ' + publisedPageNames + localemsg);
+								console.info(' - unpublish page index items for page ' + publisedPageNames + localemsg);
 								return resolve({});
 							} else {
-								console.log(' - unpublish  in progress');
+								console.info(' - unpublish  in progress');
 							}
 						});
 					}, 5000);
@@ -1164,11 +1183,14 @@ var _updatePageIndexItem = function (server, dataIndex, locale, isMaster) {
 				body: JSON.stringify(indexData),
 				json: true
 			};
+
+			serverUtils.showRequestOptions(postData);
+			
 			var request = require('../test/server/requestUtils.js').request;
 			request.post(postData, function (err, response, body) {
 				if (err) {
-					console.log('ERROR: Failed to update page index item for page' + pageName + localemsg);
-					console.log(err);
+					console.error('ERROR: Failed to update page index item for page' + pageName + localemsg);
+					console.error(err);
 					return resolve({
 						err: 'err'
 					});
@@ -1181,18 +1203,18 @@ var _updatePageIndexItem = function (server, dataIndex, locale, isMaster) {
 					data = body;
 				}
 				if (response && (response.statusCode === 200 || response.statusCode === 201)) {
-					console.log(' - update page index item for page ' + pageName + localemsg);
+					console.info(' - update page index item for page ' + pageName + localemsg);
 					return resolve(data);
 				} else {
 					var msg = data ? (data.detail || data.title) : response.statusMessage;
-					console.log('ERROR: Failed to update page index item for page ' + pageName + localemsg + ' : ' + msg);
+					console.error('ERROR: Failed to update page index item for page ' + pageName + localemsg + ' : ' + msg);
 					return resolve({
 						err: 'err'
 					});
 				}
 			});
 		} else {
-			console.log('ERROR: invalid parameters to update content item');
+			console.error('ERROR: invalid parameters to update content item');
 			return resolve({
 				err: 'err'
 			});
@@ -1330,10 +1352,10 @@ var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contentty
 				console.log(' - no page for indexing');
 				return resolve({});
 			}
-			console.log(' - will create ' + _pageIndexToCreate.length + ' page index items ' + localemsg);
-			console.log(' - will update ' + _pageIndexToUpdate.length + ' page index items ' + localemsg);
+			console.info(' - will create ' + _pageIndexToCreate.length + ' page index items ' + localemsg);
+			console.info(' - will update ' + _pageIndexToUpdate.length + ' page index items ' + localemsg);
 			if (_pageIndexToDelete.length > 0) {
-				console.log(' - will remove ' + _pageIndexToDelete.length + ' page index items ' + localemsg);
+				console.info(' - will remove ' + _pageIndexToDelete.length + ' page index items ' + localemsg);
 			}
 
 			var deleteItemIds = [];
@@ -1391,7 +1413,7 @@ var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contentty
 				.then(function (results) {
 					// add items to channel finished
 					if (results && results.length > 0 && !results[0].err) {
-						console.log(' - add page index items to site channel');
+						console.info(' - add page index items to site channel');
 					}
 
 					var updateExistingPageIndexPromises = [];
@@ -1434,7 +1456,7 @@ var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contentty
 				.then(function (results) {
 					if (!isMaster) {
 						if (results && !results[0].err) {
-							console.log(' - set page index items in ' + locale + ' as translated');
+							console.info(' - set page index items in ' + locale + ' as translated');
 						}
 					}
 
@@ -1455,7 +1477,7 @@ var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contentty
 									return resolve(result);
 								}
 
-								console.log(' - remove page index items for page ' + deleteItemPageNames + ' from site channel');
+								console.info(' - remove page index items for page ' + deleteItemPageNames + ' from site channel');
 								/* comment out due to bug in server
 								var deletePromise = _deletePageIndexItems(
 									request, localhost, deleteItemIds, deleteItemPageNames, locale, isMaster);
@@ -1472,8 +1494,8 @@ var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contentty
 						return resolve({});
 					}
 				}).catch(function (err) {
-					console.log('error: ');
-					console.log(err);
+					console.error('ERROR: ');
+					console.error(err);
 				});
 
 		}); // get page index items
@@ -1485,7 +1507,7 @@ var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contentty
 
 var _publishPageIndexItems = function (server, channelId, done) {
 	if (_masterItems.length === 0) {
-		console.log(' - no item to publish');
+		console.info(' - no item to publish');
 		return Promise.reject();
 	}
 
@@ -1506,7 +1528,7 @@ var _publishPageIndexItems = function (server, channelId, done) {
 		}
 		var statusId = result && result.statusId;
 		if (!statusId) {
-			console.log('ERROR: failed to submit publish job');
+			console.error('ERROR: failed to submit publish job');
 			return Promise.reject();
 		}
 		var inter = setInterval(function () {
@@ -1518,14 +1540,14 @@ var _publishPageIndexItems = function (server, channelId, done) {
 				if (!data || data.error || data.progress === 'failed') {
 					clearInterval(inter);
 					var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
-					console.log('ERROR: ' + msg);
+					console.error('ERROR: ' + msg);
 					return Promise.reject();
 				} else if (data.completed) {
 					clearInterval(inter);
 					console.log(' - publish page index items finished');
 					_indexSiteEnd(done, true);
 				} else {
-					console.log(' - publish  in progress');
+					console.info(' - publish  in progress');
 				}
 			});
 		}, 5000);
@@ -1547,12 +1569,12 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 		// Get site id
 		//
 		sitesRest.getSite({
-				server: server,
-				name: site
-			})
+			server: server,
+			name: site
+		})
 			.then(function (result) {
 				if (!result || result.err || !result.id) {
-					console.log('ERROR: site ' + site + ' does not exist');
+					console.error('ERROR: site ' + site + ' does not exist');
 					return Promise.reject();
 				}
 				_siteId = result.id;
@@ -1591,11 +1613,11 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 				_siteChannelToken = _getSiteChannelToken(siteInfo);
 
 				if (!siteInfo.isEnterprise) {
-					console.log('ERROR: site ' + site + ' is not an enterprise site');
+					console.error('ERROR: site ' + site + ' is not an enterprise site');
 					return Promise.reject();
 				}
 
-				console.log(' - site: ' + site + ', default language: ' + defaultLanguage + ', channel token: ' + _siteChannelToken);
+				console.info(' - site: ' + site + ', default language: ' + defaultLanguage + ', channel token: ' + _siteChannelToken);
 
 				//
 				// Get channel
@@ -1613,7 +1635,7 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 				if (result.err) {
 					return Promise.reject();
 				}
-				console.log(' - query channel');
+				console.info(' - query channel');
 				var policyId = result && result.length > 0 ? result[0].localizationPolicy : undefined;
 				//
 				// Get Localization policy
@@ -1636,7 +1658,7 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 					return Promise.reject();
 				}
 				var policy = result && result[0] || {};
-				console.log(' - site localization policy: ' + policy.name);
+				console.info(' - site localization policy: ' + policy.name);
 				_requiredLangs = policy.requiredValues || [];
 				_optionalLangs = policy.optionalValues || [];
 
@@ -1654,7 +1676,7 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 					return Promise.reject();
 				}
 				repository = result;
-				console.log(' - query site repository');
+				console.info(' - query site repository');
 
 				return serverRest.getContentType({
 					server: server,
@@ -1669,7 +1691,7 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 				if (result.err) {
 					return Promise.reject();
 				}
-				console.log(' - query content type ' + contenttype);
+				console.info(' - query content type ' + contenttype);
 				var repsotiroyContentTypes = repository && repository.contentTypes;
 				var pageIndexInRepository = false;
 				if (repsotiroyContentTypes) {
@@ -1681,7 +1703,7 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 					}
 				}
 				if (!pageIndexInRepository) {
-					console.log('ERROR: content type ' + contenttype + ' is not in repository ' + repository.name);
+					console.error('ERROR: content type ' + contenttype + ' is not in repository ' + repository.name);
 					return Promise.reject();
 				}
 
@@ -1713,10 +1735,10 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 					return Promise.reject();
 				}
 				siteStructure = result;
-				console.log(' - query site structure');
+				console.info(' - query site structure');
 				pages = siteStructure && siteStructure.pages;
 				if (!pages || pages.length === 0) {
-					console.log('ERROR: no page found');
+					console.error('ERROR: no page found');
 					return Promise.reject();
 				}
 				_masterSiteStructure = siteStructure;
@@ -1762,7 +1784,7 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 
 				if (contentTypesPromise.length > 0) {
 					Promise.all(contentTypesPromise).then(function (values) {
-						console.log(' - content types used in the site: ' + contentTypeNames);
+						console.info(' - content types used in the site: ' + contentTypeNames);
 						_contentTypesOnPages = values;
 						// console.log(_contentTypesOnPages);
 
@@ -1805,7 +1827,7 @@ var _indexSiteWithLocale = function (server, site, contenttype, locale, isMaster
 			}
 			var siteStructure = result;
 			if (!queriedStructure) {
-				console.log(' - query site structure with locale ' + locale);
+				console.info(' - query site structure with locale ' + locale);
 			}
 			var pages = siteStructure && siteStructure.pages;
 
@@ -1814,32 +1836,32 @@ var _indexSiteWithLocale = function (server, site, contenttype, locale, isMaster
 			//
 			var pageDataPromise = _getPageData(server, locale, isMaster);
 			pageDataPromise.then(function (result) {
-					console.log(' - query page data (' + locale + ')');
-					var values = result || [];
-					for (var i = 0; i < values.length; i++) {
-						pageData.push({
-							id: values[i].id,
-							data: values[i].data
-						});
-					}
+				console.info(' - query page data (' + locale + ')');
+				var values = result || [];
+				for (var i = 0; i < values.length; i++) {
+					pageData.push({
+						id: values[i].id,
+						data: values[i].data
+					});
+				}
 
-					//
-					// Get content items on the pages
-					//
-					//
-					// Get content list queries on the pages
-					//
-					var pageContentListQueries = _getPageContentListQuery(_masterPageData, contenttype, locale);
-					// console.log(pageContentListQueries);
+				//
+				// Get content items on the pages
+				//
+				//
+				// Get content list queries on the pages
+				//
+				var pageContentListQueries = _getPageContentListQuery(_masterPageData, contenttype, locale);
+				// console.log(pageContentListQueries);
 
-					var promises = [];
-					// Content list queries
-					for (var i = 0; i < pageContentListQueries.length; i++) {
-						promises.push(_getPageContent(server, _siteChannelToken, pageContentListQueries[i].queryString, pageContentListQueries[i].pageId, 'list'));
-					}
+				var promises = [];
+				// Content list queries
+				for (var i = 0; i < pageContentListQueries.length; i++) {
+					promises.push(_getPageContent(server, _siteChannelToken, pageContentListQueries[i].queryString, pageContentListQueries[i].pageId, 'list'));
+				}
 
-					return Promise.all(promises);
-				})
+				return Promise.all(promises);
+			})
 				.then(function (results) {
 					// add items from content list for item query
 					for (var i = 0; i < results.length; i++) {
@@ -1861,7 +1883,7 @@ var _indexSiteWithLocale = function (server, site, contenttype, locale, isMaster
 					var pageContentPromise = _getPageContentPromise(server, _siteChannelToken, _pageContentIds, (isMaster ? undefined : locale));
 					if (pageContentPromise && pageContentPromise.length > 0) {
 						Promise.all(pageContentPromise).then(function (values) {
-							console.log(' - query content on the pages ' + msg);
+							console.info(' - query content on the pages ' + msg);
 							var items = [];
 							for (var i = 0; i < values.length; i++) {
 								items = items.concat(values[i]);
@@ -1880,7 +1902,7 @@ var _indexSiteWithLocale = function (server, site, contenttype, locale, isMaster
 
 					} else {
 						// No content on the pages
-						console.log(' - no content on the pages');
+						console.info(' - no content on the pages');
 						pageIndex = _generatePageIndex(site, pages, pageData, []);
 						var indexSiteOnServerPromise = _indexSiteOnServer(server, _SiteInfo, _siteChannelToken, contenttype, pageIndex, locale, isMaster);
 						indexSiteOnServerPromise.then(function (values) {
@@ -1905,114 +1927,114 @@ var _indexSite = function (server, site, contenttype, publish, done) {
 	// 
 	var dataPromise = _prepareData(server, site, contenttype, publish, done);
 	dataPromise.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
+		if (result.err) {
+			return Promise.reject();
+		}
+
+		// index master site
+		var isMaster = true;
+		var indexSiteLocalePromise = _indexSiteWithLocale(server, site, contenttype,
+			_SiteInfo.defaultLanguage, isMaster, _masterSiteStructure);
+		indexSiteLocalePromise.then(function (result) {
+			var locales = [];
+			var translation;
+			for (var i = 0; i < _requiredLangs.length; i++) {
+				if (_requiredLangs[i] !== _SiteInfo.defaultLanguage) {
+					locales.push(_requiredLangs[i]);
+				}
 			}
-
-			// index master site
-			var isMaster = true;
-			var indexSiteLocalePromise = _indexSiteWithLocale(server, site, contenttype,
-				_SiteInfo.defaultLanguage, isMaster, _masterSiteStructure);
-			indexSiteLocalePromise.then(function (result) {
-				var locales = [];
-				var translation;
-				for (var i = 0; i < _requiredLangs.length; i++) {
-					if (_requiredLangs[i] !== _SiteInfo.defaultLanguage) {
-						locales.push(_requiredLangs[i]);
-					}
+			for (var i = 0; i < _optionalLangs.length; i++) {
+				if (_optionalLangs[i] !== _SiteInfo.defaultLanguage) {
+					locales.push(_optionalLangs[i]);
 				}
-				for (var i = 0; i < _optionalLangs.length; i++) {
-					if (_optionalLangs[i] !== _SiteInfo.defaultLanguage) {
-						locales.push(_optionalLangs[i]);
-					}
+			}
+			if (locales.length > 0) {
+				//
+				// verify the site has the translation
+				//
+				var siteinfoPromises = [];
+				for (var i = 0; i < locales.length; i++) {
+					siteinfoPromises[i] = _getSiteInfoFile(server, locales[i], false);
 				}
-				if (locales.length > 0) {
-					//
-					// verify the site has the translation
-					//
-					var siteinfoPromises = [];
-					for (var i = 0; i < locales.length; i++) {
-						siteinfoPromises[i] = _getSiteInfoFile(server, locales[i], false);
-					}
-					var validLocales = [];
-					Promise.all(siteinfoPromises).then(function (values) {
-						for (var i = 0; i < values.length; i++) {
-							if (values[i].locale) {
-								validLocales.push(values[i].locale);
-							}
+				var validLocales = [];
+				Promise.all(siteinfoPromises).then(function (values) {
+					for (var i = 0; i < values.length; i++) {
+						if (values[i].locale) {
+							validLocales.push(values[i].locale);
 						}
+					}
 
-						if (validLocales.length > 0) {
-							console.log(' - will create/update translate for ' + validLocales);
+					if (validLocales.length > 0) {
+						console.info(' - will create/update translate for ' + validLocales);
 
-							var initialTask = _indexSiteWithLocale(server, site, contenttype, validLocales[0], false);
-							if (validLocales.length === 1) {
-								initialTask.then(function (result) {
-									if (publish) {
-										_publishPageIndexItems(server, _SiteInfo.channelId, done);
+						var initialTask = _indexSiteWithLocale(server, site, contenttype, validLocales[0], false);
+						if (validLocales.length === 1) {
+							initialTask.then(function (result) {
+								if (publish) {
+									_publishPageIndexItems(server, _SiteInfo.channelId, done);
+								} else {
+									_indexSiteEnd(done, true);
+								}
+							});
+						} else {
+							var taskParams = [];
+							for (var i = 1; i < validLocales.length; i++) {
+								taskParams.push({
+									server: server,
+									site: site,
+									contenttype: contenttype,
+									locale: validLocales[i]
+								});
+							}
+							taskParams.push({
+								done: true
+							});
+							//
+							// index site with locale in sequence
+							//
+							taskParams.reduce(function (indexSitePromise, param) {
+								return indexSitePromise.then(function (result) {
+									if (!param || param.done) {
+										// console.log(' - translation finishes');
+										if (publish) {
+											_publishPageIndexItems(server, _SiteInfo.channelId, done);
+										} else {
+											_indexSiteEnd(done, true);
+										}
 									} else {
-										_indexSiteEnd(done, true);
+										return _indexSiteWithLocale(param.server, param.site, param.contenttype, param.locale, false);
 									}
 								});
-							} else {
-								var taskParams = [];
-								for (var i = 1; i < validLocales.length; i++) {
-									taskParams.push({
-										server: server,
-										site: site,
-										contenttype: contenttype,
-										locale: validLocales[i]
-									});
-								}
-								taskParams.push({
-									done: true
-								});
-								//
-								// index site with locale in sequence
-								//
-								taskParams.reduce(function (indexSitePromise, param) {
-									return indexSitePromise.then(function (result) {
-										if (!param || param.done) {
-											// console.log(' - translation finishes');
-											if (publish) {
-												_publishPageIndexItems(server, _SiteInfo.channelId, done);
-											} else {
-												_indexSiteEnd(done, true);
-											}
-										} else {
-											return _indexSiteWithLocale(param.server, param.site, param.contenttype, param.locale, false);
-										}
-									});
-								}, initialTask);
-							}
-
-						} else {
-							// no translation
-							//
-							// page index items created/updated on the server
-							//
-							if (publish) {
-								_publishPageIndexItems(server, _SiteInfo.channelId, done);
-							} else {
-								_indexSiteEnd(done, true);
-							}
+							}, initialTask);
 						}
-					});
 
-				} else {
-					//
-					// page index items created/updated on the server
-					//
-					if (publish) {
-						_publishPageIndexItems(server, _SiteInfo.channelId, done);
 					} else {
-						_indexSiteEnd(done, true);
+						// no translation
+						//
+						// page index items created/updated on the server
+						//
+						if (publish) {
+							_publishPageIndexItems(server, _SiteInfo.channelId, done);
+						} else {
+							_indexSiteEnd(done, true);
+						}
 					}
+				});
+
+			} else {
+				//
+				// page index items created/updated on the server
+				//
+				if (publish) {
+					_publishPageIndexItems(server, _SiteInfo.channelId, done);
+				} else {
+					_indexSiteEnd(done, true);
 				}
+			}
 
-			}); // index site in one master / locale
+		}); // index site in one master / locale
 
-		}) // prepare data
+	}) // prepare data
 		.catch((error) => {
 			_indexSiteEnd(done);
 		});
@@ -2065,24 +2087,24 @@ module.exports.indexSite = function (argv, done) {
 
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
-			if (!result.status) {
-				console.log(result.statusMessage);
-				done();
-				return;
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			var csrfToken = result && result.token;
+			if (!csrfToken) {
+				console.error('ERROR: Failed to get CSRF token');
+				return Promise.reject();
 			}
+			console.info(' - get CSRF token');
+			_CSRFToken = csrfToken;
+			_indexSite(server, site, contenttype, publish, done);
+		});
 
-			serverUtils.getCaasCSRFToken(server).then(function (result) {
-				var csrfToken = result && result.token;
-				if (!csrfToken) {
-					console.log('ERROR: Failed to get CSRF token');
-					return Promise.reject();
-				}
-				console.log(' - get CSRF token');
-				_CSRFToken = csrfToken;
-				_indexSite(server, site, contenttype, publish, done);
-			});
-
-		})
+	})
 		.catch((error) => {
 			_indexSiteEnd(done);
 		});

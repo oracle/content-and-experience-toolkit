@@ -13,6 +13,8 @@ var express = require('express'),
 	path = require('path'),
 	url = require('url');
 
+var console = require('./logger.js').console;
+
 var cecDir = path.resolve(__dirname).replace(path.join('test', 'server'), '');
 var projectDir = process.env.CEC_TOOLKIT_PROJECTDIR || cecDir;
 var defaultTemplatesDir;
@@ -64,7 +66,7 @@ var _returnSlugItems = function (res, slug) {
 							// add to the output
 							slugItems.push(slugJson);
 						}
-					} catch (e) {}
+					} catch (e) { }
 				});
 			}
 		});
@@ -101,7 +103,7 @@ _findItemBySlug = function (files, slug) {
 		var slugJson;
 		try {
 			slugJson = JSON.parse(fs.readFileSync(files[i]));
-		} catch (e) {}
+		} catch (e) { }
 
 		if (slugJson && slugJson.slug === slug) {
 			item = slugJson;
@@ -124,14 +126,14 @@ router.get('/*', (req, res) => {
 
 	_setupSourceDir();
 
-	console.log('*** Content: ' + req.url);
+	console.info('*** Content: ' + req.url);
 
 	//
 	// redirect the request to the server
 	//
 	var contentitem = app.locals.currentContentItem;
 
-	console.log('   server channel token: ' + app.locals.channelToken +
+	console.info('   server channel token: ' + app.locals.channelToken +
 		' app.locals.localTemplate: ' + app.locals.localTemplate +
 		' current item: ' + (contentitem && contentitem.id ? (contentitem.id + ' ' + (contentitem.isRemote ? 'remote' : 'local')) : ''));
 	if ((app.locals.useCAASServer && app.locals.currentTemplate) ||
@@ -139,7 +141,7 @@ router.get('/*', (req, res) => {
 		app.locals.channelToken ||
 		cntPath.indexOf('/content/management/api') === 0) {
 		if (!app.locals.connectToServer) {
-			console.log('No remote server for remote traffic ', requestUrl);
+			console.error('No remote server for remote traffic ', requestUrl);
 			res.writeHead(200, {});
 			res.end();
 			return;
@@ -155,7 +157,7 @@ router.get('/*', (req, res) => {
 				location = location.substring(0, location.indexOf('channelToken='));
 			}
 		}
-		console.log('Remote traffic:', location);
+		console.info('Remote traffic:', location);
 		var options = {
 			method: 'GET',
 			url: location,
@@ -169,8 +171,8 @@ router.get('/*', (req, res) => {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: request failed:');
-				console.log(error);
+				console.error('ERROR: request failed:');
+				console.error(error);
 				res.writeHead(response.statusCode, {});
 				res.end();
 				return;
@@ -201,7 +203,7 @@ router.get('/*', (req, res) => {
 	}
 
 	// console.log(' - currentContentItem.template=' + app.locals.currentContentItem.template + ' currentTemplate=' + app.locals.currentTemplate);
-	console.log(' - currentTemplate=' + currentTemplate + ' app.locals.localTemplate=' + app.locals.localTemplate);
+	console.info(' - currentTemplate=' + currentTemplate + ' app.locals.localTemplate=' + app.locals.localTemplate);
 	var temp = currentTemplate || app.locals.localTemplate,
 		comp = app.locals.currentComponent;
 	if (!temp) {
@@ -233,22 +235,22 @@ router.get('/*', (req, res) => {
 
 				if (isDigital) {
 					temp = temps[i];
-					console.log(' - the digital asset is from template ' + temp);
+					console.info(' - the digital asset is from template ' + temp);
 					break;
 				}
 			}
 			if (!temp) {
-				console.log(' - the digital asset does not belong to any template');
+				console.warn(' - the digital asset does not belong to any template');
 			}
 		} else if (comp) {
 			var comptemps = serverUtils.getComponentTemplates(projectDir, comp);
 			if (comptemps.length > 0) {
 				temp = comptemps[0];
 			}
-			console.log(' - current component ' + comp + ' is from template ' + temp);
+			console.info(' - current component ' + comp + ' is from template ' + temp);
 		}
 		if (!temp) {
-			console.log(' - !!! no template is specified, cannot render');
+			console.error(' - !!! no template is specified, cannot render');
 			res.writeHead(200, {});
 			res.end();
 			return;
@@ -269,7 +271,7 @@ router.get('/*', (req, res) => {
 	context.contentdir = contentdir;
 
 	if (!fs.existsSync(contentdir)) {
-		console.log(' - content directory ' + contentdir + ' does not exist');
+		console.error(' - content directory ' + contentdir + ' does not exist');
 		res.writeHead(200, {});
 		res.end();
 		return;
@@ -324,10 +326,10 @@ router.get('/*', (req, res) => {
 									contentItemTypes.push(contentItemType);
 								}
 							} else {
-								console.log(' - query not supported : ' + orConds[j]);
+								console.error(' - query not supported : ' + orConds[j]);
 							}
 						} else {
-							console.log(' - invalid query parameter : ' + orConds[j]);
+							console.error(' - invalid query parameter : ' + orConds[j]);
 						}
 					}
 
@@ -352,7 +354,7 @@ router.get('/*', (req, res) => {
 							};
 						}
 					} else {
-						console.log(' - invalid query parameter : ' + cond);
+						console.error(' - invalid query parameter : ' + cond);
 					}
 				}
 			}
@@ -371,7 +373,7 @@ router.get('/*', (req, res) => {
 				fieldValue = value;
 			}
 		});
-		console.log(' - fields=' + fields + ' field={' + fieldName + ':' + fieldValue + '}' +
+		console.info(' - fields=' + fields + ' field={' + fieldName + ':' + fieldValue + '}' +
 			' default="' + defaultValue + '"' +
 			' orderBy=' + orderBy + ' limit=' + limit +
 			' offset=' + offset + ' contentItemTypes=' + contentItemTypes +
@@ -391,10 +393,10 @@ router.get('/*', (req, res) => {
 					if (fs.existsSync(itemfile)) {
 						items[items.length] = JSON.parse(fs.readFileSync(itemfile));
 					} else {
-						console.log(' - item file ' + itemfiles + ' does not exist');
+						console.error(' - item file ' + itemfiles + ' does not exist');
 					}
 				} else {
-					console.log(' - item type not found for ' + ids[i]);
+					console.error(' - item type not found for ' + ids[i]);
 				}
 			}
 			for (var i = 0; i < items.length; i++) {
@@ -417,7 +419,7 @@ router.get('/*', (req, res) => {
 				results.items = items2;
 			}
 			// return the result
-			console.log(' - returned items: ' + items.length);
+			console.info(' - returned items: ' + items.length);
 			res.write(JSON.stringify(results));
 			res.end();
 			return;
@@ -468,7 +470,7 @@ router.get('/*', (req, res) => {
 										var value = itemfieldvalue[key];
 										if (value === otherConditions[j].value) {
 											found = true;
-											console.log(' - match ' + otherConditions[j].field + '/' + key + ' with value ' + value);
+											console.info(' - match ' + otherConditions[j].field + '/' + key + ' with value ' + value);
 										}
 									});
 									if (!found) {
@@ -501,7 +503,7 @@ router.get('/*', (req, res) => {
 						}
 					}
 				} else {
-					console.log(' - content item directory ' + itemsdir + ' does not exist');
+					console.error(' - content item directory ' + itemsdir + ' does not exist');
 				}
 			});
 			// sort 
@@ -529,7 +531,7 @@ router.get('/*', (req, res) => {
 				if (items.length > 0) {
 					if (items[0].fields.hasOwnProperty(customOrderByField)) {
 						var fieldType = typeof items[0].fields[customOrderByField];
-						console.log(' - custom orderBy: field: ' + customOrderByField + '(' + fieldType + ') order: ' + customOrderByOrder);
+						console.info(' - custom orderBy: field: ' + customOrderByField + '(' + fieldType + ') order: ' + customOrderByOrder);
 						if (fieldType === 'object') {
 							var byDate = items.slice(0);
 							byDate.sort(function (a, b) {
@@ -548,12 +550,12 @@ router.get('/*', (req, res) => {
 							items = byNumber;
 						}
 					} else {
-						console.log(' - item does not have field ' + customOrderByField);
+						console.error(' - item does not have field ' + customOrderByField);
 					}
 				}
 
 			} else {
-				console.log(' - invalid orderBy ' + orderBy);
+				console.error(' - invalid orderBy ' + orderBy);
 			}
 
 
@@ -563,9 +565,9 @@ router.get('/*', (req, res) => {
 				items2 = offset < items.length ? items.slice(offset, offset + count) : [],
 				hasMore = offset + count < items.length;
 			if (count < items.length) {
-				console.log(' - pagination: items ' + offset + ' - ' + (offset + count - 1) + ' has more: ' + hasMore);
+				console.info(' - pagination: items ' + offset + ' - ' + (offset + count - 1) + ' has more: ' + hasMore);
 			} else {
-				console.log(' - returned items: ' + items.length);
+				console.info(' - returned items: ' + items.length);
 			}
 			var results = {
 				hasMore: hasMore,
@@ -581,7 +583,7 @@ router.get('/*', (req, res) => {
 			return;
 
 		} else {
-			console.log(' - no content item is specified, no item is returned')
+			console.info(' - no content item is specified, no item is returned')
 		}
 		res.writeHead(200, {});
 		res.end();
@@ -633,9 +635,9 @@ router.get('/*', (req, res) => {
 							// console.log('item: ' + itemjson.name + ' ' + itemjson.language);
 							if (!language || language === itemjson.language || itemjson.translatable === false) {
 								if (language === itemjson.language) {
-									console.log(' - found item language matched');
+									console.info(' - found item language matched');
 								} else if (itemjson.translatable === false) {
-									console.log(' - non-translatable item');
+									console.info(' - non-translatable item');
 								}
 								items.push(itemjson);
 							} else if (language) {
@@ -651,7 +653,7 @@ router.get('/*', (req, res) => {
 											for (var j = 0; j < variationjson[k].items.length; j++) {
 												var vitem = variationjson[k].items[j];
 												if (vitem.id !== itemjson.id && vitem.varType === 'language' && vitem.value === language) {
-													console.log(' - found item in ' + language + '(direct variation set) id: ' + vitem.id);
+													console.info(' - found item in ' + language + '(direct variation set) id: ' + vitem.id);
 													var variationitemfile = path.join(contentdir, 'ContentItems', itemType, vitem.id + '.json');
 													if (fs.existsSync(variationitemfile)) {
 														items.push(JSON.parse(fs.readFileSync(variationitemfile)));
@@ -688,7 +690,7 @@ router.get('/*', (req, res) => {
 										}
 									}
 									if (vitemId) {
-										console.log(' - found item in ' + language + '(cross variation set) id: ' + vitemId);
+										console.info(' - found item in ' + language + '(cross variation set) id: ' + vitemId);
 										var variationitemfile = path.join(contentdir, 'ContentItems', itemType, vitemId + '.json');
 										if (fs.existsSync(variationitemfile)) {
 											items.push(JSON.parse(fs.readFileSync(variationitemfile)));
@@ -697,12 +699,12 @@ router.get('/*', (req, res) => {
 								}
 							}
 						} else {
-							console.log(' - item file ' + itemfile + ' does not exist');
+							console.error(' - item file ' + itemfile + ' does not exist');
 						}
 					} else {
-						console.log(' - item type not found for ' + ids[i]);
+						console.info(' - item type not found for ' + ids[i]);
 						// could be slug
-						console.log(' - query item with slug ' + ids[i]);
+						console.info(' - query item with slug ' + ids[i]);
 						var item = _findItemBySlug(itemFiles, ids[i]);
 						if (item) {
 							items.push(item);
@@ -735,13 +737,13 @@ router.get('/*', (req, res) => {
 							results.data = results.fields;
 						}
 					}
-					console.log(' - returned item(s): ' + items.length);
+					console.info(' - returned item(s): ' + items.length);
 					// return the result
 					res.write(JSON.stringify(results));
 					res.end();
 					return;
 				} else {
-					console.log(' - no item found');
+					console.info(' - no item found');
 					res.writeHead(200, {});
 					res.end();
 				}
@@ -775,7 +777,7 @@ router.get('/*', (req, res) => {
 			var assetjson = JSON.parse(fs.readFileSync(assetjsonfile)),
 				assetfile = assetjson && assetjson.name ? path.join(assetsdir, 'files', id, assetjson.name) : '';
 			if (fs.existsSync(assetfile)) {
-				console.log(' - asset mime type: ' + (assetjson.fields && assetjson.fields.mimeType) + ' file: ' + assetfile);
+				console.info(' - asset mime type: ' + (assetjson.fields && assetjson.fields.mimeType) + ' file: ' + assetfile);
 				if (assetjson.fields && assetjson.fields.mimeType) {
 					res.set('Content-Type', assetjson.fields.mimeType);
 				}
@@ -783,10 +785,10 @@ router.get('/*', (req, res) => {
 				res.end();
 				return;
 			} else {
-				console.log(' - digit asset ' + assetfile + ' does not exist');
+				console.error(' - digit asset ' + assetfile + ' does not exist');
 			}
 		} else {
-			console.log(' - digit asset ' + assetjsonfile + ' does not exist');
+			console.error(' - digit asset ' + assetjsonfile + ' does not exist');
 		}
 		res.writeHead(200, {});
 		res.end();
@@ -867,7 +869,7 @@ var getItemTypeFromMetadata = function (contentdir, id) {
 			}
 		}
 	} else {
-		console.log(' - content metadata ' + metadatafile + ' does not exist');
+		console.error(' - content metadata ' + metadatafile + ' does not exist');
 	}
 	// console.log(' item type: ' + itemType);
 	return itemType;

@@ -15,6 +15,8 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	readline = require('readline'),
 	sprintf = require('sprintf-js').sprintf;
 
+var console = require('../test/server/logger.js').console;
+
 var projectDir,
 	componentsSrcDir,
 	templatesSrcDir,
@@ -54,7 +56,6 @@ module.exports.createAssetReport = function (argv, done) {
 		done();
 		return;
 	}
-	// console.log(' - server: ' + server.url);
 
 	var output = argv.output;
 	if (output) {
@@ -70,13 +71,13 @@ module.exports.createAssetReport = function (argv, done) {
 			output = path.join(output, argv.site + 'AssetUsage.json');
 		}
 		if (!fs.existsSync(outputFolder)) {
-			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
 			done();
 			return;
 		}
 
 		if (!fs.statSync(outputFolder).isDirectory()) {
-			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
 			done();
 			return;
 		}
@@ -297,7 +298,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
@@ -309,39 +310,39 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			expand: 'ownedBy,repository,channel'
 		});
 		sitePromise.then(function (result) {
-				if (result.err) {
-					return Promise.reject();
-				}
-				site = result;
-				// console.log(site);
-				site.fFolderGUID = site.id;
+			if (result.err) {
+				return Promise.reject();
+			}
+			site = result;
+			// console.log(site);
+			site.fFolderGUID = site.id;
 
-				sitejson.id = site.id;
-				sitejson.name = site.name;
-				sitejson.type = site.isEnterprise ? 'Enterprise' : 'Standard';
-				sitejson.slug = site.sitePrefix;
-				sitejson.defaultLanguage = site.defaultLanguage;
-				sitejson.siteTemplate = site.templateName;
-				sitejson.theme = site.themeName;
-				sitejson.owner = site.ownedBy && site.ownedBy.userName;
+			sitejson.id = site.id;
+			sitejson.name = site.name;
+			sitejson.type = site.isEnterprise ? 'Enterprise' : 'Standard';
+			sitejson.slug = site.sitePrefix;
+			sitejson.defaultLanguage = site.defaultLanguage;
+			sitejson.siteTemplate = site.templateName;
+			sitejson.theme = site.themeName;
+			sitejson.owner = site.ownedBy && site.ownedBy.userName;
 
-				templateName = site.templateName;
-				themeName = site.themeName;
-				repositoryId = site.repository && site.repository.id;
-				channelId = site.channel && site.channel.id;
+			templateName = site.templateName;
+			themeName = site.themeName;
+			repositoryId = site.repository && site.repository.id;
+			channelId = site.channel && site.channel.id;
 
-				isEnterprise = site.isEnterprise;
+			isEnterprise = site.isEnterprise;
 
-				console.log(' - query site');
+			console.info(' - query site');
 
-				return serverRest.getFolderUsers({
-					server: server,
-					id: site.fFolderGUID
-				});
-			})
+			return serverRest.getFolderUsers({
+				server: server,
+				id: site.fFolderGUID
+			});
+		})
 			.then(function (result) {
 				sitejson.members = result && result.data || [];
-				console.log(' - query site members');
+				console.info(' - query site members');
 
 				var templatePromise = sitesRest.getTemplate({
 					server: server,
@@ -374,7 +375,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			})
 			.then(function (results) {
 				if (templatejson.id) {
-					console.log(' - query site template members');
+					console.info(' - query site template members');
 					templatejson.members = results.length > 0 ? results[0].data : [];
 				}
 
@@ -407,7 +408,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			})
 			.then(function (results) {
 				if (theme && theme.fFolderGUID) {
-					console.log(' - query theme member');
+					console.info(' - query theme member');
 					themejson.members = results.length > 0 ? results[0].data : [];
 				}
 
@@ -422,7 +423,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				return Promise.all(repoPromises);
 			})
 			.then(function (results) {
-				console.log(' - query repository');
+				console.info(' - query repository');
 				repository = results.length > 0 && results[0].id ? results[0] : undefined;
 
 				if (repository) {
@@ -448,7 +449,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				return Promise.all(repoPermissionPromises);
 			})
 			.then(function (results) {
-				console.log(' - query repository members');
+				console.info(' - query repository members');
 				if (repository && results.length > 0) {
 					repositoryjson.members = results[0].permissions || [];
 				}
@@ -464,7 +465,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				return Promise.all(channelPromises);
 			})
 			.then(function (results) {
-				console.log(' - query channel');
+				console.info(' - query channel');
 				channel = results.length > 0 ? results[0] : undefined;
 
 				var policyPromises = [];
@@ -497,7 +498,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				return Promise.all(policyPromises);
 			})
 			.then(function (results) {
-				console.log(' - query channel localization policy');
+				console.info(' - query channel localization policy');
 				var result = results.length > 0 ? results[0] : undefined;
 				if (result && result.id) {
 					channelpolicyjson.id = result.id;
@@ -598,7 +599,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 								// fs.writeFileSync(path.join(tempSrcDir, 'pages', page.id + '.json'), newSrc);
 								// console.log(' - save file ' + page.id + '.json');
 							} catch (e) {
-								console.log(e);
+								console.error(e);
 							}
 
 							var links2 = [];
@@ -675,7 +676,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				}
 
 				if (compNames.length > 0) {
-					console.log(' - query components ...');
+					console.info(' - query components ...');
 				}
 				return _getComponents(server, compNames);
 
@@ -768,7 +769,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 
 			})
 			.then(function (results) {
-				console.log(' - query component permissions');
+				console.info(' - query component permissions');
 				var compUsers = results;
 				if (compUsers.length > 0) {
 					for (var j = 0; j < pageComponents.length; j++) {
@@ -798,7 +799,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				return Promise.all(typePermissionPromises);
 			})
 			.then(function (results) {
-				console.log(' - query content type permissions');
+				console.info(' - query content type permissions');
 
 				if (results && results.length > 0) {
 					for (var i = 0; i < pageContentTypes.length; i++) {
@@ -814,7 +815,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				return _queryItems(server, itemIds);
 			})
 			.then(function (result) {
-				console.log(' - query items');
+				console.info(' - query items');
 				pageItems = result || [];
 
 				for (var i = 0; i < structurePages.length; i++) {
@@ -934,7 +935,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 							}
 						}
 					} catch (e) {
-						console.log(e);
+						console.error(e);
 					}
 				}
 
@@ -1077,7 +1078,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -1360,31 +1361,31 @@ var _getSitePages = function (server, siteId) {
 		var structurePages = [];
 		var pagesFolderId;
 		var structureFileId;
-		console.log(' - query site pages');
+		console.info(' - query site pages');
 		serverRest.getChildItems({
-				server: server,
-				parentID: siteId
-			}).then(function (result) {
-				var items = result && result.items || [];
-				for (var i = 0; i < items.length; i++) {
-					if (items[i].name === 'pages' && items[i].type === 'folder') {
-						pagesFolderId = items[i].id;
-					} else if (items[i].name === 'structure.json' && items[i].type === 'file') {
-						structureFileId = items[i].id;
-					}
-					if (pagesFolderId && structureFileId) {
-						break;
-					}
+			server: server,
+			parentID: siteId
+		}).then(function (result) {
+			var items = result && result.items || [];
+			for (var i = 0; i < items.length; i++) {
+				if (items[i].name === 'pages' && items[i].type === 'folder') {
+					pagesFolderId = items[i].id;
+				} else if (items[i].name === 'structure.json' && items[i].type === 'file') {
+					structureFileId = items[i].id;
 				}
-				if (!pagesFolderId || !structureFileId) {
-					return Promise.reject();
+				if (pagesFolderId && structureFileId) {
+					break;
 				}
+			}
+			if (!pagesFolderId || !structureFileId) {
+				return Promise.reject();
+			}
 
-				return serverRest.readFile({
-					server: server,
-					fFileGUID: structureFileId
-				});
-			})
+			return serverRest.readFile({
+				server: server,
+				fFileGUID: structureFileId
+			});
+		})
 			.then(function (fileContent) {
 				var structureFileContent = typeof fileContent === 'string' ? JSON.parse(fileContent) : fileContent;
 				structurePages = structureFileContent && structureFileContent.pages || [];
@@ -1397,7 +1398,7 @@ var _getSitePages = function (server, siteId) {
 			})
 			.then(function (result) {
 				var items = result && result.items || [];
-				console.log(' - site total pages: ' + items.length);
+				console.info(' - site total pages: ' + items.length);
 				for (var i = 0; i < items.length; i++) {
 					// console.log('page ' + i + ' : ' + items[i].id + ' ' + items[i].name);
 					pages.push({
@@ -1428,7 +1429,6 @@ var _getSitePages = function (server, siteId) {
 	});
 };
 
-var _startNewLine = false;
 var _getPageFiles = function (server, pages) {
 	return new Promise(function (resolve, reject) {
 		var total = pages.length;
@@ -1453,37 +1453,40 @@ var _getPageFiles = function (server, pages) {
 			});
 		}
 
+		var needNewLine = false;
 		var doGetFile = groups.reduce(function (filePromise, param) {
-				return filePromise.then(function (result) {
-					var filePromises = [];
-					for (var i = param.start; i <= param.end; i++) {
-						filePromises.push(_readFile(server, pages[i].id, pages[i].name));
-					}
+			return filePromise.then(function (result) {
+				var filePromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					filePromises.push(_readFile(server, pages[i].id, pages[i].name));
+				}
 
+				if (console.showInfo()) {
 					process.stdout.write(' - getting page files [' + param.start + ', ' + param.end + '] ...');
-					readline.cursorTo(process.stdout, 0);
-					return Promise.all(filePromises).then(function (results) {
-						if (results) {
-							for (var i = 0; i < results.length; i++) {
-								for (var j = 0; j < pages.length; j++) {
-									if (results[i] && results[i].file === pages[j].name) {
-										pages[j].fileContent = results[i].data;
-										break;
-									}
+					needNewLine = true;
+				}
+				readline.cursorTo(process.stdout, 0);
+				return Promise.all(filePromises).then(function (results) {
+					if (results) {
+						for (var i = 0; i < results.length; i++) {
+							for (var j = 0; j < pages.length; j++) {
+								if (results[i] && results[i].file === pages[j].name) {
+									pages[j].fileContent = results[i].data;
+									break;
 								}
 							}
 						}
-					});
+					}
 				});
+			});
 
-			},
+		},
 			// Start with a previousPromise value that is a resolved promise 
 			Promise.resolve({}));
 
 		doGetFile.then(function (result) {
-			if (!_startNewLine) {
+			if (needNewLine) {
 				process.stdout.write(os.EOL);
-				_startNewLine = true;
 			}
 			resolve(pages);
 		});
@@ -1502,11 +1505,13 @@ var _readFile = function (server, id, fileName) {
 			}
 		};
 
+		serverUtils.showRequestOptions(options);
+		
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.log('ERROR: failed to download file ' + fileName);
-				console.log(error);
+				console.error('ERROR: failed to download file ' + fileName);
+				console.error(error);
 				resolve();
 			}
 			var data;
@@ -1523,7 +1528,7 @@ var _readFile = function (server, id, fileName) {
 					data: data
 				});
 			} else {
-				console.log('ERROR: failed to download file: ' + fileName + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
+				console.error('ERROR: failed to download file: ' + fileName + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
 				resolve();
 			}
 
@@ -1557,30 +1562,30 @@ var _getComponents = function (server, compNames) {
 		}
 
 		var doGetComps = groups.reduce(function (compPromise, param) {
-				return compPromise.then(function (result) {
-					var compPromises = [];
-					for (var i = param.start; i <= param.end; i++) {
-						compPromises.push(sitesRest.getComponent({
-							server: server,
-							name: compNames[i],
-							expand: 'ownedBy'
-						}));
-					}
+			return compPromise.then(function (result) {
+				var compPromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					compPromises.push(sitesRest.getComponent({
+						server: server,
+						name: compNames[i],
+						expand: 'ownedBy'
+					}));
+				}
 
-					// process.stdout.write(' - getting component [' + param.start + ', ' + param.end + '] ...');
-					// readline.cursorTo(process.stdout, 0);
-					return Promise.all(compPromises).then(function (results) {
-						if (results) {
-							for (var i = 0; i < results.length; i++) {
-								if (results[i].id) {
-									comps.push(results[i]);
-								}
+				// process.stdout.write(' - getting component [' + param.start + ', ' + param.end + '] ...');
+				// readline.cursorTo(process.stdout, 0);
+				return Promise.all(compPromises).then(function (results) {
+					if (results) {
+						for (var i = 0; i < results.length; i++) {
+							if (results[i].id) {
+								comps.push(results[i]);
 							}
 						}
-					});
+					}
 				});
+			});
 
-			},
+		},
 			// Start with a previousPromise value that is a resolved promise 
 			Promise.resolve({}));
 
@@ -1616,39 +1621,42 @@ var _getComponentsFiles = function (server, comps) {
 		}
 
 		var count = [];
+		var needNewLine = false;
 		var doGetCompFiles = groups.reduce(function (compFilePromise, param) {
-				return compFilePromise.then(function (result) {
-					var compFilePromises = [];
-					for (var i = param.start; i <= param.end; i++) {
-						if (comps[i].id) {
-							compFilePromises.push(_getComponentFiles(server, comps[i].id, comps[i].name));
-						}
+			return compFilePromise.then(function (result) {
+				var compFilePromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					if (comps[i].id) {
+						compFilePromises.push(_getComponentFiles(server, comps[i].id, comps[i].name));
 					}
-					count.push('.');
+				}
+				count.push('.');
+				if (console.showInfo()) {
 					process.stdout.write(' - getting component files ' + count.join(''));
-					readline.cursorTo(process.stdout, 0);
-					return Promise.all(compFilePromises).then(function (results) {
-						if (results) {
-							for (var i = 0; i < results.length; i++) {
-								for (var j = 0; j < comps.length; j++) {
-									if (results[i] && results[i].compId === comps[j].id) {
-										comps[j].files = results[i].files;
-										break;
-									}
+					needNewLine = true;
+				}
+				readline.cursorTo(process.stdout, 0);
+				return Promise.all(compFilePromises).then(function (results) {
+					if (results) {
+						for (var i = 0; i < results.length; i++) {
+							for (var j = 0; j < comps.length; j++) {
+								if (results[i] && results[i].compId === comps[j].id) {
+									comps[j].files = results[i].files;
+									break;
 								}
 							}
 						}
-					});
+					}
 				});
+			});
 
-			},
+		},
 			// Start with a previousPromise value that is a resolved promise 
 			Promise.resolve({}));
 
 		doGetCompFiles.then(function (result) {
-			if (!_startNewLine) {
+			if (needNewLine) {
 				process.stdout.write(os.EOL);
-				_startNewLine = true;
 			}
 			resolve(comps);
 		});
@@ -1663,11 +1671,11 @@ _getComponentFiles = function (server, compId, compName) {
 	return new Promise(function (resolve, reject) {
 		var files = [];
 		serverRest.findFile({
-				server: server,
-				parentID: compId,
-				filename: 'assets',
-				itemtype: 'folder'
-			})
+			server: server,
+			parentID: compId,
+			filename: 'assets',
+			itemtype: 'folder'
+		})
 			.then(function (result) {
 				if (!result || result.err) {
 					return Promise.reject();
@@ -1753,34 +1761,40 @@ var _queryItems = function (server, itemIds, itemLabel) {
 					end: total - 1
 				});
 			}
-			console.log(' - total ' + (itemLabel ? itemLabel : '') + ' items: ' + total);
+			console.info(' - total ' + (itemLabel ? itemLabel : '') + ' items: ' + total);
 
+			var needNewLine = false;
 			var doGetItem = groups.reduce(function (itemPromise, param) {
-					return itemPromise.then(function (result) {
-						var itemPromises = [];
-						for (var i = param.start; i <= param.end; i++) {
-							itemPromises.push(serverRest.getItem({
-								server: server,
-								id: itemIds[i],
-								expand: 'all'
-							}));
-						}
+				return itemPromise.then(function (result) {
+					var itemPromises = [];
+					for (var i = param.start; i <= param.end; i++) {
+						itemPromises.push(serverRest.getItem({
+							server: server,
+							id: itemIds[i],
+							expand: 'all'
+						}));
+					}
 
+					if (console.showInfo()) {
 						process.stdout.write(' - querying items [' + param.start + ', ' + param.end + '] ...');
-						readline.cursorTo(process.stdout, 0);
-						return Promise.all(itemPromises).then(function (results) {
-							for (var i = 0; i < results.length; i++) {
-								items.push(results[i]);
-							}
-						});
+						needNewLine = true;
+					}
+					readline.cursorTo(process.stdout, 0);
+					return Promise.all(itemPromises).then(function (results) {
+						for (var i = 0; i < results.length; i++) {
+							items.push(results[i]);
+						}
 					});
+				});
 
-				},
+			},
 				// Start with a previousPromise value that is a resolved promise 
 				Promise.resolve({}));
 
 			doGetItem.then(function (result) {
-				process.stdout.write(os.EOL);
+				if (needNewLine) {
+					process.stdout.write(os.EOL);
+				}
 				resolve(items);
 			});
 		}
@@ -1814,33 +1828,38 @@ var _queryFiles = function (server, fileIds) {
 					end: total - 1
 				});
 			}
-			console.log(' - total files: ' + total);
+			console.info(' - total files: ' + total);
 			var count = [];
+			var needNewLine = false;
 			var doGetFile = groups.reduce(function (filePromise, param) {
-					return filePromise.then(function (result) {
-						var filePromises = [];
-						for (var i = param.start; i <= param.end; i++) {
-							filePromises.push(serverRest.getFile({
-								server: server,
-								id: fileIds[i]
-							}));
-						}
-						count.push('.');
+				return filePromise.then(function (result) {
+					var filePromises = [];
+					for (var i = param.start; i <= param.end; i++) {
+						filePromises.push(serverRest.getFile({
+							server: server,
+							id: fileIds[i]
+						}));
+					}
+					count.push('.');
+					if (console.showInfo()) {
 						process.stdout.write(' - querying files ' + count.join(''));
-						readline.cursorTo(process.stdout, 0);
-						return Promise.all(filePromises).then(function (results) {
-							for (var i = 0; i < results.length; i++) {
-								files.push(results[i]);
-							}
-						});
+					}
+					readline.cursorTo(process.stdout, 0);
+					return Promise.all(filePromises).then(function (results) {
+						for (var i = 0; i < results.length; i++) {
+							files.push(results[i]);
+						}
 					});
+				});
 
-				},
+			},
 				// Start with a previousPromise value that is a resolved promise 
 				Promise.resolve({}));
 
 			doGetFile.then(function (result) {
-				process.stdout.write(os.EOL);
+				if (needNewLine) {
+					process.stdout.write(os.EOL);
+				}
 				resolve(files);
 			});
 		}
@@ -1857,22 +1876,22 @@ var _runHTMLlint = function (id, name, type, fileName, source) {
 		var src = typeof source === 'object' ? JSON.stringify(source) : source;
 
 		htmllint(src).then(function (result) {
-				var issues = result || [];
+			var issues = result || [];
 
-				for (var i = 0; i < issues.length; i++) {
-					if (issues[i].rule === 'tag-close') {
-						tagCloseIssues.push(issues[i]);
-					}
+			for (var i = 0; i < issues.length; i++) {
+				if (issues[i].rule === 'tag-close') {
+					tagCloseIssues.push(issues[i]);
 				}
+			}
 
-				// console.log(' - ' + type + ' id: ' + id + ' name: ' + name + ' file: ' + fileName + ' ' + JSON.stringify(tagCloseIssues));
+			// console.log(' - ' + type + ' id: ' + id + ' name: ' + name + ' file: ' + fileName + ' ' + JSON.stringify(tagCloseIssues));
 
-				return resolve({
-					id: id,
-					fileName: fileName,
-					tagCloseIssues: tagCloseIssues
-				});
-			})
+			return resolve({
+				id: id,
+				fileName: fileName,
+				tagCloseIssues: tagCloseIssues
+			});
+		})
 			.catch((error) => {
 				var msg = '';
 				if (error) {
@@ -1880,7 +1899,7 @@ var _runHTMLlint = function (id, name, type, fileName, source) {
 					msg = error.toString();
 				}
 
-				console.log('ERROR: HTMLlint failed for ' + type + ' ' + name + ' file ' + fileName + ' : ' + msg);
+				console.error('ERROR: HTMLlint failed for ' + type + ' ' + name + ' file ' + fileName + ' : ' + msg);
 				return resolve({
 					id: id,
 					fileName: fileName,
@@ -2057,7 +2076,7 @@ var _verifyHrefLink = function (server, request, httpsProxy, httpProxy, url) {
 				var errStr;
 				try {
 					errStr = JSON.stringify(err);
-				} catch (e) {}
+				} catch (e) { }
 				status = err && (err.errno || err.code) ? (err.errno || err.code) : (errStr ? errStr : 'error');
 
 				return resolve({
@@ -2078,9 +2097,9 @@ var _verifyHrefLinks = function (server, pageLinks) {
 			resolve(links);
 		} else {
 			var total = pageLinks.length;
-			console.log(' - total links: ' + total);
+			console.info(' - total links: ' + total);
 			var timestamp = (new Date()).toISOString().substring(0, 19);
-			console.log(' - ' + timestamp);
+			console.info(' - ' + timestamp);
 			var groups = [];
 			var limit = 20;
 			var start, end;
@@ -2102,39 +2121,45 @@ var _verifyHrefLinks = function (server, pageLinks) {
 				});
 			}
 
+			var needNewLine = false;
 			var doVerifyLinks = groups.reduce(function (linkPromise, param) {
-					return linkPromise.then(function (result) {
-						var linkPromises = [];
-						for (var i = param.start; i <= param.end; i++) {
-							linkPromises.push(_verifyHrefLink(server, request, httpsProxy, httpProxy,
-								pageLinks[i]));
-						}
+				return linkPromise.then(function (result) {
+					var linkPromises = [];
+					for (var i = param.start; i <= param.end; i++) {
+						linkPromises.push(_verifyHrefLink(server, request, httpsProxy, httpProxy,
+							pageLinks[i]));
+					}
 
+					if (console.showInfo()) {
 						process.stdout.write(' - verifying page links [' + param.start + ', ' + param.end + '] ...');
-						readline.cursorTo(process.stdout, 0);
-						return Promise.all(linkPromises).then(function (results) {
-							if (results) {
-								if (Array.isArray(results)) {
-									for (var i = 0; i < results.length; i++) {
-										if (results[i]) {
-											links.push(results[i]);
-										}
+						needNewLine = true;
+					}
+					readline.cursorTo(process.stdout, 0);
+					return Promise.all(linkPromises).then(function (results) {
+						if (results) {
+							if (Array.isArray(results)) {
+								for (var i = 0; i < results.length; i++) {
+									if (results[i]) {
+										links.push(results[i]);
 									}
-								} else {
-									links.push(results);
 								}
+							} else {
+								links.push(results);
 							}
-						});
+						}
 					});
+				});
 
-				},
+			},
 				// Start with a previousPromise value that is a resolved promise 
 				Promise.resolve({}));
 
 			doVerifyLinks.then(function (result) {
-				process.stdout.write(os.EOL);
+				if (needNewLine) {
+					process.stdout.write(os.EOL);
+				}
 				timestamp = (new Date()).toISOString().substring(0, 19);
-				console.log(' - ' + timestamp);
+				console.info(' - ' + timestamp);
 				resolve(links);
 			});
 		}
@@ -2170,48 +2195,48 @@ var _processLinks = function (server, links) {
 var _getSiteContent = function (server, siteId) {
 	return new Promise(function (resolve, reject) {
 		serverRest.findFolderHierarchy({
+			server: server,
+			parentID: siteId,
+			folderPath: 'content'
+		}).then(function (result) {
+			if (!result || !result.id) {
+				return Promise.reject();
+			}
+			var contentFolderId = result.id;
+
+			return serverRest.getChildItems({
 				server: server,
-				parentID: siteId,
-				folderPath: 'content'
-			}).then(function (result) {
-				if (!result || !result.id) {
-					return Promise.reject();
-				}
-				var contentFolderId = result.id;
-
-				return serverRest.getChildItems({
-					server: server,
-					parentID: contentFolderId,
-					limit: 9999
+				parentID: contentFolderId,
+				limit: 9999
+			});
+		}).then(function (result) {
+			var items = result && result.items || [];
+			// console.log(items);
+			var siteContent = [];
+			items.forEach(function (item) {
+				siteContent.push({
+					name: item.name,
+					id: item.id,
+					mimeType: item.mimeType,
+					size: item.size
 				});
-			}).then(function (result) {
-				var items = result && result.items || [];
-				// console.log(items);
-				var siteContent = [];
-				items.forEach(function (item) {
-					siteContent.push({
-						name: item.name,
-						id: item.id,
-						mimeType: item.mimeType,
-						size: item.size
-					});
-				});
+			});
 
-				// sort by content size (large ones on the top)
-				if (siteContent.length > 0) {
-					var bySize = siteContent.slice(0);
-					bySize.sort(function (a, b) {
-						var x = parseInt(a.size);
-						var y = parseInt(b.size);
-						return (x < y ? 1 : x > y ? -1 : 0);
-					});
-					siteContent = bySize;
-				}
-
-				resolve({
-					siteContent: siteContent,
+			// sort by content size (large ones on the top)
+			if (siteContent.length > 0) {
+				var bySize = siteContent.slice(0);
+				bySize.sort(function (a, b) {
+					var x = parseInt(a.size);
+					var y = parseInt(b.size);
+					return (x < y ? 1 : x > y ? -1 : 0);
 				});
-			})
+				siteContent = bySize;
+			}
+
+			resolve({
+				siteContent: siteContent,
+			});
+		})
 			.catch((error) => {
 				resolve({
 					err: 'err'
@@ -2260,13 +2285,13 @@ module.exports.createTemplateReport = function (argv, done) {
 			output = path.join(output, argv.name + 'AssetUsage.json');
 		}
 		if (!fs.existsSync(outputFolder)) {
-			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
 			done();
 			return;
 		}
 
 		if (!fs.statSync(outputFolder).isDirectory()) {
-			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
 			done();
 			return;
 		}
@@ -2378,7 +2403,7 @@ module.exports.createTemplateReport = function (argv, done) {
 		var siteinfoStr = fs.readFileSync(path.join(tempSrcDir, 'siteinfo.json'));
 		var siteinfoJson = JSON.parse(siteinfoStr);
 		if (!folderJson || !folderJson.itemGUID || !siteinfoJson || !siteinfoJson.properties) {
-			console.log('ERROR: invalid template');
+			console.error('ERROR: invalid template');
 			done();
 			return;
 		}
@@ -2530,7 +2555,7 @@ module.exports.createTemplateReport = function (argv, done) {
 				// fs.writeFileSync(path.join(tempSrcDir, 'pages', page.id + '.json'), newSrc);
 				// console.log(' - save file ' + page.id + '.json');
 			} catch (e) {
-				console.log(e);
+				console.error(e);
 			}
 
 			var links2 = [];
@@ -2697,7 +2722,7 @@ module.exports.createTemplateReport = function (argv, done) {
 								}
 							}
 						} catch (e) {
-							console.log(e);
+							console.error(e);
 						}
 					});
 				}
@@ -2817,7 +2842,7 @@ module.exports.createTemplateReport = function (argv, done) {
 
 	} catch (e) {
 		if (e) {
-			console.log(e);
+			console.error(e);
 		}
 		done();
 	}
@@ -2854,19 +2879,19 @@ module.exports.cleanupTemplate = function (argv, done) {
 	file = path.resolve(file);
 
 	if (!fs.existsSync(file)) {
-		console.log('ERROR: file ' + file + ' does not exist');
+		console.error('ERROR: file ' + file + ' does not exist');
 		done();
 		return;
 	}
 
 	if (!fs.statSync(file).isFile()) {
-		console.log('ERROR: ' + file + ' is not a file');
+		console.error('ERROR: ' + file + ' is not a file');
 		done();
 		return;
 	}
 
 	if (!serverUtils.endsWith(file, '.json')) {
-		console.log('ERROR: ' + file + ' is not a JSON file');
+		console.error('ERROR: ' + file + ' is not a JSON file');
 		done();
 		return;
 	}
@@ -2875,10 +2900,10 @@ module.exports.cleanupTemplate = function (argv, done) {
 
 	try {
 		cleanup = JSON.parse(fs.readFileSync(file));
-	} catch (e) {}
+	} catch (e) { }
 
 	if (!cleanup || !cleanup.name || !cleanup.type || cleanup.type !== 'template') {
-		console.log('ERROR: ' + file + ' is not valid template cleanup file');
+		console.error('ERROR: ' + file + ' is not valid template cleanup file');
 		done();
 		return;
 	}
@@ -2899,7 +2924,7 @@ module.exports.cleanupTemplate = function (argv, done) {
 		return;
 	}
 
-	console.log(' - cleanup template ' + tempName);
+	console.info(' - cleanup template ' + tempName);
 
 	var unusedSiteContent = cleanup.unusedSiteContent || [];
 	console.log(' - total unused site content: ' + unusedSiteContent.length);
@@ -2907,7 +2932,7 @@ module.exports.cleanupTemplate = function (argv, done) {
 	unusedSiteContent.forEach(function (name) {
 		var filePath = path.join(templatesSrcDir, tempName, 'content', name);
 		if (!fs.existsSync(filePath)) {
-			console.log('ERROR: file ' + filePath + ' does not exist');
+			console.error('ERROR: file ' + filePath + ' does not exist');
 		} else {
 			fileUtils.remove(filePath);
 			deleted += 1;
@@ -2919,7 +2944,7 @@ module.exports.cleanupTemplate = function (argv, done) {
 	hiddenSiteContent.forEach(function (name) {
 		var filePath = path.join(templatesSrcDir, tempName, 'content', name);
 		if (!fs.existsSync(filePath)) {
-			console.log('ERROR: file ' + filePath + ' does not exist');
+			console.error('ERROR: file ' + filePath + ' does not exist');
 		} else {
 			fileUtils.remove(filePath);
 			deleted += 1;
@@ -2945,7 +2970,6 @@ module.exports.createAssetUsageReport = function (argv, done) {
 		done();
 		return;
 	}
-	// console.log(' - server: ' + server.url);
 
 	var itemIds = argv.assets.split(',');
 
@@ -2963,13 +2987,13 @@ module.exports.createAssetUsageReport = function (argv, done) {
 			output = path.join(output, itemIds.join('_') + 'AssetUsage.json');
 		}
 		if (!fs.existsSync(outputFolder)) {
-			console.log('ERROR: folder ' + outputFolder + ' does not exist');
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
 			done();
 			return;
 		}
 
 		if (!fs.statSync(outputFolder).isDirectory()) {
-			console.log('ERROR: ' + outputFolder + ' is not a folder');
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
 			done();
 			return;
 		}
@@ -2987,30 +3011,30 @@ module.exports.createAssetUsageReport = function (argv, done) {
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
-			console.log(result.statusMessage);
+			console.error(result.statusMessage);
 			done();
 			return;
 		}
 		server.login = true;
 		_queryItems(server, itemIds).then(function (result) {
-				items = result || [];
-				for (var j = 0; j < itemIds.length; j++) {
-					var found = false;
-					for (var i = 0; i < items.length; i++) {
-						if (itemIds[j] === items[i].id) {
-							found = true;
-							break;
-						}
-					}
-					if (!found) {
-						return Promise.reject();
+			items = result || [];
+			for (var j = 0; j < itemIds.length; j++) {
+				var found = false;
+				for (var i = 0; i < items.length; i++) {
+					if (itemIds[j] === items[i].id) {
+						found = true;
+						break;
 					}
 				}
+				if (!found) {
+					return Promise.reject();
+				}
+			}
 
-				// console.log(' - verify items');
+			// console.log(' - verify items');
 
-				return _getItemValues(server, itemIds, 'relationships');
-			})
+			return _getItemValues(server, itemIds, 'relationships');
+		})
 			.then(function (result) {
 				itemRelationships = result || [];
 				var i, j;
@@ -3286,7 +3310,7 @@ module.exports.createAssetUsageReport = function (argv, done) {
 			})
 			.catch((error) => {
 				if (error) {
-					console.log(error);
+					console.error(error);
 				}
 				done();
 			});
@@ -3301,50 +3325,50 @@ var _contentListQuery = function (server, contentListData) {
 		} else {
 			var contentListItems = [];
 			var doGetContentListValues = contentListData.reduce(function (itemPromise, param) {
-					return itemPromise.then(function (result) {
-						var channelToken = param.channelToken,
-							orderBy = param.orderBy,
-							limit = param.limit,
-							offset = param.offset,
-							type = param.contentType,
-							language = param.language,
-							queryString = param.queryString;
-						var q = '';
-						if (type) {
-							q = '(type eq "' + type + '")';
-							if (queryString) {
-								q = q + ' and (' + queryString + ')';
-							}
-							if (language) {
-								q = q + ' and (language eq "' + language + '" or translatable eq "false")';
-							}
+				return itemPromise.then(function (result) {
+					var channelToken = param.channelToken,
+						orderBy = param.orderBy,
+						limit = param.limit,
+						offset = param.offset,
+						type = param.contentType,
+						language = param.language,
+						queryString = param.queryString;
+					var q = '';
+					if (type) {
+						q = '(type eq "' + type + '")';
+						if (queryString) {
+							q = q + ' and (' + queryString + ')';
 						}
-						if (orderBy && orderBy.indexOf('updateddate') >= 0) {
-							orderBy = serverUtils.replaceAll(orderBy, 'updateddate', 'updatedDate');
+						if (language) {
+							q = q + ' and (language eq "' + language + '" or translatable eq "false")';
 						}
-						var contentListPromise = serverRest.queryItems({
-							server: server,
-							q: q,
-							channelToken: channelToken,
-							orderBy: orderBy,
-							limit: limit,
-							offset: offset
-						});
-						return contentListPromise.then(function (result) {
-							if (result.query) {
-								console.log(' - content list query: ' + result.query);
-							}
-							var items = result && result.data || [];
-							for (var i = 0; i < items.length; i++) {
-								if (items[i].id === param.itemId) {
-									contentListItems.push(param);
-								}
-							}
-
-						});
+					}
+					if (orderBy && orderBy.indexOf('updateddate') >= 0) {
+						orderBy = serverUtils.replaceAll(orderBy, 'updateddate', 'updatedDate');
+					}
+					var contentListPromise = serverRest.queryItems({
+						server: server,
+						q: q,
+						channelToken: channelToken,
+						orderBy: orderBy,
+						limit: limit,
+						offset: offset
 					});
+					return contentListPromise.then(function (result) {
+						if (result.query) {
+							console.info(' - content list query: ' + result.query);
+						}
+						var items = result && result.data || [];
+						for (var i = 0; i < items.length; i++) {
+							if (items[i].id === param.itemId) {
+								contentListItems.push(param);
+							}
+						}
 
-				},
+					});
+				});
+
+			},
 				// Start with a previousPromise value that is a resolved promise 
 				Promise.resolve({}));
 
@@ -3549,38 +3573,43 @@ var _getItemValues = function (server, itemIds, action) {
 			}
 
 			var count = [];
+			var needNewLine = false;
 			var doGetItemValues = groups.reduce(function (itemPromise, param) {
-					return itemPromise.then(function (result) {
-						var itemPromises = [];
-						for (var i = param.start; i <= param.end; i++) {
-							if (action === 'relationships') {
-								itemPromises.push(serverRest.getItemRelationships({
-									server: server,
-									id: itemIds[i]
-								}));
-							} else if (action === 'variations') {
-								itemPromises.push(serverRest.getItemVariations({
-									server: server,
-									id: itemIds[i]
-								}));
-							}
+				return itemPromise.then(function (result) {
+					var itemPromises = [];
+					for (var i = param.start; i <= param.end; i++) {
+						if (action === 'relationships') {
+							itemPromises.push(serverRest.getItemRelationships({
+								server: server,
+								id: itemIds[i]
+							}));
+						} else if (action === 'variations') {
+							itemPromises.push(serverRest.getItemVariations({
+								server: server,
+								id: itemIds[i]
+							}));
 						}
-						count.push('.');
+					}
+					count.push('.');
+					if (console.showInfo()) {
 						process.stdout.write(' - querying ' + action + ' for the items ' + count.join(''));
-						readline.cursorTo(process.stdout, 0);
-						return Promise.all(itemPromises).then(function (results) {
-							for (var i = 0; i < results.length; i++) {
-								items.push(results[i]);
-							}
-						});
+					}
+					readline.cursorTo(process.stdout, 0);
+					return Promise.all(itemPromises).then(function (results) {
+						for (var i = 0; i < results.length; i++) {
+							items.push(results[i]);
+						}
 					});
+				});
 
-				},
+			},
 				// Start with a previousPromise value that is a resolved promise 
 				Promise.resolve({}));
 
 			doGetItemValues.then(function (result) {
-				process.stdout.write(os.EOL);
+				if (needNewLine) {
+					process.stdout.write(os.EOL);
+				}
 				resolve(items);
 			});
 		}
