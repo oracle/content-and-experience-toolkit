@@ -1472,6 +1472,7 @@ const controlSite = {
 		['cec control-site publish -s Site1 -u ', "Publish the site and all assets added to the site's pages"],
 		['cec control-site publish -s Site1 -c ', 'Compile and publish site Site1'],
 		['cec control-site publish -s Site1 -t ', 'Only publish the static files of site Site1'],
+		['cec control-site publish -s Site1 -p ', 'Only compile and publish the static files of site Site1'],
 		['cec control-site publish -s Site1 -f ', 'Do a full publish of Site1'],
 		['cec control-site publish -s Site1 -r SampleServer1', 'Publish site Site1 on the registered server SampleServer1'],
 		['cec control-site unpublish -s Site1 -r SampleServer1', 'Unpublish site Site1 on the registered server SampleServer1'],
@@ -2506,6 +2507,27 @@ const listAssets = {
 	]
 };
 
+const deleteAssets = {
+	command: 'delete-assets',
+	alias: '',
+	name: 'delete-assets',
+	usage: {
+		'short': 'Deletes assets on OCM server.',
+		'long': (function () {
+			let desc = 'Deletes assets on OCM server. Optionally specify -c <channel>, -r <repository>, -l <collection>, -a <assets> or -q <query> to specify the assets. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec delete-assets -r Repo1', 'Delete all assets from repository Repo1'],
+		['cec delete-assets -c Channel1', 'Delete all assets from channel Channel1'],
+		['cec delete-assets -r Repo1 -c Channel1', 'Delete all items from repository Repo1 and channel Channel1'],
+		['cec delete-assets -r Repo1 -l Collection1', 'Delete all assets from collection Collection1 and repository Repo1'],
+		['cec delete-assets -q \'fields.category eq "RECIPE"\'', 'Deletes all assets matching the query'],
+		['cec delete-assets -a GUID1,GUID2', 'Delete the two assets']
+	]
+};
+
 const createAssetUsageReport = {
 	command: 'create-asset-usage-report <assets>',
 	alias: 'caur',
@@ -3488,6 +3510,7 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(controlContent) + os.EOL +
 	_getCmdHelp(transferContent) + os.EOL +
 	// _getCmdHelp(validateContent) + os.EOL +
+	_getCmdHelp(deleteAssets) + os.EOL +
 	_getCmdHelp(listAssets) + os.EOL +
 	_getCmdHelp(createDigitalAsset) + os.EOL +
 	_getCmdHelp(updateDigitalAsset) + os.EOL +
@@ -5467,6 +5490,10 @@ const argv = yargs.usage(_usage)
 					alias: 't',
 					description: 'Only publish site static files'
 				})
+				.option('compileonly', {
+					alias: 'p',
+					description: 'Only compile and publish the static files without publishing the site'
+				})
 				.option('fullpublish', {
 					alias: 'f',
 					description: 'Do a full publish'
@@ -5498,6 +5525,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlSite.example[8])
 				.example(...controlSite.example[9])
 				.example(...controlSite.example[10])
+				.example(...controlSite.example[11])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlSite.command}\n\n${controlSite.usage.long}`);
@@ -5584,9 +5612,9 @@ const argv = yargs.usage(_usage)
 	.command([describeSite.command, describeSite.alias], false,
 		(yargs) => {
 			yargs.option('file', {
-					alias: 'f',
-					description: 'The JSON file to save the properties for site on OCM server',
-				})
+				alias: 'f',
+				description: 'The JSON file to save the properties for site on OCM server',
+			})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -7059,6 +7087,51 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${listAssets.command}\n\n${listAssets.usage.long}`);
 		})
+	.command([deleteAssets.command, deleteAssets.alias], false,
+		(yargs) => {
+			yargs.option('channel', {
+				alias: 'c',
+				description: 'Channel name'
+			})
+				.option('collection', {
+					alias: 'l',
+					description: 'Collection name'
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'Repository name, required when <collection> is specified'
+				})
+				.option('query', {
+					alias: 'q',
+					description: 'Query to fetch the assets'
+				})
+				.option('assets', {
+					alias: 'a',
+					description: 'The comma separated list of asset GUIDS'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (argv.collection && !argv.repository) {
+						throw new Error(os.EOL + '<repository> is required when <collection> is specified');
+					}
+					if (!argv.channel && !argv.repository && !argv.query && !argv.assets) {
+						throw new Error(os.EOL + 'Please specify the channel, repository, query or assets');
+					}
+					return true;
+				})
+				.example(...deleteAssets.example[0])
+				.example(...deleteAssets.example[1])
+				.example(...deleteAssets.example[2])
+				.example(...deleteAssets.example[3])
+				.example(...deleteAssets.example[4])
+				.example(...deleteAssets.example[5])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${deleteAssets.command}\n\n${deleteAssets.usage.long}`);
+		})
 	.command([createAssetUsageReport.command, createAssetUsageReport.alias], false,
 		(yargs) => {
 			yargs.option('output', {
@@ -8120,6 +8193,10 @@ const argv = yargs.usage(_usage)
 					alias: 'c',
 					description: 'The certificate file for HTTPS'
 				})
+				.option('shellscript', {
+					alias: 's',
+					description: 'Run using shell script (required if using: compile_site.sh file)'
+				})
 				.option('onceonly', {
 					alias: 'o',
 					description: 'Exit after a single compilation run'
@@ -9049,6 +9126,35 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === deleteAssets.name) {
+	let deleteAssetsArgs = ['run', '-s', deleteAssets.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		deleteAssetsArgs.push(...['--server', argv.server]);
+	}
+	if (argv.channel) {
+		deleteAssetsArgs.push(...['--channel', argv.channel]);
+	}
+	if (argv.collection) {
+		deleteAssetsArgs.push(...['--collection', argv.collection]);
+	}
+	if (argv.repository) {
+		deleteAssetsArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.query) {
+		deleteAssetsArgs.push(...['--query', argv.query]);
+	}
+	if (argv.assets && typeof argv.assets !== 'boolean') {
+		deleteAssetsArgs.push(...['--assets', argv.assets]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, deleteAssetsArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === validateContent.name || argv._[0] === validateContent.alias) {
 	let validateContentArgs = ['run', '-s', validateContent.name, '--prefix', appRoot,
 		'--',
@@ -9614,6 +9720,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.staticonly) {
 		controlSiteArgs.push(...['--staticonly', argv.staticonly]);
 	}
+	if (argv.compileonly) {
+		controlSiteArgs.push(...['--compileonly', argv.compileonly]);
+	}
 	if (argv.fullpublish) {
 		controlSiteArgs.push(...['--fullpublish', argv.fullpublish]);
 	}
@@ -9699,7 +9808,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--name', argv.name
 	];
-	
+
 	if (argv.file) {
 		describeSiteArgs.push(...['--file', argv.file]);
 	}
@@ -11278,6 +11387,9 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	}
 	if (argv.onceonly) {
 		compilationServerArgs.push(...['--onceonly', argv.onceonly]);
+	}
+	if (argv.shellscript) {
+		compilationServerArgs.push(...['--shellscript', argv.shellscript]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, compilationServerArgs, {
 		cwd,

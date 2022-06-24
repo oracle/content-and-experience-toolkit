@@ -14,6 +14,23 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+# New in Release 22.6.2
+
+**Added**
+
+- `cec delete-assets` - Can delete assets from an OCM server
+
+**Updated**
+
+- `cec control-site` - Add option to only compile and publish the static files without publishing the site
+- `cec create-component` - Can now also create a translation job editor component
+- `local server` now supports testing of translation job editor components
+- `compilation server` now supports using `compile_site.sh` custom site compilation script
+
+**Fixed**
+
+- `cec upload-component` - now handles multiple components without ever skipping any
+
 
 
 # New in Release 22.6.1

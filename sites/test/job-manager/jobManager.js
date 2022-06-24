@@ -8,9 +8,12 @@ const cecCmd = /^win/.test(process.platform) ? 'cec.cmd' : 'cec';
 const UPDATESTATUSRETRY = 5;
 const UPDATESTATUSERRORCODE = "IRRECOVERABLE_ERROR";
 const FAILED_TO_CONNECT = "failed to connect :";
+let useShellScript = false;
 
 var JobManager = function (args) {
 		this.ps = args.ps;
+		useShellScript = typeof args.useShellScript === 'boolean' ? args.useShellScript : false;
+		console.log('Use compile_site.sh if available:', useShellScript);
 	},
 	logsDir = '',
 	compileStepTimeoutValue = 0;
@@ -274,6 +277,21 @@ JobManager.prototype.compileJob = function (jobConfig) {
 					setTokenCommand.on('close', (code, signal) => {
 						logCodeSignal('setTokenCommand', code, signal);
 						logDuration(jobConfig, 'setTokenCommand', startTime);
+						code === 0 ? resolveStep(code) : rejectStep(code);
+					});
+				});
+			},
+			compileSiteWithShellScriptStep = function (jobStatus) {
+				return new Promise(function (resolveStep, rejectStep) {
+					var startTime = Date.now();
+
+					var compileCommand = exec('cec-compile-site -s ' + siteName + ' -r ' + serverName + ' -f ' + projectDir);
+
+					compileCommand.stdout.on('data', logStdout);
+					compileCommand.stderr.on('data', logStderr);
+					compileCommand.on('close', (code, signal) => {
+						logCodeSignal('compileCommand', code, signal);
+						logDuration(jobConfig, 'compileCommand', startTime);
 						code === 0 ? resolveStep(code) : rejectStep(code);
 					});
 				});
@@ -649,6 +667,31 @@ JobManager.prototype.compileJob = function (jobConfig) {
 					});
 				}
 			},
+			compileSiteShellScript = function () {
+				if (jobConfig.hasOwnProperty('publishSiteBackgroundJobId')) {
+					delete jobConfig.publishSiteBackgroundJobId;
+				}
+
+				// run the cecCompileSite.sh file, which does a complete compile
+				compileSiteWithShellScriptStep(jobConfig).then(function (completionCode) {
+					console.log('compiled site');
+					// compiled complete, update the job in the queue so it doesn't try to run this again
+					self.updateJob(jobConfig, {
+						status: (completionCode === 0) ? 'COMPILED' : 'FAILED'
+					}).then(function (updatedJobConfig) {
+						// we're done
+						resolve(updatedJobConfig);
+					});
+				}).catch(function (e) {
+					console.log('Failed to compile site: ', e);
+					self.updateJob(jobConfig, {
+						status: 'FAILED'
+					}).then(function (updatedJobConfig) {
+						// we're done
+						resolve(updatedJobConfig);
+					});
+				});
+			},
 			compileSiteSteps = function () {
 				// setup the promise to get the site metadata
 				self.getSiteMetadataPromise = self.getSiteMetadata(jobConfig);
@@ -699,7 +742,7 @@ JobManager.prototype.compileJob = function (jobConfig) {
 					console.log('Should not be in compileSite when status is', jobConfig.status);
 				}
 			},
-			compileSteps = compileContent ? compileContentSteps : compileSiteSteps;
+			compileSteps = compileContent ? compileContentSteps : (useShellScript ? compileSiteShellScript : compileSiteSteps);
 
 		getLogStreamStep().then(function (stream) {
 			logStream = stream;

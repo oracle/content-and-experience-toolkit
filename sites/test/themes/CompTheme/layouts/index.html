@@ -309,8 +309,35 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 				
 				} // formReady
 
-			} else {
+			} else if (compType === 'translationeditor' && window.origin === event.origin) { 
+				var data = event.data;
+				// console.log('translationeditor event: ' + data.type);
 
+				var editFrame = document.getElementById('editFrame');
+				if (!data.type && editFrame) {
+					// reload iframe
+					editFrame.src += '';
+				}
+
+				if (data.type === 'formReady') {
+					if (window.sessionStorage['currentTranslationJob']) {
+						var job = JSON.parse(window.sessionStorage['currentTranslationJob']);
+						// console.log(job.job);
+						var msg = {
+            				type: 'init',
+           					payload: job.job
+						};
+						var editWindow = editFrame && editFrame.contentWindow;
+						if (editWindow) {
+							editWindow.postMessage(msg, window.origin); 
+						}
+					}
+				}
+
+			} else {
+				//
+				// All other components
+				//
 			try {
 
 				var data = JSON.parse(event.data);

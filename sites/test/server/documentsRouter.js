@@ -47,7 +47,7 @@ router.get('/*', (req, res) => {
 			requestUrl = requestUrl.replace('/published/', '/management/');
 		}
 		location = app.locals.serverURL + requestUrl;
-		console.info('Remote traffic:', location);
+		console.info('Remote traffic:' + location);
 		var options = {
 			url: location
 		};
@@ -83,7 +83,7 @@ router.post('/*', (req, res) => {
 	}
 
 	// all POST requests are proxied to the remote server
-	console.info('Remote traffic: POST ', requestUrl);
+	console.info('Remote traffic: POST ' + requestUrl);
 	var body = '';
 
 	req.on('error', function (err) {

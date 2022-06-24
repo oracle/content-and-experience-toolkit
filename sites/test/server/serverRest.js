@@ -3171,7 +3171,8 @@ module.exports.addItemsToCollection = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.deleteItems = function (args) {
-	return _bulkOpItems(args.server, 'deleteItems', [], args.itemIds);
+	var async = args.async ? args.async : 'false';
+	return _bulkOpItems(args.server, 'deleteItems', [], args.itemIds, '', async);
 };
 
 /**
@@ -3320,7 +3321,7 @@ var _getItemOperationStatus = function (server, statusId) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: get channel operation status');
+				console.error('ERROR: get item operation status');
 				console.error(error);
 				return resolve({
 					err: 'err'

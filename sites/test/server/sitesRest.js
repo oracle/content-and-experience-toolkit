@@ -1149,7 +1149,7 @@ module.exports.publishComponent = function (args) {
 	}
 };
 
-var _publishResourceAsync = function (server, type, id, name, usedContentOnly, compileSite, staticOnly, fullpublish) {
+var _publishResourceAsync = function (server, type, id, name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish) {
 	return new Promise(function (resolve, reject) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
@@ -1170,7 +1170,7 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 			url: server.url + url
 		};
 
-		if (type === 'sites' && (usedContentOnly || compileSite || staticOnly || fullpublish)) {
+		if (type === 'sites' && (usedContentOnly || compileSite || staticOnly || compileOnly || fullpublish)) {
 			var body = {};
 			if (usedContentOnly) {
 				body.onlyUsedContent = true;
@@ -1180,6 +1180,10 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 			}
 			if (staticOnly) {
 				body.onlyStaticFiles = true;
+			}
+			if (compileOnly) {
+				body.onlyStaticFiles = true;
+				body.skipCompile = false;
 			}
 			if (fullpublish) {
 				body.type = 'full';
@@ -1288,7 +1292,7 @@ module.exports.publishTheme = function (args) {
 module.exports.publishSite = function (args) {
 	var server = args.server;
 	return _publishResourceAsync(server, 'sites', args.id, args.name,
-		args.usedContentOnly, args.compileSite, args.staticOnly, args.fullpublish
+		args.usedContentOnly, args.compileSite, args.staticOnly, args.compileOnly, args.fullpublish
 	);
 };
 

@@ -297,7 +297,7 @@ var _updateEvent = function (eventId, success, timeused, retry) {
 						events[i].__processed = true;
 						newList.push(events[i]);
 					} else {
-						console.log(' -- will retey');
+						console.log(' -- will retry');
 						serverUtils.sleep(6000);
 						events[i]['__retry'] = events[i].__retry ? (events[i].__retry + 1) : 1;
 						theEvent = events[i];

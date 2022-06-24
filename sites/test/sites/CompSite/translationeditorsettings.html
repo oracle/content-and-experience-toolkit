@@ -1,0 +1,359 @@
+<!--
+Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
+Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
+-->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- only allow embedding of this iFrame in SCS -->
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <title>Translation Jobs</title>
+
+    <!-- include sample apps styling -->
+	<link href="/_sitescloud/renderer/app/sdk/css/content-tile-layout.css" rel="stylesheet">
+    <link href="/_sitescloud/renderer/app/sdk/css/app-styles.css" rel="stylesheet">
+
+    <script type="text/javascript" src="/_sitescloud/renderer/app/apps/js/jquery.min.js"></script>
+    <script type="text/javascript" src="/_sitescloud/renderer/app/apps/js/knockout.min.js"></script>
+    <script type="text/javascript" src="/_sitescloud/renderer/mustache.min.js"></script>
+
+    <!-- include the Sites SDK -->
+    <script type="text/javascript" src="/_sitescloud/renderer/app/sdk/js/sites.min.js"></script>
+</head>
+
+<body data-bind="visible: true" style="display:none; margin:0px; padding:0px;background:transparent;background-image:none;">
+    <div class="scs-component-settings">
+        <div id="tabs" class="scs-component-settings-tabs">
+            <ul>
+                <li id="localtablink" style="width: 50%">
+                    <a data-bind="click: function(data, event) { clickTab('tab-local', data, event) }">Local</a>
+                </li>
+                <li id="remotetablink" style="width: 50%">
+                    <a data-bind="click: function(data, event) { clickTab('tab-remote', data, event) }">Remote</a>
+                </li>
+            </ul>
+        </div>
+
+        <div id="tab-local" class="scs-tab">
+            <div class="no-content" data-bind="visible: noLocalJob">
+                <img class="no-content-img" src="/public/images/nocontent.png">
+                <h3 class="no-content-text">No Local Translation Jobs</h3>
+            </div>
+            
+            <ul id="joblist" class="scs-list" data-bind="foreach: jobs">
+                <li data-bind="click: $parent.selectJob">
+                    <div data-bind="text: jobName"></div>
+                </li>
+            </ul>
+			
+        </div>
+
+        <div id="tab-remote" class="scs-tab">
+            <div class="no-content" data-bind="visible: noRemoteJob">
+                <img class="no-content-img" src="/public/images/nocontent.png">
+                <h3 class="no-content-text">No Translation Jobs on Remote Server</h3>
+            </div>
+
+            <ul id="joblistR" class="scs-list" data-bind="foreach: jobsRemote">
+                <li  data-bind="click: $parent.selectRemoteJob">
+                    <div data-bind="text: name"></div>
+                </li>
+            </ul>
+        </div>
+
+    </div>
+
+    <script type="text/javascript">
+        /* global ko require */
+
+        // define the viewModel object
+        var SettingsViewModel = function () {
+            'use strict';
+            var self = this;
+            self.initialized = ko.observable(false);
+
+            self.noLocalJob = ko.observable(false);
+            self.noRemoteJob = ko.observable(false);
+
+            // create the observables for passing data
+            self.jobs = ko.observableArray([]);
+            self.selectedJob = ko.observable();
+
+            self.jobsRemote = ko.observableArray([]);
+           self.selectedJobRemote = ko.observable();
+
+            var currentJob = window.sessionStorage.currentTranslationJob ? JSON.parse(window.sessionStorage.currentTranslationJob) :
+                undefined;
+            var isRemote = currentJob && currentJob.isRemote;
+
+            self.tabs = $('.scs-component-settings').find('.scs-tab');
+            var tabLinks = $('.scs-component-settings-tabs');
+            if (!isRemote) {
+                self.currentTab = self.tabs.first();
+                self.currentTab.addClass('scs-selected');
+
+                // Mark the first tab link as selected
+                tabLinks.children('ul').children('li').first().addClass('scs-selected');
+            } else {
+                self.currentTab = self.tabs.next();
+                self.currentTab.addClass('scs-selected');
+
+                // Mark the 2nd tab link as selected
+                tabLinks.children('ul').children('li').next().addClass('scs-selected');
+            }
+            
+
+            self.prepareJobs = function (data, remote) {
+				var results = data;
+                
+                // sort jobs by name
+                var byName = results.slice(0);
+                byName.sort(function (a, b) {
+                    var x = a.jobName;
+                    var y = b.jobName;
+                    return x < y ? -1 : x > y ? 1 : 0;
+                    
+                });
+                results = byName;
+
+                return results;
+            };
+
+            self.getServerTranslationJobs = function () {
+                var joburl = '/content/management/api/v1.1/translationJobs?jobType=assets&links=none&limit=500&orderBy=name:asc';
+                $.ajax({
+                    'type': 'GET',
+                    'dataType': 'json',
+                    'url': joburl,
+                    'success': function (data) {
+                        var jobs = data && data.items || [];
+                        // console.log('remote assets jobs = ' + jobs.length);
+
+						joburl = '/content/management/api/v1.1/translationJobs?jobType=sites&links=none&limit=500&orderBy=name:asc';
+						$.ajax({
+                    		'type': 'GET',
+                    		'dataType': 'json',
+                    		'url': joburl,
+                    		'success': function (data) {
+                       			var sitejobs = data && data.items || []
+                        		// console.log('remote sites jobs = ' + sitejobs.length);
+
+								jobs = jobs.concat(sitejobs);
+								self.jobsRemote(jobs);
+                       			self.noRemoteJob(jobs.length === 0);
+                    		},
+                    		'error': function (xhr, status, err) {
+                        		console.log('status=' + status + ' err=' + err);
+                        		self.noRemoteJob(true);
+                   			 }
+                		});
+                    },
+                    'error': function (xhr, status, err) {
+                        console.log('status=' + status + ' err=' + err);
+                        self.noRemoteJob(true);
+                    }
+                });
+            };
+
+            // get local translation jobs
+            var url = '/gettranslationjobs';
+            $.ajax({
+                'type': 'GET',
+                'dataType': 'json',
+                async: false,
+                'url': url,
+                'success': function (data) {
+                    // prepare for the mustache template
+                    var results = self.prepareJobs(data, false);
+                    self.jobs(results);
+                    self.noLocalJob(results.length === 0);
+
+                },
+                'error': function (xhr, status, err) {
+                    console.log('status=' + status + ' err=' + err);
+                    self.noLocalJob(true);
+                }
+            });
+
+			// get translation jobs on server
+			self.getServerTranslationJobs();
+
+            self.initialized(true);
+
+            self.selectJob = function (job) {
+                // console.info('selectJob: ');
+				// console.info(job);
+                var joburl = '/getlocaltranslationjob/' + job.jobName;
+				$.ajax({
+                    'type': 'GET',
+                    'dataType': 'json',
+                    'url': joburl,
+					'success': function (result) {
+						// console.info('local translation job:');
+						// console.info(result);
+						var translationJob = result || {};
+						var connectionurl = '/getlocalconnection/' + translationJob.connection;
+						$.ajax({
+                    		'type': 'GET',
+                    		'dataType': 'json',
+                    		'url': connectionurl,
+							'success': function (result) {
+								// console.info('local translation connection:');
+								// console.info(result);
+								var translatioConnection = result || {};
+						
+								var jobjson = {
+										'job': {
+											'id': translationJob.jobId,
+											'type': job.siteGUID ? 'sites' : 'assets',
+											'jobInfo': {
+												'type': 'connectorJobInfo',
+												'connectorJobId': translationJob.jobId || '',
+												'connectorJobTitle': job.name,
+												'connectorJobProgress': '',
+												'connectorJobStatus': translationJob.status || 'DOWNLOADED',
+												'creationDate': '',
+												'connectorId': translatioConnection.connection || '',
+												'connectorName': translatioConnection.connection || ''
+											},
+											'connectorJobId': translationJob.jobId || ''
+										},
+                        				'isRemote': false
+								};
+								if (!job.siteGUID) {
+									// assets translation, set up data
+									var contentIds = [];
+									if (job.contentItems && job.contentItems.length > 0) {
+										job.contentItems.forEach(function (item) {
+											contentIds.push(item.id);
+										});
+									}
+									var data = {
+										'jobType': 'export',
+										'properties': {
+											'repositoryId': job.repositoryId,
+											'sourceLanguage': job.sourceLanguage,
+											'targetLanguages': job.targetLanguages,
+											'contentIds': contentIds
+										}
+									};
+									jobjson['job']['data'] = data;
+								}
+
+								window.sessionStorage.setItem('currentTranslationJob', JSON.stringify(jobjson));
+
+								self.selectedJob(jobjson);
+
+								// the label on the right pane
+								window.parent.document.getElementById('translationeditorlabel').innerText = job.jobName;
+							},
+							'error': function (xhr, status, err) {
+                    			console.log('status=' + status + ' err=' + err);
+                			}
+						});
+					},
+					'error': function (xhr, status, err) {
+                    	console.log('status=' + status + ' err=' + err);
+                	}
+				});
+			};
+
+            self.selectRemoteJob = function (job) {
+                // console.info('selectRemoteJob: ');
+				// console.info(job);
+                if (job) {
+					var joburl = '/content/management/api/v1.1/translationJobs/' + job.id;
+					$.ajax({
+                    	'type': 'GET',
+                    	'dataType': 'json',
+                    	'url': joburl,
+                    	'success': function (result) {
+							// console.log('translation job:')
+							// console.log(result);
+							var translationJob = result || {};
+	
+							joburl = '/gettranslationconnectorjob/' + job.id
+							$.ajax({
+                    			'type': 'GET',
+                    			'dataType': 'json',
+                    			'url': joburl,
+                    			'success': function (result) {
+									var connectorJob = result && result.data|| {};
+									// console.info('connector job:')
+									// console.info(connectorJob);
+									var jobjson = {
+										'job': {
+											'id': job.id,
+											'type': job.type,
+											'jobInfo': {
+												'type': 'connectorJobInfo',
+												'connectorJobId': connectorJob.connectorJobId,
+												'connectorJobTitle': connectorJob.connectorJobTitle,
+												'connectorJobProgress': connectorJob.connectorJobProgress,
+												'connectorJobStatus': connectorJob.connectorJobStatus,
+												'creationDate': connectorJob.creationDate,
+												'connectorId': job.connectorId,
+												'connectorName': job.connectorName,
+											},
+											'connectorJobId': connectorJob.connectorJobId
+										},
+                        				'isRemote': true
+									};
+									if (translationJob && translationJob.type === 'assets' && translationJob.data) {
+										// info(translationJob.data);
+										jobjson['job']['data'] = JSON.parse(translationJob.data);
+									}
+									
+                   					window.sessionStorage.setItem('currentTranslationJob', JSON.stringify(jobjson));
+
+                    				self.selectedJob(jobjson);
+
+									// the label on the right pane
+									window.parent.document.getElementById('translationeditorlabel').innerText = job.name;
+									
+								},
+								'error': function (xhr, status, err) {
+                    				console.log('status=' + status + ' err=' + err);
+                				}
+							});
+						},
+						'error': function (xhr, status, err) {
+                    		console.log('status=' + status + ' err=' + err);
+                		}
+					});
+                }
+            };
+
+
+            self.clickTab = function (tab, data, event) {
+                var self = this;
+
+                var target = $(event.target).closest('li'); // li tag
+                target.parent().children('.scs-selected').removeClass('scs-selected');
+                target.addClass('scs-selected');
+
+                // Show the jobs of the selected tab
+                $(self.currentTab).removeClass('scs-selected');
+                self.currentTab = '#' + tab;
+                $(this.currentTab).addClass('scs-selected');
+            };
+
+            self.save = ko.computed(function () {
+
+                var saveconfig = {
+                    'selectJob': self.selectedJob()
+                };
+
+                // save data in page
+
+                SitesSDK.setProperty('customSettingsData', saveconfig);
+
+            }, self);
+        };
+        ko.applyBindings(new SettingsViewModel());
+    </script>
+</body>
+
+</html>

@@ -2038,7 +2038,7 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror, asy
 					});
 				}
 
-				console.info(' - submit operation ' + action);
+				console.info(' - submit operation ' + action + ' (JobId: ' + statusId + ')');
 				var count = [];
 				var startTime = new Date();
 				var needNewLine = false;
@@ -2126,6 +2126,272 @@ var _displayValidation = function (validations, action) {
 	}
 
 };
+
+module.exports.deleteAssets = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var channelName = argv.channel;
+	var repositoryName = argv.repository;
+	var collectionName = argv.collection;
+	var query = argv.query;
+	var assetGUIDS = argv.assets ? argv.assets.split(',') : [];
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var channel;
+		var repository;
+		var collection;
+		var q;
+		var guids = [];
+
+		var channelPromises = [];
+		if (channelName) {
+			channelPromises.push(serverRest.getChannelWithName({
+				server: server,
+				name: channelName
+			}));
+		}
+		Promise.all(channelPromises)
+			.then(function (results) {
+				// console.log(results);
+				if (channelName) {
+					if (!results || !results[0] || results[0].err || !results[0].data) {
+						console.error('ERROR: channel ' + channelName + ' does not exist');
+						return Promise.reject();
+					}
+
+					channel = results[0].data;
+
+					if (!channel.id) {
+						console.error('ERROR: channel ' + channel + ' does not exist');
+						return Promise.reject();
+					}
+
+					console.info(' - validate channel ' + channel.name + ' (id: ' + channel.id + ')');
+				}
+
+				var repositoryPromises = [];
+				if (repositoryName) {
+					repositoryPromises.push(serverRest.getRepositoryWithName({
+						server: server,
+						name: repositoryName
+					}));
+				}
+
+				return Promise.all(repositoryPromises);
+			})
+			.then(function (results) {
+				var collectionPromises = [];
+
+				if (repositoryName) {
+					if (!results || !results[0] || results[0].err || !results[0].data) {
+						console.error('ERROR: repository ' + repositoryName + ' not found');
+						return Promise.reject();
+					}
+
+					repository = results[0].data;
+
+					console.info(' - validate repository');
+					collectionPromises.push(serverRest.getCollections({
+						server: server,
+						repositoryId: repository.id
+					}));
+				}
+
+				return Promise.all(collectionPromises);
+
+			})
+			.then(function (results) {
+
+				if (collectionName) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
+
+					var collections = results[0];
+					for (var i = 0; i < collections.length; i++) {
+						if (collections[i].name.toLowerCase() === collectionName.toLowerCase()) {
+							collection = collections[i];
+							break;
+						}
+					}
+
+					if (!collection) {
+						console.error('ERROR: collection ' + collectionName + ' not found in repository ' + repositoryName);
+						return Promise.reject();
+					}
+
+					console.info(' - validate collection');
+				}
+
+				q = '';
+				if (repository) {
+					q = '(repositoryId eq "' + repository.id + '")';
+				}
+				if (channel) {
+					if (q) {
+						q = q + ' AND ';
+					}
+					q = q + '(channels co "' + channel.id + '")';
+				}
+				if (collection) {
+					if (q) {
+						q = q + ' AND ';
+					}
+					q = '(collections co "' + collection.id + '")';
+				}
+				if (query) {
+					if (q) {
+						q = q + ' AND ';
+					}
+					q = q + '(' + query + ')';
+				}
+
+				console.info(' - query: ' + q);
+
+				// query items with q if q is not null otherwise query with asset Ids
+				return _queryItems(server, q, assetGUIDS);
+
+			})
+			.then(function (result) {
+
+				var items = result || [];
+				// console.info(' - total items from query: ' + items.length);
+
+				if (assetGUIDS && assetGUIDS.length > 0) {
+					if (assetGUIDS && assetGUIDS.length > 0) {
+						var notFoundAssets = [];
+						assetGUIDS.forEach(function (id) {
+							var found = false;
+							for (var i = 0; i < items.length; i++) {
+								if (items[i].id === id) {
+									found = true;
+									break;
+								}
+							}
+							if (!found) {
+								notFoundAssets.push(id);
+							}
+						});
+						if (notFoundAssets.length > 0) {
+							console.warn('WARNING: items not found: ' + notFoundAssets);
+						}
+					}
+				}
+
+				// the items have to be in both query result and specified item list
+				for (var i = 0; i < items.length; i++) {
+					var add = true;
+					if (assetGUIDS && assetGUIDS.length > 0) {
+						add = false;
+						for (var j = 0; j < assetGUIDS.length; j++) {
+							if (items[i].id === assetGUIDS[j]) {
+								add = true;
+								break;
+							}
+						}
+					}
+
+					if (add) {
+						guids.push(items[i].id);
+					}
+				}
+
+				console.info(' - total items to delete: ' + guids.length);
+
+				if (guids.length === 0) {
+					console.error('ERROR: no asset to delete');
+					return Promise.reject();
+				}
+
+				return serverRest.deleteItems({
+					server: server,
+					itemIds: guids,
+					async: 'true'
+				});
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				var ecid = result.ecid;
+				var statusId = result && result.statusId;
+				console.info(' - submit delete operation (JobId: ' + statusId + ')');
+				var startTime = new Date();
+				var needNewLine = false;
+				var inter = setInterval(function () {
+					var jobPromise = serverRest.getItemOperationStatus({
+						server: server,
+						statusId: statusId
+					});
+					jobPromise.then(function (data) {
+						if (!data || data.err || data.error || data.progress === 'failed') {
+							clearInterval(inter);
+							if (needNewLine) {
+								process.stdout.write(os.EOL);
+							}
+							var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
+							console.error('ERROR: delete assets failed: ' + msg + (ecid ? ' (ecid: ' + ecid + ')' : ''));
+							console.error(data);
+							done();
+						}
+						else if (data.completed) {
+							clearInterval(inter);
+							if (needNewLine) {
+								process.stdout.write(os.EOL);
+							}
+							var failedItems = [];
+							if (data.result && data.result.body && data.result.body.operations && data.result.body.operations.deleteItems) {
+								failedItems = data.result.body.operations.deleteItems.failedItems || [];
+							}
+							if (failedItems.length === 0) {
+								console.info(' - delete ' + guids.length + ' items finished');
+								done(true);
+							} else {
+								console.error('ERROR: failed to delete the following ' + failedItems.length + (failedItems.length === 1 ? ' asset:' : ' assets:'));
+								// console.log(failedItems);
+								failedItems.forEach(function (item) {
+									console.error('       ' + item.message);
+								});
+								done();
+							}
+
+						} else {
+							process.stdout.write(' - deletion in progress [' + serverUtils.timeUsed(startTime, new Date()) + '] ...');
+							readline.cursorTo(process.stdout, 0);
+							needNewLine = true;
+						}
+					});
+				}, 5000);
+
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
+
 
 module.exports.createDigitalAsset = function (argv, done) {
 	'use strict';
@@ -4436,8 +4702,9 @@ var _syncExportItemFromSource = function (server, id, name, filePath) {
 			if (!result || result.err || !result.jobId) {
 				return Promise.reject();
 			}
-			console.info(' - submit export job');
+			
 			var jobId = result.jobId;
+			console.info(' - submit export job (Id: ' + jobId + ')')
 			// Wait for job to finish
 			var inter = setInterval(function () {
 				var checkExportStatusPromise = serverRest.getContentJobStatus({
@@ -4574,7 +4841,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 				return Promise.reject();
 			}
 
-			var srcRepository = result;
+			srcRepository = result;
 
 			if (!srcRepository || !srcRepository.id) {
 				console.error('ERROR: repository ' + repositoryId + ' does not exist on server ' + srcServer.name);
@@ -4634,8 +4901,9 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 				return Promise.reject();
 			}
 
-			console.info(' - submit import job');
 			var jobId = result.jobId;
+			console.info(' - submit import job (Id: ' + jobId + ')');
+			
 			// Wait for job to finish
 			var inter = setInterval(function () {
 				var checkExportStatusPromise = serverRest.getContentJobStatus({

@@ -157,7 +157,7 @@ router.get('/*', (req, res) => {
 				location = location.substring(0, location.indexOf('channelToken='));
 			}
 		}
-		console.info('Remote traffic:', location);
+		console.info('Content Remote traffic:' + location);
 		var options = {
 			method: 'GET',
 			url: location,
@@ -835,9 +835,64 @@ router.get('/*', (req, res) => {
 // POST requests
 //
 router.post('/*', (req, res) => {
-	console.log('path ' + req.path + ' not supported yet');
-	res.writeHead(200, {});
-	res.end();
+	// console.log('path ' + req.path + ' not supported yet');
+	// res.writeHead(200, {});
+	// res.end();
+
+	let app = req.app,
+		request = app.locals.request,
+		requestUrl = req.originalUrl;
+
+	if (!app.locals.connectToServer) {
+		console.error('No remote server for remote traffic ', requestUrl);
+		res.end();
+		return;
+	}
+
+	// all POST requests are proxied to the remote server
+	console.info('Remote traffic: POST ' + requestUrl);
+
+	var server = app.locals.server;
+	var url = server.url + requestUrl;
+	var postData = {
+		method: 'POST',
+		url: url,
+		headers: {
+			'Content-Type': 'application/json',
+			'X-REQUESTED-WITH': 'XMLHttpRequest',
+			Authorization: serverUtils.getRequestAuthorization(server)
+		},
+		body: req.body,
+		json: true
+	};
+	// console.info(postData);
+	
+	request.post(postData, function (error, response, body) {
+		if (error) {
+			console.error('ERROR: request failed ' + url);
+			console.error(error);
+			res.writeHead(500, {});
+			res.end();
+			return;
+		} else {
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (err) {
+				data = body;
+			}
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				res.write(JSON.stringify(data));
+				res.end();
+			} else {
+				console.error('ERROR: request failed ' + url + ' : ' + (response.statusMessage || response.statusCode));
+				res.writeHead(response.statusCode, {});
+				res.end();
+			}
+		}
+	});
+
 });
 
 var existsAndIsFile = function (filePath) {

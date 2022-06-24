@@ -389,6 +389,11 @@ margin-right: 0px;*/
 	background-color: #BA8BAf;
 }
 
+.translationeditorbg {
+	background-color: #866b94;
+	background-image: url('../images/tile-texture-bg.png');
+}
+
 .containerview-icon-file-bkg {
 	position: absolute;
 	top: 0;
