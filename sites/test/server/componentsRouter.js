@@ -136,6 +136,18 @@ router.get('/*', (req, res) => {
 			res.end();
 			return;
 
+		} else if (appInfo && appInfo.type === 'translationeditor') {
+
+			var filePath = path.join(compSiteDir, 'translationeditorrender.js');
+			var renderjs = fs.readFileSync(filePath).toString();
+			var newrenderjs = renderjs.replace('_devcs_component_translationeditor_edit_html_path', '/components/' + compName + '/assets/edit.html');
+			// console.log(newrenderjs);
+
+			console.info('path=' + req.path + ' filePath=' + filePath + ' content form=' + compName);
+			res.write(newrenderjs);
+			res.end();
+			return;
+
 		} else {
 			filePath = path.resolve(componentsDir + '/' + compFile);
 		}
@@ -476,6 +488,18 @@ router.get('/*', (req, res) => {
 					return;
 				}
 
+			} else if (apptype === 'translationeditor') {
+
+				// translation job editor
+				filePath = path.resolve(compSiteDir + '/translationeditorsettings.html');
+				var settingshtml = fs.readFileSync(filePath).toString(),
+					newsettingshtml = settingshtml.replace('_devcs_component_contentlayout_name', compName);
+				newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
+				console.info('path=' + req.path + ' filePath=' + filePath + ' editor=' + compName);
+				res.write(newsettingshtml);
+				res.end();
+				return;
+
 			} else {
 				filePath = path.resolve(componentsDir + '/' + filePathSuffix);
 			}
@@ -646,8 +670,21 @@ router.get('/*', (req, res) => {
 				res.write(buf);
 				res.end();
 
+			} if (compType === 'translationeditor') {
+
+				buf = buf.replace('_devcs_local_content', '');
+				buf = buf.replace('_devcs_server_content', '');
+				buf = buf.replace('_devcs_component_settings_title', 'Translation Jobs');
+
+				buf = buf.replace('_devcs_contentlayout_settings_title_div', contentlayoutSettingsTitleSrc);
+				buf = buf.replace('_devcs_component_click_settings_func', clickSettingsSrc);
+
+				res.write(buf);
+				res.end();
+
 			} else {
 				buf = buf.replace('_devcs_component_settings_title', 'Settings');
+
 				buf = buf.replace('_devcs_contentlayout_settings_title_div', contentlayoutSettingsTitleSrc);
 				buf = buf.replace('_devcs_component_click_settings_func', clickSettingsSrc);
 

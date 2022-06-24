@@ -545,6 +545,10 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 							typeLabel = 'Content Form';
 						} else if (compType.toLowerCase() === 'visualbuilder') {
 							typeLabel = 'Visual Builder Component';
+						} else if (compType.toLowerCase() === 'translationeditor') {
+							typeLabel = 'Translation Job Editor';
+						} else if (compType.toLowerCase() === 'rsstemplate') {
+							typeLabel = 'RSS Template';
 						}
 						var published = comp.publishStatus === 'published' ? '    √' : '';
 						console.log(sprintf(format3, comp.name, typeLabel, published));

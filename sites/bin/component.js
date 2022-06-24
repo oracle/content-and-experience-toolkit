@@ -401,6 +401,8 @@ gulp.task('create-component-zip', function (done) {
 
 	var destDir = path.join(projectDir, 'dist');
 	var components = _argv_component.split(',');
+	var total = components.length;
+	var count = 0;
 	var tasks = components.map(function (comp, idx) {
 		if (fs.existsSync(path.join(componentsSrcDir, comp))) {
 			return gulp.src(`${componentsBuildDir}/${comp}/**/*`, {
@@ -413,7 +415,9 @@ gulp.task('create-component-zip', function (done) {
 				.on('end', function () {
 					var zippath = path.join(destDir, comp + '.zip');
 					console.info(' - created zip file ' + zippath);
-					if (idx === components.length - 1) {
+					count = count + 1;
+					if (count === total) {
+						// finish
 						done();
 					}
 				});

@@ -421,8 +421,10 @@ gulp.task('compilation-server', function (done) {
 	}
 
 	var port = argv.port || '8087';
+	var useShellScript = typeof argv.shellscript === 'boolean' ? argv.shellscript : argv.shellscript === 'true';
 
 	process.env['CEC_TOOLKIT_COMPILATION_PORT'] = port;
+	process.env['CEC_TOOLKIT_COMPILATION_USE_SHELL_SCRIPT'] = useShellScript.toString();
 	process.env['CEC_TOOLKIT_PROJECTDIR'] = projectDir;
 	process.env['CEC_TOOLKIT_COMPILATION_SINGLE_RUN'] = argv.onceonly || false;
 
@@ -1137,6 +1139,18 @@ gulp.task('validate-content', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	contentlib.validateContent(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Delete assets on server
+ */
+ gulp.task('delete-assets', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	contentlib.deleteAssets(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});

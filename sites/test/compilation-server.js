@@ -18,6 +18,7 @@ var express = require('express'),
 	self = this;
 
 var port = process.env.CEC_TOOLKIT_COMPILATION_PORT || 8087;
+var useShellScript = process.env.CEC_TOOLKIT_COMPILATION_USE_SHELL_SCRIPT === 'true';
 
 var keyPath = process.env.CEC_TOOLKIT_COMPILATION_HTTPS_KEY;
 var certPath = process.env.CEC_TOOLKIT_COMPILATION_HTTPS_CERTIFICATE;
@@ -36,7 +37,8 @@ if (jobsDir) {
 
 // Initialize compilation service with a persistence store object.
 var compilationArgs = {
-		ps: new persistenceStore(psArgs)
+		ps: new persistenceStore(psArgs),
+		useShellScript: useShellScript
 	};
 
 this.compilation = new compilationService(compilationArgs);

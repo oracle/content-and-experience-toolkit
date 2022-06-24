@@ -2659,6 +2659,7 @@ module.exports.controlSite = function (argv, done) {
 		var usedContentOnly = typeof argv.usedcontentonly === 'string' && argv.usedcontentonly.toLowerCase() === 'true';
 		var compileSite = typeof argv.compilesite === 'string' && argv.compilesite.toLowerCase() === 'true';
 		var staticOnly = typeof argv.staticonly === 'string' && argv.staticonly.toLowerCase() === 'true';
+		var compileOnly = typeof argv.compileonly === 'string' && argv.compileonly.toLowerCase() === 'true';
 		var fullpublish = typeof argv.fullpublish === 'string' && argv.fullpublish.toLowerCase() === 'true';
 
 		var metadataName = argv.name;
@@ -2671,7 +2672,7 @@ module.exports.controlSite = function (argv, done) {
 				return;
 			}
 			// if (server.useRest) {
-			_controlSiteREST(server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish, theme, metadataName, metadataValue)
+			_controlSiteREST(server, action, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, theme, metadataName, metadataValue)
 				.then(function (result) {
 					if (result.err) {
 						done(result.exitCode);
@@ -2698,7 +2699,7 @@ module.exports.controlSite = function (argv, done) {
  * @param {*} siteName 
  * @param {*} done 
  */
-var _controlSiteREST = function (server, action, siteName, usedContentOnly, compileSite, staticOnly, fullpublish, newTheme, metadataName, metadataValue) {
+var _controlSiteREST = function (server, action, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, newTheme, metadataName, metadataValue) {
 
 	return new Promise(function (resolve, reject) {
 		var exitCode;
@@ -2755,11 +2756,12 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 						usedContentOnly: usedContentOnly,
 						compileSite: compileSite,
 						staticOnly: staticOnly,
+						compileOnly: compileOnly,
 						fullpublish: fullpublish
 					});
 				} else if (action === 'publish-internal') {
 					console.log(' - publish site using Idc service');
-					actionPromise = _publishSiteInternal(server, site.id, site.name, usedContentOnly, compileSite, staticOnly, fullpublish);
+					actionPromise = _publishSiteInternal(server, site.id, site.name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish);
 
 				} else if (action === 'unpublish') {
 					actionPromise = sitesRest.unpublishSite({
@@ -2873,7 +2875,7 @@ var _setSiteMetadata = function (server, siteId, siteName, metadataName, metadat
 /**
  * Publish a site using IdcService (compile site workaround)
  */
-var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, compileSite, staticOnly, fullpublish) {
+var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish) {
 	return new Promise(function (resolve, reject) {
 
 		serverUtils.getIdcToken(server)
@@ -2905,6 +2907,9 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 				}
 				if (staticOnly) {
 					body.LocalData.doStaticFilePublishOnly = true;
+				}
+				if (compileOnly) {
+					body.LocalData.doCompilePublishOnly = true;
 				}
 				if (fullpublish) {
 					body.LocalData.type = 'full';

@@ -251,6 +251,10 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 				{
                     value: 'contentform',
                     label: 'Content forms'
+                },
+				{
+                    value: 'translationeditor',
+                    label: 'Translation job editors'
                 }
             ]);
 			
@@ -281,6 +285,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 			window.sessionStorage.removeItem('currentContentTypes');
 			window.sessionStorage.removeItem('currentComponentTheme');
 			window.sessionStorage.removeItem('currentItemCustomSettingsData');
+			window.sessionStorage.removeItem('currentTranslationJob');
             console.log('clear session storage');
             $.ajax({
                 'type': 'POST',

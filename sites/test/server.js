@@ -83,6 +83,9 @@ request = request.defaults({
 });
 app.locals.request = request;
 
+// to get request body
+app.use(express.json());
+
 // remove _cache_ from url
 app.use(function (req, res, next) {
 	var origPath = req.path;
@@ -424,6 +427,87 @@ app.post('/clearcontentlayoutitem', function (req, res) {
 app.get('/gettranslationconnections', function (req, res) {
 	"use strict";
 	res.write(JSON.stringify(serverUtils.getTranslationConnections(projectDir)));
+	res.end();
+});
+
+app.get('/gettranslationjobs*', function (req, res) {
+	"use strict";
+	res.write(JSON.stringify(serverUtils.getLocalTranslationJobs(projectDir)));
+	res.end();
+});
+
+app.get('/gettranslationconnectorjob*', function (req, res) {
+	"use strict";
+
+	var jobId = req.path.replace('/gettranslationconnectorjob', '');
+	if (!jobId || jobId.indexOf('/') < 0) {
+		// no job id specified
+		console.error('gettranslationconnectorjob: invalid job id: ' + jobId);
+		res.writeHead(200, {});
+		res.end();
+		return;
+	}
+	jobId = jobId.substring(1);
+	console.info('+++ Connection job id: ' + jobId);
+	if (server && server.valid) {
+		serverUtils.getTranslationConnectorJobOnServer(server, jobId).then(function (result) {
+			res.write(JSON.stringify(result));
+			res.end();
+		});
+
+	} else {
+		console.error('gettranslationconnectorjob: no server');
+		res.writeHead(200, {});
+		res.end();
+		return;
+	}
+});
+
+app.get('/getlocalconnection*', function (req, res) {
+	"use strict";
+
+	var name = req.path.replace('/getlocalconnection', '');
+	if (!name || name.indexOf('/') < 0) {
+		// no connection name specified
+		console.error('getlocalconnection: invalid connection name: ' + name);
+		res.writeHead(200, {});
+		res.end();
+		return;
+	}
+	name = name.substring(1);
+	console.info('+++ Local connection name: ' + name);
+	var connectionsSrcDir = path.join(srcfolder, 'connections');
+	var connectionfile = path.join(connectionsSrcDir, name, 'connection.json');
+	if (!fs.existsSync(connectionfile)) {
+		console.error('ERROR: connection ' + name + ' does not exist');
+	}
+	var connectionstr = fs.existsSync(connectionfile) ? fs.readFileSync(connectionfile).toString() : undefined;
+	var connectionjson = connectionstr ? JSON.parse(connectionstr) : {};
+	res.write(JSON.stringify(connectionjson));
+	res.end();
+});
+
+app.get('/getlocaltranslationjob*', function (req, res) {
+	"use strict";
+
+	var jobName = req.path.replace('/getlocaltranslationjob', '');
+	if (!jobName || jobName.indexOf('/') < 0) {
+		// no job name specified
+		console.error('getlocaltranslationjob: invalid job name: ' + jobName);
+		res.writeHead(200, {});
+		res.end();
+		return;
+	}
+	jobName = jobName.substring(1);
+	console.info('+++ Local translation job id: ' + jobName);
+	var transSrcDir = path.join(srcfolder, 'translationJobs');
+	var connectionpath = path.join(transSrcDir, jobName, 'connectionjob.json');
+	if (!fs.existsSync(connectionpath)) {
+		console.error('ERROR: job ' + jobName + ' does not exist');
+	}
+	var str = fs.existsSync(connectionpath) ? fs.readFileSync(connectionpath) : undefined;
+	var jobconnectionjson = str ? JSON.parse(str) : {};
+	res.write(JSON.stringify(jobconnectionjson));
 	res.end();
 });
 

@@ -37,7 +37,7 @@ router.get('/*', (req, res) => {
 	}
 
 	location = app.locals.serverURL + requestUrl;
-	console.info('Remote traffic:', location);
+	console.info('Remote traffic:' + location);
 
 	var options = {
 		method: 'GET',

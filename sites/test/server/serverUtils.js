@@ -35,6 +35,7 @@ var componentsDir,
 	serversDir,
 	templatesDir,
 	themesDir,
+	transSrcDir,
 	loginReported = false; // only report logging in once
 
 var _setupSourceDir = function (projectDir) {
@@ -47,6 +48,7 @@ var _setupSourceDir = function (projectDir) {
 		serversDir = path.join(srcfolder, 'servers');
 		templatesDir = path.join(srcfolder, 'templates');
 		themesDir = path.join(srcfolder, 'themes');
+		transSrcDir = path.join(srcfolder, 'translationJobs');
 	}
 };
 
@@ -1271,6 +1273,44 @@ module.exports.getTypeContentLayouts = function (typeObj) {
 		}
 	}
 	return contentLayouts;
+};
+
+/**
+ * Get local translation jobs
+ */
+module.exports.getLocalTranslationJobs = function (projectDir) {
+
+	_setupSourceDir(projectDir);
+	
+	var jobs = [];
+
+	var jobNames = fs.existsSync(transSrcDir) ? fs.readdirSync(transSrcDir) : [];
+	if (jobNames.length === 0) {
+		console.log(' - no local translation job available');
+		return jobs;
+	}
+
+	for (var i = 0; i < jobNames.length; i++) {
+		var jobpath = path.join(transSrcDir, jobNames[i]);
+		var jobjson = undefined;
+		if (fs.existsSync(path.join(jobpath, 'site', 'job.json'))) {
+			var jobstr = fs.readFileSync(path.join(jobpath, 'site', 'job.json'));
+			jobjson = JSON.parse(jobstr);
+		}
+		if (jobjson === undefined && fs.existsSync(path.join(jobpath, 'assets', 'job.json'))) {
+			var jobstr = fs.readFileSync(path.join(jobpath, 'assets', 'job.json'));
+			jobjson = JSON.parse(jobstr);
+		}
+		if (jobjson === undefined && fs.existsSync(path.join(jobpath, 'job.json'))) {
+			var jobstr = fs.readFileSync(path.join(jobpath, 'job.json'));
+			jobjson = JSON.parse(jobstr);
+		}
+		if (jobjson) {
+			jobs.push(jobjson);
+		}
+	}
+
+	return jobs;
 };
 
 /**
@@ -4360,37 +4400,42 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 							}
 							// console.log(' - find ' + (isFile ? 'file' : 'folder ') + ' in trash ' + idInTrash);
 
-							url = server.url + '/documents/integration?IdcService=FLD_DELETE_FROM_TRASH';
-							url = url + '&IsJson=1';
-							url = url + '&idcToken=' + idcToken;
-							url = url + '&item=' + (isFile ? 'fFileGUID:' : 'fFolderGUID:') + idInTrash;
+							if (idInTrash) {
+								url = server.url + '/documents/integration?IdcService=FLD_DELETE_FROM_TRASH';
+								url = url + '&IsJson=1';
+								url = url + '&idcToken=' + idcToken;
+								url = url + '&item=' + (isFile ? 'fFileGUID:' : 'fFolderGUID:') + idInTrash;
 
-							options = {
-								method: 'POST',
-								url: url,
-								headers: headers
-							};
-							_showRequestOptions(options);
+								options = {
+									method: 'POST',
+									url: url,
+									headers: headers
+								};
+								_showRequestOptions(options);
 
-							request.post(options, function (err, response, body) {
-								if (err) {
-									console.error('ERROR: Failed to delete from trash');
-									console.error(err);
-									_deleteDone(false, resolve);
-								}
+								request.post(options, function (err, response, body) {
+									if (err) {
+										console.error('ERROR: Failed to delete from trash');
+										console.error(err);
+										_deleteDone(false, resolve);
+									}
 
-								var data;
-								try {
-									data = JSON.parse(body);
-								} catch (e) { }
+									var data;
+									try {
+										data = JSON.parse(body);
+									} catch (e) { }
 
-								if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-									console.error('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
-									_deleteDone(false, resolve);
-								} else {
-									_deleteDone(true, resolve);
-								}
-							}); // delete from trash
+									if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+										console.error('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
+										_deleteDone(false, resolve);
+									} else {
+										_deleteDone(true, resolve);
+									}
+								}); // delete from trash
+							} else {
+								// not find in trash
+								_deleteDone(false, resolve);
+							}
 						}
 					}); // browse trash
 				}
