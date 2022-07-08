@@ -155,7 +155,7 @@ gulp.task('install-src', function (done) {
 		fs.writeFileSync(configPath, configstr);
 	}
 
-	console.log('Project set up, config OEC server in ' + configPath);
+	console.log('Project set up, config OCM server in ' + configPath);
 
 	// install dependencies
 	console.log('Install dependencies from package.json:');

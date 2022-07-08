@@ -130,7 +130,12 @@ router.post('/*', (req, res) => {
 			postData.form = body;
 		}
 
-		console.info(' postData=' + JSON.stringify(postData));
+		if (typeof body == 'string' && typeof JSON.parse(body) == 'object') {
+			postData.json = true
+			postData.body = JSON.parse(body)
+		}
+
+		console.log(' postData=' + JSON.stringify(postData));
 		request(postData).on('response', function (response) {
 			// fix headers for cross-domain and capitalization issues
 			serverUtils.fixHeaders(response, res);

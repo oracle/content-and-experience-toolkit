@@ -59,9 +59,9 @@ Video.prototype.compile = function () {
 Video.prototype.canCompileVideo = function () {
 	// can't compile digital asset videos as they may be advanced videos
 	// ToDo: Look at making the additional query to determine if advanced video and compile standard video digital assets
-	var isDigitialAssetVideo = this.contentId;
+	var isDigitalAssetVideo = this.contentId;
 
-	return this.canCompile && !isDigitialAssetVideo;
+	return this.canCompile && !isDigitalAssetVideo;
 };
 
 Video.prototype.hasVisualData = function () {
