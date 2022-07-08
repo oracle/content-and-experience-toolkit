@@ -848,16 +848,7 @@ module.exports.downloadComponent = function (argv, done) {
 
 	// Support a list of components
 	var components = argv.component.split(',');
-
-	try {
-		_downloadComponents(serverName, server, components, done);
-	} catch (e) {
-		console.error(e);
-		done();
-	}
-};
-
-var _downloadComponents = function (serverName, server, componentNames, done) {
+	var publishedversion = typeof argv.publishedversion === 'string' && argv.publishedversion.toLowerCase() === 'true';
 
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
@@ -867,7 +858,10 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 			return;
 		}
 
-		_downloadComponentsREST(server, componentNames)
+		var downloadPromise = publishedversion ? _downloadPublishedComponents(server, components) :
+			_downloadComponentsREST(server, components, argv);
+
+		downloadPromise
 			.then(function (result) {
 				if (result.err) {
 					done();
@@ -877,6 +871,127 @@ var _downloadComponents = function (serverName, server, componentNames, done) {
 			});
 
 	}); // login
+};
+
+var _downloadPublishedComponents = function (server, componentNames) {
+	return new Promise(function (resolve, reject) {
+		var err;
+		var doDownloadComp = componentNames.reduce(function (compPromise, param) {
+			return compPromise.then(function (result) {
+				// the component local path
+				var targetPath = path.join(componentsSrcDir, param);
+
+				return sitesRest.getComponent({
+					server: server,
+					name: param,
+					showError: false,
+					showInfo: false
+				})
+					.then(function (result) {
+						if (!result || !result.id) {
+							// component does not exist
+							err = 'err';
+						} else if (result.publishStatus !== 'published') {
+							console.log('ERROR: component ' + param + ' is not published');
+							err = 'err';
+						} else {
+							var comp = result;
+
+							// prepare the local folder for the component
+							fileUtils.remove(targetPath);
+							fs.mkdirSync(targetPath);
+
+							// get top level files
+							return serverRest.getChildItems({
+								server: server,
+								parentID: comp.id,
+								limit: 9999
+							})
+								.then(function (result) {
+									var items = result && result.items || [];
+									var downloadTopFilesPromises = [];
+
+									items.forEach(function (item) {
+										if (item.type === 'file') {
+											var targetFile = path.join(targetPath, item.name);
+											downloadTopFilesPromises.push(serverRest.downloadFileSave({
+												server: server,
+												fFileGUID: item.id,
+												saveTo: targetFile
+											}));
+										}
+									});
+
+									return Promise.all(downloadTopFilesPromises)
+										.then(function (result) {
+
+											// download publish folder and place at the top of the resource
+											var downloadArgv = {
+												path: 'component:' + param + '/publish',
+												folder: targetPath
+											};
+
+											var showError = true;
+											var showDetail = false;
+											return documentUtils.downloadFolder(downloadArgv, server, showError, showDetail)
+												.then(function (result) {
+
+													// get component metadata to get itemGUID
+													return serverUtils.getComponentMetadata(server, comp.id, comp.name)
+														.then(function (result) {
+															var itemGUID = comp.id;
+															if (result && result.folderId === comp.id && result.metadata.scsItemGUID) {
+																itemGUID = result.metadata.scsItemGUID;
+															}
+															// get the component's appType from appinfo.json
+															var appType;
+															if (fs.existsSync(path.join(targetPath, 'appinfo.json'))) {
+																var appinfo;
+																try {
+																	appinfo = JSON.parse(fs.readFileSync(path.join(targetPath, 'appinfo.json')));
+																} catch (e) {
+																	console.error('ERROR: component ' + comp.name + ' appinfo.json is invalid');
+																	// console.log(e);
+																}
+																if (appinfo && appinfo.type) {
+																	appType = appinfo.type;
+																}
+															}
+															appType = appType || 'component';
+
+															// create _folder.json for the component
+															var folderJson = {
+																itemGUID: itemGUID,
+																appType: appType,
+																appIconUrl: '',
+																appIsHiddenInBuilder: comp.isHidden ? '1' : '0'
+															};
+															// console.log(' - component ' + comps[i].name + ' itemGUID: ' + itemGUID);
+															if (fs.existsSync(path.join(componentsSrcDir, comp.name))) {
+																var folderPath = path.join(componentsSrcDir, comp.name, '_folder.json');
+																fs.writeFileSync(folderPath, JSON.stringify(folderJson));
+																console.log(' - download published component ' + comp.name);
+															} else {
+																console.error('ERROR: component ' + comp.name + ' not downloaded');
+															}
+														})
+												});
+										});
+								});
+						}
+					});
+
+			});
+		},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doDownloadComp.then(function (result) {
+			resolve({
+				err: err
+			});
+		});
+	});
 };
 
 var _downloadComponentsREST = function (server, componentNames, argv, noMsg) {

@@ -3550,6 +3550,7 @@ var _displaySiteValidation = function (validation) {
 };
 
 var _displayAssetValidation = function (validations) {
+	// console.log(JSON.stringify(validations, null, 4));
 	var policyValidation;
 	var error = '';
 	for (var i = 0; i < validations.length; i++) {
@@ -3578,6 +3579,7 @@ var _displayAssetValidation = function (validations) {
 		for (var j = 0; j < val.length; j++) {
 			if (!val[j].publishable) {
 				valid = false;
+				console.log(sprintf(format, 'Id', items[i].id));
 				console.log(sprintf(format, 'name', items[i].name));
 				console.log(sprintf(format, 'type', items[i].type));
 				console.log(sprintf(format, 'language', items[i].language));
@@ -3827,6 +3829,7 @@ module.exports.describeSite = function (argv, done) {
 
 		var site;
 		var siteMetadata;
+		var siteInfo;
 		var totalItems = 0;
 		var format1 = '%-38s  %-s';
 
@@ -3877,6 +3880,8 @@ module.exports.describeSite = function (argv, done) {
 			.then(function (result) {
 
 				siteMetadata = result && result.metadata;
+				siteInfo = result && result.siteinfo;
+
 				// console.log(siteMetadata);
 
 				var accValues = site.security && site.security.access || [];
@@ -3929,7 +3934,7 @@ module.exports.describeSite = function (argv, done) {
 				console.log(sprintf(format1, 'Type', (site.isEnterprise ? 'Enterprise' : 'Standard')));
 				console.log(sprintf(format1, 'Template', site.templateName));
 				console.log(sprintf(format1, 'Theme', site.themeName));
-				console.log(sprintf(format1, 'Published', site.publishStatus === 'published' && site.publishedAt ? '√ (published at ' + site.publishedAt + ')' : ''));
+				console.log(sprintf(format1, 'Published', site.publishStatus !== 'unpublished' && site.publishedAt ? '√ (published at ' + site.publishedAt + ')' : ''));
 				console.log(sprintf(format1, 'Online', site.runtimeStatus === 'online' && site.onlineAt ? '√ (online since ' + site.onlineAt + ')' : ''));
 
 				if (site.isEnterprise) {
@@ -3987,6 +3992,15 @@ module.exports.describeSite = function (argv, done) {
 					}
 					console.log(sprintf(format1, 'Caching Response Headers', siteMetadata.scsStaticResponseHeaders));
 					console.log(sprintf(format1, 'Mobile User-Agent', siteMetadata.scsMobileUserAgents));
+				}
+
+				if (siteInfo && siteInfo.JobID) {
+					// console.log(siteInfo);
+					console.log(sprintf(format1, 'Job action', siteInfo.JobAction));
+					console.log(sprintf(format1, 'Job ID', siteInfo.JobID));
+					console.log(sprintf(format1, 'Job status', siteInfo.JobStatus));
+					console.log(sprintf(format1, 'Job percentage', siteInfo.JobPercentage));
+					console.log(sprintf(format1, 'Job message', siteInfo.JobMessage));
 				}
 
 				console.log('');

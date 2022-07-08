@@ -80,6 +80,7 @@ SectionLayout.prototype = {
 		return this.compileComponent(parameters).then(function (compiledData) {
 			var content = (compiledData && compiledData.content) || '';
 			var subComponentIds = [];
+			// For generic use case
 			var parentAttributes = ((compiledData && compiledData.hydrate)) ? { "data-scs-hydrate": "true" } : null;
 
 			if (content) {
@@ -114,7 +115,7 @@ SectionLayout.prototype = {
 			}
 
 			return Promise.resolve({
-				hydrate: false,
+				hydrate: compiledData && compiledData.hydrate,
 				componentIds: subComponentIds,
 				parentAttributes: parentAttributes,
 				parentClasses: ['scs-sectionlayout'],
@@ -129,7 +130,11 @@ SectionLayout.prototype = {
 		var self = this;
 		var instanceObject = this.componentInstanceObject || {};
 
-		return new Promise(async function (resolve, reject) {
+		var importSectionLayout = async function(moduleName) {
+			return await import(moduleName);
+		};
+
+		return new Promise(function (resolve, reject) {
 			try {
 				if (instanceObject && instanceObject.id) {
 					var sectionLayoutName = instanceObject.id;
@@ -159,7 +164,7 @@ SectionLayout.prototype = {
 								foundComponentFile = true;
 
 								// JavaScript module based section layout, import it
-								const { default: importModule } = await import(url.pathToFileURL(moduleFile));
+								const { default: importModule } = importSectionLayout(url.pathToFileURL(moduleFile));
 								SectionLayoutImpl = importModule;
 							} catch (e) {
 								compilationReporter.error({

@@ -1281,7 +1281,7 @@ module.exports.getTypeContentLayouts = function (typeObj) {
 module.exports.getLocalTranslationJobs = function (projectDir) {
 
 	_setupSourceDir(projectDir);
-	
+
 	var jobs = [];
 
 	var jobNames = fs.existsSync(transSrcDir) ? fs.readdirSync(transSrcDir) : [];
@@ -1877,9 +1877,9 @@ var _getOAuthTokenFromIDCS = function (server) {
 				data = body;
 			}
 
-			if (!data || response.statusCode !== 200) {
+			if (!data || !data.access_token || response.statusCode !== 200) {
 				var msg = (data && (data.error || data.error_description)) ? (data.error_description || data.error) : (response.statusMessage || response.statusCode);
-				console.error('ERROR: Failed to get OAuth token - ' + msg);
+				console.error('ERROR: Failed to get OAuth token ' + (response.statusCode !== 200 ? msg : ''));
 				return resolve({
 					err: 'err'
 				});
@@ -2879,6 +2879,71 @@ var _sleep = function (delay) {
 	}
 };
 
+/**
+ * @param server the server object
+ * @param type site/template/theme
+ */
+module.exports.getBackgroundServiceJobs = function (server, type) {
+	var statusPromise = new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/integration?IdcService=SCS_GET_ALL_BACKGROUND_JOBS&IsJson=1';
+		if (type) {
+			url = url + '&jobType=' + type;
+		}
+
+		var params = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			},
+		};
+		if (server.cookies) {
+			params.headers.Cookie = server.cookies;
+		}
+
+		_showRequestOptions(params);
+
+		var request = require('./requestUtils.js').request;
+		request.get(params, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: Failed to get background jobs');
+				console.error(error);
+				resolve({
+					err: 'err'
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) { }
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.error('ERROR: Failed to get background jobs' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.fields || [];
+			var rows = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.rows || [];
+
+			var jobs = [];
+			if (rows && rows.length > 0) {
+				for (var i = 0; i < rows.length; i++) {
+					var job = {};
+					for (var j = 0; j < fields.length; j++) {
+						var attr = fields[j].name;
+						job[attr] = rows[i][j];
+					}
+					jobs.push(job);
+				}
+			}
+			return resolve(jobs);
+		});
+	});
+	return statusPromise;
+};
 
 /**
  * @param server the server object (IC)
@@ -3453,6 +3518,7 @@ module.exports.getSiteMetadata = function (server, siteId, siteName) {
 				});
 			}
 
+			// SiteMetadata
 			var fields = data.ResultSets && data.ResultSets.SiteMetadata && data.ResultSets.SiteMetadata.fields || [];
 			var rows = data.ResultSets && data.ResultSets.SiteMetadata && data.ResultSets.SiteMetadata.rows || [];
 			var metadata = {};
@@ -3462,9 +3528,20 @@ module.exports.getSiteMetadata = function (server, siteId, siteName) {
 				metadata[attr] = rows[0][i];
 			}
 
+			// SiteInfo
+			fields = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.fields || [];
+			rows = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.rows || [];
+			var siteinfo = {};
+
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				siteinfo[attr] = rows[0][i];
+			}
+
 			resolve({
 				folderId: siteId,
 				metadata: metadata,
+				siteinfo: siteinfo,
 				idcToken: data.LocalData.idcToken
 			});
 		});

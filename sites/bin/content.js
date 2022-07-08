@@ -2096,35 +2096,36 @@ var _displayValidation = function (validations, action) {
 		});
 	}
 
-	var variationSets = policyValidation.variationSets;
-	var blockingItems = [];
-	for (var i = 0; i < variationSets.length; i++) {
-		var variation = variationSets[i];
-		for (var j = 0; j < variation.validations.length; j++) {
-			var val = variation.validations[j];
-			if (val.blocking && val.results.length > 0) {
-				// console.log(val.results);
-				for (var k = 0; k < val.results.length; k++) {
-					if (val.results[k].itemId) {
-						blockingItems.push({
-							id: val.results[k].itemId,
-							name: val.results[k].value,
-							message: val.results[k].message
-						});
+	if (policyValidation && policyValidation.variationSets) {
+		var variationSets = policyValidation.variationSets;
+		var blockingItems = [];
+		for (var i = 0; i < variationSets.length; i++) {
+			var variation = variationSets[i];
+			for (var j = 0; j < variation.validations.length; j++) {
+				var val = variation.validations[j];
+				if (val.blocking && val.results.length > 0) {
+					// console.log(val.results);
+					for (var k = 0; k < val.results.length; k++) {
+						if (val.results[k].itemId) {
+							blockingItems.push({
+								id: val.results[k].itemId,
+								name: val.results[k].value,
+								message: val.results[k].message
+							});
+						}
 					}
 				}
 			}
 		}
-	}
 
-	// console.log(JSON.stringify(policyValidation, null, 4));
-	console.error('Failed to ' + action + ' the following items: ' + (policyValidation.error ? policyValidation.error : ''));
-	var format = '  %-36s  %-60s  %-s';
-	console.log(sprintf(format, 'Id', 'Name', 'Message'));
-	for (var i = 0; i < blockingItems.length; i++) {
-		console.log(sprintf(format, blockingItems[i].id, blockingItems[i].name, blockingItems[i].message));
+		// console.log(JSON.stringify(policyValidation, null, 4));
+		console.error('Failed to ' + action + ' the following items: ' + (policyValidation.error ? policyValidation.error : ''));
+		var format = '  %-36s  %-60s  %-s';
+		console.log(sprintf(format, 'Id', 'Name', 'Message'));
+		for (var i = 0; i < blockingItems.length; i++) {
+			console.log(sprintf(format, blockingItems[i].id, blockingItems[i].name, blockingItems[i].message));
+		}
 	}
-
 };
 
 module.exports.deleteAssets = function (argv, done) {
@@ -4674,7 +4675,6 @@ module.exports.syncPublishUnpublishItems = function (argv, done) {
 			}
 
 			console.info(' - validate channel on destination server: ' + channelName + '(Id: ' + channelIdDest + ')');
-
 			return _performOneOp(destServer, action, channelIdDest, contentGuids, true);
 
 		})
@@ -4687,6 +4687,9 @@ module.exports.syncPublishUnpublishItems = function (argv, done) {
 			done(true);
 		})
 		.catch((error) => {
+			if (error) {
+				console.error(error);
+			}
 			done();
 		});
 
@@ -4702,7 +4705,7 @@ var _syncExportItemFromSource = function (server, id, name, filePath) {
 			if (!result || result.err || !result.jobId) {
 				return Promise.reject();
 			}
-			
+
 			var jobId = result.jobId;
 			console.info(' - submit export job (Id: ' + jobId + ')')
 			// Wait for job to finish
@@ -4903,7 +4906,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 
 			var jobId = result.jobId;
 			console.info(' - submit import job (Id: ' + jobId + ')');
-			
+
 			// Wait for job to finish
 			var inter = setInterval(function () {
 				var checkExportStatusPromise = serverRest.getContentJobStatus({
@@ -4989,8 +4992,9 @@ module.exports.syncDeleteItem = function (argv, done) {
 			if (result.err) {
 				return Promise.reject();
 			}
+			// console.log(JSON.stringify(result, null, 4));
 			var failedItems = result && result.data && result.data.operations && result.data.operations.deleteItems && result.data.operations.deleteItems.failedItems || [];
-			if (failedItems.length > 0) {
+			if (failedItems && failedItems.length > 0) {
 				console.error('ERROR: failed to delete the item - ' + failedItems[0].message);
 				var retry = failedItems[0].message && failedItems[0].message.indexOf('referred by other') >= 0;
 				done(false, retry);
@@ -5000,6 +5004,9 @@ module.exports.syncDeleteItem = function (argv, done) {
 			}
 		})
 		.catch((error) => {
+			if (error) {
+				console.error(error);
+			}
 			done();
 		});
 };
@@ -5035,6 +5042,9 @@ module.exports.syncApproveItem = function (argv, done) {
 			done(true);
 		})
 		.catch((error) => {
+			if (error) {
+				console.error(error);
+			}
 			done();
 		});
 };

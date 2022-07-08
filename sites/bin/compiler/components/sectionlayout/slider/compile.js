@@ -172,6 +172,7 @@ SectionLayout.prototype = {
 		}
 
 		return Promise.resolve({
+			hydrate: true,
 			content: content,
 			componentIds: (content && components && (components.length > 0)) ? components : null
 		});

@@ -202,7 +202,7 @@ ContentList.prototype.compileSectionLayout = function (args, contentItems) {
 	var self = this,
 		slInstance = self.createSectionLayoutInstance(args, contentItems);
 	self.sectionLayoutInstanceId = self.generateUUID();
-	sectionLayout = new SectionLayout(self.sectionLayoutInstanceId, slInstance, self.componentsFolder);
+	var sectionLayout = new SectionLayout(self.sectionLayoutInstanceId, slInstance, self.componentsFolder);
 
 	// if there are no content items, then nothing to render
 	if (contentItems.length === 0) {
@@ -220,7 +220,14 @@ ContentList.prototype.compileSectionLayout = function (args, contentItems) {
 		}
 
 		var $ = cheerio.load('<div></div>'),
+			$compiledGrid;
+
+		if (compiledSectionLayout.hydrate) {
+			$compiledGrid = $('<div><div id="' + self.sectionLayoutInstanceId + '" class="scs-component-container scs-sectionlayout" data-scs-hydrate="true">' + content + '</div></div>');
+		}
+		else {
 			$compiledGrid = $('<div><div id="' + self.sectionLayoutInstanceId + '" class="scs-component-container scs-sectionlayout">' + content + '</div></div>');
+		}
 
 		// insert the compiled content for each content item
 		contentItems.forEach(function (contentItem) {
@@ -246,7 +253,7 @@ ContentList.prototype.compileContentItems = function (args, results) {
 		compilePromises.push(function () {
 			var compId = self.generateUUID(),
 				compInstance = self.createContentItemInstance(item.id, item.type, item);
-			component = new Component(compId, compInstance, self.componentsFolder);
+			var component = new Component(compId, compInstance, self.componentsFolder);
 			return component.compile(args).then(function (compiledContent) {
 				compiledContent.id = compId;
 				compiledItems.push(compiledContent);

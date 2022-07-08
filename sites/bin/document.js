@@ -763,7 +763,8 @@ var _uploadFile = function (argv, server) {
 	}); // login
 };
 
-var _findFolder = function (server, rootParentId, folderPath, showError) {
+var _findFolder = function (server, rootParentId, folderPath, showError, showDetail) {
+	var showInfo = showDetail !== undefined ? showDetail : true;
 	return new Promise(function (resolve, reject) {
 		var folderPromises = [],
 			parentGUID;
@@ -787,7 +788,9 @@ var _findFolder = function (server, rootParentId, folderPath, showError) {
 				// store the parent
 				if (folderDetails && folderDetails.id) {
 					if (folderDetails.id !== rootParentId) {
-						console.info(' - find ' + folderDetails.type + ' ' + folderDetails.name + ' (Id: ' + folderDetails.id + ')');
+						if (showInfo) {
+							console.info(' - find ' + folderDetails.type + ' ' + folderDetails.name + ' (Id: ' + folderDetails.id + ')');
+						}
 					}
 					parentGUID = folderDetails.id;
 
@@ -804,7 +807,9 @@ var _findFolder = function (server, rootParentId, folderPath, showError) {
 		doFindFolder.then(function (parentFolder) {
 			if (parentFolder && parentFolder.id) {
 				if (parentFolder.id !== rootParentId) {
-					console.info(' - find ' + parentFolder.type + ' ' + parentFolder.name + ' (Id: ' + parentFolder.id + ')');
+					if (showInfo) {
+						console.info(' - find ' + parentFolder.type + ' ' + parentFolder.name + ' (Id: ' + parentFolder.id + ')');
+					}
 				}
 			}
 			resolve(parentFolder);
@@ -1695,6 +1700,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 					resourcePromises.push(sitesRest.getComponent({
 						server: server,
 						name: resourceName,
+						showInfo: showDetail,
 						showError: showError
 					}));
 				}
@@ -1717,7 +1723,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 					rootParentId = resourceGUID;
 				}
 
-				return _findFolder(server, rootParentId, folderPath);
+				return _findFolder(server, rootParentId, folderPath, showError, showDetail);
 			})
 				.then(function (result) {
 					if (folderPath.length > 0 && !result) {
@@ -1735,7 +1741,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 				.then(function (result) {
 					// console.log(' _files: ' + _files.length);
 
-					return _readAllFiles(server, _files);
+					return _readAllFiles(server, _files, showDetail);
 				})
 				.then(function (results) {
 					// check if there is any failed file
@@ -1807,7 +1813,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 					if (failedFiles.length > 0) {
 						// console.log(failedFiles);
 						console.info(' - try to download failed files again ...');
-						readFilesRetryPromises.push(_readAllFiles(server, failedFiles));
+						readFilesRetryPromises.push(_readAllFiles(server, failedFiles, showDetail));
 					}
 
 					return Promise.all(readFilesRetryPromises);
@@ -1854,10 +1860,13 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 	});
 };
 
-var _readAllFiles = function (server, files) {
+var _readAllFiles = function (server, files, showDetail) {
+	var showInfo = showDetail !== undefined ? showDetail : true;
 	return new Promise(function (resolve, reject) {
 		var total = files.length;
-		console.info(' - total number of files: ' + total);
+		if (showInfo) {
+			console.info(' - total number of files: ' + total);
+		}
 		var groups = [];
 		var limit = 10;
 		var start, end;
@@ -1892,7 +1901,7 @@ var _readAllFiles = function (server, files) {
 				}
 
 				count.push('.');
-				if (console.showInfo()) {
+				if (console.showInfo() && showInfo) {
 					process.stdout.write(' - downloading files [' + param.start + ', ' + param.end + '] ...');
 					readline.cursorTo(process.stdout, 0);
 					needNewLine = true;

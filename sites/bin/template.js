@@ -78,7 +78,8 @@ var _cmdEnd = function (done, success) {
 
 
 var _createLocalTemplateFromSite = function (name, siteName, server, excludeContent, enterprisetemplate,
-	excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets, excludeFolders) {
+	excludeComponents, excludeTheme, excludeType,
+	publishedassets, referencedassets, excludeFolders, publishedversion) {
 	return new Promise(function (resolve, reject) {
 
 		serverUtils.loginToServer(server).then(function (result) {
@@ -125,9 +126,13 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						return Promise.reject();
 					}
 					site = result;
+					// console.log(site);
 					console.info(' - verify site (Id: ' + site.id + ')');
 
-					// console.log(site);
+					if (publishedversion && site.publishStatus === 'unpublished') {
+						console.error('ERROR: site ' + siteName + ' is not published');
+						return Promise.reject();
+					}
 
 					// create local folder for the template
 
@@ -212,7 +217,10 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					}
 					// console.log(' - exlcude folders: ' + excludeFolder);
 
-					return documentUtils.downloadFolder(downloadArgv, server, true, false, excludeFolder);
+					var showError = true;
+					var showDetail = false;
+					return _downloadResource(server, 'site', site.id, siteName, publishedversion, tempSrcPath, showError, showDetail, excludeFolder);
+
 				})
 				.then(function (result) {
 					if (!result || result.err) {
@@ -245,6 +253,36 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						fs.writeFileSync(path.join(tempSrcPath, 'siteinfo.json'), JSON.stringify(siteinfoJson));
 					}
 
+					var cleanupTemplatePromises = [];
+					// correct structure and page json if downloaded from published version
+					if (publishedversion) {
+						var sitePages = fs.readdirSync(path.join(tempSrcPath, 'pages'));
+						sitePages.forEach(function (pageName) {
+							var pageFile = path.join(tempSrcPath, 'pages', pageName);
+							try {
+								var pageContent = JSON.parse(fs.readFileSync(pageFile));
+								if (pageContent && pageContent.base) {
+									fs.writeFileSync(pageFile, JSON.stringify(pageContent.base, null, 4));
+								}
+							} catch (e) { };
+						});
+
+						var structureFile = path.join(tempSrcPath, 'structure.json');
+						try {
+							var structureContent = JSON.parse(fs.readFileSync(structureFile));
+							if (structureContent && structureContent.base && structureContent.base.pages) {
+								fs.writeFileSync(structureFile, JSON.stringify(structureContent.base, null, 4));
+							}
+						} catch (e) { };
+
+						cleanupTemplatePromises.push(_cleanupPublishedTemplate(name, tempSrcPath));
+					}
+
+					return Promise.all(cleanupTemplatePromises);
+
+				})
+				.then(function (result) {
+
 					// get theme id
 					return sitesRest.getTheme({
 						server: server,
@@ -257,7 +295,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 					}
 					themeId = result.id;
 
-					var downloadThemePromises = excludeTheme ? [] : [_downloadTheme(server, themeName, themeId, themeSrcPath, excludeFolders)];
+					var downloadThemePromises = excludeTheme ? [] : [_downloadTheme(server, themeName, themeId, themeSrcPath, excludeFolders, publishedversion)];
 
 					return Promise.all(downloadThemePromises);
 
@@ -454,7 +492,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 					console.info(' - ' + (excludeComponents ? 'exclude' : 'downloading') + ' components: ' + comps);
 
-					var downloadCompsPromises = excludeComponents ? [] : [_downloadSiteComponents(server, comps)];
+					var downloadCompsPromises = excludeComponents ? [] : [_downloadSiteComponents(server, comps, publishedversion)];
 
 					return Promise.all(downloadCompsPromises);
 
@@ -482,7 +520,47 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 	});
 };
 
-var _downloadTheme = function (server, themeName, themeId, themeSrcPath, excludeFolders) {
+/**
+ * If a template is created from a published site, theme and components, 
+ * some files that originally from settings should be removed from the top folder
+ */
+var _cleanupPublishedTemplate = function (name, tempPath) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.paths(tempPath, function (err, items) {
+			var files = items.files;
+			var folders = items.dirs;
+			var idx = tempPath.length;
+			files.forEach(function (file) {
+				var fileName = file.substring(idx + 1);
+				if (fileName.indexOf(path.sep) < 0) {
+					// top level files
+					// check if it's from settings / seo
+					var settingsFile = false;
+					for (var i = 0; i < folders.length; i++) {
+						var folderName = folders[i].substring(idx + 1);
+						var subfolders = folderName.split(path.sep);
+						if (subfolders.includes('settings') && subfolders.includes('seo')) {
+							// settings / seo folder
+							if (files.includes(path.join(folders[i], fileName))) {
+								settingsFile = true;
+								break;
+							}
+						}
+					}
+
+					if (settingsFile) {
+						// console.log(' - delete file ' + file);
+						fileUtils.remove(file);
+					}
+				}
+			});
+
+			return resolve({});
+		});
+	});
+};
+
+var _downloadTheme = function (server, themeName, themeId, themeSrcPath, excludeFolders, publishedversion) {
 	return new Promise(function (resolve, reject) {
 		// download theme
 		var downloadArgv = {
@@ -490,7 +568,7 @@ var _downloadTheme = function (server, themeName, themeId, themeSrcPath, exclude
 			folder: themeSrcPath
 		};
 		console.info(' - downloading theme files');
-		var excludeFolder = ['/publish'];
+		var excludeFolder = publishedversion ? [] : ['/publish'];
 		if (excludeFolders && excludeFolders.length > 0) {
 			excludeFolders.forEach(function (folder) {
 				if (folder.indexOf('theme:') === 0) {
@@ -504,7 +582,9 @@ var _downloadTheme = function (server, themeName, themeId, themeSrcPath, exclude
 				}
 			});
 		}
-		documentUtils.downloadFolder(downloadArgv, server, true, false, excludeFolder)
+		var showError = true;
+		var showDetail = false;
+		_downloadResource(server, 'theme', themeId, themeName, publishedversion, themeSrcPath, showError, showDetail, excludeFolder)
 			.then(function (result) {
 				console.info(' - download theme files');
 
@@ -526,12 +606,12 @@ var _downloadTheme = function (server, themeName, themeId, themeSrcPath, exclude
 	});
 };
 
-var _downloadSiteComponents = function (server, compNames) {
+var _downloadSiteComponents = function (server, compNames, publishedversion) {
 	return new Promise(function (resolve, reject) {
 		var comps = [];
 		var downloadedComps = [];
 		var returnComps = [];
-		_downloadComponents(compNames, server)
+		_downloadComponents(compNames, server, publishedversion)
 			.then(function (result) {
 				downloadedComps = result;
 
@@ -614,7 +694,11 @@ var _downloadSiteComponents = function (server, compNames) {
 var _createLocalTemplateFromSiteUtil = function (argv, name, siteName, server, excludeContent, enterprisetemplate,
 	excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets) {
 	verifyRun(argv);
-	return _createLocalTemplateFromSite(name, siteName, server, excludeContent, enterprisetemplate, excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets);
+	var excludeFolders;
+	var publishedversion;
+	return _createLocalTemplateFromSite(name, siteName, server, excludeContent, enterprisetemplate,
+		excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets,
+		excludeFolders, publishedversion);
 };
 
 var _downloadContent = function (server, name, channelName, channelId, repositoryName, repositoryId, excludeType, publishedassets, assetGUIDS) {
@@ -830,7 +914,7 @@ var _queryComponents = function (server, compNames) {
 	});
 };
 
-var _downloadComponents = function (comps, server) {
+var _downloadComponents = function (comps, server, publishedversion) {
 	return new Promise(function (resolve, reject) {
 		var total = comps.length;
 		console.info(' - total number of components: ' + total);
@@ -848,16 +932,23 @@ var _downloadComponents = function (comps, server) {
 					path: 'component:' + param,
 					folder: compSrcPath
 				};
-				var excludeFolder = ['/publish'];
-				return documentUtils.downloadFolder(downloadArgv, server, false, false, excludeFolder).then(function (result) {
-					if (result && result.err) {
-						fileUtils.remove(compSrcPath);
-					} else {
-						console.info(' - download component ' + param);
-						compData.push(param);
-					}
-				})
+				var excludeFolder = publishedversion ? [] : ['/publish'];
+				var compId;
+				var showError = false;
+				var showDetail = false;
+				return _downloadResource(server, 'component', compId, param, publishedversion, compSrcPath, showError, showDetail, excludeFolder)
+					.then(function (result) {
+						if (result && result.err) {
+							fileUtils.remove(compSrcPath);
+						} else {
+							console.info(' - download component ' + param);
+							compData.push(param);
+						}
+					})
 					.catch((error) => {
+						if (error) {
+							console.log(error);
+						}
 						// the component does not exist or is seeded
 						// console.log(' - component ' + param + ' not found');
 						fileUtils.remove(compSrcPath);
@@ -871,6 +962,139 @@ var _downloadComponents = function (comps, server) {
 			// console.log(' - total number of downloaded files: ' + fileData.length);
 			resolve(compData);
 		});
+
+	});
+};
+
+//
+// Download artifacts for site, theme or components
+//
+var _downloadResource = function (server, type, id, name, publishedversion, targetPath, showError, showDetail, excludeFolder) {
+	return new Promise(function (resolve, reject) {
+
+		if (publishedversion) {
+			var getCompPromises = [];
+			if (type === 'component') {
+				getCompPromises.push(sitesRest.getComponent({
+					server: server,
+					name: name,
+					showError: false,
+					showInfo: false
+				}));
+			}
+
+			var resourceId = id;
+			var settingsExist = false;
+
+			Promise.all(getCompPromises)
+				.then(function (results) {
+					if (!id) {
+						resourceId = results && results[0] && results[0].id;
+					}
+					if (!resourceId) {
+						// console.log('ERROR: ' + type + ' ' + name + ' is not found');
+						return Promise.reject();
+					}
+
+					// get top level files
+					return serverRest.getChildItems({
+						server: server,
+						parentID: resourceId,
+						limit: 9999
+					});
+				})
+				.then(function (result) {
+					var items = result && result.items || [];
+					var downloadTopFilesPromises = [];
+
+					items.forEach(function (item) {
+						if (item.type === 'file') {
+							var targetFile = path.join(targetPath, item.name);
+							downloadTopFilesPromises.push(serverRest.downloadFileSave({
+								server: server,
+								fFileGUID: item.id,
+								saveTo: targetFile
+							}));
+						} else if (item.type === 'folder') {
+							if (item.name === 'settings') {
+								settingsExist = true;
+							}
+						}
+					});
+
+					return Promise.all(downloadTopFilesPromises);
+				})
+				.then(function (results) {
+
+					// download content and settings folder for site
+					var downloadSettingsPromises = [];
+					if (type === 'site') {
+						if (settingsExist && !excludeFolder.includes('/settings')) {
+							var settingsPath = path.join(targetPath, 'settings');
+							if (!fs.existsSync(settingsPath)) {
+								fs.mkdirSync(settingsPath);
+							}
+
+							var downloadSettingsArgv = {
+								path: type + ':' + name + '/settings',
+								folder: settingsPath
+							};
+
+							var settingsExcludeFolder = [];
+							excludeFolder.forEach(function (folder) {
+								if (folder.indexOf('/settings') === 0) {
+									settingsExcludeFolder.push(folder.substring(1));
+								}
+							});
+
+							downloadSettingsPromises.push(documentUtils.downloadFolder(downloadSettingsArgv, server, showError, false, settingsExcludeFolder));
+						}
+					}
+
+					return Promise.all(downloadSettingsPromises);
+
+				})
+				.then(function (results) {
+
+					// download publish folder and place at the top of the resource
+					var downloadArgv = {
+						path: type + ':' + name + '/publish',
+						folder: targetPath
+					};
+
+					// If user specifies site:content, we will exclude publish/content
+					var publishExcludeFolder = [];
+					excludeFolder.forEach(function (folder) {
+						publishExcludeFolder.push('publish' + folder);
+					});
+					return documentUtils.downloadFolder(downloadArgv, server, showError, showDetail, publishExcludeFolder);
+
+				})
+				.then(function (result) {
+
+					resolve({});
+
+				})
+				.catch((error) => {
+					if (error) {
+						console.error(error);
+					}
+					resolve({
+						err: 'err'
+					});
+				});
+
+		} else {
+			var downloadArgv = {
+				path: type + ':' + name,
+				folder: targetPath
+			};
+
+			return documentUtils.downloadFolder(downloadArgv, server, showError, showDetail, excludeFolder)
+				.then(function (result) {
+					resolve(result);
+				});
+		}
 
 	});
 };
@@ -906,6 +1130,7 @@ module.exports.createTemplate = function (argv, done) {
 			done();
 			return;
 		}
+		var publishedversion = typeof argv.publishedversion === 'string' && argv.publishedversion.toLowerCase() === 'true';
 		var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
 		var referencedassets = typeof argv.referencedassets === 'string' && argv.referencedassets.toLowerCase() === 'true';
 		var excludeContent = typeof argv.excludecontent === 'string' && argv.excludecontent.toLowerCase() === 'true';
@@ -916,7 +1141,7 @@ module.exports.createTemplate = function (argv, done) {
 		var excludeFolders = argv.excludefolders ? argv.excludefolders.split(',') : [];
 
 		_createLocalTemplateFromSite(argv.name, siteName, server, excludeContent, enterprisetemplate,
-			excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets, excludeFolders)
+			excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets, excludeFolders, publishedversion)
 			.then(function (result) {
 				if (result.err) {
 					done();

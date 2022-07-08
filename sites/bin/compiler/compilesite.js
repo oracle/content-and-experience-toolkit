@@ -1553,23 +1553,20 @@ function fixupPage(pageId, pageUrl, layoutMarkup, pageModel, localePageModel, co
 	// Fill in the inline components
 	var pageMarkup = preFillPageLayout(layoutMarkup, pageModel, localePageModel, context);
 
-	// compile all the components asynchronously
-	return compiler.compileComponents().then(function () {
-		if (creatingDetailPages && detailPageContentLayoutSnippet) {
-			// Eloqua integration
-			// for detail pages, we only want the custom component for the content layout
-			// output all the compiled components only
-			pageMarkup = '';
-			pageMarkup = resolveComponents(pageMarkup);
-		} else {
-			// now we have the compiled components, resolve the page markup 
-			pageMarkup = resolveSlots(pageMarkup, pageModel, sitePrefix);
-			pageMarkup = resolveTokens(pageId, pageMarkup, pageModel, context, sitePrefix);
-			pageMarkup = resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, context, sitePrefix);
-		}
+	if (creatingDetailPages && detailPageContentLayoutSnippet) {
+		// Eloqua integration
+		// for detail pages, we only want the custom component for the content layout
+		// output all the compiled components only
+		pageMarkup = '';
+		pageMarkup = resolveComponents(pageMarkup);
+	} else {
+		// now we have the compiled components, resolve the page markup 
+		pageMarkup = resolveSlots(pageMarkup, pageModel, sitePrefix);
+		pageMarkup = resolveTokens(pageId, pageMarkup, pageModel, context, sitePrefix);
+		pageMarkup = resolveRenderInfo(pageId, pageMarkup, pageModel, localePageModel, context, sitePrefix);
+	}
 
-		return Promise.resolve(pageMarkup);
-	});
+	return Promise.resolve(pageMarkup);
 }
 
 // Returns the product URL, including cache key, if any.  Uses the CDN if available.
@@ -2377,9 +2374,17 @@ function createPage(context, pageInfo) {
 					"pageInfo": pageInfo
 				});
 
-				compileThemeLayout(context.themeName, layoutName, pageData, pageInfo).then(function (result) {
-					var layoutMarkup = result.layoutMarkup, 
-						pageCompiler = result.pageCompiler;
+
+				// compile the page and components in parallel
+				Promise.all([
+					compileThemeLayout(context.themeName, layoutName, pageData, pageInfo),
+					compiler.compileComponents()
+				]).then(function (results) {
+					var pageCompileResult = results[0];
+					var componentsCompileResult = results[1];
+
+					var layoutMarkup = pageCompileResult.layoutMarkup, 
+						pageCompiler = pageCompileResult.pageCompiler;
 
 					pageData = fixupPageDataWithSlotReuseData(context, pageData, layoutName, layoutMarkup);
 					// now fixup the page 
@@ -2396,21 +2401,21 @@ function createPage(context, pageInfo) {
 							resolve(); // Resolve, instead of reject because we want to continue processing other pages
 						});
 					})
-						.catch(function (err) {
-							compilationReporter.error({
-								message: 'Failed to write ' + errorPageName,
-								error: err
-							});
-							resolve(); // Resolve, instead of reject because we want to continue processing other pages
-						});
-				})
 					.catch(function (err) {
 						compilationReporter.error({
-							message: 'Failed to generate ' + errorPageName,
+							message: 'Failed to write ' + errorPageName,
 							error: err
 						});
 						resolve(); // Resolve, instead of reject because we want to continue processing other pages
 					});
+				})
+				.catch(function (err) {
+					compilationReporter.error({
+						message: 'Failed to generate ' + errorPageName,
+						error: err
+					});
+					resolve(); // Resolve, instead of reject because we want to continue processing other pages
+				});
 			}
 		} catch (e) {
 			compilationReporter.error({
@@ -2837,28 +2842,28 @@ var compileSite = function (args) {
 				switch (key) {
 					case 'includeLocale':
 						includeLocale = value;
-						break
+						break;
 					case 'verbose':
 						verbose = value;
-						break
+						break;
 					case 'noDetailPages':
 						compileDetailPages = !value; // inverse of noDetailPages
-						break
+						break;
 					case 'noDefaultDetailPageLink':
 						useDefaultDetailPageLink = !value; // inverse of noDefaultDetailPageLink
-						break
+						break;
 					case 'channelToken':
 						channelAccessToken = value;
-						break
+						break;
 					case 'targetDevice':
 						targetDevice = value;
-						break
+						break;
 					case 'localeGroup':
 						localeGroup = value ? value.split(',') : [];
-						break
+						break;
 					case 'type':
 						defaultContentType = (value === 'draft' ? 'draft' : 'published');
-						break
+						break;
 					default:
 						console.log('  unsupported option: ' + entry);
 						break;

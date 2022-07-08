@@ -453,10 +453,12 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 	var listTranslationConnectors = types.length === 0 || types.includes('translationconnectors');
 	var listTaxonomies = types.length === 0 || types.includes('taxonomies');
 	var listWorkflows = types.length === 0 || types.includes('workflows');
+	var listBackgroundJobs = types.length === 0 || types.includes('backgroundjobs');
 
 	if (!listChannels && !listComponents && !listLocalizationpolicies && !listRecommendations &&
 		!listRankingPolicies && !listRepositories && !listSites &&
-		!listTemplates && !listThemes && !listTaxonomies && !listWorkflows && !listTranslationConnectors) {
+		!listTemplates && !listThemes && !listTaxonomies && !listWorkflows && !listTranslationConnectors &&
+		!listBackgroundJobs) {
 		console.error('ERROR: invalid resource types: ' + argv.types);
 		done();
 		return;
@@ -740,7 +742,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					for (var i = 0; i < sites.length; i++) {
 						var site = sites[i];
 						var type = site.isEnterprise ? 'Enterprise' : 'Standard';
-						var published = site.publishStatus === 'published' ? '    √' : '';
+						var published = site.publishStatus !== 'unpublished' ? '    √' : '';
 						var online = site.runtimeStatus === 'online' ? '  √' : '';
 						var secure = site.security && site.security.access && !site.security.access.includes('everyone') ? '  √' : '';
 						console.log(sprintf(siteFormat, site.name, site.themeName, type, published, online, secure));
@@ -888,13 +890,62 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					console.log('');
 				}
 
+				promises = [];
+				if (listBackgroundJobs) {
+					promises.push(serverUtils.getBackgroundServiceJobs(server, 'site'));
+					promises.push(serverUtils.getBackgroundServiceJobs(server, 'theme'));
+					promises.push(serverUtils.getBackgroundServiceJobs(server, 'template'));
+				}
+
+				return Promise.all(promises);
+
+			})
+			.then(function (results) {
+				//
+				// List back ground jobs (sites, themes, templates)
+				//
+				if (listBackgroundJobs) {
+					console.log('Background jobs:');
+					/*
+					var jobFormat = '  %-20s  %-s';
+					jobs.forEach(function (job) {
+						console.log(sprintf(jobFormat, 'Id', job.JobID));
+						console.log(sprintf(jobFormat, 'Type', job.JobType));
+						console.log(sprintf(jobFormat, 'Action', job.JobAction));
+						console.log(sprintf(jobFormat, 'Status', job.JobStatus));
+						console.log(sprintf(jobFormat, 'Percentage', job.JobPercentage));
+						console.log(sprintf(jobFormat, 'Creator', (job.JobCreatorFullName || job.JobCreatorLoginName)));
+						console.log(sprintf(jobFormat, 'CreateDate', job.JobCreateDate));
+						console.log(sprintf(jobFormat, 'Message', job.JobMessage));
+						console.log('');
+					});
+					*/
+					var jobFormat = '  %-57s  %-8s %-18s %-10s %-3s %-30s %-20s %-s';
+					console.log(sprintf(jobFormat, 'Id', 'Type', 'Action', 'Status', '%', 'Creator', 'CreateDate', 'Message'));
+					if (results && results.length > 0) {
+						var totalJobs = 0;
+						for (var i = 0; i < results.length; i++) {
+							var jobs = results[i];
+							jobs.forEach(function (job) {
+								console.log(sprintf(jobFormat, job.JobID, job.JobType, job.JobAction, job.JobStatus,
+									job.JobPercentage, (job.JobCreatorFullName || job.JobCreatorLoginName),
+									job.JobCreateDate, job.JobMessage));
+								totalJobs += 1;
+							});
+						}
+						if (totalJobs > 0) {
+							console.log('Total: ' + totalJobs);
+						}
+					}
+				}
+
 				done(true);
 			});
 	});
 };
 
 var lpad = function (s) {
-	var width = 5;
+	var width = 7;
 	var char = '0';
 	return (s.length >= width) ? s : (new Array(width).join(char) + s).slice(-width);
 };
@@ -902,7 +953,7 @@ var _create10000Assets = function (server) {
 	return new Promise(function (resolve, reject) {
 		var items = [];
 		var start = 0;
-		var max = 10100;
+		var max = 1000000;
 		for (var i = start; i < max; i++) {
 			var idx = lpad(i + 1);
 			items.push({
@@ -911,28 +962,56 @@ var _create10000Assets = function (server) {
 			});
 		}
 		// console.log(items);
+		var groups = [];
+		var limit = 10;
+		var start, end;
+		for (var i = 0; i < max / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= max) {
+				end = max - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < max - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
 
-		var doCreate = items.reduce(function (createPromise, itemData) {
-			var item = {
-				type: 'SimpleType',
-				name: itemData.name,
-				fields: {
-					title: itemData.title
-				}
-			};
-			// console.log(item);
-			var repoId = 'F4FF138980864725A135C2D3EFB79371';
+		var doCreate = groups.reduce(function (createPromise, param) {
+
+			var repoId = 'B5705E0A32DB45219676DF68EC53CB9F';
 			return createPromise.then(function (result) {
-				return serverRest.createItem({
-					server: server,
-					repositoryId: repoId,
-					type: item.type,
-					name: item.name,
-					fields: item.fields,
-					language: 'en-US'
-				}).then(function (result) {
-					if (result.id) {
-						console.log(' - create content item ' + result.name + ' (Id: ' + result.id + ')');
+				var itemPromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					var item = {
+						type: 'SimpleType',
+						name: items[i].name,
+						fields: {
+							title: items[i].title
+						}
+					};
+					itemPromises.push(serverRest.createItem({
+						server: server,
+						repositoryId: repoId,
+						type: item.type,
+						name: item.name,
+						fields: item.fields,
+						language: 'en-US'
+					}));
+				}
+
+				return Promise.all(itemPromises).then(function (results) {
+					for (var i = 0; i < results.length; i++) {
+						var item = results[i];
+						if (item.id) {
+							console.log(' - create content item ' + item.name + ' (Id: ' + item.id + ')');
+						}
 					}
 				});
 			});
@@ -942,6 +1021,7 @@ var _create10000Assets = function (server) {
 		doCreate.then(function (result) {
 			resolve(result);
 		});
+
 	});
 
 };
@@ -990,6 +1070,7 @@ module.exports.executeGet = function (argv, done) {
 			return;
 		}
 
+
 		/*
 		var startTime = new Date();
 		_create10000Assets(server).then(function (result) {
@@ -997,6 +1078,7 @@ module.exports.executeGet = function (argv, done) {
 			done(true);
 		});
 		*/
+
 
 		var writer = fs.createWriteStream(output);
 		serverRest.executeGetStream({

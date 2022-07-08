@@ -7434,8 +7434,12 @@ module.exports.getGroupMembers = function (args) {
 
 var _createConnection = function (request, server) {
 	return new Promise(function (resolve, reject) {
-		// If apiRandomID and cookieStore have already been cached, then just use them.
-		if (server.apiRandomID && server.cookieStore) {
+		newSocialConnectionExpiryTime = function() {
+			return Date.now() + 5 * 60000;
+		}
+		// If apiRandomID and cookieStore have already been cached, then just use them, as long as not too much time has elapsed.
+		if (server.apiRandomID && server.cookieStore && server.socialConnectionExpiryTime > Date.now()) {
+			server.socialConnectionExpiryTime = newSocialConnectionExpiryTime(); // reset social connection expiry time
 			return resolve({
 				apiRandomID: server.apiRandomID,
 				cookieStore: server.cookieStore,
@@ -7478,6 +7482,7 @@ var _createConnection = function (request, server) {
 				cacheCookiesFromResponse(server, response);
 				server.apiRandomID = apiRandomID;
 				server.socialUser = data.user;
+				server.socialConnectionExpiryTime = newSocialConnectionExpiryTime(); // social connection expires after period of idleness
 				resolve({
 					apiRandomID: apiRandomID,
 					cookieStore: server.cookieStore,

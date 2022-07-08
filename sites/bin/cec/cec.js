@@ -248,7 +248,7 @@ var getGroupMemberRoles = function () {
 };
 
 var getResourceTypes = function () {
-	var names = ['channels', 'components', 'localizationpolicies', 'rankingpolicies', 'recommendations', 'repositories', 'sites', 'templates', 'themes', 'taxonomies', 'translationconnectors', 'workflows'];
+	var names = ['backgroundjobs', 'channels', 'components', 'localizationpolicies', 'rankingpolicies', 'recommendations', 'repositories', 'sites', 'templates', 'themes', 'taxonomies', 'translationconnectors', 'workflows'];
 	return names;
 };
 
@@ -417,6 +417,7 @@ const downloadComponent = {
 	example: [
 		['cec download-component Sample-To-Do'],
 		['cec download-component Sample-To-Do,Sample-To-Do2'],
+		['cec download-component Sample-To-Do,Sample-To-Do2 -b'],
 		['cec download-component Sample-To-Do -s SampleServer1']
 	]
 };
@@ -549,6 +550,7 @@ const createTemplate = {
 		['cec create-template Temp1'],
 		['cec create-template Temp2 -f CafeSupremoLite'],
 		['cec create-template Temp1 -s Site1', 'Create template Temp1 based on site Site1 on OCM server and include all assets in the site channel'],
+		['cec create-template Temp1 -s Site1 -b', 'Create template Temp1 based on site Site1 on OCM server and include only the published site, theme and components'],
 		['cec create-template Temp1 -s Site1 -p', 'Create template Temp1 based on site Site1 on OCM server and include only the published assets'],
 		['cec create-template Temp1 -s Site1 -n', 'Create template Temp1 based on site Site1 on OCM server and include only the assets added to the site\'s pages'],
 		['cec create-template Temp1 -s Site1 -x', 'Create template Temp1 based on site Site1 on OCM server and exclude the content in the site'],
@@ -1412,7 +1414,8 @@ const listResources = {
 		['cec list', 'List all local resources'],
 		['cec list -s', 'List resources on the server specified in cec.properties file'],
 		['cec list -t components,channels -s', 'List components and channels on the server specified in cec.properties file'],
-		['cec list -t components,channels -s SampleServer1', 'List components and channels on the registered server SampleServer1']
+		['cec list -t components,channels -s SampleServer1', 'List components and channels on the registered server SampleServer1'],
+		['cec list -t backgroundjobs -s SampleServer1', 'List uncompleted background jobs for sites, themes and templates on the registered server SampleServer1']
 	]
 };
 
@@ -3695,13 +3698,18 @@ const argv = yargs.usage(_usage)
 		})
 	.command([downloadComponent.command, downloadComponent.alias], false,
 		(yargs) => {
-			yargs.option('server', {
-				alias: 's',
-				description: '<server> The registered OCM server'
+			yargs.option('publishedversion', {
+				alias: 'b',
+				description: 'Published version of the component'
 			})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
 				.example(...downloadComponent.example[0])
 				.example(...downloadComponent.example[1])
 				.example(...downloadComponent.example[2])
+				.example(...downloadComponent.example[3])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadComponent.command}\n\n${downloadComponent.usage.long}`);
@@ -3866,6 +3874,10 @@ const argv = yargs.usage(_usage)
 					alias: 's',
 					description: 'Site to create from'
 				})
+				.option('publishedversion', {
+					alias: 'b',
+					description: 'Published site, theme and components'
+				})
 				.option('publishedassets', {
 					alias: 'p',
 					description: 'Published assets only'
@@ -3913,6 +3925,7 @@ const argv = yargs.usage(_usage)
 				.example(...createTemplate.example[7])
 				.example(...createTemplate.example[8])
 				.example(...createTemplate.example[9])
+				.example(...createTemplate.example[10])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createTemplate.command}\n\n${createTemplate.usage.long}`);
@@ -5219,6 +5232,7 @@ const argv = yargs.usage(_usage)
 				.example(...listResources.example[1])
 				.example(...listResources.example[2])
 				.example(...listResources.example[3])
+				.example(...listResources.example[4])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listResources.command}\n\n${listResources.usage.long}`);
@@ -8396,6 +8410,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--component', argv.names
 	];
+	if (argv.publishedversion) {
+		downloadComponentArgs.push(...['--publishedversion', argv.publishedversion]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		downloadComponentArgs.push(...['--server', argv.server]);
 	}
@@ -8526,6 +8543,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	];
 	if (argv.site && typeof argv.site !== 'boolean') {
 		createTemplateArgs.push(...['--site', argv.site]);
+	}
+	if (argv.publishedversion) {
+		createTemplateArgs.push(...['--publishedversion', argv.publishedversion]);
 	}
 	if (argv.publishedassets) {
 		createTemplateArgs.push(...['--publishedassets', argv.publishedassets]);

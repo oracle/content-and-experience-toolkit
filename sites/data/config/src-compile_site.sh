@@ -20,7 +20,8 @@ then
   echo " -f --folder cec install folder*"
   echo " -j --jobid compilation job ID when called from the server"
   echo " -c --channeltoken site's channel token (use dummy token for standard sites)*"
-  echo " -u --securesite [true | false] if the site is a secure site"
+  echo " -u --securesite [ true | false ] is the site a secure site"
+  echo " -b --publishedversion [ true | false ] compile the published version of the site"
   echo " "
   echo "example: "
   echo " compile_site.sh -s sampleSite -r sampleServer -f `pwd` -c sampleChannelToken"
@@ -64,12 +65,17 @@ case $key in
     -c|--channeltoken)
     CHANNEL_TOKEN="$2"
     shift # past argument
-    shift # past argument
+    shift # past value
     ;;
     -u|--securesite)
     IS_SECURE_SITE="$2"
     shift # past argument
+    shift # past value
+    ;;
+    -b|--publishedversion)
+    COMPILE_PUBLISHED_SITE="$2"
     shift # past argument
+    shift # past value
     ;;
     --default)
     DEFAULT=YES
@@ -124,6 +130,7 @@ echo "  REGISTERED_SERVER: ${REGISTERED_SERVER}"
 echo "  INSTALL_FOLDER: ${INSTALL_FOLDER}"
 echo "  JOB_ID: ${JOB_ID}"
 echo "  IS_SECURE_SITE: ${IS_SECURE_SITE}"
+echo "  COMPILE_PUBLISHED_SITE: ${COMPILE_PUBLISHED_SITE}"
 echo ""
 
 # set the secure site option
@@ -131,6 +138,13 @@ SECURE_SITE_OPTION=""
 if [ "${IS_SECURE_SITE}" = "true" ]
 then
   SECURE_SITE_OPTION="-u"
+fi
+
+# set the compile published site option
+COMPILE_PUBLISHED_SITE_OPTION=""
+if [ "${COMPILE_PUBLISHED_SITE}" = "true" ]
+then
+  COMPILE_PUBLISHED_SITE_OPTION="-b"
 fi
 
 
@@ -207,8 +221,8 @@ cd ${INSTALL_FOLDER}
 # download the site template
 # hint: exclude folders and components from template download that aren't required for compilation to save time.  For example: -d theme:/assets
 updateJobStatus "CREATE_TEMPLATE" 20
-echo "cec create-template ${TEMPLATE_NAME} -s ${SITE_NAME} -r ${REGISTERED_SERVER} -x"
-cec create-template ${TEMPLATE_NAME} -s ${SITE_NAME} -r ${REGISTERED_SERVER} -x
+echo "cec create-template ${TEMPLATE_NAME} -s ${SITE_NAME} -r ${REGISTERED_SERVER} ${COMPILE_PUBLISHED_SITE_OPTION} -x"
+cec create-template ${TEMPLATE_NAME} -s ${SITE_NAME} -r ${REGISTERED_SERVER} ${COMPILE_PUBLISHED_SITE_OPTION} -x
 checkResult "create-template" $?
 
 # hint: it may be useful to introduce a "publish content step" to publish all assets in site's publishing channel to make sure it is up to date before compiling the site

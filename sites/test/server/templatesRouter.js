@@ -243,6 +243,11 @@ router.get('/*', (req, res) => {
 				// do not insert SCS
 				res.sendFile(filePath);
 			} else {
+				// remove something as var SCS = { sitePrefix: '/site1/' };
+				buf = buf.replace(/var SCS = {.*};/g, '');
+				// replace controller.js
+				buf = buf.replace(/<script src="\/.*controller.js"><\/script>/g, '<script src="/_sitescloud/renderer/controller.js"></script>');
+	
 				modifiedFile = buf.substring(0, loc) +
 					'<script type="text/javascript"> var SCS = { sitePrefix: "/templates/' + tempName + '/" }; </script>' +
 					buf.substring(loc);
