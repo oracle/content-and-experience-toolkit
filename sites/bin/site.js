@@ -884,7 +884,7 @@ var _copySite = function (argv, server, site, targetName, description, sitePrefi
 };
 
 
-var _transferStandardSite = function (argv, server, destServer, site, excludecomponents, excludetheme, suppressgovernance) {
+var _transferStandardSite = function (argv, server, destServer, site, excludecomponents, excludetheme, suppressgovernance, publishedversion) {
 	return new Promise(function (resolve, reject) {
 		console.info(' - site ' + site.name + ' is a standard site');
 
@@ -959,7 +959,10 @@ var _transferStandardSite = function (argv, server, destServer, site, excludecom
 				// create a local template based on the site
 				var enterprisetemplate = false;
 				var excludecontent = true;
-				return templateUtils.createLocalTemplateFromSite(argv, templateName, siteName, server, excludecontent, enterprisetemplate, excludecomponents, excludetheme);
+				var excludeType, publishedassets, referencedassets, excludeFolders;
+				return templateUtils.createLocalTemplateFromSite(argv, templateName, siteName, server, excludecontent, enterprisetemplate,
+					excludecomponents, excludetheme, excludeType, publishedassets, referencedassets,
+					excludeFolders, publishedversion);
 			})
 			.then(function (result) {
 				if (!result || result.err) {
@@ -1323,6 +1326,7 @@ module.exports.transferSite = function (argv, done) {
 	var excludecomponents = typeof argv.excludecomponents === 'string' && argv.excludecomponents.toLowerCase() === 'true';
 	var excludetheme = typeof argv.excludetheme === 'string' && argv.excludetheme.toLowerCase() === 'true';
 	var excludetype = typeof argv.excludetype === 'string' && argv.excludetype.toLowerCase() === 'true';
+	var publishedversion = typeof argv.publishedversion === 'string' && argv.publishedversion.toLowerCase() === 'true';
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
 	var referencedassets = typeof argv.referencedassets === 'string' && argv.referencedassets.toLowerCase() === 'true';
 	var includestaticfiles = typeof argv.includestaticfiles === 'string' && argv.includestaticfiles.toLowerCase() === 'true';
@@ -1415,6 +1419,11 @@ module.exports.transferSite = function (argv, done) {
 					site = result;
 					// console.log(site);
 
+					if (publishedversion && site.publishStatus === 'unpublished') {
+						console.error('ERROR: site ' + siteName + ' is not published');
+						return Promise.reject();
+					}
+
 					return serverUtils.getIdcToken(destServer);
 				})
 				.then(function (result) {
@@ -1425,7 +1434,7 @@ module.exports.transferSite = function (argv, done) {
 
 					if (!site.isEnterprise) {
 
-						_transferStandardSite(argv, server, destServer, site, excludecomponents, excludetheme, suppressgovernance)
+						_transferStandardSite(argv, server, destServer, site, excludecomponents, excludetheme, suppressgovernance, publishedversion)
 							.then(function (result) {
 								var success = result && !result.err;
 								_cmdEnd(done, success);
@@ -1665,8 +1674,11 @@ module.exports.transferSite = function (argv, done) {
 
 								// create template on the source server and download
 								var enterprisetemplate = true;
+								var excludeFolders;
 								return templateUtils.createLocalTemplateFromSite(
-									argv, templateName, siteName, server, excludecontent, enterprisetemplate, excludecomponents, excludetheme, excludetype, publishedassets, referencedassets);
+									argv, templateName, siteName, server, excludecontent, enterprisetemplate,
+									excludecomponents, excludetheme, excludetype, publishedassets, referencedassets,
+									excludeFolders, publishedversion);
 
 							})
 							.then(function (result) {
@@ -2665,6 +2677,8 @@ module.exports.controlSite = function (argv, done) {
 		var metadataName = argv.name;
 		var metadataValue = argv.value ? argv.value : '';
 
+		var expireDate = argv.expiredate;
+
 		serverUtils.loginToServer(server).then(function (result) {
 			if (!result.status) {
 				console.error(result.statusMessage);
@@ -2672,7 +2686,8 @@ module.exports.controlSite = function (argv, done) {
 				return;
 			}
 			// if (server.useRest) {
-			_controlSiteREST(server, action, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, theme, metadataName, metadataValue)
+			_controlSiteREST(server, action, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, theme,
+				metadataName, metadataValue, expireDate)
 				.then(function (result) {
 					if (result.err) {
 						done(result.exitCode);
@@ -2699,14 +2714,27 @@ module.exports.controlSite = function (argv, done) {
  * @param {*} siteName 
  * @param {*} done 
  */
-var _controlSiteREST = function (server, action, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, newTheme, metadataName, metadataValue) {
+var _controlSiteREST = function (server, action, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, newTheme,
+	metadataName, metadataValue, expireDate) {
 
 	return new Promise(function (resolve, reject) {
 		var exitCode;
-		sitesRest.getSite({
-			server: server,
-			name: siteName
-		})
+		var goverancePromises = action === 'expire' ? [serverUtils.getSitesGovernance(server)] : [];
+		Promise.all(goverancePromises)
+			.then(function (results) {
+				if (action === 'expire') {
+					var governanceEnabled = results && results[0].sitesGovernanceEnabled;
+					if (!governanceEnabled) {
+						console.info('ERROR: governance for sites is not enabled');
+						return Promise.reject();
+					}
+				}
+
+				return sitesRest.getSite({
+					server: server,
+					name: siteName
+				})
+			})
 			.then(function (result) {
 				if (result.err) {
 					return Promise.reject();
@@ -2790,6 +2818,12 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 
 					actionPromise = _setSiteMetadata(server, site.id, site.name, metadataName, metadataValue);
 
+				} else if (action === 'expire') {
+					actionPromise = sitesRest.setSiteExpirationDate({
+						server: server,
+						name: siteName,
+						expireDate: expireDate
+					});
 				} else {
 					console.error('ERROR: invalid action ' + action);
 					return Promise.reject();
@@ -2798,7 +2832,7 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 				return actionPromise;
 			})
 			.then(function (result) {
-				if (result.err) {
+				if (!result || result.err) {
 					return Promise.reject();
 				}
 
@@ -2814,6 +2848,8 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 					} else {
 						console.log(' - clear site metadata ' + metadataName);
 					}
+				} else if (action === 'expire') {
+					console.log(' - site expires at ' + result.expiresAt);
 				} else {
 					console.log(' - ' + action + ' ' + siteName + ' finished');
 				}
@@ -3831,6 +3867,7 @@ module.exports.describeSite = function (argv, done) {
 		var siteMetadata;
 		var siteInfo;
 		var totalItems = 0;
+		var totalMasterItems = 0;
 		var format1 = '%-38s  %-s';
 
 		sitesRest.getSite({
@@ -3851,10 +3888,31 @@ module.exports.describeSite = function (argv, done) {
 				site = result;
 				// console.log(site);
 
-				// find items in the site channel
+				// find master items in the site channel
 				var itemPromises = [];
 				if (site.isEnterprise && site.channel && site.channel.id) {
 					var q = 'channels co "' + site.channel.id + '" AND languageIsMaster eq "true"';
+					itemPromises.push(serverRest.queryItems({
+						server: server,
+						q: q,
+						limit: 1,
+						showTotal: false
+					}));
+				}
+
+				return Promise.all(itemPromises);
+			})
+			.then(function (results) {
+
+				if (site.isEnterprise) {
+					// console.log(results[0]);
+					totalMasterItems = results && results[0] && results[0].limit;
+				}
+
+				// find items in the site channel
+				var itemPromises = [];
+				if (site.isEnterprise && site.channel && site.channel.id) {
+					var q = 'channels co "' + site.channel.id + '"';
 					itemPromises.push(serverRest.queryItems({
 						server: server,
 						q: q,
@@ -3982,6 +4040,7 @@ module.exports.describeSite = function (argv, done) {
 				console.log(sprintf(format1, 'Total pages', pages.length));
 
 				if (site.isEnterprise) {
+					console.log(sprintf(format1, 'Total master items', totalMasterItems));
 					console.log(sprintf(format1, 'Total items', totalItems));
 				}
 

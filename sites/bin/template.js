@@ -692,10 +692,9 @@ var _downloadSiteComponents = function (server, compNames, publishedversion) {
 };
 
 var _createLocalTemplateFromSiteUtil = function (argv, name, siteName, server, excludeContent, enterprisetemplate,
-	excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets) {
+	excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets, excludeFolders, publishedversion) {
 	verifyRun(argv);
-	var excludeFolders;
-	var publishedversion;
+
 	return _createLocalTemplateFromSite(name, siteName, server, excludeContent, enterprisetemplate,
 		excludeComponents, excludeTheme, excludeType, publishedassets, referencedassets,
 		excludeFolders, publishedversion);

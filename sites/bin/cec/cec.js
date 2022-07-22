@@ -151,7 +151,7 @@ var getTranslationJobExportTypes = function () {
 };
 
 var getSiteActions = function () {
-	const actions = ['publish', 'unpublish', 'bring-online', 'take-offline', 'set-theme', 'set-metadata'];
+	const actions = ['publish', 'unpublish', 'bring-online', 'take-offline', 'set-theme', 'set-metadata', 'expire'];
 	return actions;
 };
 
@@ -1419,6 +1419,23 @@ const listResources = {
 	]
 };
 
+const describeBackgroundJob = {
+	command: 'describe-background-job <id>',
+	alias: 'dsbj',
+	name: 'describe-background-job',
+	usage: {
+		'short': 'Lists the properties of a background job.',
+		'long': (function () {
+			let desc = 'Lists the properties of a background job on OCM server. Specify the server with -r <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-background-job 1481789277262'],
+		['cec describe-background-job 2FB9BA33E626D2A20B4C2D07BD1D819C1657137578159 -s SampleServer1']
+	]
+};
+
 const createSite = {
 	command: 'create-site <name>',
 	alias: 'cs',
@@ -1482,7 +1499,8 @@ const controlSite = {
 		['cec control-site bring-online -s Site1 -r SampleServer1', 'Bring site Site1 online on the registered server SampleServer1'],
 		['cec control-site take-offline -s Site1 -r SampleServer1', 'Take site Site1 offline on the registered server SampleServer1'],
 		['cec control-site set-theme -s Site1 -e Theme2', 'Change site Site1 to use theme Theme2'],
-		['cec control-site set-metadata -s Site1 -n scsCompileStatus -v \'{"jobId":"job604911","status":"COMPILED","progress":100,"compiledAt":"2022-05-05T08:33:20.203Z"}\'', 'Update compile status for site Site1']
+		['cec control-site set-metadata -s Site1 -n scsCompileStatus -v \'{"jobId":"job604911","status":"COMPILED","progress":100,"compiledAt":"2022-05-05T08:33:20.203Z"}\'', 'Update compile status for site Site1'],
+		['cec control-site expire -s Site1 -x "2023-01-01T00:00:00.000Z"', 'Set the site expiration date']
 	]
 };
 
@@ -1501,6 +1519,7 @@ const transferSite = {
 	example: [
 		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer'],
 		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -p', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer with published assets'],
+		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -b', 'Creates site Site1 on server SampleServer1 based on the published site Site1 on server SampleServer'],
 		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -n', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer with assets added to the site\'s pages'],
 		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -u', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer and only update the content that is older than the content being transferred'],
 		['cec transfer-site Site1 -s SampleServer -d SampleServer1 -r Repository1 -l L10NPolicy1 -x', 'Creates site Site1 on server SampleServer1 based on site Site1 on server SampleServer without content'],
@@ -3596,6 +3615,7 @@ _usage = _usage + os.EOL + 'Environment' + os.EOL +
 	_getCmdHelp(registerServer) + os.EOL +
 	_getCmdHelp(setOAuthToken) + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
+	_getCmdHelp(describeBackgroundJob) + os.EOL +
 	_getCmdHelp(executeGet) + os.EOL +
 	_getCmdHelp(executePost) + os.EOL +
 	_getCmdHelp(executePut) + os.EOL +
@@ -5237,6 +5257,18 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${listResources.command}\n\n${listResources.usage.long}`);
 		})
+	.command([describeBackgroundJob.command, describeBackgroundJob.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...describeBackgroundJob.example[0])
+				.example(...describeBackgroundJob.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeBackgroundJob.command}\n\n${describeBackgroundJob.usage.long}`);
+		})
 	.command([createSite.command, createSite.alias], false,
 		(yargs) => {
 			yargs.option('template', {
@@ -5350,6 +5382,10 @@ const argv = yargs.usage(_usage)
 					alias: 'f',
 					description: 'Site prefix'
 				})
+				.option('publishedversion', {
+					alias: 'b',
+					description: 'Published site, theme and components'
+				})
 				.option('publishedassets', {
 					alias: 'p',
 					description: 'Published assets only'
@@ -5406,6 +5442,7 @@ const argv = yargs.usage(_usage)
 				.example(...transferSite.example[7])
 				.example(...transferSite.example[8])
 				.example(...transferSite.example[9])
+				.example(...transferSite.example[10])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${transferSite.command}\n\n${transferSite.usage.long}`);
@@ -5484,6 +5521,9 @@ const argv = yargs.usage(_usage)
 					if (argv.action && argv.action === 'set-metadata' && !argv.name) {
 						throw new Error(os.EOL + 'Please specify the metadata name');
 					}
+					if (argv.action && argv.action === 'expire' && !argv.expiredate) {
+						throw new Error(os.EOL + 'Please specify the expiration date');
+					}
 
 					return true;
 				})
@@ -5524,6 +5564,10 @@ const argv = yargs.usage(_usage)
 					alias: 'v',
 					description: 'The site metadata value'
 				})
+				.option('expiredate', {
+					alias: 'x',
+					description: 'The site site expiration date'
+				})
 				.option('server', {
 					alias: 'r',
 					description: '<server> The registered OCM server'
@@ -5540,6 +5584,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlSite.example[9])
 				.example(...controlSite.example[10])
 				.example(...controlSite.example[11])
+				.example(...controlSite.example[12])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlSite.command}\n\n${controlSite.usage.long}`);
@@ -9520,6 +9565,21 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === describeBackgroundJob.name || argv._[0] === describeBackgroundJob.alias) {
+	let describeBackgroundJobArgsArgs = ['run', '-s', describeBackgroundJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--id', argv.id
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeBackgroundJobArgsArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, describeBackgroundJobArgsArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === listAssets.name || argv._[0] === listAssets.alias) {
 	let listAssetsArgs = ['run', '-s', listAssets.name, '--prefix', appRoot,
 		'--',
@@ -9657,6 +9717,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.sitePrefix && typeof argv.sitePrefix !== 'boolean') {
 		transferSiteArgs.push(...['--sitePrefix', argv.sitePrefix]);
 	}
+	if (argv.publishedversion) {
+		transferSiteArgs.push(...['--publishedversion', argv.publishedversion]);
+	}
 	if (argv.publishedassets) {
 		transferSiteArgs.push(...['--publishedassets', argv.publishedassets]);
 	}
@@ -9754,6 +9817,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.value) {
 		controlSiteArgs.push(...['--value', argv.value]);
+	}
+	if (argv.expiredate) {
+		controlSiteArgs.push(...['--expiredate', argv.expiredate]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		controlSiteArgs.push(...['--server', argv.server]);

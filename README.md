@@ -14,6 +14,19 @@ Templates and resources for development platforms.
 
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
+
+# New in Release 22.7.2
+
+**Added**
+
+- `cec describe-background-job` - lists the properties of a background job on an OCM server
+
+**Updated**
+
+- `cec transfer-site` - added option to transfer the published version of site, theme and components
+- `cec control-site` - can now set site expiration date
+
+
 # New in Release 22.7.1
 
 **Updated**

@@ -944,6 +944,148 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 	});
 };
 
+module.exports.describeBackgroundJob = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var jobId = argv.id.toString();
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var jobFormat = '  %-20s  %-s';
+		var job;
+		var jobData;
+		serverUtils.getBackgroundServiceJobStatus(server, '', jobId)
+			.then(function (result) {
+
+				if (result && result.JobID === jobId) {
+					// site/template/theme/component job
+					job = result;
+					// console.log(job);
+					// get job data
+					serverUtils.getBackgroundServiceJobData(server, '', jobId)
+						.then(function (result) {
+							jobData = result;
+							// console.log(jobData);
+
+							sitesRest.resourceExist({ server: server, type: job.JobType + 's', id: job.ItemID, showInfo: false })
+								.then(function (result) {
+									var item = result;
+
+									console.log('');
+									console.log(sprintf(jobFormat, 'Id', job.JobID));
+									console.log(sprintf(jobFormat, 'Type', job.JobType));
+									console.log(sprintf(jobFormat, 'Action', job.JobAction));
+									console.log(sprintf(jobFormat, 'Status', job.JobStatus));
+									console.log(sprintf(jobFormat, 'Percentage', job.JobPercentage));
+									console.log(sprintf(jobFormat, 'Creator', (job.JobCreatorFullName || job.JobCreatorLoginName)));
+									console.log(sprintf(jobFormat, 'CreateDate', job.JobCreateDate));
+									if (job.ItemID) {
+										var label = serverUtils.capitalizeFirstChar(job.JobType);
+										console.log(sprintf(jobFormat, label + ' Id', job.ItemID));
+										if (item && item.id && item.name) {
+											console.log(sprintf(jobFormat, label + ' Name', item.name));
+										}
+									}
+									console.log(sprintf(jobFormat, 'Message', job.JobMessage));
+									if (jobData && jobData.LocalData) {
+										if (jobData.LocalData.compileServiceJobErrorMsg) {
+											console.log(sprintf(jobFormat, 'CompileServiceError', jobData.LocalData.compileServiceJobErrorMsg));
+										}
+									}
+									console.log('');
+
+									done(true);
+									return;
+								});
+						});
+
+				} else {
+
+					// continue to check if it is content job
+
+					serverRest.getContentJobStatus({ server: server, jobId: jobId, hideError: true })
+						.then(function (result) {
+							if (result && result.data && result.data.jobId === jobId) {
+								// console.log(JSON.stringify(result, null, 4));
+								// content import/export job
+								job = result.data;
+
+								var downloadLink = job.downloadLink && job.downloadLink[0] && job.downloadLink[0].href;
+								var jobAction = 'import/export';
+								console.log('');
+								console.log(sprintf(jobFormat, 'Id', job.jobId));
+								console.log(sprintf(jobFormat, 'Type', 'content'));
+								console.log(sprintf(jobFormat, 'Action', jobAction));
+								console.log(sprintf(jobFormat, 'Status', job.status));
+								if (downloadLink) {
+									console.log(sprintf(jobFormat, 'content file', downloadLink));
+								}
+								// console.log(sprintf(jobFormat, 'Percentage', job.JobPercentage));
+								console.log(sprintf(jobFormat, 'Creator', job.startedBy));
+								console.log(sprintf(jobFormat, 'CreateDate', job.startedDate && job.startedDate.value));
+								if (job.errorDescription) {
+									console.log(sprintf(jobFormat, 'Message', job.errorDescription));
+								}
+								console.log('');
+								done(true);
+
+							} else {
+								// content async bulk op
+								serverRest.getItemOperationStatus({ server: server, statusId: jobId, hideError: true })
+									.then(function (result) {
+										if (result && result.id === jobId) {
+											job = result;
+											var operations = job.result && job.result.body && job.result.body.operations;
+											var jobAction = operations ? Object.keys(operations) : '';
+
+											console.log('');
+											console.log(sprintf(jobFormat, 'Id', job.id));
+											console.log(sprintf(jobFormat, 'Type', 'bulk items operation'));
+											console.log(sprintf(jobFormat, 'Operation', jobAction));
+											console.log(sprintf(jobFormat, 'Status', job.progress));
+											console.log(sprintf(jobFormat, 'Percentage', job.completedPercentage));
+											console.log(sprintf(jobFormat, 'StartTime', job.startTime && job.startTime.value));
+											console.log(sprintf(jobFormat, 'EndTime', job.endTime && job.endTime.value || ''));
+											console.log(sprintf(jobFormat, 'Message', job.message));
+											console.log('');
+
+											done(true);
+										} else {
+											console.error('ERROR: job not found');
+											done();
+										}
+									});
+							}
+
+						});
+				}
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
+
 var lpad = function (s) {
 	var width = 7;
 	var char = '0';

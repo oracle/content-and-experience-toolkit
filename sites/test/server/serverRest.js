@@ -3305,7 +3305,8 @@ module.exports.getPublishingJobItems = function (args) {
 };
 
 
-var _getItemOperationStatus = function (server, statusId) {
+var _getItemOperationStatus = function (server, statusId, hideError) {
+	var showError = hideError ? false : true;
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/bulkItemsOperations/' + statusId;
 		var options = {
@@ -3321,8 +3322,10 @@ var _getItemOperationStatus = function (server, statusId) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: get item operation status');
-				console.error(error);
+				if (showError) {
+					console.error('ERROR: get item operation status');
+					console.error(error);
+				}
 				return resolve({
 					err: 'err'
 				});
@@ -3337,7 +3340,9 @@ var _getItemOperationStatus = function (server, statusId) {
 				resolve(data);
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.error('ERROR: failed to get channel operation status' + '  : ' + msg);
+				if (showError) {
+					console.error('ERROR: failed to get channel operation status' + '  : ' + msg);
+				}
 				return resolve({
 					err: 'err'
 				});
@@ -3353,7 +3358,7 @@ var _getItemOperationStatus = function (server, statusId) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getItemOperationStatus = function (args) {
-	return _getItemOperationStatus(args.server, args.statusId);
+	return _getItemOperationStatus(args.server, args.statusId, args.hideError);
 };
 
 var _copyAssets = function (server, repositoryId, targetRepositoryId, channel, collection, itemIds) {
@@ -6155,7 +6160,7 @@ module.exports.getRecommendations = function (args) {
 	});
 };
 
-var _getContentJobStatus = function (server, jobId) {
+var _getContentJobStatus = function (server, jobId, hideError) {
 	return new Promise(function (resolve, reject) {
 		var statusUrl = server.url + '/content/management/api/v1.1/content-templates/exportjobs/' + jobId;
 		var options = {
@@ -6167,11 +6172,14 @@ var _getContentJobStatus = function (server, jobId) {
 
 		// serverUtils.showRequestOptions(options);
 
+		var showError = hideError ? false : true;
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (err, response, body) {
 			if (err) {
-				console.error('ERROR: Failed to get job status' + ' (ecid: ' + response.ecid + ')');
-				console.error(err);
+				if (showError) {
+					console.error('ERROR: Failed to get job status' + ' (ecid: ' + response.ecid + ')');
+					console.error(err);
+				}
 				return resolve({
 					status: 'err'
 				});
@@ -6183,7 +6191,9 @@ var _getContentJobStatus = function (server, jobId) {
 					data: data
 				});
 			} else {
-				console.error('ERROR: Failed to get job status: ' + response.statusCode + ' (ecid: ' + response.ecid + ')');
+				if (showError) {
+					console.error('ERROR: Failed to get job status: ' + response.statusCode + ' (ecid: ' + response.ecid + ')');
+				}
 				return resolve({
 					status: response.statusCode
 				});
@@ -6198,7 +6208,7 @@ var _getContentJobStatus = function (server, jobId) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getContentJobStatus = function (args) {
-	return _getContentJobStatus(args.server, args.jobId);
+	return _getContentJobStatus(args.server, args.jobId, args.hideError);
 };
 
 var _exportRecommendation = function (server, id, name, published, publishedChannelId) {
