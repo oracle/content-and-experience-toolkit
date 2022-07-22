@@ -488,6 +488,14 @@ module.exports.includes = function (array, query) {
 	return index >= 0;
 };
 
+/**
+ * Util tp capitalize the 1st character of a string (word)
+ */
+module.exports.capitalizeFirstChar = function (string) {
+	return string.charAt(0).toUpperCase() + string.slice(1);
+};
+
+
 module.exports.fixHeaders = (origResponse, response) => {
 	_fixHeaders(origResponse, response);
 };
@@ -2952,7 +2960,9 @@ module.exports.getBackgroundServiceJobStatus = function (server, idcToken, jobId
 	var statusPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/documents/integration?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_STATUS&IsJson=1';
 		url = url + '&JobID=' + jobId;
-		url = url + '&idcToken=' + idcToken;
+		if (idcToken) {
+			url = url + '&idcToken=' + idcToken;
+		}
 
 		var params = {
 			method: 'GET',
@@ -2965,7 +2975,7 @@ module.exports.getBackgroundServiceJobStatus = function (server, idcToken, jobId
 			params.headers.Cookie = server.cookies;
 		}
 
-		// _showRequestOptions(params);
+		_showRequestOptions(params);
 
 		var request = require('./requestUtils.js').request;
 		request.get(params, function (error, response, body) {
@@ -3012,7 +3022,9 @@ module.exports.getBackgroundServiceJobData = function (server, idcToken, jobId) 
 	var statusPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/documents/integration?IdcService=SCS_GET_BACKGROUND_SERVICE_JOB_RESPONSE_DATA&IsJson=1';
 		url = url + '&JobID=' + jobId;
-		url = url + '&idcToken=' + idcToken;
+		if (idcToken) {
+			url = url + '&idcToken=' + idcToken;
+		}
 
 		var params = {
 			method: 'GET',

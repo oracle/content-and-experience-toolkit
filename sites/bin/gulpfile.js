@@ -1147,7 +1147,7 @@ gulp.task('validate-content', function (done) {
 /**
  * Delete assets on server
  */
- gulp.task('delete-assets', function (done) {
+gulp.task('delete-assets', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	contentlib.deleteAssets(argv, function (success) {
@@ -1489,6 +1489,18 @@ gulp.task('list', function (done) {
 			done();
 		});
 	}
+});
+
+/**
+ * List properties of a background job
+ */
+gulp.task('describe-background-job', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	resourcelib.describeBackgroundJob(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
 });
 
 /**

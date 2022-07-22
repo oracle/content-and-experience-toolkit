@@ -579,7 +579,6 @@ var _setSiteRuntimeAccess = function (server, id, name, accessList) {
 			body: JSON.stringify(body),
 			json: true
 		};
-		serverUtils.showRequestOptions(options);
 
 		serverUtils.showRequestOptions(options);
 
@@ -651,7 +650,6 @@ var _setSiteStaticDeliveryOptions = function (server, id, name, staticDeliveryOp
 			body: JSON.stringify(body),
 			json: true
 		};
-		serverUtils.showRequestOptions(options);
 
 		serverUtils.showRequestOptions(options);
 
@@ -698,6 +696,76 @@ module.exports.setSiteStaticDeliveryOptions = function (args) {
 	return _setSiteStaticDeliveryOptions(server, args.id, args.name, args.staticDeliveryOptions);
 };
 
+var _updateSite = function (server, id, name, body) {
+	return new Promise(function (resolve, reject) {
+
+		var url = '/sites/management/api/v1/sites/';
+		if (id) {
+			url = url + id;
+		} else if (name) {
+			url = url + 'name:' + name;
+		}
+		console.info(' - patch ' + url);
+
+		var options = {
+			method: 'PATCH',
+			url: server.url + url,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(body),
+			json: true
+		};
+
+		serverUtils.showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.patch(options, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: failed to update site ' + (name || id) + ' : ');
+				console.error(error);
+				resolve({
+					err: error
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode < 300) {
+				resolve(data);
+			} else {
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.error('ERROR: failed to update site ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Update site's expiration date
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {string} id the id of the site or
+ * @param {string} name the name of the site
+ * @param {string} expiredate
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.setSiteExpirationDate = function (args) {
+	var server = args.server;
+	var body = {
+		expiresAt: args.expireDate
+	};
+	return _updateSite(server, args.id, args.name, body);
+};
+
 var _refreshSiteContent = function (server, id, name) {
 	return new Promise(function (resolve, reject) {
 
@@ -725,7 +793,7 @@ var _refreshSiteContent = function (server, id, name) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: failed to refresh pre-render cache for site ' + (name || id) + +' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to refresh pre-render cache for site ' + (name || id) + ' (ecid: ' + response.ecid + ')');
 				console.error(error);
 				resolve({
 					err: error

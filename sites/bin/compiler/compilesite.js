@@ -159,6 +159,19 @@ function getAvailableLanguages() {
 
 	trace("Available Languages: " + languages);
 
+	// remove any languages that have locale fallbacks
+	if (rootSiteInfo && rootSiteInfo.properties && rootSiteInfo.properties.localeFallbacks &&
+		(Object.keys(rootSiteInfo.properties.localeFallbacks).length > 0)) {
+		languages = languages.filter(function (entry) {
+			var keepLanguage = true;
+			if (entry) {
+				keepLanguage = !rootSiteInfo.properties.localeFallbacks.hasOwnProperty(entry);
+			}
+			return keepLanguage;
+		});
+		trace("Reduced Available Languages: " + languages);
+	}
+
 	// remove any languages not in the localeGroup
 	if (Array.isArray(localeGroup) && localeGroup.length > 0) {
 		languages = languages.filter(function (entry) {
