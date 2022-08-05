@@ -1754,7 +1754,10 @@ const createSiteMap = {
 		['cec create-site-map Site1 -u http://www.example.com/site1 -f sitemap.xml'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -p'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -c weekly -p'],
-		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT']
+		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -q "page1:querystring1,page2:querystring2"', 'Append query string querystring1 to page page1 and querystring2 to page page2'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -q "allquerystring,page1:querystring1"', 'Append query string querystring1 to page page1 and allquerystring to all other pages'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -q "allquerystring,page1:"', 'Append query string querystring all pages except page page1']
 	]
 };
 
@@ -2550,6 +2553,24 @@ const deleteAssets = {
 	]
 };
 
+const validateAssets = {
+	command: 'validate-assets <channel>',
+	alias: 'va',
+	name: 'validate-assets',
+	usage: {
+		'short': 'Validates assets on OCM server.',
+		'long': (function () {
+			let desc = 'Validates assets on OCM server before publish or view publishing failure. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec validate-assets Channel1', 'Validte assets in channel Channel1'],
+		['cec validate-assets Channel1 -q \'fields.category eq "RECIPE"\'', 'Validte assets in channel Channel1, matching the query'],
+		['cec validate-assets Channel1 -a GUID1,GUID2', 'Validte asset GUID1 and GUID2 in channel Channel1']
+	]
+};
+
 const createAssetUsageReport = {
 	command: 'create-asset-usage-report <assets>',
 	alias: 'caur',
@@ -3071,6 +3092,40 @@ const controlRecommendation = {
 	]
 };
 
+const listScheduledJobs = {
+	command: 'list-scheduled-jobs',
+	alias: 'lsj',
+	name: 'list-scheduled-jobs',
+	usage: {
+		'short': 'Lists scheduled publish jobs.',
+		'long': (function () {
+			let desc = 'List scheduled publish jobs on OCM server.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec list-scheduled-jobs', 'List all scheduled publish jobs'],
+		['cec list-scheduled-jobs -r Repo1', 'List scheduled publish jobs belonging to repository Repo1'],
+	]
+};
+
+const describeScheduledJob = {
+	command: 'describe-scheduled-job <id>',
+	alias: 'dssj',
+	name: 'describe-scheduled-job',
+	usage: {
+		'short': 'Lists the properties of a scheduled publish job.',
+		'long': (function () {
+			let desc = 'Lists the properties of a scheduled publish job on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-scheduled-job 798661A68AD04F798EB3E200F611F260'],
+		['cec describe-scheduled-job 798661A68AD04F798EB3E200F611F260 -s SampleServer1']
+	]
+};
+
 const createEncryptionKey = {
 	command: 'create-encryption-key <file>',
 	alias: 'cek',
@@ -3533,6 +3588,7 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(transferContent) + os.EOL +
 	// _getCmdHelp(validateContent) + os.EOL +
 	_getCmdHelp(deleteAssets) + os.EOL +
+	_getCmdHelp(validateAssets) + os.EOL +
 	_getCmdHelp(listAssets) + os.EOL +
 	_getCmdHelp(createDigitalAsset) + os.EOL +
 	_getCmdHelp(updateDigitalAsset) + os.EOL +
@@ -3603,6 +3659,11 @@ _usage = _usage + os.EOL + 'Translation' + os.EOL +
 	_getCmdHelp(startTranslationConnector) + os.EOL +
 	_getCmdHelp(registerTranslationConnector) + os.EOL;
 
+_usage = _usage + os.EOL + 'Jobs' + os.EOL +
+	_getCmdHelp(describeBackgroundJob) + os.EOL +
+	_getCmdHelp(listScheduledJobs) + os.EOL +
+	_getCmdHelp(describeScheduledJob) + os.EOL;
+
 _usage = _usage + os.EOL + 'Groups' + os.EOL +
 	_getCmdHelp(createGroup) + os.EOL +
 	_getCmdHelp(deleteGroup) + os.EOL +
@@ -3615,7 +3676,6 @@ _usage = _usage + os.EOL + 'Environment' + os.EOL +
 	_getCmdHelp(registerServer) + os.EOL +
 	_getCmdHelp(setOAuthToken) + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
-	_getCmdHelp(describeBackgroundJob) + os.EOL +
 	_getCmdHelp(executeGet) + os.EOL +
 	_getCmdHelp(executePost) + os.EOL +
 	_getCmdHelp(executePut) + os.EOL +
@@ -5848,7 +5908,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCM server'
+					description: 'The registered OCM server'
 				})
 				.option('newlink', {
 					alias: 'n',
@@ -5857,6 +5917,10 @@ const argv = yargs.usage(_usage)
 				.option('noDefaultDetailPageLink', {
 					alias: 'o',
 					description: 'Do not generate detail page link for items/content lists that use the default detail page'
+				})
+				.option('querystrings', {
+					alias: 'q',
+					description: 'The comma separated list of query strings for page urls in format of <page name>:<query string>'
 				})
 				.check((argv) => {
 					if (!argv.url) {
@@ -5878,6 +5942,9 @@ const argv = yargs.usage(_usage)
 				.example(...createSiteMap.example[6])
 				.example(...createSiteMap.example[7])
 				.example(...createSiteMap.example[8])
+				.example(...createSiteMap.example[9])
+				.example(...createSiteMap.example[10])
+				.example(...createSiteMap.example[11])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createSiteMap.command}\n\n${createSiteMap.usage.long}`);
@@ -7191,6 +7258,27 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${deleteAssets.command}\n\n${deleteAssets.usage.long}`);
 		})
+	.command([validateAssets.command, validateAssets.alias], false,
+		(yargs) => {
+			yargs.option('query', {
+				alias: 'q',
+				description: 'Query to fetch the assets'
+			})
+				.option('assets', {
+					alias: 'a',
+					description: 'The comma separated list of asset GUIDS'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...validateAssets.example[0])
+				.example(...validateAssets.example[1])
+				.example(...validateAssets.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${validateAssets.command}\n\n${validateAssets.usage.long}`);
+		})
 	.command([createAssetUsageReport.command, createAssetUsageReport.alias], false,
 		(yargs) => {
 			yargs.option('output', {
@@ -7888,6 +7976,34 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${controlRecommendation.command}\n\n${controlRecommendation.usage.long}`);
 		})
+	.command([listScheduledJobs.command, listScheduledJobs.alias], false,
+		(yargs) => {
+			yargs.option('repository', {
+				alias: 'r',
+				description: 'The repository'
+			})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...listScheduledJobs.example[0])
+				.example(...listScheduledJobs.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${listScheduledJobs.command}\n\n${listScheduledJobs.usage.long}`);
+		})
+	.command([describeScheduledJob.command, describeScheduledJob.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...describeScheduledJob.example[0])
+				.example(...describeScheduledJob.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeScheduledJob.command}\n\n${describeScheduledJob.usage.long}`);
+		})
 	.command([createEncryptionKey.command, createEncryptionKey.alias], false,
 		(yargs) => {
 			yargs.example(...createEncryptionKey.example[0])
@@ -8303,11 +8419,14 @@ const argv = yargs.usage(_usage)
 	})
 	.argv;
 
+// remove type hint
+yargs.getOptions().boolean.splice(-2);
+
 if (!argv._[0] || argv.help) {
 	// prints to stdout
 	yargs.showHelp('log');
 	console.log('');
-	return;
+	process.exit(0);
 }
 
 
@@ -8322,6 +8441,7 @@ if (fs.existsSync(path.join(appRoot, 'package.json'))) {
 	console.log('Content Toolkit ' + cecVersion);
 }
 
+
 /*********************
  * Command execution
  **********************/
@@ -8334,12 +8454,12 @@ if (argv._[0] === 'install' || argv._[0] === 'i') {
 	var toolkitSource = _getToolkitSource();
 	if (toolkitSource) {
 		console.log(`You cannot install Content Management project at ${toolkitSource}. Please install at a different location.`);
-		return;
+		process.exit(1);
 	}
 	var projectRoot = _getProjectRoot();
 	if (projectRoot && projectRoot !== cwd) {
 		console.log(`A Content Management project already installed at ${projectRoot}`);
-		return;
+		process.exit(1);
 	}
 
 	if (projectRoot) {
@@ -8347,7 +8467,7 @@ if (argv._[0] === 'install' || argv._[0] === 'i') {
 		var packageJSON = JSON.parse(fs.readFileSync(packageFile));
 		if (packageJSON && packageJSON.name === 'cec-sites-toolkit') {
 			console.log(`You cannot install Content Management project at ${projectRoot}. Please install at a different location.`);
-			return;
+			process.exit(1);
 		}
 	}
 
@@ -8359,11 +8479,11 @@ if (argv._[0] === 'install' || argv._[0] === 'i') {
 		cwd,
 		stdio: 'inherit'
 	});
-	return;
+	process.exit(0);
 }
 
 if (!_verifyCECProject()) {
-	return;
+	process.exit(1);
 }
 
 // console.log(argv);
@@ -9618,6 +9738,26 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === validateAssets.name || argv._[0] === validateAssets.alias) {
+	let validateAssetsArgs = ['run', '-s', validateAssets.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--channel', argv.channel
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		validateAssetsArgs.push(...['--server', argv.server]);
+	}
+	if (argv.query) {
+		validateAssetsArgs.push(...['--query', argv.query]);
+	}
+	if (argv.assets && typeof argv.assets !== 'boolean') {
+		validateAssetsArgs.push(...['--assets', argv.assets]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, validateAssetsArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === createAssetUsageReport.name || argv._[0] === createAssetUsageReport.alias) {
 	let createAssetUsageReportArgs = ['run', '-s', createAssetUsageReport.name, '--prefix', appRoot,
 		'--',
@@ -10030,6 +10170,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.noDefaultDetailPageLink) {
 		createSiteMapArgs.push(...['--noDefaultDetailPageLink', argv.noDefaultDetailPageLink]);
+	}
+	if (argv.querystrings) {
+		createSiteMapArgs.push(...['--querystrings', argv.querystrings]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createSiteMapArgs.push(...['--server', argv.server]);
@@ -11310,6 +11453,40 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, controlRecommendationArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === listScheduledJobs.name || argv._[0] === listScheduledJobs.alias) {
+	let listScheduledJobsArgs = ['run', '-s', listScheduledJobs.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+
+	if (argv.repository) {
+		listScheduledJobsArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		listScheduledJobsArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, listScheduledJobsArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeScheduledJob.name || argv._[0] === describeScheduledJob.alias) {
+	let describeScheduledJobArgs = ['run', '-s', describeScheduledJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--id', argv.id
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeScheduledJobArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, describeScheduledJobArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

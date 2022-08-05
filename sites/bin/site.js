@@ -3813,6 +3813,148 @@ var _getValidateAssetsStatus = function (server, statusId) {
 };
 
 /**
+ * Validate assets
+ */
+module.exports.validateAssets = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var channelName = argv.channel;
+	var query = argv.query;
+	var assetGUIDS = argv.assets ? argv.assets.split(',') : [];
+
+	var loginPromise = serverUtils.loginToServer(server);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var channel;
+		var channelToken;
+		var itemIds = [];
+
+		serverRest.getChannelWithName({
+			server: server,
+			name: channelName,
+			fields: 'channelTokens'
+		})
+			.then(function (result) {
+				channel = result && result.data;
+				if (!channel || !channel.id) {
+					console.error('ERROR: channel ' + channelName + ' does not exist');
+				}
+
+				var tokens = channel && channel.channelTokens || [];
+				for (var i = 0; i < tokens.length; i++) {
+					if (tokens[i].name === 'defaultToken') {
+						channelToken = tokens[i].token;
+						break;
+					}
+				}
+				if (!channelToken && tokens.length > 0) {
+					channelToken = tokens[0].value;
+				}
+				console.info(' - validate channel (Id: ' + channel.id + ' token: ' + channelToken + ')');
+
+				// query channel items
+				var q = 'channelToken eq "' + channelToken + '"';
+				if (query || assetGUIDS.length > 0) {
+					q = '(' + q + ')';
+				}
+				if (query) {
+					q = q + ' AND (' + query + ')';
+				}
+				var idQ = '';
+				if (assetGUIDS.length > 0) {
+					for (var i = 0; i < assetGUIDS.length; i++) {
+						if (idQ) {
+							idQ = idQ + ' or ';
+						}
+						idQ = idQ + 'id eq "' + assetGUIDS[i] + '"';
+					}
+					q = q + ' AND (' + idQ + ')';
+				}
+				console.info(' - query: ' + q);
+				return serverRest.queryItems({
+					server: server,
+					q: q
+				});
+			})
+			.then(function (result) {
+				var items = result && result.data || [];
+				if (items.length === 0) {
+					console.log('Assets Validation:');
+					console.log('  no assets');
+					return Promise.reject();
+				}
+
+				for (var i = 0; i < items.length; i++) {
+					var item = items[i];
+					itemIds.push(item.id);
+				}
+				// console.log(' - total items: ' + itemIds.length);
+
+				// validate assets
+				return serverRest.validateChannelItems({
+					server: server,
+					channelId: channel.id,
+					itemIds: itemIds,
+					async: 'true'
+				});
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				var statusId = result && result.statusId;
+				if (!statusId) {
+					console.error('ERROR: failed to submit validation');
+					return Promise.reject();
+				}
+
+				console.info(' - submit validation job (' + statusId + ')');
+				_getValidateAssetsStatus(server, statusId)
+					.then(function (data) {
+
+						//
+						// Display result
+						//
+						console.log('Assets Validation:');
+						if (data.result && data.result.body && data.result.body.operations && data.result.body.operations.validatePublish && data.result.body.operations.validatePublish.validationResults) {
+							var assetsValidation = data.result.body.operations.validatePublish.validationResults;
+							_displayAssetValidation(assetsValidation);
+						} else {
+							console.log('  no assets');
+						}
+
+						done(true);
+					});
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
+
+
+/**
  * Describe a site
  */
 module.exports.describeSite = function (argv, done) {

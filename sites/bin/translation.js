@@ -1070,8 +1070,8 @@ var _getTranslationFromConnector = function (translationconnector, jobId, target
 var _validateTranslationJobZip = function (file) {
 	var validatePromise = new Promise(function (resolve, reject) {
 		var name = file;
-		if (name.indexOf('/') >= 0) {
-			name = name.substring(name.lastIndexOf('/') + 1);
+		if (name.indexOf(path.sep) >= 0) {
+			name = name.substring(name.lastIndexOf(path.sep) + 1);
 		}
 
 		if (name.indexOf('.') > 0) {

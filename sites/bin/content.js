@@ -403,7 +403,7 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 	});
 };
 
-var _queryItemsWithIds = function (server, qstr, assetGUIDS) {
+var _queryItemsWithIds = function (server, qstr, assetGUIDS, fields) {
 	return new Promise(function (resolve, reject) {
 		var items = [];
 		if (assetGUIDS.length === 0) {
@@ -432,7 +432,7 @@ var _queryItemsWithIds = function (server, qstr, assetGUIDS) {
 				});
 			}
 			// console.log(groups);
-			console.info(' - validating items ...');
+			// console.info(' - validating items ...');
 			var startTime = new Date();
 			var needNewLine = false;
 			var doQueryItems = groups.reduce(function (itemPromise, param) {
@@ -454,6 +454,7 @@ var _queryItemsWithIds = function (server, qstr, assetGUIDS) {
 					return serverRest.queryItems({
 						server: server,
 						q: q,
+						fields: fields,
 						showTotal: false
 					}).then(function (result) {
 						if (result && result.data && result.data.length > 0) {
@@ -1745,18 +1746,23 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					}
 					console.info(' - q: ' + q);
 
-					return serverRest.queryItems({
-						server: server,
-						q: q,
-						fields: 'name,status,isPublished,publishedChannels'
-					});
+					var queryPromise = assetGUIDS.length > 0 ?
+						_queryItemsWithIds(server, q, assetGUIDS, 'name,status,isPublished,publishedChannels') :
+						serverRest.queryItems({
+							server: server,
+							q: q,
+							fields: 'name,status,isPublished,publishedChannels'
+						});
+
+
+					return queryPromise;
 				})
 				.then(function (result) {
 					if (!result || result.err) {
 						return Promise.reject();
 					}
 
-					var items = result.data || [];
+					var items = assetGUIDS.length > 0 ? (result || []) : (result.data || []);
 					if (items.length === 0) {
 						if (showDetail) {
 							if (action === 'add') {
@@ -4810,9 +4816,14 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 	var destServer = argv.destination;
 	console.info(' - destination server: ' + destServer.url);
 
+	var action = argv.action;
+
 	var id = argv.id;
 	var repositoryId = argv.repositoryId;
 	var item, srcRepository, destRepository;
+	var masterItemId;
+	var srcChannelIds = [];
+	var destChannelIds = [];
 
 	var fileId;
 	var fileName = id + '_export.zip';
@@ -4822,17 +4833,35 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 		fs.mkdirSync(destdir);
 	}
 
+	var expandStr = action === 'CONTENTITEM_TRANSLATIONADDED' ? 'channels,variations' : '';
 	// Verify item
 	serverRest.getItem({
 		server: srcServer,
-		id: id
+		id: id,
+		expand: expandStr
 	})
 		.then(function (result) {
 			if (result.err) {
 				return Promise.reject();
 			}
 			item = result;
-			console.info(' - validate item on source server: name: ' + item.name + ' (type: ' + item.type + ' id: ' + item.id + ')');
+			console.info(' - validate item on source server: name: ' + item.name + ' (type: ' + item.type + ' id: ' + item.id + ' language: ' + item.language + ')');
+
+			if (action === 'CONTENTITEM_TRANSLATIONADDED') {
+				masterItemId = item.variations && item.variations.data && item.variations.data[0] && item.variations.data[0].masterItem;
+				if (!masterItemId) {
+					console.log('ERROR: failed to find the master item');
+					return Promise.reject();
+				}
+				console.info(' - master item Id: ' + masterItemId);
+				if (item.channels && item.channels.data && item.channels.data.length > 0) {
+					item.channels.data.forEach(function (channel) {
+						if (channel.id) {
+							srcChannelIds.push(channel.id);
+						}
+					})
+				}
+			}
 
 			return serverRest.getRepository({
 				server: srcServer,
@@ -4869,8 +4898,47 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 
 			console.info(' - validate repository on destination server: ' + destRepository.name + ' (id: ' + destRepository.id + ')');
 
+			var channelPromises = [];
+			if (action === 'CONTENTITEM_TRANSLATIONADDED' && srcChannelIds.length > 0) {
+				srcChannelIds.forEach(function (channelId) {
+					channelPromises.push(serverRest.getChannel({ server: srcServer, id: channelId }));
+				});
+			}
 
-			return _syncExportItemFromSource(srcServer, id, item.name, filePath);
+			return Promise.all(channelPromises);
+
+		})
+		.then(function (results) {
+
+			var destChannelPromises = [];
+			if (action === 'CONTENTITEM_TRANSLATIONADDED' && srcChannelIds.length > 0) {
+				for (var i = 0; i < results.length; i++) {
+					if (results[i] && results[i].id && results[i].name) {
+						var channel = results[i];
+						console.info(' - validate channel on source server: ' + channel.name + ' (id: ' + channel.id + ')');
+						destChannelPromises.push(serverRest.getChannelWithName({ server: destServer, name: channel.name }));
+					}
+				}
+			}
+
+			return Promise.all(destChannelPromises);
+
+		})
+		.then(function (results) {
+
+			if (action === 'CONTENTITEM_TRANSLATIONADDED' && srcChannelIds.length > 0) {
+				for (var i = 0; i < results.length; i++) {
+					if (results[i] && results[i].data && results[i].data.id && results[i].data.name) {
+						var channel = results[i].data;
+						console.info(' - validate channel on destination server: ' + channel.name + ' (id: ' + channel.id + ')');
+						destChannelIds.push(channel.id);
+					}
+				}
+			}
+
+			var itemId = action === 'CONTENTITEM_TRANSLATIONADDED' ? masterItemId : id;
+
+			return _syncExportItemFromSource(srcServer, itemId, item.name, filePath);
 		})
 		.then(function (result) {
 			if (result.err) {
@@ -4892,12 +4960,18 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 			fileId = result.id;
 			console.info(' - upload file ' + result.name + ' (Id: ' + fileId + ' version: ' + result.version + ')');
 
-			return serverRest.importContent({
+			var importArgs = {
 				server: destServer,
 				fileId: fileId,
-				repositoryId: destRepository.id,
-				update: true
-			});
+				repositoryId: destRepository.id
+			};
+			if (action === 'CONTENTITEM_TRANSLATIONADDED') {
+				importArgs.reuse = true;
+				importArgs.channelIds = destChannelIds;
+			} else {
+				importArgs.update = true;
+			}
+			return serverRest.importContent(importArgs);
 		})
 		.then(function (result) {
 			if (!result || result.err || !result.jobId) {

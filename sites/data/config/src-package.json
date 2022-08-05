@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit-source",
-	"version": "19.2.1",
+	"version": "22.7.2",
 	"license": "UPL-1.0",
 	"description": "Content Management Toolkit Development",
 	"main": "index.js",
@@ -22,7 +22,7 @@
 	],
 	"author": "Oracle",
 	"engines": {
-		"node": "8.9.4"
+		"node": ">=14.0.0"
 	},
 	"dependencies": {
 		"chai": "4.3.4",

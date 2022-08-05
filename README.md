@@ -15,6 +15,21 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.8.1
+
+**Added**
+
+- `cec validate-assets` - Validates assets on an OCM server before publish
+- `cec list-scheduled-jobs` - List scheduled publish jobs on an OCM server
+- `cec describe-scheduled-job` - Lists the properties of a scheduled publish job on an OCM server
+
+**Updated**
+
+- `cec create-component` - Add OOTB component RSSTemplate
+- `cec create-site-map` - Add option `querystrings`
+- `cec sync-server` - Support event CONTENTITEM_TRANSLATIONADDED
+
+
 # New in Release 22.7.2
 
 **Added**

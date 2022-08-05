@@ -978,11 +978,12 @@ module.exports.describeBackgroundJob = function (argv, done) {
 					// site/template/theme/component job
 					job = result;
 					// console.log(job);
+
 					// get job data
 					serverUtils.getBackgroundServiceJobData(server, '', jobId)
 						.then(function (result) {
 							jobData = result;
-							// console.log(jobData);
+							// console.log(JSON.stringify(jobData, null, 4));
 
 							sitesRest.resourceExist({ server: server, type: job.JobType + 's', id: job.ItemID, showInfo: false })
 								.then(function (result) {
@@ -1052,6 +1053,7 @@ module.exports.describeBackgroundJob = function (argv, done) {
 									.then(function (result) {
 										if (result && result.id === jobId) {
 											job = result;
+											// console.log(JSON.stringify(job, null, 4));
 											var operations = job.result && job.result.body && job.result.body.operations;
 											var jobAction = operations ? Object.keys(operations) : '';
 
@@ -1064,6 +1066,9 @@ module.exports.describeBackgroundJob = function (argv, done) {
 											console.log(sprintf(jobFormat, 'StartTime', job.startTime && job.startTime.value));
 											console.log(sprintf(jobFormat, 'EndTime', job.endTime && job.endTime.value || ''));
 											console.log(sprintf(jobFormat, 'Message', job.message));
+											if (job.error && job.error.detail) {
+												console.log(sprintf(jobFormat, 'Error', job.error.detail));
+											}
 											console.log('');
 
 											done(true);

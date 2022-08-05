@@ -721,6 +721,7 @@ var _uploadFile = function (argv, server) {
 				rootParentId = resourceGUID;
 			}
 
+			// return _createFolder(server, rootParentId, folderPath);
 			return _findFolder(server, rootParentId, folderPath);
 		})
 			.then(function (result) {
