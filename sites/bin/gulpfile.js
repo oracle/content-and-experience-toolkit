@@ -2149,7 +2149,19 @@ gulp.task('list-assets', function (done) {
 });
 
 /**
- * List assets on server
+ * Validate assets on server
+ */
+gulp.task('validate-assets', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.validateAssets(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Create asset report on server
  */
 gulp.task('create-asset-usage-report', function (done) {
 	'use strict';
@@ -2276,6 +2288,30 @@ gulp.task('start-translation-connector', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	translationlib.startTranslationConnector(argv, done);
+});
+
+/**
+ * List properties of a scheduled publish job
+ */
+gulp.task('describe-scheduled-job', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.describeScheduledJob(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * List scheduled publish jobs
+ */
+ gulp.task('list-scheduled-jobs', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.listScheduledJobs(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
 });
 
 /**

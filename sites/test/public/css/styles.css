@@ -394,6 +394,10 @@ margin-right: 0px;*/
 	background-image: url('../images/tile-texture-bg.png');
 }
 
+.rsstemplatebg {
+	background-color: #866B94;
+}
+
 .containerview-icon-file-bkg {
 	position: absolute;
 	top: 0;

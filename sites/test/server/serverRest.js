@@ -2715,6 +2715,62 @@ module.exports.addChannelToRepository = function (args) {
 	return _addChannelToRepository(args.server, args.id, args.name, args.repository);
 };
 
+// Get a resource from server
+var _getResource = function (server, endpoint, type) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + endpoint;
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		serverUtils.showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: failed to get ' + type + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve(data);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.error('ERROR: failed to get ' + type + '  : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.log(data);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Get a scheduled publish job on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.id The id of the channel to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getScheduledJob = function (args) {
+	var endpoint = '/content/management/api/v1.1/publish/scheduledJobs/' + args.id;
+	if (args.expand) {
+		endpoint = endpoint + '?expand=' + args.expand;
+	}
+	return _getResource(args.server, endpoint, 'scheduledPublishJob');
+};
+
 // CAAS query maximum limit
 const MAX_LIMIT = 500;
 
@@ -2943,8 +2999,8 @@ module.exports.getChannelWithName = function (args) {
 					return resolve({});
 				}
 			} else {
-				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.error('ERROR: failed to get channel ' + channelName + '  : ' + msg);
+				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.error('ERROR: failed to get channel ' + channelName + '  : ' + msg + ' (ecid: ' + response.ecid + ')');
 				return resolve({
 					err: 'err'
 				});
@@ -6591,7 +6647,7 @@ module.exports.unpublishRecommendation = function (args) {
 	return _publishUnpublishRecommendation(args.server, args.id, args.name, args.channels, 'unpublish');
 };
 
-var _importContent = function (server, fileId, repositoryId, channelId, update) {
+var _importContent = function (server, fileId, repositoryId, channelId, update, channelIds, reuse) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -6600,12 +6656,18 @@ var _importContent = function (server, fileId, repositoryId, channelId, update) 
 				var csrfToken = result && result.token;
 				var url = server.url + '/content/management/api/v1.1/content-templates/importjobs';
 
+				var channels = channelIds && channelIds.length > 0 ? channelIds : [];
+				if (channelId) {
+					channels.push(channelId);
+				}
 				var postData = {
 					'exportDocId': fileId,
 					'repositoryId': repositoryId,
-					'channelIds': channelId ? [channelId] : []
+					'channelIds': channels
 				};
-				if (update) {
+				if (reuse) {
+					postData.source = 'reuseExisting';
+				} else if (update) {
 					postData.source = 'sites';
 				}
 
@@ -6673,7 +6735,7 @@ var _importContent = function (server, fileId, repositoryId, channelId, update) 
 module.exports.importContent = function (args) {
 	if (args.waitForImport) {
 		return new Promise(function (resolve, reject) {
-			_importContent(args.server, args.fileId, args.repositoryId, args.channelId, args.update)
+			_importContent(args.server, args.fileId, args.repositoryId, args.channelId, args.update, args.channelIds, args.reuse)
 				.then(function (result) {
 					if (!result || result.err || !result.jobId) {
 						return resolve(result);
@@ -6731,7 +6793,7 @@ module.exports.importContent = function (args) {
 				});
 		});
 	} else {
-		return _importContent(args.server, args.fileId, args.repositoryId, args.channelId, args.update);
+		return _importContent(args.server, args.fileId, args.repositoryId, args.channelId, args.update, args.channelIds, args.reuse);
 	}
 };
 
@@ -7141,6 +7203,8 @@ module.exports.publishLaterChannelItems = function (args) {
 	return _publishLaterChannelItems(args.server, args.name, args.itemIds, args.channelId, args.repositoryId, args.schedule);
 };
 
+
+
 /////////////////////////////////////////////////////////
 //  Social APIs
 /////////////////////////////////////////////////////////
@@ -7444,7 +7508,7 @@ module.exports.getGroupMembers = function (args) {
 
 var _createConnection = function (request, server) {
 	return new Promise(function (resolve, reject) {
-		newSocialConnectionExpiryTime = function() {
+		newSocialConnectionExpiryTime = function () {
 			return Date.now() + 5 * 60000;
 		}
 		// If apiRandomID and cookieStore have already been cached, then just use them, as long as not too much time has elapsed.
@@ -9031,6 +9095,18 @@ module.exports.getRankingPolicies = function (args) {
 module.exports.getRankingPolicyDescriptors = function (args) {
 	return _getAllResources(args.server, '/content/management/api/v1.1/search/rankingPolicyDescriptors', 'rankingPolicyDescriptors', args.fields);
 };
+
+/**
+ * Get all scheduled publish jobs of a repository
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getScheduledJobs = function (args) {
+	var endpoint = '/content/management/api/v1.1/publish/scheduledJobs?repositoryId=' + args.repositoryId;
+	return _getAllResources(args.server, endpoint, 'scheduledJobs', args.fields);
+};
+
 
 /**
  * Get a translation connector with name on server

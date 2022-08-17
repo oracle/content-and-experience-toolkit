@@ -182,6 +182,7 @@ app.post('/*', function (req, res) {
 		action === 'CONTENTITEM_UPDATED' ||
 		action === 'CONTENTITEM_DELETED' ||
 		action === 'CONTENTITEM_APPROVED' ||
+		action === 'CONTENTITEM_TRANSLATIONADDED' ||
 		action === 'DIGITALASSET_CREATED' ||
 		action === 'DIGITALASSET_UPDATED' ||
 		action === 'DIGITALASSET_DELETED' ||
@@ -357,6 +358,7 @@ var _processEvent = function () {
 
 		if (action === 'CONTENTITEM_CREATED' ||
 			action === 'CONTENTITEM_UPDATED' ||
+			action === 'CONTENTITEM_TRANSLATIONADDED' ||
 			action === 'DIGITALASSET_CREATED' ||
 			action == 'DIGITALASSET_UPDATED') {
 

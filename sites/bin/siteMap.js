@@ -738,13 +738,46 @@ var _getMasterPageData = function (pageid) {
 };
 
 /**
+ * check if a page has query string
+ */
+var _getQueryString = function (querystrings, name) {
+	var queryString = '';
+	querystrings.forEach(function (item) {
+		var pageName;
+		var pageQueryString;
+		if (item.indexOf(':') > 0) {
+			var values = item.split(':');
+			pageName = values[0];
+			pageQueryString = values[1];
+		} else {
+			// no page name specified
+			pageQueryString = item;
+		}
+		if (!pageName) {
+			// the query string is for all pages
+			if (!queryString) {
+				// do not override the particular page value
+				queryString = pageQueryString;
+			}
+		}
+
+		if (pageName && pageName === name) {
+			// the query string for this paticular page, can override value for all pages
+			queryString = pageQueryString;
+		}
+
+	});
+	return queryString;
+};
+
+/**
  * Generate site map XML file
  * 
  * @param {*} siteInfo 
  * @param {*} pages 
  */
 var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, typeItems, changefreq, toppagepriority,
-	siteMapFile, newlink, noDefaultDetailPageLink) {
+	siteMapFile, newlink, noDefaultDetailPageLink, querystrings) {
 
 	var prefix = siteUrl;
 	if (prefix.substring(prefix.length - 1) === '/') {
@@ -760,6 +793,7 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ty
 	var pagePriority = [];
 
 	for (var i = 0; i < pages.length; i++) {
+		// console.log(pages[i]);
 		var pageId = pages[i].id;
 		var masterPageData = _getMasterPageData(pageId);
 		var properties = masterPageData && masterPageData.properties;
@@ -802,6 +836,18 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ty
 
 			// console.log('page: ' + pages[i].id + ' parent: ' + pages[i].parentId + ' url: ' + pages[i].pageUrl + ' priority: ' + priority + ' lastmod: ' + lastmod);
 			var loc = pages[i].linkUrl || (prefix + '/' + (includeLocale ? (pages[i].locale + '/') : '') + pages[i].pageUrl);
+
+			// check query strings
+			var queryString = _getQueryString(querystrings, pages[i].name);
+			if (queryString) {
+				if (loc.indexOf('?') > 0) {
+					loc = loc + '&' + queryString;
+				} else {
+					loc = loc + '?' + queryString;
+				}
+				// console.log(' - page: ' + pages[i].name + ' url: ' + loc);
+			}
+
 			urls.push({
 				loc: loc,
 				lastmod: lastmod,
@@ -842,6 +888,7 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ty
 
 				var detailPage = _getPage(items[i].detailPageId) || _defaultDetailPage;
 				var detailPageUrl = detailPage.pageUrl;
+				var queryString = _getQueryString(querystrings, detailPage.name);
 
 				var pageItems = items[i].data || [];
 				for (var j = 0; j < pageItems.length; j++) {
@@ -870,6 +917,15 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ty
 								url = prefix + '/' + locale + detailPagePrefix + '/' + item.type + '/' + item.id + '/' + item.slug;
 							}
 							// console.log(item);
+
+							if (queryString) {
+								if (url.indexOf('?') > 0) {
+									ulr = url + '&' + queryString;
+								} else {
+									url = url + '?' + queryString;
+								}
+							}
+
 							var lastmod = _getLastmod(item.updatedDate.value);
 
 							// no duplicate url
@@ -894,12 +950,16 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ty
 		typeItems.forEach(function (typeItem) {
 			// find the detail page for this type
 			var detailPageUrl;
+			var detailPageName;
 			for (var i = 0; i < _detailPages.length; i++) {
 				if (_detailPages[i].contentTypes && _detailPages[i].contentTypes.includes(typeItem.type)) {
 					detailPageUrl = _detailPages[i].page && _detailPages[i].page.pageUrl;
+					detailPageName = _detailPages[i].page && _detailPages[i].page.name;
 					break;
 				}
 			}
+
+			var queryString = detailPageName ? _getQueryString(querystrings, detailPageName) : '';
 
 			if (detailPageUrl) {
 				for (var i = 0; i < typeItem.items.length; i++) {
@@ -915,6 +975,15 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ty
 						url = prefix + '/' + locale + detailPagePrefix + '/' + item.type + '/' + item.id + '/' + item.slug;
 					}
 					// console.log(item);
+
+					if (queryString) {
+						if (url.indexOf('?') > 0) {
+							url = url + '&' + queryString;
+						} else {
+							url = url + '?' + queryString;
+						}
+					}
+
 					var lastmod = _getLastmod(item.updatedDate.value);
 
 					// no duplicate url
@@ -1437,7 +1506,7 @@ var _getSiteData = function (server, site, locales) {
  */
 var _createSiteMap = function (server, serverName, site, siteUrl, changefreq,
 	publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink,
-	allTypes, wantedTypes, done) {
+	allTypes, wantedTypes, querystrings, done) {
 
 	//
 	// get site info and other metadata
@@ -1527,7 +1596,7 @@ var _createSiteMap = function (server, serverName, site, siteUrl, changefreq,
 			//
 			// create site map
 			//
-			_generateSiteMapXML(server, siteUrl, allPages, allPageFiles, allItems, allTypeItems, changefreq, toppagepriority, siteMapFile, newlink, noDefaultDetailPageLink);
+			_generateSiteMapXML(server, siteUrl, allPages, allPageFiles, allItems, allTypeItems, changefreq, toppagepriority, siteMapFile, newlink, noDefaultDetailPageLink, querystrings);
 
 			if (publish) {
 				// Upload site map to the server
@@ -1724,6 +1793,8 @@ module.exports.createSiteMap = function (argv, done) {
 
 	var toppagepriority = argv.toppagepriority;
 
+	var querystrings = argv.querystrings ? argv.querystrings.split(',') : [];
+
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
 		if (!result.status) {
@@ -1734,7 +1805,7 @@ module.exports.createSiteMap = function (argv, done) {
 
 		_createSiteMap(server, serverName, site, siteUrl, changefreq,
 			publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink,
-			allTypes, wantedTypes, done);
+			allTypes, wantedTypes, querystrings, done);
 
 	}); // login
 };

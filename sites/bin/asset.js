@@ -3,6 +3,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
+
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	fileUtils = require('../test/server/fileUtils.js'),
@@ -5601,6 +5602,301 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 	}
 
 };
+
+/**
+ * List scheduled publish jobs
+ */
+module.exports.listScheduledJobs = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var repositoryName = argv.repository;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var repositories = [];
+
+		var repositoryPromise;
+		if (repositoryName) {
+			repositoryPromise = serverRest.getRepositoryWithName({
+				server: server,
+				name: repositoryName
+			});
+		} else {
+			// get all repositories
+			repositoryPromise = serverRest.getRepositories({ server: server });
+		}
+		repositoryPromise.then(function (result) {
+			if (!result || result.err) {
+				return Promise.reject();
+			}
+			if (repositoryName) {
+				if (!result.data) {
+					console.error('ERROR: repository ' + repositoryName + ' not found');
+					return Promise.reject();
+				}
+				repositories.push(result.data);
+				console.info(' - validate repository (Id: ' + repositories[0].id + ')');
+
+			} else {
+				repositories = result || [];
+				if (repositories.length === 0) {
+					console.error('ERROR: no repository');
+					return Promise.reject();
+				}
+				// console.info(' - total repositories: ' + repositories.length);
+			}
+
+			return _getScheduledJobs(server, repositories);
+		})
+			.then(function (result) {
+				// console.log(result);
+				var allJobs = result || [];
+				var repoJobs = [];
+				allJobs.forEach(function (jobs) {
+					var repo;
+					if (jobs && jobs.length > 0) {
+						for (var i = 0; i < repositories.length; i++) {
+							if (repositories[i].id === jobs[0].repositoryId) {
+								repo = repositories[i];
+								break;
+							}
+						}
+					}
+					if (repo) {
+						repoJobs.push({
+							repository: repo,
+							jobs: jobs
+						});
+					}
+				});
+
+				if (repoJobs.length === 0) {
+					console.log(' - no scheduled job');
+				} else {
+					console.log('');
+				}
+				// display
+				var format = '   %-32s  %-32s  %-10s  %-12s  %-24s  %-24s  %-s';
+				repoJobs.forEach(function (repoJob) {
+					var repo = repoJob.repository;
+					var jobs = repoJob.jobs;
+					if (jobs.length > 0) {
+						console.log('Repository: ' + repo.name + ' (Id: ' + repo.id + ')');
+						// console.log(JSON.stringify(jobs, null, 4));
+						console.log(sprintf(format, 'Id', 'Name/Description', 'Status', 'Frequency', 'Next Run', 'CreatedAt', 'CreatedBy'));
+						for (var i = 0; i < jobs.length; i++) {
+							var job = jobs[i];
+							// child jobs do not have ID
+							if (job.id) {
+								var frequency = job.schedule && job.schedule.frequency || '';
+								var nextrun = job.nextRunTime && job.nextRunTime.value || '';
+								var createdAt = job.createdAt && job.createdAt.value || '';
+								var createdBy = job.createdBy ? (job.createdBy.displayName || job.createdBy.username) : '';
+								console.log(sprintf(format, job.id, job.name || job.description, job.status, frequency, nextrun, createdAt, createdBy));
+							}
+						}
+						console.log('  total jobs: ' + jobs.length);
+						console.log('');
+					}
+				});
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
+
+var _getScheduledJobs = function (server, repositories) {
+	return new Promise(function (resolve, reject) {
+		var total = repositories.length;
+		var groups = [];
+		var limit = 10;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+
+		var jobData = [];
+
+		var doGetJobs = groups.reduce(function (jobPromise, param) {
+			return jobPromise.then(function (result) {
+				var jobPromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					jobPromises.push(serverRest.getScheduledJobs({
+						server: server,
+						repositoryId: repositories[i].id
+					}));
+				}
+
+				return Promise.all(jobPromises).then(function (results) {
+					jobData = jobData.concat(results);
+				});
+
+			});
+		},
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve({}));
+
+		doGetJobs.then(function (result) {
+			resolve(jobData);
+		});
+
+	});
+};
+
+
+/**
+ * List properties of a scheduled publish job
+ */
+module.exports.describeScheduledJob = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var id = argv.id;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var job;
+		var repository;
+		var items = [];
+
+		serverRest.getScheduledJob({ server: server, id: id, expand: 'items,validationResults' })
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				job = result;
+
+				return serverRest.getRepository({ server: server, id: job.repositoryId });
+
+			})
+			.then(function (result) {
+
+				repository = result && result.id ? result : {};
+
+				var itemsPromises = [];
+				if (job.items && job.items.length > 0) {
+					var itemIds = job.items.concat(job.dependencies);
+					itemsPromises.push(contentUtils.queryItemsWithIds(server, '', itemIds));
+				}
+
+				return Promise.all(itemsPromises);
+
+			})
+			.then(function (results) {
+
+				if (job.items && job.items.length > 0) {
+					items = results && results[0] || [];
+				}
+
+				// console.log(JSON.stringify(job, null, 4));
+
+				var schedule = job.schedule && job.schedule.at ? (job.schedule.at.date + ' ' + job.schedule.at.time + ' ' + job.schedule.at.timezone) : '';
+
+				var format1 = '%-38s  %-s';
+				console.log('');
+				console.log(sprintf(format1, 'Id', job.id));
+				if (job.parentJobId && job.id !== job.parentJobId) {
+					console.log(sprintf(format1, 'ParentJobId', job.parentJobId));
+				}
+				console.log(sprintf(format1, 'Name', job.name));
+				console.log(sprintf(format1, 'Description', job.description || ''));
+				console.log(sprintf(format1, 'Repositiory', repository.name + ' (Id: ' + job.repositoryId + ')'));
+				console.log(sprintf(format1, 'Created', job.createdAt.value + ' by ' + (job.createdBy.displayName || job.createdBy.username)));
+				console.log(sprintf(format1, 'Updated', job.updatedAt.value + ' by ' + (job.updatedBy.displayName || job.updatedBy.username)));
+				console.log(sprintf(format1, 'Schedule', schedule));
+				console.log(sprintf(format1, 'Frequency', job.schedule && job.schedule.frequency || ''));
+				console.log(sprintf(format1, 'Next run', job.nextRunTime && job.nextRunTime.value || ''));
+				console.log(sprintf(format1, 'Status', job.status));
+
+				if (job.validationResults && job.validationResults.data && job.validationResults.data.length > 0) {
+					var policyValidation = job.validationResults.data[0].policyValidation;
+					if (policyValidation && policyValidation.channels && policyValidation.channels.length > 0) {
+						console.log(sprintf(format1, 'Validation:', ''));
+						var format3 = '  %-38s  %-38s  %-s';
+						var validLabel = policyValidation.valid ? '  √' : '';
+						console.log(sprintf(format3, 'Channel', 'Policy', 'Valid'));
+						policyValidation.channels.forEach(function (channel) {
+							var policy = channel.variationPolicies && channel.variationPolicies.length > 0 ? channel.variationPolicies[0].name : '';
+							console.log(sprintf(format3, channel.name, policy, validLabel));
+						});
+					}
+				}
+
+				if (items.length > 0) {
+					console.log(sprintf(format1, 'Items:', ''));
+					var format2 = '  %-38s  %-30s  %-10s  %-s';
+					console.log(sprintf(format2, 'Id', 'Type', 'Language', 'Name'));
+					items.forEach(function (item) {
+						console.log(sprintf(format2, item.id, item.type, item.language, item.name));
+					});
+				}
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+
+};
+
 
 /**
  * Rename asset ids

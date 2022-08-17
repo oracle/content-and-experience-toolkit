@@ -416,6 +416,29 @@ function getPageData(context, pageId) {
 		localePageData = JSON.parse(pageJson);
 		localePageData = (localePageData && localePageData.base) || localePageData;
 
+		// For Localized Page Data files we only expect a select list of "properties".  Filter out
+		// any others, including those that are null, since those were likely introduced by the server.
+		if (localePageData && localePageData.properties) {
+			var props = {},
+				propertyValue,
+				allowedProperties = [
+					"title",
+					"pageDescription",
+					"keywords",
+					"header",
+					"footer"
+				];
+
+			for (const propertyName of allowedProperties) {
+				propertyValue = localePageData.properties[propertyName];
+				if (typeof propertyValue === 'string') {
+					props[propertyName] = propertyValue;
+				}
+			}
+
+			localePageData.properties = props;
+		}
+
 		// Layer the properties of the localePageData into the pageData
 		if (pageData.properties && localePageData.properties) {
 			mergeObjects(pageData.properties, localePageData.properties, true);
