@@ -177,7 +177,8 @@
 		"develop": "gulp -LL --gulpfile bin/gulpfile.js develop ",
 		"sync-server": "gulp -LL --gulpfile bin/gulpfile.js sync-server ",
 		"webhook-server": "gulp -LL --gulpfile bin/gulpfile.js webhook-server ",
-		"compilation-server": "gulp -LL --gulpfile bin/gulpfile.js compilation-server"
+		"compilation-server": "gulp -LL --gulpfile bin/gulpfile.js compilation-server",
+		"update-toolkit": "rm -rf node_modules/ package-lock.json && git pull && npm install"
 	},
 	"repository": {
 		"type": "git",
