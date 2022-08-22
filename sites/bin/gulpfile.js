@@ -258,6 +258,8 @@ gulp.task('sync-server', function (done) {
 	process.env.CEC_TOOLKIT_SYNC_HTTPS_KEY = '';
 	process.env.CEC_TOOLKIT_SYNC_HTTPS_CERTIFICATE = '';
 
+	process.env.CEC_TOOLKIT_SYNC_UPDATEITEMONLY = typeof argv.updateitemonly === 'string' && argv.updateitemonly.toLowerCase() === 'true';
+
 	var keyPath = argv.key;
 	if (keyPath) {
 		if (!path.isAbsolute(keyPath)) {
@@ -2149,6 +2151,18 @@ gulp.task('list-assets', function (done) {
 });
 
 /**
+ * Describe an asset on server
+ */
+gulp.task('describe-asset', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.describeAsset(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Validate assets on server
  */
 gulp.task('validate-assets', function (done) {
@@ -2305,7 +2319,7 @@ gulp.task('describe-scheduled-job', function (done) {
 /**
  * List scheduled publish jobs
  */
- gulp.task('list-scheduled-jobs', function (done) {
+gulp.task('list-scheduled-jobs', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	assetlib.listScheduledJobs(argv, function (success) {

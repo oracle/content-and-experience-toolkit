@@ -22,6 +22,7 @@ var gulp = require('gulp'),
     zip = require('gulp-zip'),
     util = require('util'),
     fs = require('fs'),
+    url = require('url'),
     path = require('path'),
     serverUtils = require('../../test/server/serverUtils'),
     serverRest = require('../../test/server/serverRest'),
@@ -220,15 +221,28 @@ var getCustomContentCompiler = function (contentContext, componentName) {
                 component: componentName,
                 projectDir: projectDir
             }, function () {
-                // see if the custom component has a compile.js file
-                var compileFile = path.normalize(componentsFolder + '/' + componentName + '/assets/compile');
-                try {
-                    // verify if we can load the file
-                    require.resolve(compileFile);
-                    resolve(compileFile);
-                } catch (e) {
-                    // no compiler file
-                    resolve('');
+                // see if the custom component has a compile.js or compile.mjs file
+                var compileFile = path.normalize(componentsFolder + '/' + componentName + '/assets/compile'),
+                    moduleFile = path.join(componentsFolder + '/' + componentName + '/assets/compile.mjs'),
+                    useModuleCompiler = fs.existsSync(moduleFile);
+
+                if (useModuleCompiler) {
+                    resolve({
+                        compileFile: moduleFile,
+                        useModuleCompiler: true
+                    });
+                } else {
+                    try {
+                        // verify if we can load the file
+                        require.resolve(compileFile);
+                        resolve({
+                            compileFile: compileFile,
+                            useModuleCompiler: false
+                        });
+                    } catch (e) {
+                        // no compiler file
+                        resolve('');
+                    }
                 }
             });
         });
@@ -281,7 +295,10 @@ var compileContentItemLayout = function (contentContext, contentItem, componentN
     var id = generateUUID();
 
     // get the Custom Content Compiler
-    return getCustomContentCompiler(contentContext, componentName).then(function (compileFile) {
+    return getCustomContentCompiler(contentContext, componentName).then(async function (componentDetails) {
+        var compileFile = componentDetails && componentDetails.compileFile;
+        var useModuleCompiler = componentDetails && componentDetails.useModuleCompiler;
+
         console.log(' - compiling "' + format + '" using "' + componentName + '" for ' + (isMobile ? 'mobile' : 'desktop'));
         // if no component file, we're done
         if (!compileFile) {
@@ -291,26 +308,41 @@ var compileContentItemLayout = function (contentContext, contentItem, componentN
             return Promise.resolve();
         } else {
             compilationReporter.info({
-                message: 'Found custom compiler for: "' + componentName + '" component'
+                message: 'Found custom compiler for: "' + componentName + '" component "' + compileFile
             });
         }
 
         // get the custom component
-        var CustomLayoutCompiler = require(compileFile);
+        var CustomLayoutCompiler;
+        if (useModuleCompiler) {
+            const { default: moduleImport } = await import(url.pathToFileURL(compileFile));
+            CustomLayoutCompiler = moduleImport;
+        } else {
+            CustomLayoutCompiler = require(compileFile);
+        }
+
+        if (!CustomLayoutCompiler) {
+            compilationReporter.error({
+                message: 'failed to load custom layout compiler: ' + compileFile
+            });
+            return Promise.resolve({
+                content: ''
+            });
+        }
 
         // render the custom component with the content item
         return contentContext.SCSCompileAPI.getContentClient().then(function (contentClient) {
             var compileArgs = {
-                    contentItemData: contentItem,
+                contentItemData: contentItem,
+                contentClient: contentClient,
+                scsData: {
+                    id: id,
+                    isMobile: isMobile,
+                    SCSCompileAPI: contentContext.SCSCompileAPI,
                     contentClient: contentClient,
-                    scsData: {
-                        id: id,
-                        isMobile: isMobile,
-                        SCSCompileAPI: contentContext.SCSCompileAPI,
-                        contentClient: contentClient,
-                        customSettingsData: {}
-                    }
-                },
+                    customSettingsData: {}
+                }
+            },
                 custComp = new CustomLayoutCompiler(compileArgs);
 
             return custComp.compile().then(function (compiledComp) {
@@ -445,11 +477,11 @@ var compileContentItem = function (contentContext, item, index) {
 
                         // serially compile the content items
                         var doCompileLayoutPromises = compileLayoutPromises.reduce(function (previousPromise, nextPromise) {
-                                return previousPromise.then(function () {
-                                    // wait for the previous promise to complete and then call the function to start executing the next promise
-                                    return nextPromise();
-                                });
-                            },
+                            return previousPromise.then(function () {
+                                // wait for the previous promise to complete and then call the function to start executing the next promise
+                                return nextPromise();
+                            });
+                        },
                             // Start with a previousPromise value that is a resolved promise 
                             Promise.resolve());
 
@@ -488,11 +520,11 @@ var compileContentItems = function (contentContext) {
 
     // serially compile the content items
     var doCompileContentItems = compileContentItemPromises.reduce(function (previousPromise, nextPromise) {
-            return previousPromise.then(function () {
-                // wait for the previous promise to complete and then call the function to start executing the next promise
-                return nextPromise();
-            });
-        },
+        return previousPromise.then(function () {
+            // wait for the previous promise to complete and then call the function to start executing the next promise
+            return nextPromise();
+        });
+    },
         // Start with a previousPromise value that is a resolved promise 
         Promise.resolve());
 
@@ -610,11 +642,11 @@ var zipCompiledContent = function (contentContext) {
                         if (!formatEntry) {
                             formatEntry = {};
                             formatEntry[format] = [{
-                                    'desktop': {}
-                                },
-                                {
-                                    'mobile': {}
-                                },
+                                'desktop': {}
+                            },
+                            {
+                                'mobile': {}
+                            },
                             ];
                             compiledFormats.push(formatEntry);
                         }
@@ -825,8 +857,8 @@ var initializeContent = function () {
         // ouput console & reporter messages to: <items>/console.log
         var logFile = fs.createWriteStream(
             itemsDir + '/console.log', {
-                flags: 'w'
-            });
+            flags: 'w'
+        });
         var logStdout = process.stdout;
 
         // write console.log messages to console.log

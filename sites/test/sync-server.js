@@ -63,6 +63,8 @@ var header = headerStr ? headerStr.split(',') : [];
 var username = process.env.CEC_TOOLKIT_SYNC_USERNAME;
 var password = process.env.CEC_TOOLKIT_SYNC_PASSWORD;
 
+var updateItemOnly = process.env.CEC_TOOLKIT_SYNC_UPDATEITEMONLY;
+
 app.use(express.json());
 
 // enable cookies
@@ -329,7 +331,7 @@ var _processEvent = function () {
 		if (str) {
 			try {
 				events = JSON.parse(str);
-			} catch (e) {}
+			} catch (e) { }
 		}
 	}
 
@@ -372,12 +374,21 @@ var _processEvent = function () {
 				repositoryId: repositoryId
 			};
 
-			contentLib.syncCreateUpdateItem(args, function (success) {
-				timeUsed = serverUtils.timeUsed(startTime, new Date());
-				console.log('*** action finished status: ' + (success ? 'successful' : 'failed') + ' [' + timeUsed + ']');
-				console.log(' ');
-				_updateEvent(event.__id, success, timeUsed);
-			});
+			if (action === 'CONTENTITEM_UPDATED' && updateItemOnly === 'true') {
+				contentLib.syncUpdateItemOnly(args, function (success) {
+					timeUsed = serverUtils.timeUsed(startTime, new Date());
+					console.log('*** action finished status: ' + (success ? 'successful' : 'failed') + ' [' + timeUsed + ']');
+					console.log(' ');
+					_updateEvent(event.__id, success, timeUsed);
+				});
+			} else {
+				contentLib.syncCreateUpdateItem(args, function (success) {
+					timeUsed = serverUtils.timeUsed(startTime, new Date());
+					console.log('*** action finished status: ' + (success ? 'successful' : 'failed') + ' [' + timeUsed + ']');
+					console.log(' ');
+					_updateEvent(event.__id, success, timeUsed);
+				});
+			}
 
 		} else if (action === 'CONTENTITEM_DELETED' || action === 'DIGITALASSET_DELETED') {
 

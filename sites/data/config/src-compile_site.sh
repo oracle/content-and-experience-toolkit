@@ -267,11 +267,20 @@ cec delete-static-site-files ${SITE_NAME} -s ${REGISTERED_SERVER}
 # ignore error if no static files exist in the site - pass in 0 as exit code
 checkResult "delete-static-site-files" 0
 
-# upload the static files
-updateJobStatus "UPLOAD_STATIC" 70
-echo "cec upload-static-site-files ${INSTALL_FOLDER}/src/templates/${TEMPLATE_NAME}/static -s ${SITE_NAME} -r ${REGISTERED_SERVER}"
-cec upload-static-site-files ${INSTALL_FOLDER}/src/templates/${TEMPLATE_NAME}/static -s ${SITE_NAME} -r ${REGISTERED_SERVER}
-checkResult "upload-static-site-files" $?
+# create a zip of the static files and place it in an empty static folder
+updateJobStatus "CREATE_STATIC_ZIP" 70
+echo "compressing static files..."
+STATIC_ZIP=${INSTALL_FOLDER}/src/templates/${TEMPLATE_NAME}/staticFiles.zip
+cd ${INSTALL_FOLDER}/src/templates/${TEMPLATE_NAME}/static
+zip -r ${STATIC_ZIP} *
+cd ${INSTALL_FOLDER}
+checkResult "create-static-zip" $?
+
+# upload the static zip file
+updateJobStatus "UPLOAD_STATIC" 75
+echo "cec upload-file ${STATIC_ZIP} -c -f site:${SITE_NAME}/static -s ${REGISTERED_SERVER}"
+cec upload-file ${STATIC_ZIP} -c -f site:${SITE_NAME}/static -s ${REGISTERED_SERVER}
+checkResult "upload-file" $?
 
 
 # STEP: 4 - PUBLISH STATIC FILES

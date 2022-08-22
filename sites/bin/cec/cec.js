@@ -2532,6 +2532,22 @@ const listAssets = {
 	]
 };
 
+const describeAsset = {
+	command: 'describe-asset <id>',
+	alias: 'dsa',
+	name: 'describe-asset',
+	usage: {
+		'short': 'Lists the properties of an asset OCM server.',
+		'long': (function () {
+			let desc = 'Lists the properties of an asset on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-asset CORECE3370197DB34D77A2D5D4DC0118B9C8 -s SampleServer1']
+	]
+};
+
 const deleteAssets = {
 	command: 'delete-assets',
 	alias: '',
@@ -3590,6 +3606,7 @@ _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(deleteAssets) + os.EOL +
 	_getCmdHelp(validateAssets) + os.EOL +
 	_getCmdHelp(listAssets) + os.EOL +
+	_getCmdHelp(describeAsset) + os.EOL +
 	_getCmdHelp(createDigitalAsset) + os.EOL +
 	_getCmdHelp(updateDigitalAsset) + os.EOL +
 	_getCmdHelp(copyAssets) + os.EOL +
@@ -7213,6 +7230,17 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${listAssets.command}\n\n${listAssets.usage.long}`);
 		})
+	.command([describeAsset.command, describeAsset.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...describeAsset.example[0])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeAsset.command}\n\n${describeAsset.usage.long}`);
+		})
 	.command([deleteAssets.command, deleteAssets.alias], false,
 		(yargs) => {
 			yargs.option('channel', {
@@ -7743,11 +7771,15 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('folder', {
 				alias: 'f',
-				description: '<folder> The parent folder on OCM server'
+				description: 'The parent folder on OCM server'
 			})
+				.option('createfolder', {
+					alias: 'c',
+					description: 'Create the folder if it does not exist'
+				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCM server'
+					description: 'The registered OCM server'
 				})
 				.example(...uploadFile.example[0])
 				.example(...uploadFile.example[1])
@@ -8275,6 +8307,10 @@ const argv = yargs.usage(_usage)
 				.option('certificate', {
 					alias: 'c',
 					description: 'The certificate file for HTTPS'
+				})
+				.option('updateitemonly', {
+					alias: 'y',
+					description: 'Content Item Updated event updates the item without updating its references'
 				})
 				.check((argv) => {
 					if (argv.authorization && !getSyncServerAuths().includes(argv.authorization)) {
@@ -9734,6 +9770,21 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, listAssetsArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeAsset.name || argv._[0] === describeAsset.alias) {
+	let describeAssetArgs = ['run', '-s', describeAsset.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--id', argv.id
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeAssetArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, describeAssetArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -11353,6 +11404,9 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	if (argv.folder && typeof argv.folder !== 'boolean') {
 		uploadFileArgs.push(...['--folder', argv.folder]);
 	}
+	if (argv.createfolder) {
+		uploadFileArgs.push(...['--createfolder', argv.createfolder]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		uploadFileArgs.push(...['--server', argv.server]);
 	}
@@ -11601,6 +11655,9 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	}
 	if (argv.certificate && typeof argv.certificate !== 'boolean') {
 		syncServerArgs.push(...['--certificate', argv.certificate]);
+	}
+	if (argv.updateitemonly) {
+		syncServerArgs.push(...['--updateitemonly', argv.updateitemonly]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, syncServerArgs, {
 		cwd,

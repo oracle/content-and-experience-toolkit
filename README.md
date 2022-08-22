@@ -15,6 +15,20 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.8.2
+
+**Added**
+
+- `cec describe-asset` - Lists the properties of an asset on an OCM server
+
+**Updated**
+
+- `cec upload-file` - Added option to create target folder on an OCM server if it does not exist already
+- `cec update-site` - Now updates all applicable site properties
+
+- `compile_site.sh` - Now supports uploading compiled files in a single zip file
+
+
 # New in Release 22.8.1
 
 **Added**
