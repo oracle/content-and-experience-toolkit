@@ -311,7 +311,16 @@ SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
 					'mapProvider',
 					'mapAPIKey',
 					'isWebAnalyticsEnabled',
-					'webAnalyticsScript'
+					'webAnalyticsScript',
+					'isJSModuleEnabled',
+					'isAssetAnalyticsEnabled',
+					'useStandardAnalyticsScript',
+					'isWebAnalyticsEnabled',
+					'webAnalyticsScript',
+					'customProperties',
+					'localeAliases',
+					'localeFallbacks',
+					'pageProperties'
 				];
 
 			// get the file from the server

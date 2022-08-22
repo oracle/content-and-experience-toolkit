@@ -5603,6 +5603,222 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 
 };
 
+module.exports.describeAsset = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var id = argv.id;
+	var item;
+	var repository;
+	var collections = [];
+	var channels = [];
+	var itemPublishedChannels = [];
+	var referenceItems = [];
+	var referencedByItems = [];
+	var activities = [];
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		serverRest.getItem({ server: server, id: id, expand: 'all' })
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+
+				item = result;
+				// console.log(JSON.stringify(item, null, 4));
+
+				if (item.publishedChannels && item.publishedChannels.data && item.publishedChannels.data.length > 0) {
+					item.publishedChannels.data.forEach(function (channel) {
+						itemPublishedChannels.push(channel.id);
+					});
+				}
+				// get the repository
+				return serverRest.getRepository({ server: server, id: item.repositoryId });
+
+			})
+			.then(function (result) {
+
+				repository = result && result.id ? result : {};
+
+				// get collections in this repository
+				return serverRest.getCollections({ server: server, repositoryId: repository.id });
+
+			})
+			.then(function (result) {
+
+				collections = result || [];
+
+				var channelPromises = [];
+				if (item.channels && item.channels.data && item.channels.data.length > 0) {
+					item.channels.data.forEach(function (channel) {
+						channelPromises.push(serverRest.getChannel({ server: server, id: channel.id }));
+					});
+				}
+
+				return Promise.all(channelPromises);
+
+			})
+			.then(function (results) {
+
+				if (results && results.length > 0) {
+					results.forEach(function (channel) {
+						if (channel && channel.id) {
+							channels.push(channel);
+						}
+					});
+				}
+
+				// query item relations
+				var itemReferencesPromises = [];
+				if (item.relationships && item.relationships.data && item.relationships.data.references && item.relationships.data.references.length > 0) {
+					var refIds = [];
+					item.relationships.data.references.forEach(function (refItem) {
+						refIds.push(refItem.id);
+					});
+					if (refIds.length > 0) {
+						itemReferencesPromises.push(contentUtils.queryItemsWithIds(server, '', refIds));
+					}
+				}
+
+				return Promise.all(itemReferencesPromises);
+
+			})
+			.then(function (results) {
+
+				referenceItems = results && results[0] || [];
+
+				var referencedByPromises = [];
+				if (item.relationships && item.relationships.data && item.relationships.data.referencedBy && item.relationships.data.referencedBy.length > 0) {
+					var refByIds = [];
+					item.relationships.data.referencedBy.forEach(function (byItem) {
+						refByIds.push(byItem.id);
+					});
+					if (refByIds.length > 0) {
+						referencedByPromises.push(contentUtils.queryItemsWithIds(server, '', refByIds));
+					}
+				}
+
+				return Promise.all(referencedByPromises);
+
+			})
+			.then(function (results) {
+
+				referencedByItems = results && results[0] || [];
+
+				// get item's activities
+				return serverRest.getItemActivities({ server: server, item: item });
+
+			})
+			.then(function (result) {
+				activities = result && result.items || [];
+
+				// Display 
+				//
+				var format1 = '%-38s  %-s';
+				var format2 = '  %-36s  %-51s  %-32s  %-s';
+				var format3 = '  %-36s  %-s';
+				console.log('');
+				console.log(sprintf(format1, 'Id', item.id));
+				console.log(sprintf(format1, 'Name', item.name));
+				console.log(sprintf(format1, 'Description', item.description || ''));
+				console.log(sprintf(format1, 'Created', item.createdDate.value + ' by ' + item.createdBy));
+				console.log(sprintf(format1, 'Updated', item.updatedDate.value + ' by ' + item.updatedBy));
+				console.log(sprintf(format1, 'Slug', item.slug));
+				console.log(sprintf(format1, 'Asset type', item.type));
+				console.log(sprintf(format1, 'Version', item.version));
+				console.log(sprintf(format1, 'Language', item.language || ''));
+				console.log(sprintf(format1, 'Translatable', item.translatable ? '√' : ''));
+				console.log(sprintf(format1, 'Master', item.languageIsMaster ? '√' : ''));
+				console.log(sprintf(format1, 'Published', item.isPublished ? '√' : ''));
+				console.log(sprintf(format1, 'Repository', repository.name + ' (Id: ' + repository.id + ')'));
+				console.log(sprintf(format1, 'Collections', ''));
+				if (collections.length > 0) {
+					console.log(sprintf(format3, 'Name', 'Id'));
+					collections.forEach(function (col) {
+						console.log(sprintf(format3, col.name, col.id));
+					});
+				}
+				console.log(sprintf(format1, 'Channels', ''));
+				if (channels.length > 0) {
+					console.log(sprintf(format2, 'Name', 'Id', 'Token', 'Published to'));
+					channels.forEach(function (channel) {
+						var tokens = channel.channelTokens || [];
+						var channelToken = '';
+						for (var i = 0; i < tokens.length; i++) {
+							if (tokens[i].name === 'defaultToken') {
+								channelToken = tokens[i].token;
+								break;
+							}
+						}
+						var pubished = itemPublishedChannels.includes(channel.id) ? '   √' : '';
+						console.log(sprintf(format2, channel.name, channel.id, channelToken, pubished));
+					});
+				}
+
+				var itemFormat = '  %-36s  %-40s  %-s';
+				console.log(sprintf(format1, 'Dependencies', ''));
+				if (referenceItems.length > 0) {
+					console.log(sprintf(itemFormat, 'Id', 'Type', 'Name'));
+					referenceItems.forEach(function (refItem) {
+						console.log(sprintf(itemFormat, refItem.id, refItem.type, refItem.name));
+					});
+				}
+
+				console.log(sprintf(format1, 'Referenced by', ''));
+				if (referencedByItems.length > 0) {
+					console.log(sprintf(itemFormat, 'Id', 'Type', 'Name'));
+					referencedByItems.forEach(function (refItem) {
+						console.log(sprintf(itemFormat, refItem.id, refItem.type, refItem.name));
+					});
+				}
+
+				console.log(sprintf(format1, 'Activity', ''));
+				if (activities.length > 0) {
+					var actFormat = '  %-10s  %-10s  %-s';
+					console.log(sprintf(actFormat, 'Version', 'Language', 'Details'));
+					activities.forEach(function (act) {
+						var details = act.activityDetails;
+						var message = act.message;
+						var version = details && details.version || '';
+						var event = details && details.source || '';
+						var lang = details && details.language || '';
+						console.log(sprintf(actFormat, version, lang, event));
+						console.log(sprintf(actFormat, '', '', act.registeredAt + ' by ' + act.initiatedBy.displayName));
+						if (act.message && act.message.text) {
+							console.log(sprintf(actFormat, '', '', act.message.text));
+						}
+					});
+				}
+
+				console.log('');
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
+
 /**
  * List scheduled publish jobs
  */

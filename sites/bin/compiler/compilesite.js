@@ -15,18 +15,6 @@
  * $Id: offline-publisher.js 141546 2016-03-24 23:23:28Z dpeterso $
  */
 
-/*
-Sample Invocation:
-
-	node offline-publisher.js
-			-siteDir Z:\sitespublish\Demo-Site
-			-themesDir Z:\themespublish
-			-componentsDir Z:\componentspublish
-			-runtimeDir Z:\sitescloudruntime
-			-outputDir Z:\OUTPUTDIR
-			-loglevel trace
-*/
-
 //*********************************************
 // Requires
 //*********************************************
@@ -35,7 +23,8 @@ var fs = require('fs'),
 	url = require('url'),
 	merge = require('deepmerge'),
 	request = require('request'),
-	serverUtils = require('../../test/server/serverUtils');
+	serverUtils = require('../../test/server/serverUtils'),
+	ContentCompiler = require('./components/contentitem/contentcompiler');
 
 var componentsEnabled = true;
 if (componentsEnabled) {
@@ -175,7 +164,7 @@ function getAvailableLanguages() {
 	// remove any languages not in the localeGroup
 	if (Array.isArray(localeGroup) && localeGroup.length > 0) {
 		languages = languages.filter(function (entry) {
-			var checkLocale = entry === '' ? defaultLanguage : entry; 
+			var checkLocale = entry === '' ? defaultLanguage : entry;
 			return localeGroup.indexOf(checkLocale) !== -1;
 		});
 		trace("Filtered Languages: " + languages);
@@ -463,7 +452,7 @@ async function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 	trace('compileThemeLayout: layoutMarkup=' + layoutMarkup);
 
 	var defaultPageCompiler = {
-		afterPageCompile: function(compiledMarkup) {
+		afterPageCompile: function (compiledMarkup) {
 			// no post-processing
 			return Promise.resolve(compiledMarkup);
 		}
@@ -519,9 +508,9 @@ async function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 				// get the compiler to use for post-processing the page
 				if (typeof pageCompiler.afterPageCompile === 'function') {
 					return Promise.resolve({
-						layoutMarkup: compiledMarkup, 
+						layoutMarkup: compiledMarkup,
 						pageCompiler: {
-							afterPageCompile: function(compiledMarkup) {
+							afterPageCompile: function (compiledMarkup) {
 								// custom post-processing
 								// Wrap in a Promise.resolve in case it doesn't return a promise
 								return Promise.resolve(pageCompiler.afterPageCompile({
@@ -531,9 +520,9 @@ async function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 							}
 						}
 					});
-				} else  {
+				} else {
 					return Promise.resolve({
-						layoutMarkup: compiledMarkup, 
+						layoutMarkup: compiledMarkup,
 						pageCompiler: defaultPageCompiler
 					});
 				}
@@ -1025,6 +1014,8 @@ var compiler = {
 			structureMap: self.structureMap,
 			siteInfo: self.siteInfo,
 			siteFolder: siteFolder,
+			componentsFolder: componentsFolder,
+			themesFolder: themesFolder,
 			pageLocale: self.pageLocale,
 			pageModel: self.pageModel,
 			localeAlias: self.localeAlias,
@@ -1112,6 +1103,23 @@ var compiler = {
 						resolve(self.contentClients[clientKey]);
 					}
 				});
+			},
+			compileContentItem: function (contentItem, layout) {
+				if (contentItem && layout) {
+					var contentCompiler = new ContentCompiler(this);
+
+					// compile the content item
+					return contentCompiler.compileContentItem({
+						content: contentItem,
+						layout: layout
+					});
+				} else {
+					// missing required parameter
+					compilationReporter.error({
+						message: 'SCSCompileAPI.compileContentItem called with missing required argument: ' + (contentItem ? 'contentItem' : 'layout')
+					});
+					return Promise.resolve('');
+				}
 			},
 			getComponentInstanceData: function (instanceId) {
 				return self.pageModel.componentInstances[instanceId];
@@ -2293,7 +2301,7 @@ function createDirectory(dirName) {
 	if (!fs.existsSync(dirName)) {
 		parentDirName = path.dirname(dirName);
 		createDirectory(parentDirName); // <<< RECURSION
-		
+
 		// check again in case another process has created the folder
 		if (!fs.existsSync(dirName)) {
 			try {
@@ -2419,7 +2427,7 @@ function createPage(context, pageInfo) {
 					var pageCompileResult = results[0];
 					var componentsCompileResult = results[1];
 
-					var layoutMarkup = pageCompileResult.layoutMarkup, 
+					var layoutMarkup = pageCompileResult.layoutMarkup,
 						pageCompiler = pageCompileResult.pageCompiler;
 
 					pageData = fixupPageDataWithSlotReuseData(context, pageData, layoutName, layoutMarkup);
@@ -2437,21 +2445,21 @@ function createPage(context, pageInfo) {
 							resolve(); // Resolve, instead of reject because we want to continue processing other pages
 						});
 					})
+						.catch(function (err) {
+							compilationReporter.error({
+								message: 'Failed to write ' + errorPageName,
+								error: err
+							});
+							resolve(); // Resolve, instead of reject because we want to continue processing other pages
+						});
+				})
 					.catch(function (err) {
 						compilationReporter.error({
-							message: 'Failed to write ' + errorPageName,
+							message: 'Failed to generate ' + errorPageName,
 							error: err
 						});
 						resolve(); // Resolve, instead of reject because we want to continue processing other pages
 					});
-				})
-				.catch(function (err) {
-					compilationReporter.error({
-						message: 'Failed to generate ' + errorPageName,
-						error: err
-					});
-					resolve(); // Resolve, instead of reject because we want to continue processing other pages
-				});
 			}
 		} catch (e) {
 			compilationReporter.error({

@@ -641,6 +641,8 @@ var _uploadFile = function (argv, server) {
 		return Promise.reject();
 	}
 
+	var createFolder = typeof argv.createfolder === 'string' && argv.createfolder.toLowerCase() === 'true';
+
 	var inputPath = argv.folder === '/' ? '' : serverUtils.trimString(argv.folder, '/');
 	var resourceFolder = false;
 	var resourceName;
@@ -721,8 +723,9 @@ var _uploadFile = function (argv, server) {
 				rootParentId = resourceGUID;
 			}
 
-			// return _createFolder(server, rootParentId, folderPath);
-			return _findFolder(server, rootParentId, folderPath);
+			var filePromise = createFolder ? _createFolder(server, rootParentId, folderPath, true) : _findFolder(server, rootParentId, folderPath);
+			return filePromise;
+
 		})
 			.then(function (result) {
 				if (folderPath.length > 0 && !result) {

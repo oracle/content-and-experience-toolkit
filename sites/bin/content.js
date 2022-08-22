@@ -5039,6 +5039,72 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 
 };
 
+module.exports.syncUpdateItemOnly = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var srcServer = argv.server;
+	console.info(' - source server: ' + srcServer.url);
+
+	var destServer = argv.destination;
+	console.info(' - destination server: ' + destServer.url);
+
+	var action = argv.action;
+
+	var id = argv.id;
+	var item;
+
+	// verify item on the source server
+	serverRest.getItem({
+		server: srcServer,
+		id: id
+	})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+			item = result;
+			console.info(' - validate item on source server: name: ' + item.name + ' (type: ' + item.type + ' id: ' + item.id + ' language: ' + item.language + ')');
+
+			// verify item on the target server
+			return serverRest.getItem({
+				server: destServer,
+				id: id,
+			});
+
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+			var destItem = result;
+			console.info(' - validate item on destination server: name: ' + destItem.name + ' (type: ' + destItem.type + ' id: ' + destItem.id + ' language: ' + destItem.language + ')');
+
+			// update the item on the target server
+			item.repositoryId = destItem.repositoryId;
+			return serverRest.updateItem({ server: destServer, item: item });
+
+		})
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
+			}
+
+			console.log(' - item updated');
+			done(true);
+		})
+		.catch((error) => {
+			if (error) {
+				console.log(error);
+			}
+			done();
+		});
+};
+
 
 module.exports.syncDeleteItem = function (argv, done) {
 	'use strict';

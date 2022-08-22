@@ -3,7 +3,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
-const {
+ const {
 	end
 } = require('cheerio/lib/api/traversing');
 var request = require('request'),
@@ -2106,7 +2106,7 @@ var _updateDigitalItem = function (server, item, contents) {
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.error('ERROR: Failed to update create digital item ' + item.id + ' (ecid: ' + response.ecid + ')');
+						console.error('ERROR: Failed to update digital item ' + item.id + ' (ecid: ' + response.ecid + ')');
 						console.error(error);
 						resolve({
 							err: 'err'
@@ -2150,6 +2150,79 @@ var _updateDigitalItem = function (server, item, contents) {
  */
 module.exports.updateDigitalItem = function (args) {
 	return _updateDigitalItem(args.server, args.item, args.contents, args.fields);
+};
+
+// Update content item on server
+var _updateItem = function (server, item) {
+	return new Promise(function (resolve, reject) {
+		serverUtils.getCaasCSRFToken(server).then(function (result) {
+			if (result.err) {
+				resolve(result);
+			} else {
+				var csrfToken = result && result.token;
+
+				var url = server.url + '/content/management/api/v1.1/items/' + item.id;
+				var postData = {
+					method: 'PUT',
+					url: url,
+					headers: {
+						'X-CSRF-TOKEN': csrfToken,
+						'X-REQUESTED-WITH': 'XMLHttpRequest',
+						Authorization: serverUtils.getRequestAuthorization(server),
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify(item)
+				};
+
+				serverUtils.showRequestOptions(postData);
+
+				var request = require('./requestUtils.js').request;
+				request.post(postData, function (error, response, body) {
+					if (error) {
+						console.error('ERROR: Failed to update item ' + item.id + ' (ecid: ' + response.ecid + ')');
+						console.error(error);
+						resolve({
+							err: 'err'
+						});
+					}
+
+					var data;
+					try {
+						data = JSON.parse(body);
+					} catch (err) {
+						data = body;
+					}
+					if (response && response.statusCode >= 200 && response.statusCode < 300) {
+						resolve(data);
+					} else {
+						var msg = response.statusMessage || response.statusCode;
+						if (data && (data.detail || data.title)) {
+							msg = (data.detail || data.title);
+						}
+						console.error('ERROR: Failed to update item ' + item.id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+						// console.log(data);
+						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
+							console.error(data['o:errorDetails']);
+						}
+						resolve({
+							err: 'err'
+						});
+					}
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Update a content item on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {string} args.server the server object
+ * @param {string} args.item the item object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.updateItem = function (args) {
+	return _updateItem(args.server, args.item);
 };
 
 // Create collection on server
@@ -2372,7 +2445,7 @@ module.exports.deleteCollection = function (args) {
 };
 
 // Create channel on server
-var _createChannel = function (server, name, channelType, description, publishPolicy, localizationPolicy) {
+var _createChannel = function (server, name, channelType, description, publishPolicy, localizationPolicy, primaryChannelSupported) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -2388,6 +2461,10 @@ var _createChannel = function (server, name, channelType, description, publishPo
 				};
 				if (localizationPolicy) {
 					payload.localizationPolicy = localizationPolicy;
+				}
+
+				if (primaryChannelSupported) {
+					payload.primaryChannelSupported = primaryChannelSupported;
 				}
 
 				var url = server.url + '/content/management/api/v1.1/channels';
@@ -2449,7 +2526,7 @@ var _createChannel = function (server, name, channelType, description, publishPo
  */
 module.exports.createChannel = function (args) {
 	return _createChannel(args.server, args.name, args.channelType,
-		args.description, args.publishPolicy, args.localizationPolicy);
+		args.description, args.publishPolicy, args.localizationPolicy, args.primaryChannelSupported);
 };
 
 // Delete channel on server
@@ -2769,6 +2846,21 @@ module.exports.getScheduledJob = function (args) {
 		endpoint = endpoint + '?expand=' + args.expand;
 	}
 	return _getResource(args.server, endpoint, 'scheduledPublishJob');
+};
+
+/**
+ * Get item activities
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.item The item object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getItemActivities = function (args) {
+	var objectType = args.item.typeCategory === 'ContentType' ? 'Content Item' : 'Digital Asset';
+	var endpoint = '/system/api/v1/auditlog/activities?q=objectType eq "' + objectType +
+		'" and variationSetId eq "' + args.item.varSetId + '"';
+	endpoint = endpoint + '&expand=all&limit=1000';
+	return _getResource(args.server, endpoint, 'item activities');
 };
 
 // CAAS query maximum limit
@@ -8135,14 +8227,14 @@ module.exports.executePost = function (args) {
 		Promise.all(caasTokenPromises)
 			.then(function (results) {
 				var csrfToken = results && results[0] && results[0].token;
-
+				var hdrs = Object.assign(args.headers || {}, {
+					'X-REQUESTED-WITH': 'XMLHttpRequest',
+					Authorization: serverUtils.getRequestAuthorization(server)
+				});
 				var postData = {
 					method: 'POST',
 					url: url,
-					headers: {
-						'X-REQUESTED-WITH': 'XMLHttpRequest',
-						Authorization: serverUtils.getRequestAuthorization(server)
-					}
+					headers: hdrs
 				};
 				if (csrfToken) {
 					postData.headers['X-CSRF-TOKEN'] = csrfToken;
@@ -10398,17 +10490,31 @@ module.exports.getMe = function (args) {
 
 var _setUserSocialPreferences = function (server, userId, props = []) {
 	return new Promise(function (resolve, reject) {
-		var url = server.url + '/osn/fc/RemoteJSONBatch?apmOps=Properties.setProperties,User.updateMyProfile';
-		props = props.map(obj => ({
-			...obj,
-			'_class': 'XPropertyInfo'
-		}));
+		var body,
+				url = server.url + '/osn/fc/RemoteJSONBatch?apmOps=Properties.setProperties';
 
-		var body = [{
-			'ModuleName': 'XPropertiesModule$Server',
-			'MethodName': 'setProperties',
-			'Arguments': [userId, props]
-		}];
+		var usePropertiesAPI = props.some((prop) => !!prop['PropertyName']);
+		if (usePropertiesAPI) {
+			props = props.map(obj => ({
+				...obj,
+				'_class': 'XPropertyInfo'
+			}));
+
+			body = [{
+				'ModuleName': 'XPropertiesModule$Server',
+				'MethodName': 'setProperties',
+				'Arguments': [userId, props]
+			}];
+		}
+		else {
+			// Use updateMyProfile API
+			url = server.url + '/osn/fc/RemoteJSONBatch?apmOps=User.updateMyProfile';
+			body = [{
+				'ModuleName': 'XUserModule$Server',
+				'MethodName': 'updateMyProfile',
+				'Arguments': props
+			}];;
+		}
 
 		// console.log("_setUserSocialPreferences body = ", body);
 		var request = require('./requestUtils.js').request;
