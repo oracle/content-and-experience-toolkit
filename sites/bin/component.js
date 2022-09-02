@@ -1687,6 +1687,7 @@ module.exports.describeComponent = function (argv, done) {
 		}
 
 		var comp;
+		var compMetadata;
 
 		sitesRest.getComponent({
 			server: server,
@@ -1704,53 +1705,61 @@ module.exports.describeComponent = function (argv, done) {
 
 			comp = result;
 
-			var managers = [];
-			var contributors = [];
-			var downloaders = [];
-			var viewers = [];
-			var members = comp.members && comp.members.items || [];
-			members.forEach(function (member) {
-				if (member.role === 'manager') {
-					managers.push(member.displayName || member.name);
-				} else if (member.role === 'contributor') {
-					contributors.push(member.displayName || member.name);
-				} else if (member.role === 'downloader') {
-					downloaders.push(member.displayName || member.name);
-				} else if (member.role === 'viewer') {
-					viewers.push(member.displayName || member.name);
-				}
-			});
-			var memberLabel = '';
-			if (managers.length > 0) {
-				memberLabel = 'Manager: ' + managers + ' ';
-			}
-			if (contributors.length > 0) {
-				memberLabel = memberLabel + 'Contributor: ' + contributors + ' ';
-			}
-			if (downloaders.length > 0) {
-				memberLabel = memberLabel + 'Downloader: ' + downloaders + ' ';
-			}
-			if (viewers.length > 0) {
-				memberLabel = memberLabel + 'Viewer: ' + viewers;
-			}
+			return serverUtils.getComponentMetadata(server, comp.id);
 
-			var format1 = '%-41s %-s';
-			console.log('');
-			console.log(sprintf(format1, 'Id', comp.id));
-			console.log(sprintf(format1, 'Type', comp.type));
-			console.log(sprintf(format1, 'Name', comp.name));
-			console.log(sprintf(format1, 'Description', comp.description || ''));
-			console.log(sprintf(format1, 'Owner', comp.ownedBy ? (comp.ownedBy.displayName || comp.ownedBy.name) : ''));
-			console.log(sprintf(format1, 'Members', memberLabel));
-			console.log(sprintf(format1, 'Created', comp.createdAt + ' by ' + (comp.createdBy ? (comp.createdBy.displayName || comp.createdBy.name) : '')));
-			console.log(sprintf(format1, 'Updated', comp.lastModifiedAt + ' by ' + (comp.lastModifiedBy ? (comp.lastModifiedBy.displayName || comp.lastModifiedBy.name) : '')));
-			console.log(sprintf(format1, 'Status', comp.publishStatus));
-			console.log(sprintf(format1, 'Hide on custom palette in the site editor', comp.isHidden));
-
-			console.log('');
-
-			done(true);
 		})
+			.then(function (result) {
+			
+				compMetadata = result && result.metadata;
+
+				var managers = [];
+				var contributors = [];
+				var downloaders = [];
+				var viewers = [];
+				var members = comp.members && comp.members.items || [];
+				members.forEach(function (member) {
+					if (member.role === 'manager') {
+						managers.push(member.displayName || member.name);
+					} else if (member.role === 'contributor') {
+						contributors.push(member.displayName || member.name);
+					} else if (member.role === 'downloader') {
+						downloaders.push(member.displayName || member.name);
+					} else if (member.role === 'viewer') {
+						viewers.push(member.displayName || member.name);
+					}
+				});
+				var memberLabel = '';
+				if (managers.length > 0) {
+					memberLabel = 'Manager: ' + managers + ' ';
+				}
+				if (contributors.length > 0) {
+					memberLabel = memberLabel + 'Contributor: ' + contributors + ' ';
+				}
+				if (downloaders.length > 0) {
+					memberLabel = memberLabel + 'Downloader: ' + downloaders + ' ';
+				}
+				if (viewers.length > 0) {
+					memberLabel = memberLabel + 'Viewer: ' + viewers;
+				}
+
+				var format1 = '%-41s %-s';
+				console.log('');
+				console.log(sprintf(format1, 'Id', comp.id));
+				console.log(sprintf(format1, 'Type', comp.type));
+				console.log(sprintf(format1, 'Name', comp.name));
+				console.log(sprintf(format1, 'Description', comp.description || ''));
+				console.log(sprintf(format1, 'Owner', comp.ownedBy ? (comp.ownedBy.displayName || comp.ownedBy.name) : ''));
+				console.log(sprintf(format1, 'Members', memberLabel));
+				console.log(sprintf(format1, 'Created', comp.createdAt + ' by ' + (comp.createdBy ? (comp.createdBy.displayName || comp.createdBy.name) : '')));
+				console.log(sprintf(format1, 'Updated', comp.lastModifiedAt + ' by ' + (comp.lastModifiedBy ? (comp.lastModifiedBy.displayName || comp.lastModifiedBy.name) : '')));
+				console.log(sprintf(format1, 'Status', comp.publishStatus));
+				console.log(sprintf(format1, 'Hide on custom palette in the site editor', comp.isHidden));
+				console.log(sprintf(format1, 'itemGUID', (compMetadata && compMetadata.scsItemGUID || '')));
+
+				console.log('');
+
+				done(true);
+			})
 			.catch((error) => {
 				if (error) {
 					console.error(error);

@@ -15,6 +15,15 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.9.1
+
+**Updated**
+
+- `cec download-content` - Added option to download only approved assets
+- `cec control-site` - Added option to delete static files when publishing a site
+- `cec sync-server` - Can now handle auth token expiration
+
+
 # New in Release 22.8.2
 
 **Added**

@@ -2673,6 +2673,7 @@ module.exports.controlSite = function (argv, done) {
 		var staticOnly = typeof argv.staticonly === 'string' && argv.staticonly.toLowerCase() === 'true';
 		var compileOnly = typeof argv.compileonly === 'string' && argv.compileonly.toLowerCase() === 'true';
 		var fullpublish = typeof argv.fullpublish === 'string' && argv.fullpublish.toLowerCase() === 'true';
+		var deletestaticfiles = typeof argv.deletestaticfiles === 'string' && argv.deletestaticfiles.toLowerCase() === 'true';
 
 		var metadataName = argv.name;
 		var metadataValue = argv.value ? argv.value : '';
@@ -2687,7 +2688,7 @@ module.exports.controlSite = function (argv, done) {
 			}
 			// if (server.useRest) {
 			_controlSiteREST(server, action, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, theme,
-				metadataName, metadataValue, expireDate)
+				metadataName, metadataValue, expireDate, deletestaticfiles)
 				.then(function (result) {
 					if (result.err) {
 						done(result.exitCode);
@@ -2715,7 +2716,7 @@ module.exports.controlSite = function (argv, done) {
  * @param {*} done 
  */
 var _controlSiteREST = function (server, action, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, newTheme,
-	metadataName, metadataValue, expireDate) {
+	metadataName, metadataValue, expireDate, deletestaticfiles) {
 
 	return new Promise(function (resolve, reject) {
 		var exitCode;
@@ -2785,11 +2786,12 @@ var _controlSiteREST = function (server, action, siteName, usedContentOnly, comp
 						compileSite: compileSite,
 						staticOnly: staticOnly,
 						compileOnly: compileOnly,
-						fullpublish: fullpublish
+						fullpublish: fullpublish,
+						deletestaticfiles: deletestaticfiles
 					});
 				} else if (action === 'publish-internal') {
 					console.log(' - publish site using Idc service');
-					actionPromise = _publishSiteInternal(server, site.id, site.name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish);
+					actionPromise = _publishSiteInternal(server, site.id, site.name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles);
 
 				} else if (action === 'unpublish') {
 					actionPromise = sitesRest.unpublishSite({
@@ -2911,7 +2913,7 @@ var _setSiteMetadata = function (server, siteId, siteName, metadataName, metadat
 /**
  * Publish a site using IdcService (compile site workaround)
  */
-var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish) {
+var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles) {
 	return new Promise(function (resolve, reject) {
 
 		serverUtils.getIdcToken(server)
@@ -2949,6 +2951,9 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 				}
 				if (fullpublish) {
 					body.LocalData.type = 'full';
+				}
+				if (deletestaticfiles) {
+					body.LocalData.doPurgeSiteStaticFiles = true;
 				}
 
 				var postData = {
@@ -5546,36 +5551,54 @@ module.exports.syncControlSiteSite = function (argv, done) {
 	var siteName = argv.name;
 	var action = argv.action || 'publish';
 
-	serverUtils.loginToServer(srcServer).then(function (result) {
-		if (!result.status) {
-			console.error(result.statusMessage);
-			done();
-			return;
-		}
-
-		// verify the site
-		sitesRest.getSite({
-			server: destServer,
-			name: siteName
-		})
-			.then(function (result) {
-				if (!result || result.err) {
-					return Promise.reject();
-				}
-
-				_controlSiteREST(destServer, action, siteName)
-					.then(function (result) {
-						if (result.err) {
-							done();
-						} else {
-							done(true);
-						}
-					});
-			})
-			.catch((error) => {
+	serverUtils.loginToServer(srcServer)
+		.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage);
 				done();
-			});
-	});
+				return;
+			}
+
+			return serverUtils.loginToServer(destServer);
+		})
+		.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + destServer.url);
+				return Promise.reject();
+			}
+
+			// verify the site
+			sitesRest.getSite({
+				server: destServer,
+				name: siteName
+			})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+
+					_controlSiteREST(destServer, action, siteName)
+						.then(function (result) {
+							if (result.err) {
+								done();
+							} else {
+								done(true);
+							}
+						});
+				})
+				.catch((error) => {
+					if (error) {
+						console.error(error);
+					}
+					done();
+				});
+		})
+		.catch((error) => {
+			if (error) {
+				console.error(error);
+			}
+			done();
+		});
 
 };
 

@@ -130,11 +130,7 @@ SectionLayout.prototype = {
 		var self = this;
 		var instanceObject = this.componentInstanceObject || {};
 
-		var importSectionLayout = async function(moduleName) {
-			return await import(moduleName);
-		};
-
-		return new Promise(function (resolve, reject) {
+		return new Promise(async function (resolve, reject) {
 			try {
 				if (instanceObject && instanceObject.id) {
 					var sectionLayoutName = instanceObject.id;
@@ -164,7 +160,7 @@ SectionLayout.prototype = {
 								foundComponentFile = true;
 
 								// JavaScript module based section layout, import it
-								const { default: importModule } = importSectionLayout(url.pathToFileURL(moduleFile));
+								const { default: importModule } = await import(url.pathToFileURL(moduleFile));
 								SectionLayoutImpl = importModule;
 							} catch (e) {
 								compilationReporter.error({

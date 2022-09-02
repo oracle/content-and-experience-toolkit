@@ -219,6 +219,7 @@ cd ${INSTALL_FOLDER}
 # STEP: 1 - CREATE A TEMPLATE FROM THE SITE, THEME & COMPONENTS
 # -------------------------------------------------------------
 # download the site template
+# note: make sure -x (excludeContent) is included to avoid downloading content export, which isn't required as content calls are back to the server
 # hint: exclude folders and components from template download that aren't required for compilation to save time.  For example: -d theme:/assets
 updateJobStatus "CREATE_TEMPLATE" 20
 echo "cec create-template ${TEMPLATE_NAME} -s ${SITE_NAME} -r ${REGISTERED_SERVER} ${COMPILE_PUBLISHED_SITE_OPTION} -x"
@@ -234,7 +235,6 @@ updateJobStatus "COMPILE_TEMPLATE" 30
 
 # example of using a backgound job to compile. 
 # this can be useful for running multiple compile jobs in parallel to improve compilation times. For example, splitting compile across locales.
-# note: make sure -x (excludeContent) is included to avoid downloading content export, which isn't required as content calls are back to the server
 # note: make sure -i (ignoreErrors) is included so that a single error in compile doesn't stop all publishing
 # hint: update parameters such as --includeLocale as required
 echo "cec compile-template ${TEMPLATE_NAME} -s ${REGISTERED_SERVER} -c  ${CHANNEL_TOKEN} -n ${SITE_NAME} ${SECURE_SITE_OPTION} -t published -v -i > job1.log 2>&1 &"
