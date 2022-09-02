@@ -306,6 +306,11 @@ var getRepositoryTypes = function () {
 	return types;
 };
 
+var getPublishingJobTypes = function () {
+	const types = ['asset', 'component', 'theme', 'site'];
+	return types;
+};
+
 var getLoggerLevels = function () {
 	const types = ['error', 'warn', 'info', 'debug'];
 	return types;
@@ -1031,7 +1036,8 @@ const downloadContent = {
 		['cec download-content Site1Channel -r Repo1 -c Collection1', 'Download assets from the repository Repo1, collection Collection1 and channel Site1Channel'],
 		['cec download-content Site1Channel -r Repo1 -c Collection1 -q \'fields.category eq "RECIPE"\'', 'Download assets from repository Repo1, collection Collection1 and channel Site1Channel, matching the query, plus any dependencies'],
 		['cec download-content -a GUID1,GUID2 -n items', 'Download asset GUID1 and GUID2 and all their dependencies'],
-		['cec download-content -r Repo1', 'Download assets from the repository Repo1']
+		['cec download-content -r Repo1', 'Download assets from the repository Repo1'],
+		['cec download-content -r Repo1 -v', 'Download approved assets from the repository Repo1']
 	]
 };
 
@@ -3142,6 +3148,25 @@ const describeScheduledJob = {
 	]
 };
 
+const listPublishingJobs = {
+	command: 'list-publishing-jobs',
+	alias: 'lpj',
+	name: 'list-publising-jobs',
+	usage: {
+		'short': 'Lists publishing jobs.',
+		'long': (function () {
+			let desc = 'List publishing jobs on OCM server. Specify the job type with -t <type>. The valid types are' + os.EOL + os.EOL;
+			desc = getPublishingJobTypes().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return desc;
+		})()
+	},
+	example: [
+		['cec list-publishing-jobs -t site', 'List all site publishing jobs'],
+		['cec list-publishing-jobs -t site -n Site1', 'List all publishing jobs of site Site1'],
+		['cec list-publishing-jobs -t asset -r Repo1', 'List asset publishing jobs belonging to repository Repo1']
+	]
+};
+
 const createEncryptionKey = {
 	command: 'create-encryption-key <file>',
 	alias: 'cek',
@@ -3680,6 +3705,7 @@ _usage = _usage + os.EOL + 'Jobs' + os.EOL +
 	_getCmdHelp(describeBackgroundJob) + os.EOL +
 	_getCmdHelp(listScheduledJobs) + os.EOL +
 	_getCmdHelp(describeScheduledJob) + os.EOL;
+// _getCmdHelp(listPublishingJobs) + os.EOL;
 
 _usage = _usage + os.EOL + 'Groups' + os.EOL +
 	_getCmdHelp(createGroup) + os.EOL +
@@ -4585,8 +4611,12 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('publishedassets', {
 				alias: 'p',
-				description: 'The flag to indicate published assets only'
+				description: 'Published assets only'
 			})
+				.option('approvedassets', {
+					alias: 'v',
+					description: 'Previously approved assets only'
+				})
 				.option('collection', {
 					alias: 'c',
 					description: 'Collection name'
@@ -4643,6 +4673,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadContent.example[6])
 				.example(...downloadContent.example[7])
 				.example(...downloadContent.example[8])
+				.example(...downloadContent.example[9])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadContent.command}\n\n${downloadContent.usage.long}`);
@@ -5628,6 +5659,10 @@ const argv = yargs.usage(_usage)
 				.option('fullpublish', {
 					alias: 'f',
 					description: 'Do a full publish'
+				})
+				.option('deletestaticfiles', {
+					alias: 'd',
+					description: 'Delete static files when the site is published and will be compiled'
 				})
 				.option('theme', {
 					alias: 'e',
@@ -8036,6 +8071,42 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${describeScheduledJob.command}\n\n${describeScheduledJob.usage.long}`);
 		})
+	.command([listPublishingJobs.command, listPublishingJobs.alias], false,
+		(yargs) => {
+			yargs.option('type', {
+				alias: 't',
+				description: 'The job type',
+				demandOption: true
+			})
+				.option('repository', {
+					alias: 'r',
+					description: 'The repository'
+				})
+				.option('name', {
+					alias: 'n',
+					description: 'The name of site, component or theme'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (argv.type && !getPublishingJobTypes().includes(argv.type)) {
+						throw new Error(`${os.EOL}${argv.type} is not a valid value for <type>`);
+					}
+					if (argv.type === 'asset' && !argv.repository) {
+						throw new Error(`${os.EOL}<repository> is required for ${argv.type} jobs`);
+					}
+
+					return true;
+				})
+				.example(...listPublishingJobs.example[0])
+				.example(...listPublishingJobs.example[1])
+				.example(...listPublishingJobs.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${listPublishingJobs.command}\n\n${listPublishingJobs.usage.long}`);
+		})
 	.command([createEncryptionKey.command, createEncryptionKey.alias], false,
 		(yargs) => {
 			yargs.example(...createEncryptionKey.example[0])
@@ -9225,6 +9296,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.publishedassets) {
 		downloadContentArgs.push(...['--publishedassets', argv.publishedassets]);
 	}
+	if (argv.approvedassets) {
+		downloadContentArgs.push(...['--approvedassets', argv.approvedassets]);
+	}
 	if (argv.collection) {
 		downloadContentArgs.push(...['--collection', argv.collection]);
 	}
@@ -9999,6 +10073,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.fullpublish) {
 		controlSiteArgs.push(...['--fullpublish', argv.fullpublish]);
+	}
+	if (argv.deletestaticfiles) {
+		controlSiteArgs.push(...['--deletestaticfiles', argv.deletestaticfiles]);
 	}
 	if (argv.theme) {
 		controlSiteArgs.push(...['--theme', argv.theme]);

@@ -479,5 +479,9 @@ var _processEvent = function () {
 			});
 		}
 
+		// reset server to force login next event in case token expired
+		srcServer.login = false;
+		destServer.login = false;
+
 	} // event exists
 };

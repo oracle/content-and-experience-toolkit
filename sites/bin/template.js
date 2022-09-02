@@ -2765,7 +2765,7 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 
 						fse.copySync(compSrcDir, compBuildSrc);
 
-						console.info(' - optiomize component ' + comps[i]);
+						console.info(' - optimize component ' + comps[i]);
 						// Run 'gulp' under the theme directory
 						var componentBuild = childProcess.spawnSync(npmCmd, ['run', 'gulp', componentsGulpFile], {
 							stdio: 'inherit'

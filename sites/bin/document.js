@@ -1555,8 +1555,8 @@ module.exports.listFolder = function (argv, done) {
 				items = byName;
 
 				console.log('');
-				var format = '   %-6s  %-44s  %-s';
-				console.log(sprintf(format, 'Type', 'Id', 'Path'));
+				var format = '   %-6s  %-44s  %-20s  %-s';
+				console.log(sprintf(format, 'Type', 'Id', 'Last Modified Date', 'Path'));
 				items.forEach(function (item) {
 					var itemPath = item.path;
 					if (item.version) {
@@ -1567,7 +1567,7 @@ module.exports.listFolder = function (argv, done) {
 						itemPath = itemPath + 'version ' + item.version;
 						itemPath = itemPath + ')';
 					}
-					console.log(sprintf(format, item.type, item.id, itemPath));
+					console.log(sprintf(format, item.type, item.id, item.lastModifiedDate ? item.lastModifiedDate : '', itemPath));
 				});
 				console.log('');
 				console.log('Total: ' + items.length);
@@ -1905,7 +1905,7 @@ var _readAllFiles = function (server, files, showDetail) {
 				}
 
 				count.push('.');
-				if (console.showInfo() && showInfo) {
+				if (console.showInfo()) {
 					process.stdout.write(' - downloading files [' + param.start + ', ' + param.end + '] ...');
 					readline.cursorTo(process.stdout, 0);
 					needNewLine = true;

@@ -1217,7 +1217,7 @@ module.exports.publishComponent = function (args) {
 	}
 };
 
-var _publishResourceAsync = function (server, type, id, name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish) {
+var _publishResourceAsync = function (server, type, id, name, usedContentOnly, compileSite, staticOnly, compileOnly, fullpublish, deletestaticfiles) {
 	return new Promise(function (resolve, reject) {
 
 		var url = '/sites/management/api/v1/' + type + '/';
@@ -1238,6 +1238,9 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 			url: server.url + url
 		};
 
+		if (type === 'sites' && deletestaticfiles) {
+			options.headers['X-Purge-Site-Static-Files'] = true;
+		}
 		if (type === 'sites' && (usedContentOnly || compileSite || staticOnly || compileOnly || fullpublish)) {
 			var body = {};
 			if (usedContentOnly) {
@@ -1360,7 +1363,7 @@ module.exports.publishTheme = function (args) {
 module.exports.publishSite = function (args) {
 	var server = args.server;
 	return _publishResourceAsync(server, 'sites', args.id, args.name,
-		args.usedContentOnly, args.compileSite, args.staticOnly, args.compileOnly, args.fullpublish
+		args.usedContentOnly, args.compileSite, args.staticOnly, args.compileOnly, args.fullpublish, args.deletestaticfiles
 	);
 };
 

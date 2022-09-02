@@ -70,6 +70,7 @@ module.exports.downloadContent = function (argv, done) {
 	}
 
 	var publishedassets = typeof argv.publishedassets === 'string' && argv.publishedassets.toLowerCase() === 'true';
+	var approvedassets = typeof argv.approvedassets === 'string' && argv.approvedassets.toLowerCase() === 'true';
 
 	var serverName = argv.server;
 	var server = serverUtils.verifyServer(serverName, projectDir);
@@ -143,7 +144,7 @@ module.exports.downloadContent = function (argv, done) {
 			done();
 			return;
 		}
-		_downloadContent(server, channel, name, publishedassets, repositoryName, collectionName, query, assetGUIDS).then(function (result) {
+		_downloadContent(server, channel, name, publishedassets, approvedassets, repositoryName, collectionName, query, assetGUIDS).then(function (result) {
 			if (result && result.err) {
 				done();
 			} else {
@@ -156,12 +157,12 @@ module.exports.downloadContent = function (argv, done) {
 
 var _downloadContentUtil = function (argv) {
 	verifyRun(argv);
-	return _downloadContent(argv.server, argv.channel, argv.name, argv.publishedassets,
+	return _downloadContent(argv.server, argv.channel, argv.name, argv.publishedassets, argv.approvedassets,
 		argv.repositoryName, argv.collectionName, argv.query, argv.assetGUIDS,
 		argv.requiredContentPath, argv.requiredContentTemplateName);
 };
 
-var _downloadContent = function (server, channel, name, publishedassets, repositoryName, collectionName, query, assetGUIDS,
+var _downloadContent = function (server, channel, name, publishedassets, approvedassets, repositoryName, collectionName, query, assetGUIDS,
 	requiredContentPath, requiredContentTemplateName) {
 	return new Promise(function (resolve, reject) {
 		var destdir = path.join(projectDir, 'dist');
@@ -175,6 +176,7 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 		var channelName = '';
 		var repository, collection;
 		var q = '';
+		var guids = [];
 		var exportfilepath;
 		var contentPath;
 
@@ -293,11 +295,12 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 					console.info(' - query: ' + q);
 				}
 
-				return _queryItems(server, q, assetGUIDS);
+				return _queryItems(server, q, assetGUIDS, 'name,typeCategory');
 
 			})
 			.then(function (result) {
-				var guids = [];
+
+				var guidAndTypes = [];
 				if (query || repository || collection || (assetGUIDS && assetGUIDS.length > 0)) {
 
 					var items = result || [];
@@ -337,6 +340,10 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 
 						if (add) {
 							guids.push(items[i].id);
+							guidAndTypes.push({
+								id: items[i].id,
+								typeCategory: items[i].typeCategory
+							});
 						}
 					}
 				} else {
@@ -352,9 +359,30 @@ var _downloadContent = function (server, channel, name, publishedassets, reposit
 					}
 				}
 
+				var approvedPromises = [];
+				if (approvedassets) {
+					approvedPromises.push(_queryApprovedItems(server, guidAndTypes));
+				}
+
+				return Promise.all(approvedPromises);
+
+			})
+			.then(function (results) {
+				var approvedGuids = results && results[0] || [];
+
+				if (approvedassets) {
+					if (approvedGuids.length > 0) {
+						console.log(' - total approved items to export: ' + approvedGuids.length);
+					} else {
+						console.error('ERROR: no approved asset to export');
+						return Promise.reject();
+					}
+				}
+				var finalGuids = approvedassets ? approvedGuids : guids;
+
 				exportfilepath = path.join(destdir, (name || channelName || repositoryName) + '_export.zip');
 
-				var exportPromise = _exportChannelContent(request, server, channelId, publishedassets, guids, exportfilepath, requiredContentTemplateName);
+				var exportPromise = _exportChannelContent(request, server, channelId, publishedassets, finalGuids, exportfilepath, requiredContentTemplateName);
 
 				return exportPromise;
 			})
@@ -483,7 +511,7 @@ var _queryItemsWithIds = function (server, qstr, assetGUIDS, fields) {
 	});
 };
 
-var _queryItems = function (server, qstr, assetGUIDS) {
+var _queryItems = function (server, qstr, assetGUIDS, fields) {
 	return new Promise(function (resolve, reject) {
 		var items = [];
 		if (!qstr && (!assetGUIDS || assetGUIDS.length === 0)) {
@@ -494,7 +522,8 @@ var _queryItems = function (server, qstr, assetGUIDS) {
 
 			return serverRest.queryItems({
 				server: server,
-				q: qstr
+				q: qstr,
+				fields: fields
 			}).then(function (result) {
 				items = result && result.data || [];
 				var ids = [];
@@ -502,7 +531,7 @@ var _queryItems = function (server, qstr, assetGUIDS) {
 					ids.push(item.id);
 				});
 				// verify items with id
-				_queryItemsWithIds(server, '', ids)
+				_queryItemsWithIds(server, '', ids, fields)
 					.then(function (result) {
 						var verifiedItems = result || [];
 						var notFound = [];
@@ -529,11 +558,89 @@ var _queryItems = function (server, qstr, assetGUIDS) {
 
 		} else {
 
-			_queryItemsWithIds(server, qstr, assetGUIDS)
+			_queryItemsWithIds(server, qstr, assetGUIDS, fields)
 				.then(function (result) {
 					return resolve(result);
 				});
 		}
+	});
+};
+
+var _queryApprovedItems = function (server, items) {
+	return new Promise(function (resolve, reject) {
+		var total = items.length;
+		var groups = [];
+		var limit = 10;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+
+		var approvedItems = [];
+
+		var doGetItems = groups.reduce(function (itemPromise, param) {
+			return itemPromise.then(function (result) {
+				var itemPromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					itemPromises.push(serverRest.getItemActivities({
+						server: server,
+						item: items[i]
+					}));
+				}
+
+				return Promise.all(itemPromises).then(function (results) {
+					for (var i = 0; i < results.length; i++) {
+						var activities = results[i] && results[i].items;
+						if (activities && activities.length > 0) {
+							var approved = false;
+							var id;
+							// the activities order: latest first
+							for (var j = 0; j < activities.length; j++) {
+								var source = activities[j].activityDetails && activities[j].activityDetails.source;
+								id = activities[j].activityDetails && activities[j].activityDetails.objectId;
+								if (source === 'APPROVED') {
+									approved = true;
+									break;
+								}
+								if (source === 'REJECTED') {
+									// latest is rejected
+									break;
+								}
+								if (source === 'SUBMITTEDFORREVIEW') {
+									// latest is under review
+									break;
+								}
+							}
+							if (id && approved) {
+								approvedItems.push(id);
+							}
+						}
+					}
+				});
+
+			});
+		},
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve({}));
+
+		doGetItems.then(function (result) {
+			resolve(approvedItems);
+		});
+
 	});
 };
 
@@ -4647,50 +4754,75 @@ module.exports.syncPublishUnpublishItems = function (argv, done) {
 
 	var channelName, channelIdSrc, channelIdDest;
 
-	serverRest.getChannel({
-		server: srcServer,
-		id: channelId
-	})
+	// console.setLevel('debug');
+
+	serverUtils.loginToServer(srcServer)
 		.then(function (result) {
-			if (result.err || !result.id) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + srcServer.url);
 				return Promise.reject();
 			}
 
-			channelIdSrc = result.id;
-			channelName = result.name;
-
-			if (!channelIdSrc) {
-				console.error('ERROR: channel does not exist on server ' + srcServer.name);
-				return Promise.reject();
-			}
-
-			console.info(' - validate channel on source server: ' + channelName + '(Id: ' + channelIdSrc + ')');
-
-			return serverRest.getChannelWithName({
-				server: destServer,
-				name: channelName
-			});
+			return serverUtils.loginToServer(destServer);
 		})
 		.then(function (result) {
-
-			channelIdDest = result && result.data && result.data.id;
-
-			if (!channelIdDest) {
-				console.error('ERROR: channel ' + channelName + ' does not exist on server ' + destServer.name);
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + destServer.url);
 				return Promise.reject();
 			}
 
-			console.info(' - validate channel on destination server: ' + channelName + '(Id: ' + channelIdDest + ')');
-			return _performOneOp(destServer, action, channelIdDest, contentGuids, true);
+			serverRest.getChannel({
+				server: srcServer,
+				id: channelId
+			})
+				.then(function (result) {
+					if (result.err || !result.id) {
+						return Promise.reject();
+					}
 
-		})
-		.then(function (result) {
-			if (result && result.err) {
-				return Promise.reject();
-			}
+					channelIdSrc = result.id;
+					channelName = result.name;
 
-			console.log(' - items ' + (action === 'publish' ? 'published to channel ' : 'unpublished from channel ') + channelName + ' on server ' + destServer.name);
-			done(true);
+					if (!channelIdSrc) {
+						console.error('ERROR: channel does not exist on server ' + srcServer.name);
+						return Promise.reject();
+					}
+
+					console.info(' - validate channel on source server: ' + channelName + '(Id: ' + channelIdSrc + ')');
+
+					return serverRest.getChannelWithName({
+						server: destServer,
+						name: channelName
+					});
+				})
+				.then(function (result) {
+
+					channelIdDest = result && result.data && result.data.id;
+
+					if (!channelIdDest) {
+						console.error('ERROR: channel ' + channelName + ' does not exist on server ' + destServer.name);
+						return Promise.reject();
+					}
+
+					console.info(' - validate channel on destination server: ' + channelName + '(Id: ' + channelIdDest + ')');
+					return _performOneOp(destServer, action, channelIdDest, contentGuids, true);
+
+				})
+				.then(function (result) {
+					if (result && result.err) {
+						return Promise.reject();
+					}
+
+					console.log(' - items ' + (action === 'publish' ? 'published to channel ' : 'unpublished from channel ') + channelName + ' on server ' + destServer.name);
+					done(true);
+				})
+				.catch((error) => {
+					if (error) {
+						console.error(error);
+					}
+					done();
+				});
+
 		})
 		.catch((error) => {
 			if (error) {
@@ -4816,6 +4948,8 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 	var destServer = argv.destination;
 	console.info(' - destination server: ' + destServer.url);
 
+	// console.setLevel('debug');
+
 	var action = argv.action;
 
 	var id = argv.id;
@@ -4833,210 +4967,231 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 		fs.mkdirSync(destdir);
 	}
 
-	var expandStr = action === 'CONTENTITEM_TRANSLATIONADDED' ? 'channels,variations' : '';
-	// Verify item
-	serverRest.getItem({
-		server: srcServer,
-		id: id,
-		expand: expandStr
-	})
+	serverUtils.loginToServer(srcServer)
 		.then(function (result) {
-			if (result.err) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + srcServer.url);
 				return Promise.reject();
 			}
-			item = result;
-			console.info(' - validate item on source server: name: ' + item.name + ' (type: ' + item.type + ' id: ' + item.id + ' language: ' + item.language + ')');
 
-			if (action === 'CONTENTITEM_TRANSLATIONADDED') {
-				masterItemId = item.variations && item.variations.data && item.variations.data[0] && item.variations.data[0].masterItem;
-				if (!masterItemId) {
-					console.log('ERROR: failed to find the master item');
-					return Promise.reject();
-				}
-				console.info(' - master item Id: ' + masterItemId);
-				if (item.channels && item.channels.data && item.channels.data.length > 0) {
-					item.channels.data.forEach(function (channel) {
-						if (channel.id) {
-							srcChannelIds.push(channel.id);
-						}
-					})
-				}
+			return serverUtils.loginToServer(destServer);
+		})
+		.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + destServer.url);
+				return Promise.reject();
 			}
 
-			return serverRest.getRepository({
+			var expandStr = action === 'CONTENTITEM_TRANSLATIONADDED' ? 'channels,variations' : '';
+			// Verify item
+			serverRest.getItem({
 				server: srcServer,
-				id: repositoryId
-			});
-		})
-		.then(function (result) {
-			if (!result || result.err) {
-				return Promise.reject();
-			}
-
-			srcRepository = result;
-
-			if (!srcRepository || !srcRepository.id) {
-				console.error('ERROR: repository ' + repositoryId + ' does not exist on server ' + srcServer.name);
-				return Promise.reject();
-			}
-
-			console.info(' - validate repository on source server: ' + srcRepository.name + ' (id: ' + srcRepository.id + ')');
-
-			return serverRest.getRepositoryWithName({
-				server: destServer,
-				name: srcRepository.name
-			});
-		})
-		.then(function (result) {
-
-			destRepository = result && result.data;
-
-			if (!destRepository || !destRepository.id) {
-				console.error('ERROR: repository ' + srcRepository.name + ' does not exist on server ' + destServer.name);
-				return Promise.reject();
-			}
-
-			console.info(' - validate repository on destination server: ' + destRepository.name + ' (id: ' + destRepository.id + ')');
-
-			var channelPromises = [];
-			if (action === 'CONTENTITEM_TRANSLATIONADDED' && srcChannelIds.length > 0) {
-				srcChannelIds.forEach(function (channelId) {
-					channelPromises.push(serverRest.getChannel({ server: srcServer, id: channelId }));
-				});
-			}
-
-			return Promise.all(channelPromises);
-
-		})
-		.then(function (results) {
-
-			var destChannelPromises = [];
-			if (action === 'CONTENTITEM_TRANSLATIONADDED' && srcChannelIds.length > 0) {
-				for (var i = 0; i < results.length; i++) {
-					if (results[i] && results[i].id && results[i].name) {
-						var channel = results[i];
-						console.info(' - validate channel on source server: ' + channel.name + ' (id: ' + channel.id + ')');
-						destChannelPromises.push(serverRest.getChannelWithName({ server: destServer, name: channel.name }));
+				id: id,
+				expand: expandStr
+			})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
 					}
-				}
-			}
+					item = result;
+					console.info(' - validate item on source server: name: ' + item.name + ' (type: ' + item.type + ' id: ' + item.id + ' language: ' + item.language + ')');
 
-			return Promise.all(destChannelPromises);
-
-		})
-		.then(function (results) {
-
-			if (action === 'CONTENTITEM_TRANSLATIONADDED' && srcChannelIds.length > 0) {
-				for (var i = 0; i < results.length; i++) {
-					if (results[i] && results[i].data && results[i].data.id && results[i].data.name) {
-						var channel = results[i].data;
-						console.info(' - validate channel on destination server: ' + channel.name + ' (id: ' + channel.id + ')');
-						destChannelIds.push(channel.id);
-					}
-				}
-			}
-
-			var itemId = action === 'CONTENTITEM_TRANSLATIONADDED' ? masterItemId : id;
-
-			return _syncExportItemFromSource(srcServer, itemId, item.name, filePath);
-		})
-		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-
-			// upload file
-			return serverRest.createFile({
-				server: destServer,
-				parentID: 'self',
-				filename: fileName,
-				contents: fs.createReadStream(filePath)
-			});
-		})
-		.then(function (result) {
-			if (!result || result.err || !result.id) {
-				return Promise.reject();
-			}
-			fileId = result.id;
-			console.info(' - upload file ' + result.name + ' (Id: ' + fileId + ' version: ' + result.version + ')');
-
-			var importArgs = {
-				server: destServer,
-				fileId: fileId,
-				repositoryId: destRepository.id
-			};
-			if (action === 'CONTENTITEM_TRANSLATIONADDED') {
-				importArgs.reuse = true;
-				importArgs.channelIds = destChannelIds;
-			} else {
-				importArgs.update = true;
-			}
-			return serverRest.importContent(importArgs);
-		})
-		.then(function (result) {
-			if (!result || result.err || !result.jobId) {
-				return Promise.reject();
-			}
-
-			var jobId = result.jobId;
-			console.info(' - submit import job (Id: ' + jobId + ')');
-
-			// Wait for job to finish
-			var inter = setInterval(function () {
-				var checkExportStatusPromise = serverRest.getContentJobStatus({
-					server: destServer,
-					jobId: jobId
-				});
-				checkExportStatusPromise
-					.then(function (result) {
-						if (result.status !== 'success') {
-							clearInterval(inter);
+					if (action === 'CONTENTITEM_TRANSLATIONADDED') {
+						masterItemId = item.variations && item.variations.data && item.variations.data[0] && item.variations.data[0].masterItem;
+						if (!masterItemId) {
+							console.log('ERROR: failed to find the master item');
 							return Promise.reject();
 						}
-
-						var data = result.data;
-						var status = data.status;
-
-						if (status && status === 'SUCCESS') {
-							clearInterval(inter);
-							console.log(' - content item imported');
-							// delete the zip file
-							var deleteArgv = {
-								file: fileName,
-								permanent: 'true'
-							};
-							documentUtils.deleteFile(deleteArgv, destServer, false)
-								.then(function (result) {
-									done(true);
-								});
-
-						} else if (status && status === 'FAILED') {
-							clearInterval(inter);
-							// console.log(data);
-							console.error('ERROR: import failed: ' + data.errorDescription);
-							clearInterval(inter);
-							done();
-						} else if (status && status === 'INPROGRESS') {
-							console.info(' - import job in progress...');
+						console.info(' - master item Id: ' + masterItemId);
+						if (item.channels && item.channels.data && item.channels.data.length > 0) {
+							item.channels.data.forEach(function (channel) {
+								if (channel.id) {
+									srcChannelIds.push(channel.id);
+								}
+							})
 						}
+					}
 
-					})
-					.catch((error) => {
-						if (error) {
-							console.log(error);
-						}
-						done();
+					return serverRest.getRepository({
+						server: srcServer,
+						id: repositoryId
 					});
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
 
-			}, 5000);
+					srcRepository = result;
+
+					if (!srcRepository || !srcRepository.id) {
+						console.error('ERROR: repository ' + repositoryId + ' does not exist on server ' + srcServer.name);
+						return Promise.reject();
+					}
+
+					console.info(' - validate repository on source server: ' + srcRepository.name + ' (id: ' + srcRepository.id + ')');
+
+					return serverRest.getRepositoryWithName({
+						server: destServer,
+						name: srcRepository.name
+					});
+				})
+				.then(function (result) {
+
+					destRepository = result && result.data;
+
+					if (!destRepository || !destRepository.id) {
+						console.error('ERROR: repository ' + srcRepository.name + ' does not exist on server ' + destServer.name);
+						return Promise.reject();
+					}
+
+					console.info(' - validate repository on destination server: ' + destRepository.name + ' (id: ' + destRepository.id + ')');
+
+					var channelPromises = [];
+					if (action === 'CONTENTITEM_TRANSLATIONADDED' && srcChannelIds.length > 0) {
+						srcChannelIds.forEach(function (channelId) {
+							channelPromises.push(serverRest.getChannel({ server: srcServer, id: channelId }));
+						});
+					}
+
+					return Promise.all(channelPromises);
+
+				})
+				.then(function (results) {
+
+					var destChannelPromises = [];
+					if (action === 'CONTENTITEM_TRANSLATIONADDED' && srcChannelIds.length > 0) {
+						for (var i = 0; i < results.length; i++) {
+							if (results[i] && results[i].id && results[i].name) {
+								var channel = results[i];
+								console.info(' - validate channel on source server: ' + channel.name + ' (id: ' + channel.id + ')');
+								destChannelPromises.push(serverRest.getChannelWithName({ server: destServer, name: channel.name }));
+							}
+						}
+					}
+
+					return Promise.all(destChannelPromises);
+
+				})
+				.then(function (results) {
+
+					if (action === 'CONTENTITEM_TRANSLATIONADDED' && srcChannelIds.length > 0) {
+						for (var i = 0; i < results.length; i++) {
+							if (results[i] && results[i].data && results[i].data.id && results[i].data.name) {
+								var channel = results[i].data;
+								console.info(' - validate channel on destination server: ' + channel.name + ' (id: ' + channel.id + ')');
+								destChannelIds.push(channel.id);
+							}
+						}
+					}
+
+					var itemId = action === 'CONTENTITEM_TRANSLATIONADDED' ? masterItemId : id;
+
+					return _syncExportItemFromSource(srcServer, itemId, item.name, filePath);
+				})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
+					}
+
+					// upload file
+					return serverRest.createFile({
+						server: destServer,
+						parentID: 'self',
+						filename: fileName,
+						contents: fs.createReadStream(filePath)
+					});
+				})
+				.then(function (result) {
+					if (!result || result.err || !result.id) {
+						return Promise.reject();
+					}
+					fileId = result.id;
+					console.info(' - upload file ' + result.name + ' (Id: ' + fileId + ' version: ' + result.version + ')');
+
+					var importArgs = {
+						server: destServer,
+						fileId: fileId,
+						repositoryId: destRepository.id
+					};
+					if (action === 'CONTENTITEM_TRANSLATIONADDED') {
+						importArgs.reuse = true;
+						importArgs.channelIds = destChannelIds;
+					} else {
+						importArgs.update = true;
+					}
+					return serverRest.importContent(importArgs);
+				})
+				.then(function (result) {
+					if (!result || result.err || !result.jobId) {
+						return Promise.reject();
+					}
+
+					var jobId = result.jobId;
+					console.info(' - submit import job (Id: ' + jobId + ')');
+
+					// Wait for job to finish
+					var inter = setInterval(function () {
+						var checkExportStatusPromise = serverRest.getContentJobStatus({
+							server: destServer,
+							jobId: jobId
+						});
+						checkExportStatusPromise
+							.then(function (result) {
+								if (result.status !== 'success') {
+									clearInterval(inter);
+									return Promise.reject();
+								}
+
+								var data = result.data;
+								var status = data.status;
+
+								if (status && status === 'SUCCESS') {
+									clearInterval(inter);
+									console.log(' - content item imported');
+									// delete the zip file
+									var deleteArgv = {
+										file: fileName,
+										permanent: 'true'
+									};
+									documentUtils.deleteFile(deleteArgv, destServer, false)
+										.then(function (result) {
+											done(true);
+										});
+
+								} else if (status && status === 'FAILED') {
+									clearInterval(inter);
+									// console.log(data);
+									console.error('ERROR: import failed: ' + data.errorDescription);
+									clearInterval(inter);
+									done();
+								} else if (status && status === 'INPROGRESS') {
+									console.info(' - import job in progress...');
+								}
+
+							})
+							.catch((error) => {
+								if (error) {
+									console.log(error);
+								}
+								done();
+							});
+
+					}, 5000);
+				})
+				.catch((error) => {
+					if (error) {
+						console.log(error);
+					}
+					done();
+				});
 		})
 		.catch((error) => {
 			if (error) {
-				console.log(error);
+				console.error(error);
 			}
 			done();
 		});
-
 };
 
 module.exports.syncUpdateItemOnly = function (argv, done) {
@@ -5058,48 +5213,70 @@ module.exports.syncUpdateItemOnly = function (argv, done) {
 	var id = argv.id;
 	var item;
 
-	// verify item on the source server
-	serverRest.getItem({
-		server: srcServer,
-		id: id
-	})
+	serverUtils.loginToServer(srcServer)
 		.then(function (result) {
-			if (result.err) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + srcServer.url);
 				return Promise.reject();
 			}
-			item = result;
-			console.info(' - validate item on source server: name: ' + item.name + ' (type: ' + item.type + ' id: ' + item.id + ' language: ' + item.language + ')');
 
-			// verify item on the target server
-			return serverRest.getItem({
-				server: destServer,
-				id: id,
-			});
-
+			return serverUtils.loginToServer(destServer);
 		})
 		.then(function (result) {
-			if (result.err) {
-				return Promise.reject();
-			}
-			var destItem = result;
-			console.info(' - validate item on destination server: name: ' + destItem.name + ' (type: ' + destItem.type + ' id: ' + destItem.id + ' language: ' + destItem.language + ')');
-
-			// update the item on the target server
-			item.repositoryId = destItem.repositoryId;
-			return serverRest.updateItem({ server: destServer, item: item });
-
-		})
-		.then(function (result) {
-			if (result.err) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + destServer.url);
 				return Promise.reject();
 			}
 
-			console.log(' - item updated');
-			done(true);
+			// verify item on the source server
+			serverRest.getItem({
+				server: srcServer,
+				id: id
+			})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
+					}
+					item = result;
+					console.info(' - validate item on source server: name: ' + item.name + ' (type: ' + item.type + ' id: ' + item.id + ' language: ' + item.language + ')');
+
+					// verify item on the target server
+					return serverRest.getItem({
+						server: destServer,
+						id: id,
+					});
+
+				})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
+					}
+					var destItem = result;
+					console.info(' - validate item on destination server: name: ' + destItem.name + ' (type: ' + destItem.type + ' id: ' + destItem.id + ' language: ' + destItem.language + ')');
+
+					// update the item on the target server
+					item.repositoryId = destItem.repositoryId;
+					return serverRest.updateItem({ server: destServer, item: item });
+
+				})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
+					}
+
+					console.log(' - item updated');
+					done(true);
+				})
+				.catch((error) => {
+					if (error) {
+						console.log(error);
+					}
+					done();
+				});
 		})
 		.catch((error) => {
 			if (error) {
-				console.log(error);
+				console.error(error);
 			}
 			done();
 		});
@@ -5123,25 +5300,47 @@ module.exports.syncDeleteItem = function (argv, done) {
 	var id = argv.id;
 	var name = argv.name;
 
-	// delete
-	serverRest.deleteItems({
-		server: destServer,
-		itemIds: [id]
-	})
+	serverUtils.loginToServer(srcServer)
 		.then(function (result) {
-			if (result.err) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + srcServer.url);
 				return Promise.reject();
 			}
-			// console.log(JSON.stringify(result, null, 4));
-			var failedItems = result && result.data && result.data.operations && result.data.operations.deleteItems && result.data.operations.deleteItems.failedItems || [];
-			if (failedItems && failedItems.length > 0) {
-				console.error('ERROR: failed to delete the item - ' + failedItems[0].message);
-				var retry = failedItems[0].message && failedItems[0].message.indexOf('referred by other') >= 0;
-				done(false, retry);
-			} else {
-				console.log(' - item ' + (name || id) + ' deleted on server ' + destServer.name);
-				done(true);
+
+			return serverUtils.loginToServer(destServer);
+		})
+		.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + destServer.url);
+				return Promise.reject();
 			}
+
+			// delete
+			serverRest.deleteItems({
+				server: destServer,
+				itemIds: [id]
+			})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
+					}
+					// console.log(JSON.stringify(result, null, 4));
+					var failedItems = result && result.data && result.data.operations && result.data.operations.deleteItems && result.data.operations.deleteItems.failedItems || [];
+					if (failedItems && failedItems.length > 0) {
+						console.error('ERROR: failed to delete the item - ' + failedItems[0].message);
+						var retry = failedItems[0].message && failedItems[0].message.indexOf('referred by other') >= 0;
+						done(false, retry);
+					} else {
+						console.log(' - item ' + (name || id) + ' deleted on server ' + destServer.name);
+						done(true);
+					}
+				})
+				.catch((error) => {
+					if (error) {
+						console.error(error);
+					}
+					done();
+				});
 		})
 		.catch((error) => {
 			if (error) {
@@ -5168,18 +5367,40 @@ module.exports.syncApproveItem = function (argv, done) {
 	var id = argv.id;
 	var name = argv.name;
 
-	// delete
-	serverRest.approveItems({
-		server: destServer,
-		itemIds: [id]
-	})
+	serverUtils.loginToServer(srcServer)
 		.then(function (result) {
-			if (result.err) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + srcServer.url);
 				return Promise.reject();
 			}
 
-			console.log(' - item ' + (name || id) + ' approved on server ' + destServer.name);
-			done(true);
+			return serverUtils.loginToServer(destServer);
+		})
+		.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + destServer.url);
+				return Promise.reject();
+			}
+
+			// delete
+			serverRest.approveItems({
+				server: destServer,
+				itemIds: [id]
+			})
+				.then(function (result) {
+					if (result.err) {
+						return Promise.reject();
+					}
+
+					console.log(' - item ' + (name || id) + ' approved on server ' + destServer.name);
+					done(true);
+				})
+				.catch((error) => {
+					if (error) {
+						console.error(error);
+					}
+					done();
+				});
 		})
 		.catch((error) => {
 			if (error) {

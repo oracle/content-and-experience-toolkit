@@ -2858,7 +2858,7 @@ module.exports.getScheduledJob = function (args) {
 module.exports.getItemActivities = function (args) {
 	var objectType = args.item.typeCategory === 'ContentType' ? 'Content Item' : 'Digital Asset';
 	var endpoint = '/system/api/v1/auditlog/activities?q=objectType eq "' + objectType +
-		'" and variationSetId eq "' + args.item.varSetId + '"';
+		'" and objectId eq "' + args.item.id + '"';
 	endpoint = endpoint + '&expand=all&limit=1000';
 	return _getResource(args.server, endpoint, 'item activities');
 };
