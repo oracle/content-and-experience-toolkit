@@ -1091,6 +1091,309 @@ module.exports.describeBackgroundJob = function (argv, done) {
 	});
 };
 
+module.exports.listPublishingJobs = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var jobType = argv.type;
+	var name = argv.name;
+	var repositoryName = argv.repository;
+	var repository;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var jobPromise = jobType === 'asset' ? _listAssetPublishJobs(server, repositoryName) : _listSitePublishJobs(server, jobType, name);
+		jobPromise
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+
+};
+
+var _listAssetPublishJobs = function (server, repositoryName) {
+	return new Promise(function (resolve, reject) {
+		var repository;
+		var jobs;
+		serverRest.getRepositoryWithName({ server: server, name: repositoryName })
+			.then(function (result) {
+				repository = result && result.data;
+				if (!repository || !repository.id) {
+					console.error('ERROR: repository ' + repositoryName + ' does not exist');
+					return Promise.reject();
+				}
+				console.info(' - verify repository ' + repository.name + ' (Id: ' + repository.id + ')');
+
+				return serverRest.getPublishingJobs({ server: server, repositoryId: repository.id });
+
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				jobs = result || [];
+
+				var channelIds = [];
+				var channelPromises = [];
+				jobs.forEach(function (job) {
+					if (job.channels) {
+						for (var i = 0; i < job.channels.length; i++) {
+							if (job.channels[i].id && !channelIds.includes(job.channels[i].id)) {
+								channelIds.push(job.channels[i].id);
+								channelPromises.push(serverRest.getChannel({ server: server, id: job.channels[i].id }));
+							}
+						}
+					}
+				});
+				// console.log(channelIds);
+
+				return Promise.all(channelPromises);
+
+			})
+			.then(function (results) {
+
+				var channels = results || [];
+
+				if (jobs.length > 0) {
+					console.log(' - total jobs: ' + jobs.length);
+					// Display asset publishing jobs
+					var format = '  %-34s  %-10s  %-24s  %-10s  %-36s  %-s';
+					console.log(sprintf(format, 'Id', 'Status', 'Completed Date', 'Duration', 'Published by', 'Channels'));
+					jobs.forEach(function (job) {
+						var channelStr = [];
+						if (job.channels) {
+							for (var i = 0; i < job.channels.length; i++) {
+								var found = false;
+								// find the channel name
+								for (var j = 0; j < channels.length; j++) {
+									if (job.channels[i].id === channels[j].id) {
+										// display channel name
+										channelStr.push(channels[j].name);
+										found = true;
+										break;
+									}
+								}
+								if (!found) {
+									// display channel id
+									channelStr.push(job.channels[i].id);
+								}
+							}
+						}
+
+						var duration = serverUtils.timeUsed(new Date(job.jobStartedDate.value), new Date(job.jobCompletedDate.value));
+
+						console.log(sprintf(format, job.id, job.publishStatus, job.jobCompletedDate.value, duration, job.owner, channelStr.toString()));
+
+					});
+
+					if (jobs.length > 40) {
+						console.log(' - total jobs: ' + jobs.length);
+					}
+					console.log('');
+				} else {
+					console.log(' - no publishing job');
+				}
+
+				return resolve({});
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				return resolve({ err: 'err' });
+			});
+	});
+};
+
+var _listSitePublishJobs = function (server, type, name) {
+	return new Promise(function (resolve, reject) {
+		var resPromises = [];
+		if (name) {
+			resPromises.push(type === 'site' ? sitesRest.getSite({ server: server, name: name }) :
+				(type === 'theme' ? sitesRest.getTheme({ server: server, name: name }) :
+					sitesRest.getComponent({ server: server, name: name })));
+		}
+
+		var item;
+		Promise.all(resPromises)
+			.then(function (results) {
+				if (name) {
+					item = results && results[0];
+					if (!item || !item.id) {
+						return Promise.reject();
+					}
+					console.info(' - varify ' + type + ' ' + name + ' (Id: ' + item.id + ')');
+				}
+
+				var itemGUID = item && item.id;
+				var jobId;
+				return serverUtils.GetSCSPublishingJobs(server, type, itemGUID, jobId);
+
+			})
+			.then(function (result) {
+				if (result.err) {
+					return Promise.reject();
+				}
+
+				var jobs = result || [];
+
+				if (jobs.length > 0) {
+					console.log(' - total jobs: ' + jobs.length);
+					// Display asset publishing jobs
+					var format = '  %-57s  %-10s  %-24s  %-10s  %-40s  %-s';
+					var nameLabel = type.charAt(0).toUpperCase() + type.slice(1) + ' Name';
+					console.log(sprintf(format, 'Id', 'Status', 'Completed Date', 'Duration', 'Published by', nameLabel));
+					jobs.forEach(function (job) {
+						var duration = job.JobCompleteDate ? serverUtils.timeUsed(new Date(job.JobCreateDate), new Date(job.JobCompleteDate)) : '';
+						console.log(sprintf(format, job.JobID, job.JobStatus, job.JobCompleteDate, duration, job.JobCreatorLoginName, job.ItemName));
+					});
+
+					if (jobs.length > 40) {
+						console.log(' - total jobs: ' + jobs.length);
+					}
+					console.log('');
+
+				} else {
+					console.log(' - no publishing job');
+				}
+
+				return resolve({});
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				return resolve({ err: 'err' });
+			});
+	});
+};
+
+module.exports.downloadJobLog = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var jobId = argv.id.toString();
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var job;
+		var siteJob;
+		var downloadUrl;
+		var fileName;
+		var filePath;
+
+		// first check if it is a "site" job
+		var type;
+		var itemGUID;
+		serverUtils.GetSCSPublishingJobs(server, type, itemGUID, jobId)
+			.then(function (result) {
+				if (result && result[0] && result[0].JobID) {
+					job = result[0];
+					siteJob = true;
+					console.info(' - verify job: ' + job.Action + ' ' + job.ItemType + ' ' + job.ItemName);
+					downloadUrl = '/documents/integration?IdcService=SCS_DOWNLOAD_SITE_ITEM_JOB_LOG&IsJson=1&jobID=' + job.JobID;
+					fileName = 'publish-log-' + job.JobID + '.json';
+				}
+
+				var assetJobPromises = [];
+				if (!job) {
+					// try asset job
+					assetJobPromises.push(serverRest.getPublishingJob({ server: server, id: jobId }));
+				}
+
+				return Promise.all(assetJobPromises);
+
+			})
+			.then(function (results) {
+				if (!job) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
+
+					job = results[0];
+					console.info(' - verify job: ' + job.jobType + ' assets');
+					if (!job.publishLogDownloadLink || !job.publishLogDownloadLink.href) {
+						console.log(' - job does not have log');
+						return Promise.reject();
+					}
+
+					downloadUrl = job.publishLogDownloadLink.href;
+					downloadUrl = downloadUrl.replace(server.url, '');
+					if (downloadUrl.charAt(0) !== '/') {
+						downloadUrl = '/' + downloadUrl;
+					}
+					fileName = downloadUrl.substring(downloadUrl.lastIndexOf('/') + 1);
+				}
+
+				filePath = path.join(projectDir, 'dist', fileName);
+
+				var writer = fs.createWriteStream(filePath);
+				return serverRest.executeGetStream({ server: server, endpoint: downloadUrl, writer: writer, noMsg: true });
+
+			})
+			.then(function (result) {
+
+				if (!fs.existsSync(filePath)) {
+					return Promise.reject();
+				}
+
+				console.log(' - log saved to ' + filePath);
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
+
+
 var lpad = function (s) {
 	var width = 7;
 	var char = '0';

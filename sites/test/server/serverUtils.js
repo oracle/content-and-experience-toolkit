@@ -4033,6 +4033,83 @@ module.exports.setComponentMetadata = function (server, idcToken, compId, values
 
 };
 
+/**
+ * 
+ * @param {*} server 
+ * @param {*} type site, theme, component
+ * @param {*} itemGUID the ID of a site, theme or component
+ * @param {*} jobId the job id
+ * @returns 
+ */
+module.exports.GetSCSPublishingJobs = function (server, type, itemGUID, jobId) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/documents/integration?IdcService=SCS_BROWSE_SITE_ITEM_JOBS&IsJson=1';
+
+		if (jobId) {
+			url = url + '&jobID=' + jobId;
+		} else {
+			url = url + '&action=' + (type === 'site' ? 'publish' : 'activate');
+			url = url + '&itemSortOrder=ASC';
+			url = url + '&itemCount=10000';
+			if (type) {
+				url = url + '&type=' + type;
+			}
+			if (itemGUID) {
+				url = url + '&itemGUID=' + itemGUID;
+			}
+		}
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: _getRequestAuthorization(server)
+			}
+		};
+
+		_showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (err, response, body) {
+			if (err) {
+				console.error('ERROR: Failed to get ' + type + ' publishing jobs');
+				console.error(err);
+				return resolve({
+					'err': err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) { }
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				console.error('ERROR: Failed to get ' + type + ' publishing jobs' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
+				return resolve({
+					err: 'err'
+				});
+			}
+
+			var fields = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.fields || [];
+			var rows = data.ResultSets && data.ResultSets.JobInfo && data.ResultSets.JobInfo.rows || [];
+			var jobs = [];
+			rows.forEach(function (row) {
+				jobs.push({});
+			});
+			for (var i = 0; i < fields.length; i++) {
+				var attr = fields[i].name;
+				for (var j = 0; j < rows.length; j++) {
+					jobs[j][attr] = rows[j][i];
+				}
+			}
+
+
+			resolve(jobs);
+		});
+	});
+};
+
+
 module.exports.templateHasContentItems = function (projectDir, templateName) {
 	_setupSourceDir(projectDir);
 

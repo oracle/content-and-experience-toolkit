@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "22.9.1",
+	"version": "22.9.2",
 	"license": "UPL-1.0",
 	"description": "Oracle Content Management Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content Management.",
 	"main": "index.js",
@@ -163,6 +163,8 @@
 		"list-scheduled-jobs": "gulp -LL --gulpfile bin/gulpfile.js list-scheduled-jobs ",
 		"describe-scheduled-job": "gulp -LL --gulpfile bin/gulpfile.js describe-scheduled-job ",
 		"describe-background-job": "gulp -LL --gulpfile bin/gulpfile.js describe-background-job ",
+		"list-publishing-jobs": "gulp -LL --gulpfile bin/gulpfile.js list-publishing-jobs ",
+		"download-job-log": "gulp -LL --gulpfile bin/gulpfile.js download-job-log ",
 		"create-encryption-key": "gulp -LL --gulpfile bin/gulpfile.js create-encryption-key ",
 		"register-server": "gulp -LL --gulpfile bin/gulpfile.js register-server ",
 		"set-oauth-token": "gulp -LL --gulpfile bin/gulpfile.js set-oauth-token ",
