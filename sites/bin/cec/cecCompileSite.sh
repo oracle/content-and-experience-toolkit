@@ -123,7 +123,14 @@ echo "Elapsed time: ${SECONDS}s" | tee -a ${LOG_FILE}
 if [ "${DOWNLOAD_RESULT}" -eq "0" ]
 then
   echo "Downloaded custom compile script" | tee -a ${LOG_FILE}
-  # successfully downloaded compile script, make the file an executable and use it
+  # successfully downloaded compile script, 
+  # make the file compatible with unix and an executable so it can be used
+  if [ -x "$(command -v dos2unix)" ]
+  then
+    dos2unix -n ./${SITE_COMPILE_SCRIPT} ./${SITE_COMPILE_SCRIPT}
+  else
+    echo "Warning: No dos2unix command found, running compile_site.sh without converting to unix " | tee -a ${LOG_FILE}
+  fi
   chmod +x ./${SITE_COMPILE_SCRIPT}
 
   # switch to use custom site compile script

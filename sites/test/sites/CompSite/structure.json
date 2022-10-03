@@ -55,6 +55,18 @@
 					"overrideUrl": false,
 					"isDetailPage": true,
 					"isSearchPage": null
+				}, {
+					"id": 401,
+					"name": "Search Page",
+					"parentId": 11,
+					"pageUrl": "search-page.html",
+					"hideInNavigation": true,
+					"linkUrl": "",
+					"linkTarget": "",
+					"children": [],
+					"overrideUrl": false,
+					"isDetailPage": null,
+					"isSearchPage": true
 				}
 			]
 		},

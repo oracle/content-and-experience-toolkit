@@ -140,6 +140,10 @@ var getTemplateSources = function () {
 	return validTemplateSources;
 };
 
+var getSiteMapFormats = function () {
+	const values = ['text', 'xml'];
+	return values;
+};
 var getSiteMapChangefreqValues = function () {
 	const values = ['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never', 'auto'];
 	return values;
@@ -156,7 +160,7 @@ var getSiteActions = function () {
 };
 
 var getContentActions = function () {
-	const actions = ['publish', 'unpublish', 'add', 'remove'];
+	const actions = ['publish', 'unpublish', 'add', 'remove', 'set-translated'];
 	return actions;
 };
 
@@ -1087,7 +1091,8 @@ const controlContent = {
 		['cec control-content remove -c Channel1 -s SampleServer1', 'Remove all items in channel Channel1 on the registered server SampleServer1'],
 		['cec control-content add -l Collection1 -r Repo1 -s SampleServer1', 'Add all items in repository Repo1 to collection Collection1 on the registered server SampleServer1'],
 		['cec control-content remove -l Collection -s SampleServer1', 'Remove all items in collection Collection1 on the registered server SampleServer1'],
-		['cec control-content publish -c C1 -r R1 -s SampleServer1 -d "2021/9/21 0:30:00 PST" -n Name', 'Create a publishing job called Name to publish all items in channel C1 on the specified date. Requires server version: 21.2.1']
+		['cec control-content publish -c C1 -r R1 -s SampleServer1 -d "2021/9/21 0:30:00 PST" -n Name', 'Create a publishing job called Name to publish all items in channel C1 on the specified date. Requires server version: 21.2.1'],
+		['cec control-content set-translated -a GUID1,GUID2 -s SampleServer1', 'Set translatable item GUID1 and GUID2 as translated'],
 	]
 };
 
@@ -1744,15 +1749,21 @@ const createSiteMap = {
 		'short': 'Creates a site map for site <site> on OCM server.',
 		'long': (function () {
 			let desc = 'Creates a site map for site on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -r to specify the format of the sitemap, defaults to XML format. ' +
 				'Optionally specify -p to upload the site map to OCM server after creation. ' +
 				'Optionally specify -c <changefreq> to define how frequently the page is likely to change. ' +
 				'Optionally specify -t <toppagepriority> as the priority for the top level pages. ' +
-				'Also optionally specify <file> as the file name for the site map.\n\nThe valid values for <changefreq> are:\n\n';
-			return getSiteMapChangefreqValues().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+				'Also optionally specify <file> as the file name for the site map.' + os.EOL + os.EOL +
+				'The valid values for <format> are:' + os.EOL + os.EOL;
+			desc = getSiteMapFormats().reduce((acc, item) => acc + '  ' + item + '\n', desc) + os.EOL + os.EOL;
+			desc = desc + 'The valid values for <changefreq> are:' + os.EOL + os.EOL;
+			desc = getSiteMapChangefreqValues().reduce((acc, item) => acc + '  ' + item + '\n', desc);
+			return desc;
 		})()
 	},
 	example: [
 		['cec create-site-map Site1 -u http://www.example.com/site1'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -r text -f sitemap.txt', 'Create a text-formatted sitemap for site Site1'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -a', 'Create entry for all site assets of the types which are placed on site detail pages'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -a Blog,Author', 'Create entry for all site assets of the type Blog and Author if they are placed on site detail pages'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -s SampleServer1'],
@@ -1760,7 +1771,8 @@ const createSiteMap = {
 		['cec create-site-map Site1 -u http://www.example.com/site1 -f sitemap.xml'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -p'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -c weekly -p'],
-		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT', 'Generate URLs in default locale, de-DE and it-IT'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT -b', 'Generate URLs in de-DE and it-IT only'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -q "page1:querystring1,page2:querystring2"', 'Append query string querystring1 to page page1 and querystring2 to page page2'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -q "allquerystring,page1:querystring1"', 'Append query string querystring1 to page page1 and allquerystring to all other pages'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -q "allquerystring,page1:"', 'Append query string querystring all pages except page page1']
@@ -2511,6 +2523,43 @@ const createLocalizationPolicy = {
 		['cec create-localization-policy en-fr -r en-US,fr-FR -l en-US'],
 		['cec create-localization-policy multi -r en-US,fr-FR -l en-US -o zh-CN -d "Policy for Blog" -s SampleServer1']
 
+	]
+};
+
+const downloadLocalizationPolicy = {
+	command: 'download-localization-policy <name>',
+	alias: 'dllp',
+	name: 'download-localization-policy',
+	usage: {
+		'short': 'Downloads localization policies from OCM server.',
+		'long': (function () {
+			let desc = 'Downloads localization policies from OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec download-localization-policy multi', 'Download localization policy multi and save to local folder src/localizationPolicies/multi'],
+		['cec download-localization-policy multi,en-fr', 'Download localization policy multi and en-fr and save to local folder'],
+		['cec download-localization-policy multi -s SampleServer1']
+	]
+};
+
+const uploadLocalizationPolicy = {
+	command: 'upload-localization-policy <name>',
+	alias: 'ullp',
+	name: 'upload-localization-policy',
+	usage: {
+		'short': 'Uploads localization policies to OCM server.',
+		'long': (function () {
+			let desc = 'Uploads localization policies from OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec upload-localization-policy multi'],
+		['cec upload-localization-policy multi,en-fr -s SampleServer1'],
+		['cec upload-localization-policy ~/Downloads/localizationPolicy.json -f'],
+		['cec upload-localization-policy ~/Downloads/localizationPolicy.json -f -c ~/Downloads/Customlangauges.json']
 	]
 };
 
@@ -3670,6 +3719,8 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(unshareChannel) + os.EOL +
 	_getCmdHelp(describeChannel) + os.EOL +
 	_getCmdHelp(createLocalizationPolicy) + os.EOL +
+	_getCmdHelp(downloadLocalizationPolicy) + os.EOL +
+	_getCmdHelp(uploadLocalizationPolicy) + os.EOL +
 	_getCmdHelp(listServerContentTypes) + os.EOL +
 	_getCmdHelp(shareType) + os.EOL +
 	_getCmdHelp(unshareType) + os.EOL +
@@ -4906,7 +4957,7 @@ const argv = yargs.usage(_usage)
 					if (argv.action && !getContentActions().includes(argv.action)) {
 						throw new Error(`${argv.action} is not a valid value for <action>`);
 					}
-					if (argv.action !== 'add' && argv.action !== 'remove' && !argv.channel) {
+					if ((argv.action === 'publish' || argv.action === 'unpublish') && !argv.channel) {
 						throw new Error('Please specify channel');
 					}
 					if (argv.action === 'add' && !argv.repository) {
@@ -4947,6 +4998,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlContent.example[9])
 				.example(...controlContent.example[10])
 				.example(...controlContent.example[11])
+				.example(...controlContent.example[12])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlContent.command}\n\n${controlContent.usage.long}`);
@@ -5952,6 +6004,10 @@ const argv = yargs.usage(_usage)
 				description: '<url> Site URL',
 				demandOption: true
 			})
+				.option('format', {
+					alias: 'r',
+					description: 'Format of the sitemap, defaults to XML'
+				})
 				.option('assettypes', {
 					alias: 'a',
 					description: 'The comma separated list of content types'
@@ -5966,7 +6022,7 @@ const argv = yargs.usage(_usage)
 				})
 				.option('languages', {
 					alias: 'l',
-					description: '<languages> The comma separated list of languages used to create the site map'
+					description: 'The comma separated list of languages used to create the site map'
 				})
 				.option('publish', {
 					alias: 'p',
@@ -5984,6 +6040,10 @@ const argv = yargs.usage(_usage)
 					alias: 'n',
 					description: 'Generate new 19.3.3 detail page link'
 				})
+				.option('nodefaultlocale', {
+					alias: 'b',
+					description: 'Do not generate URL for default locale'
+				})
 				.option('noDefaultDetailPageLink', {
 					alias: 'o',
 					description: 'Do not generate detail page link for items/content lists that use the default detail page'
@@ -5995,13 +6055,17 @@ const argv = yargs.usage(_usage)
 				.check((argv) => {
 					if (!argv.url) {
 						throw new Error('Please specify site URL');
-					} else if (argv.changefreq && !getSiteMapChangefreqValues().includes(argv.changefreq)) {
-						throw new Error(`${argv.changefreq} is not a valid value for <changefreq>`);
-					} else if (argv.toppagepriority !== undefined && (argv.toppagepriority <= 0 || argv.toppagepriority >= 1)) {
-						throw new Error('Value for toppagepriority should be greater than 0 and less than 1');
-					} else {
-						return true;
 					}
+					if (argv.format && !getSiteMapFormats().includes(argv.format)) {
+						throw new Error(os.EOL + `${argv.format} is not a valid value for <format>`);
+					}
+					if (argv.changefreq && !getSiteMapChangefreqValues().includes(argv.changefreq)) {
+						throw new Error(os.EOL + `${argv.changefreq} is not a valid value for <changefreq>`);
+					}
+					if (argv.toppagepriority !== undefined && (argv.toppagepriority <= 0 || argv.toppagepriority >= 1)) {
+						throw new Error(os.EOL + 'Value for toppagepriority should be greater than 0 and less than 1');
+					}
+					return true;
 				})
 				.example(...createSiteMap.example[0])
 				.example(...createSiteMap.example[1])
@@ -6015,6 +6079,8 @@ const argv = yargs.usage(_usage)
 				.example(...createSiteMap.example[9])
 				.example(...createSiteMap.example[10])
 				.example(...createSiteMap.example[11])
+				.example(...createSiteMap.example[12])
+				.example(...createSiteMap.example[13])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createSiteMap.command}\n\n${createSiteMap.usage.long}`);
@@ -7223,6 +7289,41 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createLocalizationPolicy.command}\n\n${createLocalizationPolicy.usage.long}`);
+		})
+	.command([downloadLocalizationPolicy.command, downloadLocalizationPolicy.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...downloadLocalizationPolicy.example[0])
+				.example(...downloadLocalizationPolicy.example[1])
+				.example(...downloadLocalizationPolicy.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${downloadLocalizationPolicy.command}\n\n${downloadLocalizationPolicy.usage.long}`);
+		})
+	.command([uploadLocalizationPolicy.command, uploadLocalizationPolicy.alias], false,
+		(yargs) => {
+			yargs.option('file', {
+				alias: 'f',
+				description: 'Flag to indicate the localization policy is from file'
+			})
+				.option('customlanguagecodes', {
+					alias: 'c',
+					description: 'The custom language codes file'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...uploadLocalizationPolicy.example[0])
+				.example(...uploadLocalizationPolicy.example[1])
+				.example(...uploadLocalizationPolicy.example[2])
+				.example(...uploadLocalizationPolicy.example[3])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${uploadLocalizationPolicy.command}\n\n${uploadLocalizationPolicy.usage.long}`);
 		})
 	.command([listAssets.command, listAssets.alias], false,
 		(yargs) => {
@@ -10334,6 +10435,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--site', argv.site,
 		'--url', argv.url
 	];
+	if (argv.format) {
+		createSiteMapArgs.push(...['--format', argv.format]);
+	}
 	if (argv.assettypes) {
 		var assettypes = typeof argv.assettypes === 'boolean' ? '__cecanytype' : argv.assettypes;
 		createSiteMapArgs.push(...['--assettypes', assettypes]);
@@ -10352,6 +10456,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.toppagepriority) {
 		createSiteMapArgs.push(...['--toppagepriority', argv.toppagepriority]);
+	}
+	if (argv.nodefaultlocale) {
+		createSiteMapArgs.push(...['--nodefaultlocale', argv.nodefaultlocale]);
 	}
 	if (argv.newlink) {
 		createSiteMapArgs.push(...['--newlink', argv.newlink]);
@@ -11198,6 +11305,41 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		createLocalizationPolicyArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createLocalizationPolicyArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === downloadLocalizationPolicy.name || argv._[0] === downloadLocalizationPolicy.alias) {
+	let downloadLocalizationPolicyArgs = ['run', '-s', downloadLocalizationPolicy.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		downloadLocalizationPolicyArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, downloadLocalizationPolicyArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === uploadLocalizationPolicy.name || argv._[0] === uploadLocalizationPolicy.alias) {
+	let uploadLocalizationPolicyArgs = ['run', '-s', uploadLocalizationPolicy.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.file) {
+		uploadLocalizationPolicyArgs.push(...['--file', argv.file]);
+	}
+	if (argv.customlanguagecodes) {
+		uploadLocalizationPolicyArgs.push(...['--customlanguagecodes', argv.customlanguagecodes]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		uploadLocalizationPolicyArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, uploadLocalizationPolicyArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

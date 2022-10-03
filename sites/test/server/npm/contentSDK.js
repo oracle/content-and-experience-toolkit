@@ -262,7 +262,8 @@
 
 					// do http or https get writing the bodyString
 					if (beforeSendOK(options)) {
-						restRequest = protocolCall.request(options, requestResponse).write(bodyString);
+						restRequest = protocolCall.request(options, requestResponse);
+						restRequest.write(bodyString);
 					}
 				} else {
 					// unsupported method
@@ -543,6 +544,13 @@
 		_logger.info(url);
 
 		return url;
+	};
+	_ContentAPI.prototype.formatGraphQLURL = function (restArgs) {
+		var cacheBusterValue = typeof restArgs.cacheBuster === 'object' ? restArgs.cacheBuster.contentKey : restArgs.cacheBuster,
+			cacheBuster = cacheBusterValue ? 'cb=' + cacheBusterValue : '',
+			state = restArgs.contentType === 'draft' ? 'preview' : 'published'; // only preview & published supported by graphQL
+
+		return restArgs.contentServer + this.contextRoot + '/' + state + '/api/v1.1/graphql' + (cacheBuster ? '?' + cacheBuster : '');
 	};
 	_ContentAPI.prototype.resolveGetTypesPath = function (args) {
 		return '/types';
@@ -993,6 +1001,7 @@
 			getItems: _utils.bind(this.getItems, this),
 			searchItems: _utils.bind(this.queryItems, this), // name changed to queryItems
 			queryItems: _utils.bind(this.queryItems, this),
+			graphql: _utils.bind(this.graphql, this),
 			getRenditionURL: _utils.bind(this.getRenditionURL, this),
 			getLayoutInfo: _utils.bind(this.getLayoutInfo, this),
 			getRecommendationResults: _utils.bind(this.getRecommendationResults, this),
@@ -1401,6 +1410,47 @@
 
 		// format the URL
 		var url = self.restAPI.formatURL(self.restAPI.resolveSearchPath(), restCallArgs);
+
+		return self.restAPI.callRestServer(url, restCallArgs);
+	};
+
+	/**
+	 * Get a list of items based on GraphQL POST query.<br/>
+	 * 
+	 * See GraphQL Explorer: https://<domain>/content/published/api/v1.1/graphql/explorer
+	 *
+	 * @param {object} args - A JavaScript object containing the "GraphQL" parameters.
+	 * @param {string} [args.query=''] - A GraphQL query string to restrict results.
+	 * @param {function} [args.beforeSend=undefined] - A callback passing in the xhr (browser) or options (node) object before making the REST call.
+	 * @returns {Promise} A JavaScript Promise object that can be used to retrieve the data after the call has completed.
+	 * @example
+	 * // get the id,name,type of all the items in the publishing channel
+	 * contentClient.graphql({
+	 *     'query': '{ getItems(channelToken: "2834f431f8524ffa89dfb7fe77993284") { items { id name type } } }'
+	 * }).then(function (response) {
+	 *     console.log(response);
+	 * });
+	 */
+	 ContentDeliveryClientImpl.prototype.graphql = function (params) {
+		var self = this,
+			args = params || {},
+			restCallArgs = this.resolveRESTArgs('POST', args);
+
+		// add in the graphQL query POST body
+		restCallArgs.postData = {
+			query: params.query || params.q,
+			variables: params.variables || null
+		};
+
+		_logger.debug('ContentClient.graphql: arguments');
+		_logger.debug(args);
+
+		// setup the search specific arguments
+		//  - search does not require management calls so the CSRF token should not be required for POST requests
+		restCallArgs.noCSRFToken = true;
+
+		// format the GraphQL URL:  https://.../content/published/api/v1.1/graphql?cb=<cachebuster>
+		var url = self.restAPI.formatGraphQLURL(restCallArgs);
 
 		return self.restAPI.callRestServer(url, restCallArgs);
 	};
@@ -1861,6 +1911,7 @@
 			getItems: _utils.bind(this.getItems, this),
 			searchItems: _utils.bind(this.queryItems, this), // name change to queryItems
 			queryItems: _utils.bind(this.queryItems, this),
+			graphql: _utils.bind(this.graphql, this),
 			getRenditionURL: _utils.bind(this.getRenditionURL, this),
 			getLayoutInfo: _utils.bind(this.getLayoutInfo, this),
 			getRecommendationResults: _utils.bind(this.getRecommendationResults, this),

@@ -22,6 +22,7 @@ var projectDir,
 	buildDir,
 	componentsSrcDir,
 	contentSrcDir,
+	localizationPoliciesSrcDir,
 	templatesSrcDir,
 	typesSrcDir,
 	wordTemplatesSrcDir,
@@ -40,6 +41,7 @@ var verifyRun = function (argv) {
 
 	componentsSrcDir = path.join(srcfolder, 'components');
 	contentSrcDir = path.join(srcfolder, 'content');
+	localizationPoliciesSrcDir = path.join(srcfolder, 'localizationPolicies');
 	templatesSrcDir = path.join(srcfolder, 'templates');
 	typesSrcDir = path.join(srcfolder, 'types');
 
@@ -5096,6 +5098,453 @@ module.exports.createLocalizationPolicy = function (argv, done) {
 	});
 };
 
+
+module.exports.downloadLocalizationPolicy = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+	console.info(' - server: ' + server.url);
+
+	var names = argv.name.split(',');
+	var goodNames = [];
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var customLanguages = [];
+		// Get all custom language codes
+		serverRest.getLanguageCodes({ server: server, languageType: 'custom' })
+			.then(function (result) {
+				customLanguages = result && result || [];
+				// console.info(' - total custom languages: ' + customLanguages.length);
+
+				var policyPromises = [];
+				names.forEach(function (name) {
+					policyPromises.push(serverRest.getLocalizationPolicWithName({
+						server: server,
+						name: name
+					}));
+				});
+
+				return Promise.all(policyPromises);
+
+			})
+			.then(function (results) {
+
+				names.forEach(function (name) {
+					var policy = undefined;
+					for (var i = 0; i < results.length; i++) {
+						for (var j = 0; j < results[i].length; j++) {
+							// localization policy name is case sensitive
+							if (results[i][j] && results[i][j].id && results[i][j].name === name) {
+								policy = results[i][j];
+								break;
+							}
+						}
+						if (policy) {
+							break;
+						}
+					}
+					if (policy) {
+						if (!goodNames.includes(policy.name)) {
+							goodNames.push(policy.name);
+							// save to local
+							if (!fs.existsSync(localizationPoliciesSrcDir)) {
+								fs.mkdirSync(localizationPoliciesSrcDir);
+							}
+
+							var folderPath = path.join(localizationPoliciesSrcDir, policy.name);
+							if (!fs.existsSync(folderPath)) {
+								fs.mkdirSync(folderPath);
+							}
+
+							var filePath = path.join(folderPath, policy.name + '.json');
+							fs.writeFileSync(filePath, JSON.stringify(policy, null, 4));
+
+							console.log(' - save localization policy ' + filePath);
+
+							// save custom language code for this localization policy if the policy contains any
+							var policyCustomLangCodes = [];
+							var codeNames = [];
+							customLanguages.forEach(function (customLangCode) {
+								for (var i = 0; i < policy.requiredValues.length; i++) {
+									if (policy.requiredValues[i] === customLangCode.code && !codeNames.includes(customLangCode.code)) {
+										codeNames.push(customLangCode.code);
+										policyCustomLangCodes.push(customLangCode);
+									}
+								}
+								for (var i = 0; i < policy.optionalValues.length; i++) {
+									if (policy.optionalValues[i] === customLangCode.code && !codeNames.includes(customLangCode.code)) {
+										codeNames.push(customLangCode.code);
+										policyCustomLangCodes.push(customLangCode);
+									}
+								}
+							});
+							if (policyCustomLangCodes.length > 0) {
+								// console.info(' - total policy custom languages: ' + policyCustomLangCodes.length);
+								var codeFilePath = path.join(folderPath, 'CustomLanguages.json');
+								var codeObj = {
+									format: 'BCP_47',
+									version: '1.0',
+									values: policyCustomLangCodes
+								};
+								fs.writeFileSync(codeFilePath, JSON.stringify(codeObj, null, 4));
+								console.info(' - save custom language code ' + codeFilePath);
+							}
+						}
+					} else {
+						console.error('ERROR: localization policy ' + name + ' does not exist');
+					}
+				});
+
+				if (goodNames.length === 0) {
+					done();
+				} else {
+					done(true);
+				}
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+	});
+};
+
+module.exports.uploadLocalizationPolicy = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var isFile = typeof argv.file === 'string' && argv.file.toLowerCase() === 'true';
+	var allNames = argv.name.split(',');
+	var customLanguageCodesFile = argv.customlanguagecodes;
+
+	var names = [];
+	var policyPaths = [];
+	var policyCustomLangCodeNames = [];
+	var policyCustomLangCodes = [];
+
+	// varify the localization policies on local
+	allNames.forEach(function (name) {
+		var filePath;
+		if (isFile) {
+			filePath = name;
+
+			if (!path.isAbsolute(filePath)) {
+				filePath = path.join(projectDir, filePath);
+			}
+			filePath = path.resolve(filePath);
+
+			if (!fs.existsSync(filePath)) {
+				console.error('ERROR: file ' + filePath + ' does not exist');
+			} else {
+				var policyObj;
+				try {
+					policyObj = JSON.parse(fs.readFileSync(filePath));
+				} catch (e) {
+
+				}
+				if (!policyObj || !policyObj.id || !policyObj.name) {
+					console.error('ERROR: file ' + filePath + ' is not a valid localization policy definition');
+				} else {
+					if (!names.includes(policyObj.name)) {
+						names.push(policyObj.name);
+						policyPaths.push(filePath);
+					}
+				}
+			}
+
+		} else {
+			filePath = path.join(localizationPoliciesSrcDir, name, name + '.json');
+			if (!fs.existsSync(filePath)) {
+				console.error('ERROR: localization policy ' + name + ' does not exist');
+			} else if (!names.includes(name)) {
+				names.push(name);
+				policyPaths.push(filePath);
+			}
+			// custom languages
+			filePath = path.join(localizationPoliciesSrcDir, name, 'CustomLanguages.json');
+			if (fs.existsSync(filePath)) {
+				var customLangObj;
+				try {
+					customLangObj = JSON.parse(fs.readFileSync(filePath));
+				} catch (e) {
+				}
+				if (customLangObj && customLangObj.values && customLangObj.values.length > 0) {
+					customLangObj.values.forEach(function (customLang) {
+						if (!policyCustomLangCodeNames.includes(customLang.code)) {
+							policyCustomLangCodeNames.push(customLang.code);
+							policyCustomLangCodes.push(customLang);
+						}
+					});
+				}
+			}
+		}
+
+	});
+
+	if (names.length === 0) {
+		// no type to upload
+		done();
+		return;
+	}
+
+	if (customLanguageCodesFile) {
+		var langFilePath = customLanguageCodesFile;
+		if (!path.isAbsolute(langFilePath)) {
+			langFilePath = path.join(projectDir, langFilePath);
+		}
+		langFilePath = path.resolve(langFilePath);
+
+		if (!fs.existsSync(langFilePath)) {
+			console.error('ERROR: file ' + langFilePath + ' does not exist');
+		} else {
+			var langsObj;
+			try {
+				langsObj = JSON.parse(fs.readFileSync(langFilePath));
+			} catch (e) {
+
+			}
+			if (!langsObj || !langsObj.values || langsObj.values.length === 0) {
+				console.warn('WARNING: file ' + langFilePath + ' does not have any custom language code');
+			} else {
+				langsObj.values.forEach(function (customLang) {
+					if (customLang.code && !policyCustomLangCodeNames.includes(customLang.code)) {
+						policyCustomLangCodeNames.push(customLang.code);
+						policyCustomLangCodes.push(customLang);
+					}
+				});
+			}
+		}
+	}
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var policiesToCreate = [];
+		var policyNamesToCreate = [];
+		var policiesToUpdate = [];
+		var policyNamesToUpdate = [];
+
+		var customLanguages = [];
+		var customLangToCreate = [];
+		var customLangCodeNameToCreate = [];
+
+		var hasError = false;
+
+		// Get all custom language codes
+		serverRest.getLanguageCodes({ server: server, languageType: 'custom' })
+			.then(function (result) {
+				customLanguages = result && result || [];
+				// console.info(' - total custom languages: ' + customLanguages.length);
+
+				// find out the custom lagnauges to create
+				policyCustomLangCodes.forEach(function (policyCustomLang) {
+					var found = false;
+					for (var i = 0; i < customLanguages.length; i++) {
+						if (policyCustomLang.code === customLanguages[i].code) {
+							found = true;
+							break;
+						}
+					}
+					if (!found && !customLangCodeNameToCreate.includes(policyCustomLang.code)) {
+						customLangCodeNameToCreate.push(policyCustomLang.code);
+						customLangToCreate.push(policyCustomLang);
+					}
+				});
+
+				return _createCustomLanguages(server, customLangToCreate);
+
+			})
+			.then(function (result) {
+				if (result && result.length > 0) {
+					console.info(' - created custom language code ' + result.join(', '));
+				}
+
+				var policyPromises = [];
+				names.forEach(function (name) {
+					policyPromises.push(serverRest.getLocalizationPolicWithName({
+						server: server,
+						name: name
+					}));
+				});
+
+				return Promise.all(policyPromises);
+			})
+			.then(function (results) {
+
+				for (var idx = 0; idx < names.length; idx++) {
+
+					var policy = undefined;
+					for (var i = 0; i < results.length; i++) {
+						for (var j = 0; j < results[i].length; j++) {
+							// localization policy name is case sensitive
+							if (results[i][j] && results[i][j].id && results[i][j].name === names[idx]) {
+								policy = results[i][j];
+								break;
+							}
+						}
+						if (policy) {
+							break;
+						}
+					}
+					if (policy) {
+						policyNamesToUpdate.push(names[idx]);
+						policiesToUpdate.push({ id: policy.id, filePath: policyPaths[idx] });
+					} else {
+						policyNamesToCreate.push(names[idx]);
+						policiesToCreate.push(policyPaths[idx]);
+					}
+				}
+
+				if (policiesToCreate.length > 0) {
+					console.info(' - will create localization policy ' + policyNamesToCreate.join(', '));
+				}
+				if (policiesToUpdate.length > 0) {
+					console.info(' - will update localization policy ' + policyNamesToUpdate.join(', '));
+				}
+
+				var createPolicyPromises = [];
+				policiesToCreate.forEach(function (filePath) {
+					var policyObj;
+					try {
+						policyObj = JSON.parse(fs.readFileSync(filePath));
+					} catch (e) {
+						console.log(e);
+					}
+					if (policyObj && policyObj.id) {
+						createPolicyPromises.push(serverRest.createLocalizationPolicy({
+							server: server,
+							name: policyObj.name || '',
+							description: policyObj.description || '',
+							requiredLanguages: policyObj.requiredValues || [],
+							defaultLanguage: policyObj.defaultValue || '',
+							optionalLanguages: policyObj.optionalValues || []
+						}));
+					}
+				});
+
+				return Promise.all(createPolicyPromises);
+
+			})
+			.then(function (results) {
+
+				results.forEach(function (createdPolicy) {
+					if (createdPolicy.id) {
+						console.info(' - localization policy ' + createdPolicy.name + ' created');
+					}
+					if (createdPolicy.err) {
+						hasError = true;
+					}
+
+				});
+
+				var updatePolicyPromises = [];
+				policiesToUpdate.forEach(function (toUpdate) {
+					var policyObj;
+					try {
+						policyObj = JSON.parse(fs.readFileSync(toUpdate.filePath));
+					} catch (e) {
+						console.log(e);
+					}
+					if (policyObj && policyObj.id) {
+						updatePolicyPromises.push(serverRest.updateLocalizationPolicy({
+							server: server,
+							id: toUpdate.id,
+							name: policyObj.name,
+							data: policyObj
+						}));
+					}
+				});
+
+				return Promise.all(updatePolicyPromises);
+
+			})
+			.then(function (results) {
+
+				results.forEach(function (updatedPolicy) {
+					if (updatedPolicy.id) {
+						console.info(' - localization policy ' + updatedPolicy.name + ' updated');
+					}
+					if (updatedPolicy.err) {
+						hasError = true;
+					}
+				});
+
+				done(!hasError);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+
+	});
+
+};
+
+var _createCustomLanguages = function (server, customLanguages) {
+	return new Promise(function (resolve, reject) {
+		if (customLanguages.length === 0) {
+			return resolve({});
+		} else {
+			console.info(' - creating custom language codes ...');
+			var createdLangCodeNames = [];
+			var doCreatelangs = customLanguages.reduce(function (langPromise, customLang) {
+				return langPromise.then(function (result) {
+					return serverRest.createCustomLanguageCode({
+						server: server,
+						body: customLang
+					}).then(function (result) {
+						if (result && result.code) {
+							createdLangCodeNames.push(result.code);
+						}
+					})
+				});
+			},
+				// Start with a previousPromise value that is a resolved promise
+				Promise.resolve({}));
+
+			doCreatelangs.then(function (result) {
+				// console.log(' - total custom languages: ' + total + ' created: ' + createdLangCodeNames.length);
+				resolve(createdLangCodeNames);
+			});
+		}
+	});
+};
+
 module.exports.describeWorkflow = function (argv, done) {
 	'use strict';
 
@@ -5436,7 +5885,7 @@ module.exports.listAssets = function (argv, done) {
 				return serverRest.queryItems({
 					server: server,
 					q: q,
-					fields: 'name,status,slug,language,publishedChannels',
+					fields: 'name,status,slug,language,publishedChannels,languageIsMaster',
 					includeAdditionalData: true,
 					orderBy: orderBy,
 					rankBy: rankingApiName
@@ -5606,7 +6055,6 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 				console.log(sprintf(format2, typeLabel, item.id, item.latestVersion, item.status, languageLabel, sizeLabel, item.name));
 			}
 		}
-
 		console.log('');
 		if (totalSize > 0) {
 			console.log(' - total file size: ' + (Math.floor(totalSize / 1024)) + 'k');

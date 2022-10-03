@@ -583,7 +583,7 @@ var _createFile = function (server, parentID, filename, contents, filepath) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: failed to create file ' + filename + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to create file "' + filename + '" (ecid: ' + response.ecid + ')');
 				console.error(error);
 				resolve({
 					err: 'err'
@@ -603,7 +603,7 @@ var _createFile = function (server, parentID, filename, contents, filepath) {
 				resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.error('ERROR: failed to create file ' + filename + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to create file "' + filename + '" : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: 'err'
 				});
@@ -3401,7 +3401,8 @@ module.exports.validateChannelItems = function (args) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.ItemsSetAsTranslated = function (args) {
-	return _bulkOpItems(args.server, 'setAsTranslated', [], args.itemIds);
+	var async = args.async ? args.async : 'false';
+	return _bulkOpItems(args.server, 'setAsTranslated', [], args.itemIds, '', async);
 };
 
 var _getPublishingJobItems = function (server, jobId) {
@@ -3658,6 +3659,37 @@ module.exports.copyAssets = function (args) {
 
 
 /**
+ * Get all language codes on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getLanguageCodes = function (args) {
+	var url = '/content/management/api/v1.1/l10n/languageCodes';
+	if (args.languageType) {
+		url = url + '?q=languageType eq "' + args.languageType + '"';
+	}
+	return _getAllResources(args.server, url, 'languageCodes');
+};
+
+/**
+ * Create custom language on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createCustomLanguageCode = function (args) {
+	var url = '/content/management/api/v1.1/l10n/languageCodes';
+	var param = {
+		server: args.server,
+		endpoint: '/content/management/api/v1.1/l10n/languageCodes',
+		body: args.body,
+		noMsg: true
+	};
+	return _executePost(param);
+};
+
+/**
  * Get all localization policies on server
  * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
@@ -3665,6 +3697,29 @@ module.exports.copyAssets = function (args) {
  */
 module.exports.getLocalizationPolicies = function (args) {
 	return _getAllResources(args.server, '/content/management/api/v1.1/localizationPolicies', 'localizationPolicies', args.fields);
+};
+
+/**
+ * Get a channel with name on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the channel to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getLocalizationPolicWithName = function (args) {
+	return new Promise(function (resolve, reject) {
+		if (!args.name) {
+			return resolve({});
+		}
+
+		var endpoint = '/content/management/api/v1.1/localizationPolicies';
+		endpoint = endpoint + '?q=(name mt "' + encodeURIComponent(args.name) + '")';
+
+		_getAllResources(args.server, endpoint, 'localizationPolicies', args.fields)
+			.then(function (result) {
+				return resolve(result);
+			});
+	});
 };
 
 // Get a localization policy from server
@@ -4554,7 +4609,7 @@ module.exports.setPermissionSets = function (args) {
 
 // Create repository on server
 var _createRepository = function (server, name, description, contentTypes, channels, defaultLanguage,
-	repositoryType, additionalLangs) {
+	repositoryType, additionalLangs, legacyRepo) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.getCaasCSRFToken(server).then(function (result) {
 			if (result.err) {
@@ -4599,6 +4654,10 @@ var _createRepository = function (server, name, description, contentTypes, chann
 					body: JSON.stringify(payload),
 					json: true
 				};
+
+				if (legacyRepo) {
+					postData.headers.SKIP_SEEDED_DIGITAL_CHECK = true;
+				}
 
 				serverUtils.showRequestOptions(postData);
 
@@ -4645,7 +4704,8 @@ var _createRepository = function (server, name, description, contentTypes, chann
  */
 module.exports.createRepository = function (args) {
 	return _createRepository(args.server, args.name, args.description,
-		args.contentTypes, args.channels, args.defaultLanguage, args.repositoryType, args.additionalLanguages);
+		args.contentTypes, args.channels, args.defaultLanguage, args.repositoryType, args.additionalLanguages,
+		args.legacyRepo);
 };
 
 // Update repository
@@ -8208,7 +8268,12 @@ var _executeGetStream = function (server, endpoint, writer, noMsg) {
  * @returns
  */
 module.exports.executePost = function (args) {
+	return _executePost(args);
+};
+
+var _executePost = function (args) {
 	return new Promise(function (resolve, reject) {
+		var showDetail = args.noMsg ? false : true;
 		var endpoint = args.endpoint;
 		var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
 
@@ -8256,7 +8321,9 @@ module.exports.executePost = function (args) {
 				}
 				serverUtils.showRequestOptions(postData);
 
-				console.info(' - executing endpoint: POST ' + endpoint);
+				if (showDetail) {
+					console.info(' - executing endpoint: POST ' + endpoint);
+				}
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
@@ -8270,7 +8337,9 @@ module.exports.executePost = function (args) {
 						data = JSON.parse(body);
 					} catch (e) { }
 					if (async) {
-						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+						if (showDetail) {
+							console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
+						}
 						var statusUrl = response.location;
 						if (statusUrl) {
 							console.log(' - submit background job');
@@ -8317,9 +8386,11 @@ module.exports.executePost = function (args) {
 						}
 
 					} else {
-						console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
-						if (response.location || response.url) {
-							console.log('Result URL: ' + (response.location || response.url));
+						if (showDetail) {
+							console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
+							if (response.location || response.url) {
+								console.log('Result URL: ' + (response.location || response.url));
+							}
 						}
 						return resolve(data);
 					}

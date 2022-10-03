@@ -15,6 +15,24 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.9.3
+
+**Added**
+
+- `cec download-localization-policy` - downloads localization policies from an OCM server
+- `cec upload-localization-policy` - uploads localization policies to an OCM server
+
+**Updated**
+
+- `cec create-site-map` - now supports plain text formatted sitemap
+- `cec control-content` - add action `set-translated` to set non-master translatable items as translated
+
+**Fixed**
+
+- local server now uses correct channel token when testing components with server content
+
+
+
 # New in Release 22.9.2
 
 **Added**

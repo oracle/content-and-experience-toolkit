@@ -44,7 +44,8 @@ var _warn = function (msg) {
 
 var _error = function (msg) {
 	// always display
-	console.error(msg);
+	var d = new Date();
+	console.error(msg + ' (' + d.toUTCString() + ')');
 };
 
 var _showInfo = function () {
