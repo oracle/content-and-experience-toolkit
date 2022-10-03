@@ -1414,7 +1414,7 @@ var _readFile = function (server, fFileGUID, fileName, folderPath) {
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: failed to get file ' + fileName);
+				console.error('ERROR: failed to get file ' + fileName + (response.ecid ? ' (ecid: ' + response.ecid + ')' : ''));
 				console.error(error);
 				resolve({});
 			}
@@ -1426,7 +1426,17 @@ var _readFile = function (server, fFileGUID, fileName, folderPath) {
 					data: body
 				});
 			} else {
-				console.error('ERROR: failed to get file ' + fileName + ' : ' + (response ? (response.statusMessage + ' ' + response.statusCode) : ''));
+				var msg = '';
+				if (response && response.statusMessage) {
+					msg = response.statusMessage;
+				}
+				if (response && response.statusCode) {
+					msg = msg + ' ' + response.statusCode;
+				}
+				if (response && response.ecid) {
+					msg = msg + ' (ecid: ' + response.ecid + ')';
+				}
+				console.error('ERROR: failed to get file ' + fileName + ' : ' + msg);
 				resolve({});
 			}
 

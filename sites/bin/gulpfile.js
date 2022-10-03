@@ -2139,6 +2139,30 @@ gulp.task('create-localization-policy', function (done) {
 });
 
 /**
+ * Download localization policies
+ */
+gulp.task('download-localization-policy', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.downloadLocalizationPolicy(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Upload localization policies
+ */
+gulp.task('upload-localization-policy', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.uploadLocalizationPolicy(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * List assets on server
  */
 gulp.task('list-assets', function (done) {

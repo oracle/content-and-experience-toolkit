@@ -727,7 +727,8 @@ router.get('/*', (req, res) => {
 					res.end();
 				} else {
 					serverRest.getChannels({
-						server: app.locals.server
+						server: app.locals.server,
+						fields: 'channelTokens'
 					})
 						.then(function (result) {
 							// console.log(result);

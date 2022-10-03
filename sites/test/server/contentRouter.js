@@ -147,15 +147,23 @@ router.get('/*', (req, res) => {
 			return;
 		}
 		location = app.locals.serverURL + requestUrl;
+
 		// use management api 
 		if (app.locals.channelToken) {
-			location = location + '&channelToken=' + app.locals.channelToken;
+			if (location.indexOf('?channelToken=') > 0) {
+				// remove channel token
+				location = location.substring(0, location.indexOf('?channelToken='));
+			} else if (location.indexOf('&channelToken=') > 0) {
+				// remove channel token
+				location = location.substring(0, location.indexOf('&channelToken='));
+			}
+			if (location.indexOf('?') >= 0) {
+				location = location + '&channelToken=' + app.locals.channelToken;
+			} else {
+				location = location + '?channelToken=' + app.locals.channelToken;
+			}
 		} else {
 			location = location.replace('/published/', '/management/');
-			if (location.indexOf('channelToken=') > 0) {
-				// remove channel token
-				location = location.substring(0, location.indexOf('channelToken='));
-			}
 		}
 		console.info('Content Remote traffic:' + location);
 		var options = {
@@ -866,7 +874,7 @@ router.post('/*', (req, res) => {
 		json: true
 	};
 	// console.info(postData);
-	
+
 	request.post(postData, function (error, response, body) {
 		if (error) {
 			console.error('ERROR: request failed ' + url);

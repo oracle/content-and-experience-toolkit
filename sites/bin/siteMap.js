@@ -776,8 +776,8 @@ var _getQueryString = function (querystrings, name) {
  * @param {*} siteInfo 
  * @param {*} pages 
  */
-var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, typeItems, changefreq, toppagepriority,
-	siteMapFile, newlink, noDefaultDetailPageLink, querystrings) {
+var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, items, typeItems, changefreq, toppagepriority,
+	siteMapFile, newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale) {
 
 	var prefix = siteUrl;
 	if (prefix.substring(prefix.length - 1) === '/') {
@@ -848,12 +848,14 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ty
 				// console.log(' - page: ' + pages[i].name + ' url: ' + loc);
 			}
 
-			urls.push({
-				loc: loc,
-				lastmod: lastmod,
-				priority: priority,
-				changefreq: pageChangefreq
-			});
+			if (!noDefaultLocale || includeLocale) {
+				urls.push({
+					loc: loc,
+					lastmod: lastmod,
+					priority: priority,
+					changefreq: pageChangefreq
+				});
+			}
 
 			pagePriority.push({
 				id: pages[i].id.toString(),
@@ -931,14 +933,16 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ty
 							// no duplicate url
 							if (!addedUrls.includes(url)) {
 								// console.log('item: ' + item.name + ' page: ' + pageId + ' priority: ' + itemPriority + ' lastmod: ' + lastmod);
-								urls.push({
-									loc: url,
-									lastmod: lastmod,
-									priority: itemPriority,
-									changefreq: itemChangefreq
-								});
+								if (!noDefaultLocale || locale) {
+									urls.push({
+										loc: url,
+										lastmod: lastmod,
+										priority: itemPriority,
+										changefreq: itemChangefreq
+									});
 
-								addedUrls.push(url);
+									addedUrls.push(url);
+								}
 							}
 						} // has detail for the item
 					}
@@ -989,14 +993,16 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ty
 					// no duplicate url
 					if (!addedUrls.includes(url)) {
 						// console.log('item: ' + item.name + ' page: ' + pageId + ' priority: ' + itemPriority + ' lastmod: ' + lastmod);
-						urls.push({
-							loc: url,
-							lastmod: lastmod,
-							priority: itemPriority,
-							changefreq: itemChangefreq
-						});
+						if (!noDefaultLocale || locale) {
+							urls.push({
+								loc: url,
+								lastmod: lastmod,
+								priority: itemPriority,
+								changefreq: itemChangefreq
+							});
 
-						addedUrls.push(url);
+							addedUrls.push(url);
+						}
 					}
 				}
 			}
@@ -1006,22 +1012,32 @@ var _generateSiteMapXML = function (server, siteUrl, pages, pageFiles, items, ty
 
 	console.info(' - total page URLs: ' + totalPageUrls + '  total asset URLs: ' + addedUrls.length);
 
-	var buf = '<?xml version="1.0" encoding="UTF-8"?>' + os.EOL +
-		'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + os.EOL;
+	var buf = '';
 
-	var ident = '    ',
-		ident2 = ident + ident,
-		ident3 = ident2 + ident;
-	for (var i = 0; i < urls.length; i++) {
-		buf = buf + ident + '<url>' + os.EOL;
-		buf = buf + ident2 + '<loc>' + urls[i].loc + '</loc>' + os.EOL;
-		buf = buf + ident2 + '<lastmod>' + urls[i].lastmod + '</lastmod>' + os.EOL;
-		buf = buf + ident2 + '<changefreq>' + urls[i].changefreq + '</changefreq>' + os.EOL;
-		buf = buf + ident2 + '<priority>' + urls[i].priority + '</priority>' + os.EOL;
-		buf = buf + ident + '</url>' + os.EOL;
+	if (format === 'text') {
+
+		for (var i = 0; i < urls.length; i++) {
+			buf = buf + urls[i].loc + os.EOL;
+		}
+
+	} else {
+		buf = '<?xml version="1.0" encoding="UTF-8"?>' + os.EOL +
+			'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + os.EOL;
+
+		var ident = '    ',
+			ident2 = ident + ident,
+			ident3 = ident2 + ident;
+		for (var i = 0; i < urls.length; i++) {
+			buf = buf + ident + '<url>' + os.EOL;
+			buf = buf + ident2 + '<loc>' + urls[i].loc + '</loc>' + os.EOL;
+			buf = buf + ident2 + '<lastmod>' + urls[i].lastmod + '</lastmod>' + os.EOL;
+			buf = buf + ident2 + '<changefreq>' + urls[i].changefreq + '</changefreq>' + os.EOL;
+			buf = buf + ident2 + '<priority>' + urls[i].priority + '</priority>' + os.EOL;
+			buf = buf + ident + '</url>' + os.EOL;
+		}
+
+		buf = buf + '</urlset>' + os.EOL;
 	}
-
-	buf = buf + '</urlset>' + os.EOL;
 
 	// save to file
 	fs.writeFileSync(siteMapFile, buf);
@@ -1504,9 +1520,9 @@ var _getSiteData = function (server, site, locales) {
  * Main entry
  * 
  */
-var _createSiteMap = function (server, serverName, site, siteUrl, changefreq,
+var _createSiteMap = function (server, serverName, site, siteUrl, format, changefreq,
 	publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink,
-	allTypes, wantedTypes, querystrings, done) {
+	allTypes, wantedTypes, querystrings, noDefaultLocale, done) {
 
 	//
 	// get site info and other metadata
@@ -1517,32 +1533,37 @@ var _createSiteMap = function (server, serverName, site, siteUrl, changefreq,
 	var allItems = [];
 	var allTypeItems = [];
 	var dataPromise = _prepareData(server, site, languages, allTypes, wantedTypes, done);
-	dataPromise.then(function (result) {
-		if (result.err) {
-			_cmdEnd(done);
-			return;
-		}
-
-		var isMaster = true;
-
-		var locales = [];
-		locales.push({
-			language: _SiteInfo.defaultLanguage,
-			isMaster: true
-		});
-
-		for (var i = 0; i < _languages.length; i++) {
-			if (_languages[i] !== _SiteInfo.defaultLanguage) {
-				locales.push({
-					language: _languages[i],
-					isMaster: false
-				});
+	dataPromise
+		.then(function (result) {
+			if (result.err) {
+				return Promise.reject();
 			}
-		}
 
-		return _getSiteData(server, site, locales);
+			var isMaster = true;
 
-	})
+			var locales = [];
+			locales.push({
+				language: _SiteInfo.defaultLanguage,
+				isMaster: true
+			});
+
+			for (var i = 0; i < _languages.length; i++) {
+				if (_languages[i] !== _SiteInfo.defaultLanguage) {
+					locales.push({
+						language: _languages[i],
+						isMaster: false
+					});
+				}
+			}
+
+			if (noDefaultLocale && locales.length === 1 && locales[0].language === _SiteInfo.defaultLanguage) {
+				console.log('ERROR: no language is specified');
+				return Promise.reject();
+			}
+
+			return _getSiteData(server, site, locales);
+
+		})
 		.then(function (values) {
 			for (var i = 0; i < values.length; i++) {
 				if (values[i].locale === _SiteInfo.defaultLanguage) {
@@ -1587,7 +1608,7 @@ var _createSiteMap = function (server, serverName, site, siteUrl, changefreq,
 				}
 			}
 
-			var changefreqPromises = changefreq === 'auto' ? [_calculatePageChangeFraq(server, serverName, allPageFiles)] : [];
+			var changefreqPromises = format === 'xml' && changefreq === 'auto' ? [_calculatePageChangeFraq(server, serverName, allPageFiles)] : [];
 
 			return Promise.all(changefreqPromises);
 		})
@@ -1596,7 +1617,7 @@ var _createSiteMap = function (server, serverName, site, siteUrl, changefreq,
 			//
 			// create site map
 			//
-			_generateSiteMapXML(server, siteUrl, allPages, allPageFiles, allItems, allTypeItems, changefreq, toppagepriority, siteMapFile, newlink, noDefaultDetailPageLink, querystrings);
+			_generateSiteMapXML(server, siteUrl, format, allPages, allPageFiles, allItems, allTypeItems, changefreq, toppagepriority, siteMapFile, newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale);
 
 			if (publish) {
 				// Upload site map to the server
@@ -1611,6 +1632,12 @@ var _createSiteMap = function (server, serverName, site, siteUrl, changefreq,
 			} else {
 				_cmdEnd(done, true);
 			}
+		})
+		.catch((error) => {
+			if (error) {
+				console.error(error);
+			}
+			_cmdEnd(done);
 		});
 };
 
@@ -1766,6 +1793,9 @@ module.exports.createSiteMap = function (argv, done) {
 		return;
 	}
 
+	// xml or text
+	var format = argv.format || 'xml';
+
 	// content types
 	var allTypes = argv.assettypes === '__cecanytype';
 	var wantedTypes = argv.assettypes && argv.assettypes !== '__cecanytype' ? argv.assettypes.split(',') : undefined;
@@ -1774,9 +1804,11 @@ module.exports.createSiteMap = function (argv, done) {
 	var changefreq = argv.changefreq || 'monthly';
 
 	// site map file
-	var siteMapFile = argv.file || (site + 'SiteMap.xml');
-	if (siteMapFile.split('.').pop() !== 'xml') {
+	var siteMapFile = argv.file || (site + (format === 'text' ? 'SiteMap.txt' : 'SiteMap.xml'));
+	if (format === 'xml' && siteMapFile.split('.').pop() !== 'xml') {
 		siteMapFile = siteMapFile + '.xml';
+	} else if (format === 'text' && siteMapFile.split('.').pop() !== 'txt') {
+		siteMapFile = siteMapFile + '.txt';
 	}
 	if (!path.isAbsolute(siteMapFile)) {
 		siteMapFile = path.join(projectDir, siteMapFile);
@@ -1786,6 +1818,8 @@ module.exports.createSiteMap = function (argv, done) {
 	var publish = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
 
 	var newlink = typeof argv.newlink === 'string' && argv.newlink.toLowerCase() === 'true';
+
+	var noDefaultLocale = typeof argv.nodefaultlocale === 'string' && argv.nodefaultlocale.toLowerCase() === 'true';
 
 	var noDefaultDetailPageLink = typeof argv.noDefaultDetailPageLink === 'string' && argv.noDefaultDetailPageLink.toLowerCase() === 'true';
 
@@ -1803,9 +1837,9 @@ module.exports.createSiteMap = function (argv, done) {
 			return;
 		}
 
-		_createSiteMap(server, serverName, site, siteUrl, changefreq,
+		_createSiteMap(server, serverName, site, siteUrl, format, changefreq,
 			publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink,
-			allTypes, wantedTypes, querystrings, done);
+			allTypes, wantedTypes, querystrings, noDefaultLocale, done);
 
 	}); // login
 };

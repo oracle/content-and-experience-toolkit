@@ -1751,6 +1751,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 			var collection;
 			var itemIds = [];
 			var toPublishItemIds = [];
+			var toSetTranslatedIds = [];
 			var hasPublishedItems = false;
 
 			var repositoryPromises = [];
@@ -1851,14 +1852,25 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						}
 						q = q + '(' + query + ')';
 					}
-					console.info(' - q: ' + q);
+
+					if (action === 'set-translated') {
+						if (q) {
+							q = q + ' AND ';
+						}
+						// look for non-master translatable items
+						q = q + '(languageIsMaster eq "false" AND translatable eq "true" AND status eq "draft")';
+					}
+
+					if (q) {
+						console.info(' - q: ' + q);
+					}
 
 					var queryPromise = assetGUIDS.length > 0 ?
-						_queryItemsWithIds(server, q, assetGUIDS, 'name,status,isPublished,publishedChannels') :
+						_queryItemsWithIds(server, q, assetGUIDS, 'name,status,isPublished,publishedChannels,languageIsMaster,translatable') :
 						serverRest.queryItems({
 							server: server,
 							q: q,
-							fields: 'name,status,isPublished,publishedChannels'
+							fields: 'name,status,isPublished,publishedChannels,languageIsMaster,translatable'
 						});
 
 
@@ -1872,12 +1884,16 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					var items = assetGUIDS.length > 0 ? (result || []) : (result.data || []);
 					if (items.length === 0) {
 						if (showDetail) {
-							if (action === 'add') {
+							if (action === 'set-translated') {
+								console.log(' - no item need to set as translated');
+							} else if (action === 'add') {
 								console.log(' - no item in the repository');
-							} else if (channel) {
-								console.log(' - no item in the channel');
-							} else if (collection) {
-								console.log(' - no item in the collection');
+							} else if (action === 'remove') {
+								if (channel) {
+									console.log(' - no item in the channel');
+								} else if (collection) {
+									console.log(' - no item in the collection');
+								}
 							} else {
 								console.log(' - no item');
 							}
@@ -1890,10 +1906,12 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						if (showDetail) {
 							if (action === 'add') {
 								console.log(' - repository has ' + items.length + (items.length > 1 ? ' items' : ' item'));
-							} else if (channel) {
-								console.log(' - channel has ' + items.length + (items.length > 1 ? ' items' : ' item'));
-							} else if (collection) {
-								console.log(' - collection has ' + items.length + (items.length > 1 ? ' items' : ' item'));
+							} else if (action === 'remove') {
+								if (channel) {
+									console.log(' - channel has ' + items.length + (items.length > 1 ? ' items' : ' item'));
+								} else if (collection) {
+									console.log(' - collection has ' + items.length + (items.length > 1 ? ' items' : ' item'));
+								}
 							}
 						}
 					} else {
@@ -1966,6 +1984,11 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						if (item.isPublished) {
 							hasPublishedItems = true;
 						}
+
+						// look for non-master translatable items
+						if (item.translatable && !item.languageIsMaster && item.status === 'draft') {
+							toSetTranslatedIds.push(item.id);
+						}
 					}
 
 					if (action === 'publish' && toPublishItemIds.length === 0) {
@@ -1975,11 +1998,22 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					}
 
 					if (action === 'unpublish' && !hasPublishedItems) {
-						console.log(' - all items are already draft');
+						console.log(' - the items are already draft');
 						exitCode = 2;
 						return Promise.reject();
 					}
 
+					if (action === 'set-translated') {
+						if (toSetTranslatedIds.length === 0) {
+							console.log(' - no non-master translatable item found');
+							exitCode = 2;
+							return Promise.reject();
+						} else {
+							console.info(' - total items to set as translated: ' + toSetTranslatedIds.length);
+						}
+					}
+
+					var showError = true;
 					if (action === 'publish') {
 						if (dateToPublish) {
 							var dateObj = new Date(dateToPublish);
@@ -2073,6 +2107,17 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 								return cmdSuccess(done, true);
 							});
 						});
+
+					} else if (action === 'set-translated') {
+						var opPromise = _performOneOp(server, action, '', toSetTranslatedIds, showError, 'true');
+						opPromise.then(function (result) {
+							if (result.err) {
+								return cmdEnd(done);
+							} else {
+								return cmdSuccess(done, true);
+							}
+						});
+
 					} else {
 						console.error('ERROR: action ' + action + ' not supported');
 						return cmdEnd(done);
@@ -2115,7 +2160,7 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror, asy
 				itemIds: itemIds,
 				async: async
 			});
-		} else {
+		} else if (action === 'remove') {
 			opPromise = channelId ? serverRest.removeItemsFromChanel({
 				server: server,
 				channelId: channelId,
@@ -2124,6 +2169,12 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror, asy
 			}) : serverRest.removeItemsFromCollection({
 				server: server,
 				collectionId: collectionId,
+				itemIds: itemIds,
+				async: async
+			});
+		} else if (action === 'set-translated') {
+			opPromise = serverRest.ItemsSetAsTranslated({
+				server: server,
 				itemIds: itemIds,
 				async: async
 			});
