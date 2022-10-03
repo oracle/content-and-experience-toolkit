@@ -3151,7 +3151,7 @@ const describeScheduledJob = {
 const listPublishingJobs = {
 	command: 'list-publishing-jobs',
 	alias: 'lpj',
-	name: 'list-publising-jobs',
+	name: 'list-publishing-jobs',
 	usage: {
 		'short': 'Lists publishing jobs.',
 		'long': (function () {
@@ -3164,6 +3164,23 @@ const listPublishingJobs = {
 		['cec list-publishing-jobs -t site', 'List all site publishing jobs'],
 		['cec list-publishing-jobs -t site -n Site1', 'List all publishing jobs of site Site1'],
 		['cec list-publishing-jobs -t asset -r Repo1', 'List asset publishing jobs belonging to repository Repo1']
+	]
+};
+
+const downloadJobLog = {
+	command: 'download-job-log <id>',
+	alias: 'dljl',
+	name: 'download-job-log',
+	usage: {
+		'short': 'Downloads publishing job log.',
+		'long': (function () {
+			let desc = 'Downloads publishing job log from OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec download-job-log OP5155F7815D9D4852B87E56887123304A'],
+		['cec download-job-log OP5155F7815D9D4852B87E56887123304A -s SampleServer1']
 	]
 };
 
@@ -3704,8 +3721,9 @@ _usage = _usage + os.EOL + 'Translation' + os.EOL +
 _usage = _usage + os.EOL + 'Jobs' + os.EOL +
 	_getCmdHelp(describeBackgroundJob) + os.EOL +
 	_getCmdHelp(listScheduledJobs) + os.EOL +
-	_getCmdHelp(describeScheduledJob) + os.EOL;
-// _getCmdHelp(listPublishingJobs) + os.EOL;
+	_getCmdHelp(describeScheduledJob) + os.EOL +
+	_getCmdHelp(listPublishingJobs) + os.EOL +
+	_getCmdHelp(downloadJobLog) + os.EOL
 
 _usage = _usage + os.EOL + 'Groups' + os.EOL +
 	_getCmdHelp(createGroup) + os.EOL +
@@ -6588,7 +6606,7 @@ const argv = yargs.usage(_usage)
 						throw new Error(os.EOL + 'Please specify category permission');
 					}
 					if (argv.categories && argv.categorypermission &&
-						typeof argv.categorypermission !== 'boolean' && !getTaxonomyEditorialPermissions().includes(argv.categorypermission)) {
+						typeof argv.categorypermission !== 'boolean' && !getTaxonomyEditorialPermissions().includes(argv.categorypermission) && argv.categorypermission !== 'createsite') {
 						throw new Error(os.EOL + `${argv.categorypermission} is not a valid value for <categorypermission>`);
 					}
 					if (argv.categories && typeof argv.categories !== 'boolean' && argv.categories.indexOf(':') <= 0) {
@@ -8107,6 +8125,18 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${listPublishingJobs.command}\n\n${listPublishingJobs.usage.long}`);
 		})
+	.command([downloadJobLog.command, downloadJobLog.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...downloadJobLog.example[0])
+				.example(...downloadJobLog.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${downloadJobLog.command}\n\n${downloadJobLog.usage.long}`);
+		})
 	.command([createEncryptionKey.command, createEncryptionKey.alias], false,
 		(yargs) => {
 			yargs.example(...createEncryptionKey.example[0])
@@ -8548,11 +8578,41 @@ if (fs.existsSync(path.join(appRoot, 'package.json'))) {
 	console.log('Content Toolkit ' + cecVersion);
 }
 
+// Display command and its params
+// console.log(argv);
+var cmdStr = 'cec ' + argv._[0];
+var paramStr = '';
+var requiredParamStr = '';
+var found0 = false;
+Object.keys(argv).forEach(function (name) {
+	if (name === '$0') {
+		found0 = true;
+	}
+	// only show the full param name, not the alias nor the one converted upper case to -
+	if (name.length > 1 && name.indexOf('-') < 0 && name !== '$0') {
+		var value = argv[name];
+		if (/^[A-Za-z0-9]*$/.test(value)) {
+			// do nothing 
+		} else {
+			try {
+				value = JSON.stringify(value);
+			} catch (e) {
+			}
+		}
+		if (!found0) {
+			paramStr = paramStr + ' ' + '--' + name + ' ' + value;
+		} else {
+			// the required param
+			requiredParamStr = requiredParamStr + ' ' + value;
+		}
+	}
+});
+console.log(cmdStr + requiredParamStr + paramStr);
+
 
 /*********************
  * Command execution
  **********************/
-//console.log(argv);
 
 
 var spawnCmd;
@@ -11618,6 +11678,44 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, describeScheduledJobArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === listPublishingJobs.name || argv._[0] === listPublishingJobs.alias) {
+	let listPublishingJobsArgs = ['run', '-s', listPublishingJobs.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--type', argv.type
+	];
+
+	if (argv.repository) {
+		listPublishingJobsArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.name) {
+		listPublishingJobsArgs.push(...['--name', argv.name]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		listPublishingJobsArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, listPublishingJobsArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === downloadJobLog.name || argv._[0] === downloadJobLog.alias) {
+	let downloadJobLogArgs = ['run', '-s', downloadJobLog.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--id', argv.id
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		downloadJobLogArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, downloadJobLogArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

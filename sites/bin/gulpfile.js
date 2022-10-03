@@ -2329,6 +2329,30 @@ gulp.task('list-scheduled-jobs', function (done) {
 });
 
 /**
+ * List publishing jobs
+ */
+gulp.task('list-publishing-jobs', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	resourcelib.listPublishingJobs(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Download publishing job log
+ */
+gulp.task('download-job-log', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	resourcelib.downloadJobLog(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Create group
  */
 gulp.task('create-group', function (done) {

@@ -15,6 +15,18 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.9.2
+
+**Added**
+
+- `cec list-publishing-jobs` - Lists out all of the publishing jobs on an OCM server
+- `cec download-job-log` - Downloads the publishing job log from an OCM server
+
+**Updated*
+
+- All commands will now echo the full command to the output
+
+
 # New in Release 22.9.1
 
 **Updated**

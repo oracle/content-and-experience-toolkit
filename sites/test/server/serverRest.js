@@ -3,7 +3,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
- const {
+const {
 	end
 } = require('cheerio/lib/api/traversing');
 var request = require('request'),
@@ -5876,7 +5876,7 @@ var _importTaxonomy = function (server, fileId, name, isNew, hasNewIds, taxonomy
 										if (needNewLine) {
 											process.stdout.write(os.EOL);
 										}
-										return resolve({});
+										return resolve(data);
 
 									} else {
 										if (console.showInfo()) {
@@ -9199,6 +9199,32 @@ module.exports.getScheduledJobs = function (args) {
 	return _getAllResources(args.server, endpoint, 'scheduledJobs', args.fields);
 };
 
+/**
+ * Get all publishing jobs of a repository
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getPublishingJobs = function (args) {
+	var endpoint = '/content/management/api/v1.1/jobs/publishjobs?repositoryId=' + args.repositoryId;
+	var fields;
+	var q;
+	var orderBy = 'jobCompletedDate:asc';
+	return _getAllResources(args.server, endpoint, 'publishingJobs', fields, q, orderBy);
+};
+
+/**
+ * Get a publishing job
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getPublishingJob = function (args) {
+	var endpoint = '/content/management/api/v1.1/jobs/publishjobs/' + args.id;
+	return _getResource(args.server, endpoint, 'publishingJob');
+};
+
+
 
 /**
  * Get a translation connector with name on server
@@ -10491,7 +10517,7 @@ module.exports.getMe = function (args) {
 var _setUserSocialPreferences = function (server, userId, props = []) {
 	return new Promise(function (resolve, reject) {
 		var body,
-				url = server.url + '/osn/fc/RemoteJSONBatch?apmOps=Properties.setProperties';
+			url = server.url + '/osn/fc/RemoteJSONBatch?apmOps=Properties.setProperties';
 
 		var usePropertiesAPI = props.some((prop) => !!prop['PropertyName']);
 		if (usePropertiesAPI) {

@@ -3636,10 +3636,10 @@ var _listPermissionSets = function (data) {
 	});
 
 	console.log('');
-	var format1 = '%-20s  %-53s  %-s';
+	var format1 = '%-30s  %-53s  %-s';
 	console.log(sprintf(format1, 'Users & Groups', 'Assets', 'Taxonomies'));
 
-	var format2 = '%-20s  %-20s  %-4s  %-6s  %-6s  %-6s     %-30s  %-6s  %-s';
+	var format2 = '%-30s  %-20s  %-4s  %-6s  %-6s  %-6s     %-30s  %-6s  %-s';
 	console.log(sprintf(format2, '', '', 'View', 'Update', 'Create', 'Delete', '', 'View', 'Categorize'));
 
 	data.forEach(function (item) {
@@ -3657,7 +3657,8 @@ var _listPermissionSets = function (data) {
 				typeDelete = '';
 			var catLabel = '',
 				catView = '',
-				catCategorize = '';
+				catCategorize = '',
+				catCreateSite = '';
 			if (idx < item.contentPrivileges.length) {
 				typeLabel = item.contentPrivileges[idx].typeName ? item.contentPrivileges[idx].typeName : 'Any Type';
 				typeView = item.contentPrivileges[idx].operations.includes('view') ? '  √' : '';
@@ -3680,6 +3681,7 @@ var _listPermissionSets = function (data) {
 				}
 				catView = item.taxonomyPrivileges[idx].operations.includes('view') ? '  √' : '';
 				catCategorize = item.taxonomyPrivileges[idx].operations.includes('categorize') ? '  √' : '';
+				catCreateSite = item.taxonomyPrivileges[idx].operations.includes('createSite') ? '  √' : '';
 			}
 
 			console.log(sprintf(format2, user, typeLabel, typeView, typeUpdate, typeCreate, typeDelete,
@@ -3717,6 +3719,9 @@ module.exports.setEditorialPermission = function (argv, done) {
 	var assetPermission = argv.assetpermission;
 	var categoryNames = argv.categories ? argv.categories.split(',') : [];
 	var categoryPermission = argv.categorypermission;
+	if (categoryPermission && categoryPermission.toLowerCase() === 'createsite') {
+		categoryPermission = 'createSite';
+	}
 
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
@@ -3945,8 +3950,12 @@ module.exports.setEditorialPermission = function (argv, done) {
 							for (var i = 0; i < allTaxonomies.length; i++) {
 								if (allTaxonomies[i].name === taxName) {
 									if (!goodTaxonomyNames.includes(taxName)) {
-										taxonomies.push(allTaxonomies[i]);
-										goodTaxonomyNames.push(taxName);
+										if (categoryPermission === 'createSite' && !allTaxonomies[i].isForSiteManagement) {
+											console.warn(' - WARNING: taxonomy ' + taxName + ' is not for site security management');
+										} else {
+											taxonomies.push(allTaxonomies[i]);
+											goodTaxonomyNames.push(taxName);
+										}
 									}
 									found = true;
 									break;
@@ -3957,6 +3966,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 							}
 						}
 					}
+
 
 					// console.log(taxonomies);
 				}
@@ -4095,6 +4105,8 @@ module.exports.setEditorialPermission = function (argv, done) {
 						catOps = ['view'];
 					} else if (categoryPermission === 'categorize') {
 						catOps = ['view', 'categorize'];
+					} else if (categoryPermission === 'createSite') {
+						catOps = ['view', 'categorize', 'createSite'];
 					}
 				}
 
