@@ -14,6 +14,7 @@
  *
  * $Id: offline-publisher.js 141546 2016-03-24 23:23:28Z dpeterso $
  */
+/*jshint esversion: 6 */
 
 //*********************************************
 // Requires
@@ -24,6 +25,7 @@ var fs = require('fs'),
 	merge = require('deepmerge'),
 	request = require('request'),
 	serverUtils = require('../../test/server/serverUtils'),
+	documentUtils = require('../document').utils,
 	ContentCompiler = require('./components/contentitem/contentcompiler');
 
 var componentsEnabled = true;
@@ -73,6 +75,10 @@ var defaultLocale; // set if required by command line parameter
 var outputAlternateHierarchy = true; // Emit to /folder/_files/<filename> structure
 var pagesToCompile; // list of pages that will be compiled
 var installedNodePackages = [];
+
+// entries for cross site links
+var crossSitePromises = {};
+var crossSiteEntries = {}; 
 
 
 // create a reporter object to output any required information during compile and then a summary report at the end
@@ -977,6 +983,319 @@ function resolveTokens(pageId, layoutMarkup, pageModel, context, sitePrefix) {
 	return pageMarkup;
 }
 
+class ComponentCrossSiteLinks {
+	constructor (SCSCompileAPI) {
+		this.SCSCompileAPI = SCSCompileAPI;
+
+		// ToDo: Formalize how to get this value - default to current customer value stored against the site property
+		this.vanityURLPropertyName = 'SITE_VANITY_DOMAIN'; 
+		this.crossSiteLinksPropertyName = 'USE_CROSS_SITE_LINKS'; 
+		this.useCrossSiteLinks = (rootSiteInfo && rootSiteInfo.properties['customProperties'] || {})[this.crossSiteLinksPropertyName] === 'true';
+	}
+
+	getRemoteSiteVanityURL (remoteSiteEntry) {
+		var remoteSite = remoteSiteEntry && remoteSiteEntry.site || {};
+
+		var remoteSiteInfo = remoteSite.siteInfo || {};
+		var customProperties = remoteSiteInfo.properties && remoteSiteInfo.properties['customProperties'] || {};
+		var vanityURL = customProperties[this.vanityURLPropertyName] || '';
+
+		return vanityURL;
+	}
+
+	getRemoteSitePageURL (remoteSiteEntry, vanityURL, pageId) {
+		var remoteSite = remoteSiteEntry.site;
+		var remoteSiteStructure = remoteSite.siteStructure || {
+			pageMap: {}
+		}; 
+
+		// find the page we're looking for
+		var pageEntry = remoteSiteStructure.pageMap[pageId];
+
+		// get the page URL 
+		var pageUrl = (pageEntry && pageEntry.pageUrl || '').trim(); 
+		if (!pageUrl) {
+			return '';
+		}
+
+		// include remote locale: check if not default page locale or if including the default locale
+		var remoteLocale = '';
+		var defaultLanguage = rootSiteInfo && rootSiteInfo.properties && rootSiteInfo.properties.defaultLanguage;
+		if ((this.SCSCompileAPI.pageLocale !== defaultLanguage) || includeLocale) {
+			remoteLocale = this.SCSCompileAPI.localeAlias || this.SCSCompileAPI.pageLocale || '';
+		}
+
+		// construct the URL to the remote page
+		var remoteSitePageUrl =  vanityURL + '/' +  (remoteLocale ? remoteLocale + '/' : '') + pageUrl;
+		return remoteSitePageUrl;
+	}
+
+	getRemoteSiteLinks () {
+		var emptySiteData = {
+			siteStructure: {},
+			siteInfo: {}
+		};
+
+		// fetch each of the remote sites
+		var siteFetches = Object.keys(crossSiteEntries).map((siteName) => {
+			// if we're already fetching the remote site, return that promise or create a new one
+			crossSitePromises[siteName] = crossSitePromises[siteName] || new Promise((resolve, reject) => {
+				// fetch this remote site's published structure.json (containing the structure & siteInfo)
+				documentUtils.getFile({file: 'site:' + siteName + '/publish/structure.json'}, server).then((publishResult) => {
+					var publishSiteInfo;
+					var publishStructure;
+
+					try {
+						var publishData = publishResult && publishResult.data ? JSON.parse(publishResult.data) : {};
+
+						publishSiteInfo = publishData.siteInfo && publishData.siteInfo.base;
+						publishStructure = publishData.base;
+					} catch (err) {
+						compilationReporter.warn({
+							message: 'failed to parse site published structure and siteInfo for: ' + siteName,
+							err
+						});
+					}
+
+
+					// if failed to load from the publish folder, try from the draft folder
+					var draftResult;
+					if (!publishSiteInfo || !publishStructure) {
+						compilationReporter.info({
+							message: 'loading draft site structure and siteInfo for: ' + siteName
+						});
+
+						// query the draft result
+						draftResult = Promise.all([
+							documentUtils.getFile({file: 'site:' + siteName + '/structure.json'}, server),
+							documentUtils.getFile({file: 'site:' + siteName + '/siteinfo.json'}, server)
+						]).then((result) => {
+							try {
+								var siteStructure = result[0] && result[0].data && JSON.parse(result[0].data);
+								var siteInfo = result[1] && result[1].data && JSON.parse(result[1].data);
+
+								return Promise.resolve({
+									siteStructure: siteStructure,
+									siteInfo: siteInfo,
+								});
+							} catch (err) {
+								compilationReporter.warn({
+									message: 'failed to parse site structure and siteInfo for: ' + siteName,
+									error: err
+								});
+
+								return Promise.resolve();
+							}
+						});
+					} else {
+						// use the published result
+						draftResult = Promise.resolve({
+							siteStructure: publishStructure,
+							siteInfo: publishSiteInfo
+						});
+					}
+
+					draftResult.then((result) => {
+						var siteStructure = result && result.siteStructure;
+						var siteInfo = result && result.siteInfo;
+
+						if (!siteStructure || !siteInfo) {
+							crossSiteEntries[siteName].site = emptySiteData;
+							return resolve();
+						}
+
+						try {
+							// add in a page map
+							siteStructure.pageMap = {};
+							(siteStructure && siteStructure.pages || []).forEach((pageEntry) => {
+								siteStructure.pageMap[pageEntry.id] = pageEntry;
+							});
+
+							crossSiteEntries[siteName].site = {
+								siteStructure: siteStructure,
+								siteInfo: siteInfo
+							};
+						} catch (err) {
+							compilationReporter.warn({
+								message: 'failed to load site structure and siteInfo for: ' + siteName,
+								error: err
+							});
+
+							// store entry so we don't try again
+							crossSiteEntries[siteName].site = emptySiteData;
+						}
+
+						return resolve();
+					});
+				}).catch((err) => {
+					compilationReporter.warn({
+						message: 'failed to load site structure and siteInfo for: ' + siteName,
+						error: err
+					});
+
+					// store entry so don't try again
+					crossSiteEntries[siteName].site = emptySiteData;
+					return resolve();
+				});
+			});
+
+			return crossSitePromises[siteName];
+		});
+
+		// wait for all the site fetches to complete
+		return Promise.all(siteFetches).then(() => {
+			// update all the cross site link values
+			Object.keys(crossSiteEntries).forEach((siteName) => {
+				var siteEntry = crossSiteEntries[siteName];
+
+				// find the vanity URL
+				var vanityURL = this.getRemoteSiteVanityURL(siteEntry);
+
+				// update all the page entries for this site
+				if (vanityURL) {
+					Object.keys(siteEntry.pageIds).forEach((pageId) => {
+						siteEntry.pageIds[pageId].url = this.getRemoteSitePageURL(siteEntry, vanityURL, pageId);
+					});
+				} else {
+					// tell the user the vanity URL isn't defined and cross site links won't be created
+					compilationReporter.info({
+						message: 'no vanity URL defined for site: ' + siteName + '. Cross site links will not be created.'
+					});
+				}
+			});
+
+			return Promise.resolve();
+		});
+	}
+
+	parseCrossSiteLinks (compiledComp) {
+		var $ = cheerio.load('<div>');
+
+		if (this.useCrossSiteLinks) {
+			return new Promise ((resolve, reject) => {
+				if (compiledComp && compiledComp.content) {
+					// parse the component content and find any cross site links
+					var $text = $('<div>' + compiledComp.content + '</div>');
+					var regPageLink = /\[!--\$\s*SCS_PAGE\s*--\]\s*(.*?)\s*\[\/!--\$\s*SCS_PAGE\s*--\]/g;
+					var foundOneLink = false; // assume we have no cross site links
+
+					// find site links
+					$text.find('a[linktype="scs-link-sitepage"]').each((i, elm) => { 
+						var attribs = elm && elm.attribs || {}; 
+						var siteId = attribs.siteid;
+						var href = attribs.href || '';
+	
+						if (siteId && (siteId !== targetSiteName) && (href || '').match(regPageLink)) {
+							crossSiteEntries[siteId] = crossSiteEntries[siteId] || {
+								pageIds: {}
+							};
+	
+							href.replace(regPageLink, function (match, pageId) {
+								crossSiteEntries[siteId].pageIds[pageId] = crossSiteEntries[siteId].pageIds[pageId] || {};
+								foundOneLink = true; 
+							});
+						}
+					});
+
+					// if we haven't found any cross site links, we're done
+					if (!foundOneLink) {
+						// re-create HTML from parsed version to make sure we have valid HTML
+						compiledComp.content = $text.html();
+						return resolve();
+					}
+
+					// otherwise, get the URLs for all the remote site links
+					this.getRemoteSiteLinks().then(function () {
+						// replace the remote site links
+						$text.find('a[linktype="scs-link-sitepage"]').each((i, elm) => { 
+							var attribs = elm && elm.attribs || {}; 
+							var siteId = attribs.siteid;
+							var href = attribs.href;
+	
+							// expand the cross-site link macros
+							if (siteId && siteId !== targetSiteName && (href || '').match(regPageLink)) {
+								var siteEntry = crossSiteEntries[siteId];
+	
+								if (siteEntry) {
+									// replace with the corresponding cross-site link
+									href = href.replace(regPageLink, function (match, pageId) {
+										var pageEntry = siteEntry.pageIds && siteEntry.pageIds[pageId];
+
+										if (pageEntry && pageEntry.url) {
+											return pageEntry.url;
+										} else {
+											return match;
+										}
+									});
+								}
+							}
+
+							// repopulate the attribute with the updated value
+							$(elm).attr('href', href);
+						});
+
+						// update the compiled content, also confirms we have valid HTML
+						compiledComp.content = $text.html();
+
+						return resolve();
+					}).catch((err) => {
+						compilationReporter.warn({
+							message: 'failed to update cross site links for: ' + compiledComp.content,
+							error: err
+						});
+						resolve();
+					});
+				} else {
+					// nothing to do
+					return resolve();
+				}
+			});
+		} else {
+			// no check for cross-site links
+			// parse any content to make sure it's valid HTML
+			if (compiledComp && compiledComp.content) {
+				compiledComp.content = $('<div>' + compiledComp.content + '</div>').html();
+			}
+
+			return Promise.resolve();
+		}
+	}
+}
+
+/**
+ * The SCSCompileAPI object namespace.
+ * @namespace {Object} SCSCompileAPI
+ * @property {String} contentServer - The URL to the server for content.
+ * @property {String} navigationRoot - The ID of the node that is the root of the site.
+ * @property {String} navigationCurr - The ID of the current page node.
+ * @property {String} structureMap - All of the nodes of the site hierarchy and accessed by ID.
+ * @property {String} siteInfo - All the site properties.
+ * @property {String} siteFolder - The file system location of the site's compiled pages.
+ * @property {String} componentsFolder - The file system location of the components associated with the site.
+ * @property {String} themesFolder - The file system location of the theme associated with the site.
+ * @property {String} pageLocale - The locale value for the current page being compiled, like "en" or "fr-CA".
+ * @property {String} localeAlias - The locale alias value for the current page being compiled, if configured.
+ * @property {String} pageModel - The page model for the current page being compiled.
+ * @property {String} detailContentItem - The content item associated with a detail page compilation.
+ * @property {String} channelAccessToken - The channel access token associated with the site being compiled.
+ * @property {String} deviceInfo - An object used to determine the device information for the page being compiled.  When mobile pages are being compiled, this will be { isMobile: true }.
+ * @property {String} snippetOnly - Indicates if a Content Item snippet is being generated instead of a site compilation.
+ */
+/**
+ * Compiled Content Results.
+ * @memberof SCSCompileAPI
+ * @typedef {Object} CompiledContent 
+ * @property {String} content - The generated HTML for the component, which will be inserted into the page.  
+ * @property {Boolean} hydrate - true if the hydrate function within the render.js for this component should be called at runtime.
+ */
+/**
+ * Details on how to navigate to another page from the current page. 
+ * @memberof SCSCompileAPI
+ * @typedef {Object} PageLinkData 
+ * @property {String} href - Relative URL path to the referenced page from the current page.
+ * @property {String} target - Whether to open the page in a new tab or replace the current tab.
+ * @property {Boolean} hideInNavigation - Should the page be hidden or visible in the navigation menu.
+ */
 var compiler = {
 	setup: function (args) {
 		var self = this;
@@ -1023,6 +1342,17 @@ var compiler = {
 			channelAccessToken: channelAccessToken,
 			deviceInfo: self.context.deviceInfo,
 			snippetOnly: creatingDetailPages && detailPageContentLayoutSnippet,
+			/**
+			 * Get the contentClient object that can be used to make OCM Content REST calls
+			 * @memberof SCSCompileAPI 
+			 * @instance 
+			 * @returns {Promise} JavaScript Promise object that is resolved to a Content Client object that can be used to make OCM Content REST calls. 
+			 * @example 
+			 * // Get the information about the content client 
+			 * SCSCompileAPI.getContentClient().then((contentClient) => {
+			 *      console.log(contentClient.getInfo());
+			 *  });
+			 */
 			getContentClient: function (type) {
 				return new Promise(function (resolve, reject) {
 					var contentType = type === 'published' ? 'published' : defaultContentType,
@@ -1104,6 +1434,24 @@ var compiler = {
 					}
 				});
 			},
+			/**
+			 * Compile another content item, returning the HTML created by the content item's compiler.<br/>
+			 * This is used where you have one content item that references a different content item and you want to <br/>
+			 * call the referenced item's compiler instead of duplicating the code. <br/>
+			 * <br/>
+			 * Note: The hydrate method on the compiled content layout is not called automatically. If it is required<br/>
+			 * then the hydrate function on the current content layout will need to handle it. 
+			 * @memberof SCSCompileAPI
+			 * @instance
+			 * @param {Object} contentItemData - Data to use when the content item is compiled.
+			 * @param {String} layoutName - Name of the content layout to use to compile this content item.
+			 * @returns {Promise} JavaScript Promise object that is resolved to the {@link SCSCompileAPI.CompiledContent} object
+			 * @example
+			 * // Compile the "Author" content item for a "Blog" content item
+			 * SCSCompileAPI.compileContentItem(contentItemData, 'AuthorComponent').then((result) => {
+			 *     console.log(result);
+			 * });
+			 */
 			compileContentItem: function (contentItem, layout) {
 				if (contentItem && layout) {
 					var contentCompiler = new ContentCompiler(this);
@@ -1121,21 +1469,76 @@ var compiler = {
 					return Promise.resolve('');
 				}
 			},
+			/**
+			 * Get the instance data associated with the referenced Component.
+			 * @memberof SCSCompileAPI
+			 * @instance
+			 * @param {String} instanceID of the component to fetch.
+			 * @returns {Object} metadata representing the component instance on the page including the CustomSettingsData.
+			 * @example
+			 * const componentMetadata = SCSCompileAPI.getComponentInstanceData('6cf17959-b488-4c7d-9e00-a13515ad4ca2100');
+			 */
 			getComponentInstanceData: function (instanceId) {
 				return self.pageModel.componentInstances[instanceId];
 			},
+			/**
+			 * Get the channel access token associated with the site being compiled.<br/>
+			 * This returns the same value as the channelAccessToken property.
+			 * @memberof SCSCompileAPI
+			 * @instance
+			 * @returns {String} channelAccessToken of the publishing channel for the site.
+			 * @example
+			 * const channelAccessToken = SCSCompileAPI.getChannelAccessToken();
+			 */
 			getChannelAccessToken: function () {
 				return channelAccessToken;
 			},
+			/**
+			 * Get the ID of the site that is being compiled. 
+			 * @memberof SCSCompileAPI
+			 * @instance
+			 * @returns {String} siteId of the site being compiled.
+			 * @example
+			 * const siteId = SCSCompileAPI.getSiteId();
+			 */
 			getSiteId: function () {
 				return path.basename(siteFolder);
 			},
+			/**
+			 * Get the default detail page Id for the site.<br/>
+			 * This is the first page found that is marked as "detail" in the site hierarchy.
+			 * @memberof SCSCompileAPI
+			 * @instance
+			 * @returns {String} detailPageId default detail page for the site.
+			 * @example
+			 * const detailPageId = SCSCompileAPI.getDetailPageId();
+			 */
 			getDetailPageId: function () {
 				return getDefaultPage(self.structureMap, self.navigationRoot, 'isDetailPage');
 			},
+			/**
+			 * Get the information to navigate to another page in the site.<br/>
+			 * @memberof SCSCompileAPI
+			 * @instance
+			 * @param {String} pageId - Id of the target page.
+			 * @returns {SCSCompileAPI.PageLinkData} Details on how to navigate to the target page.
+			 * @example
+			 * const pageLinkData = SCSCompileAPI.getPageLinkData('104');
+			 */
 			getPageLinkData: function (pageId) {
 				return getPageLinkData(pageId, self.sitePrefix, self.structureMap, self.pageLocale, self.localeAlias);
 			},
+			/**
+			 * Gets a site property value given a property name.
+			 * @memberof SCSCompileAPI
+			 * @instance
+			 * @param {String} propertyName - Property name.
+			 * @returns {String} The property value
+			 * @example
+			 * const siteName = SCSCompileAPI.getSiteProperty('siteName');
+			 * @example
+			 * const siteRootPrefix = SCSCompileAPI.getSiteProperty('siteRootPrefix');
+			 */
 			getSiteProperty: function (propertyName) {
 				var value;
 
@@ -1153,6 +1556,15 @@ var compiler = {
 
 				return value;
 			},
+			/**
+			 * Gets a custom site property value given a property name.
+			 * @memberof SCSCompileAPI
+			 * @instance
+			 * @param {String} propertyName - Property name.
+			 * @returns {String|undefined} The property value
+			 * @example
+			 * const myCustomProp = SCSCompileAPI.getCustomSiteProperty('aCustomSiteProperty');
+			 */
 			getCustomSiteProperty: function (propertyName) {
 				var value;
 
@@ -1169,6 +1581,15 @@ var compiler = {
 
 				return value;
 			},
+			/**
+			 * Gets a default page property value given a property name.
+			 * @memberof SCSCompileAPI
+			 * @instance
+			 * @param {String} propertyName - Property name.
+			 * @returns {String|undefined} The property value
+			 * @example
+			 * const defaultPageProperty = SCSCompileAPI.getDefaultPageProperty('propertyName');
+			 */
 			getDefaultPageProperty: function (propertyName) {
 				var value;
 
@@ -1185,6 +1606,16 @@ var compiler = {
 
 				return value;
 			},
+			/**
+			 * Gets a page property value given a page ID and property name.
+			 * @memberof SCSCompileAPI
+			 * @instance
+			 * @param {String} propertyName - Property name.
+			 * @param {String} [pageId] - The page ID.
+			 * @returns {String|undefined} The property value
+			 * @example
+			 * const pageProperty = SCSCompileAPI.getCustomPageProperty('propertyName');
+			 */
 			getCustomPageProperty: function (propertyName, pageId) {
 				var value,
 					navNode;
@@ -1214,6 +1645,15 @@ var compiler = {
 
 				return value;
 			},
+			/**
+			 * Compile the designated content item using the specified detail page.
+			 * @memberof SCSCompileAPI
+			 * @instance
+			 * @param {String} detailPageId - The page ID of the detail page to be used. If this is undefined, it will use the default detail page. 
+			 * @param {Object} contentItem - The content information for the Content Item to compile.
+			 * @example
+			 * SCSCompileAPI.compileDetailPage('104', contentItemData);
+			 */
 			compileDetailPage: function (detailPageId, contentItem) {
 				var pageId = detailPageId;
 
@@ -1244,6 +1684,16 @@ var compiler = {
 					}
 				}
 			},
+			/**
+			 * Get the link href value to link to another page in the site from the current page being compiled.
+			 * In most cases, this will be the relative URL to the new page from the current page in the hierarchy. 
+			 * @memberof SCSCompileAPI
+			 * @instance
+			 * @param {String} pageId - Id of the target page.
+			 * @returns {String} Relative URL to the referenced page from the current page.
+			 * @example
+			 * const pageURL = SCSCompileAPI.getPageURL('104');
+			 */
 			getPageURL: function (pageId) {
 				var linkData = this.getPageLinkData(pageId),
 					pageURL = '';
@@ -1254,16 +1704,31 @@ var compiler = {
 
 				return pageURL;
 			},
+			/**
+			 * Install one or more npm packages into the compilation environment.
+			 * @memberof SCSCompileAPI
+			 * @instance
+			 * @param {Array|String} packages - The name of the node package to install, or an array of the names of node packages to install.
+			 * @returns {Promise} JavaScript Promise object that is resolved when all the listed packages are installed
+			 * @example
+			 * SCSCompileAPI.installNodePackages(['mustache','handlebars']).then(result => {
+			 *  console.log('node packages installed');
+			 * });
+			 * @example
+			 * SCSCompileAPI.installNodePackages('mustache').then(result => {
+			 *  console.log('node package installed');
+			 * });
+			 */
 			installNodePackages: function (packages) {
 				var nodePackages = [];
 
-				(Array.isArray(packages) ? packages : (typeof packages === 'string' ? [packages] : [])).forEach(function (package) {
-					if (installedNodePackages.indexOf(package) === -1) {
+				(Array.isArray(packages) ? packages : (typeof packages === 'string' ? [packages] : [])).forEach(function (pkg) {
+					if (installedNodePackages.indexOf(pkg) === -1) {
 						// try to install this package
-						nodePackages.push(package);
+						nodePackages.push(pkg);
 
 						// don't try to install this package again
-						installedNodePackages.push(package);
+						installedNodePackages.push(pkg);
 					}
 				});
 
@@ -1309,6 +1774,8 @@ var compiler = {
 	},
 	compileComponentInstance: function (compId, compInstance) {
 		var self = this;
+		var SCSCompileAPI = this.getSCSCompileAPI();
+
 		return new Promise(function (resolve, reject) {
 			// if component is marked as "render on access", we're done
 			if (compInstance.data && compInstance.data.renderOnAccess) {
@@ -1324,27 +1791,33 @@ var compiler = {
 				try {
 					var component = new ComponentCompiler(compId, compInstance, componentsFolder);
 					component.compile({
-						SCSCompileAPI: self.getSCSCompileAPI()
+						SCSCompileAPI: SCSCompileAPI
 					}).then(function (compiledComp) {
-						// make sure the component can be parsed
-						if (compiledComp.content) {
-							var $ = cheerio.load('<div>');
-							compiledComp.content = $('<div>' + compiledComp.content + '</div>').html();
-						}
-						// store the compiled component
-						self.compiledComponents[compId] = compiledComp;
+						// handle any cross-site links
+						var crossSiteLinks = new ComponentCrossSiteLinks(SCSCompileAPI);
+						crossSiteLinks.parseCrossSiteLinks(compiledComp).then(function () {
+							// store the compiled component
+							self.compiledComponents[compId] = compiledComp;
 
-						// if nothing was returned, let the user know
-						if (false && !compiledComp.content) {
-							// don't warn for content placeholders
-							if (!(compInstance.data && compInstance.data.contentPlaceholder)) {
-								compilationReporter.warn({
-									message: 'Compiling component: "' + compId + '" of type "' + compInstance.type + '" resulted in no content - it will render dynamically at runtime',
-								});
+							// if nothing was returned, let the user know
+							if (false && !compiledComp.content) {
+								// don't warn for content placeholders
+								if (!(compInstance.data && compInstance.data.contentPlaceholder)) {
+									compilationReporter.warn({
+										message: 'Compiling component: "' + compId + '" of type "' + compInstance.type + '" resulted in no content - it will render dynamically at runtime',
+									});
+								}
 							}
-						}
 
-						return resolve();
+							return resolve();
+						}).catch(function (e) {
+							compilationReporter.error({
+								message: 'Error parsing cross site links for component: "' + compId + '" of type "' + compInstance.type + '" - it will render dynamically at runtime',
+								error: e
+							});
+
+							return resolve(); 
+						});
 					}).catch(function (e) {
 						compilationReporter.error({
 							message: 'Error compiling component: "' + compId + '" of type "' + compInstance.type + '" - it will render dynamically at runtime',

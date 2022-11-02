@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -624,7 +624,7 @@ app.get('/getvbcsconnection', function (req, res) {
 			var data = JSON.parse(body);
 			if (data && data.ResultSets && data.ResultSets.AFApplicationInfo) {
 				var appInfo = data.ResultSets.AFApplicationInfo;
-				for (i = 0; i < appInfo.fields.length; i++) {
+				for (var i = 0; i < appInfo.fields.length; i++) {
 					if (appInfo.fields[i].name === 'dAppEndPoint') {
 						vbcsconn = appInfo.rows[appInfo.currentRow][i];
 						break;

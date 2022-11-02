@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -11,7 +11,6 @@ var fs = require('fs'),
 	os = require('os'),
 	path = require('path'),
 	sprintf = require('sprintf-js').sprintf,
-	extract = require('extract-zip'),
 	fileUtils = require('../test/server/fileUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
@@ -129,7 +128,7 @@ module.exports.createContentLayout = function (argv, done) {
 	var server;
 	if (useserver) {
 		serverName = argv.server && argv.server === '__cecconfigserver' ? '' : argv.server;
-		var server = serverUtils.verifyServer(serverName, projectDir);
+		server = serverUtils.verifyServer(serverName, projectDir);
 		if (!server || !server.valid) {
 			done();
 			return;
@@ -192,7 +191,7 @@ module.exports.createContentLayout = function (argv, done) {
 	}
 
 	var addcustomsettings = typeof argv.addcustomsettings === 'string' && argv.addcustomsettings.toLowerCase() === 'true';
-	
+
 	if (useserver) {
 
 		serverUtils.loginToServer(server).then(function (result) {
@@ -232,7 +231,7 @@ module.exports.createContentLayout = function (argv, done) {
 				var fields = [],
 					typeprefix = contenttypename.toLowerCase();
 
-				for (var i = 0; i < typefields.length; i++) {
+				for (let i = 0; i < typefields.length; i++) {
 					var field = typefields[i];
 					fields[fields.length] = field;
 				}
@@ -326,7 +325,7 @@ module.exports.addContentLayoutMapping = function (argv, done) {
 	// verify the template
 	var templates = serverUtils.getTemplates(projectDir),
 		foundtemplate = false;
-	for (var i = 0; i < templates.length; i++) {
+	for (let i = 0; i < templates.length; i++) {
 		if (templates[i].name === templatename) {
 			foundtemplate = true;
 			break;
@@ -359,7 +358,7 @@ module.exports.addContentLayoutMapping = function (argv, done) {
 		summaryjson = JSON.parse(fs.readFileSync(summaryfile));
 		mappings = summaryjson["categoryLayoutMappings"] || summaryjson['contentTypeMappings'] || [];
 		// check if the content type is in the mappings
-		for (var i = 0; i < mappings.length; i++) {
+		for (let i = 0; i < mappings.length; i++) {
 			if (mappings[i].type === contenttypename) {
 				foundtype = true;
 				break;
@@ -392,7 +391,7 @@ module.exports.addContentLayoutMapping = function (argv, done) {
 		layoutstyle = layoutstyle + '|mobile';
 	}
 	// now add the mapping for the type
-	for (var i = 0; i < mappings.length; i++) {
+	for (let i = 0; i < mappings.length; i++) {
 		if (mappings[i].type === contenttypename) {
 			var catelist = mappings[i].categoryList,
 				foundmapping = false;
@@ -487,7 +486,7 @@ module.exports.removeContentLayoutMapping = function (argv, done) {
 		// verify the content layout
 		var components = serverUtils.getComponents(projectDir),
 			foundlayout = false;
-		for (var i = 0; i < components.length; i++) {
+		for (let i = 0; i < components.length; i++) {
 			if (components[i].name === layoutname && components[i].type === 'contentlayout') {
 				foundlayout = true;
 				break;
@@ -509,7 +508,7 @@ module.exports.removeContentLayoutMapping = function (argv, done) {
 		var mappings = summaryjson["categoryLayoutMappings"] || summaryjson['contentTypeMappings'];
 
 		if (layoutstyle && layoutname) {
-			for (var i = 0; i < mappings.length; i++) {
+			for (let i = 0; i < mappings.length; i++) {
 				var catelist = mappings[i].categoryList;
 				for (var j = 0; j < catelist.length; j++) {
 					if (catelist[j].categoryName === layoutstyle && catelist[j].layoutName === layoutname) {
@@ -522,18 +521,18 @@ module.exports.removeContentLayoutMapping = function (argv, done) {
 				}
 			}
 		} else if (layoutstyle) {
-			for (var i = 0; i < mappings.length; i++) {
-				var catelist = mappings[i].categoryList;
-				for (var j = catelist.length - 1; j >= 0; j--) {
+			for (let i = 0; i < mappings.length; i++) {
+				let catelist = mappings[i].categoryList;
+				for (let j = catelist.length - 1; j >= 0; j--) {
 					if (catelist[j].categoryName === layoutstyle) {
 						catelist.splice(j, 1);
 					}
 				}
 			}
 		} else if (layoutname) {
-			for (var i = 0; i < mappings.length; i++) {
-				var catelist = mappings[i].categoryList;
-				for (var j = 0; j < catelist.length; j++) {
+			for (let i = 0; i < mappings.length; i++) {
+				let catelist = mappings[i].categoryList;
+				for (let j = 0; j < catelist.length; j++) {
 					if (catelist[j].layoutName === layoutname) {
 						if (mobile) {
 							catelist.splice(j, 1);
@@ -601,7 +600,7 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 	}
 
 	// base contentlayout files
-	layoutzipfile = 'contentlayout.zip';
+	var layoutzipfile = 'contentlayout.zip';
 
 	console.info(' - layoutstyle = ' + layoutstyle + ' haslargetext = ' + haslargetext + ' hasRefItems = ' + hasRefItems + ' hasMultiItems = ' + hasMultiItems + ' layoutzipfile = ' + layoutzipfile);
 
@@ -611,7 +610,8 @@ var _createContentLayout = function (contenttypename, contenttype, layoutname, l
 
 			// if an error occured, report it
 			if (err) {
-				reject(err);
+				done();
+				return;
 			}
 
 			// remove the extra directory caused by unzip
@@ -939,7 +939,7 @@ module.exports.addFieldEditor = function (argv, done) {
 		}
 		var mappings = summaryjson["categoryLayoutMappings"] || summaryjson['contentTypeMappings'] || [];
 		var foundType = false;
-		for (var i = 0; i < mappings.length; i++) {
+		for (let i = 0; i < mappings.length; i++) {
 			if (mappings[i].type === typeName) {
 				foundType = true;
 				var editors = mappings[i].editorList || [];
@@ -1083,7 +1083,7 @@ module.exports.removeFieldEditor = function (argv, done) {
 
 	// check if the editor used by other fields
 	var editorUsed = false;
-	for (var i = 0; i < fields.length; i++) {
+	for (let i = 0; i < fields.length; i++) {
 		if (fields[i].name !== fieldName) {
 			var field2 = fields[i];
 			var editor2 = field2.settings && field2.settings.caas && field2.settings.caas.editor;
@@ -1098,7 +1098,7 @@ module.exports.removeFieldEditor = function (argv, done) {
 		var customEditors = typeJson.properties && typeJson.properties.customEditors;
 		if (customEditors && customEditors.includes(name)) {
 			var newCustomEditors = [];
-			for (var i = 0; i < customEditors.length; i++) {
+			for (let i = 0; i < customEditors.length; i++) {
 				if (customEditors[i] !== name) {
 					newCustomEditors.push(name);
 				}
@@ -1131,7 +1131,7 @@ module.exports.removeFieldEditor = function (argv, done) {
 		var mappings = summaryjson["categoryLayoutMappings"] || summaryjson['contentTypeMappings'] || [];
 		if (!editorUsed) {
 			// remove editor for this type in mappings
-			for (var i = 0; i < mappings.length; i++) {
+			for (let i = 0; i < mappings.length; i++) {
 				if (mappings[i].type === typeName) {
 					var editors = mappings[i].editorList || [];
 					var newEditorList = [];
@@ -1151,9 +1151,9 @@ module.exports.removeFieldEditor = function (argv, done) {
 		}
 
 		var editorUsedAll = false;
-		for (var i = 0; i < mappings.length; i++) {
-			var editors = mappings[i].editorList || [];
-			for (var j = 0; j < editors.length; j++) {
+		for (let i = 0; i < mappings.length; i++) {
+			let editors = mappings[i].editorList || [];
+			for (let j = 0; j < editors.length; j++) {
 				if (editors[j].editorName === name) {
 					editorUsedAll = true;
 					break;
@@ -1163,7 +1163,7 @@ module.exports.removeFieldEditor = function (argv, done) {
 		if (!editorUsedAll) {
 			var editorComponents = summaryjson.editorComponents || [];
 			var newEditorComponents = [];
-			for (var i = 0; i < editorComponents.length; i++) {
+			for (let i = 0; i < editorComponents.length; i++) {
 				if (editorComponents[i] !== name) {
 					newEditorComponents.push(editorComponents[i]);
 				}
@@ -1335,7 +1335,7 @@ module.exports.addContentFormServer = function (argv, done) {
 					typeObj.properties.customForms = [contentFormName];
 				} else {
 					typeObj.properties = {
-						customForms: [customForms]
+						customForms: [contentFormName]
 					};
 				}
 

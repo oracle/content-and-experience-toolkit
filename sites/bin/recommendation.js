@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -180,7 +180,8 @@ module.exports.downloadRecommendation = function (argv, done) {
 			.then(function (results) {
 				if (queryChannel) {
 					var channels = [];
-					for (var i = 0; i < results.length; i++) {
+					var i;
+					for (i = 0; i < results.length; i++) {
 						if (!results[i].err && results[i].id) {
 							channels.push(results[i]);
 						}
@@ -190,7 +191,7 @@ module.exports.downloadRecommendation = function (argv, done) {
 						return Promise.reject();
 					}
 
-					for (var i = 0; i < channels.length; i++) {
+					for (i = 0; i < channels.length; i++) {
 						if (channelName.toLowerCase() === channels[i].name.toLowerCase()) {
 							channel = channels[i];
 							break;
@@ -247,7 +248,7 @@ module.exports.downloadRecommendation = function (argv, done) {
 								};
 
 								serverUtils.showRequestOptions(options);
-								
+
 								//
 								// Download the export zip
 								var request = require('../test/server/requestUtils.js').request;
@@ -625,7 +626,8 @@ var _updateRecommendation = function (server, repository, recommendations, chann
 				channelNames.forEach(function (channelName) {
 					var channel;
 					var channelExist = false;
-					for (var i = 0; i < results.length; i++) {
+					var i;
+					for (i = 0; i < results.length; i++) {
 						channel = results[i] && results[i].data;
 						if (channel && channel.name && channel.name.toLowerCase() === channelName.toLowerCase()) {
 							channelExist = true;
@@ -638,7 +640,7 @@ var _updateRecommendation = function (server, repository, recommendations, chann
 					} else {
 						// check if the channel is added to the repository
 						var channelInRepo = false;
-						for (var i = 0; i < repository.channels.length; i++) {
+						for (i = 0; i < repository.channels.length; i++) {
 							if (channel.id === repository.channels[i].id) {
 								channelInRepo = true;
 								break;

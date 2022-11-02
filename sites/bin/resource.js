@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -143,10 +143,11 @@ module.exports.registerServer = function (argv, done) {
 	var savedPassword = password;
 	var savedClientId = client_id;
 	var savedClientSecret = client_secret;
+	var encrypted;
 	if (keyFile) {
 		var key = fs.readFileSync(keyFile, 'utf8');
 		try {
-			var encrypted = crypto.publicEncrypt({
+			encrypted = crypto.publicEncrypt({
 				key: key,
 			}, Buffer.from(password, 'utf8'));
 			savedPassword = encrypted.toString('base64');
@@ -160,7 +161,7 @@ module.exports.registerServer = function (argv, done) {
 
 		if (client_id) {
 			try {
-				var encrypted = crypto.publicEncrypt({
+				encrypted = crypto.publicEncrypt({
 					key: key,
 				}, Buffer.from(client_id, 'utf8'));
 				savedClientId = encrypted.toString('base64');
@@ -175,7 +176,7 @@ module.exports.registerServer = function (argv, done) {
 
 		if (client_secret) {
 			try {
-				var encrypted = crypto.publicEncrypt({
+				encrypted = crypto.publicEncrypt({
 					key: key,
 				}, Buffer.from(client_secret, 'utf8'));
 				savedClientSecret = encrypted.toString('base64');
@@ -486,11 +487,11 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 			//
 			// List channels
 			//
-			var channelFormat = '  %-36s  %-36s  %-8s  %-s';
+			var channelFormat = '  %-36s  %-36s  %-12s  %-8s  %-s';
 			channels = results.length > 0 ? results[0] : [];
 			if (listChannels) {
 				console.log('Channels:');
-				console.log(sprintf(channelFormat, 'Name', 'Token', 'Access', 'Publishing'));
+				console.log(sprintf(channelFormat, 'Name', 'Token', 'SiteChannel', 'Access', 'Publishing'));
 				for (var i = 0; i < channels.length; i++) {
 					var channel = channels[i];
 					var channelToken;
@@ -505,7 +506,7 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 						channelToken = tokens[0].token;
 					}
 					var publishPolicy = channel.publishPolicy === 'anythingPublished' ? 'Anything can be published' : 'Only approved items can be published';
-					console.log(sprintf(channelFormat, channel.name, channelToken, channel.channelType, publishPolicy));
+					console.log(sprintf(channelFormat, channel.name, channelToken, channel.isSiteChannel ? '    √' : '', channel.channelType, publishPolicy));
 				}
 				if (channels.length > 0) {
 					console.log('Total: ' + channels.length);
@@ -634,11 +635,12 @@ var _listServerResourcesRest = function (server, serverName, argv, done) {
 					for (var i = 0; i < repositories.length; i++) {
 						var repo = repositories[i];
 						var contentTypes = [];
-						for (var j = 0; j < repo.contentTypes.length; j++) {
+						var j;
+						for (j = 0; j < repo.contentTypes.length; j++) {
 							contentTypes.push(repo.contentTypes[j].name);
 						}
 						var repoChannels = [];
-						for (var j = 0; j < repo.channels.length; j++) {
+						for (j = 0; j < repo.channels.length; j++) {
 							for (var k = 0; k < channels.length; k++) {
 								if (repo.channels[j].id === channels[k].id) {
 									repoChannels.push(channels[k].name);
@@ -1404,7 +1406,8 @@ var _create10000Assets = function (server) {
 		var items = [];
 		var start = 0;
 		var max = 1000000;
-		for (var i = start; i < max; i++) {
+		var i;
+		for (i = start; i < max; i++) {
 			var idx = lpad(i + 1);
 			items.push({
 				name: 'item_' + idx,
@@ -1414,8 +1417,8 @@ var _create10000Assets = function (server) {
 		// console.log(items);
 		var groups = [];
 		var limit = 10;
-		var start, end;
-		for (var i = 0; i < max / limit; i++) {
+		var end;
+		for (i = 0; i < max / limit; i++) {
 			start = i * limit;
 			end = start + limit - 1;
 			if (end >= max) {
@@ -1429,7 +1432,7 @@ var _create10000Assets = function (server) {
 		if (end < max - 1) {
 			groups.push({
 				start: end + 1,
-				end: total - 1
+				end: max - 1
 			});
 		}
 

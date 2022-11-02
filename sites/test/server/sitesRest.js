@@ -1461,7 +1461,7 @@ var _setSiteOnlineStatus = function (server, id, name, status) {
 		var request = require('./requestUtils.js').request;
 		request.post(options, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: failed to ' + action + ' site ' + type.substring(0, type.length - 1) + ' ' + (name || id) + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: failed to ' + action + ' site ' + (name || id) + ' (ecid: ' + response.ecid + ')');
 				console.error(error);
 				resolve({
 					err: error
@@ -1515,6 +1515,135 @@ module.exports.activateSite = function (args) {
 module.exports.deactivateSite = function (args) {
 	var server = args.server;
 	return _setSiteOnlineStatus(server, args.id, args.name, 'offline');
+};
+
+var _exportSite = function (server, name, siteName, siteId, folderId, includeUnpublishedAssets) {
+	return new Promise(function (resolve, reject) {
+
+		var url = '/system/export/api/v1/exports';
+
+		var payload = {
+			name: name,
+			description: "",
+			target: {
+				provider: "docs",
+				docs: {
+					folderId: folderId
+				}
+			},
+			sources: [
+				{
+					select: {
+						type: "site",
+						site: {
+							id: siteId
+						}
+					},
+					apply: {
+						policies: "exportSite",
+						exportSite: {
+							includeUnpublishedAssets: includeUnpublishedAssets
+						}
+					}
+				}
+			]
+		};
+
+		var options = {
+			method: 'POST',
+			url: server.url + url,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(payload),
+			json: true
+		};
+
+		// Note: Export service on dev instances requires additional header
+		if (server.env === 'dev_ec') {
+			options.headers.IDCS_REMOTE_USER = server.username;
+		}
+
+		serverUtils.showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: failed to export site ' + (siteName) + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
+				resolve({
+					err: error
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			var statusUrl = response.location;
+			if (statusUrl) {
+				console.log(' - submit background job');
+				statusUrl += '?fields=id,name,description,progress,completed,message,completedPercentage,sources,target';
+				console.log(' - job status: ' + statusUrl);
+				var startTime = new Date();
+				var needNewLine = false;
+				var inter = setInterval(function () {
+					_getBackgroundJobStatus(server, statusUrl)
+						.then(function (data) {
+							if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+								clearInterval(inter);
+								if (needNewLine) {
+									process.stdout.write(os.EOL);
+								}
+								var msg = data && data.error ? (data.error.detail || data.error.title) : '';
+								console.error('_exportSite ERROR: request failed: ' + msg + ' (ecid: ' + response.ecid + ')');
+								return resolve({
+									err: 'err'
+								});
+							} else if (data.completed && data.progress === 'succeeded') {
+								clearInterval(inter);
+								if (data.completedPercentage) {
+									process.stdout.write(' - request in process percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								}
+								process.stdout.write(os.EOL);
+								console.log(' - request finished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								// console.log(data);
+								return resolve(data);
+							} else {
+								process.stdout.write(' - request in process' + (data.completedPercentage !== undefined ? ' percentage ' + data.completedPercentage : '') + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								readline.cursorTo(process.stdout, 0);
+								needNewLine = true;
+							}
+						});
+				}, 5000);
+			} else {
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.error('ERROR: failed to export site ' + (name) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+/**
+ * Export a site on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} server the server object
+ * @param {string} name of the export
+ * @param {string} siteId of the site for export
+ * @param {string} folderId on Documents to export to
+ * @param {string} includeunpublishedassets flag to include unpublished assets or not
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.exportSite = function (args) {
+	var server = args.server;
+	return _exportSite(server, args.name, args.siteName, args.siteId, args.folderId, args.includeunpublishedassets);
 };
 
 var _validateSite = function (server, id, name) {
@@ -1854,14 +1983,20 @@ module.exports.importComponent = function (args) {
 
 var _getBackgroundJobStatus = function (server, url) {
 	return new Promise(function (resolve, reject) {
+		var augmentedUrl = (url.indexOf('?') !== -1) ? url : url + '?links=none';
 		var options = {
-			url: url + '?links=none',
+			url: augmentedUrl,
 			headers: {
 				Authorization: serverUtils.getRequestAuthorization(server)
 			}
 		};
 
-		var endpoint = serverUtils.replaceAll(url, server.url);
+		// Note: Export service on dev instances requires additional header
+		if (url.indexOf('/system/export') !== -1 && server.env === 'dev_ec') {
+			options.headers.IDCS_REMOTE_USER = server.username;
+		}
+
+		var endpoint = serverUtils.replaceAll(augmentedUrl, server.url);
 		if (endpoint.indexOf('/') > 0) {
 			endpoint = endpoint.substring(endpoint.indexOf('/'));
 		}
@@ -2129,7 +2264,7 @@ module.exports.importTemplate = function (args) {
 };
 
 var _createSite = function (server, name, description, sitePrefix, templateName, templateId, repositoryId, localizationPolicyId, defaultLanguage,
-	updateContent, reuseContent, suppressgovernance, id) {
+	updateContent, reuseContent, suppressgovernance, id, taxonomyId, categoryId) {
 	return new Promise(function (resolve, reject) {
 
 		var url = '/sites/management/api/v1/sites';
@@ -2150,6 +2285,12 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 		}
 		if (defaultLanguage) {
 			body.defaultLanguage = defaultLanguage;
+		}
+		if (taxonomyId && categoryId) {
+			body.contentSecurity = {
+				taxonomy: taxonomyId,
+				category: categoryId
+			}
 		}
 		if (id) {
 			// create the site with a specific id (transfer site preserve original site id)
@@ -2200,6 +2341,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 				data = body;
 			}
 
+			var msg;
 			if (response && response.statusCode === 202) {
 				var statusLocation = response.location;
 				var governanceEnabled = false;
@@ -2260,7 +2402,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 								if (needNewLine) {
 									process.stdout.write(os.EOL);
 								}
-								var msg = data && data.message ? data.message : (data && data.error ? (data.error.detail || data.error.title) : '');
+								msg = data && data.message ? data.message : (data && data.error ? (data.error.detail || data.error.title) : '');
 								console.error('ERROR: create site failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 								// console.log(data);
 								return resolve({
@@ -2287,7 +2429,7 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 					});
 				}, 5000);
 			} else {
-				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.error('ERROR: failed to create site ' + name + ' from template ' + templateName + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				if (data) {
 					console.error(data);
@@ -2313,7 +2455,8 @@ module.exports.createSite = function (args) {
 	return _createSite(server, args.name, args.description, args.sitePrefix,
 		args.templateName, args.templateId, args.repositoryId,
 		args.localizationPolicyId, args.defaultLanguage,
-		args.updateContent, args.reuseContent, args.suppressgovernance, args.id);
+		args.updateContent, args.reuseContent, args.suppressgovernance, args.id,
+		args.taxonomyId, args.categoryId);
 };
 
 var _copySite = function (server, sourceSiteName, name, description, sitePrefix, repositoryId) {
@@ -2863,3 +3006,106 @@ module.exports.copyTheme = function (args) {
 module.exports.copyTemplate = function (args) {
 	return _copyResourceAsync(args.server, 'templates', args.srcId, args.srcName, args.name, args.description);
 };
+
+var _getExportJobsEndpoint = function (server) {
+	return `${server.url}/system/export/api/v1/exports`;
+};
+module.exports.getExportJobsEndpoint = function (server) {
+	return _getExportJobsEndpoint(server);
+};
+
+var _sendExportJobRequest = function (server, method, url, payload, requestUtils) {
+	return new Promise(function (resolve /*, reject*/) {
+		var postData = {
+			method: method,
+			url,
+			headers: {
+				'Content-Type': 'application/json',
+				'IDCS_REMOTE_USER': server.username,
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			json: true
+		};
+
+		if (payload) {
+			postData.body = JSON.stringify(payload);
+		}
+
+		requestUtils.request.post(postData, function (error, response, body) {
+			if (error) {
+				console.log(`Failed to ${method} ${url}`);
+				console.error(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (err) {
+				data = body;
+			}
+			if (response.statusCode >= 200 && response.statusCode < 300) {
+				resolve((response.location).split('/')[8]);
+			} else {
+				var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
+				console.log(`Failed to ${method} ${url} - ${msg}`);
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+/**
+ * Send different Ranking policy requests
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.method method name
+ * @param {object} args.payload payload of Ranking policy for different actions like create, promote and publish
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.sendExportJobRequest = function (args) {
+	return _sendExportJobRequest(args.server, args.method, args.url, args.payload, args.requestUtils);
+}
+var _getExportJobRequest = function (server, method, url, requestUtils) {
+	return new Promise(function (resolve /*, reject*/) {
+		var postData = {
+			method: method,
+			url,
+			headers: {
+				'Content-Type': 'application/json',
+				'IDCS_REMOTE_USER': server.username,
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			json: true
+		};
+		requestUtils.request.post(postData, function (error, response, body) {
+			if (error) {
+				console.log(`Failed to ${method} ${url}`);
+				console.error(error);
+				resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (err) {
+				data = body;
+			}
+			if (response && response.statusCode >= 200 && response.statusCode < 300) {
+				resolve(data);
+			} else {
+				var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
+				console.log(`Failed to ${method} ${url} - ${msg}`);
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+module.exports.getExportJobRequest = function (args) {
+	return _getExportJobRequest(args.server, args.method, args.url, args.requestUtils);
+}

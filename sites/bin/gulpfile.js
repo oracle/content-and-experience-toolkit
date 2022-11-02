@@ -163,7 +163,7 @@ gulp.task('install-src', function (done) {
 		projectDir,
 		stdio: 'inherit'
 	});
-	var dependenciesInstalled = true;;
+	var dependenciesInstalled = true;
 	if (!fs.existsSync(path.join(projectDir, 'node_modules')) || !fs.existsSync(path.join(projectDir, 'node_modules', 'mustache'))) {
 		dependenciesInstalled = false;
 		if (!fs.existsSync(path.join(projectDir, 'node_modules'))) {
@@ -679,6 +679,18 @@ gulp.task('delete-file', function (done) {
 });
 
 /**
+ * Describe file
+ */
+gulp.task('describe-file', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	doclib.describeFile(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Create component
  * Unzip the zip file of the seeded component and place into the /src
  */
@@ -1129,6 +1141,18 @@ gulp.task('transfer-content', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	contentlib.transferContent(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * tranfer image renditions from one OCM server to another (internal)
+ */
+gulp.task('transfer-rendition', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	contentlib.transferRendition(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -1668,6 +1692,18 @@ gulp.task('update-site', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	siteUpdateLib.updateSite(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * export site
+ */
+ gulp.task('export-site', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.exportSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});

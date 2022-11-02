@@ -132,7 +132,8 @@ var _createComponent = function (componentZipName, compName, done) {
 	fileUtils.extractZip(path.join(componentsDataDir, componentZipName), componentDir)
 		.then(function (err) {
 			if (err) {
-				reject(err);
+				done();
+				return;
 			}
 
 			// remove the extra directory caused by unzip
@@ -999,9 +1000,10 @@ var _downloadComponentsREST = function (server, componentNames, argv, noMsg) {
 		verifyRun(argv);
 	}
 	var showDetail = noMsg ? false : true;
+	var i;
 	return new Promise(function (resolve, reject) {
 		var compPromises = [];
-		for (var i = 0; i < componentNames.length; i++) {
+		for (i = 0; i < componentNames.length; i++) {
 			compPromises.push(sitesRest.getComponent({
 				server: server,
 				name: componentNames[i]
@@ -1013,7 +1015,7 @@ var _downloadComponentsREST = function (server, componentNames, argv, noMsg) {
 		var exportSuccess = false;
 		Promise.all(compPromises).then(function (results) {
 			var allComps = results || [];
-			for (var i = 0; i < componentNames.length; i++) {
+			for (i = 0; i < componentNames.length; i++) {
 				var found = false;
 				var compName = componentNames[i];
 				for (var j = 0; j < allComps.length; j++) {
@@ -1031,7 +1033,7 @@ var _downloadComponentsREST = function (server, componentNames, argv, noMsg) {
 			}
 			// console.log(' - get components');
 			var exportPromises = [];
-			for (var i = 0; i < comps.length; i++) {
+			for (i = 0; i < comps.length; i++) {
 				exportPromises.push(sitesRest.exportComponent({
 					server: server,
 					id: comps[i].id
@@ -1044,7 +1046,7 @@ var _downloadComponentsREST = function (server, componentNames, argv, noMsg) {
 			.then(function (results) {
 				var exportFiles = results || [];
 				var prefix = '/documents/api/1.2/files/';
-				for (var i = 0; i < comps.length; i++) {
+				for (i = 0; i < comps.length; i++) {
 					var exported = false;
 					for (var j = 0; j < exportFiles.length; j++) {
 						if (comps[i].id === exportFiles[j].id && exportFiles[j].file) {
@@ -1088,7 +1090,7 @@ var _downloadComponentsREST = function (server, componentNames, argv, noMsg) {
 				}
 
 				var unzipPromises = [];
-				for (var i = 0; i < exportedComps.length; i++) {
+				for (i = 0; i < exportedComps.length; i++) {
 					for (var j = 0; j < results.length; j++) {
 						if (exportedComps[i].fileId === results[j].id) {
 							var targetFile = path.join(destdir, exportedComps[i].name + '.zip');
@@ -1102,14 +1104,14 @@ var _downloadComponentsREST = function (server, componentNames, argv, noMsg) {
 				return Promise.all(unzipPromises);
 			})
 			.then(function (results) {
-				for (var i = 0; i < results.length; i++) {
+				for (i = 0; i < results.length; i++) {
 					if (results[i].comp && showDetail) {
 						console.log(' - import component to ' + path.join(componentsSrcDir, results[i].comp));
 					}
 				}
 
 				var deleteFilePromises = [];
-				for (var i = 0; i < exportedComps.length; i++) {
+				for (i = 0; i < exportedComps.length; i++) {
 					deleteFilePromises.push(serverRest.deleteFile({
 						server: server,
 						fFileGUID: exportedComps[i].fileId
@@ -1269,6 +1271,8 @@ module.exports.shareComponent = function (argv, done) {
 		var groups = [];
 		var osnConnection;
 
+		var i, j;
+
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
@@ -1326,7 +1330,7 @@ module.exports.shareComponent = function (argv, done) {
 					}
 
 					var usersPromises = [];
-					for (var i = 0; i < userNames.length; i++) {
+					for (i = 0; i < userNames.length; i++) {
 						usersPromises.push(serverRest.getUser({
 							server: server,
 							name: userNames[i]
@@ -1337,7 +1341,7 @@ module.exports.shareComponent = function (argv, done) {
 				})
 				.then(function (results) {
 					var allUsers = [];
-					for (var i = 0; i < results.length; i++) {
+					for (i = 0; i < results.length; i++) {
 						if (results[i].items) {
 							allUsers = allUsers.concat(results[i].items);
 						}
@@ -1348,7 +1352,7 @@ module.exports.shareComponent = function (argv, done) {
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
 						var found = false;
-						for (var i = 0; i < allUsers.length; i++) {
+						for (i = 0; i < allUsers.length; i++) {
 							if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 								users.push(allUsers[i]);
 								found = true;
@@ -1376,9 +1380,10 @@ module.exports.shareComponent = function (argv, done) {
 					var existingMembers = result.data || [];
 
 					var sharePromises = [];
-					for (var i = 0; i < users.length; i++) {
-						var newMember = true;
-						for (var j = 0; j < existingMembers.length; j++) {
+					var newMember;
+					for (i = 0; i < users.length; i++) {
+						newMember = true;
+						for (j = 0; j < existingMembers.length; j++) {
 							if (existingMembers[j].id === users[i].id) {
 								newMember = false;
 								break;
@@ -1394,9 +1399,9 @@ module.exports.shareComponent = function (argv, done) {
 						}));
 					}
 
-					for (var i = 0; i < groups.length; i++) {
-						var newMember = true;
-						for (var j = 0; j < existingMembers.length; j++) {
+					for (i = 0; i < groups.length; i++) {
+						newMember = true;
+						for (j = 0; j < existingMembers.length; j++) {
 							if (existingMembers[j].id === groups[i].groupID) {
 								newMember = false;
 								break;
@@ -1416,7 +1421,7 @@ module.exports.shareComponent = function (argv, done) {
 				})
 				.then(function (results) {
 					var shared = false;
-					for (var i = 0; i < results.length; i++) {
+					for (i = 0; i < results.length; i++) {
 						if (results[i].errorCode === '0') {
 							shared = true;
 							var typeLabel = results[i].user.loginName ? 'user' : 'group';
@@ -1465,6 +1470,8 @@ module.exports.unshareComponent = function (argv, done) {
 		var users = [];
 		var groups = [];
 
+		var i, j;
+
 		var loginPromise = serverUtils.loginToServer(server);
 		loginPromise.then(function (result) {
 			if (!result.status) {
@@ -1507,7 +1514,7 @@ module.exports.unshareComponent = function (argv, done) {
 
 						// verify groups
 						var allGroups = result || [];
-						for (var i = 0; i < groupNames.length; i++) {
+						for (i = 0; i < groupNames.length; i++) {
 							var found = false;
 							for (var j = 0; j < allGroups.length; j++) {
 								if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
@@ -1534,7 +1541,7 @@ module.exports.unshareComponent = function (argv, done) {
 				})
 				.then(function (results) {
 					var allUsers = [];
-					for (var i = 0; i < results.length; i++) {
+					for (i = 0; i < results.length; i++) {
 						if (results[i].items) {
 							allUsers = allUsers.concat(results[i].items);
 						}
@@ -1572,8 +1579,9 @@ module.exports.unshareComponent = function (argv, done) {
 				.then(function (result) {
 					var existingMembers = result.data || [];
 					var revokePromises = [];
+					var existingUser;
 					for (var i = 0; i < users.length; i++) {
-						var existingUser = false;
+						existingUser = false;
 						for (var j = 0; j < existingMembers.length; j++) {
 							if (users[i].id === existingMembers[j].id) {
 								existingUser = true;
@@ -1592,9 +1600,9 @@ module.exports.unshareComponent = function (argv, done) {
 						}
 					}
 
-					for (var i = 0; i < groups.length; i++) {
-						var existingUser = false;
-						for (var j = 0; j < existingMembers.length; j++) {
+					for (i = 0; i < groups.length; i++) {
+						existingUser = false;
+						for (j = 0; j < existingMembers.length; j++) {
 							if (existingMembers[j].id === groups[i].groupID) {
 								existingUser = true;
 								break;
@@ -1709,7 +1717,7 @@ module.exports.describeComponent = function (argv, done) {
 
 		})
 			.then(function (result) {
-			
+
 				compMetadata = result && result.metadata;
 
 				var managers = [];

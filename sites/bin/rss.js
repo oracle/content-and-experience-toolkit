@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -166,7 +166,9 @@ var _getContentItems = function (server, channelToken, query, limit, orderby, la
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// in case the result is not valid json
+			}
 
 			if (!response || response.statusCode !== 200) {
 				var msg = data && data.detail ? data.detail : (response.statusMessage || response.statusCode);
@@ -250,7 +252,7 @@ var _generateRSSFile = function (siteUrl, items, language, detailPage, tempPath,
 		var detailLink = '';
 		var detailPageUrl = '';
 		if (detailPage) {
-			var detailPageUrl = detailPage.pageUrl;
+			detailPageUrl = detailPage.pageUrl;
 			var detailPagePrefix = detailPageUrl.replace('.html', '');
 			detailPageUrl = siteUrl + '/' + (language ? (language + '/') : '') + detailPageUrl;
 			if (newlink) {

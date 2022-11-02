@@ -3,13 +3,14 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
-var fs = require('fs'),
+var gulp = require('gulp'),
+	fs = require('fs'),
 	fse = require('fs-extra'),
 	os = require('os'),
 	readline = require('readline'),
 	path = require('path'),
-	semver = require('semver'),
 	sprintf = require('sprintf-js').sprintf,
+	zip = require('gulp-zip'),
 	assetUtils = require('./asset.js').utils,
 	contentUtils = require('./content.js').utils,
 	documentUtils = require('./document.js').utils,
@@ -279,7 +280,7 @@ var _createSiteREST = function (server, name, templateName, repositoryName, loca
 								}
 								console.info(' - get localization policy');
 							} else {
-								for (var i = 0; i < policies.length; i++) {
+								for (let i = 0; i < policies.length; i++) {
 									if (policies[i].id === template.localizationPolicy.id) {
 										policy = policies[i];
 										localizationPolicyId = policies[i].id;
@@ -2214,7 +2215,7 @@ var _transferOtherAssets = function (argv, server, destServer, site, destSite, r
 					console.error(error);
 				}
 				return resolve({
-					err: err
+					err: 'err'
 				});
 			});
 	});
@@ -2417,51 +2418,6 @@ var _verifyComponentItemGUID = function (server, comps) {
 			return resolve({});
 		});
 	});
-};
-
-var _getNewUsedObjects = function (fields, srcRows, destRows, instanceFieldName, rowsToAdd, unitIdsToAdd, rowsRoRemove, unitIdsToRemove) {
-	if (fields && fields.length > 0) {
-		var unitIDIdx;
-		for (var i = 0; i < fields.length; i++) {
-			if (fields[i].name === instanceFieldName) {
-				instanceIDIdx = i;
-			}
-			if (fields[i].name === 'dIdentifier') {
-				unitIDIdx = i;
-			}
-		}
-
-		// find out rows to add (exist on source but not on destination)
-		srcRows.forEach(function (srcObj) {
-			var foundInDest = false;
-			for (i = 0; i < destRows.length; i++) {
-				if (srcObj[instanceIDIdx] === destRows[i][instanceIDIdx]) {
-					foundInDest = true;
-					break;
-				}
-			}
-			if (!foundInDest) {
-				rowsToAdd.push(srcObj);
-				unitIdsToAdd.push(srcObj[unitIDIdx]);
-			}
-		});
-
-		// find out rows to remove (exist on destination but not on source)
-		for (i = 0; i < destRows.length; i++) {
-			var foundInSource = false;
-			for (var j = 0; j < srcRows.length; j++) {
-				if (srcRows[j][instanceIDIdx] === destRows[i][instanceIDIdx]) {
-					foundInSource = true;
-					break;
-				}
-			}
-			if (!foundInSource) {
-				rowsRoRemove.push(destRows[i]);
-				unitIdsToRemove.push(destRows[i][unitIDIdx]);
-			}
-		}
-	}
-	// console.log(instanceFieldName + ' to add ' + unitIdsToAdd + ' to remove ' + unitIdsToRemove);
 };
 
 
@@ -3005,6 +2961,7 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 						console.log(' - job status: ' + statusUrl);
 						statusUrl = server.url + statusUrl + '?expand=site&links=none';
 						var startTime = new Date();
+						var needNewLine = false;
 						var inter = setInterval(function () {
 							var jobPromise = sitesRest.getBackgroundJobStatus({
 								server: server,
@@ -3139,7 +3096,7 @@ module.exports.shareSite = function (argv, done) {
 					}
 
 					var usersPromises = [];
-					for (var i = 0; i < userNames.length; i++) {
+					for (let i = 0; i < userNames.length; i++) {
 						usersPromises.push(serverRest.getUser({
 							server: server,
 							name: userNames[i]
@@ -3161,7 +3118,7 @@ module.exports.shareSite = function (argv, done) {
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
 						var found = false;
-						for (var i = 0; i < allUsers.length; i++) {
+						for (let i = 0; i < allUsers.length; i++) {
 							if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 								users.push(allUsers[i]);
 								found = true;
@@ -3207,9 +3164,9 @@ module.exports.shareSite = function (argv, done) {
 						}));
 					}
 
-					for (var i = 0; i < groups.length; i++) {
-						var newMember = true;
-						for (var j = 0; j < existingMembers.length; j++) {
+					for (let i = 0; i < groups.length; i++) {
+						let newMember = true;
+						for (let j = 0; j < existingMembers.length; j++) {
 							if (existingMembers[j].id === groups[i].groupID) {
 								newMember = false;
 								break;
@@ -3335,7 +3292,7 @@ module.exports.unshareSite = function (argv, done) {
 					}
 
 					var usersPromises = [];
-					for (var i = 0; i < userNames.length; i++) {
+					for (let i = 0; i < userNames.length; i++) {
 						usersPromises.push(serverRest.getUser({
 							server: server,
 							name: userNames[i]
@@ -3357,7 +3314,7 @@ module.exports.unshareSite = function (argv, done) {
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
 						var found = false;
-						for (var i = 0; i < allUsers.length; i++) {
+						for (let i = 0; i < allUsers.length; i++) {
 							if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 								users.push(allUsers[i]);
 								found = true;
@@ -3404,9 +3361,9 @@ module.exports.unshareSite = function (argv, done) {
 						}
 					}
 
-					for (var i = 0; i < groups.length; i++) {
-						var existingUser = false;
-						for (var j = 0; j < existingMembers.length; j++) {
+					for (let i = 0; i < groups.length; i++) {
+						let existingUser = false;
+						for (let j = 0; j < existingMembers.length; j++) {
 							if (existingMembers[j].id === groups[i].groupID) {
 								existingUser = true;
 								break;
@@ -3530,6 +3487,158 @@ module.exports.deleteSite = function (argv, done) {
 
 
 /**
+ * export site
+ */
+ module.exports.exportSite = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	try {
+		var serverName = argv.server;
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			done();
+			return;
+		}
+
+		var siteName = argv.name;
+		var exportname = argv.exportname || argv.name;
+		var includeunpublishedassets = argv.includeunpublishedassets;
+
+		// folder path on the server
+		var folder = argv.folder && argv.folder.toString();
+		if (folder === '/') {
+			folder = '';
+		} else if (folder && !serverUtils.replaceAll(folder, '/', '')) {
+			console.error('ERROR: invalid folder');
+			done();
+			return;
+		}
+
+		var loginPromise = serverUtils.loginToServer(server);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage);
+				done();
+				return;
+			}
+
+			var promises = [];
+			var parseFolderResult = false;
+			promises.push(sitesRest.getSite({
+				server: server,
+				name: siteName
+			}));
+
+			if (folder && folder.length > 0) {
+				// Find info about the folder specified
+				promises.push(serverRest.findFolderHierarchy({
+					server: server,
+					parentID: 'self',
+					folderPath: folder
+				}));
+			} else {
+				// If folder is not specified, then export site to user home folder.
+				// Find user home folder info
+				promises.push(serverRest.getFile({
+					server: server,
+					id: 'self'
+				}));
+			}
+
+			Promise.all(promises)
+				.then(function (results) {
+					var siteInfo = results[0],
+						folderInfo = results[1],
+						folderId;
+
+					// Handle site problem
+					if (!siteInfo.id) {
+						console.error('ERROR: Site ' + siteName + ' is not found');
+						done();
+						return;
+					}
+
+					// Handle export folder problem
+					if (!folderInfo.id) {
+						console.error('ERROR: Export folder is not found');
+						done();
+						return;
+					}
+
+					if (folderInfo.id === 'self') {
+						// Export site to user home folder. Export API supports F:USER:<user-Id> format only.
+						folderId = 'F:USER:' + folderInfo.name;
+					} else {
+						folderId = folderInfo.id;
+					}
+
+					sitesRest.exportSite({
+						server: server,
+						name: exportname,
+						siteName: siteName,
+						siteId: siteInfo.id,
+						folderId: folderId,
+						includeunpublishedassets: (includeunpublishedassets === true) || (includeunpublishedassets === 'true') || false
+					}).then(function (data) {
+						if (data && data.err) {
+							done();
+							return;
+						}
+
+						// Server response does not include the name of the folder created for the export site request.
+						// Construct the export folder name
+						var exportFolderName = data.name + '_' + data.id;
+
+						if (argv.download) {
+
+							// Download option
+							var targetPath = path.join(projectDir, 'src', 'siteExport', exportFolderName);
+
+							// Remove target path if exists.
+							if (fs.existsSync(targetPath)) {
+								// TODO: Is warning necessary before removing existing folder?
+								fileUtils.remove(targetPath);
+							}
+
+							// Create target path
+							fs.mkdirSync(targetPath, {
+								recursive: true
+							});
+
+							var downloadArgv = {
+								path: (folderInfo.id === 'self') ? exportFolderName : folder + '/' + exportFolderName,
+								folder: targetPath
+							};
+							documentUtils.downloadFolder(downloadArgv, server, true, true).then(function () {
+								console.log('Downloaded export site files to ' + targetPath);
+								done(true);
+							});
+						}
+						else {
+							done(true);
+						}
+					});
+				})
+				.catch((error) => {
+					if (error) {
+						console.error(error);
+					}
+					done();
+				})
+		});
+	} catch (e) {
+		console.error(e);
+		done();
+	}
+};
+
+
+/**
  * validate site
  */
 module.exports.validateSite = function (argv, done) {
@@ -3614,8 +3723,8 @@ var _displayAssetValidation = function (validations) {
 	var format = '  %-12s : %-s';
 
 	var items = policyValidation.items;
-	for (var i = 0; i < items.length; i++) {
-		var val = items[i].validations;
+	for (let i = 0; i < items.length; i++) {
+		let val = items[i].validations;
 
 		for (var j = 0; j < val.length; j++) {
 			if (!val[j].publishable) {
@@ -3884,7 +3993,7 @@ module.exports.validateAssets = function (argv, done) {
 				}
 				var idQ = '';
 				if (assetGUIDS.length > 0) {
-					for (var i = 0; i < assetGUIDS.length; i++) {
+					for (let i = 0; i < assetGUIDS.length; i++) {
 						if (idQ) {
 							idQ = idQ + ' or ';
 						}
@@ -4284,12 +4393,12 @@ module.exports.getSiteSecurity = function (argv, done) {
 					checked = accValues.includes('visitors') ? '√' : '';
 					console.log(sprintf(format2, checked, access));
 
-					var access = 'Service users';
-					var checked = accValues.includes('service') ? '√' : '';
+					access = 'Service users';
+					checked = accValues.includes('service') ? '√' : '';
 					console.log(sprintf(format2, checked, access));
 
-					var access = 'Specific users';
-					var checked = accValues.includes('named') ? '√' : '';
+					access = 'Specific users';
+					checked = accValues.includes('named') ? '√' : '';
 					console.log(sprintf(format2, checked, access));
 
 					if (accValues.indexOf('named') >= 0) {
@@ -4424,13 +4533,13 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 					if (signin === 'yes') {
 						// console.log(' - add user: ' + addUserNames);
 						// console.log(' - delete user: ' + deleteUserNames);
-						for (var i = 0; i < addUserNames.length; i++) {
+						for (let i = 0; i < addUserNames.length; i++) {
 							usersPromises.push(serverRest.getUser({
 								server: server,
 								name: addUserNames[i]
 							}));
 						}
-						for (var i = 0; i < deleteUserNames.length; i++) {
+						for (let i = 0; i < deleteUserNames.length; i++) {
 							usersPromises.push(serverRest.getUser({
 								server: server,
 								name: deleteUserNames[i]
@@ -4455,7 +4564,7 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 							// verify users
 							for (var k = 0; k < addUserNames.length; k++) {
 								var found = false;
-								for (var i = 0; i < allUsers.length; i++) {
+								for (let i = 0; i < allUsers.length; i++) {
 									if (allUsers[i].loginName.toLowerCase() === addUserNames[k].toLowerCase()) {
 										if (!siteMembers.includes(allUsers[i].loginName)) {
 											var user = allUsers[i];
@@ -4474,12 +4583,12 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 									err = true;
 								}
 							}
-							for (var k = 0; k < deleteUserNames.length; k++) {
-								var found = false;
-								for (var i = 0; i < allUsers.length; i++) {
+							for (let k = 0; k < deleteUserNames.length; k++) {
+								let found = false;
+								for (let i = 0; i < allUsers.length; i++) {
 									if (allUsers[i].loginName.toLowerCase() === deleteUserNames[k].toLowerCase()) {
 										if (siteMembers.includes(allUsers[i].loginName)) {
-											var user = allUsers[i];
+											let user = allUsers[i];
 											user.action = 'delete';
 											users.push(allUsers[i]);
 										}
@@ -4603,12 +4712,12 @@ var _setSiteSecurityREST = function (server, name, signin, access, addUserNames,
 						checked = accValues.includes('visitors') ? '√' : '';
 						console.log(sprintf(format2, checked, access));
 
-						var access = 'Service users';
-						var checked = accValues.includes('service') ? '√' : '';
+						access = 'Service users';
+						checked = accValues.includes('service') ? '√' : '';
 						console.log(sprintf(format2, checked, access));
 
-						var access = 'Specific users';
-						var checked = accValues.includes('named') ? '√' : '';
+						access = 'Specific users';
+						checked = accValues.includes('named') ? '√' : '';
 						console.log(sprintf(format2, checked, access));
 
 						if (accValues.indexOf('named') >= 0) {
@@ -4646,13 +4755,6 @@ module.exports.uploadStaticSite = function (argv, done) {
 		return;
 	}
 
-	var serverName = argv.server;
-	var server = serverUtils.verifyServer(serverName, projectDir);
-	if (!server || !server.valid) {
-		done();
-		return;
-	}
-
 	var srcPath = argv.path;
 
 	if (!path.isAbsolute(srcPath)) {
@@ -4670,71 +4772,172 @@ module.exports.uploadStaticSite = function (argv, done) {
 		done();
 		return;
 	}
-
 	console.info(' - static site folder: ' + srcPath);
 
-	var siteName = argv.site;
+	var targetFolder = argv.folder;
+	if (targetFolder) {
+		if (!path.isAbsolute(targetFolder)) {
+			targetFolder = path.join(projectDir, targetFolder);
+		}
+		targetFolder = path.resolve(targetFolder);
 
-	var siteId;
-
-	serverUtils.loginToServer(server).then(function (result) {
-		if (!result.status) {
-			console.error(result.statusMessage);
+		if (!fs.existsSync(targetFolder)) {
+			console.error('ERROR: folder ' + targetFolder + ' does not exist');
 			done();
 			return;
 		}
-
-		sitesRest.getSite({
-			server: server,
-			name: siteName
-		})
+		if (!fs.statSync(targetFolder).isDirectory()) {
+			console.error('ERROR: ' + targetFolder + ' is not a folder');
+			done();
+			return;
+		}
+		_prepareStaticSite(srcPath, targetFolder)
 			.then(function (result) {
 				if (!result || result.err) {
-					return Promise.reject();
+					done();
+				} else {
+					console.log(' - static files saved to ' + targetFolder);
+					done(true);
 				}
-				if (!result.id) {
-					console.error('ERROR: site ' + siteName + ' does not exist');
-					return Promise.reject();
-				}
-				siteId = result.id;
-				console.info(' - verify site');
-
-				return _prepareStaticSite(srcPath);
-
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					return Promise.reject();
-				}
-
-				var uploadArgv = {
-					path: result.localFolder,
-					folder: 'site:' + siteName
-				};
-				return documentUtils.uploadFolder(uploadArgv, server);
-			})
-			.then(function (result) {
-				console.log(' - static files uploaded');
-
-				done(true);
-			})
-			.then(function (result) {
-
-				done(true);
-
-			})
-			.catch((error) => {
-				if (error) {
-					console.error(error);
-				}
-				done();
 			});
+	} else {
+		// prepare static files and upload to the server
+		_uploadStaticSite(argv, srcPath)
+			.then(function (result) {
+				if (!result || result.err) {
+					done();
+				} else {
+					done(true);
+				}
+			})
+	}
+};
 
+var _uploadStaticSite = function (argv, srcPath) {
+	return new Promise(function (resolve, reject) {
+		var serverName = argv.server;
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			return resolve({ err: 'err' });
+		}
+
+		var zipfile = argv.zipfile;
+		if (zipfile && !serverUtils.endsWith(zipfile, '.zip')) {
+			zipfile = zipfile + '.zip';
+		}
+
+		var siteName = argv.site;
+
+		var siteId;
+
+		var targetPath;
+
+		serverUtils.loginToServer(server).then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage);
+				return resolve({ err: 'err' });
+			}
+
+			var sitePromises = [];
+			if (siteName) {
+				sitePromises.push(sitesRest.getSite({
+					server: server,
+					name: siteName
+				}));
+			}
+			Promise.all(sitePromises)
+				.then(function (results) {
+					if (siteName) {
+						if (!results || !results[0] || results[0].err) {
+							return Promise.reject();
+						}
+						if (!results[0].id) {
+							console.error('ERROR: site ' + siteName + ' does not exist');
+							return Promise.reject();
+						}
+						siteId = results[0].id;
+						console.info(' - verify site ' + siteName + ' (' + siteId + ')');
+					}
+
+					// By default the processed static files are under build/static
+					var buildDir = serverUtils.getBuildFolder(projectDir);
+					if (!fs.existsSync(buildDir)) {
+						fs.mkdirSync(buildDir);
+					}
+					var staticFolder = path.join(buildDir, 'static');
+					fileUtils.remove(staticFolder);
+					fs.mkdirSync(staticFolder);
+
+					targetPath = staticFolder;
+
+					return _prepareStaticSite(srcPath, targetPath);
+
+				})
+				.then(function (result) {
+					if (!result || result.err) {
+						return Promise.reject();
+					}
+
+					var zipPromises = [];
+					if (zipfile) {
+						zipPromises.push(_zipStaticFiles(targetPath, zipfile));
+					}
+
+					return Promise.all(zipPromises);
+
+				})
+				.then(function (result) {
+
+					var zippath;
+					if (zipfile) {
+						zippath = path.join(projectDir, 'dist', zipfile);
+						if (!fs.existsSync(zippath)) {
+							console.log('ERROR: failed to create zip file');
+							return Promise.reject();
+
+						}
+					}
+
+					var uploadPromises = [];
+
+					if (zippath) {
+						var uploadFileArgv = {
+							file: zippath,
+							folder: 'site:' + siteName + '/static',
+							createfolder: 'true'
+						};
+						uploadPromises.push(documentUtils.uploadFile(uploadFileArgv, server));
+					} else {
+						var uploadArgv = {
+							path: targetPath + '/',
+							folder: 'site:' + siteName + '/static'
+						};
+						uploadPromises.push(documentUtils.uploadFolder(uploadArgv, server));
+					}
+
+					return Promise.all(uploadPromises);
+				})
+				.then(function (result) {
+
+					if (!zipfile) {
+						console.log(' - static files uploaded');
+					}
+
+					return resolve({});
+				})
+				.catch((error) => {
+					if (error) {
+						console.error(error);
+					}
+					return (resolve({ err: 'err' }));
+				});
+
+		});
 	});
 };
 
 
-var _prepareStaticSite = function (srcPath) {
+var _prepareStaticSite = function (srcPath, targetPath) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.paths(srcPath, function (err, paths) {
 			if (err) {
@@ -4751,16 +4954,7 @@ var _prepareStaticSite = function (srcPath) {
 						});
 					}
 
-					var buildDir = serverUtils.getBuildFolder(projectDir);
-					if (!fs.existsSync(buildDir)) {
-						fs.mkdirSync(buildDir);
-					}
-
-					var srcFolderName = srcPath.substring(srcPath.lastIndexOf(path.sep) + 1);
-					var staticFolder = path.join(buildDir, 'static');
-					fileUtils.remove(staticFolder);
-
-					fs.mkdirSync(staticFolder);
+					var staticFolder = targetPath;
 
 					// get all sub folders including empty ones
 					var subdirs = paths.dirs;
@@ -4775,9 +4969,9 @@ var _prepareStaticSite = function (srcPath) {
 					// get all sub folders including empty ones
 					var files = paths.files;
 
-					for (var i = 0; i < files.length; i++) {
+					for (let i = 0; i < files.length; i++) {
 						var fileFolder = files[i];
-						var fileFolder = fileFolder.substring(srcPath.length + 1);
+						fileFolder = fileFolder.substring(srcPath.length + 1);
 						fileFolder = fileFolder.substring(0, fileFolder.lastIndexOf(path.sep));
 
 						// create _files folder
@@ -4812,6 +5006,27 @@ var _prepareStaticSite = function (srcPath) {
 				}
 			}
 		});
+	});
+};
+
+var _zipStaticFiles = function (folderPath, zipFileName) {
+	return new Promise(function (resolve, reject) {
+		//
+		// create the zip file
+		// 
+		gulp.src(folderPath + '/**', {
+			base: folderPath
+		})
+			.pipe(zip(zipFileName, {
+				buffer: false
+			}))
+			.pipe(gulp.dest(path.join(projectDir, 'dist')))
+			.on('end', function () {
+				var zippath = path.join(projectDir, 'dist', zipFileName);
+				console.info(' - created file ' + zippath);
+				return resolve({});
+			});
+
 	});
 };
 
@@ -4961,7 +5176,7 @@ var _processDownloadedStaticSite = function (srcPath) {
 					}
 
 					var subdirs = paths.dirs;
-					for (var i = 0; i < subdirs.length; i++) {
+					for (let i = 0; i < subdirs.length; i++) {
 						var subdir = subdirs[i];
 						if (serverUtils.endsWith(subdir, '_files')) {
 							fileUtils.remove(subdir);
@@ -5738,7 +5953,6 @@ module.exports.compileSite = function (argv, done) {
 		publishUsedContentOnly: '0',
 		doForceActivate: '0',
 		status: 'CREATED',
-		doForceActivate: '0',
 		progress: 0
 	};
 	jobParams.name = 'Compile' + argv.siteName;

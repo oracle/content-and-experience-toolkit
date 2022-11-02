@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -456,7 +456,7 @@ var _replaceAll = function (str, search, replacement) {
 	if (!str) {
 		return str;
 	}
-	var re = new RegExp(search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
+	var re = new RegExp(search.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
 	return str.replace(re, replacement || '');
 };
 
@@ -472,6 +472,7 @@ var _unescapeHTML = function (str) {
 		return str;
 	}
 };
+
 
 module.exports.lpad = function (str, char, width) {
 	return _lpad(str, char, width);
@@ -1301,16 +1302,17 @@ module.exports.getLocalTranslationJobs = function (projectDir) {
 	for (var i = 0; i < jobNames.length; i++) {
 		var jobpath = path.join(transSrcDir, jobNames[i]);
 		var jobjson = undefined;
+		var jobstr
 		if (fs.existsSync(path.join(jobpath, 'site', 'job.json'))) {
-			var jobstr = fs.readFileSync(path.join(jobpath, 'site', 'job.json'));
+			jobstr = fs.readFileSync(path.join(jobpath, 'site', 'job.json'));
 			jobjson = JSON.parse(jobstr);
 		}
 		if (jobjson === undefined && fs.existsSync(path.join(jobpath, 'assets', 'job.json'))) {
-			var jobstr = fs.readFileSync(path.join(jobpath, 'assets', 'job.json'));
+			jobstr = fs.readFileSync(path.join(jobpath, 'assets', 'job.json'));
 			jobjson = JSON.parse(jobstr);
 		}
 		if (jobjson === undefined && fs.existsSync(path.join(jobpath, 'job.json'))) {
-			var jobstr = fs.readFileSync(path.join(jobpath, 'job.json'));
+			jobstr = fs.readFileSync(path.join(jobpath, 'job.json'));
 			jobjson = JSON.parse(jobstr);
 		}
 		if (jobjson) {
@@ -1377,9 +1379,9 @@ var _createDefaultTheme = function (projectDir) {
 		if (!fs.existsSync(themesBuildDir)) {
 			fs.mkdirSync(themesBuildDir);
 		}
-		newThemeGUID = _createGUID();
-		newThemeName = defaultThemeName + newThemeGUID;
-		newThemePath = path.join(themesBuildDir, newThemeName);
+		var newThemeGUID = _createGUID();
+		var newThemeName = defaultThemeName + newThemeGUID;
+		var newThemePath = path.join(themesBuildDir, newThemeName);
 		if (fs.existsSync(newThemePath)) {
 			fileUtils.remove(newThemePath);
 		}
@@ -1538,8 +1540,8 @@ var _getIdcToken = function (server) {
 					});
 				} else {
 					var data = JSON.parse(body);
-					dUser = data && data.LocalData && data.LocalData.dUser;
-					idcToken = data && data.LocalData && data.LocalData.idcToken;
+					var dUser = data && data.LocalData && data.LocalData.dUser;
+					var idcToken = data && data.LocalData && data.LocalData.idcToken;
 					if (dUser && dUser !== 'anonymous' && idcToken) {
 						// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
 						clearInterval(inter);
@@ -1603,6 +1605,27 @@ module.exports.getSitesGovernance = function (server) {
 };
 
 /**
+ * Util to get results from IDC service
+ */
+module.exports.getIDCServiceResults = function (ResultSets, resourceName) {
+	var fields = ResultSets && ResultSets[resourceName] && ResultSets[resourceName].fields || [];
+	var rows = ResultSets && ResultSets[resourceName] && ResultSets[resourceName].rows || [];
+	var data = [];
+
+	rows.forEach(function (row) {
+		data.push({});
+	});
+	for (var i = 0; i < fields.length; i++) {
+		var attr = fields[i].name;
+		for (var j = 0; j < rows.length; j++) {
+			data[j][attr] = rows[j][i];
+		}
+	}
+
+	return data;
+};
+
+/**
  * Requires login first
  */
 module.exports.getTenantConfig = function (server) {
@@ -1630,7 +1653,9 @@ module.exports.getTenantConfig = function (server) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get tenant config' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
@@ -1679,7 +1704,9 @@ module.exports.getUserRoles = function (server) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get user info' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
 				return resolve({
@@ -2075,7 +2102,9 @@ var _loginToDevServer = function (server) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to login to ' + server.url);
@@ -2506,7 +2535,7 @@ var _loginToICServer = function (server) {
 							break;
 						}
 					}
-					for (var i = 0; i < cookies.length; i++) {
+					for (let i = 0; i < cookies.length; i++) {
 						if (!cookies[i].name.startsWith('OAMAuthnCookie_')) {
 							cookiesStr = cookiesStr + '; ' + cookies[i].name + '=' + cookies[i].value;
 							break;
@@ -2616,8 +2645,7 @@ var _getServerVersion = function (server) {
 		request.get(options, function (error, response, body) {
 			if (error || !response || response.statusCode !== 200) {
 				// console.error('ERROR: failed to query  version: ' + (response && response.statusMessage));
-				done();
-				return;
+				return resolve({ err: 'err' });
 			}
 
 			var data;
@@ -2880,7 +2908,8 @@ module.exports.sleep = function (delay) {
 };
 var _sleep = function (delay) {
 	var start = new Date().getTime();
-	while (true) {
+	var trueVal = true;
+	while (trueVal) {
 		if (new Date().getTime() >= start + delay) {
 			break;
 		}
@@ -2924,7 +2953,9 @@ module.exports.getBackgroundServiceJobs = function (server, type) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get background jobs' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
@@ -2990,7 +3021,9 @@ module.exports.getBackgroundServiceJobStatus = function (server, idcToken, jobId
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get job status' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
@@ -3052,7 +3085,9 @@ module.exports.getBackgroundServiceJobData = function (server, idcToken, jobId) 
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			return resolve(data);
 		});
@@ -3100,7 +3135,9 @@ module.exports.browseSitesOnServer = function (server, fApplication, name) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get sites/templates - ' + (data && data.LocalData ? +data.LocalData.StatusMessage : response.statusMessage));
@@ -3191,7 +3228,9 @@ var _browseCollectionsOnServer = function (server, params) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get collections' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
@@ -3250,7 +3289,9 @@ module.exports.browseTranslationConnectorsOnServer = function (server) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get translation connector ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
@@ -3344,7 +3385,9 @@ module.exports.getTranslationConnectorOnServer = function (server, connectorId) 
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get translation connector ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
@@ -3412,7 +3455,9 @@ module.exports.updateTranslationConnectorOnServer = function (server, connector)
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to update translation connector ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
@@ -3462,7 +3507,9 @@ module.exports.getTranslationConnectorJobOnServer = function (server, jobId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get translation connector job ' + jobId + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
@@ -3521,7 +3568,9 @@ module.exports.getSiteMetadata = function (server, siteId, siteName) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get site metadata ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
@@ -3545,8 +3594,8 @@ module.exports.getSiteMetadata = function (server, siteId, siteName) {
 			rows = data.ResultSets && data.ResultSets.SiteInfo && data.ResultSets.SiteInfo.rows || [];
 			var siteinfo = {};
 
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
+			for (let i = 0; i < fields.length; i++) {
+				let attr = fields[i].name;
 				siteinfo[attr] = rows[0][i];
 			}
 
@@ -3591,7 +3640,9 @@ module.exports.getThemeMetadata = function (server, themeId, themeName) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get theme metadata ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
@@ -3649,7 +3700,9 @@ module.exports.getComponentMetadata = function (server, compId, compName) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get component metadata ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
@@ -3707,7 +3760,9 @@ module.exports.getSiteUsedData = function (server, siteId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get site used data ' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
@@ -3735,9 +3790,9 @@ module.exports.getSiteUsedData = function (server, siteId) {
 			rows.forEach(function (row) {
 				contentItemsUsed.push({});
 			});
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
-				for (var j = 0; j < rows.length; j++) {
+			for (let i = 0; i < fields.length; i++) {
+				let attr = fields[i].name;
+				for (let j = 0; j < rows.length; j++) {
 					contentItemsUsed[j][attr] = rows[j][i];
 				}
 			}
@@ -3748,9 +3803,9 @@ module.exports.getSiteUsedData = function (server, siteId) {
 			rows.forEach(function (row) {
 				contentTypesUsed.push({});
 			});
-			for (var i = 0; i < fields.length; i++) {
-				var attr = fields[i].name;
-				for (var j = 0; j < rows.length; j++) {
+			for (let i = 0; i < fields.length; i++) {
+				let attr = fields[i].name;
+				for (let j = 0; j < rows.length; j++) {
 					contentTypesUsed[j][attr] = rows[j][i];
 				}
 			}
@@ -4033,13 +4088,77 @@ module.exports.setComponentMetadata = function (server, idcToken, compId, values
 
 };
 
+
 /**
- * 
- * @param {*} server 
+ * Set metadata for a theme using IdcService
+ */
+module.exports.addItemRendition = function (server, idcToken, itemId, itemName, itemVersion, rendition, fileId) {
+	return new Promise(function (resolve, reject) {
+
+		var url = server.url + '/documents/integration?IdcService=ADD_RENDITION&IsJson=1';
+
+		var formData = {
+			'LocalData': {
+				'IdcService': 'ADD_RENDITION',
+				item: 'arCaaSGUID:' + itemId,
+				arCaaSVersion: itemVersion,
+				Rendition: rendition,
+				source: 'fFileGUID:' + fileId
+			}
+		};
+
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: _getRequestAuthorization(server)
+			},
+			body: JSON.stringify(formData)
+		};
+		_showRequestOptions(postData);
+
+		var request = require('./requestUtils.js').request;
+		request.post(postData, function (err, response, body) {
+			if (err) {
+				console.error('ERROR: Failed to add rendition ' + rendition + ' +for item ' + itemId + '(' + itemName + ')' + ' (ecid: ' + response.ecid + ')');
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				if (typeof body === 'object') {
+					data = body;
+				}
+			}
+			// console.log(data);
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				// console.log(data);
+				console.error('ERROR: Failed to add rendition ' + rendition + ' +for item ' + itemId + '(' + itemName + ') ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
+				return resolve({
+					err: 'err'
+				});
+			} else {
+				// console.log(JSON.stringify(data, null, 4));
+				return resolve(data);
+			}
+		});
+	});
+
+};
+
+
+/**
+ *
+ * @param {*} server
  * @param {*} type site, theme, component
  * @param {*} itemGUID the ID of a site, theme or component
  * @param {*} jobId the job id
- * @returns 
+ * @returns
  */
 module.exports.GetSCSPublishingJobs = function (server, type, itemGUID, jobId) {
 	return new Promise(function (resolve, reject) {
@@ -4081,7 +4200,9 @@ module.exports.GetSCSPublishingJobs = function (server, type, itemGUID, jobId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get ' + type + ' publishing jobs' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : response.statusMessage));
@@ -4246,6 +4367,7 @@ module.exports.getAdminSettings = function (server) {
 
 		var request = require('./requestUtils.js').request;
 		request.get(postData, function (err, response, body) {
+			var data;
 			try {
 				data = JSON.parse(body);
 			} catch (e) {
@@ -4288,6 +4410,7 @@ module.exports.updateAdminSettings = function (server, settings) {
 
 		var request = require('./requestUtils.js').request;
 		request.post(postData, function (err, response, body) {
+			var data;
 			try {
 				data = JSON.parse(body);
 			} catch (e) {
@@ -4348,7 +4471,9 @@ module.exports.viewGroupInfo = function (server, groupId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to view group info' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
@@ -4404,7 +4529,9 @@ module.exports.viewGroupMembers = function (server, groupId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to view group members' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
@@ -4470,7 +4597,7 @@ module.exports.deletePermanentSCS = function (server, id, isFile, deleteDone) {
 	return _deletePermanentSCS(server, id, isFile, deleteDone);
 }
 
-_deletePermanentSCS = function (server, id, isFile, _deleteDone) {
+var _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 	return new Promise(function (resolve, reject) {
 
 		var idcToken;
@@ -4481,7 +4608,9 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 			idcToken = result && result.idcToken;
 			if (!idcToken) {
 				console.error('ERROR: failed to get idcToken');
-				done();
+				return resolve({
+					err: 'err'
+				});
 			}
 
 			var headers = {
@@ -4517,7 +4646,9 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (e) { }
+				} catch (e) {
+					// handle invalid json
+				}
 
 				if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 					console.error('ERROR: failed to delete  ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
@@ -4553,12 +4684,12 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 							}
 							for (var i = 0; i < fields.length; i++) {
 								var attr = fields[i].name;
-								for (var j = 0; j < rows.length; j++) {
+								for (let j = 0; j < rows.length; j++) {
 									items[j][attr] = rows[j][i];
 								}
 							}
 
-							for (var i = 0; i < items.length; i++) {
+							for (let i = 0; i < items.length; i++) {
 								if (items[i]['fRealItemGUID'] === id) {
 									idInTrash = isFile ? items[i]['fFileGUID'] : items[i]['fFolderGUID'];
 									break;
@@ -4589,7 +4720,9 @@ _deletePermanentSCS = function (server, id, isFile, _deleteDone) {
 									var data;
 									try {
 										data = JSON.parse(body);
-									} catch (e) { }
+									} catch (e) {
+										// handle invalid json
+									}
 
 									if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 										console.error('ERROR: failed to delete from trash ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');

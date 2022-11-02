@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -16,32 +16,6 @@ var console = require('../test/server/logger.js').console;
 
 var projectDir,
 	serversSrcDir;
-
-/**
- * Global variable used by the node server
- */
-/**
- * Global variable used by the node server
- */
-
-var _siteId;
-var _pagesFolderId;
-var _SiteInfo;
-var _siteChannelToken;
-var _requiredLangs = [],
-	_optionalLangs = [];
-var _validLocales = [];
-var _languages = [];
-var _hasDetailPage = false;
-var _defaultDetailPage;
-var _masterSiteStructure;
-var _masterPageData = [];
-var _contentTypesOnPages = [];
-var _pageContentIds = [];
-var _detailPages = [];
-var _typesToQuery = [];
-// include siteinfo and structure files
-var _siteTopItems = [];
 
 //
 // Private functions
@@ -63,7 +37,6 @@ var _cmdEnd = function (done, success) {
 };
 
 var _getSiteInfoFile = function (server, items, locale, isMaster) {
-	// console.log(' - siteId: ' + _siteId);
 	var siteInfoFilePromise = new Promise(function (resolve, reject) {
 
 		var name = (isMaster || !locale) ? 'siteinfo.json' : locale + '_siteinfo.json';
@@ -174,7 +147,7 @@ var _getSiteStructure = function (server, items, locale, isMaster) {
 };
 
 
-var _getDefaultDetailPageId = function () {
+var _getDefaultDetailPageId = function (data) {
 	var getFirstDetailPage = function (page, childFunction) {
 		var childPage,
 			pageOption = 'isDetailPage',
@@ -199,7 +172,7 @@ var _getDefaultDetailPageId = function () {
 	};
 
 	var root;
-	var pages = _masterSiteStructure && _masterSiteStructure.pages;
+	var pages = data.masterSiteStructure && data.masterSiteStructure.pages;
 	for (var i = 0; i < pages.length; i++) {
 		if (!pages[i].parentId) {
 			root = pages[i];
@@ -218,12 +191,12 @@ var _getDefaultDetailPageId = function () {
  * Get an array of promises to get the page data for all site pages
  * 
  */
-var _getPageData = function (server, locale, isMaster) {
+var _getPageData = function (server, data, locale, isMaster) {
 	// console.log(' isMaster: ' + isMaster + ' locale: ' + locale);
 	return new Promise(function (resolve, reject) {
 		serverRest.findFolderItems({
 			server: server,
-			parentID: _pagesFolderId
+			parentID: data.pagesFolderId
 		})
 			.then(function (result) {
 				if (result.err) {
@@ -255,6 +228,9 @@ var _getPageData = function (server, locale, isMaster) {
 				return resolve(result);
 			})
 			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
 				return resolve({
 					err: 'err'
 				});
@@ -391,13 +367,13 @@ var _getPageContentTypes = function (pageData) {
  * Get content types for the detail page
  * @param {*} pageData 
  */
-var _getDetailPageContentTypes = function (pageData) {
+var _getDetailPageContentTypes = function (data, pageData) {
 
 	for (var i = 0; i < pageData.length; i++) {
 		var pageId = pageData[i].id;
 		var detailPageIdx = undefined;
-		for (var j = 0; j < _detailPages.length; j++) {
-			if (pageId === _detailPages[j].page.id.toString()) {
+		for (var j = 0; j < data.detailPages.length; j++) {
+			if (pageId === data.detailPages[j].page.id.toString()) {
 				detailPageIdx = j;
 				break;
 			}
@@ -417,7 +393,7 @@ var _getDetailPageContentTypes = function (pageData) {
 					}
 				}
 			});
-			_detailPages[detailPageIdx]['contentTypes'] = pageContentTypes;
+			data.detailPages[detailPageIdx]['contentTypes'] = pageContentTypes;
 		}
 	}
 };
@@ -461,7 +437,7 @@ var _getPageContentItemIds = function (pageData) {
 		}
 
 		for (var j = 0; j < detailPages.length; j++) {
-			var itemIds = [];
+			itemIds = [];
 			// all items with a specific detail page
 			Object.keys(componentInstances).forEach(key => {
 				var data = componentInstances[key].data;
@@ -618,7 +594,7 @@ var _getPageContentPromise = function (server, channelToken, pageContentIds, pag
 	for (var i = 0; i < pageContentIds.length; i++) {
 		var pageId = pageContentIds[i].id;
 		var detailPageId = pageContentIds[i].detailPageId;
-		q = '';
+		var q = '';
 		for (var j = 0; j < pageContentIds[i].contentIds.length; j++) {
 			if (q) {
 				q += ' or ';
@@ -651,7 +627,7 @@ var _getPageContentPromise = function (server, channelToken, pageContentIds, pag
 	}
 
 	// Content list queries
-	for (var i = 0; i < pageContentListQueries.length; i++) {
+	for (let i = 0; i < pageContentListQueries.length; i++) {
 		promises.push(_getPageContent(server, channelToken, locale,
 			pageContentListQueries[i].queryString, pageContentListQueries[i].pageId, pageContentListQueries[i].detailPageId, 'list'));
 	}
@@ -659,10 +635,10 @@ var _getPageContentPromise = function (server, channelToken, pageContentIds, pag
 	return promises;
 };
 
-var _getTypeItems = function (server, channelToken, locale) {
+var _getTypeItems = function (server, data, channelToken, locale) {
 	return new Promise(function (resolve, reject) {
 		var items = [];
-		var doQuery = _typesToQuery.reduce(function (typePromise, typeName) {
+		var doQuery = data.typesToQuery.reduce(function (typePromise, typeName) {
 			return typePromise.then(function (result) {
 				var q = 'type eq "' + typeName + '"';
 				if (locale) {
@@ -707,8 +683,8 @@ var _getLastmod = function (isodate) {
 	return lastmod;
 };
 
-var _getPage = function (pageid) {
-	var pages = _masterSiteStructure && _masterSiteStructure.pages || [];
+var _getPage = function (data, pageid) {
+	var pages = data.masterSiteStructure && data.masterSiteStructure.pages || [];
 	var page;
 	for (var i = 0; i < pages.length; i++) {
 		if (pages[i].id && pages[i].id.toString() === pageid) {
@@ -723,15 +699,15 @@ var _getPage = function (pageid) {
  * 
  * @param {*} pageid <locale>_<page id>
  */
-var _getMasterPageData = function (pageid) {
+var _getMasterPageData = function (data, pageid) {
 	var id = pageid.toString();
 	if (id.indexOf('_') > 0) {
 		id = id.substring(id.lastIndexOf('_') + 1);
 	}
 	var pagedata;
-	for (var i = 0; i < _masterPageData.length; i++) {
-		if (id === _masterPageData[i].id) {
-			pagedata = _masterPageData[i].data;
+	for (var i = 0; i < data.masterPageData.length; i++) {
+		if (id === data.masterPageData[i].id) {
+			pagedata = data.masterPageData[i].data;
 		}
 	}
 	return pagedata;
@@ -776,7 +752,7 @@ var _getQueryString = function (querystrings, name) {
  * @param {*} siteInfo 
  * @param {*} pages 
  */
-var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, items, typeItems, changefreq, toppagepriority,
+var _generateSiteMapXML = function (server, data, siteUrl, format, pages, pageFiles, items, typeItems, changefreq, toppagepriority,
 	siteMapFile, newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale) {
 
 	var prefix = siteUrl;
@@ -785,6 +761,8 @@ var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, i
 	}
 
 	var detailPageUrl;
+	var queryString;
+	var lastmod;
 	var urls = [];
 	var months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
 	//
@@ -795,19 +773,18 @@ var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, i
 	for (var i = 0; i < pages.length; i++) {
 		// console.log(pages[i]);
 		var pageId = pages[i].id;
-		var masterPageData = _getMasterPageData(pageId);
+		var masterPageData = _getMasterPageData(data, pageId);
 		var properties = masterPageData && masterPageData.properties;
 		var noIndex = properties && properties.noIndex;
 		var isExternalLink = pages[i].linkUrl && pages[i].linkUrl.indexOf(server.url) < 0;
 		if (!pages[i].isDetailPage && !noIndex && !isExternalLink) {
 
-			var includeLocale = pages[i].locale && pages[i].locale !== _SiteInfo.defaultLanguage;
+			var includeLocale = pages[i].locale && pages[i].locale !== data.SiteInfo.defaultLanguage;
 
 			// find out last modified date
 			// var fileName = (includeLocale ? (pages[i].locale + '_') : '') + pages[i].id.toString() + '.json';
 			var fileName = pages[i].id.toString() + '.json';
 
-			var lastmod;
 			var pageChangefreq = changefreq === 'auto' ? 'monthly' : changefreq;
 			var found = false;
 			for (var j = 0; j < pageFiles.length; j++) {
@@ -829,7 +806,7 @@ var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, i
 			} else {
 				priority = toppagepriority || 1;
 				var levels = pages[i].pageUrl.split('/');
-				for (var j = 1; j < levels.length; j++) {
+				for (let j = 1; j < levels.length; j++) {
 					priority = priority / 2;
 				}
 			}
@@ -838,7 +815,7 @@ var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, i
 			var loc = pages[i].linkUrl || (prefix + '/' + (includeLocale ? (pages[i].locale + '/') : '') + pages[i].pageUrl);
 
 			// check query strings
-			var queryString = _getQueryString(querystrings, pages[i].name);
+			queryString = _getQueryString(querystrings, pages[i].name);
 			if (queryString) {
 				if (loc.indexOf('?') > 0) {
 					loc = loc + '&' + queryString;
@@ -871,16 +848,15 @@ var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, i
 	//
 	// detail page urls for items
 	//
-	// console.log(_detailPages);
 	var addedUrls = [];
-	if (_hasDetailPage) {
-		for (var i = 0; i < items.length; i++) {
+	if (data.hasDetailPage) {
+		for (let i = 0; i < items.length; i++) {
 			if (!noDefaultDetailPageLink || items[i].detailPageId) {
 				// get page's priority
-				var pageId = items[i].pageId;
+				let pageId = items[i].pageId;
 				var itemPriority;
 				var itemChangefreq;
-				for (var j = 0; j < pagePriority.length; j++) {
+				for (let j = 0; j < pagePriority.length; j++) {
 					if (pageId === pagePriority[j].id) {
 						itemPriority = pagePriority[j].priority;
 						itemChangefreq = pagePriority[j].changefreq;
@@ -888,20 +864,20 @@ var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, i
 					}
 				}
 
-				var detailPage = _getPage(items[i].detailPageId) || _defaultDetailPage;
-				var detailPageUrl = detailPage.pageUrl;
-				var queryString = _getQueryString(querystrings, detailPage.name);
+				var detailPage = _getPage(data, items[i].detailPageId) || data.defaultDetailPage;
+				detailPageUrl = detailPage.pageUrl;
+				queryString = _getQueryString(querystrings, detailPage.name);
 
 				var pageItems = items[i].data || [];
-				for (var j = 0; j < pageItems.length; j++) {
+				for (let j = 0; j < pageItems.length; j++) {
 					var item = pageItems[j];
 					if (item && item.id) {
 
 						// verify if the detail page allows the content type
 						var detailPageAllowed = false;
-						for (var k = 0; k < _detailPages.length; k++) {
-							if (_detailPages[k].page.id.toString() === detailPage.id.toString() &&
-								(_detailPages[k].contentTypes.length === 0 || _detailPages[k].contentTypes.includes(item.type))) {
+						for (var k = 0; k < data.detailPages.length; k++) {
+							if (data.detailPages[k].page.id.toString() === detailPage.id.toString() &&
+								(data.detailPages[k].contentTypes.length === 0 || data.detailPages[k].contentTypes.includes(item.type))) {
 								detailPageAllowed = true;
 								break;
 							}
@@ -910,7 +886,7 @@ var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, i
 						if (detailPageAllowed && detailPageUrl) {
 							var detailPagePrefix = detailPageUrl.replace('.html', '');
 							var itemlanguage = item.language || items[i].locale;
-							var locale = itemlanguage && itemlanguage !== _SiteInfo.defaultLanguage ? (itemlanguage + '/') : '';
+							var locale = itemlanguage && itemlanguage !== data.SiteInfo.defaultLanguage ? (itemlanguage + '/') : '';
 							// trailing / is required
 							var url;
 							if (newlink) {
@@ -922,13 +898,13 @@ var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, i
 
 							if (queryString) {
 								if (url.indexOf('?') > 0) {
-									ulr = url + '&' + queryString;
+									url = url + '&' + queryString;
 								} else {
 									url = url + '?' + queryString;
 								}
 							}
 
-							var lastmod = _getLastmod(item.updatedDate.value);
+							lastmod = _getLastmod(item.updatedDate.value);
 
 							// no duplicate url
 							if (!addedUrls.includes(url)) {
@@ -955,10 +931,10 @@ var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, i
 			// find the detail page for this type
 			var detailPageUrl;
 			var detailPageName;
-			for (var i = 0; i < _detailPages.length; i++) {
-				if (_detailPages[i].contentTypes && _detailPages[i].contentTypes.includes(typeItem.type)) {
-					detailPageUrl = _detailPages[i].page && _detailPages[i].page.pageUrl;
-					detailPageName = _detailPages[i].page && _detailPages[i].page.name;
+			for (var i = 0; i < data.detailPages.length; i++) {
+				if (data.detailPages[i].contentTypes && data.detailPages[i].contentTypes.includes(typeItem.type)) {
+					detailPageUrl = data.detailPages[i].page && data.detailPages[i].page.pageUrl;
+					detailPageName = data.detailPages[i].page && data.detailPages[i].page.name;
 					break;
 				}
 			}
@@ -966,11 +942,11 @@ var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, i
 			var queryString = detailPageName ? _getQueryString(querystrings, detailPageName) : '';
 
 			if (detailPageUrl) {
-				for (var i = 0; i < typeItem.items.length; i++) {
+				for (let i = 0; i < typeItem.items.length; i++) {
 					var item = typeItem.items[i];
 					var detailPagePrefix = detailPageUrl.replace('.html', '');
 					var itemlanguage = typeItem.locale;
-					var locale = itemlanguage && itemlanguage !== _SiteInfo.defaultLanguage ? (itemlanguage + '/') : '';
+					var locale = itemlanguage && itemlanguage !== data.SiteInfo.defaultLanguage ? (itemlanguage + '/') : '';
 					// trailing / is required
 					var url;
 					if (newlink) {
@@ -1016,7 +992,7 @@ var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, i
 
 	if (format === 'text') {
 
-		for (var i = 0; i < urls.length; i++) {
+		for (let i = 0; i < urls.length; i++) {
 			buf = buf + urls[i].loc + os.EOL;
 		}
 
@@ -1027,7 +1003,7 @@ var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, i
 		var ident = '    ',
 			ident2 = ident + ident,
 			ident3 = ident2 + ident;
-		for (var i = 0; i < urls.length; i++) {
+		for (let i = 0; i < urls.length; i++) {
 			buf = buf + ident + '<url>' + os.EOL;
 			buf = buf + ident2 + '<loc>' + urls[i].loc + '</loc>' + os.EOL;
 			buf = buf + ident2 + '<lastmod>' + urls[i].lastmod + '</lastmod>' + os.EOL;
@@ -1045,7 +1021,7 @@ var _generateSiteMapXML = function (server, siteUrl, format, pages, pageFiles, i
 };
 
 
-var _uploadSiteMapToServer = function (server, localFilePath) {
+var _uploadSiteMapToServer = function (server, data, localFilePath) {
 	var uploadPromise = new Promise(function (resolve, reject) {
 		var fileName = localFilePath;
 		if (fileName.indexOf('/') >= 0) {
@@ -1053,7 +1029,7 @@ var _uploadSiteMapToServer = function (server, localFilePath) {
 		}
 		serverRest.findFolderHierarchy({
 			server: server,
-			parentID: _siteId,
+			parentID: data.siteId,
 			folderPath: 'settings/seo'
 		})
 			.then(function (result) {
@@ -1091,6 +1067,8 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 		var siteInfo, defaultLanguage, siteChannelToken, siteRepositoryId;
 		var siteStructure, pages, pageData = [];
 
+		var data = {};
+
 		//
 		// Get site id
 		//
@@ -1103,39 +1081,40 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 					console.error('ERROR: site ' + site + ' does not exist');
 					return Promise.reject();
 				}
-				_siteId = result.id;
+
+				data.siteId = result.id;
 
 				// get all site top level files
 				return serverRest.getChildItems({
 					server: server,
-					parentID: _siteId,
+					parentID: data.siteId,
 					limit: 9999
 				});
 
 			})
 			.then(function (result) {
 
-				_siteTopItems = result && result.items || [];
-				console.log(' - site top level items: ' + _siteTopItems.length);
+				var siteTopItems = result && result.items || [];
+				data.siteTopItems = siteTopItems;
+				console.log(' - site top level items: ' + siteTopItems.length);
 
-				for (var i = 0; i < _siteTopItems.length; i++) {
-					var item = _siteTopItems[i];
+				for (var i = 0; i < siteTopItems.length; i++) {
+					var item = siteTopItems[i];
 					if (item.name === 'pages') {
-						_pagesFolderId = item.id;
+						data.pagesFolderId = item.id;
 						break;
 					}
 				}
-				if (!_pagesFolderId) {
+				if (!data.pagesFolderId) {
 					console.log('ERROR: failed to find folder pages');
 					return Promise.reject();
 
 				}
-				// console.log(' - folder pages: ' + _pagesFolderId);
 
 				//
 				// Get site info
 				//
-				var siteInfoPromise = _getSiteInfoFile(server, _siteTopItems);
+				var siteInfoPromise = _getSiteInfoFile(server, data.siteTopItems);
 				return siteInfoPromise;
 			})
 			.then(function (result) {
@@ -1144,11 +1123,10 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 				}
 
 				siteInfo = result.data.properties;
-				_SiteInfo = siteInfo;
+				data.SiteInfo = siteInfo;
 				defaultLanguage = siteInfo.defaultLanguage;
 				siteRepositoryId = siteInfo.repositoryId;
-				siteChannelId = siteInfo.channelId;
-				_siteChannelToken = _getSiteChannelToken(siteInfo);
+				data.siteChannelToken = _getSiteChannelToken(siteInfo);
 				console.info(' - site: ' + site + ', default language: ' + defaultLanguage + ', channel: ' + siteInfo.channelId);
 
 				//
@@ -1190,19 +1168,19 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 				if (policy && policy.id) {
 					console.info(' - site localization policy: ' + policy.name);
 				}
-				_requiredLangs = policy.requiredValues || [];
-				_optionalLangs = policy.optionalValues || [];
+				var requiredLangs = policy.requiredValues || [];
+				var optionalLangs = policy.optionalValues || [];
 
 				var locales = [];
 
-				for (var i = 0; i < _requiredLangs.length; i++) {
-					if (_requiredLangs[i] !== _SiteInfo.defaultLanguage) {
-						locales.push(_requiredLangs[i]);
+				for (var i = 0; i < requiredLangs.length; i++) {
+					if (requiredLangs[i] !== data.SiteInfo.defaultLanguage) {
+						locales.push(requiredLangs[i]);
 					}
 				}
-				for (var i = 0; i < _optionalLangs.length; i++) {
-					if (_optionalLangs[i] !== _SiteInfo.defaultLanguage) {
-						locales.push(_optionalLangs[i]);
+				for (let i = 0; i < optionalLangs.length; i++) {
+					if (optionalLangs[i] !== data.SiteInfo.defaultLanguage) {
+						locales.push(optionalLangs[i]);
 					}
 				}
 				// console.log(locales);
@@ -1210,35 +1188,34 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 				//
 				// verify the site has the translation
 				//
-				return _getSiteInfoFiles(server, _siteTopItems, locales);
+				return _getSiteInfoFiles(server, data.siteTopItems, locales);
 
 			})
 			.then(function (values) {
-				_validLocales = [];
+				data.validLocales = [];
 				for (var i = 0; i < values.length; i++) {
 					if (values[i].locale) {
-						_validLocales.push(values[i].locale);
+						data.validLocales.push(values[i].locale);
 					}
 				}
-				// console.log('valid site languages: ' + _validLocales + ' (' + _validLocales.length + ') param languages: ' + languages);
 
 				//
 				// validate languages parameter
 				//
-				for (var i = 0; i < languages.length; i++) {
-					if (languages[i] !== _SiteInfo.defaultLanguage && !_validLocales.includes(languages[i])) {
+				for (let i = 0; i < languages.length; i++) {
+					if (languages[i] !== data.SiteInfo.defaultLanguage && !data.validLocales.includes(languages[i])) {
 						console.error('ERROR: site does not have translation for ' + languages[i]);
 						return Promise.reject();
 					}
 				}
 				if (languages.length > 0) {
 					// use this param
-					_languages = languages;
+					data.languages = languages;
 				} else {
-					_languages = _validLocales;
+					data.languages = data.validLocales;
 				}
-				if (_languages.length > 0) {
-					console.info(' - site translation: ' + _languages);
+				if (data.languages.length > 0) {
+					console.info(' - site translation: ' + data.languages);
 				}
 
 				return serverRest.getRepository({
@@ -1254,10 +1231,10 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 				if (result.err) {
 					return Promise.reject();
 				}
-				repository = result;
+
 				console.info(' - query site repository');
 
-				return _getSiteStructure(server, _siteTopItems);
+				return _getSiteStructure(server, data.siteTopItems);
 			})
 			.then(function (result) {
 				// 
@@ -1267,7 +1244,7 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 					return Promise.reject();
 				}
 				siteStructure = result;
-				_masterSiteStructure = siteStructure;
+				data.masterSiteStructure = siteStructure;
 				console.info(' - query site structure');
 				pages = siteStructure && siteStructure.pages;
 				if (!pages || pages.length === 0) {
@@ -1275,22 +1252,23 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 					return Promise.reject();
 				}
 				// find the detail pages
-				_hasDetailPage = false;
+				data.hasDetailPage = false;
+				data.detailPages = [];
 				for (var i = 0; i < pages.length; i++) {
 					if (pages[i].isDetailPage) {
-						_hasDetailPage = true;
-						_detailPages.push({
+						data.hasDetailPage = true;
+						data.detailPages.push({
 							page: pages[i]
 						});
 					}
 				}
-				if (_hasDetailPage) {
-					var detailpageid = _getDefaultDetailPageId();
-					_defaultDetailPage = _getPage(detailpageid);
-					console.info(' - default detail page: ' + _defaultDetailPage.name);
+				if (data.hasDetailPage) {
+					var detailpageid = _getDefaultDetailPageId(data);
+					data.defaultDetailPage = _getPage(data, detailpageid);
+					console.info(' - default detail page: ' + data.defaultDetailPage.name);
 				}
 
-				return _getPageData(server, '', true);
+				return _getPageData(server, data, '', true);
 			})
 			.then(function (result) {
 				if (result.err) {
@@ -1307,7 +1285,7 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 						});
 					}
 				}
-				_masterPageData = pageData;
+				data.masterPageData = pageData;
 
 				//
 				// Get all content types on the pages
@@ -1316,7 +1294,7 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 				var contentTypeNames = [];
 				var contentTypesPromise = [];
 				if (contentTypes.length > 0) {
-					for (var i = 0; i < contentTypes.length; i++) {
+					for (let i = 0; i < contentTypes.length; i++) {
 						contentTypeNames.push(contentTypes[i]);
 						contentTypesPromise.push(serverRest.getContentType({
 							server: server,
@@ -1328,35 +1306,35 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 				//
 				// Get content types on the detail pages
 				//
-				_getDetailPageContentTypes(pageData);
-				// console.log(_detailPages);
+				_getDetailPageContentTypes(data, pageData);
 
 				if (contentTypeNames.length > 0) {
 					console.info(' - content types used in the site: ' + contentTypeNames);
 				}
 
 				// Display detail pages
-				_detailPages.forEach(function (dpage) {
+				data.detailPages.forEach(function (dpage) {
 					console.info(' - detail page: ' + dpage.page.name + ' content types: ' + dpage.contentTypes);
 				});
 
+				data.typesToQuery = [];
 				if (allTypes) {
-					_detailPages.forEach(function (dpage) {
+					data.detailPages.forEach(function (dpage) {
 						for (var i = 0; i < dpage.contentTypes.length; i++) {
-							if (!_typesToQuery.includes(dpage.contentTypes[i])) {
-								_typesToQuery.push(dpage.contentTypes[i]);
+							if (!data.typesToQuery.includes(dpage.contentTypes[i])) {
+								data.typesToQuery.push(dpage.contentTypes[i]);
 							}
 						}
 					});
-					console.info(' - content types to query items: ' + _typesToQuery);
+					console.info(' - content types to query items: ' + data.typesToQuery);
 				} else if (wantedTypes && wantedTypes.length > 0) {
-					for (var i = 0; i < wantedTypes.length; i++) {
+					for (let i = 0; i < wantedTypes.length; i++) {
 						var found = false;
-						for (var j = 0; j < _detailPages.length; j++) {
-							if (_detailPages[j].contentTypes.includes(wantedTypes[i])) {
+						for (var j = 0; j < data.detailPages.length; j++) {
+							if (data.detailPages[j].contentTypes.includes(wantedTypes[i])) {
 								found = true;
-								if (!_typesToQuery.includes(wantedTypes[i])) {
-									_typesToQuery.push(wantedTypes[i]);
+								if (!data.typesToQuery.includes(wantedTypes[i])) {
+									data.typesToQuery.push(wantedTypes[i]);
 								}
 								break;
 							}
@@ -1365,26 +1343,25 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 							console.warn('WARNING: no site detail page found for type ' + wantedTypes[i]);
 						}
 					}
-					console.info(' - content types to query items: ' + _typesToQuery);
+					console.info(' - content types to query items: ' + data.typesToQuery);
 				}
 
+				data.contentTypesOnPages = [];
 
 				if (contentTypesPromise.length > 0) {
 					Promise.all(contentTypesPromise).then(function (values) {
-						_contentTypesOnPages = values;
-						// console.log(_contentTypesOnPages);
+						data.contentTypesOnPages = values;
 
 						//
 						// Get content ids on the pages
 						//
-						_pageContentIds = _getPageContentItemIds(pageData);
-						// console.log(_pageContentIds);
+						data.pageContentIds = _getPageContentItemIds(pageData);
 
-						return resolve({});
+						return resolve(data);
 
 					});
 				} else {
-					return resolve({});
+					return resolve(data);
 				}
 			})
 			.catch((error) => {
@@ -1397,14 +1374,14 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 	return dataPromise;
 };
 
-var _getSiteDataWithLocale = function (server, site, locale, isMaster) {
+var _getSiteDataWithLocale = function (server, site, data, locale, isMaster) {
 	var sitePromise = new Promise(function (resolve, reject) {
 		var pages = [];
 		var items = [];
 		var pageFiles = [];
 		var pageData = [];
 
-		var siteStructurePromise = _getSiteStructure(server, _siteTopItems, locale, isMaster);
+		var siteStructurePromise = _getSiteStructure(server, data.siteTopItems, locale, isMaster);
 		siteStructurePromise.then(function (result) {
 			if (result.err) {
 				return resolve(result);
@@ -1416,7 +1393,7 @@ var _getSiteDataWithLocale = function (server, site, locale, isMaster) {
 
 			var sitePageFilesPromise = serverRest.findFolderItems({
 				server: server,
-				parentID: _pagesFolderId
+				parentID: data.pagesFolderId
 			});
 			sitePageFilesPromise.then(function (result) {
 				pageFiles = result || [];
@@ -1424,11 +1401,11 @@ var _getSiteDataWithLocale = function (server, site, locale, isMaster) {
 					console.warn('WARNING: failed to get page files');
 				}
 
-				if (_hasDetailPage && _contentTypesOnPages.length > 0) {
+				if (data.hasDetailPage && data.contentTypesOnPages.length > 0) {
 					//
 					// Get page data for all pages
 					//
-					var pageDataPromise = _getPageData(server, locale, isMaster);
+					var pageDataPromise = _getPageData(server, data, locale, isMaster);
 					pageDataPromise.then(function (result) {
 						console.info(' - query page data (' + locale + ')');
 						var values = result || [];
@@ -1444,13 +1421,13 @@ var _getSiteDataWithLocale = function (server, site, locale, isMaster) {
 						//
 						// Get content list queries on the pages
 						//
-						var pageContentListQueries = _getPageContentListQuery(_masterPageData, locale);
+						var pageContentListQueries = _getPageContentListQuery(data.masterPageData, locale);
 						// console.log(pageContentListQueries);
 
 						//
 						// Get content items on the pages
 						//
-						var pageContentPromise = _getPageContentPromise(server, _siteChannelToken, _pageContentIds, pageContentListQueries, locale);
+						var pageContentPromise = _getPageContentPromise(server, data.siteChannelToken, data.pageContentIds, pageContentListQueries, locale);
 						Promise.all(pageContentPromise).then(function (values) {
 							console.info(' - query content on the pages (' + locale + ')');
 
@@ -1459,9 +1436,9 @@ var _getSiteDataWithLocale = function (server, site, locale, isMaster) {
 							}
 							// console.log(' - total items: ' + items.length);
 
-							var typeContentPromises = _typesToQuery.length > 0 ? [_getTypeItems(server, _siteChannelToken, locale)] : [];
+							var typeContentPromises = data.typesToQuery.length > 0 ? [_getTypeItems(server, data, data.siteChannelToken, locale)] : [];
 							Promise.all(typeContentPromises).then(function (results) {
-								var typeItems = _typesToQuery.length > 0 ? results[0] : [];
+								var typeItems = data.typesToQuery.length > 0 ? results[0] : [];
 								return resolve({
 									locale: locale,
 									pageFiles: pageFiles,
@@ -1475,9 +1452,9 @@ var _getSiteDataWithLocale = function (server, site, locale, isMaster) {
 
 				} else {
 					if (isMaster) {
-						if (!_hasDetailPage) {
+						if (!data.hasDetailPage) {
 							console.log(' - no detail page');
-						} else if (_contentTypesOnPages.length === 0) {
+						} else if (data.contentTypesOnPages.length === 0) {
 							console.log(' - no content on the pages');
 						}
 					}
@@ -1496,12 +1473,12 @@ var _getSiteDataWithLocale = function (server, site, locale, isMaster) {
 	return sitePromise;
 };
 
-var _getSiteData = function (server, site, locales) {
+var _getSiteData = function (server, site, data, locales) {
 	return new Promise(function (resolve, reject) {
 		var values = [];
 		var doGet = locales.reduce(function (sitePromise, locale) {
 			return sitePromise.then(function (result) {
-				return _getSiteDataWithLocale(server, site, locale.language, locale.isMaster)
+				return _getSiteDataWithLocale(server, site, data, locale.language, locale.isMaster)
 					.then(function (result) {
 						values.push(result);
 					});
@@ -1532,47 +1509,49 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 	var allPageFiles = [];
 	var allItems = [];
 	var allTypeItems = [];
+	var data;
 	var dataPromise = _prepareData(server, site, languages, allTypes, wantedTypes, done);
 	dataPromise
 		.then(function (result) {
 			if (result.err) {
 				return Promise.reject();
 			}
+			data = result;
 
 			var isMaster = true;
 
 			var locales = [];
 			locales.push({
-				language: _SiteInfo.defaultLanguage,
+				language: data.SiteInfo.defaultLanguage,
 				isMaster: true
 			});
 
-			for (var i = 0; i < _languages.length; i++) {
-				if (_languages[i] !== _SiteInfo.defaultLanguage) {
+			for (var i = 0; i < data.languages.length; i++) {
+				if (data.languages[i] !== data.SiteInfo.defaultLanguage) {
 					locales.push({
-						language: _languages[i],
+						language: data.languages[i],
 						isMaster: false
 					});
 				}
 			}
 
-			if (noDefaultLocale && locales.length === 1 && locales[0].language === _SiteInfo.defaultLanguage) {
+			if (noDefaultLocale && locales.length === 1 && locales[0].language === data.SiteInfo.defaultLanguage) {
 				console.log('ERROR: no language is specified');
 				return Promise.reject();
 			}
 
-			return _getSiteData(server, site, locales);
+			return _getSiteData(server, site, data, locales);
 
 		})
 		.then(function (values) {
 			for (var i = 0; i < values.length; i++) {
-				if (values[i].locale === _SiteInfo.defaultLanguage) {
+				if (values[i].locale === data.SiteInfo.defaultLanguage) {
 					masterPages = values[i].pages;
 					break;
 				}
 			}
 
-			for (var i = 0; i < values.length; i++) {
+			for (let i = 0; i < values.length; i++) {
 				if (values[i].pages && values[i].pages.length > 0) {
 					for (var j = 0; j < values[i].pages.length; j++) {
 						values[i].pages[j]['locale'] = values[i].locale;
@@ -1581,10 +1560,10 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 				}
 			}
 
-			for (var i = 0; i < allPages.length; i++) {
+			for (let i = 0; i < allPages.length; i++) {
 				var page = allPages[i];
 				if (!page.pageUrl) {
-					for (var j = 0; j < masterPages.length; j++) {
+					for (let j = 0; j < masterPages.length; j++) {
 						if (page.id === masterPages[j].id) {
 							page.pageUrl = masterPages[j].pageUrl;
 							page.isDetailPage = masterPages[j].isDetailPage;
@@ -1596,7 +1575,7 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 				}
 			}
 
-			for (var i = 0; i < values.length; i++) {
+			for (let i = 0; i < values.length; i++) {
 				if (values[i].pageFiles && values[i].pageFiles.length > 0) {
 					allPageFiles = allPageFiles.concat(values[i].pageFiles);
 				}
@@ -1617,11 +1596,11 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 			//
 			// create site map
 			//
-			_generateSiteMapXML(server, siteUrl, format, allPages, allPageFiles, allItems, allTypeItems, changefreq, toppagepriority, siteMapFile, newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale);
+			_generateSiteMapXML(server, data, siteUrl, format, allPages, allPageFiles, allItems, allTypeItems, changefreq, toppagepriority, siteMapFile, newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale);
 
 			if (publish) {
 				// Upload site map to the server
-				var uploadPromise = _uploadSiteMapToServer(server, siteMapFile);
+				var uploadPromise = _uploadSiteMapToServer(server, data, siteMapFile);
 				uploadPromise.then(function (result) {
 					if (!result.err) {
 						var siteMapUrl = siteUrl + '/' + siteMapFile.substring(siteMapFile.lastIndexOf('/') + 1);
@@ -1687,7 +1666,7 @@ var _calculatePageChangeFraq = function (server, serverName, allPageFiles) {
 					var pages = results;
 
 					for (var i = 0; i < pages.length; i++) {
-						versions = pages[i];
+						var versions = pages[i];
 
 						if (versions) {
 

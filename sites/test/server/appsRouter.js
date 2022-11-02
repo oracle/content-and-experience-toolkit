@@ -52,6 +52,12 @@ router.get('/*', (req, res) => {
 			res.end();
 			return;
 		} else {
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				// handle invalid json
+			}
 			var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 			console.error('ERROR: request failed : ' + msg);
 			res.writeHead(response.statusCode, {});

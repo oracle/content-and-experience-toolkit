@@ -28,11 +28,12 @@ router.get('/*', (req, res) => {
 	}
 
 
+	var options;
 	// For embedded pages, rewrite url
 	if (requestUrl.indexOf('/documents/embed') > -1 || requestUrl.indexOf('/documents/ssoembed') > -1) {
 		requestUrl = app.locals.serverURL + requestUrl;
 		console.info('Remote traffic embed :', requestUrl);
-		var options = {
+		options = {
 			url: requestUrl
 		};
 		if (app.locals.server.env !== 'dev_ec') {
@@ -48,7 +49,7 @@ router.get('/*', (req, res) => {
 		}
 		location = app.locals.serverURL + requestUrl;
 		console.info('Remote traffic:' + location);
-		var options = {
+		options = {
 			url: location
 		};
 		if (location.indexOf('8080') > 0) {
@@ -115,9 +116,9 @@ router.post('/*', (req, res) => {
 			};
 
 		if (requestUrl.indexOf('/documents/api/') >= 0) {
-			var url = requestUrl,
+			var urlstr = requestUrl,
 				params = queryString.query;
-			console.info(' document api: url=' + url + ' params=' + JSON.stringify(params));
+			console.info(' document api: url=' + urlstr + ' params=' + JSON.stringify(params));
 		} else if (queryString.query && queryString.query.IsJson === '1') {
 			// body contains json data
 			postData.json = true;
