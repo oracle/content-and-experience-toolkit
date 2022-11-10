@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -167,6 +167,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 	var groupId;
 	var users = [];
 	var groups = [];
+	var i;
 
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
@@ -208,7 +209,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 
 					// verify groups
 					var allGroups = result || [];
-					for (var i = 0; i < groupNames.length; i++) {
+					for (i = 0; i < groupNames.length; i++) {
 						var found = false;
 						for (var j = 0; j < allGroups.length; j++) {
 							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
@@ -225,7 +226,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 				}
 
 				var usersPromises = [];
-				for (var i = 0; i < userNames.length; i++) {
+				for (i = 0; i < userNames.length; i++) {
 					usersPromises.push(serverRest.getUser({
 						server: server,
 						name: userNames[i]
@@ -248,7 +249,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 				// verify users
 				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
-					for (var i = 0; i < allUsers.length; i++) {
+					for (i = 0; i < allUsers.length; i++) {
 						if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 							users.push(allUsers[i]);
 							found = true;
@@ -268,7 +269,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 				}
 
 				var members = [];
-				for (var i = 0; i < users.length; i++) {
+				for (i = 0; i < users.length; i++) {
 					members.push({
 						id: users[i].id,
 						name: users[i].loginName,
@@ -276,7 +277,7 @@ module.exports.addMemberToGroup = function (argv, done) {
 						role: role
 					});
 				}
-				for (var i = 0; i < groups.length; i++) {
+				for (i = 0; i < groups.length; i++) {
 					members.push({
 						id: groups[i].id,
 						name: groups[i].name,

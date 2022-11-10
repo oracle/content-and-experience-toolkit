@@ -11,11 +11,11 @@ const fs = require('fs');
 const fetch = require('node-fetch');
 const process = require('process');
 
-fetchLog = function (message) {
+var fetchLog = function (message) {
 	if (process.env.FETCH_LOG === 'console') {
 		console.log(message);
 	} else if (process.env.FETCH_LOG) {
-		fs.appendFileSync(process.env.FETCH_LOG, message);
+		fs.appendFileSync(process.env.FETCH_LOG, message, {flag: 'a+'});
 	}
 }
 

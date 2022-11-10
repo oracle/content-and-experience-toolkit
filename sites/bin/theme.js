@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -177,7 +177,8 @@ module.exports.shareTheme = function (argv, done) {
 
 						// verify groups
 						var allGroups = result || [];
-						for (var i = 0; i < groupNames.length; i++) {
+						var i;
+						for (i = 0; i < groupNames.length; i++) {
 							var found = false;
 							for (var j = 0; j < allGroups.length; j++) {
 								if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
@@ -193,7 +194,7 @@ module.exports.shareTheme = function (argv, done) {
 					}
 
 					var usersPromises = [];
-					for (var i = 0; i < userNames.length; i++) {
+					for (i = 0; i < userNames.length; i++) {
 						usersPromises.push(serverRest.getUser({
 							server: server,
 							name: userNames[i]
@@ -204,7 +205,8 @@ module.exports.shareTheme = function (argv, done) {
 				})
 				.then(function (results) {
 					var allUsers = [];
-					for (var i = 0; i < results.length; i++) {
+					var i;
+					for (i = 0; i < results.length; i++) {
 						if (results[i].items) {
 							allUsers = allUsers.concat(results[i].items);
 						}
@@ -215,7 +217,7 @@ module.exports.shareTheme = function (argv, done) {
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
 						var found = false;
-						for (var i = 0; i < allUsers.length; i++) {
+						for (i = 0; i < allUsers.length; i++) {
 							if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 								users.push(allUsers[i]);
 								found = true;
@@ -243,9 +245,11 @@ module.exports.shareTheme = function (argv, done) {
 					var existingMembers = result.data || [];
 
 					var sharePromises = [];
-					for (var i = 0; i < users.length; i++) {
-						var newMember = true;
-						for (var j = 0; j < existingMembers.length; j++) {
+					var i, j;
+					var newMember;
+					for (i = 0; i < users.length; i++) {
+						newMember = true;
+						for (j = 0; j < existingMembers.length; j++) {
 							if (existingMembers[j].id === users[i].id) {
 								newMember = false;
 								break;
@@ -261,9 +265,9 @@ module.exports.shareTheme = function (argv, done) {
 						}));
 					}
 
-					for (var i = 0; i < groups.length; i++) {
-						var newMember = true;
-						for (var j = 0; j < existingMembers.length; j++) {
+					for (i = 0; i < groups.length; i++) {
+						newMember = true;
+						for (j = 0; j < existingMembers.length; j++) {
 							if (existingMembers[j].id === groups[i].groupID) {
 								newMember = false;
 								break;
@@ -368,12 +372,13 @@ module.exports.unshareTheme = function (argv, done) {
 					if (!result || result.err) {
 						return Promise.reject();
 					}
+					var i;
 					if (groupNames.length > 0) {
 						console.info(' - verify groups');
 
 						// verify groups
 						var allGroups = result || [];
-						for (var i = 0; i < groupNames.length; i++) {
+						for (i = 0; i < groupNames.length; i++) {
 							var found = false;
 							for (var j = 0; j < allGroups.length; j++) {
 								if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
@@ -389,7 +394,7 @@ module.exports.unshareTheme = function (argv, done) {
 					}
 
 					var usersPromises = [];
-					for (var i = 0; i < userNames.length; i++) {
+					for (i = 0; i < userNames.length; i++) {
 						usersPromises.push(serverRest.getUser({
 							server: server,
 							name: userNames[i]
@@ -400,7 +405,8 @@ module.exports.unshareTheme = function (argv, done) {
 				})
 				.then(function (results) {
 					var allUsers = [];
-					for (var i = 0; i < results.length; i++) {
+					var i;
+					for (i = 0; i < results.length; i++) {
 						if (results[i].items) {
 							allUsers = allUsers.concat(results[i].items);
 						}
@@ -411,7 +417,7 @@ module.exports.unshareTheme = function (argv, done) {
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
 						var found = false;
-						for (var i = 0; i < allUsers.length; i++) {
+						for (i = 0; i < allUsers.length; i++) {
 							if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 								users.push(allUsers[i]);
 								found = true;
@@ -438,9 +444,11 @@ module.exports.unshareTheme = function (argv, done) {
 				.then(function (result) {
 					var existingMembers = result.data || [];
 					var revokePromises = [];
-					for (var i = 0; i < users.length; i++) {
-						var existingUser = false;
-						for (var j = 0; j < existingMembers.length; j++) {
+					var i, j;
+					var existingUser;
+					for (i = 0; i < users.length; i++) {
+						existingUser = false;
+						for (j = 0; j < existingMembers.length; j++) {
 							if (users[i].id === existingMembers[j].id) {
 								existingUser = true;
 								break;
@@ -458,9 +466,9 @@ module.exports.unshareTheme = function (argv, done) {
 						}
 					}
 
-					for (var i = 0; i < groups.length; i++) {
-						var existingUser = false;
-						for (var j = 0; j < existingMembers.length; j++) {
+					for (i = 0; i < groups.length; i++) {
+						existingUser = false;
+						for (j = 0; j < existingMembers.length; j++) {
 							if (existingMembers[j].id === groups[i].groupID) {
 								existingUser = true;
 								break;

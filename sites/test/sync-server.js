@@ -81,6 +81,7 @@ if (!fs.existsSync(eventsFilePath)) {
 	var str = fs.readFileSync(eventsFilePath).toString();
 	if (str) {
 		var unprocessedEvents = [];
+		var events;
 		try {
 			events = JSON.parse(str);
 		} catch (e) {
@@ -244,7 +245,7 @@ process.on('uncaughtException', function (err) {
 });
 
 // start the server
-
+var localhost;
 if (keyPath && fs.existsSync(keyPath) && certPath && fs.existsSync(certPath)) {
 	var httpsOptions = {
 		key: fs.readFileSync(keyPath),
@@ -252,7 +253,7 @@ if (keyPath && fs.existsSync(keyPath) && certPath && fs.existsSync(certPath)) {
 		requestCert: false,
 		rejectUnauthorized: false
 	};
-	var localhost = 'https://localhost:' + port;
+	localhost = 'https://localhost:' + port;
 	https.createServer(httpsOptions, app).listen(port, function () {
 		console.log('Server starts: ' + localhost);
 		if (hasUnprocessedEvent) {
@@ -261,7 +262,7 @@ if (keyPath && fs.existsSync(keyPath) && certPath && fs.existsSync(certPath)) {
 		_watchEvents();
 	});
 } else {
-	var localhost = 'http://localhost:' + port;
+	localhost = 'http://localhost:' + port;
 	var localServer = app.listen(port, function () {
 		console.log('Server starts: ' + localhost + ' (WARNING: Not Secure)');
 		if (hasUnprocessedEvent) {
@@ -331,7 +332,9 @@ var _processEvent = function () {
 		if (str) {
 			try {
 				events = JSON.parse(str);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 		}
 	}
 
@@ -429,10 +432,10 @@ var _processEvent = function () {
 		} else if (action === 'CHANNEL_ASSETPUBLISHED' || action === 'CHANNEL_ASSETUNPUBLISHED') {
 			var contentGuids = [];
 			var items = event.entity.items || [];
-			for (var i = 0; i < items.length; i++) {
+			for (let i = 0; i < items.length; i++) {
 				contentGuids.push(items[i].id);
 			}
-			var args = {
+			args = {
 				projectDir: projectDir,
 				server: srcServer,
 				destination: destServer,
@@ -462,7 +465,7 @@ var _processEvent = function () {
 				siteAction = 'unpublish';
 			}
 
-			var args = {
+			args = {
 				projectDir: projectDir,
 				server: srcServer,
 				destination: destServer,

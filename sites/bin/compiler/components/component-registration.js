@@ -746,6 +746,7 @@
 						'seeded', // is this a seeded app
 						'settingsHeight',
 						'settingsSrc',
+						'settingsStyle',
 						'settingsWidth',
 						'styleClass',
 						'styleClassName',
@@ -761,6 +762,7 @@
 						'appSrc',
 						'assets',
 						'settingsSrc',
+						'settingsStyle',
 						'settingsWidth',
 						'settingsHeight',
 						'compSettingsId',

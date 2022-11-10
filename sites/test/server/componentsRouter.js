@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -32,8 +32,8 @@ var templatesDir,
 	componentsDir,
 	contentDir,
 	customTemplate = '',
-	customChannelToken = '';
-customThemeName = '';
+	customChannelToken = '',
+	customThemeName = '';
 
 var _setupSourceDir = function (req, compName) {
 	var srcfolder = serverUtils.getSourceFolder(projectDir);
@@ -103,7 +103,7 @@ router.get('/*', (req, res) => {
 			editHtml = editHtml.replace(/(\r\n|\n|\r)/gm, " ");
 			var isMapEditor = editHtml.indexOf('oraclemapsv2') > 0 ? true : false;
 			var iframeHeight = isMapEditor ? '320px' : '100%';
-			var filePath = path.join(compSiteDir, 'fieldeditorrender.html');
+			filePath = path.join(compSiteDir, 'fieldeditorrender.html');
 			var htmlSrc = fs.readFileSync(filePath).toString();
 			var newHtmlSrc = htmlSrc.replace('_devcs_component_fieldeditor_edit_html_path', '/components/' + compName + '/assets/edit.html');
 			var viewHtmlFilePath = '/components/' + compName + '/assets/view.html';
@@ -126,9 +126,9 @@ router.get('/*', (req, res) => {
 
 		} else if (appInfo && appInfo.type === 'contentform') {
 
-			var filePath = path.join(compSiteDir, 'contentformrender.js');
-			var renderjs = fs.readFileSync(filePath).toString();
-			var newrenderjs = renderjs.replace('_devcs_component_contentform_edit_html_path', '/components/' + compName + '/assets/edit.html');
+			filePath = path.join(compSiteDir, 'contentformrender.js');
+			let renderjs = fs.readFileSync(filePath).toString();
+			let newrenderjs = renderjs.replace('_devcs_component_contentform_edit_html_path', '/components/' + compName + '/assets/edit.html');
 			// console.log(newrenderjs);
 
 			console.info('path=' + req.path + ' filePath=' + filePath + ' content form=' + compName);
@@ -138,9 +138,9 @@ router.get('/*', (req, res) => {
 
 		} else if (appInfo && appInfo.type === 'translationeditor') {
 
-			var filePath = path.join(compSiteDir, 'translationeditorrender.js');
-			var renderjs = fs.readFileSync(filePath).toString();
-			var newrenderjs = renderjs.replace('_devcs_component_translationeditor_edit_html_path', '/components/' + compName + '/assets/edit.html');
+			filePath = path.join(compSiteDir, 'translationeditorrender.js');
+			let renderjs = fs.readFileSync(filePath).toString();
+			let newrenderjs = renderjs.replace('_devcs_component_translationeditor_edit_html_path', '/components/' + compName + '/assets/edit.html');
 			// console.log(newrenderjs);
 
 			console.info('path=' + req.path + ' filePath=' + filePath + ' content form=' + compName);
@@ -156,7 +156,7 @@ router.get('/*', (req, res) => {
 		// 
 		// component render (contentClient.renderItem)
 		//
-		var compFile = req.path.replace(/\/_themes\/_components\//, '').replace(/\/$/, '');
+		let compFile = req.path.replace(/\/_themes\/_components\//, '').replace(/\/$/, '');
 		compName = compFile.substring(0, compFile.indexOf('/'));
 		filePath = path.resolve(componentsDir + '/' + compFile);
 		app.locals.currentComponent = compName;
@@ -242,7 +242,7 @@ router.get('/*', (req, res) => {
 			}
 		} else {
 			console.info(' - set content layout to ' + compName + ' for type ' + types);
-			for (var i = 0; i < types.length; i++) {
+			for (let i = 0; i < types.length; i++) {
 				mappings[i] = {
 					"type": types[i],
 					"categoryList": [{
@@ -359,7 +359,7 @@ router.get('/*', (req, res) => {
 				Object.keys(compgroupcomponentInstances).forEach(function (key) {
 					compgroupcompvalues.push(compgroupcomponentInstances[key]);
 				});
-				for (var i = 0; i < compgroupcompvalues.length; i++) {
+				for (let i = 0; i < compgroupcompvalues.length; i++) {
 					if (components && components.length > i) {
 						// console.log('add component group component inatance: id=' + components[i] + ' data=' + JSON.stringify(compgroupcompvalues[i]));
 						componentInstances[components[i]] = compgroupcompvalues[i];
@@ -370,7 +370,7 @@ router.get('/*', (req, res) => {
 					reReplace = /\[!--\$\s*scsGenerateComponentId\s*\(\s*([0-9]+)\s*\)\s*--\]/g,
 					newGUIDS = [];
 
-				for (var i = 0; i < components.length; i++) {
+				for (let i = 0; i < components.length; i++) {
 					newGUIDS[i] = serverUtils.createGUID();
 				}
 				// create new instance id
@@ -392,14 +392,14 @@ router.get('/*', (req, res) => {
 			compvalues.data.components = comps;
 			var tabData = {};
 			// set tab titles
-			for (var i = 0; i < comps.length; i++) {
+			for (let i = 0; i < comps.length; i++) {
 				tabData[comps[i]] = {
 					'label': '  ' + (i + 1) + '  '
 				};
 			}
 			compvalues.data.tabData = tabData;
 		} else if (apptype === 'contentlayout') {
-			var itemid = app.locals.currentContentItem.id,
+			let itemid = app.locals.currentContentItem.id,
 				itemtype = app.locals.currentContentItem.type,
 				itemname = app.locals.currentContentItem.name;
 			compvalues.data.contentId = itemid;
@@ -419,7 +419,7 @@ router.get('/*', (req, res) => {
 		res.end();
 		return;
 	} else if (filePathSuffix.indexOf(compName + '/assets/') === 0) {
-		var compfolderFile = path.resolve(componentsDir + '/' + compName + '/_folder.json'),
+		let compfolderFile = path.resolve(componentsDir + '/' + compName + '/_folder.json'),
 			compfolderster = fs.readFileSync(compfolderFile).toString(),
 			compfolderjson = JSON.parse(compfolderster),
 			apptype = compfolderjson.appType;
@@ -445,13 +445,13 @@ router.get('/*', (req, res) => {
 				}
 
 			} else if (apptype === 'fieldeditor') {
-				var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
-				var types = appInfo && appInfo.supportedDatatypes || ['text'];
+				let appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
+				let types = appInfo && appInfo.supportedDatatypes || ['text'];
 				var handlesMultiple = appInfo && appInfo.handlesMultiple;
 
 				filePath = path.join(compSiteDir, 'fieldeditorsettings.html');
-				var settingshtml = fs.readFileSync(filePath).toString();
-				var newsettingshtml = settingshtml.replace('_devcs_component_fieldeditor_name', compName);
+				let settingshtml = fs.readFileSync(filePath).toString();
+				let newsettingshtml = settingshtml.replace('_devcs_component_fieldeditor_name', compName);
 				newsettingshtml = newsettingshtml.replace('_devcs_component_fieldeditor_multi', handlesMultiple);
 				newsettingshtml = newsettingshtml.replace('_devcs_component_fieldeditor_types', types.join(','));
 				newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
@@ -461,15 +461,15 @@ router.get('/*', (req, res) => {
 				return;
 
 			} else if (apptype === 'contentform') {
-				var params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
+				let params = serverUtils.getURLParameters(req.url.substring(req.url.indexOf('?') + 1));
 
 				if (params && params.customsettings) {
-					var appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
+					let appInfo = serverUtils.getComponentAppInfo(projectDir, compName);
 					var drawerSize = appInfo && appInfo.drawerSize || 'default';
 
 					filePath = path.join(compSiteDir, 'contentformsettings.html');
-					var settingshtml = fs.readFileSync(filePath).toString();
-					var newsettingshtml = settingshtml.replace('_devcs_component_contentform_name', compName);
+					let settingshtml = fs.readFileSync(filePath).toString();
+					let newsettingshtml = settingshtml.replace('_devcs_component_contentform_name', compName);
 					newsettingshtml = newsettingshtml.replace('_devcs_component_contentform_drawersize', drawerSize);
 					newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
 					console.info('path=' + req.path + ' filePath=' + filePath + ' content form=' + compName);
@@ -479,7 +479,7 @@ router.get('/*', (req, res) => {
 				} else {
 					// the content for testing
 					filePath = path.resolve(compSiteDir + '/contentformcontent.html');
-					var settingshtml = fs.readFileSync(filePath).toString(),
+					let settingshtml = fs.readFileSync(filePath).toString(),
 						newsettingshtml = settingshtml.replace('_devcs_component_contentform_name', compName);
 					newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
 					console.info('path=' + req.path + ' filePath=' + filePath + ' layout=' + compName);
@@ -492,7 +492,7 @@ router.get('/*', (req, res) => {
 
 				// translation job editor
 				filePath = path.resolve(compSiteDir + '/translationeditorsettings.html');
-				var settingshtml = fs.readFileSync(filePath).toString(),
+				let settingshtml = fs.readFileSync(filePath).toString(),
 					newsettingshtml = settingshtml.replace('_devcs_component_contentlayout_name', compName);
 				newsettingshtml = newsettingshtml.replace('sites.min.js', 'sites.mock.min.js');
 				console.info('path=' + req.path + ' filePath=' + filePath + ' editor=' + compName);
@@ -569,7 +569,7 @@ router.get('/*', (req, res) => {
 		} else if (filePath.indexOf('layouts') > 0) {
 			//
 			// set the settings file for the selected component
-			var buf = fs.readFileSync(filePath).toString(),
+			let buf = fs.readFileSync(filePath).toString(),
 				compfolderFile = path.resolve(componentsDir + '/' + compName + '/_folder.json'),
 				compfolderster = fs.readFileSync(compfolderFile).toString(),
 				compfolderjson = JSON.parse(compfolderster),
@@ -594,9 +594,9 @@ router.get('/*', (req, res) => {
 			// field editor
 			var fieldEditorType = '';
 			if (compType === 'fieldeditor') {
-				var editHtmlFilePath = path.join(componentsDir, compName, 'assets', 'edit.html');
+				let editHtmlFilePath = path.join(componentsDir, compName, 'assets', 'edit.html');
 				if (fs.existsSync(editHtmlFilePath)) {
-					var editHtml = fs.readFileSync(editHtmlFilePath).toString();
+					let editHtml = fs.readFileSync(editHtmlFilePath).toString();
 					if (editHtml.indexOf('oraclemapsv2') > 0) {
 						fieldEditorType = 'map';
 					} else {
@@ -609,7 +609,7 @@ router.get('/*', (req, res) => {
 			// Theme designs
 			var themes = fs.readdirSync(themesDir),
 				themedesigns = '<select id="themedesign" class="themedesign-select" onchange="selectTheme()"><option value="none">None</option>';
-			for (var i = 0; i < themes.length; i++) {
+			for (let i = 0; i < themes.length; i++) {
 				if (fs.existsSync(path.join(themesDir, themes[i], '_folder.json'))) {
 					themedesigns += '<option value="' + themes[i] + '"';
 					if (themes[i] === customThemeName) {
@@ -774,7 +774,7 @@ router.get('/*', (req, res) => {
 			// 
 			// update the SitesSDK for settings
 			//
-			var buf = fs.readFileSync(filePath).toString();
+			let buf = fs.readFileSync(filePath).toString();
 			buf = buf.replace('sites.min.js', 'sites.mock.min.js');
 			res.write(buf);
 			res.end();

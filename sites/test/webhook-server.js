@@ -74,13 +74,14 @@ if (!fs.existsSync(eventsFilePath)) {
 	var str = fs.readFileSync(eventsFilePath).toString();
 	if (str) {
 		var unprocessedEvents = [];
+		var events;
 		try {
 			events = JSON.parse(str);
 		} catch (e) {
 			events = [];
 			fs.writeFileSync(eventsFilePath, '[]');
 		}
-		for (var i = 0; i < events.length; i++) {
+		for (let i = 0; i < events.length; i++) {
 			if (!events[i].__processed) {
 				unprocessedEvents.push(events[i]);
 				hasUnprocessedEvent = true;
@@ -256,7 +257,9 @@ var _processEvent = function () {
 		if (str) {
 			try {
 				events = JSON.parse(str);
-			} catch (e) {}
+			} catch (e) {
+				// handle invalid json
+			}
 		}
 	}
 

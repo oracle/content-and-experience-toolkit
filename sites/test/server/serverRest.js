@@ -51,7 +51,9 @@ var _createFolder = function (server, parentID, foldername) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (e) { }
+				} catch (e) {
+					// ignore
+				}
 				resolve(data);
 			} else {
 				console.error('ERROR: failed to create folder ' + foldername + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
@@ -106,7 +108,9 @@ var _copyFolder = function (server, folderId, targetFolderId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// ignore
+			}
 
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
@@ -257,8 +261,9 @@ var _findFolderItems = function (server, parentId, parentPath, _files) {
 			})
 			.then(function (results) {
 
+				var i;
 				if (results && results.length > 0) {
-					for (var i = 0; i < results.length; i++) {
+					for (i = 0; i < results.length; i++) {
 						// console.log(' - ' + i + ' offset: ' + results[i].offset + ' count: ' + results[i].count);
 						var items2 = results[i] && results[i].items;
 						if (items2.length > 0) {
@@ -268,7 +273,7 @@ var _findFolderItems = function (server, parentId, parentPath, _files) {
 				}
 
 				var subfolderPromises = [];
-				for (var i = 0; i < items.length; i++) {
+				for (i = 0; i < items.length; i++) {
 					if (items[i].type === 'file') {
 						// console.log(' - file: id=' + items[i].id + ' path=' + parentPath + '/' + items[i].name);
 						_files.push({
@@ -338,7 +343,9 @@ var _deleteFolder = function (server, fFolderGUID, folderPath) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (e) { }
+				} catch (e) {
+					// should not happen
+				}
 
 				resolve(data);
 			} else {
@@ -784,6 +791,9 @@ module.exports.downloadFile = function (args) {
  */
 module.exports.downloadFileSave = function (args) {
 	var url = args.server.url + '/documents/api/1.2/files/' + args.fFileGUID + '/data/';
+	if (args.version) {
+		url = url + '?version=' + args.version;
+	}
 	var noMsg = true;
 	var writer = fs.createWriteStream(args.saveTo);
 	return _executeGetStream(args.server, url, writer, noMsg);
@@ -815,7 +825,9 @@ var _deleteFile = function (server, fFileGUID, filePath) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (e) { }
+				} catch (e) {
+					// should not happen
+				}
 
 				resolve(data);
 			} else {
@@ -868,7 +880,9 @@ var _copyFile = function (server, fileId, targetFolderId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// should not happen
+			}
 
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
@@ -1136,7 +1150,9 @@ var _shareFolder = function (server, folderId, userId, role, createNew) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// in case result not json
+			}
 
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
@@ -1195,7 +1211,9 @@ var _unshareFolder = function (server, folderId, userId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle non json 
+			}
 			if (response && response.statusCode >= 200 && response.statusCode < 300) {
 				resolve(data);
 			} else {
@@ -1226,7 +1244,7 @@ module.exports.unshareFolder = function (args) {
 //                  Content Management APIs
 ///////////////////////////////////////////////////////////
 
-var _getItem = function (server, id, expand) {
+var _getItem = function (server, id, expand, showError) {
 	return new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/items/' + id;
 		if (expand) {
@@ -1244,8 +1262,10 @@ var _getItem = function (server, id, expand) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: failed to get item ' + id + ' (ecid: ' + response.ecid + ')');
-				console.error(error);
+				if (showError) {
+					console.error('ERROR: failed to get item ' + id + ' (ecid: ' + response.ecid + ')');
+					console.error(error);
+				}
 				return resolve({
 					err: 'err'
 				});
@@ -1260,7 +1280,9 @@ var _getItem = function (server, id, expand) {
 				return resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.error('ERROR: failed to get item ' + id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				if (showError) {
+					console.error('ERROR: failed to get item ' + id + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				}
 				return resolve({
 					err: 'err'
 				});
@@ -1276,7 +1298,8 @@ var _getItem = function (server, id, expand) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getItem = function (args) {
-	return _getItem(args.server, args.id, args.expand);
+	var showError = args.hideError ? false : true;
+	return _getItem(args.server, args.id, args.expand, showError);
 };
 
 var _getItemRelationships = function (server, id) {
@@ -1310,13 +1333,14 @@ var _getItemRelationships = function (server, id) {
 			if (response && response.statusCode === 200) {
 				var referenceIds = [];
 				var referencedByIds = [];
+				var i;
 				if (data && data.data && data.data.references) {
-					for (var i = 0; i < data.data.references.length; i++) {
+					for (i = 0; i < data.data.references.length; i++) {
 						referenceIds.push(data.data.references[i].id);
 					}
 				}
 				if (data && data.data && data.data.referencedBy) {
-					for (var i = 0; i < data.data.referencedBy.length; i++) {
+					for (i = 0; i < data.data.referencedBy.length; i++) {
 						referencedByIds.push(data.data.referencedBy[i].id);
 					}
 				}
@@ -1400,6 +1424,44 @@ var _getItemVariations = function (server, id) {
 module.exports.getItemVariations = function (args) {
 	return _getItemVariations(args.server, args.id);
 };
+
+/**
+ * Get an item's versions on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {string} args.server the server object
+ * @param {string} args.id The id of the item to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getItemVersions = function (args) {
+	return _getAllResources(args.server, '/content/management/api/v1.1/items/' + args.id + '/versions', 'itemVersions');
+};
+
+/**
+ * Get an item's rendition on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {string} args.server the server object
+ * @param {string} args.id The id of the item to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getItemRendition = function (args) {
+	return new Promise(function (resolve, reject) {
+		var url = '/content/management/api/v1.1/assets/' + args.id + '/' + args.rendition;
+		var noMsg = true;
+		_executeGet(args.server, url, noMsg)
+			.then(function (result) {
+				if (result.err) {
+					return resolve(result);
+				} else {
+					return resolve({
+						itemId: args.id,
+						rendition: args.rendition,
+						data: result
+					});
+				}
+			});
+	});
+};
+
 
 var _queryItems = function (useDelivery, server, q, fields, orderBy, limit, offset, channelToken, includeAdditionalData, aggregationResults, defaultQuery, rankBy) {
 	return new Promise(function (resolve, reject) {
@@ -1617,7 +1679,7 @@ module.exports.queryItems = function (args) {
 		// find out the total first
 		_queryItems(args.useDelivery, args.server, args.q, args.fields, args.orderBy, 1, 0, args.channelToken, args.includeAdditionalData)
 			.then(function (result) {
-				items = result && result.data || [];
+				var items = result && result.data || [];
 				if (items.length == 0 || result.limit === args.limit) {
 					return resolve(result);
 				}
@@ -1966,6 +2028,8 @@ var _createDigitalItemFromDocuments = function (server, repositoryId, type, docI
 						data = body;
 					}
 
+					var msg;
+
 					if (response && (response.statusCode === 200 || response.statusCode === 201 || response.statusCode === 202)) {
 						var statusId = response.location || '';
 						statusId = statusId.substring(statusId.lastIndexOf('/') + 1);
@@ -1982,7 +2046,7 @@ var _createDigitalItemFromDocuments = function (server, repositoryId, type, docI
 										process.stdout.write(os.EOL);
 									}
 									// console.log(data);
-									var msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
+									msg = data && data.error ? (data.error.detail ? data.error.detail : data.error.title) : '';
 									console.error('ERROR: failed to create digital asset from ' + docName + ': ' + msg + ' (ecid: ' + response.ecid + ')');
 
 									return resolve({
@@ -2003,7 +2067,7 @@ var _createDigitalItemFromDocuments = function (server, repositoryId, type, docI
 										var item = data.result.body.operations.addToRepository.items[0];
 										return resolve(item);
 									} else {
-										var msg = 'failed to create digital asset from ' + docName;
+										msg = 'failed to create digital asset from ' + docName;
 										if (data.result && data.result.body && data.result.body.operations &&
 											data.result.body.operations.addToRepository &&
 											data.result.body.operations.addToRepository.failedExternalIds &&
@@ -2026,7 +2090,7 @@ var _createDigitalItemFromDocuments = function (server, repositoryId, type, docI
 							});
 						}, 6000);
 					} else {
-						var msg = data ? (data.detail || data.title) : response.statusMessage;
+						msg = data ? (data.detail || data.title) : response.statusMessage;
 						console.error('ERROR: Failed to create digital asset - ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
@@ -3111,13 +3175,14 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 				resolve(result);
 			} else {
 
+				var i;
 				var csrfToken = result && result.token;
 
 				var q = '';
 				if (queryString) {
 					q = queryString;
 				} else {
-					for (var i = 0; i < itemIds.length; i++) {
+					for (i = 0; i < itemIds.length; i++) {
 						if (q) {
 							q = q + ' or ';
 						}
@@ -3126,7 +3191,7 @@ var _bulkOpItems = function (server, operation, channelIds, itemIds, queryString
 				}
 
 				var channels = [];
-				for (var i = 0; i < channelIds.length; i++) {
+				for (i = 0; i < channelIds.length; i++) {
 					channels.push({
 						id: channelIds[i]
 					});
@@ -4439,19 +4504,52 @@ module.exports.getTaxonomyWithName = function (args) {
  */
 module.exports.getCategories = function (args) {
 	return new Promise(function (resolve, reject) {
+		// Currently this API returns duplicate entries when pagination
+		// So use limit 10000 for now
 		var q;
 		if (args.status) {
 			q = 'status eq "' + args.status + '"';
 		}
-		_getAllResources(args.server, '/content/management/api/v1.1/taxonomies/' + args.taxonomyId + '/categories',
-			'categories', args.fields, q, args.orderBy)
+
+		var url = '/content/management/api/v1.1/taxonomies/' + args.taxonomyId + '/categories';
+		url = url + '?limit=10000';
+		if (q) {
+			url = url + '&q=' + q;
+		}
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
+		if (args.orderBy) {
+			url = url + '&orderBy=' + args.orderBy;
+		}
+		var noMsg = true;
+		_executeGet(args.server, url, noMsg)
 			.then(function (result) {
+				var data;
+				try {
+					data = JSON.parse(result);
+				} catch (e) {
+					// in case result is no json
+				}
 				resolve({
 					taxonomyName: args.taxonomyName,
 					taxonomyId: args.taxonomyId,
-					categories: result
+					categories: (data && data.items || [])
 				});
 			});
+
+		/*
+				_getAllResources(args.server, '/content/management/api/v1.1/taxonomies/' + args.taxonomyId + '/categories',
+					'categories', args.fields, q, args.orderBy)
+					.then(function (result) {
+						resolve({
+							taxonomyName: args.taxonomyName,
+							taxonomyId: args.taxonomyId,
+							categories: result
+						});
+					});
+				*/
+
 	});
 };
 
@@ -4822,14 +4920,15 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 				var url = server.url + '/content/management/api/v1.1/permissionOperations';
 
 				var userArr = [];
-				for (var i = 0; i < users.length; i++) {
+				var i;
+				for (i = 0; i < users.length; i++) {
 					userArr.push({
 						name: users[i].loginName,
 						type: 'user'
 					});
 				}
 
-				for (var i = 0; i < groups.length; i++) {
+				for (i = 0; i < groups.length; i++) {
 					userArr.push({
 						name: groups[i].name,
 						type: 'group',
@@ -4895,9 +4994,10 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 						data = body;
 					}
 
+					var msg;
 					if (response && response.statusCode === 200) {
 						var failedRoles = data && data.operations[operation] && data.operations[operation].failedRoles;
-						var msg = '';
+						msg = '';
 						if (failedRoles && failedRoles.length > 0) {
 							// console.log(JSON.stringify(failedRoles, null, 2));
 							for (var i = 0; i < failedRoles.length; i++) {
@@ -4914,7 +5014,7 @@ var _performPermissionOperation = function (server, operation, resourceId, resou
 							resolve(data);
 						}
 					} else {
-						var msg = data ? (data.detail || data.title) : response.statusMessage;
+						msg = data ? (data.detail || data.title) : response.statusMessage;
 						console.error('ERROR: failed to ' + operation + ' resource ' + msg + ' (ecid: ' + response.ecid + ')');
 						resolve({
 							err: 'err'
@@ -5729,7 +5829,7 @@ var _exportTaxonomy = function (server, id, name, status) {
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.error('ERROR: failed to export taxonomy ' + name);
+						console.error('ERROR: failed to export taxonomy ' + name + ' (ecid: ' + response.ecid + ')');
 						console.error(error);
 						resolve({
 							err: 'err'
@@ -5757,7 +5857,7 @@ var _exportTaxonomy = function (server, id, name, status) {
 											process.stdout.write(os.EOL);
 										}
 										var msg = data && data.summary ? data.summary : '';
-										console.error('ERROR: export taxonomy failed: ' + msg);
+										console.error('ERROR: export taxonomy failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 
 										return resolve({
 											err: 'err'
@@ -5897,7 +5997,7 @@ var _importTaxonomy = function (server, fileId, name, isNew, hasNewIds, taxonomy
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.error('ERROR: failed to import taxonomy ' + name);
+						console.error('ERROR: failed to import taxonomy ' + name + ' (ecid: ' + response.ecid + ')');
 						console.error(error);
 						resolve({
 							err: 'err'
@@ -5925,7 +6025,7 @@ var _importTaxonomy = function (server, fileId, name, isNew, hasNewIds, taxonomy
 											process.stdout.write(os.EOL);
 										}
 										var msg = data && data.errorDescription ? data.errorDescription : '';
-										console.error('ERROR: import taxonomy failed: ' + msg);
+										console.error('ERROR: import taxonomy failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 
 										return resolve({
 											err: 'err'
@@ -6368,9 +6468,9 @@ module.exports.getRecommendations = function (args) {
 	});
 };
 
-var _getContentJobStatus = function (server, jobId, hideError) {
+var _getContentJobStatus = function (server, jobId, hideError, type) {
 	return new Promise(function (resolve, reject) {
-		var statusUrl = server.url + '/content/management/api/v1.1/content-templates/exportjobs/' + jobId;
+		var statusUrl = server.url + '/content/management/api/v1.1/content-templates/' + (type ? type : 'exportjobs') + '/' + jobId;
 		var options = {
 			url: statusUrl,
 			headers: {
@@ -6393,7 +6493,12 @@ var _getContentJobStatus = function (server, jobId, hideError) {
 				});
 			}
 			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body);
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (e) {
+					// in case result is not json
+				}
 				return resolve({
 					status: 'success',
 					data: data
@@ -6418,6 +6523,27 @@ var _getContentJobStatus = function (server, jobId, hideError) {
 module.exports.getContentJobStatus = function (args) {
 	return _getContentJobStatus(args.server, args.jobId, args.hideError);
 };
+
+/**
+ * Check export/import status on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getContentImportJobStatus = function (args) {
+	return _getContentJobStatus(args.server, args.jobId, args.hideError, 'importjobs');
+};
+
+/**
+ * Check import status on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getContentImportJobResult = function (args) {
+	return _getAllResources(args.server, '/content/management/api/v1.1/content-templates/importjobs/' + args.jobId + '/results', 'importjobResults');
+};
+
 
 var _exportRecommendation = function (server, id, name, published, publishedChannelId) {
 	return new Promise(function (resolve, reject) {
@@ -6616,7 +6742,7 @@ module.exports.removeChannelFromRecommendation = function (args) {
 	var recommendation = args.recommendation;
 	var channels = recommendation.channels || [];
 	args.channelIds.forEach(function (id) {
-		idx = undefined;
+		var idx = undefined;
 		for (var i = 0; i < channels.length; i++) {
 			if (channels[i].id === id) {
 				idx = i;
@@ -7660,7 +7786,7 @@ module.exports.getGroupMembers = function (args) {
 
 var _createConnection = function (request, server) {
 	return new Promise(function (resolve, reject) {
-		newSocialConnectionExpiryTime = function () {
+		var newSocialConnectionExpiryTime = function () {
 			return Date.now() + 5 * 60000;
 		}
 		// If apiRandomID and cookieStore have already been cached, then just use them, as long as not too much time has elapsed.
@@ -8129,7 +8255,7 @@ module.exports.removeMembersFromGroup = function (args) {
  * @returns
  */
 module.exports.executeGet = function (args) {
-	return _executeGet(args.server, args.endpoint);
+	return _executeGet(args.server, args.endpoint, args.noMsg);
 };
 
 var _executeGet = function (server, endpoint, noMsg) {
@@ -8180,7 +8306,9 @@ var _executeGet = function (server, endpoint, noMsg) {
 				try {
 					data = JSON.parse(body);
 					console.error(data);
-				} catch (e) { }
+				} catch (e) {
+					// in case result is not json
+				}
 				return resolve({
 					err: 'err'
 				});
@@ -8248,7 +8376,9 @@ var _executeGetStream = function (server, endpoint, writer, noMsg) {
 				try {
 					data = JSON.parse(body);
 					console.error(data);
-				} catch (e) { }
+				} catch (e) {
+					// in case result is not json
+				}
 				return resolve({
 					err: 'err'
 				});
@@ -8329,13 +8459,16 @@ var _executePost = function (args) {
 					if (error) {
 						console.error('ERROR: Failed to post ' + endpoint + ' (ecid: ' + response.ecid + ')');
 						console.error(error);
-						done();
-						return;
+						return resolve({
+							err: 'err'
+						});
 					}
 					var data;
 					try {
 						data = JSON.parse(body);
-					} catch (e) { }
+					} catch (e) {
+						// in case result is not json
+					}
 					if (async) {
 						if (showDetail) {
 							console.log('Status: ' + response.statusCode + ' ' + response.statusMessage);
@@ -8353,7 +8486,9 @@ var _executePost = function (args) {
 										var data;
 										try {
 											data = JSON.parse(result);
-										} catch (e) { }
+										} catch (e) {
+											// in case result is not json
+										}
 										// console.log(data);
 										if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
 											clearInterval(inter);
@@ -8457,7 +8592,9 @@ module.exports.executePut = function (args) {
 					var data;
 					try {
 						data = JSON.parse(body);
-					} catch (e) { }
+					} catch (e) {
+						// in case result is not json
+					}
 
 					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
 					if (response.location || response.url) {
@@ -8528,7 +8665,9 @@ module.exports.executePatch = function (args) {
 					var data;
 					try {
 						data = JSON.parse(body);
-					} catch (e) { }
+					} catch (e) {
+						// in case result is not json
+					}
 
 					console.log('Status: ' + response.statusCode + ' ' + response.statusMessage + ' (ecid: ' + response.ecid + ')');
 					if (response.location || response.url) {
@@ -8940,146 +9079,6 @@ module.exports.cancelScheduledJobs = function (args) {
 };
 
 
-
-var _createTaxonomy = function (server, name, shortName) {
-	return new Promise(function (resolve, reject) {
-		serverUtils.getCaasCSRFToken(server).then(function (result) {
-			if (result.err) {
-				resolve(result);
-			} else {
-				var csrfToken = result && result.token;
-				var url = server.url + '/content/management/api/v1.1/taxonomies';
-
-				var postData = {
-					'name': name,
-					'shortName': shortName
-				};
-
-				var options = {
-					method: 'POST',
-					url: url,
-					headers: {
-						'Content-Type': 'application/json',
-						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest',
-						Authorization: serverUtils.getRequestAuthorization(server)
-					},
-					body: JSON.stringify(postData)
-				};
-
-				serverUtils.showRequestOptions(options);
-
-				var request = require('./requestUtils.js').request;
-				request.post(options, function (err, response, body) {
-					if (err) {
-						console.error('ERROR: Failed to create taxonomy ' + name);
-						console.error(err);
-						resolve({
-							err: 'err'
-						});
-					}
-					var data;
-					try {
-						data = JSON.parse(body);
-					} catch (e) {
-						data = body;
-					}
-
-					if (response && response.statusCode === 201) {
-						return resolve(data);
-					} else {
-						var msg = data && (data.detail || data.title) || response.statusCode;
-						console.error('ERROR: Failed to create taxonomy ' + name + ' : ' + msg);
-						return resolve({
-							err: 'err'
-						});
-					}
-				});
-			}
-		});
-	});
-};
-
-/**
- * Create a taxonomy
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @param {string} args.name The name of the taxonomy to create
- * @param {string} args.shortName The shortName of the taxonomy
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.createTaxonomy = function (args) {
-	return _createTaxonomy(args.server, args.name, args.shortName);
-};
-
-// Delete taxonomy
-var _deleteTaxonomy = function (server, id, status) {
-	return new Promise(function (resolve, reject) {
-		serverUtils.getCaasCSRFToken(server).then(function (result) {
-			if (result.err) {
-				resolve(result);
-			} else {
-				var csrfToken = result && result.token;
-				var url = server.url + '/content/management/api/v1.1/taxonomies/' + id;
-				if (status === 'promoted') {
-					url += '?q=(status eq "promoted")';
-				} else {
-					url += '?q=(status eq "draft")';
-				}
-
-				var postData = {
-					method: 'DELETE',
-					url: url,
-					headers: {
-						'Content-Type': 'application/json',
-						'X-CSRF-TOKEN': csrfToken,
-						'X-REQUESTED-WITH': 'XMLHttpRequest',
-						Authorization: serverUtils.getRequestAuthorization(server)
-					}
-				};
-
-				serverUtils.showRequestOptions(postData);
-
-				var request = require('./requestUtils.js').request;
-				request.delete(postData, function (error, response, body) {
-					if (error) {
-						console.error('ERROR: Failed to delete taxonomy ' + id);
-						console.error(error);
-						resolve({
-							err: 'err'
-						});
-					}
-					var data;
-					try {
-						data = JSON.parse(body);
-					} catch (err) {
-						data = body;
-					}
-					if (response && response.statusCode >= 200 && response.statusCode < 300) {
-						resolve(data);
-					} else {
-						console.error('ERROR: Failed to delete taxonomy ' + id + ' : ' + (response.statusMessage || response.statusCode));
-						resolve({
-							err: 'err'
-						});
-					}
-				});
-			}
-		});
-	});
-};
-
-/**
- * Delete taxonomy on server by taxonomy id
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @param {string} args.id The id of the taxonomy to delete
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.deleteTaxonomy = function (args) {
-	return _deleteTaxonomy(args.server, args.id, args.status);
-};
-
 // Create category
 var _createCategory = function (server, name, parentId, position) {
 	return new Promise(function (resolve, reject) {
@@ -9360,7 +9359,7 @@ module.exports.getTranslationConnector = function (args) {
 				}
 			} else {
 				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.error('ERROR: failed to get translation connector ' + connectorlName + '  : ' + msg);
+				console.error('ERROR: failed to get translation connector ' + connectorName + '  : ' + msg);
 				return resolve({
 					err: 'err'
 				});
@@ -10034,69 +10033,6 @@ module.exports.getConversationMembers = function (args) {
 	return _getConversationMembers(args.server, args.id);
 };
 
-var _addMemberToConversation = function (server, conversationId, memberId) {
-	return new Promise(function (resolve, reject) {
-		var request = require('./requestUtils.js').request;
-		_createConnection(request, server)
-			.then(function (result) {
-				if (result.err || !result.apiRandomID) {
-					return resolve({
-						err: 'err'
-					});
-				} else {
-					var url = server.url + '/osn/social/api/v1/conversations/' + conversationId + '/members/' + memberId;
-
-					var postData = {
-						method: 'POST',
-						url: url,
-						headers: {
-							Authorization: serverUtils.getRequestAuthorization(server),
-							'X-Waggle-RandomID': result.apiRandomID
-						},
-						body: JSON.stringify({})
-					};
-					addCachedCookiesForRequest(server, postData);
-					request.post(postData, function (error, response, body) {
-						if (error) {
-							console.error('ERROR: add conversation member ' + memberId);
-							console.error(error);
-							return resolve({
-								err: 'err'
-							});
-						}
-						var data;
-						try {
-							data = JSON.parse(body);
-						} catch (e) {
-							data = body;
-						}
-
-						cacheCookiesFromResponse(server, response);
-						if (response && response.statusCode === 200) {
-							resolve(data);
-						} else {
-							var msg = data && data.title ? data.title : (response.statusMessage || response.statusCode);
-							console.error('ERROR: failed to add conversation member ' + memberId + ' : ' + msg);
-							return resolve({
-								err: 'err'
-							});
-						}
-					});
-				}
-			});
-	});
-};
-/**
- * Add a member to a conversation.
- * @param {object} args JavaScript object containing parameters.
- * @param {object} args.server the server object
- * @param {string} args.conversationId the conversation id
- * @param {string} args.memberId the member id to add to conversation
- * @returns {Promise.<object>} The data object returned by the server.
- */
-module.exports.addMemberToConversation = function (args) {
-	return _addMemberToConversation(args.server, args.conversationId, args.memberId);
-};
 
 var _postMessageToConversation = function (server, conversationId, text) {
 	return new Promise(function (resolve, reject) {
@@ -10408,7 +10344,9 @@ var _createFolderConversation = function (server, folderId, name) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (e) { }
+				} catch (e) {
+					// in case result is not json
+				}
 				resolve(data);
 			} else {
 				console.error('ERROR: failed to create conversation for folder ' + folderId + ' : ' + (response ? (response.statusMessage || response.statusCode) : ''));
@@ -10610,7 +10548,7 @@ var _setUserSocialPreferences = function (server, userId, props = []) {
 				'ModuleName': 'XUserModule$Server',
 				'MethodName': 'updateMyProfile',
 				'Arguments': props
-			}];;
+			}];
 		}
 
 		// console.log("_setUserSocialPreferences body = ", body);

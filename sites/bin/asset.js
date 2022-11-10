@@ -105,7 +105,7 @@ module.exports.createRepository = function (argv, done) {
 
 				// get content types
 				var typePromises = [];
-				for (var i = 0; i < typeNames.length; i++) {
+				for (let i = 0; i < typeNames.length; i++) {
 					typePromises.push(serverRest.getContentType({
 						server: server,
 						name: typeNames[i]
@@ -157,7 +157,7 @@ module.exports.createRepository = function (argv, done) {
 					console.info(' - verify channels');
 				}
 
-				for (var i = 0; i < typeNames.length; i++) {
+				for (let i = 0; i < typeNames.length; i++) {
 					contentTypes.push({
 						name: typeNames[i]
 					});
@@ -401,7 +401,7 @@ module.exports.controlRepository = function (argv, done) {
 
 				// get translation connectors
 				var connectorPromises = [];
-				for (var i = 0; i < connectorNames.length; i++) {
+				for (let i = 0; i < connectorNames.length; i++) {
 					connectorPromises.push(serverRest.getTranslationConnector({
 						server: server,
 						name: connectorNames[i],
@@ -739,7 +739,7 @@ module.exports.shareRepository = function (argv, done) {
 				console.info(' - verify repository');
 
 				if (repository.contentTypes) {
-					for (var i = 0; i < repository.contentTypes.length; i++) {
+					for (let i = 0; i < repository.contentTypes.length; i++) {
 						if (!['Image', 'File', 'Video'].includes(repository.contentTypes[i].name)) {
 							typeNames.push(repository.contentTypes[i].name);
 						}
@@ -787,7 +787,7 @@ module.exports.shareRepository = function (argv, done) {
 				}
 
 				var usersPromises = [];
-				for (var i = 0; i < userNames.length; i++) {
+				for (let i = 0; i < userNames.length; i++) {
 					usersPromises.push(serverRest.getUser({
 						server: server,
 						name: userNames[i]
@@ -809,7 +809,7 @@ module.exports.shareRepository = function (argv, done) {
 				// verify users
 				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
-					for (var i = 0; i < allUsers.length; i++) {
+					for (let i = 0; i < allUsers.length; i++) {
 						if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 							users.push(allUsers[i]);
 							found = true;
@@ -860,10 +860,10 @@ module.exports.shareRepository = function (argv, done) {
 					}
 				}
 
-				for (var i = 0; i < users.length; i++) {
+				for (let i = 0; i < users.length; i++) {
 					var granted = false;
-					for (var j = 0; j < existingPermissions.length; j++) {
-						var perm = existingPermissions[j];
+					for (let j = 0; j < existingPermissions.length; j++) {
+						let perm = existingPermissions[j];
 						if (perm.roleName === role && perm.type === 'user' && perm.id === users[i].loginName) {
 							granted = true;
 							break;
@@ -923,7 +923,7 @@ module.exports.shareRepository = function (argv, done) {
 						}
 
 						var typePermissionPromises = [];
-						for (var i = 0; i < goodTypeNames.length; i++) {
+						for (let i = 0; i < goodTypeNames.length; i++) {
 							typePermissionPromises.push(serverRest.getResourcePermissions({
 								server: server,
 								id: goodTypeNames[i],
@@ -1095,7 +1095,7 @@ module.exports.unShareRepository = function (argv, done) {
 				console.info(' - verify repository');
 
 				if (repository.contentTypes) {
-					for (var i = 0; i < repository.contentTypes.length; i++) {
+					for (let i = 0; i < repository.contentTypes.length; i++) {
 						typeNames.push(repository.contentTypes[i].name);
 					}
 				}
@@ -1143,7 +1143,7 @@ module.exports.unShareRepository = function (argv, done) {
 				}
 
 				var usersPromises = [];
-				for (var i = 0; i < userNames.length; i++) {
+				for (let i = 0; i < userNames.length; i++) {
 					usersPromises.push(serverRest.getUser({
 						server: server,
 						name: userNames[i]
@@ -1166,7 +1166,7 @@ module.exports.unShareRepository = function (argv, done) {
 				// verify users
 				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
-					for (var i = 0; i < allUsers.length; i++) {
+					for (let i = 0; i < allUsers.length; i++) {
 						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 							users.push(allUsers[i]);
 							goodUserName.push(userNames[k]);
@@ -1502,7 +1502,7 @@ module.exports.shareType = function (argv, done) {
 				}
 
 				var usersPromises = [];
-				for (var i = 0; i < userNames.length; i++) {
+				for (let i = 0; i < userNames.length; i++) {
 					usersPromises.push(serverRest.getUser({
 						server: server,
 						name: userNames[i]
@@ -1525,7 +1525,7 @@ module.exports.shareType = function (argv, done) {
 				// verify users
 				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
-					for (var i = 0; i < allUsers.length; i++) {
+					for (let i = 0; i < allUsers.length; i++) {
 						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 							users.push(allUsers[i]);
 							found = true;
@@ -1580,7 +1580,7 @@ module.exports.shareType = function (argv, done) {
 				for (i = 0; i < users.length; i++) {
 					var granted = false;
 					for (j = 0; j < existingPermissions.length; j++) {
-						var perm = existingPermissions[j];
+						let perm = existingPermissions[j];
 						if (perm.roleName === role && perm.type === 'user' && perm.id === users[i].loginName) {
 							granted = true;
 							break;
@@ -1699,7 +1699,7 @@ module.exports.unshareType = function (argv, done) {
 				}
 
 				var usersPromises = [];
-				for (var i = 0; i < userNames.length; i++) {
+				for (let i = 0; i < userNames.length; i++) {
 					usersPromises.push(serverRest.getUser({
 						server: server,
 						name: userNames[i]
@@ -1722,7 +1722,7 @@ module.exports.unshareType = function (argv, done) {
 				// verify users
 				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
-					for (var i = 0; i < allUsers.length; i++) {
+					for (let i = 0; i < allUsers.length; i++) {
 						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 							users.push(allUsers[i]);
 							goodUserName.push(userNames[k]);
@@ -1858,7 +1858,7 @@ module.exports.downloadType = function (argv, done) {
 							}
 						}
 						var typeCustomForms = typeObj.properties && typeObj.properties.customForms || [];
-						for (var i = 0; i < typeCustomForms.length; i++) {
+						for (let i = 0; i < typeCustomForms.length; i++) {
 							if (!customForms.includes(typeCustomForms[i])) {
 								customForms.push(typeCustomForms[i]);
 								comps.push(typeCustomForms[i]);
@@ -1866,7 +1866,7 @@ module.exports.downloadType = function (argv, done) {
 						}
 
 						var typeContentLayouts = serverUtils.getTypeContentLayouts(typeObj);
-						for (var i = 0; i < typeContentLayouts.length; i++) {
+						for (let i = 0; i < typeContentLayouts.length; i++) {
 							if (!contentLayouts.includes(typeContentLayouts[i])) {
 								contentLayouts.push(typeContentLayouts[i]);
 								comps.push(typeContentLayouts[i]);
@@ -1952,7 +1952,7 @@ module.exports.uploadType = function (argv, done) {
 				try {
 					typeObj = JSON.parse(fs.readFileSync(filePath));
 				} catch (e) {
-
+					// handle invalid json
 				}
 				if (!typeObj || !typeObj.id || !typeObj.name || !typeObj.typeCategory) {
 					console.error('ERROR: file ' + filePath + ' is not a valid type definition');
@@ -2395,7 +2395,7 @@ module.exports.createCollection = function (argv, done) {
 						} else {
 							// check if the channel is added to the repository
 							var channelInRepo = false;
-							for (var i = 0; i < repository.channels.length; i++) {
+							for (let i = 0; i < repository.channels.length; i++) {
 								if (channel.id === repository.channels[i].id) {
 									channelInRepo = true;
 									break;
@@ -2587,7 +2587,7 @@ var _updateCollection = function (server, repository, collections, channelNames,
 					} else {
 						// check if the channel is added to the repository
 						var channelInRepo = false;
-						for (var i = 0; i < repository.channels.length; i++) {
+						for (let i = 0; i < repository.channels.length; i++) {
 							if (channel.id === repository.channels[i].id) {
 								channelInRepo = true;
 								break;
@@ -2632,9 +2632,9 @@ var _updateCollection = function (server, repository, collections, channelNames,
 								}
 							}
 						} else if (action === 'remove-channel') {
-							for (var i = 0; i < defaultChannels.length; i++) {
-								var idx = undefined;
-								for (var j = 0; j < finalChannels.length; j++) {
+							for (let i = 0; i < defaultChannels.length; i++) {
+								let idx = undefined;
+								for (let j = 0; j < finalChannels.length; j++) {
 									if (defaultChannels[i].id === finalChannels[j].id) {
 										idx = j;
 										break;
@@ -2731,7 +2731,7 @@ var _updateCollectionPermission = function (server, repository, collections, use
 			}
 
 			var usersPromises = [];
-			for (var i = 0; i < userNames.length; i++) {
+			for (let i = 0; i < userNames.length; i++) {
 				usersPromises.push(serverRest.getUser({
 					server: server,
 					name: userNames[i]
@@ -2754,7 +2754,7 @@ var _updateCollectionPermission = function (server, repository, collections, use
 				// verify users
 				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
-					for (var i = 0; i < allUsers.length; i++) {
+					for (let i = 0; i < allUsers.length; i++) {
 						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 							users.push(allUsers[i]);
 							goodUserName.push(userNames[k]);
@@ -2831,7 +2831,7 @@ var _updateCollectionPermission = function (server, repository, collections, use
 							for (i = 0; i < users.length; i++) {
 								var granted = false;
 								for (j = 0; j < existingPermissions.length; j++) {
-									var perm = existingPermissions[j];
+									let perm = existingPermissions[j];
 									if (perm.roleName === role && perm.type === 'user' && perm.id === users[i].loginName) {
 										granted = true;
 										break;
@@ -3097,7 +3097,7 @@ module.exports.shareChannel = function (argv, done) {
 				}
 
 				var usersPromises = [];
-				for (var i = 0; i < userNames.length; i++) {
+				for (let i = 0; i < userNames.length; i++) {
 					usersPromises.push(serverRest.getUser({
 						server: server,
 						name: userNames[i]
@@ -3120,7 +3120,7 @@ module.exports.shareChannel = function (argv, done) {
 				// verify users
 				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
-					for (var i = 0; i < allUsers.length; i++) {
+					for (let i = 0; i < allUsers.length; i++) {
 						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 							users.push(allUsers[i]);
 							found = true;
@@ -3175,7 +3175,7 @@ module.exports.shareChannel = function (argv, done) {
 				for (i = 0; i < users.length; i++) {
 					var granted = false;
 					for (j = 0; j < existingPermissions.length; j++) {
-						var perm = existingPermissions[j];
+						let perm = existingPermissions[j];
 						if (perm.roleName === role && perm.type === 'user' && perm.id === users[i].loginName) {
 							granted = true;
 							break;
@@ -3305,7 +3305,7 @@ module.exports.unshareChannel = function (argv, done) {
 				}
 
 				var usersPromises = [];
-				for (var i = 0; i < userNames.length; i++) {
+				for (let i = 0; i < userNames.length; i++) {
 					usersPromises.push(serverRest.getUser({
 						server: server,
 						name: userNames[i]
@@ -3328,7 +3328,7 @@ module.exports.unshareChannel = function (argv, done) {
 				// verify users
 				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
-					for (var i = 0; i < allUsers.length; i++) {
+					for (let i = 0; i < allUsers.length; i++) {
 						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 							users.push(allUsers[i]);
 							goodUserName.push(userNames[k]);
@@ -3443,7 +3443,7 @@ module.exports.describeChannel = function (argv, done) {
 				}
 
 				if (output) {
-					fs.writeFileSync(output, JSON.stringify(repo, null, 4));
+					fs.writeFileSync(output, JSON.stringify(channel, null, 4));
 					console.log(' - channel properties saved to ' + output);
 				}
 
@@ -3506,6 +3506,7 @@ module.exports.describeChannel = function (argv, done) {
 				console.log(sprintf(format1, 'Description', channel.description || ''));
 				console.log(sprintf(format1, 'Created', channel.createdDate.value + ' by ' + channel.createdBy));
 				console.log(sprintf(format1, 'Updated', channel.updatedDate.value + ' by ' + channel.updatedBy));
+				console.log(sprintf(format1, 'Site channel', channel.isSiteChannel ? '√' : ''));
 				console.log(sprintf(format1, 'Publishing', channel.publishPolicy));
 				console.log(sprintf(format1, 'Localization', policyName));
 				console.log(sprintf(format1, 'Access to published resources', channel.channelType));
@@ -3812,7 +3813,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 				}
 
 				var usersPromises = [];
-				for (var i = 0; i < userNames.length; i++) {
+				for (let i = 0; i < userNames.length; i++) {
 					usersPromises.push(serverRest.getUser({
 						server: server,
 						name: userNames[i]
@@ -3832,7 +3833,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
 						var found = false;
-						for (var i = 0; i < allUsers.length; i++) {
+						for (let i = 0; i < allUsers.length; i++) {
 							if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 								principals.push({
 									name: allUsers[i].loginName,
@@ -3862,7 +3863,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 				}
 
 				var typesPromises = [];
-				for (var i = 0; i < typeNames.length; i++) {
+				for (let i = 0; i < typeNames.length; i++) {
 					if (typeNames[i] !== ANY_TYPE) {
 						typesPromises.push(serverRest.getContentType({
 							server: server,
@@ -3888,7 +3889,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 
 					for (var k = 0; k < typeNames.length; k++) {
 						var found = false;
-						for (var i = 0; i < allTypes.length; i++) {
+						for (let i = 0; i < allTypes.length; i++) {
 							if (allTypes[i].name.toLowerCase() === typeNames[k].toLowerCase()) {
 								types.push(allTypes[i]);
 								goodTypeNames.push(typeNames[k]);
@@ -3918,7 +3919,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 
 				var taxonomiesPromises = [];
 				var taxNames = [];
-				for (var i = 0; i < categoryNames.length; i++) {
+				for (let i = 0; i < categoryNames.length; i++) {
 					if (categoryNames[i].indexOf(':') > 0) {
 						var taxName = categoryNames[i].substring(0, categoryNames[i].indexOf(':'));
 						if (!taxNames.includes(taxName)) {
@@ -3949,7 +3950,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 						if (categoryNames[k] !== ANY_CATEGORY) {
 							var taxName = categoryNames[k].substring(0, categoryNames[k].indexOf(':'));
 							var found = false;
-							for (var i = 0; i < allTaxonomies.length; i++) {
+							for (let i = 0; i < allTaxonomies.length; i++) {
 								if (allTaxonomies[i].name === taxName) {
 									if (!goodTaxonomyNames.includes(taxName)) {
 										if (categoryPermission === 'createSite' && !allTaxonomies[i].isForSiteManagement) {
@@ -3974,7 +3975,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 				}
 
 				var categoryPromises = [];
-				for (var i = 0; i < taxonomies.length; i++) {
+				for (let i = 0; i < taxonomies.length; i++) {
 					// Need all to get whole hierarchy
 					categoryPromises.push(serverRest.getCategories({
 						server: server,
@@ -4005,7 +4006,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 							var taxName = categoryNames[k].substring(0, categoryNames[k].indexOf(':'));
 							cateName = categoryNames[k].substring(categoryNames[k].indexOf(':') + 1);
 							// console.log(' - category name: ' + cateName);
-							for (var i = 0; i < allCategories.length; i++) {
+							for (let i = 0; i < allCategories.length; i++) {
 								if (allCategories[i].taxonomyName === taxName &&
 									allCategories[i].categories && allCategories[i].categories.length > 0) {
 									for (var j = 0; j < allCategories[i].categories.length; j++) {
@@ -4158,10 +4159,10 @@ module.exports.setEditorialPermission = function (argv, done) {
 						}
 					}
 
-					for (var j = 0; j < taxCategories.length; j++) {
+					for (let j = 0; j < taxCategories.length; j++) {
 						var foundCat = false;
 
-						for (var k = 0; k < taxonomyPrivileges.length; k++) {
+						for (let k = 0; k < taxonomyPrivileges.length; k++) {
 							if (!taxonomyPrivileges[k].taxonomyId && taxCategories[j].taxonomyId === 'any' ||
 								(taxonomyPrivileges[k].taxonomyId === taxCategories[j].taxonomyId &&
 									taxonomyPrivileges[k].categoryId === taxCategories[j].categoryId)) {
@@ -4192,7 +4193,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 					}
 
 					var anyTypeExist = false;
-					for (var i = 0; i < contentPrivileges.length; i++) {
+					for (let i = 0; i < contentPrivileges.length; i++) {
 						if (!contentPrivileges[i].typeId) {
 							anyTypeExist = true;
 							break;
@@ -4200,7 +4201,7 @@ module.exports.setEditorialPermission = function (argv, done) {
 					}
 
 					var anyTaxExist = false;
-					for (var i = 0; i < taxonomyPrivileges.length; i++) {
+					for (let i = 0; i < taxonomyPrivileges.length; i++) {
 						if (!taxonomyPrivileges[i].categoryId) {
 							anyTaxExist = true;
 							break;
@@ -4633,7 +4634,7 @@ module.exports.setEditorialRole = function (argv, done) {
 
 					for (var k = 0; k < typeNames.length; k++) {
 						var found = false;
-						for (var i = 0; i < allTypes.length; i++) {
+						for (let i = 0; i < allTypes.length; i++) {
 							if (allTypes[i].name.toLowerCase() === typeNames[k].toLowerCase()) {
 								types.push(allTypes[i]);
 								goodTypeNames.push(typeNames[k]);
@@ -4663,7 +4664,7 @@ module.exports.setEditorialRole = function (argv, done) {
 
 				var taxonomiesPromises = [];
 				var taxNames = [];
-				for (var i = 0; i < categoryNames.length; i++) {
+				for (let i = 0; i < categoryNames.length; i++) {
 					if (categoryNames[i].indexOf(':') > 0) {
 						var taxName = categoryNames[i].substring(0, categoryNames[i].indexOf(':'));
 						if (!taxNames.includes(taxName)) {
@@ -4694,7 +4695,7 @@ module.exports.setEditorialRole = function (argv, done) {
 						if (categoryNames[k] !== ANY_CATEGORY) {
 							var taxName = categoryNames[k].substring(0, categoryNames[k].indexOf(':'));
 							var found = false;
-							for (var i = 0; i < allTaxonomies.length; i++) {
+							for (let i = 0; i < allTaxonomies.length; i++) {
 								if (allTaxonomies[i].name === taxName) {
 									if (!goodTaxonomyNames.includes(taxName)) {
 										taxonomies.push(allTaxonomies[i]);
@@ -4714,7 +4715,7 @@ module.exports.setEditorialRole = function (argv, done) {
 				}
 
 				var categoryPromises = [];
-				for (var i = 0; i < taxonomies.length; i++) {
+				for (let i = 0; i < taxonomies.length; i++) {
 					// Need all to get whole hierarchy
 					categoryPromises.push(serverRest.getCategories({
 						server: server,
@@ -4745,7 +4746,7 @@ module.exports.setEditorialRole = function (argv, done) {
 							var taxName = categoryNames[k].substring(0, categoryNames[k].indexOf(':'));
 							cateName = categoryNames[k].substring(categoryNames[k].indexOf(':') + 1);
 							// console.log(' - category name: ' + cateName);
-							for (var i = 0; i < allCategories.length; i++) {
+							for (let i = 0; i < allCategories.length; i++) {
 								if (allCategories[i].taxonomyName === taxName &&
 									allCategories[i].categories && allCategories[i].categories.length > 0) {
 									for (var j = 0; j < allCategories[i].categories.length; j++) {
@@ -4839,10 +4840,10 @@ module.exports.setEditorialRole = function (argv, done) {
 				var contentPrivileges = role.contentPrivileges || [];
 				var taxonomyPrivileges = role.taxonomyPrivileges || [];
 
-				for (var j = 0; j < types.length; j++) {
+				for (let j = 0; j < types.length; j++) {
 					var foundType = false;
 
-					for (var k = 0; k < contentPrivileges.length; k++) {
+					for (let k = 0; k < contentPrivileges.length; k++) {
 						if (!types[j].id && !contentPrivileges[k].typeId ||
 							types[j].id === contentPrivileges[k].typeId) {
 							foundType = true;
@@ -4868,10 +4869,10 @@ module.exports.setEditorialRole = function (argv, done) {
 					}
 				}
 
-				for (var j = 0; j < taxCategories.length; j++) {
+				for (let j = 0; j < taxCategories.length; j++) {
 					var foundCat = false;
 
-					for (var k = 0; k < taxonomyPrivileges.length; k++) {
+					for (let k = 0; k < taxonomyPrivileges.length; k++) {
 						if (!taxonomyPrivileges[k].taxonomyId && taxCategories[j].taxonomyId === 'any' ||
 							(taxonomyPrivileges[k].taxonomyId === taxCategories[j].taxonomyId &&
 								taxonomyPrivileges[k].categoryId === taxCategories[j].categoryId)) {
@@ -4902,7 +4903,7 @@ module.exports.setEditorialRole = function (argv, done) {
 				}
 
 				var anyTypeExist = false;
-				for (var i = 0; i < contentPrivileges.length; i++) {
+				for (let i = 0; i < contentPrivileges.length; i++) {
 					if (!contentPrivileges[i].typeId) {
 						anyTypeExist = true;
 						break;
@@ -4910,7 +4911,7 @@ module.exports.setEditorialRole = function (argv, done) {
 				}
 
 				var anyTaxExist = false;
-				for (var i = 0; i < taxonomyPrivileges.length; i++) {
+				for (let i = 0; i < taxonomyPrivileges.length; i++) {
 					if (!taxonomyPrivileges[i].categoryId) {
 						anyTaxExist = true;
 						break;
@@ -5187,7 +5188,7 @@ module.exports.downloadLocalizationPolicy = function (argv, done) {
 										policyCustomLangCodes.push(customLangCode);
 									}
 								}
-								for (var i = 0; i < policy.optionalValues.length; i++) {
+								for (let i = 0; i < policy.optionalValues.length; i++) {
 									if (policy.optionalValues[i] === customLangCode.code && !codeNames.includes(customLangCode.code)) {
 										codeNames.push(customLangCode.code);
 										policyCustomLangCodes.push(customLangCode);
@@ -5269,7 +5270,7 @@ module.exports.uploadLocalizationPolicy = function (argv, done) {
 				try {
 					policyObj = JSON.parse(fs.readFileSync(filePath));
 				} catch (e) {
-
+					// handle invalid json
 				}
 				if (!policyObj || !policyObj.id || !policyObj.name) {
 					console.error('ERROR: file ' + filePath + ' is not a valid localization policy definition');
@@ -5296,6 +5297,7 @@ module.exports.uploadLocalizationPolicy = function (argv, done) {
 				try {
 					customLangObj = JSON.parse(fs.readFileSync(filePath));
 				} catch (e) {
+					// handle invalid json
 				}
 				if (customLangObj && customLangObj.values && customLangObj.values.length > 0) {
 					customLangObj.values.forEach(function (customLang) {
@@ -5330,7 +5332,7 @@ module.exports.uploadLocalizationPolicy = function (argv, done) {
 			try {
 				langsObj = JSON.parse(fs.readFileSync(langFilePath));
 			} catch (e) {
-
+				// handle invalid json
 			}
 			if (!langsObj || !langsObj.values || langsObj.values.length === 0) {
 				console.warn('WARNING: file ' + langFilePath + ' does not have any custom language code');
@@ -5797,7 +5799,7 @@ module.exports.listAssets = function (argv, done) {
 					}
 					if (!rankingApiName) {
 						// try to match with name
-						for (var i = 0; i < rankings.length; i++) {
+						for (let i = 0; i < rankings.length; i++) {
 							if (rankings[i].name.toLowerCase() === ranking.toLowerCase()) {
 								rankingApiName = rankings[i].apiName;
 								break;
@@ -5972,6 +5974,8 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 		}
 	}
 
+	// help to find item issues
+	fs.writeFileSync(path.join(buildDir, '__cec_la_itemids.json'), JSON.stringify(allIds.sort(), null, 4));
 
 	// sort types
 	var byType = types.slice(0);
@@ -5983,14 +5987,14 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 	types = byType;
 
 	var list = [];
-	for (var i = 0; i < types.length; i++) {
+	for (let i = 0; i < types.length; i++) {
 		list.push({
 			type: types[i],
 			items: []
 		});
 	}
 
-	for (var i = 0; i < items.length; i++) {
+	for (let i = 0; i < items.length; i++) {
 		for (var j = 0; j < list.length; j++) {
 			if (items[i].type === list[j].type) {
 				list[j].items.push(items[i]);
@@ -6042,8 +6046,8 @@ var _displayAssets = function (server, repository, collection, channel, channelT
 		format2 = '   %-38s %-38s %-7s %-10s %-8s %-10s %-s';
 		console.log(sprintf(format2, 'Type', 'Id', 'Version', 'Status', 'Language', 'Size', 'Name'));
 		var totalSize = 0;
-		for (var i = 0; i < list.length; i++) {
-			for (var j = 0; j < list[i].items.length; j++) {
+		for (let i = 0; i < list.length; i++) {
+			for (let j = 0; j < list[i].items.length; j++) {
 				var item = list[i].items[j];
 				if (item.fields && item.fields.size) {
 					totalSize = totalSize + item.fields.size;
@@ -6080,6 +6084,7 @@ module.exports.describeAsset = function (argv, done) {
 
 	var id = argv.id;
 	var item;
+	var masterItemId;
 	var repository;
 	var collections = [];
 	var channels = [];
@@ -6103,6 +6108,10 @@ module.exports.describeAsset = function (argv, done) {
 
 				item = result;
 				// console.log(JSON.stringify(item, null, 4));
+
+				if (!item.languageIsMaster && item.variations && item.variations.data && item.variations.data.length > 0 && item.variations.data[0].varType === 'language') {
+					masterItemId = item.variations.data[0].masterItem;
+				}
 
 				if (item.publishedChannels && item.publishedChannels.data && item.publishedChannels.data.length > 0) {
 					item.publishedChannels.data.forEach(function (channel) {
@@ -6144,6 +6153,8 @@ module.exports.describeAsset = function (argv, done) {
 						}
 					});
 				}
+
+				// query item translations
 
 				// query item relations
 				var itemReferencesPromises = [];
@@ -6202,10 +6213,14 @@ module.exports.describeAsset = function (argv, done) {
 				console.log(sprintf(format1, 'Updated', item.updatedDate.value + ' by ' + item.updatedBy));
 				console.log(sprintf(format1, 'Slug', item.slug));
 				console.log(sprintf(format1, 'Asset type', item.type));
+				console.log(sprintf(format1, 'Status', item.status));
 				console.log(sprintf(format1, 'Version', item.version));
 				console.log(sprintf(format1, 'Language', item.language || ''));
 				console.log(sprintf(format1, 'Translatable', item.translatable ? '√' : ''));
 				console.log(sprintf(format1, 'Master', item.languageIsMaster ? '√' : ''));
+				if (masterItemId) {
+					console.log(sprintf(format1, 'Master item Id', masterItemId));
+				}
 				console.log(sprintf(format1, 'Published', item.isPublished ? '√' : ''));
 				console.log(sprintf(format1, 'Repository', repository.name + ' (Id: ' + repository.id + ')'));
 				console.log(sprintf(format1, 'Collections', ''));
@@ -6230,6 +6245,32 @@ module.exports.describeAsset = function (argv, done) {
 						var pubished = itemPublishedChannels.includes(channel.id) ? '   √' : '';
 						console.log(sprintf(format2, channel.name, channel.id, channelToken, pubished));
 					});
+				}
+
+				if (item.fields && item.fields.renditions && item.fields.renditions.length > 0) {
+					var customRenditions = [];
+					item.fields.renditions.forEach(function (rendition) {
+						if (rendition.type === 'customrendition') {
+							customRenditions.push(rendition.name);
+						}
+					});
+					if (customRenditions.length > 0) {
+						console.log(sprintf(format1, 'Custom rendition', customRenditions.join(', ')));
+					}
+				}
+				// translations
+				if (item.languageIsMaster && item.variations && item.variations.data && item.variations.data.length > 0 && item.variations.data[0].varType === 'language') {
+					var translations = item.variations.data[0].items || [];
+					if (translations.length > 1) {
+						console.log(sprintf(format1, 'Translations', ''));
+						var transFormat = '  %-36s  %-8s  %-10s  %-9s  %-s';
+						console.log(sprintf(transFormat, 'Id', 'Language', 'Status', 'Published', 'Name'));
+						translations.forEach(function (transItem) {
+							if (transItem.id !== item.id) {
+								console.log(sprintf(transFormat, transItem.id, transItem.value, transItem.status, transItem.isPublished ? '   √' : '', transItem.name));
+							}
+						});
+					}
 				}
 
 				var itemFormat = '  %-36s  %-40s  %-s';
@@ -6758,7 +6799,9 @@ var _updateIdInFiles = function (folderPath, idMap) {
 								fileJson.slug = fileJson.slug + '_' + fileJson.id;
 								fileSrc = JSON.stringify(fileJson);
 							}
-						} catch (e) { }
+						} catch (e) {
+							// handle invalid json
+						}
 
 						var newFileSrc = fileSrc;
 						for (const [id, newId] of idMap.entries()) {

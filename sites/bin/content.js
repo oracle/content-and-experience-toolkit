@@ -1040,6 +1040,7 @@ var _uploadContentFromZipFile = function (args) {
 		collectionId = args.collectionId,
 		updateContent = args.updateContent,
 		reuseContent = args.reuseContent,
+		publishContent = args.publishContent,
 		typesOnly = args.typesOnly,
 		hasTax = args.hasTax,
 		showDetail = args.noMsg ? false : true,
@@ -1047,6 +1048,7 @@ var _uploadContentFromZipFile = function (args) {
 
 	var format = '   %-15s %-s';
 	var importSuccess = false;
+	var importTypes;
 	var token;
 
 	return new Promise(function (resolve, reject) {
@@ -1060,6 +1062,8 @@ var _uploadContentFromZipFile = function (args) {
 			filename: contentfilename,
 			contents: fs.createReadStream(zippath)
 		});
+
+		var succeededItems = [];
 
 		var contentZipFileId;
 		console.info(' - uploading file ...');
@@ -1090,7 +1094,6 @@ var _uploadContentFromZipFile = function (args) {
 				return _importContent(server, token, contentZipFileId, repositoryId, channelId, collectionId, updateContent, importTypes, reuseContent);
 
 			}).then(function (result) {
-
 				if (!result.err) {
 					if (showDetail) {
 						if (typesOnly || hasTax) {
@@ -1108,6 +1111,12 @@ var _uploadContentFromZipFile = function (args) {
 					if (channelId && typeof channelName === 'string') {
 						console.info(sprintf(format, 'channel', channelName));
 					}
+					if (!typesOnly && !hasTax) {
+						var items = result && result.length > 0 ? result : [];
+						succeededItems = _getImportedItems(items);
+						console.info(sprintf(format, 'imported items', succeededItems.length));
+					}
+
 					importSuccess = true;
 				}
 
@@ -1138,7 +1147,26 @@ var _uploadContentFromZipFile = function (args) {
 					if (typeof channelName === 'string') {
 						console.info(sprintf(format, 'channel', channelName));
 					}
+					var items = result && result.length > 0 ? result : [];
+					succeededItems = _getImportedItems(items);
+					console.info(sprintf(format, 'imported items', succeededItems.length));
+
 					importSuccess = true;
+				}
+
+				var publishPromises = [];
+				if (publishContent && succeededItems.length > 0) {
+					publishPromises.push(_performOneOp(server, 'publish', channelId, succeededItems, true));
+				}
+
+				return Promise.all(publishPromises);
+
+			})
+			.then(function (results) {
+				if (publishContent) {
+					if (!results || !results[0] || results[0].err) {
+						console.log('ERROR: failed to publish content');
+					}
 				}
 
 				// delete the zip file
@@ -1161,6 +1189,22 @@ var _uploadContentFromZipFile = function (args) {
 				});
 			});
 	});
+};
+
+var _getImportedItems = function (results) {
+	// console.log(JSON.stringify(results, null, 4));
+	var importedItems = [];
+	results.forEach(function (entry) {
+		if (entry.status === 'SUCCESS') {
+			var rows = entry.rows || [];
+			for (var i = 0; i < rows.length; i++) {
+				if (rows[i].type === 'Item' && rows[i].copyId && !importedItems.includes(rows[i].copyId)) {
+					importedItems.push(rows[i].copyId);
+				}
+			}
+		}
+	});
+	return importedItems;
 };
 
 module.exports.uploadContent = function (argv, done) {
@@ -1234,6 +1278,7 @@ module.exports.uploadContent = function (argv, done) {
 	var collectionName = argv.collection;
 	var updateContent = typeof argv.update === 'string' && argv.update.toLowerCase() === 'true';
 	var reuseContent = typeof argv.reuse === 'string' && argv.reuse.toLowerCase() === 'true';
+	var publishContent = typeof argv.publish === 'string' && argv.publish.toLowerCase() === 'true';
 	var typesOnly = typeof argv.types === 'string' && argv.types.toLowerCase() === 'true';
 
 	var createZip = isFile ? false : true;
@@ -1270,7 +1315,7 @@ module.exports.uploadContent = function (argv, done) {
 					.then(function (result) {
 						var hasTax = result && result.hasTax;
 
-						_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax, reuseContent)
+						_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax, reuseContent, publishContent)
 							.then(function (result) {
 								if (result && result.err) {
 									done();
@@ -1297,6 +1342,7 @@ var _uploadContentUtil = function (args) {
 		var channelName = args.channelName;
 		var updateContent = args.updateContent;
 		var reuseContent = args.reuseContent;
+		var publishContent = args.publishContent;
 		var contentpath = args.contentpath;
 		var contentfilename = args.contentfilename;
 		var typesOnly = args.typesOnly;
@@ -1307,7 +1353,7 @@ var _uploadContentUtil = function (args) {
 			.then(function (result) {
 				var hasTax = result && result.hasTax;
 
-				_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax, reuseContent)
+				_uploadContent(server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax, reuseContent, publishContent)
 					.then(function (result) {
 						return resolve(result);
 					});
@@ -1316,7 +1362,7 @@ var _uploadContentUtil = function (args) {
 	});
 };
 
-var _uploadContent = function (server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax, reuseContent) {
+var _uploadContent = function (server, repositoryName, collectionName, channelName, updateContent, contentpath, contentfilename, createZip, typesOnly, hasTax, reuseContent, publishContent) {
 	return new Promise(function (resolve, reject) {
 
 		var repository, repositoryId;
@@ -1481,6 +1527,7 @@ var _uploadContent = function (server, repositoryName, collectionName, channelNa
 					collectionId: collectionId,
 					updateContent: updateContent,
 					reuseContent: reuseContent,
+					publishContent: publishContent,
 					typesOnly: typesOnly,
 					hasTax: hasTax
 				};
@@ -1575,7 +1622,7 @@ var _importContent = function (server, csrfToken, contentZipFileId, repositoryId
 				var startTime = new Date();
 				var needNewline = false;
 				var inter = setInterval(function () {
-					var checkImportStatusPromise = serverRest.getContentJobStatus({
+					var checkImportStatusPromise = serverRest.getContentImportJobStatus({
 						server: server,
 						jobId: jobId
 					});
@@ -1598,7 +1645,11 @@ var _importContent = function (server, csrfToken, contentZipFileId, repositoryId
 							if (needNewline) {
 								process.stdout.write(os.EOL);
 							}
-							return resolve({});
+							serverRest.getContentImportJobResult({ server: server, jobId: jobId })
+								.then(function (result) {
+									return resolve(result);
+								});
+
 						} else if (!status || status === 'FAILED') {
 							clearInterval(inter);
 							if (needNewline) {
@@ -2014,6 +2065,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 					}
 
 					var showError = true;
+					var opPromise;
 					if (action === 'publish') {
 						if (dateToPublish) {
 							var dateObj = new Date(dateToPublish);
@@ -2032,7 +2084,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 								seconds = ("0" + dateObj.getSeconds()).slice(-2),
 								timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-							var opPromise = serverRest.publishLaterChannelItems({
+							opPromise = serverRest.publishLaterChannelItems({
 								server: server,
 								channelId: channel.id,
 								repositoryId: repository.id,
@@ -2066,7 +2118,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						}
 
 					} else if (action === 'unpublish') {
-						var opPromise = _performOneOp(server, action, channel.id, itemIds, true);
+						opPromise = _performOneOp(server, action, channel.id, itemIds, true);
 						opPromise.then(function (result) {
 							if (result.err) {
 								return cmdEnd(done);
@@ -2077,7 +2129,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 
 					} else if (action === 'add') {
 
-						var opPromise = _performOneOp(server, action, channel ? channel.id : '', itemIds, true, 'true', collection ? collection.id : '');
+						opPromise = _performOneOp(server, action, channel ? channel.id : '', itemIds, true, 'true', collection ? collection.id : '');
 						opPromise.then(function (result) {
 							if (result.err) {
 								return cmdEnd(done);
@@ -2109,7 +2161,7 @@ module.exports.controlContent = function (argv, done, sucessCallback, errorCallb
 						});
 
 					} else if (action === 'set-translated') {
-						var opPromise = _performOneOp(server, action, '', toSetTranslatedIds, showError, 'true');
+						opPromise = _performOneOp(server, action, '', toSetTranslatedIds, showError, 'true');
 						opPromise.then(function (result) {
 							if (result.err) {
 								return cmdEnd(done);
@@ -2251,8 +2303,10 @@ var _performOneOp = function (server, action, channelId, itemIds, showerror, asy
 
 var _displayValidation = function (validations, action) {
 	var policyValidation;
-	for (var i = 0; i < validations.length; i++) {
-		var val = validations[i];
+	var i;
+	var val;
+	for (i = 0; i < validations.length; i++) {
+		val = validations[i];
 		Object.keys(val).forEach(function (key) {
 			if (key === 'policyValidation') {
 				policyValidation = val[key];
@@ -2263,10 +2317,10 @@ var _displayValidation = function (validations, action) {
 	if (policyValidation && policyValidation.variationSets) {
 		var variationSets = policyValidation.variationSets;
 		var blockingItems = [];
-		for (var i = 0; i < variationSets.length; i++) {
+		for (i = 0; i < variationSets.length; i++) {
 			var variation = variationSets[i];
 			for (var j = 0; j < variation.validations.length; j++) {
-				var val = variation.validations[j];
+				val = variation.validations[j];
 				if (val.blocking && val.results.length > 0) {
 					// console.log(val.results);
 					for (var k = 0; k < val.results.length; k++) {
@@ -2286,7 +2340,7 @@ var _displayValidation = function (validations, action) {
 		console.error('Failed to ' + action + ' the following items: ' + (policyValidation.error ? policyValidation.error : ''));
 		var format = '  %-36s  %-60s  %-s';
 		console.log(sprintf(format, 'Id', 'Name', 'Message'));
-		for (var i = 0; i < blockingItems.length; i++) {
+		for (i = 0; i < blockingItems.length; i++) {
 			console.log(sprintf(format, blockingItems[i].id, blockingItems[i].name, blockingItems[i].message));
 		}
 	}
@@ -3130,6 +3184,7 @@ module.exports.copyAssets = function (argv, done) {
 			})
 			.then(function (results) {
 
+				var i;
 				if (channelName) {
 					if (!results || !results[0] || results[0].err || !results[0].data) {
 						console.error('ERROR: channel ' + channelName + ' does not exist');
@@ -3141,7 +3196,7 @@ module.exports.copyAssets = function (argv, done) {
 
 					// verify the channel is in the repository
 					var channelInRepository = false;
-					for (var i = 0; i < repository.channels.length; i++) {
+					for (i = 0; i < repository.channels.length; i++) {
 						if (repository.channels[i].id === channel.id) {
 							channelInRepository = true;
 							break;
@@ -3156,7 +3211,7 @@ module.exports.copyAssets = function (argv, done) {
 				var q;
 				if (assetGUIDS && assetGUIDS.length > 0) {
 					q = '';
-					for (var i = 0; i < assetGUIDS.length; i++) {
+					for (i = 0; i < assetGUIDS.length; i++) {
 						if (q) {
 							q = q + ' or ';
 						}
@@ -4059,13 +4114,14 @@ module.exports.transferSiteContent = function (argv, done) {
 			console.info(' - total batches: ' + groups.length);
 
 			var collectionName = destServer.defaultCollection && destServer.defaultCollection.name || (siteName + ' Site');
-
-			for (var i = 0; i < groups.length; i++) {
+			var i;
+			var assetsFile;
+			for (i = 0; i < groups.length; i++) {
 				ids = groups[i];
 				groupName = siteName2 + '_content_batch_' + i.toString();
 
 				// save ids to file
-				var assetsFile = path.join(distFolder, groupName + '_assets');
+				assetsFile = path.join(distFolder, groupName + '_assets');
 				fs.writeFileSync(assetsFile, JSON.stringify(ids.split(',')));
 
 				// download command for this group
@@ -4104,12 +4160,12 @@ module.exports.transferSiteContent = function (argv, done) {
 
 			// download / upload for other repositories
 			// console.log(repoMappings);
-			for (var i = 0; i < repoMappings.length; i++) {
+			for (i = 0; i < repoMappings.length; i++) {
 				if (repoMappings[i].items.length > 0) {
 					groupName = siteName2 + '_content_batch_others_' + i.toString();
 
 					// save ids to file
-					var assetsFile = path.join(distFolder, groupName + '_assets');
+					assetsFile = path.join(distFolder, groupName + '_assets');
 					fs.writeFileSync(assetsFile, JSON.stringify(repoMappings[i].items));
 
 					cmd = winCall + 'cec download-content ' + channelName;
@@ -4609,6 +4665,405 @@ module.exports.uploadCompiledContent = function (argv, done) {
 };
 
 /**
+ * transfer image renditions
+ */
+module.exports.transferRendition = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server;
+	server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var destServerName = argv.destination;
+	var destServer = serverUtils.verifyServer(destServerName, projectDir);
+	if (!destServer || !destServer.valid) {
+		done();
+		return;
+	}
+
+	if (server.url === destServer.url) {
+		console.error('ERROR: source and destination server are the same');
+		done();
+		return;
+	}
+
+	var repositoryName = argv.repository;
+	var channelName = argv.channel;
+	var query = argv.query;
+	var assetGUIDS = argv.assets ? argv.assets.split(',') : [];
+
+	serverUtils.loginToServer(server)
+		.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + server.url);
+				return Promise.reject();
+			}
+
+			return serverUtils.loginToServer(destServer);
+		})
+		.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage + ' ' + destServer.url);
+				return Promise.reject();
+			}
+
+			var repository;
+			var channel;
+			var q = '';
+			var items = [];
+
+			var repositoryPromises = [];
+			if (repositoryName) {
+				repositoryPromises.push(serverRest.getRepositoryWithName({
+					server: server,
+					name: repositoryName
+				}));
+			}
+
+			Promise.all(repositoryPromises)
+				.then(function (results) {
+					if (repositoryName) {
+						if (!results || !results[0] || results[0].err || !results[0].data) {
+							console.error('ERROR: repository ' + repositoryName + ' not found');
+							return Promise.reject();
+						}
+
+						repository = results[0].data;
+						console.info(' - validate repository (Id: ' + repository.id + ')');
+					}
+
+					var channelPromises = [];
+					if (channelName) {
+						channelPromises.push(serverRest.getChannelWithName({
+							server: server,
+							name: channelName
+						}));
+					}
+					return Promise.all(channelPromises);
+
+				})
+				.then(function (results) {
+					// console.log(results);
+					if (channelName) {
+						if (!results || !results[0] || results[0].err || !results[0].data) {
+							console.error('ERROR: channel ' + channelName + ' does not exist');
+							return Promise.reject();
+						}
+
+						channel = results[0].data;
+						console.info(' - validate channel ' + channelName + ' (id: ' + channel.id + ')');
+					}
+
+					if (repository) {
+						q = '(repositoryId eq "' + repository.id + '")';
+					}
+					if (channel) {
+						if (q) {
+							q = q + ' AND ';
+						}
+						q = q + '(channels co "' + channel.id + '")';
+					}
+					if (query) {
+						if (q) {
+							q = q + ' AND ';
+						}
+						q = q + '(' + query + ')';
+					}
+
+					// filter out non digital assets
+					if (q) {
+						q = q + ' AND ';
+					}
+					q = q + '(typeCategory eq "DigitalAssetType")';
+
+					if (q) {
+						console.info(' - query: ' + q);
+					}
+
+					return _queryItems(server, q, assetGUIDS, 'name,typeCategory');
+				})
+				.then(function (result) {
+
+					items = result || [];
+					if (items.length === 0) {
+						console.log(' - no digital asset found');
+						return Promise.reject();
+					}
+
+					return _getItemsWithRenditions(server, items);
+
+				})
+				.then(function (result) {
+					if (result && result.total > 0) {
+						var itemsWithRenditions = result.itemsWithRenditions;
+						console.log(' - custom renditions: ' + itemsWithRenditions.length);
+						console.log(' - items with custom renditions: ' + result.total);
+
+						// _displayItemsWithRenditions(itemsWithRenditions);
+						serverUtils.getIdcToken(destServer)
+							.then(function (result) {
+								var idcToken = result && result.idcToken;
+								_transferRenditions(server, destServer, itemsWithRenditions, idcToken)
+									.then(function (result) {
+										if (result.total > 0) {
+											console.log(' - ' + result.total + (result.total === 1 ? ' rendition' : ' renditions') + ' transferred');
+											done(true);
+										} else {
+											if (result.err) {
+												done();
+											} else {
+												done(true);
+											}
+										}
+									});
+							});
+
+					} else {
+						console.log(' - no rendition to transfer');
+						done(true);
+					}
+				})
+				.catch((error) => {
+					if (error) {
+						console.error(error);
+					}
+					done();
+				});
+		})
+		.catch((error) => {
+			if (error) {
+				console.error(error);
+			}
+			done();
+		});
+};
+
+var _displayItemsWithRenditions = function (items) {
+	var format = '%-40s  %-12s  %-40s  %s';
+	console.log(sprintf(format, 'Id', 'Type', 'Name', 'Renditions'));
+	items.forEach(function (item) {
+		console.log(sprintf(format, item.id, item.type, item.name, item.rendition));
+	});
+};
+
+var _getItemsWithRenditions = function (server, items) {
+	return new Promise(function (resolve, reject) {
+		var groups = [];
+		var total = items.length;
+		var limit = 10;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+
+		var startTime = new Date();
+		var needNewLine = false;
+		var itemsWithRenditions = [];
+		total = 0;
+		var doQueryItems = groups.reduce(function (itemPromise, param) {
+			return itemPromise.then(function (result) {
+				var itemPromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					itemPromises.push(serverRest.getItem({
+						server: server,
+						id: items[i].id,
+					}));
+				}
+				return Promise.all(itemPromises).then(function (results) {
+					for (var i = 0; i < results.length; i++) {
+						if (results[i] && results[i].id) {
+							process.stdout.write(' - quering item renditions ... ' +
+								' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+							needNewLine = true;
+							var renditions = results[i].fields.renditions || [];
+							var found = false;
+							for (var j = 0; j < renditions.length; j++) {
+								if (renditions[j].type === 'customrendition') {
+									// flat list
+									itemsWithRenditions.push({
+										id: results[i].id,
+										type: results[i].type,
+										name: results[i].name,
+										rendition: renditions[j].name
+									});
+									found = true;
+								}
+							}
+							if (found) {
+								total = total + 1;
+							}
+						}
+					}
+				});
+			});
+		},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doQueryItems.then(function (result) {
+			if (needNewLine) {
+				process.stdout.write(os.EOL);
+			}
+			resolve({ total: total, itemsWithRenditions: itemsWithRenditions });
+		});
+
+	});
+};
+
+var _deleteDone = function (success, resolve) {
+	return resolve({});
+};
+var _transferRenditions = function (server, destServer, items, idcToken) {
+	return new Promise(function (resolve, reject) {
+		var total = 0;
+		var startTime = new Date();
+		var err;
+		var needNewLine = false;
+		var doTransferRendition = items.reduce(function (itemPromise, item) {
+			return itemPromise.then(function (result) {
+				// get the item's version on the target server, 
+				// have to query for each rendition to get the accurate version
+				var rendition = item.rendition;
+				return serverRest.getItem({
+					server: destServer,
+					id: item.id,
+					hideError: true
+				}).then(function (result) {
+					var targetItem = result && result.id ? result : undefined;
+					if (targetItem) {
+						if (targetItem.status === 'published') {
+							console.error('ERROR: item ' + item.id + '(' + item.name + ') is published, cannot create rendition');
+							err = 'err';
+						} else {
+							var targetRenditions = [];
+							if (targetItem.fields && targetItem.fields.renditions && targetItem.fields.renditions.length > 0) {
+								for (var i = 0; i < targetItem.fields.renditions.length; i++) {
+									if (targetItem.fields.renditions[i].type === 'customrendition') {
+										targetRenditions.push(targetItem.fields.renditions[i].name);
+									}
+								}
+							}
+							// do not transfer if the rendition already exist
+							if (targetRenditions.length === 0 || !targetRenditions.includes(rendition)) {
+								var version = targetItem.version;
+								// get rendition from source server
+								return serverRest.getItemRendition({
+									server: server,
+									id: item.id,
+									rendition: rendition
+								}).then(function (result) {
+									if (result.data) {
+										// upload rendition file to target server
+
+										return serverRest.createFile({
+											server: destServer,
+											parentID: 'self',
+											filename: item.id + '_' + rendition + '_' + item.name,
+											contents: result.data
+										}).then(function (result) {
+											if (result && result.id) {
+												var fileId = result.id;
+												// add item rendition on the target server
+												// console.log(' - ' + item.name + ' ' + item.id + ' ' + version + ' ' + rendition);
+												return serverUtils.addItemRendition(destServer, idcToken, item.id, item.name, version, rendition, fileId)
+													.then(function (result) {
+														if (result && !result.err) {
+															total = total + 1;
+														} else {
+															err = 'err';
+														}
+
+														if (console.showInfo() && total > 0) {
+															process.stdout.write(' - transferring rendition ' + total +
+																' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+															readline.cursorTo(process.stdout, 0);
+															needNewLine = true;
+														}
+
+														// delete the file
+														return serverUtils.deletePermanentSCS(destServer, fileId, true, _deleteDone)
+															.then(function (result) {
+																// finished 1 rendition
+															});
+													});
+
+											} else {
+												if (needNewLine) {
+													process.stdout.write(os.EOL);
+												}
+												needNewLine = false;
+												console.error('ERROR: failed to upload rendition file: ' + rendition);
+												err = 'err';
+											}
+
+										});
+									} else {
+										if (needNewLine) {
+											process.stdout.write(os.EOL);
+										}
+										needNewLine = false;
+										console.error('ERROR: failed to get rendition ' + rendition + ' for item ' + item.id + ' (' + item.name + ')');
+										err = 'err';
+									}
+								});
+							} else {
+								if (needNewLine) {
+									process.stdout.write(os.EOL);
+								}
+								needNewLine = false;
+								console.info(' - rendition ' + rendition + ' already exists for item ' + item.name + ' (' + item.id + ')');
+							}
+						}
+					} else {
+						if (needNewLine) {
+							process.stdout.write(os.EOL);
+						}
+						needNewLine = false;
+						console.error('ERROR: item ' + item.id + ' ' + item.name + ' not found on destination server');
+						err = 'err';
+					}
+				});
+
+			});
+		},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doTransferRendition.then(function (result) {
+			if (needNewLine) {
+				process.stdout.write(os.EOL);
+			}
+			resolve({ err: err, total: total });
+		});
+	});
+
+};
+
+/**
  * Validate local content. Check for missing items in an asset export
  */
 module.exports.validateContent = function (argv, done) {
@@ -4651,7 +5106,8 @@ module.exports.validateContent = function (argv, done) {
 
 	var cntDir;
 	var items = fs.readdirSync(contentpath);
-	for (var i = 0; i < items.length; i++) {
+	var i;
+	for (i = 0; i < items.length; i++) {
 		if (fs.statSync(path.join(contentpath, items[i])).isDirectory() &&
 			(items[i] === 'contentexport' || items[i].indexOf('Content Template of ')) >= 0) {
 			cntDir = path.join(contentpath, items[i]);
@@ -4707,8 +5163,8 @@ module.exports.validateContent = function (argv, done) {
 	//
 	// Check if the json file exists for each item in metadata file
 	//
-	var items = [];
-	for (var i = 1; i < metadata.groups; i++) {
+	items = [];
+	for (i = 1; i < metadata.groups; i++) {
 		var groupName = 'group' + i;
 		if (metadata.hasOwnProperty(groupName)) {
 			var group = metadata[groupName] || [];
@@ -4773,7 +5229,7 @@ module.exports.validateContent = function (argv, done) {
 				});
 			}
 		} catch (e) {
-
+			// in case the result is not valid json
 		}
 	});
 
@@ -4917,7 +5373,7 @@ var _syncExportItemFromSource = function (server, id, name, filePath) {
 							clearInterval(inter);
 							var downloadLink = data.downloadLink[0].href;
 							if (downloadLink) {
-								options = {
+								var options = {
 									url: downloadLink,
 									headers: {
 										Authorization: serverUtils.getRequestAuthorization(server)

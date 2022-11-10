@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2019 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -128,7 +128,7 @@ var _getMemberStr = function (val) {
 
 var _displayObject = function (format, obj) {
 	Object.keys(obj).forEach(function (key) {
-		val = obj[key];
+		var val = obj[key];
 		if (key === 'members') {
 			console.log(sprintf(format, key, _getMemberStr(val)));
 		} else {
@@ -612,10 +612,10 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 							var componentInstances2 = pages[j].fileContent && pages[j].fileContent.componentInstances;
 							var pageResult2 = _examPageSource(slots2, componentInstances2, links2, triggerActions2, fileIds2, itemIds2, typeNames2, compNames2);
 							var pageLinks2 = _processLinks(undefined, links2);
-							for (var k = 0; k < pageLinks2.length; k++) {
-								var value = pageLinks2[k].url;
+							for (let k = 0; k < pageLinks2.length; k++) {
+								let value = pageLinks2[k].url;
 								if (value.startsWith('[!--$SCS_CONTENT_URL--]/')) {
-									var file = value.substring(value.indexOf('/') + 1);
+									let file = value.substring(value.indexOf('/') + 1);
 
 									if (!usedContentFiles4Sure.includes(file)) {
 										usedContentFiles4Sure.push(file);
@@ -757,7 +757,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				// query component permissions
 				var compPermissionPromises = [];
 				if (compIds.length > 0) {
-					for (var i = 0; i < compIds.length; i++) {
+					for (let i = 0; i < compIds.length; i++) {
 						compPermissionPromises.push(serverRest.getFolderUsers({
 							server: server,
 							id: compIds[i]
@@ -837,7 +837,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 							}
 
 							var existInChannel = false;
-							for (var k = 0; k < itemChannels.length; k++) {
+							for (let k = 0; k < itemChannels.length; k++) {
 								if (itemChannels[k].id === channel.id) {
 									existInChannel = true;
 								}
@@ -847,11 +847,12 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 							page.contentitems[j].exist = exist;
 							page.contentitems[j].existInChannel = existInChannel;
 
+							var msg;
 							if (!exist) {
-								var msg = 'Page \'' + page.name + '\'(' + page.id + ') : item ' + page.contentitems[j].id + ' does not exist';
+								msg = 'Page \'' + page.name + '\'(' + page.id + ') : item ' + page.contentitems[j].id + ' does not exist';
 								issues.push(msg);
 							} else if (!existInChannel) {
-								var msg = 'Page \'' + page.name + '\'(' + page.id + ') : item ' + page.contentitems[j].id + '(' + name + ') is not in site channel';
+								msg = 'Page \'' + page.name + '\'(' + page.id + ') : item ' + page.contentitems[j].id + '(' + name + ') is not in site channel';
 								issues.push(msg);
 							}
 						}
@@ -859,17 +860,17 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				}
 
 				// verify SCS_DIGITAL_ASSET
-				for (var i = 0; i < structurePages.length; i++) {
-					var page = structurePages[i];
+				for (let i = 0; i < structurePages.length; i++) {
+					let page = structurePages[i];
 					if (page.links) {
-						for (var j = 0; j < page.links.length; j++) {
+						for (let j = 0; j < page.links.length; j++) {
 							var link = page.links[j].url;
 							if (link.indexOf('SCS_DIGITAL_ASSET') > 0) {
 								var value = _getMatchString(/\[!--\$\s*SCS_DIGITAL_ASSET\s*--\]\s*(.*?)\s*\[\/!--\$\s*SCS_DIGITAL_ASSET\s*--\]/g, link);
 								if (value) {
 									value = value.indexOf(',') > 0 ? value.substring(0, value.indexOf(',')) : value;
 									// console.log(link + ' => ' + value);
-									for (var k = 0; k < pageItems.length; k++) {
+									for (let k = 0; k < pageItems.length; k++) {
 										if (value === pageItems[k].id) {
 											page.links[j].status = 'OK';
 										}
@@ -878,7 +879,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 							} else if (link.startsWith('[!--$SCS_CONTENT_URL--]/')) {
 								var file = link.substring(link.indexOf('/') + 1);
 								var found = false;
-								for (var k = 0; k < siteContent.length; k++) {
+								for (let k = 0; k < siteContent.length; k++) {
 									if (file === siteContent[k].name) {
 										found = true;
 										// console.log(' - page: ' + page.name + ' page doc: ' + file + ' found: ' + found);
@@ -893,10 +894,10 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 				}
 
 				var pageLinks = [];
-				for (var i = 0; i < structurePages.length; i++) {
-					var page = structurePages[i];
+				for (let i = 0; i < structurePages.length; i++) {
+					let page = structurePages[i];
 					if (page.links) {
-						for (var j = 0; j < page.links.length; j++) {
+						for (let j = 0; j < page.links.length; j++) {
 							if (!page.links[j].status && page.links[j].url && !pageLinks.includes(page.links[j].url)) {
 								pageLinks.push(page.links[j].url);
 							}
@@ -952,8 +953,9 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 						if (page.triggerActions) {
 							for (var j = 0; j < page.triggerActions.length; j++) {
 								var action = page.triggerActions[j];
+								var found;
 								if (action.type === 'pageId' && action.value) {
-									var found = false;
+									found = false;
 									for (var k = 0; k < structurePages.length; k++) {
 										if (parseInt(action.value) === structurePages[k].id) {
 											found = true;
@@ -962,8 +964,8 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 									}
 									action.status = found ? 'OK' : 'Page NOT FOUND';
 								} else if (action.type === 'fileId' && action.value) {
-									var found = false;
-									for (var k = 0; k < files.length; k++) {
+									found = false;
+									for (let k = 0; k < files.length; k++) {
 										if (action.value === files[k].id) {
 											found = true;
 											break;
@@ -983,8 +985,8 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 					}
 				}
 
-				for (var i = 0; i < structurePages.length; i++) {
-					var page = structurePages[i];
+				for (let i = 0; i < structurePages.length; i++) {
+					let page = structurePages[i];
 					if (page && page.tagCloseIssues && page.tagCloseIssues.length > 0) {
 						page.tagCloseIssues.forEach(function (issue) {
 							msg = 'Page: \'' + page.name + '\' file: ' + page.id + '.json';
@@ -994,8 +996,8 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 					}
 				}
 
-				for (var i = 0; i < structurePages.length; i++) {
-					var page = structurePages[i];
+				for (let i = 0; i < structurePages.length; i++) {
+					let page = structurePages[i];
 					if (page && page.orphanComponents && page.orphanComponents.length > 0) {
 						page.orphanComponents.forEach(function (orphan) {
 							msg = 'Page: \'' + page.name + '\'(' + page.id + ') component: \'' + orphan.name + '\'(' + orphan.key + ') is not in any slot';
@@ -1034,8 +1036,8 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 					}
 				});
 
-				for (var i = 0; i < structurePages.length; i++) {
-					var page = structurePages[i];
+				for (let i = 0; i < structurePages.length; i++) {
+					let page = structurePages[i];
 					if (page) {
 						pagesOutput.push({
 							id: page.id,
@@ -1138,13 +1140,13 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 				}
 			}
 			var urlLinks = _getUrlLinks(JSON.stringify(slot));
-			for (var k = 0; k < urlLinks.length; k++) {
+			for (let k = 0; k < urlLinks.length; k++) {
 				if (!slotLinks.includes(urlLinks[k])) {
 					slotLinks.push(urlLinks[k]);
 				}
 			}
 
-			for (var k = 0; k < slotLinks.length; k++) {
+			for (let k = 0; k < slotLinks.length; k++) {
 				links.push({
 					url: slotLinks[k],
 					component: {}
@@ -1170,7 +1172,7 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 				}
 			}
 			var urlLinks = _getUrlLinks(JSON.stringify(comp));
-			for (var k = 0; k < urlLinks.length; k++) {
+			for (let k = 0; k < urlLinks.length; k++) {
 				if (!compLinks.includes(urlLinks[k])) {
 					compLinks.push(urlLinks[k]);
 				}
@@ -1189,7 +1191,7 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 				compLinks.push(comp.data.documentUrl);
 			}
 			if (comp.id === 'scs-gallery' && comp.data.images) {
-				for (var k = 0; k < comp.data.images.length; k++) {
+				for (let k = 0; k < comp.data.images.length; k++) {
 					if (comp.data.images[k].source && !compLinks.includes(comp.data.images[k].source)) {
 						compLinks.push(comp.data.images[k].source);
 					}
@@ -1198,7 +1200,7 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 
 			// trigger actions
 			if (comp.data.actions && comp.data.actions.length > 0) {
-				for (var k = 0; k < comp.data.actions.length; k++) {
+				for (let k = 0; k < comp.data.actions.length; k++) {
 					var action = comp.data.actions[k];
 					if (action.actionName === 'scsActionDownloadFile' || action.actionName === 'scsActionPreviewFile') {
 						for (var m = 0; m < action.actionPayload.length; m++) {
@@ -1224,9 +1226,9 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 							}
 						}
 					} else if (action.actionName === 'scsActionNavigateToPage') {
-						for (var m = 0; m < action.actionPayload.length; m++) {
+						for (let m = 0; m < action.actionPayload.length; m++) {
 							if (action.actionPayload[m].name === 'pageId' && action.actionPayload[m].value) {
-								var value = action.actionPayload[m].value;
+								let value = action.actionPayload[m].value;
 								// console.log(' - scsActionNavigateToPage: ' + value);
 								triggerActions.push({
 									action: action.actionName,
@@ -1240,7 +1242,7 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 				}
 			}
 
-			for (var k = 0; k < compLinks.length; k++) {
+			for (let k = 0; k < compLinks.length; k++) {
 				links.push({
 					url: compLinks[k],
 					component: {
@@ -1266,7 +1268,7 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 				}
 			} else if (comp.id === 'scs-image' || comp.id === 'scs-gallery' || comp.id === 'scs-video') {
 				if (comp.data.contentIds) {
-					for (var k = 0; k < comp.data.contentIds.length; k++) {
+					for (let k = 0; k < comp.data.contentIds.length; k++) {
 						itemIds.push(comp.data.contentIds[k]);
 						contentitems.push({
 							id: comp.data.contentIds[k],
@@ -1390,24 +1392,27 @@ var _getSitePages = function (server, siteId) {
 				var structureFileContent = typeof fileContent === 'string' ? JSON.parse(fileContent) : fileContent;
 				structurePages = structureFileContent && structureFileContent.pages || [];
 
-				return serverRest.getChildItems({
+				return serverRest.findFolderItems({
 					server: server,
-					parentID: pagesFolderId,
-					limit: 9999
+					parentID: pagesFolderId
 				});
 			})
 			.then(function (result) {
-				var items = result && result.items || [];
+				var items = result || [];
 				console.info(' - site total pages: ' + items.length);
 				for (var i = 0; i < items.length; i++) {
 					// console.log('page ' + i + ' : ' + items[i].id + ' ' + items[i].name);
-					pages.push({
-						id: items[i].id,
-						name: items[i].name,
-						version: items[i].version,
-						fileContent: {}
-					});
+					// do not include translations                                                                                                                             
+					if (items[i].name && items[i].name.indexOf('_') < 0) {
+						pages.push({
+							id: items[i].id,
+							name: items[i].name,
+							version: items[i].version,
+							fileContent: {}
+						});
+					}
 				}
+				console.info(' - site total master pages: ' + pages.length);
 
 				return _getPageFiles(server, pages);
 			})
@@ -1433,7 +1438,7 @@ var _getPageFiles = function (server, pages) {
 	return new Promise(function (resolve, reject) {
 		var total = pages.length;
 		var groups = [];
-		var limit = 20;
+		var limit = 12;
 		var start, end;
 		for (var i = 0; i < total / limit; i++) {
 			start = i * limit;
@@ -1506,7 +1511,7 @@ var _readFile = function (server, id, fileName) {
 		};
 
 		serverUtils.showRequestOptions(options);
-		
+
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
@@ -1667,7 +1672,7 @@ var _getComponentsFiles = function (server, comps) {
 /**
  * get component's js files
  */
-_getComponentFiles = function (server, compId, compName) {
+var _getComponentFiles = function (server, compId, compName) {
 	return new Promise(function (resolve, reject) {
 		var files = [];
 		serverRest.findFile({
@@ -1975,7 +1980,7 @@ var _getUrlLinks = function (fileSource) {
 };
 
 var _getATagHrefs = function (fileSource) {
-	const regex = /<a[\s]+([^>]+)>((?:.(?!\<\/a\>))*.)<\/a>/g;
+	const regex = /<a[\s]+([^>]+)>((?:.(?!<\/a>))*.)<\/a>/g;
 	var urls = [];
 	var src = fileSource.replace(/\\/g, '');
 	var m;
@@ -2076,7 +2081,9 @@ var _verifyHrefLink = function (server, request, httpsProxy, httpProxy, url) {
 				var errStr;
 				try {
 					errStr = JSON.stringify(err);
-				} catch (e) { }
+				} catch (e) {
+					// handle invalid json
+				}
 				status = err && (err.errno || err.code) ? (err.errno || err.code) : (errStr ? errStr : 'error');
 
 				return resolve({
@@ -2204,13 +2211,12 @@ var _getSiteContent = function (server, siteId) {
 			}
 			var contentFolderId = result.id;
 
-			return serverRest.getChildItems({
+			return serverRest.findFolderItems({
 				server: server,
-				parentID: contentFolderId,
-				limit: 9999
+				parentID: contentFolderId
 			});
 		}).then(function (result) {
-			var items = result && result.items || [];
+			var items = result || [];
 			// console.log(items);
 			var siteContent = [];
 			items.forEach(function (item) {
@@ -2568,10 +2574,10 @@ module.exports.createTemplateReport = function (argv, done) {
 			var componentInstances2 = page.fileContent && page.fileContent.componentInstances;
 			var pageResult2 = _examPageSource(slots2, componentInstances2, links2, triggerActions2, fileIds2, itemIds2, typeNames2, compNames2);
 			var pageLinks2 = _processLinks(undefined, links2);
-			for (var i = 0; i < pageLinks2.length; i++) {
-				var value = pageLinks2[i].url;
+			for (let i = 0; i < pageLinks2.length; i++) {
+				let value = pageLinks2[i].url;
 				if (value.startsWith('[!--$SCS_CONTENT_URL--]/')) {
-					var file = value.substring(value.indexOf('/') + 1);
+					let file = value.substring(value.indexOf('/') + 1);
 
 					if (!usedContentFiles4Sure.includes(file)) {
 						usedContentFiles4Sure.push(file);
@@ -2581,11 +2587,11 @@ module.exports.createTemplateReport = function (argv, done) {
 			// fs.writeFileSync(path.join(projectDir, 'usedContentFiles4Sure.json'), JSON.stringify(usedContentFiles4Sure, null, 4));
 
 			// finally set the content link status
-			for (var i = 0; i < page.links.length; i++) {
-				var value = page.links[i].url;
+			for (let i = 0; i < page.links.length; i++) {
+				let value = page.links[i].url;
 				if (value.startsWith('[!--$SCS_CONTENT_URL--]/')) {
-					var file = value.substring(value.indexOf('/') + 1);
-					var found = false;
+					let file = value.substring(value.indexOf('/') + 1);
+					let found = false;
 					for (var k = 0; k < siteContent.length; k++) {
 						if (file === siteContent[k].name) {
 							// console.log(' - page: ' + pages[i].name + ' page doc: ' + file);
@@ -2848,20 +2854,6 @@ module.exports.createTemplateReport = function (argv, done) {
 	}
 };
 
-var _readFileInLines = function (filePath) {
-	var src = '';
-	try {
-		var data = fs.readFileSync(filePath, 'UTF-8');
-		console.log(data);
-		var lines = data.split(/\r?\n/);
-		lines.forEach((line) => {
-			src = src + line + escape.EOL;
-		});
-	} catch (e) {
-
-	}
-	return src;
-};
 
 module.exports.cleanupTemplate = function (argv, done) {
 	'use strict';
@@ -2900,7 +2892,9 @@ module.exports.cleanupTemplate = function (argv, done) {
 
 	try {
 		cleanup = JSON.parse(fs.readFileSync(file));
-	} catch (e) { }
+	} catch (e) {
+		// handle invalid json
+	}
 
 	if (!cleanup || !cleanup.name || !cleanup.type || cleanup.type !== 'template') {
 		console.error('ERROR: ' + file + ' is not valid template cleanup file');
@@ -3060,7 +3054,7 @@ module.exports.createAssetUsageReport = function (argv, done) {
 
 				for (i = 0; i < itemRelationships.length; i++) {
 					for (j = 0; j < itemRelationships[i].referencedBy.length; j++) {
-						var id = itemRelationships[i].referencedBy[j];
+						let id = itemRelationships[i].referencedBy[j];
 						if (!refIds.includes(id)) {
 							refIds.push(id);
 						}

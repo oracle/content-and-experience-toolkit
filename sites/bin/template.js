@@ -264,7 +264,9 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 								if (pageContent && pageContent.base) {
 									fs.writeFileSync(pageFile, JSON.stringify(pageContent.base, null, 4));
 								}
-							} catch (e) { };
+							} catch (e) {
+								// in case of invalid json
+							}
 						});
 
 						var structureFile = path.join(tempSrcPath, 'structure.json');
@@ -273,7 +275,9 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 							if (structureContent && structureContent.base && structureContent.base.pages) {
 								fs.writeFileSync(structureFile, JSON.stringify(structureContent.base, null, 4));
 							}
-						} catch (e) { };
+						} catch (e) {
+							// handle invalid json
+						}
 
 						cleanupTemplatePromises.push(_cleanupPublishedTemplate(name, tempSrcPath));
 					}
@@ -426,7 +430,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 						}
 						// create Summary.json
 						var filePath = path.join(folderPath, 'Summary.json');
-						var summaryJson = {
+						summaryJson = {
 							'types': contentTypeNames.toString(),
 							'template-name': 'Content Template of ' + name
 						};
@@ -463,7 +467,7 @@ var _createLocalTemplateFromSite = function (name, siteName, server, excludeCont
 
 						if (customEditors.length > 0) {
 							// save to summary.json
-							var summaryPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate', 'summary.json');
+							summaryPath = path.join(templatesSrcDir, name, 'assets', 'contenttemplate', 'summary.json');
 							if (fs.existsSync(summaryPath)) {
 								summaryJson = JSON.parse(fs.readFileSync(summaryPath));
 								summaryJson.editorComponents = customEditors;
@@ -1461,8 +1465,8 @@ module.exports.copyTemplate = function (argv, done) {
 		// update the siteName and themeName in siteinfo.json for the new template
 		siteinfofile = path.join(templatesSrcDir, tempName, 'siteinfo.json');
 		if (fs.existsSync(siteinfofile)) {
-			var siteinfostr = fs.readFileSync(siteinfofile),
-				siteinfojson = JSON.parse(siteinfostr);
+			siteinfostr = fs.readFileSync(siteinfofile);
+			siteinfojson = JSON.parse(siteinfostr);
 			if (siteinfojson && siteinfojson.properties) {
 				console.info(' - update template themeName to ' + themeName + ' in siteinfo.json');
 				siteinfojson.properties.themeName = themeName;
@@ -1985,7 +1989,7 @@ module.exports.describeTemplate = function (argv, done) {
 		// Content types
 		console.log('Content types:');
 		var alltypes = serverUtils.getContentTypes(projectDir);
-		for (var i = 0; i < alltypes.length; i++) {
+		for (let i = 0; i < alltypes.length; i++) {
 			if (name === alltypes[i].template) {
 				console.log('    ' + alltypes[i].type.name);
 			}
@@ -1997,7 +2001,7 @@ module.exports.describeTemplate = function (argv, done) {
 		if (fs.existsSync(contentmapfile)) {
 			var summaryjson = JSON.parse(fs.readFileSync(contentmapfile));
 			var contenttypes = summaryjson.categoryLayoutMappings || summaryjson.contentTypeMappings || [];
-			for (var i = 0; i < contenttypes.length; i++) {
+			for (let i = 0; i < contenttypes.length; i++) {
 				var j;
 				var ctype = contenttypes[i];
 				console.log('    ' + ctype.type + ':');
@@ -2082,7 +2086,7 @@ module.exports.describeTemplate = function (argv, done) {
 			var contentForms = _getCustomForms(typesRootPath);
 			if (contentForms.length > 0) {
 				console.log('Content Forms:');
-				for (var j = 0; j < contentForms.length; j++) {
+				for (let j = 0; j < contentForms.length; j++) {
 					console.log('    ' + contentForms[j].type + ': ' + contentForms[j].customForms);
 				}
 			}
@@ -2436,8 +2440,8 @@ var unzipTemplate = function (tempName, tempPath, useNewGUID) {
 				} else {
 					if (fs.existsSync(path.join(tempSrcDir, 'theme', '_folder.json'))) {
 						var themestr = fs.readFileSync(path.join(tempSrcDir, 'theme', '_folder.json')),
-							themejson = JSON.parse(themestr),
-							themeName = themejson && themejson.themeName || tempName + 'Theme';
+							themejson = JSON.parse(themestr);
+						themeName = themejson && themejson.themeName || tempName + 'Theme';
 					}
 				}
 
@@ -2483,7 +2487,7 @@ var unzipTemplate = function (tempName, tempPath, useNewGUID) {
 				if (fs.existsSync(path.join(tempSrcDir, 'components'))) {
 					// move components to the components dir
 					var comps = fs.readdirSync(path.join(tempSrcDir, 'components'));
-					for (var i = 0; i < comps.length; i++) {
+					for (let i = 0; i < comps.length; i++) {
 						if (fs.existsSync(path.join(componentsSrcDir, comps[i]))) {
 							fileUtils.remove(path.join(componentsSrcDir, comps[i]));
 							console.info(' - override component ' + componentsSrcDir + '/' + comps[i]);
@@ -2495,9 +2499,10 @@ var unzipTemplate = function (tempName, tempPath, useNewGUID) {
 
 				// make sure the correct theme name is set in siteinfo
 				var siteinfofile = path.join(tempSrcDir, 'siteinfo.json');
+				var siteinfojson;
 				if (fs.existsSync(siteinfofile)) {
-					var siteinfostr = fs.readFileSync(siteinfofile),
-						siteinfojson = JSON.parse(siteinfostr);
+					var siteinfostr = fs.readFileSync(siteinfofile);
+					siteinfojson = JSON.parse(siteinfostr);
 					if (siteinfojson && siteinfojson.properties) {
 						console.info(' - set themeName to ' + themeName + ' in siteinfo.json');
 						siteinfojson.properties.themeName = themeName;
@@ -2506,7 +2511,7 @@ var unzipTemplate = function (tempName, tempPath, useNewGUID) {
 					}
 				} else {
 					// siteinfo.json does not exist (old templates), create one
-					var siteinfojson = {
+					siteinfojson = {
 						properties: {
 							themeName: themeName,
 							siteName: tempName
@@ -2523,7 +2528,7 @@ var unzipTemplate = function (tempName, tempPath, useNewGUID) {
 
 					// update template _folder.json
 					if (fs.existsSync(templatefolderfile)) {
-						var folderstr = fs.readFileSync(templatefolderfile),
+						let folderstr = fs.readFileSync(templatefolderfile),
 							folderjson = JSON.parse(folderstr),
 							oldGUID = folderjson.itemGUID,
 							newGUID = serverUtils.createGUID();
@@ -2534,7 +2539,7 @@ var unzipTemplate = function (tempName, tempPath, useNewGUID) {
 					}
 					// update theme _folder.json
 					if (fs.existsSync(themefolderfile)) {
-						var folderstr = fs.readFileSync(themefolderfile),
+						let folderstr = fs.readFileSync(themefolderfile),
 							folderjson = JSON.parse(folderstr),
 							oldGUID = folderjson.itemGUID,
 							newGUID = serverUtils.createGUID();
@@ -2780,8 +2785,8 @@ var _exportTemplate = function (name, optimize, excludeContentTemplate, extraCom
 			}
 
 			// copy customer components to buid dir: <template name>/components/
-			for (var i = 0; i < comps.length; i++) {
-				var compSrcDir = path.join(componentsSrcDir, comps[i]),
+			for (let i = 0; i < comps.length; i++) {
+				let compSrcDir = path.join(componentsSrcDir, comps[i]),
 					compExist = fs.existsSync(compSrcDir) && fs.existsSync(path.join(compSrcDir, '_folder.json'));
 				if (compExist) {
 					var optimizePath = path.join(componentsBuildDir, comps[i]);
@@ -2942,7 +2947,9 @@ var _exportServerTemplate = function (server, idcToken, templateId, homeFolderGU
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 			// console.log(JSON.stringify(data, null, 4));
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
@@ -2994,7 +3001,9 @@ var _downloadServerFile = function (server, fFileGUID, fileName) {
 				var result;
 				try {
 					result = JSON.parse(body);
-				} catch (e) { }
+				} catch (e) {
+					// handle invalid json
+				}
 
 				var msg = response.statusCode;
 				if (result && result.errorMessage) {
@@ -3064,7 +3073,9 @@ var _IdcCopySites2 = function (server, idcToken, name, fFolderGUID, exportPublis
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: failed to creat template ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
@@ -3882,7 +3893,7 @@ module.exports.shareTemplate = function (argv, done) {
 					}
 
 					var usersPromises = [];
-					for (var i = 0; i < userNames.length; i++) {
+					for (let i = 0; i < userNames.length; i++) {
 						usersPromises.push(serverRest.getUser({
 							server: server,
 							name: userNames[i]
@@ -3904,7 +3915,7 @@ module.exports.shareTemplate = function (argv, done) {
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
 						var found = false;
-						for (var i = 0; i < allUsers.length; i++) {
+						for (let i = 0; i < allUsers.length; i++) {
 							if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 								users.push(allUsers[i]);
 								found = true;
@@ -3950,9 +3961,9 @@ module.exports.shareTemplate = function (argv, done) {
 						}));
 					}
 
-					for (var i = 0; i < groups.length; i++) {
-						var newMember = true;
-						for (var j = 0; j < existingMembers.length; j++) {
+					for (let i = 0; i < groups.length; i++) {
+						let newMember = true;
+						for (let j = 0; j < existingMembers.length; j++) {
 							if (existingMembers[j].id === groups[i].groupID) {
 								newMember = false;
 								break;
@@ -4076,7 +4087,7 @@ module.exports.unshareTemplate = function (argv, done) {
 					}
 
 					var usersPromises = [];
-					for (var i = 0; i < userNames.length; i++) {
+					for (let i = 0; i < userNames.length; i++) {
 						usersPromises.push(serverRest.getUser({
 							server: server,
 							name: userNames[i]
@@ -4098,7 +4109,7 @@ module.exports.unshareTemplate = function (argv, done) {
 					// verify users
 					for (var k = 0; k < userNames.length; k++) {
 						var found = false;
-						for (var i = 0; i < allUsers.length; i++) {
+						for (let i = 0; i < allUsers.length; i++) {
 							if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 								users.push(allUsers[i]);
 								found = true;
@@ -4145,9 +4156,9 @@ module.exports.unshareTemplate = function (argv, done) {
 						}
 					}
 
-					for (var i = 0; i < groups.length; i++) {
-						var existingUser = false;
-						for (var j = 0; j < existingMembers.length; j++) {
+					for (let i = 0; i < groups.length; i++) {
+						let existingUser = false;
+						for (let j = 0; j < existingMembers.length; j++) {
 							if (existingMembers[j].id === groups[i].groupID) {
 								existingUser = true;
 								break;

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2020 Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2022 Oracle and/or its affiliates. All rights reserved.
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
@@ -287,7 +287,9 @@ module.exports.uploadTaxonomy = function (argv, done) {
 		taxonomyName = jsonData && jsonData.name;
 		taxonomyAbbr = jsonData && jsonData.shortName;
 		taxonomyDesc = jsonData && jsonData.description;
-	} catch (e) { }
+	} catch (e) {
+		// in case file is not valid json
+	}
 
 	if (!taxonomyId || !taxonomyName) {
 		console.error('ERROR: file ' + jsonPath + ' is not a valid taxonomy JSON file');
@@ -772,9 +774,28 @@ module.exports.describeTaxonomy = function (argv, done) {
 				var categories = result && result.categories || [];
 
 				if (categories.length > 0) {
+					var usedAPINames = [];
+					var duplicatedAPINames = [];
+					categories.forEach(function (cat) {
+						if (usedAPINames.length > 0 && usedAPINames.includes(cat.apiName)) {
+							duplicatedAPINames.push(cat.apiName);
+						}
+						usedAPINames.push(cat.apiName);
+					});
 					console.log('Categories:');
+					console.log('');
 					var ident = '  ';
-					_displayCategories(tax.id, categories, ident);
+					_displayCategories(tax.id, categories, ident, duplicatedAPINames);
+
+					console.log('');
+					console.log(' - total categories: ' + categories.length);
+					if (duplicatedAPINames.length > 0) {
+						if (duplicatedAPINames.length > 1) {
+							console.warn('WARN: there are ' + duplicatedAPINames.length + ' duplicated api names');
+						} else {
+							console.warn('WARN: there is a duplicated api name');
+						}
+					}
 				}
 
 				console.log('');
@@ -790,16 +811,17 @@ module.exports.describeTaxonomy = function (argv, done) {
 
 };
 
-var _displayCategories = function (parentId, categories, ident) {
+var _displayCategories = function (parentId, categories, ident, duplicatedAPINames) {
 
 	var i;
 	for (i = 0; i < categories.length; i++) {
 		var cat = categories[i];
 		if (parentId === cat.parentId) {
-			console.log(ident + cat.name);
+			var label = duplicatedAPINames.includes(cat.apiName) ? ' !!! DUPLICATED !!!' : '';
+			console.log(ident + cat.name + '  (' + cat.apiName + ')' + label);
 
 			if (cat.children && cat.children.count > 0) {
-				_displayCategories(cat.id, categories, ident + '    ');
+				_displayCategories(cat.id, categories, ident + '    ', duplicatedAPINames);
 			}
 		}
 	}

@@ -161,7 +161,7 @@ var _updateTranslationJobStatus = function (server, csrfToken, job, status) {
 		var request = require('../test/server/requestUtils.js').request;
 		request.put(postData, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: failed to change translation job status ' + err);
+				console.error('ERROR: failed to change translation job status ' + error);
 				resolve({
 					err: 'err'
 				});
@@ -170,7 +170,9 @@ var _updateTranslationJobStatus = function (server, csrfToken, job, status) {
 				var data;
 				try {
 					data = JSON.parse(body);
-				} catch (err) { }
+				} catch (err) {
+					// handle invalid json
+				}
 				resolve({
 					data
 				});
@@ -235,7 +237,7 @@ var _validateTranslationJobSCS = function (server, idcToken, jobName, file) {
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(params, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: Failed to submit import translation job (validate) ' + job.jobName);
+				console.error('ERROR: Failed to submit import translation job (validate) ' + jobName);
 				console.error(error);
 				resolve({
 					err: 'err'
@@ -245,10 +247,12 @@ var _validateTranslationJobSCS = function (server, idcToken, jobName, file) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
-				console.error('ERROR: Failed to submit import translation job (validate) ' + job.jobName + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				console.error('ERROR: Failed to submit import translation job (validate) ' + jobName + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
 				return resolve({
 					err: 'err'
 				});
@@ -286,7 +290,7 @@ var _deployTranslationJobSCS = function (server, idcToken, jobName, file) {
 		var request = require('../test/server/requestUtils.js').request;
 		request.get(params, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: Failed to submit import translation job ' + job.jobName);
+				console.error('ERROR: Failed to submit import translation job ' + jobName);
 				console.error(error);
 				resolve({
 					err: 'err'
@@ -296,7 +300,9 @@ var _deployTranslationJobSCS = function (server, idcToken, jobName, file) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to submit import translation job ' + jobName + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
@@ -343,7 +349,9 @@ var _getImportValidateStatusSCS = function (server, idcToken, jobId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to get import translation job status' + (data && data.LocalData ? ' - ' + data.LocalData.StatusMessage : ''));
@@ -396,7 +404,9 @@ var _getJobReponseDataSCS = function (server, idcToken, jobId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			var result = {};
 			if (data && data.LocalData) {
@@ -457,7 +467,7 @@ var _displayValidationResult = function (result, jobType, tempDir) {
 		console.log(sprintf(format, 'translationsCorrupted: ', siteV.translationsCorrupted));
 		console.log(sprintf(format, 'translationsInvalidEncoding: ', siteV.translationsInvalidEncoding));
 		var pageNames = [];
-		for (var i = 0; i < siteV.itemsToBeImported.length; i++) {
+		for (let i = 0; i < siteV.itemsToBeImported.length; i++) {
 			pageNames[i] = siteV.itemsToBeImported[i].name;
 		}
 		console.log(sprintf(format, 'itemsToBeImported: ', pageNames));
@@ -533,7 +543,7 @@ var _execdeployTranslationJob = function (server, validateonly, folder, filePath
 							if (data.JobStatus === 'COMPLETE' || data.JobPercentage === '100') {
 								clearInterval(inter);
 								console.log(' - validate ' + jobName + ' finished');
-								var jobDataPromise = _getJobReponseDataSCS(server, idcToken, jobId);
+								let jobDataPromise = _getJobReponseDataSCS(server, idcToken, jobId);
 								jobDataPromise.then(function (data) {
 									_displayValidationResult(data, jobType, tempDir);
 									_cmdEnd(done, true);
@@ -644,7 +654,9 @@ var _exportTranslationJobSCS = function (server, idcToken, jobName, siteInfo, ta
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0' || !data.LocalData.JobID) {
 				console.error('ERROR: failed to create translation job ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : '') + ' (ecid: ' + response.ecid + ')');
@@ -791,7 +803,7 @@ var _createTranslationJob = function (server, site, name, langs, exportType, con
 				}
 				targetLanguages = langArr;
 			} else {
-				for (var i = 0; i < allLangs.length; i++) {
+				for (let i = 0; i < allLangs.length; i++) {
 					if (allLangs[i] !== siteInfo.defaultLanguage) {
 						targetLanguages.push(allLangs[i]);
 					}
@@ -859,7 +871,9 @@ var _createConnectorJob = function (translationconnector, jobName) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (err) { }
+			} catch (err) {
+				// handle invalid json
+			}
 
 			if (!data || !data.properties) {
 				console.error('ERROR: failed to create job on the connector: no data returned' + ' (ecid: ' + response.ecid + ')');
@@ -912,7 +926,9 @@ var _sendFileToConnector = function (translationconnector, jobId, filePath) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (err) { }
+			} catch (err) {
+				// handle invalid json
+			}
 
 			return resolve(data);
 		});
@@ -959,7 +975,9 @@ var _refreshConnectorJob = function (translationconnector, connection, jobId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (err) { }
+			} catch (err) {
+				// handle invalid json
+			}
 
 			if (!data || !data.properties) {
 				console.error('ERROR: failed to refresh job on the connector: no data returned' + ' (ecid: ' + response.ecid + ')');
@@ -1003,7 +1021,9 @@ var _getJobFromConnector = function (translationconnector, jobId, jobName) {
 			var data = {};
 			try {
 				data = JSON.parse(body);
-			} catch (err) { }
+			} catch (err) {
+				// handle invalid json
+			}
 
 			if (!response || response.statusCode !== 200) {
 				console.error('ERROR: Failed to get job ' + jobName + ' from connector: ' + (data && data.message));
@@ -1092,16 +1112,17 @@ var _validateTranslationJobZip = function (file) {
 				}
 
 				var sitejob, assetsjob;
+				var jobstr;
 				if (fs.existsSync(path.join(tempDir, 'site', 'job.json'))) {
-					var jobstr = fs.readFileSync(path.join(tempDir, 'site', 'job.json'));
+					jobstr = fs.readFileSync(path.join(tempDir, 'site', 'job.json'));
 					sitejob = JSON.parse(jobstr);
 				}
 				if (fs.existsSync(path.join(tempDir, 'assets', 'job.json'))) {
-					var jobstr = fs.readFileSync(path.join(tempDir, 'assets', 'job.json'));
+					jobstr = fs.readFileSync(path.join(tempDir, 'assets', 'job.json'));
 					assetsjob = JSON.parse(jobstr);
 				}
 				if (assetsjob === undefined && fs.existsSync(path.join(tempDir, 'job.json'))) {
-					var jobstr = fs.readFileSync(path.join(tempDir, 'job.json'));
+					jobstr = fs.readFileSync(path.join(tempDir, 'job.json'));
 					assetsjob = JSON.parse(jobstr);
 				}
 
@@ -1292,7 +1313,7 @@ var _listServerTranslationJobs = function (argv, done) {
 				if (!type || type === 'assets') {
 					console.log('Asset translation jobs:');
 					console.log(sprintf(format, 'Name', 'Status', 'Source Language', 'Target Languages', 'Pending Languages', 'Connector Status'));
-					for (var i = 0; i < jobs.length; i++) {
+					for (let i = 0; i < jobs.length; i++) {
 						if (jobs[i].type === 'assets') {
 							var data = _getJobData(jobs[i]);
 							var sourceLanguage = data && data.properties && data.properties.sourceLanguage || '';
@@ -1312,14 +1333,14 @@ var _listServerTranslationJobs = function (argv, done) {
 				if (!type || type === 'sites') {
 					console.log('Site translation jobs:');
 					console.log(sprintf(format, 'Name', 'Status', 'Source Language', 'Target Languages', 'Pending Languages', 'Connector Status'));
-					for (var i = 0; i < jobs.length; i++) {
+					for (let i = 0; i < jobs.length; i++) {
 						if (jobs[i].type === 'sites') {
-							var data = _getJobData(jobs[i]);
-							var sourceLanguage = data && data.sourceLanguage || '';
-							var targetlanguages = data && data.targetLanguages || '';
-							var connStr = '';
+							let data = _getJobData(jobs[i]);
+							let sourceLanguage = data && data.sourceLanguage || '';
+							let targetlanguages = data && data.targetLanguages || '';
+							let connStr = '';
 							if (jobs[i].connectorId) {
-								var connData = _getConnectorJobStatus(connectorJobs, jobs[i].name);
+								let connData = _getConnectorJobStatus(connectorJobs, jobs[i].name);
 								connStr = _getConnectName(connectors, jobs[i].connectorId) + ' ' + (connData && connData.status ? connData.status : '');
 							}
 							console.log(sprintf(format, jobs[i].name, jobs[i].status, sourceLanguage, targetlanguages, jobs[i].sitePendingLanguages, connStr));
@@ -1756,8 +1777,8 @@ module.exports.createTranslationJob = function (argv, done) {
 
 	var name = argv.name;
 
-	if (name.match(/[`/\\*\"\<\>\|\?\'\:]/)) {
-		console.error('ERROR: The job name should not contain the following characters: /\\*\"<>|?\':"');
+	if (name.match(/[`/\\*"<>|?':]/)) {
+		console.error('ERROR: The job name should not contain the following characters: /\\*"<>|?\':"');
 		done();
 		return;
 	}
@@ -1906,7 +1927,7 @@ var _createAssetTranslationJob = function (server, repositoryName, name, langs, 
 						}
 					}
 				} else {
-					for (var i = 0; i < allLangs.length; i++) {
+					for (let i = 0; i < allLangs.length; i++) {
 						if (allLangs[i] !== repository.defaultLanguage) {
 							targetLanguages.push(allLangs[i]);
 						}
@@ -1956,7 +1977,7 @@ var _createAssetTranslationJob = function (server, repositoryName, name, langs, 
 				var q;
 				if (assetGUIDs && assetGUIDs.length > 0) {
 					q = '';
-					for (var i = 0; i < assetGUIDs.length; i++) {
+					for (let i = 0; i < assetGUIDs.length; i++) {
 						if (q) {
 							q = q + ' or ';
 						}
@@ -2097,16 +2118,17 @@ module.exports.listTranslationJobs = function (argv, done) {
 	for (var i = 0; i < jobNames.length; i++) {
 		var jobpath = path.join(transSrcDir, jobNames[i]);
 		var jobjson = undefined;
+		var jobstr;
 		if (fs.existsSync(path.join(jobpath, 'site', 'job.json'))) {
-			var jobstr = fs.readFileSync(path.join(jobpath, 'site', 'job.json'));
+			jobstr = fs.readFileSync(path.join(jobpath, 'site', 'job.json'));
 			jobjson = JSON.parse(jobstr);
 		}
 		if (jobjson === undefined && fs.existsSync(path.join(jobpath, 'assets', 'job.json'))) {
-			var jobstr = fs.readFileSync(path.join(jobpath, 'assets', 'job.json'));
+			jobstr = fs.readFileSync(path.join(jobpath, 'assets', 'job.json'));
 			jobjson = JSON.parse(jobstr);
 		}
 		if (jobjson === undefined && fs.existsSync(path.join(jobpath, 'job.json'))) {
-			var jobstr = fs.readFileSync(path.join(jobpath, 'job.json'));
+			jobstr = fs.readFileSync(path.join(jobpath, 'job.json'));
 			jobjson = JSON.parse(jobstr);
 		}
 		if (jobjson) {
@@ -2122,7 +2144,7 @@ module.exports.listTranslationJobs = function (argv, done) {
 	// check jobs sent the connector
 	var connectJobPromises = [];
 
-	for (var i = 0; i < jobs.length; i++) {
+	for (let i = 0; i < jobs.length; i++) {
 		var jobConnectionInfo = _getJobConnectionInfo(jobs[i].jobName);
 		if (jobConnectionInfo && jobConnectionInfo.connection && jobConnectionInfo.jobId) {
 			jobs[i]['connectionJobStatus'] = jobConnectionInfo.status;
@@ -2478,7 +2500,9 @@ var _ingestTranslationJobSCS = function (server, idcToken, jobId, connectorId) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to submit ingest translation job ' + jobId + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
@@ -2555,7 +2579,7 @@ var _refreshTranslationJobSCS = function (server, idcToken, jobId, connectorId) 
 		var request = require('../test/server/requestUtils.js').request;
 		request.post(params, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: Failed to submit refresh translation job ' + job.jobName + ' (ecid: ' + response.ecid + ')');
+				console.error('ERROR: Failed to submit refresh translation job ' + jobId + ' (ecid: ' + response.ecid + ')');
 				console.error(error);
 				resolve({
 					err: 'err'
@@ -2565,7 +2589,9 @@ var _refreshTranslationJobSCS = function (server, idcToken, jobId, connectorId) 
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (e) { }
+			} catch (e) {
+				// handle invalid json
+			}
 
 			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
 				console.error('ERROR: Failed to submit refresh translation job ' + jobId + ' - ' + (data && data.LocalData ? data.LocalData.StatusMessage : (response.statusMessage || response.statusCode)) + ' (ecid: ' + response.ecid + ')');
@@ -2786,7 +2812,7 @@ module.exports.registerTranslationConnector = function (argv, done) {
 		// console.log(' - required fields: ' + requirefFiels + ' fields: ' + fields);
 		var missingFields = [];
 		var fieldValues = [];
-		for (var i = 0; i < requirefFiels.length; i++) {
+		for (let i = 0; i < requirefFiels.length; i++) {
 			var fieldValue = undefined;
 			for (var j = 0; j < fields.length; j++) {
 				var vals = fields[j].split(':');

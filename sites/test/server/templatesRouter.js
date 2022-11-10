@@ -247,7 +247,7 @@ router.get('/*', (req, res) => {
 				buf = buf.replace(/var SCS = {.*};/g, '');
 				// replace controller.js
 				buf = buf.replace(/<script src="\/.*controller.js"><\/script>/g, '<script src="/_sitescloud/renderer/controller.js"></script>');
-	
+
 				modifiedFile = buf.substring(0, loc) +
 					'<script type="text/javascript"> var SCS = { sitePrefix: "/templates/' + tempName + '/" }; </script>' +
 					buf.substring(loc);
@@ -330,7 +330,7 @@ router.get('/*', (req, res) => {
 
 			// get all scs-document docs
 			app.locals.documents = [];
-			var docs = [];
+			let docs = [];
 			if (componentInstances) {
 				Object.keys(componentInstances).forEach(function (key) {
 					var compvalues = componentInstances[key];
@@ -354,7 +354,7 @@ router.get('/*', (req, res) => {
 					res.end();
 				} else {
 					// prepare rendition
-					for (var i = 0; i < docs.length; i++) {
+					for (let i = 0; i < docs.length; i++) {
 						var doc = docs[i];
 						serverUtils.getDocumentRendition(app, doc, function (newdoc) {
 							doc = newdoc;

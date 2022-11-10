@@ -268,7 +268,7 @@ SiteUpdate.prototype.updateSiteInfoFile = function (argv, siteEntry) {
 
 			// get the path to the site info file
 			var srcPath = serverUtils.getSourceFolder(projectDir);
-			siteInfoPath = path.join(srcPath, 'templates', templateName, SITE_INFO_FILE);
+			var siteInfoPath = path.join(srcPath, 'templates', templateName, SITE_INFO_FILE);
 
 			// read in and parse the siteinfo file
 			siteinfo = JSON.parse(fs.readFileSync(siteInfoPath));

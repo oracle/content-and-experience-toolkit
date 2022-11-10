@@ -28,7 +28,8 @@ if (_isWindows && cwd.endsWith(':\\')) {
 var _getProjectRoot = function () {
 	var projectRoot = cwd;
 	var isCEC = false;
-	while (true) {
+	var trueVal = true;
+	while (trueVal) {
 		var packageFile = path.join(projectRoot, 'package.json');
 		if (fs.existsSync(packageFile)) {
 			var packageJSON = JSON.parse(fs.readFileSync(packageFile));
@@ -49,7 +50,8 @@ var _getProjectRoot = function () {
 var _getToolkitSource = function () {
 	var projectRoot = cwd;
 	var isCEC = false;
-	while (true) {
+	var trueVal = true;
+	while (trueVal) {
 		var packageFile = path.join(projectRoot, 'package.json');
 		if (fs.existsSync(packageFile)) {
 			var packageJSON = JSON.parse(fs.readFileSync(packageFile));
@@ -1058,6 +1060,7 @@ const uploadContent = {
 	},
 	example: [
 		['cec upload-content Site1Channel -r Repo1', 'Upload content to repository Repo1, creating new items, and add to channel Site1Channel'],
+		['cec upload-content Site1Channel -r Repo1 -b', 'Publish the content after import'],
 		['cec upload-content Site1Channel -r Repo1 -u', 'Upload content to repository Repo1, updating existing content to create new versions, and add to channel Site1Channel'],
 		['cec upload-content Site1Channel -r Repo1 -e', 'Upload content to repository Repo1, does not update existing content if the content in Repo1 is newer than content being imported, and add to channel Site1Channel'],
 		['cec upload-content Site1Channel -r Repo1 -l Site1Collection', 'Upload content to repository Repo1 and add to collection Site1Collection and channel Site1Channel'],
@@ -1115,6 +1118,25 @@ const transferContent = {
 		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -c Channel1', 'Transfer the items added to channel Channel1 in repository Repository1'],
 		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -c Channel1 -p', 'Transfer the items published to channel Channel1 in repository Repository1'],
 		['cec transfer-content Repository1 -s SampleServer -d SampleServer1 -u', 'Only import the content that is newer than the content in Repository1 on server SampleServer1']
+	]
+};
+
+const transferRendition = {
+	command: 'transfer-rendition',
+	alias: 'tr',
+	name: 'transfer-rendition',
+	usage: {
+		'short': 'Transfers image renditions from one OCM server to another.',
+		'long': (function () {
+			let desc = 'Transfers image renditions from one OCM server to another. Use this command only after the image assets have been transferred to the destination server and are in Draft status.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec transfer-rendition -r Repository1 -s SampleServer -d SampleServer1', 'Transfer renditions of the image assets in the repository'],
+		['cec transfer-rendition -c Channel1 -s SampleServer -d SampleServer1', 'Transfer renditions of the image assets in the channel'],
+		['cec transfer-rendition -q \'fields.category eq "RECIPE"\' -s SampleServer -d SampleServer1', 'Transfer renditions of the image assets that match the query'],
+		['cec transfer-rendition -a GUID1,GUID2 -s SampleServer -d SampleServer1', 'Transfer renditions of the image asset GUID1 and GUID2']
 	]
 };
 
@@ -1715,6 +1737,26 @@ const updateSite = {
 	]
 };
 
+const exportSite = {
+	command: 'export-site <name>',
+	alias: 'es',
+	name: 'export-site',
+	usage: {
+		'short': 'Export Enterprise Site <name>.',
+		'long': (function () {
+			let desc = 'Export Enterprise Site on OCM server to a folder. Specify the server with -r <server> or use the one specified in cec.properties file. '
+			desc = desc + 'Specify the folder with -f <folder> and specify the export name with -n <export-name>. '
+			desc = desc + 'NOTE: This command is not available for production use.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec export-site Site1', 'Export Site1 as Site1 to home folder on the OCM server'],
+		['cec export-site Site1 -f Export -e Site1Export -i', 'Export Site1 and include unpublished assets as Site1Export to Export folder on the OCM server'],
+		['cec export-site Site1 -d', 'Export Site1 as Site1 to home folder on the OCM server and download the export folder to src/siteExport']
+	]
+};
+
 const pageIndexContentTypeFields = function () {
 	const values = [
 		'site', 'pageid', 'pagename', 'pagetitle', 'pagedescription', 'pageurl', 'keywords (multiple values)'
@@ -1831,6 +1873,9 @@ const uploadStaticSite = {
 	},
 	example: [
 		['cec upload-static-site-files ~/Documents/localBlog -s BlogSite'],
+		['cec upload-static-site-files ~/Documents/localBlog -s BlogSite -z', 'Create zip file staticFiles.zip for the static files and upload the zip file to OCM server'],
+		['cec upload-static-site-files ~/Documents/localBlog -s BlogSite -z BlogStaticFiles.zip', 'Create zip file BlogStaticFiles.zip for the static files and upload the zip file to OCM server'],
+		['cec upload-static-site-files ~/Documents/localBlog -f ~/Documents/static', 'Save the processed static files to local folder ~/Documents/static and do not upload'],
 		['cec upload-static-site-files ~/Documents/localBlog -s BlogSite -r SampleServer1']
 	]
 };
@@ -3040,6 +3085,26 @@ const deleteFile = {
 	]
 };
 
+const describeFile = {
+	command: 'describe-file <file>',
+	alias: 'dsf',
+	name: 'describe-file',
+	usage: {
+		'short': 'Lists the properties of a file on OCM server.',
+		'long': (function () {
+			let desc = 'Lists the properties of a file on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-file docs/Projects.pdf'],
+		['cec describe-file docs/Projects.pdf -s SampleServer1'],
+		['cec describe-file site:blog1/docs/Projects.pdf'],
+		['cec describe-file theme:blog1Theme/docs/Projects.pdf'],
+		['cec describe-file component:Comp1/docs/Projects.pdf']
+	]
+};
+
 const uploadFile = {
 	command: 'upload-file <file>',
 	alias: 'ulf',
@@ -3070,12 +3135,14 @@ const downloadFile = {
 		'short': 'Downloads file <file> from OCM server.',
 		'long': (function () {
 			let desc = 'Downloads file <file> from OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ' +
+				'Optionally specify -v <fileversion> to download the particular version. ' +
 				'Optionally specify -f <folder> to save the file on the local system.';
 			return desc;
 		})()
 	},
 	example: [
 		['cec download-file Releases/Projects.pdf', 'Downloads the file from OCM server and save to local folder src/documents/'],
+		['cec download-file Releases/Projects.pdf -v 4', 'Downloads the version 4 of the file from OCM server and save to local folder src/documents/'],
 		['cec download-file Releases/Projects.pdf -s SampleServer1', 'Downloads the file from the registered server SampleServer1 and save to local folder src/documents/'],
 		['cec download-file Releases/Projects.pdf -f ~/Downloads', 'Downloads the file from OCM server and save to local folder ~/Download/'],
 		['cec download-file Releases/Projects.pdf -f .', 'Downloads the file from OCM server and save to the current local folder'],
@@ -3610,7 +3677,7 @@ var _getCmdHelp = function (cmd) {
 };
 
 var _usage = 'Usage: cec <command> [options] ' + os.EOL + os.EOL +
-	'Run \cec <command> -h\' to get the detailed help for the command.' + os.EOL + os.EOL +
+	'Run cec <command> -h\' to get the detailed help for the command.' + os.EOL + os.EOL +
 	'Commands:' + os.EOL;
 _usage = _usage + os.EOL + 'Documents' + os.EOL +
 	_getCmdHelp(createFolder) + os.EOL +
@@ -3624,7 +3691,8 @@ _usage = _usage + os.EOL + 'Documents' + os.EOL +
 	_getCmdHelp(copyFile) + os.EOL +
 	_getCmdHelp(downloadFile) + os.EOL +
 	_getCmdHelp(uploadFile) + os.EOL +
-	_getCmdHelp(deleteFile) + os.EOL;
+	_getCmdHelp(deleteFile) + os.EOL +
+	_getCmdHelp(describeFile) + os.EOL;
 
 _usage = _usage + os.EOL + 'Components' + os.EOL +
 	_getCmdHelp(createComponent) + os.EOL +
@@ -3667,6 +3735,7 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(createSite) + os.EOL +
 	_getCmdHelp(copySite) + os.EOL +
 	_getCmdHelp(updateSite) + os.EOL +
+	// _getCmdHelp(exportSite) + os.EOL +
 	_getCmdHelp(transferSite) + os.EOL +
 	_getCmdHelp(transferSiteContent) + os.EOL +
 	_getCmdHelp(validateSite) + os.EOL +
@@ -4751,7 +4820,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('repository', {
 				alias: 'r',
-				description: '<repository> The repository for the types and items',
+				description: 'The repository for the types and items',
 				demandOption: true
 			})
 				.option('template', {
@@ -4764,15 +4833,15 @@ const argv = yargs.usage(_usage)
 				})
 				.option('channel', {
 					alias: 'c',
-					description: '<channel> The channel to add the content'
+					description: 'The channel to add the content'
 				})
 				.option('collection', {
 					alias: 'l',
-					description: '<collection> The collection to add the content'
+					description: 'The collection to add the content'
 				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCM server'
+					description: 'The registered OCM server'
 				})
 				.option('update', {
 					alias: 'u',
@@ -4782,6 +4851,10 @@ const argv = yargs.usage(_usage)
 					alias: 'e',
 					description: 'Only update the existing content that is older than the content being imported'
 				})
+				.option('publish', {
+					alias: 'b',
+					description: 'Publish content after import'
+				})
 				.option('types', {
 					alias: 'p',
 					description: 'Upload content types and taxonomies only'
@@ -4789,6 +4862,9 @@ const argv = yargs.usage(_usage)
 				.check((argv) => {
 					if (argv.template && !argv.channel) {
 						throw new Error(os.EOL + 'Please specify channel to add template content');
+					}
+					if (argv.publish && !argv.channel) {
+						throw new Error(os.EOL + 'Please specify channel to publish the content');
 					}
 					if (argv.update && argv.reuse) {
 						throw new Error(os.EOL + 'Set either update or reuse');
@@ -4803,6 +4879,7 @@ const argv = yargs.usage(_usage)
 				.example(...uploadContent.example[5])
 				.example(...uploadContent.example[6])
 				.example(...uploadContent.example[7])
+				.example(...uploadContent.example[8])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadContent.command}\n\n${uploadContent.usage.long}`);
@@ -4858,65 +4935,47 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${transferContent.command}\n\n${transferContent.usage.long}`);
 		})
-	.command([uploadContent.command, uploadContent.alias], false,
+	.command([transferRendition.command, transferRendition.alias], false,
 		(yargs) => {
-			yargs.option('repository', {
-				alias: 'r',
-				description: '<repository> The repository for the types and items',
-				demandOption: true
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server the content is from',
+				demandOption: true,
 			})
-				.option('template', {
-					alias: 't',
-					description: 'Flag to indicate the content is from template'
+				.option('destination', {
+					alias: 'd',
+					description: 'The registered OCM server to transfer the content',
+					demandOption: true
 				})
-				.option('file', {
-					alias: 'f',
-					description: 'Flag to indicate the content is from file'
+				.option('repository', {
+					alias: 'r',
+					description: 'The Repository'
 				})
 				.option('channel', {
 					alias: 'c',
-					description: '<channel> The channel to add the content'
+					description: 'The channel'
 				})
-				.option('collection', {
-					alias: 'l',
-					description: '<collection> The collection to add the content'
+				.option('query', {
+					alias: 'q',
+					description: 'Query to fetch the assets'
 				})
-				.option('server', {
-					alias: 's',
-					description: '<server> The registered OCM server'
-				})
-				.option('update', {
-					alias: 'u',
-					description: 'Update any existing content instead of creating new items'
-				})
-				.option('reuse', {
-					alias: 'e',
-					description: 'Only update the existing content that is older than the content being imported'
-				})
-				.option('types', {
-					alias: 'p',
-					description: 'Upload content types and taxonomies only'
+				.option('assets', {
+					alias: 'a',
+					description: 'The comma separated list of asset GUIDS'
 				})
 				.check((argv) => {
-					if (argv.template && !argv.channel) {
-						throw new Error(os.EOL + 'Please specify channel to add template content');
-					}
-					if (argv.update && argv.reuse) {
-						throw new Error(os.EOL + 'Set either update or reuse');
+					if (!argv.channel && !argv.repository && !argv.query && !argv.assets) {
+						throw new Error(os.EOL + 'Please specify the channel, repository, query or assets');
 					}
 					return true;
 				})
-				.example(...uploadContent.example[0])
-				.example(...uploadContent.example[1])
-				.example(...uploadContent.example[2])
-				.example(...uploadContent.example[3])
-				.example(...uploadContent.example[4])
-				.example(...uploadContent.example[5])
-				.example(...uploadContent.example[6])
-				.example(...uploadContent.example[7])
+				.example(...transferRendition.example[0])
+				.example(...transferRendition.example[1])
+				.example(...transferRendition.example[2])
+				.example(...transferRendition.example[3])
 				.help(false)
 				.version(false)
-				.usage(`Usage: cec ${uploadContent.command}\n\n${uploadContent.usage.long}`);
+				.usage(`Usage: cec ${transferRendition.command}\n\n${transferRendition.usage.long}`);
 		})
 	.command([controlContent.command, controlContent.alias], false,
 		(yargs) => {
@@ -5925,6 +5984,35 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${setSiteSecurity.command}\n\n${setSiteSecurity.usage.long}`);
 		})
+	.command([exportSite.command, exportSite.alias], false,
+			(yargs) => {
+				yargs.option('folder', {
+					alias: 'f',
+					description: '<folder> Folder to export the site to'
+				})
+					.option('exportname', {
+						alias: 'e',
+						description: 'name of the export',
+					})
+					.option('includeunpublishedassets', {
+						alias: 'i',
+						description: 'flag to indicate to include unpublished content items and digital assets in the site'
+					})
+					.option('download', {
+						alias: 'd',
+						description: 'flag to indicate to download files of the exported site to local folder'
+					})
+					.option('server', {
+						alias: 's',
+						description: '<server> The registered OCM server'
+					})
+					.example(...exportSite.example[0])
+					.example(...exportSite.example[1])
+					.example(...exportSite.example[2])
+					.help(false)
+					.version(false)
+					.usage(`Usage: cec ${exportSite.command}\n\n${exportSite.usage.long}`);
+			})
 	.command([updateSite.command, updateSite.alias], false,
 		(yargs) => {
 			yargs.option('template', {
@@ -6192,15 +6280,31 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('site', {
 				alias: 's',
-				description: 'The site on OCM server',
-				demandOption: true
+				description: 'The site on OCM server'
 			})
+				.option('zipfile', {
+					alias: 'z',
+					description: 'Create zip for the static files and upload, defaults to staticFiles.zip'
+				})
+				.option('folder', {
+					alias: 'f',
+					description: 'Copy the processed static files to the local folder without uploading'
+				})
 				.option('server', {
 					alias: 'r',
 					description: 'The registered OCM server'
 				})
+				.check((argv) => {
+					if (!argv.folder && !argv.site) {
+						throw new Error('Please specify the site');
+					}
+					return true;
+				})
 				.example(...uploadStaticSite.example[0])
 				.example(...uploadStaticSite.example[1])
+				.example(...uploadStaticSite.example[2])
+				.example(...uploadStaticSite.example[3])
+				.example(...uploadStaticSite.example[4])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadStaticSite.command}\n\n${uploadStaticSite.usage.long}`);
@@ -7947,13 +8051,25 @@ const argv = yargs.usage(_usage)
 		})
 	.command([downloadFile.command, downloadFile.alias], false,
 		(yargs) => {
-			yargs.option('folder', {
-				alias: 'f',
-				description: '<folder> Local folder to save the file'
+			yargs.option('fileversion', {
+				alias: 'v',
+				description: 'The particular version to download'
 			})
+				.option('folder', {
+					alias: 'f',
+					description: 'Local folder to save the file'
+				})
 				.option('server', {
 					alias: 's',
-					description: '<server> The registered OCM server'
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (argv.fileversion !== undefined) {
+						if (!Number.isInteger(argv.fileversion) || argv.fileversion <= 0) {
+							throw new Error(os.EOL + 'Value for fileversion should be an integer greater than 0');
+						}
+					}
+					return true;
 				})
 				.example(...downloadFile.example[0])
 				.example(...downloadFile.example[1])
@@ -7962,6 +8078,7 @@ const argv = yargs.usage(_usage)
 				.example(...downloadFile.example[4])
 				.example(...downloadFile.example[5])
 				.example(...downloadFile.example[6])
+				.example(...downloadFile.example[7])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${downloadFile.command}\n\n${downloadFile.usage.long}`);
@@ -7985,6 +8102,21 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${deleteFile.command}\n\n${deleteFile.usage.long}`);
+		})
+	.command([describeFile.command, describeFile.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...describeFile.example[0])
+				.example(...describeFile.example[1])
+				.example(...describeFile.example[2])
+				.example(...describeFile.example[3])
+				.example(...describeFile.example[4])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeFile.command}\n\n${describeFile.usage.long}`);
 		})
 	.command([createGroup.command, createGroup.alias], false,
 		(yargs) => {
@@ -8672,9 +8804,10 @@ if (!argv._[0] || argv.help) {
 var d = new Date();
 console.log(d.toUTCString());
 
+var packageJSON;
 // Display toolkit version
 if (fs.existsSync(path.join(appRoot, 'package.json'))) {
-	var packageJSON = JSON.parse(fs.readFileSync(path.join(appRoot, 'package.json')));
+	packageJSON = JSON.parse(fs.readFileSync(path.join(appRoot, 'package.json')));
 	var cecVersion = packageJSON.version;
 	console.log('Content Toolkit ' + cecVersion);
 }
@@ -8698,6 +8831,7 @@ Object.keys(argv).forEach(function (name) {
 			try {
 				value = JSON.stringify(value);
 			} catch (e) {
+				// ignore
 			}
 		}
 		if (!found0) {
@@ -8732,7 +8866,7 @@ if (argv._[0] === 'install' || argv._[0] === 'i') {
 
 	if (projectRoot) {
 		var packageFile = path.join(projectRoot, 'package.json');
-		var packageJSON = JSON.parse(fs.readFileSync(packageFile));
+		packageJSON = JSON.parse(fs.readFileSync(packageFile));
 		if (packageJSON && packageJSON.name === 'cec-sites-toolkit') {
 			console.log(`You cannot install Content Management project at ${projectRoot}. Please install at a different location.`);
 			process.exit(1);
@@ -8755,6 +8889,13 @@ if (!_verifyCECProject()) {
 }
 
 // console.log(argv);
+
+var serverVal;
+var outputVal;
+var assettypes;
+var assetpermission;
+var categories;
+var categorypermission;
 
 if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	let createComponentArgs = ['run', '-s', createComponent.name, '--prefix', appRoot,
@@ -8780,7 +8921,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		createContentLayoutArgs.push(...['--template', argv.template]);
 	}
 	if (argv.server) {
-		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		createContentLayoutArgs.push(...['--server'], serverVal);
 	}
 	if (argv.addcustomsettings) {
@@ -8807,7 +8948,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		copyComponentArgs.push(...['--description', argv.description]);
 	}
 	if (argv.server) {
-		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		copyComponentArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, copyComponentArgs, {
@@ -9022,7 +9163,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		copyTemplateArgs.push(...['--description', argv.description]);
 	}
 	if (argv.server) {
-		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		copyTemplateArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, copyTemplateArgs, {
@@ -9298,7 +9439,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		describeTemplateArgs.push(...['--file', argv.file]);
 	}
 	if (argv.server) {
-		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		describeTemplateArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, describeTemplateArgs, {
@@ -9317,7 +9458,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		createTemplateReportArgs.push(...['--includepagelinks', argv.includepagelinks]);
 	}
 	if (argv.output) {
-		var outputVal = typeof argv.output === 'boolean' ? './' : argv.output;
+		outputVal = typeof argv.output === 'boolean' ? './' : argv.output;
 		createTemplateReportArgs.push(...['--output', outputVal]);
 	}
 
@@ -9370,7 +9511,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		addContentLayoutMappingArgs.push(...['--mobile', argv.mobile]);
 	}
 	if (argv.server) {
-		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		addContentLayoutMappingArgs.push(...['--server'], serverVal);
 	}
 
@@ -9398,7 +9539,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		removeContentLayoutMappingArgs.push(...['--mobile', argv.mobile]);
 	}
 	if (argv.server) {
-		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		removeContentLayoutMappingArgs.push(...['--server'], serverVal);
 	}
 
@@ -9511,6 +9652,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.reuse) {
 		uploadContentArgs.push(...['--reuse', argv.reuse]);
 	}
+	if (argv.publish) {
+		uploadContentArgs.push(...['--publish', argv.publish]);
+	}
 	if (argv.types) {
 		uploadContentArgs.push(...['--types', argv.types]);
 	}
@@ -9578,6 +9722,31 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		transferContentArgs.push(...['--execute', argv.execute]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, transferContentArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === transferRendition.name || argv._[0] === transferRendition.alias) {
+	let transferRenditionArgs = ['run', '-s', transferRendition.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--server', argv.server,
+		'--destination', argv.destination
+	];
+	if (argv.repository) {
+		transferRenditionArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.channel) {
+		transferRenditionArgs.push(...['--channel', argv.channel]);
+	}
+	if (argv.query) {
+		transferRenditionArgs.push(...['--query', argv.query]);
+	}
+	if (argv.assets && typeof argv.assets !== 'boolean') {
+		transferRenditionArgs.push(...['--assets', argv.assets]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, transferRenditionArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -9948,7 +10117,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		listArgs.push(...['--types', argv.types]);
 	}
 	if (argv.server) {
-		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		listArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, listArgs, {
@@ -10052,7 +10221,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	];
 
 	if (argv.output) {
-		var outputVal = typeof argv.output === 'boolean' ? './' : argv.output;
+		outputVal = typeof argv.output === 'boolean' ? './' : argv.output;
 		createAssetUsageReportArgs.push(...['--output', outputVal]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
@@ -10396,6 +10565,32 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		stdio: 'inherit'
 	});
 
+} else if (argv._[0] === exportSite.name || argv._[0] === exportSite.alias) {
+	let exportSiteArgs = ['run', '-s', exportSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		exportSiteArgs.push(...['--folder', argv.folder]);
+	}
+	if (argv.exportname && typeof argv.exportname !== 'boolean') {
+		exportSiteArgs.push(...['--exportname', argv.exportname]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		exportSiteArgs.push(...['--server', argv.server]);
+	}
+	if (argv.includeunpublishedassets) {
+		exportSiteArgs.push(...['--includeunpublishedassets', argv.includeunpublishedassets]);
+	}
+	if (argv.download) {
+		exportSiteArgs.push(...['--download', argv.download]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, exportSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
 } else if (argv._[0] === validateSite.name || argv._[0] === validateSite.alias) {
 	let validateSiteArgs = ['run', '-s', validateSite.name, '--prefix', appRoot,
 		'--',
@@ -10439,7 +10634,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		createSiteMapArgs.push(...['--format', argv.format]);
 	}
 	if (argv.assettypes) {
-		var assettypes = typeof argv.assettypes === 'boolean' ? '__cecanytype' : argv.assettypes;
+		assettypes = typeof argv.assettypes === 'boolean' ? '__cecanytype' : argv.assettypes;
 		createSiteMapArgs.push(...['--assettypes', assettypes]);
 	}
 	if (argv.changefreq) {
@@ -10531,7 +10726,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	];
 
 	if (argv.output) {
-		var outputVal = typeof argv.output === 'boolean' ? './' : argv.output;
+		outputVal = typeof argv.output === 'boolean' ? './' : argv.output;
 		createAssetReportArgs.push(...['--output', outputVal]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
@@ -10546,10 +10741,18 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	let uploadStaticSiteArgs = ['run', '-s', uploadStaticSite.name, '--prefix', appRoot,
 		'--',
 		'--projectDir', cwd,
-		'--path', argv.path,
-		'--site', argv.site
+		'--path', argv.path
 	];
-
+	if (argv.site) {
+		uploadStaticSiteArgs.push(...['--site', argv.site]);
+	}
+	if (argv.zipfile) {
+		var zipVal = typeof argv.zipfile === 'boolean' ? 'staticFiles.zip' : argv.zipfile;
+		uploadStaticSiteArgs.push(...['--zipfile', zipVal]);
+	}
+	if (argv.folder) {
+		uploadStaticSiteArgs.push(...['--folder', argv.folder]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		uploadStaticSiteArgs.push(...['--server', argv.server]);
 	}
@@ -10856,19 +11059,19 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		setEditorialPermissionArgs.push(...['--groups', argv.groups]);
 	}
 	if (argv.assettypes) {
-		var assettypes = typeof argv.assettypes === 'boolean' ? '__cecanytype' : argv.assettypes;
+		assettypes = typeof argv.assettypes === 'boolean' ? '__cecanytype' : argv.assettypes;
 		setEditorialPermissionArgs.push(...['--assettypes', assettypes]);
 	}
 	if (argv.assetpermission) {
-		var assetpermission = typeof argv.assetpermission === 'boolean' ? '__cecdeletetype' : argv.assetpermission;
+		assetpermission = typeof argv.assetpermission === 'boolean' ? '__cecdeletetype' : argv.assetpermission;
 		setEditorialPermissionArgs.push(...['--assetpermission', assetpermission]);
 	}
 	if (argv.categories) {
-		var categories = typeof argv.categories === 'boolean' ? '__cecanycategory' : argv.categories;
+		categories = typeof argv.categories === 'boolean' ? '__cecanycategory' : argv.categories;
 		setEditorialPermissionArgs.push(...['--categories', categories]);
 	}
 	if (argv.categorypermission) {
-		var categorypermission = typeof argv.categorypermission === 'boolean' ? '__cecdeletecategory' : argv.categorypermission;
+		categorypermission = typeof argv.categorypermission === 'boolean' ? '__cecdeletecategory' : argv.categorypermission;
 		setEditorialPermissionArgs.push(...['--categorypermission', categorypermission]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
@@ -10933,19 +11136,19 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--name', argv.name
 	];
 	if (argv.assettypes) {
-		var assettypes = typeof argv.assettypes === 'boolean' ? '__cecanytype' : argv.assettypes;
+		assettypes = typeof argv.assettypes === 'boolean' ? '__cecanytype' : argv.assettypes;
 		setEditorialRoleArgs.push(...['--assettypes', assettypes]);
 	}
 	if (argv.assetpermission) {
-		var assetpermission = typeof argv.assetpermission === 'boolean' ? '__cecdeletetype' : argv.assetpermission;
+		assetpermission = typeof argv.assetpermission === 'boolean' ? '__cecdeletetype' : argv.assetpermission;
 		setEditorialRoleArgs.push(...['--assetpermission', assetpermission]);
 	}
 	if (argv.categories) {
-		var categories = typeof argv.categories === 'boolean' ? '__cecanycategory' : argv.categories;
+		categories = typeof argv.categories === 'boolean' ? '__cecanycategory' : argv.categories;
 		setEditorialRoleArgs.push(...['--categories', categories]);
 	}
 	if (argv.categorypermission) {
-		var categorypermission = typeof argv.categorypermission === 'boolean' ? '__cecdeletecategory' : argv.categorypermission;
+		categorypermission = typeof argv.categorypermission === 'boolean' ? '__cecdeletecategory' : argv.categorypermission;
 		setEditorialRoleArgs.push(...['--categorypermission', categorypermission]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
@@ -11045,7 +11248,7 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		updateTypeArgs.push(...['--contenttemplate', argv.contenttemplate]);
 	}
 	if (argv.server) {
-		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		updateTypeArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, updateTypeArgs, {
@@ -11421,7 +11624,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		'--projectDir', cwd
 	];
 	if (argv.server) {
-		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		listTranslationJobsArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, listTranslationJobsArgs, {
@@ -11449,7 +11652,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		'--name', argv.name
 	];
 	if (argv.server) {
-		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		refreshTranslationJobArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, refreshTranslationJobArgs, {
@@ -11464,7 +11667,7 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		'--name', argv.name
 	];
 	if (argv.server) {
-		var serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
+		serverVal = typeof argv.server === 'boolean' ? '__cecconfigserver' : argv.server;
 		ingestTranslationJobArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, ingestTranslationJobArgs, {
@@ -11700,6 +11903,9 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		'--projectDir', cwd,
 		'--file', argv.file
 	];
+	if (argv.fileversion) {
+		downloadFileArgs.push(...['--fileversion', argv.fileversion]);
+	}
 	if (argv.folder && typeof argv.folder !== 'boolean') {
 		downloadFileArgs.push(...['--folder', argv.folder]);
 	}
@@ -11724,6 +11930,21 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 		deleteFileArgs.push(...['--permanent', argv.permanent]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, deleteFileArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeFile.name || argv._[0] === describeFile.alias) {
+	let describeFileArgs = ['run', '-s', describeFile.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--file', argv.file
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeFileArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, describeFileArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

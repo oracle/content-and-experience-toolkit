@@ -72,6 +72,7 @@ var _createFolder = function (server, rootParentId, folderPath, showMessage) {
 	return new Promise(function (resolve, reject) {
 		var folderPromises = [],
 			parentGUID;
+
 		folderPath.forEach(function (foldername) {
 			if (foldername) {
 				folderPromises.push(function (parentID) {
@@ -95,7 +96,7 @@ var _createFolder = function (server, rootParentId, folderPath, showMessage) {
 						}
 					} else if (folderDetails.id !== 'self') {
 						if (showMessage) {
-							console.info(' - find folder ' + folderDetails.name + ' (Id: ' + folderDetails.id + ')');
+							console.info(' - find folder ' + (folderDetails.name || 'root') + ' (Id: ' + folderDetails.id + ')');
 						}
 					}
 					parentGUID = folderDetails.id;
@@ -118,7 +119,7 @@ var _createFolder = function (server, rootParentId, folderPath, showMessage) {
 					}
 				} else if (newFolder.id !== 'self') {
 					if (showMessage) {
-						console.info(' - find folder ' + newFolder.name + ' (Id: ' + newFolder.id + ')');
+						console.info(' - find folder ' + (newFolder.name || 'root') + ' (Id: ' + newFolder.id + ')');
 					}
 				}
 			}
@@ -682,7 +683,7 @@ var _uploadFile = function (argv, server) {
 
 	return Promise.all(loginPromises).then(function (results) {
 		if (resourceFolder && (!results || results.length === 0 || !results[0].status)) {
-			console.error(result.statusMessage);
+			console.error(results[0].statusMessage);
 			return Promise.reject();
 		}
 
@@ -876,13 +877,15 @@ var _downloadFile = function (argv, server) {
 			targetPath = path.resolve(targetPath);
 			if (!fs.existsSync(targetPath)) {
 				console.error('ERROR: folder ' + targetPath + ' does not exist');
-				done();
-				return;
+				return resolve({
+					err: 'err'
+				});
 			}
 			if (!fs.statSync(targetPath).isDirectory()) {
 				console.error('ERROR: ' + targetPath + ' is not a folder');
-				done();
-				return;
+				return resolve({
+					err: 'err'
+				});
 			}
 		}
 
@@ -906,8 +909,11 @@ var _downloadFile = function (argv, server) {
 			}
 		}
 
+		var fileVersion = argv.fileversion ? argv.fileversion.toString() : '';
+
 		var startTime;
 		var targetFile;
+		var file;
 
 		Promise.all(resourcePromises).then(function (results) {
 			var rootParentId = 'self';
@@ -924,6 +930,7 @@ var _downloadFile = function (argv, server) {
 				rootParentId = resourceGUID;
 			}
 			return _findFolder(server, rootParentId, folderPath);
+
 		}).then(function (result) {
 			if (folderPath.length > 0 && !result) {
 				return Promise.reject();
@@ -941,53 +948,90 @@ var _downloadFile = function (argv, server) {
 				filename: fileName,
 				itemtype: 'file'
 			});
+
+		}).then(function (result) {
+			if (!result || !result.id) {
+				return Promise.reject();
+			}
+			file = result;
+
+			if (file.type !== 'file') {
+				console.error('ERROR: ' + fileName + ' is not a file');
+				return Promise.reject();
+			}
+
+			var versionPromises = [];
+			if (fileVersion) {
+				versionPromises.push(_getFileVersions(server, file.id));
+			}
+
+			return Promise.all(versionPromises);
+
+		}).then(function (results) {
+
+			var versionSize;
+			var i;
+			if (fileVersion) {
+				var versions = results && results[0] || [];
+				var versionExist = false;
+				for (i = 0; i < versions.length; i++) {
+					if (versions[i].dRevisionID === fileVersion) {
+						versionExist = true;
+						versionSize = versions[i].dFileSize;
+						break;
+					}
+				}
+				if (!versionExist) {
+					console.error('ERROR: file ' + file.name + ' does not have version ' + fileVersion);
+					return Promise.reject();
+				}
+			}
+
+			// console.log('folderId: ' + folderId + ' fileName: ' + fileName + ' fileId: ' + file.id);
+			if (!argv.folder) {
+				targetPath = documentsSrcDir;
+				if (resourceFolder) {
+					targetPath = path.join(documentsSrcDir, resourceName);
+					if (!fs.existsSync(targetPath)) {
+						fs.mkdirSync(targetPath, {
+							recursive: true
+						});
+					}
+				}
+				for (i = 0; i < folderPath.length; i++) {
+					targetPath = path.join(targetPath, folderPath[i]);
+					if (!fs.existsSync(targetPath)) {
+						fs.mkdirSync(targetPath, {
+							recursive: true
+						});
+					}
+				}
+			}
+
+			targetFile = path.join(targetPath, fileName);
+			if (fileVersion) {
+				console.info(' - downloading file (id: ' + file.id + ' version: ' + fileVersion + ' size: ' + versionSize + ') ...');
+			} else {
+				console.info(' - downloading file (id: ' + file.id + ' version: ' + file.version + ' size: ' + file.size + ') ...');
+			}
+			startTime = new Date();
+			return serverRest.downloadFileSave({
+				server: server,
+				fFileGUID: file.id,
+				version: fileVersion,
+				saveTo: targetFile
+			});
+
+		}).then(function (result) {
+			if (!result || result.err) {
+				console.error('ERROR: failed to get file from server');
+				return Promise.reject();
+			}
+
+			console.log(' - save file ' + targetFile + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+
+			return resolve({});
 		})
-			.then(function (result) {
-				if (!result || !result.id) {
-					return Promise.reject();
-				}
-
-				// console.log('folderId: ' + folderId + ' fileName: ' + fileName + ' fileId: ' + result.id);
-				if (!argv.folder) {
-					targetPath = documentsSrcDir;
-					if (resourceFolder) {
-						targetPath = path.join(documentsSrcDir, resourceName);
-						if (!fs.existsSync(targetPath)) {
-							fs.mkdirSync(targetPath, {
-								recursive: true
-							});
-						}
-					}
-					for (var i = 0; i < folderPath.length; i++) {
-						targetPath = path.join(targetPath, folderPath[i]);
-						if (!fs.existsSync(targetPath)) {
-							fs.mkdirSync(targetPath, {
-								recursive: true
-							});
-						}
-					}
-				}
-
-				targetFile = path.join(targetPath, fileName);
-				console.info(' - downloading file (id: ' + result.id + ' size: ' + result.size + ') ...');
-				startTime = new Date();
-				return serverRest.downloadFileSave({
-					server: server,
-					fFileGUID: result.id,
-					saveTo: targetFile
-				});
-
-			})
-			.then(function (result) {
-				if (!result || result.err) {
-					console.error('ERROR: failed to get file from server');
-					return Promise.reject();
-				}
-
-				console.log(' - save file ' + targetFile + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-
-				return resolve({});
-			})
 			.catch((error) => {
 				if (error) {
 					console.error(error);
@@ -1030,6 +1074,81 @@ module.exports.downloadFile = function (argv, done) {
 				}
 			});
 	}); // login
+};
+
+//
+// argv.file = <file path> such docs/file1.json, site:site1/structure.json
+//
+var _getFileContent = function (argv, server) {
+	return new Promise(function (resolve, reject) {
+		var filePath = argv.file;
+		var fileName = filePath;
+		if (fileName.indexOf('/') > 0) {
+			fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
+		}
+
+		var info = _getResourceInfo(server, filePath);
+		var resourceName = info.resourceName;
+		var resourceType = info.resourceType;
+		var folderResourcePromises = info.resourcePromises;
+		var resourceFolder = resourceName && resourceType;
+		if (resourceFolder) {
+			filePath = info.resourcePath;
+		}
+
+		var fileRootParentId = 'self';
+		var file;
+
+		Promise.all(folderResourcePromises)
+			.then(function (results) {
+				if (resourceFolder) {
+					var resourceGUID;
+					if (results.length > 0 && results[0]) {
+						resourceGUID = results[0].id;
+					}
+
+					if (!resourceGUID) {
+						console.error('ERROR: invalid ' + resourceType + ' ' + resourceName);
+						return Promise.reject();
+					}
+					fileRootParentId = resourceGUID;
+				}
+				// console.log(' - file root parent ' + fileRootParentId);
+
+				return serverRest.findFolderHierarchy({
+					server: server,
+					parentID: fileRootParentId,
+					folderPath: filePath
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					console.error('ERROR: file ' + filePath + ' does not exist');
+					return Promise.reject();
+				}
+				file = result;
+
+				console.info(' - verify source file ' + filePath + ' (Id: ' + file.id + ' version: ' + file.version + ')');
+
+				return serverRest.downloadFile({
+					server: server,
+					fFileGUID: file.id
+				});
+
+			})
+			.then(function (result) {
+
+				return resolve(result);
+
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				return resolve({ err: 'err' });
+			});
+	});
 };
 
 
@@ -1088,12 +1207,13 @@ module.exports.shareFolder = function (argv, done) {
 		})
 			.then(function (result) {
 
+				var i;
 				if (groupNames.length > 0) {
 					console.info(' - verify groups');
 
 					// verify groups
 					var allGroups = result || [];
-					for (var i = 0; i < groupNames.length; i++) {
+					for (i = 0; i < groupNames.length; i++) {
 						var found = false;
 						for (var j = 0; j < allGroups.length; j++) {
 							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
@@ -1110,7 +1230,7 @@ module.exports.shareFolder = function (argv, done) {
 				}
 
 				var usersPromises = [];
-				for (var i = 0; i < userNames.length; i++) {
+				for (i = 0; i < userNames.length; i++) {
 					usersPromises.push(serverRest.getUser({
 						server: server,
 						name: userNames[i]
@@ -1121,7 +1241,8 @@ module.exports.shareFolder = function (argv, done) {
 			})
 			.then(function (results) {
 				var allUsers = [];
-				for (var i = 0; i < results.length; i++) {
+				var i;
+				for (i = 0; i < results.length; i++) {
 					if (results[i].items) {
 						allUsers = allUsers.concat(results[i].items);
 					}
@@ -1129,7 +1250,7 @@ module.exports.shareFolder = function (argv, done) {
 				// verify users
 				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
-					for (var i = 0; i < allUsers.length; i++) {
+					for (i = 0; i < allUsers.length; i++) {
 						if (allUsers[i].loginName && allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 							users.push(allUsers[i]);
 							found = true;
@@ -1154,9 +1275,11 @@ module.exports.shareFolder = function (argv, done) {
 				var existingMembers = result.data || [];
 
 				var sharePromises = [];
-				for (var i = 0; i < users.length; i++) {
-					var newMember = true;
-					for (var j = 0; j < existingMembers.length; j++) {
+				var i, j;
+				var newMember;
+				for (i = 0; i < users.length; i++) {
+					newMember = true;
+					for (j = 0; j < existingMembers.length; j++) {
 						if (existingMembers[j].id === users[i].id) {
 							newMember = false;
 							break;
@@ -1172,9 +1295,9 @@ module.exports.shareFolder = function (argv, done) {
 					}));
 				}
 
-				for (var i = 0; i < groups.length; i++) {
-					var newMember = true;
-					for (var j = 0; j < existingMembers.length; j++) {
+				for (i = 0; i < groups.length; i++) {
+					newMember = true;
+					for (j = 0; j < existingMembers.length; j++) {
 						if (existingMembers[j].id === groups[i].groupID) {
 							newMember = false;
 							break;
@@ -1266,12 +1389,13 @@ module.exports.unshareFolder = function (argv, done) {
 		})
 			.then(function (result) {
 
+				var i;
 				if (groupNames.length > 0) {
 					console.info(' - verify groups');
 
 					// verify groups
 					var allGroups = result || [];
-					for (var i = 0; i < groupNames.length; i++) {
+					for (i = 0; i < groupNames.length; i++) {
 						var found = false;
 						for (var j = 0; j < allGroups.length; j++) {
 							if (allGroups[j].name && groupNames[i].toLowerCase() === allGroups[j].name.toLowerCase()) {
@@ -1288,7 +1412,7 @@ module.exports.unshareFolder = function (argv, done) {
 				}
 
 				var usersPromises = [];
-				for (var i = 0; i < userNames.length; i++) {
+				for (i = 0; i < userNames.length; i++) {
 					usersPromises.push(serverRest.getUser({
 						server: server,
 						name: userNames[i]
@@ -1299,7 +1423,8 @@ module.exports.unshareFolder = function (argv, done) {
 			})
 			.then(function (results) {
 				var allUsers = [];
-				for (var i = 0; i < results.length; i++) {
+				var i;
+				for (i = 0; i < results.length; i++) {
 					if (results[i].items) {
 						allUsers = allUsers.concat(results[i].items);
 					}
@@ -1308,7 +1433,7 @@ module.exports.unshareFolder = function (argv, done) {
 				// verify users
 				for (var k = 0; k < userNames.length; k++) {
 					var found = false;
-					for (var i = 0; i < allUsers.length; i++) {
+					for (i = 0; i < allUsers.length; i++) {
 						if (allUsers[i].loginName.toLowerCase() === userNames[k].toLowerCase()) {
 							users.push(allUsers[i]);
 							found = true;
@@ -1332,9 +1457,11 @@ module.exports.unshareFolder = function (argv, done) {
 			.then(function (result) {
 				var existingMembers = result.data || [];
 				var revokePromises = [];
-				for (var i = 0; i < users.length; i++) {
-					var existingUser = false;
-					for (var j = 0; j < existingMembers.length; j++) {
+				var i, j;
+				var existingUser
+				for (i = 0; i < users.length; i++) {
+					existingUser = false;
+					for (j = 0; j < existingMembers.length; j++) {
 						if (users[i].id === existingMembers[j].id) {
 							existingUser = true;
 							break;
@@ -1352,9 +1479,9 @@ module.exports.unshareFolder = function (argv, done) {
 					}
 				}
 
-				for (var i = 0; i < groups.length; i++) {
-					var existingUser = false;
-					for (var j = 0; j < existingMembers.length; j++) {
+				for (i = 0; i < groups.length; i++) {
+					existingUser = false;
+					for (j = 0; j < existingMembers.length; j++) {
 						if (existingMembers[j].id === groups[i].groupID) {
 							existingUser = true;
 							break;
@@ -1398,7 +1525,7 @@ module.exports.unshareFolder = function (argv, done) {
 var _readFile = function (server, fFileGUID, fileName, folderPath) {
 	return new Promise(function (resolve, reject) {
 
-		url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data/';
+		var url = server.url + '/documents/api/1.2/files/' + fFileGUID + '/data/';
 
 		var options = {
 			url: url,
@@ -1694,7 +1821,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 
 		Promise.all(loginPromises).then(function (results) {
 			if (resourceFolder && (!results || results.length === 0 || !results[0].status)) {
-				console.error(result.statusMessage);
+				console.error(results[0].statusMessage);
 				return reject();
 			}
 
@@ -1760,9 +1887,10 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 				.then(function (results) {
 					// check if there is any failed file
 					var failedFiles = [];
+					var i;
 					_files.forEach(function (file) {
 						var downloaded = false;
-						for (var i = 0; i < results.length; i++) {
+						for (i = 0; i < results.length; i++) {
 							var downloadedFile = results[i];
 							if (downloadedFile && downloadedFile.id && downloadedFile.name && downloadedFile.data && downloadedFile.id === file.id) {
 								downloaded = true;
@@ -1784,7 +1912,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 								});
 							}
 						}
-						for (var i = 0; i < folderPath.length; i++) {
+						for (i = 0; i < folderPath.length; i++) {
 							targetPath = path.join(targetPath, folderPath[i]);
 							if (!fs.existsSync(targetPath)) {
 								fs.mkdirSync(targetPath, {
@@ -1794,7 +1922,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 						}
 					}
 
-					for (var i = 0; i < results.length; i++) {
+					for (i = 0; i < results.length; i++) {
 						var file = results[i];
 						if (file && file.id && file.name && file.data) {
 							var folderPathStr = serverUtils.trimString(file.folderPath, '/');
@@ -1807,7 +1935,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 							var fileFolderPath = folderPathStr ? folderPathStr.split('/') : [];
 							var targetFile = targetPath;
 							for (var j = 0; j < fileFolderPath.length; j++) {
-								var targetFile = path.join(targetFile, fileFolderPath[j]);
+								targetFile = path.join(targetFile, fileFolderPath[j]);
 								if (!fs.existsSync(targetFile)) {
 									fs.mkdirSync(targetFile, {
 										recursive: true
@@ -1847,7 +1975,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 							var fileFolderPath = folderPathStr ? folderPathStr.split('/') : [];
 							var targetFile = targetPath;
 							for (var j = 0; j < fileFolderPath.length; j++) {
-								var targetFile = path.join(targetFile, fileFolderPath[j]);
+								targetFile = path.join(targetFile, fileFolderPath[j]);
 								if (!fs.existsSync(targetFile)) {
 									fs.mkdirSync(targetFile, {
 										recursive: true
@@ -1990,8 +2118,9 @@ var _downloadFolderWithId = function (server, parentId, parentPath, excludeFolde
 				})
 				.then(function (results) {
 
+					var i;
 					if (results && results.length > 0) {
-						for (var i = 0; i < results.length; i++) {
+						for (i = 0; i < results.length; i++) {
 							// console.log(' - ' + i + ' offset: ' + results[i].offset + ' count: ' + results[i].count);
 							var items2 = results[i] && results[i].items;
 							if (items2.length > 0) {
@@ -2001,7 +2130,7 @@ var _downloadFolderWithId = function (server, parentId, parentPath, excludeFolde
 					}
 
 					var subfolderPromises = [];
-					for (var i = 0; i < items.length; i++) {
+					for (i = 0; i < items.length; i++) {
 						if (items[i].type === 'file') {
 							// console.log(' - file: id=' + items[i].id + ' path=' + parentPath + '/' + items[i].name);
 							_files.push({
@@ -2136,7 +2265,8 @@ var _uploadFolder = function (argv, server) {
 				}
 				// get all sub folders including empty ones
 				var subdirs = paths.dirs;
-				for (var i = 0; i < subdirs.length; i++) {
+				var i, j;
+				for (i = 0; i < subdirs.length; i++) {
 					var subdir = subdirs[i];
 					if (subdir.indexOf('_scs_theme_root_') < 0 && subdir.indexOf('_scs_design_name_') < 0) {
 						subdir = subdir.substring(srcPath.length + 1);
@@ -2150,10 +2280,10 @@ var _uploadFolder = function (argv, server) {
 				var files = paths.files;
 				console.info(' - total files: ' + files.length);
 				// group files under the same folder
-				for (var i = 0; i < files.length; i++) {
+				for (i = 0; i < files.length; i++) {
 					var src = files[i];
 					var excluded = false;
-					for (var j = 0; j < excludeFiles.length; j++) {
+					for (j = 0; j < excludeFiles.length; j++) {
 						if (src.indexOf(excludeFiles[j]) >= 0) {
 							excluded = true;
 							break;
@@ -2164,7 +2294,7 @@ var _uploadFolder = function (argv, server) {
 						var fileFolder = src.indexOf(path.sep) > 0 ? src.substring(0, src.lastIndexOf(path.sep)) : '';
 
 						var found = false;
-						for (var j = 0; j < folderContent.length; j++) {
+						for (j = 0; j < folderContent.length; j++) {
 							if (folderContent[j].fileFolder === fileFolder) {
 								found = true;
 								folderContent[j].files.push(files[i]);
@@ -2271,7 +2401,7 @@ var _uploadFolder = function (argv, server) {
 
 var _createFolderUploadFiles = function (server, rootParentId, folderPath, folderContent, rootParentFolderLabel) {
 	return new Promise(function (resolve, reject) {
-		format = '   %-8s  %-s';
+		var format = '   %-8s  %-s';
 		var uploadedFiles = [];
 		var doCreateFolders = folderContent.reduce(function (createPromise, param) {
 			return createPromise.then(function (result) {
@@ -2293,7 +2423,7 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 							console.info(sprintf(format, 'Folder', folderStr));
 						}
 
-						return _createAllFiles(server, rootParentFolderLabel, folders, parentFolder, param.files).then(function (files) {
+						return _createAllFiles(server, rootParentFolderLabel, folders, parentFolder, param.files, format).then(function (files) {
 							uploadedFiles = uploadedFiles.concat(files);
 						});
 					}
@@ -2310,7 +2440,7 @@ var _createFolderUploadFiles = function (server, rootParentId, folderPath, folde
 	});
 };
 
-var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFolder, files) {
+var _createAllFiles = function (server, rootParentFolderLabel, folders, parentFolder, files, format) {
 	return new Promise(function (resolve, reject) {
 		var total = files.length;
 		// console.log(' - total number of files to create: ' + total);
@@ -2465,7 +2595,6 @@ var _deleteFolder = function (argv, server, noMsg) {
 
 	return Promise.all(loginPromises).then(function (results) {
 		if ((resourceFolder || permanent) && (!results || results.length === 0 || !results[0].status)) {
-			console.error(result.statusMessage);
 			return Promise.reject();
 		}
 
@@ -2636,7 +2765,6 @@ var _deleteFile = function (argv, server, toReject, showMsg) {
 
 	return Promise.all(loginPromises).then(function (results) {
 		if ((resourceFolder || permanent) && (!results || results.length === 0 || !results[0].status)) {
-			console.error(result.statusMessage);
 			if (toReject) {
 				return Promise.reject();
 			} else {
@@ -2742,6 +2870,185 @@ var _deleteFile = function (argv, server, toReject, showMsg) {
 	}); // login
 };
 
+var _getFileVersions = function (server, id) {
+	return new Promise(function (resolve, reject) {
+		var versions = [];
+		var versionUrl = '/documents/integration?IdcService=FLD_FILE_REVISIONS&IsJson=1&item=fFileGUID:' + id;
+
+		serverRest.executeGet({
+			server: server,
+			endpoint: versionUrl,
+			noMsg: true
+		}).then(function (result) {
+			var data;
+			try {
+				data = JSON.parse(result);
+			} catch (e) {
+				data = result;
+			}
+			if (data && !data.err) {
+				versions = serverUtils.getIDCServiceResults(data.ResultSets, 'REVISIONS');
+			}
+			return resolve(versions);
+		});
+	});
+};
+
+module.exports.describeFile = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var filePath = argv.file;
+
+	var loginPromise = serverUtils.loginToServer(server);
+	loginPromise.then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var info = _getResourceInfo(server, filePath);
+		var resourceName = info.resourceName;
+		var resourceType = info.resourceType;
+		var folderResourcePromises = info.resourcePromises;
+		var resourceFolder = resourceName && resourceType;
+		if (resourceFolder) {
+			filePath = info.resourcePath;
+		}
+
+		var fileRootParentId = 'self';
+		var file;
+		var versions = [];
+		var activities = [];
+
+		Promise.all(folderResourcePromises)
+			.then(function (results) {
+				if (resourceFolder) {
+					var resourceGUID;
+					if (results.length > 0 && results[0]) {
+						resourceGUID = results[0].id;
+					}
+
+					if (!resourceGUID) {
+						console.error('ERROR: invalid ' + resourceType + ' ' + resourceName);
+						return Promise.reject();
+					}
+					fileRootParentId = resourceGUID;
+				}
+				console.log(' - file root parent ' + fileRootParentId);
+
+				return serverRest.findFolderHierarchy({
+					server: server,
+					parentID: fileRootParentId,
+					folderPath: filePath
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					console.error('ERROR: file ' + filePath + ' does not exist');
+					return Promise.reject();
+				}
+				console.info(' - verify source file ' + filePath);
+
+				file = result;
+
+				return _getFileVersions(server, file.id);
+
+			})
+			.then(function (result) {
+				versions = result || [];
+				// console.log(versions);
+
+				// get file activities
+				var activityUrl = '/documents/integration?IdcService=GET_ACTIVITY_HISTORY&IsJson=1&item=fFileGUID:' + file.id;
+				activityUrl = activityUrl + '&activityTypes=download&activityCount=1000';
+
+				return serverRest.executeGet({
+					server: server,
+					endpoint: activityUrl,
+					noMsg: true
+				});
+
+			})
+			.then(function (result) {
+
+				var data;
+				try {
+					data = JSON.parse(result);
+				} catch (e) {
+					data = result;
+				}
+				if (data && !data.err) {
+					activities = serverUtils.getIDCServiceResults(data.ResultSets, 'ActivityHistory');
+				}
+				// console.log(activities);
+
+				var format1 = '%-38s  %-s';
+				var format3 = '  %-7s  %-10s  %-22s  %-s';
+
+				var typeLabel = file.mimeType || '';
+				if (typeLabel && typeLabel.indexOf('/') > 0) {
+					typeLabel = typeLabel.substring(typeLabel.lastIndexOf('/') + 1);
+				}
+				console.log('');
+				console.log(sprintf(format1, 'Id', file.id));
+				console.log(sprintf(format1, 'Name', file.name));
+				console.log(sprintf(format1, 'Description', file.description || ''));
+				console.log(sprintf(format1, 'Size', file.size));
+				console.log(sprintf(format1, 'Version', 'v' + file.version));
+				console.log(sprintf(format1, 'Type', typeLabel));
+				console.log(sprintf(format1, 'Owner', file.ownedBy ? (file.ownedBy.displayName || file.ownedBy.loginName) : ''));
+				console.log(sprintf(format1, 'Created', file.createdTime + ' by ' + file.createdBy.displayName));
+				console.log(sprintf(format1, 'Updated', file.modifiedTime + ' by ' + file.modifiedBy.displayName));
+
+				if (activities.length > 0) {
+					console.log(sprintf(format1, 'Access History (' + activities.length + ')', ''));
+					console.log(sprintf(format3, 'Version', 'Action', 'Date', 'User'));
+					activities.forEach(function (act) {
+						console.log(sprintf(format3, 'v' + act.dRevLabel, act.dActivityType, act.dActivityTs, act.dNameFullName || act.dNameLoginName));
+					});
+				} else {
+					console.log(sprintf(format1, 'Access History', ''));
+				}
+
+				var format2 = '  %-32s  %-10s  %-10s  %-s';
+				if (versions.length > 0) {
+					console.log(sprintf(format1, 'Versions (' + versions.length + ')', ''));
+					console.log(sprintf(format2, 'Name', 'Version', 'Size', 'Date'));
+					versions.forEach(function (ver) {
+						var verLabel = file.createdTime === ver.fLastModifiedDate ? 'Created' : 'Updated';
+						verLabel = verLabel + ' ' + ver.fLastModifiedDate + ' by ' + ver.fCreatorFullName;
+						console.log(sprintf(format2, ver.fFileName, 'v' + ver.dRevLabel, ver.dFileSize, verLabel));
+					});
+				} else {
+					console.log(sprintf(format1, 'Versions', ''));
+				}
+
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.error(error);
+				}
+				done();
+			});
+
+	});
+};
+
 // export non "command line" utility functions
 module.exports.utils = {
 	findFolder: _findFolder,
@@ -2749,6 +3056,7 @@ module.exports.utils = {
 	downloadFolder: _downloadFolder,
 	deleteFolder: _deleteFolder,
 	downloadFile: _downloadFile,
+	getFile: _getFileContent,
 	uploadFile: _uploadFile,
 	deleteFile: _deleteFile
 };
