@@ -427,6 +427,45 @@ module.exports.getChildItems = function (args) {
 	return _getChildItems(args.server, args.parentID, args.limit, args.offset);
 };
 
+/**
+ * Get all child items from server under the given parent
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.parentID The DOCS GUID for the folder to search
+ * @returns {array} The array of data object returned by the server.
+ */
+module.exports.getAllChildItems = function (args) {
+	return new Promise(function (resolve, reject) {
+		var groups = [];
+		var limit = 10000;
+		// 10000 * 20 should be enough
+		for (var i = 1; i < 20; i++) {
+			groups.push(limit * i);
+		}
+
+		var childItems = [];
+
+		var doGetItems = groups.reduce(function (itemPromise, offset) {
+			return itemPromise.then(function (result) {
+				if (result && result.items && result.items.length > 0) {
+					childItems = childItems.concat(result.items);
+				}
+				if (result && result.hasMore === '1') {
+					return _getChildItems(args.server, args.parentID, limit, offset);
+				}
+			});
+		},
+			// Start with a previousPromise value that is a resolved promise
+			_getChildItems(args.server, args.parentID, limit));
+
+		doGetItems.then(function (result) {
+			// console.log(childItems.length);
+			resolve(childItems);
+		});
+	});
+};
+
+
 // Get folder metadata
 var _getFolderMetadata = function (server, folderId) {
 	return new Promise(function (resolve, reject) {

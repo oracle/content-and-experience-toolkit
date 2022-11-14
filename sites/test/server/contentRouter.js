@@ -66,7 +66,9 @@ var _returnSlugItems = function (res, slug) {
 							// add to the output
 							slugItems.push(slugJson);
 						}
-					} catch (e) { }
+					} catch (e) {
+						// unexpected
+					}
 				});
 			}
 		});
@@ -85,7 +87,7 @@ var _returnSlugItems = function (res, slug) {
 	}
 };
 
-_getItemFilesPath = function (contentdir) {
+var _getItemFilesPath = function (contentdir) {
 	return new Promise(function (resolve, reject) {
 		serverUtils.paths(path.join(contentdir, 'ContentItems'), function (err, paths) {
 			if (err) {
@@ -97,13 +99,15 @@ _getItemFilesPath = function (contentdir) {
 	});
 };
 
-_findItemBySlug = function (files, slug) {
+var _findItemBySlug = function (files, slug) {
 	var item;
 	for (var i = 0; i < files.length; i++) {
 		var slugJson;
 		try {
 			slugJson = JSON.parse(fs.readFileSync(files[i]));
-		} catch (e) { }
+		} catch (e) {
+			// handle invalid json
+		}
 
 		if (slugJson && slugJson.slug === slug) {
 			item = slugJson;
@@ -147,6 +151,10 @@ router.get('/*', (req, res) => {
 			return;
 		}
 		location = app.locals.serverURL + requestUrl;
+
+		// remove the local server's channel token 
+		location = serverUtils.replaceAll(location, '?channelToken=02a11b744a9828b6c08c832cc4efeaa4', '');
+		location = serverUtils.replaceAll(location, '&channelToken=02a11b744a9828b6c08c832cc4efeaa4', '');
 
 		// use management api 
 		if (app.locals.channelToken) {
@@ -200,6 +208,12 @@ router.get('/*', (req, res) => {
 				res.end();
 				return;
 			} else {
+				var data;
+				try {
+					data = JSON.parse(body);
+				} catch (e) {
+					// handle invalid json
+				}
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
 				console.log('ERROR: request failed : ' + msg);
 				res.writeHead(response.statusCode, {});
@@ -313,7 +327,7 @@ router.get('/*', (req, res) => {
 		}
 		if (q) {
 			var conds = q.indexOf(' and ') > 0 ? q.split(' and ') : [q];
-			for (var i = 0; i < conds.length; i++) {
+			for (let i = 0; i < conds.length; i++) {
 				var cond = conds[i];
 
 				cond = serverUtils.replaceAll(cond, '(', '');
@@ -323,7 +337,7 @@ router.get('/*', (req, res) => {
 
 				if (cond.indexOf(' or ') > 0) {
 					var orConds = cond.split(' or ');
-					for (var j = 0; j < orConds.length; j++) {
+					for (let j = 0; j < orConds.length; j++) {
 						var namevalue = orConds[j].split(' eq ');
 						if (namevalue && namevalue.length === 2 && namevalue[0] && namevalue[1]) {
 							if (namevalue[0] === 'id') {
@@ -342,7 +356,7 @@ router.get('/*', (req, res) => {
 					}
 
 				} else {
-					var namevalue = cond.split(' eq ');
+					let namevalue = cond.split(' eq ');
 					if (namevalue && namevalue.length === 2 && namevalue[0] && namevalue[1]) {
 						if (namevalue[0] === 'id') {
 							ids[ids.length] = serverUtils.replaceAll(namevalue[1], '"');
@@ -392,7 +406,7 @@ router.get('/*', (req, res) => {
 
 		if (ids && ids.length > 0) {
 			var items = [];
-			for (var i = 0; i < ids.length; i++) {
+			for (let i = 0; i < ids.length; i++) {
 				// find the item type from metadata.json
 				var itemType = getItemTypeFromMetadata(contentdir, ids[i]);
 				// console.log(' - item id: ' + id + ' type: ' + itemType);
@@ -401,13 +415,13 @@ router.get('/*', (req, res) => {
 					if (fs.existsSync(itemfile)) {
 						items[items.length] = JSON.parse(fs.readFileSync(itemfile));
 					} else {
-						console.error(' - item file ' + itemfiles + ' does not exist');
+						console.error(' - item file ' + itemfile + ' does not exist');
 					}
 				} else {
 					console.error(' - item type not found for ' + ids[i]);
 				}
 			}
-			for (var i = 0; i < items.length; i++) {
+			for (let i = 0; i < items.length; i++) {
 				if (!items[i].fields && items[i].data) {
 					items[i].fields = items[i].data;
 				}
@@ -419,8 +433,8 @@ router.get('/*', (req, res) => {
 				results.items = items;
 			} else {
 				var items2 = {};
-				for (var i = 0; i < items.length; i++) {
-					var id = items[i].id,
+				for (let i = 0; i < items.length; i++) {
+					let id = items[i].id,
 						data = items[i];
 					items2[id] = data;
 				}
@@ -434,7 +448,7 @@ router.get('/*', (req, res) => {
 		} else if (slug) {
 			return _returnSlugItems(res, slug);
 		} else if (contentItemTypes.length > 0) {
-			var items = [];
+			let items = [];
 			contentItemTypes.forEach(function (contentItemType) {
 				var itemsdir = path.join(contentdir, 'ContentItems', contentItemType);
 				if (fs.existsSync(itemsdir)) {
@@ -497,7 +511,7 @@ router.get('/*', (req, res) => {
 						if (qualified) {
 							// search fields
 							if (fieldName && fieldValue) {
-								var itemfieldvalue = data[fieldName];
+								let itemfieldvalue = data[fieldName];
 								if (itemfieldvalue && itemfieldvalue === fieldValue) {
 									if (!defaultValue || itemfieldvalue.toLowerCase().indexOf(defaultValue.toLowerCase()) >= 0) {
 										items[items.length] = itemjson;
@@ -541,7 +555,7 @@ router.get('/*', (req, res) => {
 						var fieldType = typeof items[0].fields[customOrderByField];
 						console.info(' - custom orderBy: field: ' + customOrderByField + '(' + fieldType + ') order: ' + customOrderByOrder);
 						if (fieldType === 'object') {
-							var byDate = items.slice(0);
+							let byDate = items.slice(0);
 							byDate.sort(function (a, b) {
 								var x = new Date(a.fields[customOrderByField] ? a.fields[customOrderByField].value : a.fields[customOrderByField].value);
 								var y = new Date(b.fields[customOrderByField] ? b.fields[customOrderByField].value : b.fields[customOrderByField].value);
@@ -568,7 +582,7 @@ router.get('/*', (req, res) => {
 
 
 			// check limit and offset
-			var total = items.length - offset,
+			let total = items.length - offset,
 				count = total < limit ? total : limit,
 				items2 = offset < items.length ? items.slice(offset, offset + count) : [],
 				hasMore = offset + count < items.length;
@@ -577,7 +591,7 @@ router.get('/*', (req, res) => {
 			} else {
 				console.info(' - returned items: ' + items.length);
 			}
-			var results = {
+			let results = {
 				hasMore: hasMore,
 				limit: items.length,
 				count: count,
@@ -601,7 +615,7 @@ router.get('/*', (req, res) => {
 		//
 		// handle item 
 		// 
-		var id = cntPath.substring(cntPath.indexOf('/items/') + 7),
+		let id = cntPath.substring(cntPath.indexOf('/items/') + 7),
 			ids = [],
 			isBulk = false;
 
@@ -615,12 +629,12 @@ router.get('/*', (req, res) => {
 
 		if (id === 'bulk') {
 			// get id from url parameters
-			var params = serverUtils.getURLParameters(cntURL.query);
+			let params = serverUtils.getURLParameters(cntURL.query);
 			ids = params.ids.split(',');
 			isBulk = true;
 		}
 
-		var language = '';
+		let language = '';
 		var langQuery = '/variations/language/';
 		if (cntPath.indexOf(langQuery) > 0) {
 			language = cntPath.substring(cntPath.indexOf(langQuery) + langQuery.length);
@@ -678,13 +692,13 @@ router.get('/*', (req, res) => {
 								if (!found && !itemHasVariationFile) {
 									var files = fs.readdirSync(path.join(contentdir, 'ContentItems', 'VariationSets'));
 									var vitemId = '';
-									for (var i = 0; i < files.length; i++) {
-										var variationfile = path.join(contentdir, 'ContentItems', 'VariationSets', files[i]);
-										var variationjson = JSON.parse(fs.readFileSync(variationfile));
+									for (let i = 0; i < files.length; i++) {
+										let variationfile = path.join(contentdir, 'ContentItems', 'VariationSets', files[i]);
+										let variationjson = JSON.parse(fs.readFileSync(variationfile));
 										var itemInVariation = false;
-										for (var k = 0; k < variationjson.length; k++) {
-											for (var j = 0; j < variationjson[k].items.length; j++) {
-												var vitem = variationjson[k].items[j];
+										for (let k = 0; k < variationjson.length; k++) {
+											for (let j = 0; j < variationjson[k].items.length; j++) {
+												let vitem = variationjson[k].items[j];
 												if (vitem.id === itemjson.id) {
 													itemInVariation = true;
 												}
@@ -699,7 +713,7 @@ router.get('/*', (req, res) => {
 									}
 									if (vitemId) {
 										console.info(' - found item in ' + language + '(cross variation set) id: ' + vitemId);
-										var variationitemfile = path.join(contentdir, 'ContentItems', itemType, vitemId + '.json');
+										let variationitemfile = path.join(contentdir, 'ContentItems', itemType, vitemId + '.json');
 										if (fs.existsSync(variationitemfile)) {
 											items.push(JSON.parse(fs.readFileSync(variationitemfile)));
 										}
@@ -724,7 +738,7 @@ router.get('/*', (req, res) => {
 					var results = {};
 					if (isBulk) {
 						var items2 = {};
-						for (var i = 0; i < items.length; i++) {
+						for (let i = 0; i < items.length; i++) {
 							var id = items[i].id,
 								data = items[i];
 							if (!items[i].fields && items[i].data) {
@@ -762,7 +776,7 @@ router.get('/*', (req, res) => {
 		// 
 		// handle digital assets
 		//
-		var prefix = cntPath.indexOf('/content/published/api/v1/digital-assets/') === 0 ? '/content/published/api/v1/digital-assets/' : '/content/published/api/v1.1/assets/',
+		let prefix = cntPath.indexOf('/content/published/api/v1/digital-assets/') === 0 ? '/content/published/api/v1/digital-assets/' : '/content/published/api/v1.1/assets/',
 			id;
 
 		id = cntPath.substring(prefix.length);
@@ -772,8 +786,8 @@ router.get('/*', (req, res) => {
 
 		var assetsdir;
 		var assetjsonfile;
-		var types = fs.readdirSync(path.join(contentdir, 'ContentItems'));
-		for (var i = 0; i < types.length; i++) {
+		let types = fs.readdirSync(path.join(contentdir, 'ContentItems'));
+		for (let i = 0; i < types.length; i++) {
 			if (types[i] !== 'VariationSets' && fs.existsSync(path.join(contentdir, 'ContentItems', types[i], id + '.json'))) {
 				assetsdir = path.join(contentdir, 'ContentItems', types[i]);
 				assetjsonfile = path.join(assetsdir, id + '.json');
@@ -801,25 +815,25 @@ router.get('/*', (req, res) => {
 		res.writeHead(200, {});
 		res.end();
 	} else if (cntPath === '/content/management/api/v1.1/types') {
-		var params = serverUtils.getURLParameters(cntURL.query),
+		let params = serverUtils.getURLParameters(cntURL.query),
 			limitstr = params.limit || '',
 			alltypes = serverUtils.getContentTypes(),
 			typenames = [],
 			types = [];
-		for (var i = 0; i < alltypes.length; i++) {
+		for (let i = 0; i < alltypes.length; i++) {
 			var type = alltypes[i].type;
 			if (typenames.length === 0 || typenames.indexOf(type.name) < 0) {
 				types[types.length] = type;
 				typenames[typenames.length] = type.name;
 			}
 		}
-		var limit = limitstr ? Number(limitstr) : 999999999999,
+		let limit = limitstr ? Number(limitstr) : 999999999999,
 			offset = 0,
 			total = types.length,
 			count = total < limit ? total : limit,
 			types2 = offset < types.length ? types.slice(offset, offset + count) : [],
 			hasMore = offset + count < types.length;
-		var results = {
+		let results = {
 			hasMore: hasMore,
 			limit: types.length,
 			count: count,
@@ -855,6 +869,22 @@ router.post('/*', (req, res) => {
 		console.error('No remote server for remote traffic ', requestUrl);
 		res.end();
 		return;
+	}
+
+	console.info('*** Content: ' + req.url);
+
+	console.info('   server channel token: ' + app.locals.channelToken);
+
+	// remove the local server's channel token 
+	requestUrl = serverUtils.replaceAll(requestUrl, '?channelToken=02a11b744a9828b6c08c832cc4efeaa4', '');
+	requestUrl = serverUtils.replaceAll(requestUrl, '&channelToken=02a11b744a9828b6c08c832cc4efeaa4', '');
+
+	if (app.locals.channelToken) {
+		if (requestUrl.indexOf('?') >= 0) {
+			requestUrl = requestUrl + '&channelToken=' + app.locals.channelToken;
+		} else {
+			requestUrl = requestUrl + '?channelToken=' + app.locals.channelToken;
+		}
 	}
 
 	// all POST requests are proxied to the remote server

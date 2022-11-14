@@ -190,6 +190,7 @@ app.post('/*', function (req, res) {
 		action === 'DIGITALASSET_UPDATED' ||
 		action === 'DIGITALASSET_DELETED' ||
 		action === 'DIGITALASSET_APPROVED' ||
+		action === 'DIGITALASSET_TRANSLATIONADDED' ||
 		action === 'CHANNEL_ASSETPUBLISHED' ||
 		action === 'CHANNEL_ASSETUNPUBLISHED' ||
 		action === 'SITE_STATUSUPDATED' ||
@@ -365,7 +366,8 @@ var _processEvent = function () {
 			action === 'CONTENTITEM_UPDATED' ||
 			action === 'CONTENTITEM_TRANSLATIONADDED' ||
 			action === 'DIGITALASSET_CREATED' ||
-			action == 'DIGITALASSET_UPDATED') {
+			action === 'DIGITALASSET_UPDATED' ||
+			action === 'DIGITALASSET_TRANSLATIONADDED') {
 
 			var repositoryId = event.entity.repositoryId;
 			args = {

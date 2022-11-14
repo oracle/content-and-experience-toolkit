@@ -15,6 +15,18 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.11.1
+
+**Added**
+
+- `cec sync-server` - support DIGITALASSET_TRANSLATIONADDED event
+
+**Updated**
+
+- local server can now use cached OAuth token and selected OCM channel token for asset requests
+
+
+
 # New in Release 22.10.1
 
 **Added**

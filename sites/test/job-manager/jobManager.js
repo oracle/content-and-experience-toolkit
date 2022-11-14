@@ -645,6 +645,8 @@ JobManager.prototype.compileJob = function (jobConfig) {
 						// status updated to faile - progress set to 100, since we can't recover and no additional steps will occur
 						self.updateStatus(jobConfig, 'FAILED', 100).then(function (updatedJobConfig) {
 							reject(updatedJobConfig);
+						}).catch(function (error) {
+							reject(error);
 						});
 					}
 				});
