@@ -18,53 +18,54 @@ router.get('/*', (req, res) => {
 		requestUrl = req.originalUrl;
 
 	if (app.locals.server.env !== 'dev_ec' && !app.locals.server.oauthtoken) {
-		console.error('No remote EC server access for remote traffic ', requestUrl);
+		console.error('No remote EC server access for remote traffic ' + requestUrl);
 		res.end();
 		return;
 	} else if (!app.locals.connectToServer) {
-		console.error('No remote server for remote traffic ', requestUrl);
+		console.error('No remote server for remote traffic ' + requestUrl);
 		res.end();
 		return;
 	}
 
+	console.info('^^^ Document: ' + req.url);
 
-	var options;
+	var options = {};
+	if (app.locals.server.oauthtoken) {
+		options['auth'] = {
+			bearer: app.locals.server.oauthtoken
+		};
+	} else {
+		options['auth'] = {
+			user: app.locals.server.username,
+			password: app.locals.server.password
+		};
+	}
 	// For embedded pages, rewrite url
 	if (requestUrl.indexOf('/documents/embed') > -1 || requestUrl.indexOf('/documents/ssoembed') > -1) {
 		requestUrl = app.locals.serverURL + requestUrl;
-		console.info('Remote traffic embed :', requestUrl);
-		options = {
-			url: requestUrl
-		};
-		if (app.locals.server.env !== 'dev_ec') {
-			options['auth'] = {
-				bearer: app.locals.server.oauthtoken
-			};
-		}
+		console.info('Remote traffic embed :' + requestUrl);
+		options.url = requestUrl;
+
 		req.pipe(request(options)).pipe(res);
+
 	} else {
 		if (requestUrl.indexOf('/content/published/api') > -1) {
 			// change to not use the published APIs which require access token
 			requestUrl = requestUrl.replace('/published/', '/management/');
 		}
 		location = app.locals.serverURL + requestUrl;
-		console.info('Remote traffic:' + location);
-		options = {
-			url: location
-		};
-		if (location.indexOf('8080') > 0) {
-			// external compute gemini
-			options['auth'] = {
-				user: app.locals.server.username,
-				password: app.locals.server.password
-			};
-		} else if (app.locals.server.env !== 'dev_ec') {
-			// external compute pod
-			options['auth'] = {
-				bearer: app.locals.server.oauthtoken
-			};
+
+		if (app.locals.server.env === 'dev_ec') {
+			location = location.replace('/web?', '/integration?');
+			if (location.indexOf('IsJson=1') < 0) {
+				location = location + '&IsJson=1';
+			}
 		}
 
+		console.info('Remote traffic: ' + location);
+		options.url = location;
+
+		// console.log(options);
 		request(options).on('response', function (response) {
 			// fix headers for cross-domain and capitalization issues
 			serverUtils.fixHeaders(response, res);
@@ -78,10 +79,11 @@ router.post('/*', (req, res) => {
 		requestUrl = req.originalUrl;
 
 	if (!app.locals.connectToServer) {
-		console.error('No remote server for remote traffic ', requestUrl);
+		console.error('No remote server for remote traffic ' + requestUrl);
 		res.end();
 		return;
 	}
+	console.info('^^^ Document: ' + req.url);
 
 	// all POST requests are proxied to the remote server
 	console.info('Remote traffic: POST ' + requestUrl);

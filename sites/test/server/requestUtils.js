@@ -11,11 +11,13 @@ const fs = require('fs');
 const fetch = require('node-fetch');
 const process = require('process');
 
+const CEC_OCM_APP_KEY = 'o:5a64a808220a4b1295fd80bc70531382';
+
 var fetchLog = function (message) {
 	if (process.env.FETCH_LOG === 'console') {
 		console.log(message);
 	} else if (process.env.FETCH_LOG) {
-		fs.appendFileSync(process.env.FETCH_LOG, message, {flag: 'a+'});
+		fs.appendFileSync(process.env.FETCH_LOG, message, { flag: 'a+' });
 	}
 }
 
@@ -48,6 +50,9 @@ var logResponseBody = function (request, response, body) {
 }
 
 var _get = function (options, callback) {
+	if (options.headers) {
+		options.headers['X-Oracle-Ocm-App-Key'] = CEC_OCM_APP_KEY;
+	}
 	logRequest(options);
 	var url = options.url;
 	return fetch(url, options)
@@ -72,6 +77,9 @@ var _get = function (options, callback) {
 };
 
 var _getStream = function (options, callback) {
+	if (options.headers) {
+		options.headers['X-Oracle-Ocm-App-Key'] = CEC_OCM_APP_KEY;
+	}
 	var url = options.url;
 	return fetch(url, options)
 		.then(function (response) {
@@ -91,6 +99,9 @@ var _getStream = function (options, callback) {
 };
 
 var _post = function (options, callback) {
+	if (options.headers) {
+		options.headers['X-Oracle-Ocm-App-Key'] = CEC_OCM_APP_KEY;
+	}
 	logRequest(options);
 	var url = options.url;
 	return fetch(url, options)

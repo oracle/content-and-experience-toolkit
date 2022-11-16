@@ -2906,7 +2906,7 @@ var _publishSiteInternal = function (server, siteId, siteName, usedContentOnly, 
 					body.LocalData.doCompilePublishOnly = true;
 				}
 				if (fullpublish) {
-					body.LocalData.type = 'full';
+					body.LocalData.doForceActivate = 1;
 				}
 				if (deletestaticfiles) {
 					body.LocalData.doPurgeSiteStaticFiles = true;
@@ -3489,7 +3489,7 @@ module.exports.deleteSite = function (argv, done) {
 /**
  * export site
  */
- module.exports.exportSite = function (argv, done) {
+module.exports.exportSite = function (argv, done) {
 	'use strict';
 
 	if (!verifyRun(argv)) {
@@ -4122,8 +4122,10 @@ module.exports.describeSite = function (argv, done) {
 		var site;
 		var siteMetadata;
 		var siteInfo;
+		var siteinfoJson;
 		var totalItems = 0;
 		var totalMasterItems = 0;
+		var pageTranslations = 0;
 		var format1 = '%-38s  %-s';
 
 		sitesRest.getSite({
@@ -4234,6 +4236,18 @@ module.exports.describeSite = function (argv, done) {
 					memberLabel = memberLabel + 'Viewer: ' + viewers;
 				}
 
+				var ownedBy = site.ownedBy ? (site.ownedBy.displayName || site.ownedBy.name) : '';
+				if (!ownedBy && site.ownedBy._error && site.ownedBy._error.identity) {
+					ownedBy = site.ownedBy._error.identity.id;
+				}
+				var createdBy = site.createdBy ? (site.createdBy.displayName || site.createdBy.name) : '';
+				if (!createdBy && site.createdBy._error && site.createdBy._error.identity) {
+					createdBy = site.createdBy._error.identity.id;
+				}
+				var lastModifiedBy = site.lastModifiedBy ? (site.lastModifiedBy.displayName || site.lastModifiedBy.name) : '';
+				if (!lastModifiedBy && site.lastModifiedBy._error && site.lastModifiedBy._error.identity) {
+					lastModifiedBy = site.lastModifiedBy._error.identity.id;
+				}
 				console.log('');
 				console.log(sprintf(format1, 'Id', site.id));
 				console.log(sprintf(format1, 'Name', site.name));
@@ -4241,10 +4255,10 @@ module.exports.describeSite = function (argv, done) {
 				console.log(sprintf(format1, 'Site URL', siteUrl));
 				console.log(sprintf(format1, 'Vanity domain', site.vanityDomain && site.vanityDomain.name ? site.vanityDomain.name : ''));
 				console.log(sprintf(format1, 'Embeddable site', site.isIframeEmbeddingAllowed));
-				console.log(sprintf(format1, 'Owner', site.ownedBy ? (site.ownedBy.displayName || site.ownedBy.name) : ''));
+				console.log(sprintf(format1, 'Owner', ownedBy));
 				console.log(sprintf(format1, 'Members', memberLabel));
-				console.log(sprintf(format1, 'Created', site.createdAt + ' by ' + (site.createdBy ? (site.createdBy.displayName || site.createdBy.name) : '')));
-				console.log(sprintf(format1, 'Updated', site.lastModifiedAt + ' by ' + (site.lastModifiedBy ? (site.lastModifiedBy.displayName || site.lastModifiedBy.name) : '')));
+				console.log(sprintf(format1, 'Created', site.createdAt + ' by ' + createdBy));
+				console.log(sprintf(format1, 'Updated', site.lastModifiedAt + ' by ' + lastModifiedBy));
 				console.log(sprintf(format1, 'Type', (site.isEnterprise ? 'Enterprise' : 'Standard')));
 				console.log(sprintf(format1, 'Template', site.templateName));
 				console.log(sprintf(format1, 'Theme', site.themeName));
@@ -4267,6 +4281,50 @@ module.exports.describeSite = function (argv, done) {
 				}
 
 				console.log(sprintf(format1, 'Updates', site.numberOfUpdates));
+
+				// get siteinfo.json
+				return serverRest.findFile({
+					server: server,
+					parentID: site.id,
+					filename: 'siteinfo.json',
+					itemtype: 'file'
+				});
+
+			})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+
+				return serverRest.readFile({
+					server: server,
+					fFileGUID: result.id
+				});
+
+			})
+			.then(function (result) {
+				siteinfoJson = result && result.properties;
+
+				// Get top level files
+				return serverRest.getAllChildItems({
+					server: server,
+					parentID: site.id
+				});
+
+			})
+			.then(function (result) {
+				if (result && result.length > 0) {
+					var localeFallbacks = siteinfoJson && siteinfoJson.localeFallbacks ? Object.keys(siteinfoJson.localeFallbacks) : [];
+					// console.log(localeFallbacks);
+					for (let i = 0; i < result.length; i++) {
+						if (result[i].type === 'file' && serverUtils.endsWith(result[i].name, '_structure.json')) {
+							pageTranslations += 1;
+						}
+					}
+					// console.log('pageTranslations: ' + pageTranslations + ' localeFallbacks: ' + localeFallbacks.length);
+					// remove local fallbacks
+					// pageTranslations = pageTranslations - localeFallbacks.length;
+				}
 
 				// get the number of pages
 				return serverRest.findFile({
@@ -4294,6 +4352,7 @@ module.exports.describeSite = function (argv, done) {
 				var pages = result && result.pages || [];
 
 				console.log(sprintf(format1, 'Total pages', pages.length));
+				console.log(sprintf(format1, 'Total page translations', pageTranslations));
 
 				if (site.isEnterprise) {
 					console.log(sprintf(format1, 'Total master items', totalMasterItems));

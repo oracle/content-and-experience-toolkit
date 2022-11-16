@@ -4388,7 +4388,7 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${compileSite.command}\n\n${compileSite.usage.long}`);
 		})
-	.command([deleteTemplate.command, deleteTemplate.alias], false,
+	.command([deleteTemplate.command], false,
 		(yargs) => {
 			yargs.option('server', {
 				alias: 's',
@@ -5892,7 +5892,7 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${unshareSite.command}\n\n${unshareSite.usage.long}`);
 		})
-	.command([deleteSite.command, deleteSite.alias], false,
+	.command([deleteSite.command], false,
 		(yargs) => {
 			yargs.option('server', {
 				alias: 's',
@@ -5985,34 +5985,34 @@ const argv = yargs.usage(_usage)
 				.usage(`Usage: cec ${setSiteSecurity.command}\n\n${setSiteSecurity.usage.long}`);
 		})
 	.command([exportSite.command, exportSite.alias], false,
-			(yargs) => {
-				yargs.option('folder', {
-					alias: 'f',
-					description: '<folder> Folder to export the site to'
-				})
-					.option('exportname', {
-						alias: 'e',
-						description: 'name of the export',
-					})
-					.option('includeunpublishedassets', {
-						alias: 'i',
-						description: 'flag to indicate to include unpublished content items and digital assets in the site'
-					})
-					.option('download', {
-						alias: 'd',
-						description: 'flag to indicate to download files of the exported site to local folder'
-					})
-					.option('server', {
-						alias: 's',
-						description: '<server> The registered OCM server'
-					})
-					.example(...exportSite.example[0])
-					.example(...exportSite.example[1])
-					.example(...exportSite.example[2])
-					.help(false)
-					.version(false)
-					.usage(`Usage: cec ${exportSite.command}\n\n${exportSite.usage.long}`);
+		(yargs) => {
+			yargs.option('folder', {
+				alias: 'f',
+				description: '<folder> Folder to export the site to'
 			})
+				.option('exportname', {
+					alias: 'e',
+					description: 'name of the export',
+				})
+				.option('includeunpublishedassets', {
+					alias: 'i',
+					description: 'flag to indicate to include unpublished content items and digital assets in the site'
+				})
+				.option('download', {
+					alias: 'd',
+					description: 'flag to indicate to download files of the exported site to local folder'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered OCM server'
+				})
+				.example(...exportSite.example[0])
+				.example(...exportSite.example[1])
+				.example(...exportSite.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${exportSite.command}\n\n${exportSite.usage.long}`);
+		})
 	.command([updateSite.command, updateSite.alias], false,
 		(yargs) => {
 			yargs.option('template', {
@@ -6326,7 +6326,7 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${downloadStaticSite.command}\n\n${downloadStaticSite.usage.long}`);
 		})
-	.command([deleteStaticSite.command, deleteStaticSite.alias], false,
+	.command([deleteStaticSite.command], false,
 		(yargs) => {
 			yargs.option('server', {
 				alias: 's',
@@ -6912,7 +6912,7 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${setEditorialRole.command}\n\n${setEditorialRole.usage.long}`);
 		})
-	.command([deleteEditorialRole.command, deleteEditorialRole.alias], false,
+	.command([deleteEditorialRole.command], false,
 		(yargs) => {
 			yargs.option('server', {
 				alias: 's',
@@ -7499,7 +7499,7 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${describeAsset.command}\n\n${describeAsset.usage.long}`);
 		})
-	.command([deleteAssets.command, deleteAssets.alias], false,
+	.command([deleteAssets.command], false,
 		(yargs) => {
 			yargs.option('channel', {
 				alias: 'c',
@@ -7985,7 +7985,7 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${uploadFolder.command}\n\n${uploadFolder.usage.long}`);
 		})
-	.command([deleteFolder.command, deleteFolder.alias], false,
+	.command([deleteFolder.command], false,
 		(yargs) => {
 			yargs.option('server', {
 				alias: 's',
@@ -8083,7 +8083,7 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${downloadFile.command}\n\n${downloadFile.usage.long}`);
 		})
-	.command([deleteFile.command, deleteFile.alias], false,
+	.command([deleteFile.command], false,
 		(yargs) => {
 			yargs.option('server', {
 				alias: 's',
@@ -8142,7 +8142,7 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${createGroup.command}\n\n${createGroup.usage.long}`);
 		})
-	.command([deleteGroup.command, deleteGroup.alias], false,
+	.command([deleteGroup.command], false,
 		(yargs) => {
 			yargs.option('server', {
 				alias: 's',
@@ -8849,6 +8849,7 @@ console.log(cmdStr + requiredParamStr + paramStr);
  * Command execution
  **********************/
 
+var startTime = new Date();
 
 var spawnCmd;
 
@@ -12424,6 +12425,13 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	});
 }
 
+var endTime = new Date();
+var timeDiff = endTime - startTime; //in ms
+// strip the ms
+timeDiff /= 1000;
+// get seconds
+var seconds = Math.round(timeDiff);
+console.log('Elapsed time: ' + seconds + 's');
 
 // see if need to show deprecation warning
 _checkVersion();

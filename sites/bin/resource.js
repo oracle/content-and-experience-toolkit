@@ -999,6 +999,11 @@ module.exports.describeBackgroundJob = function (argv, done) {
 									console.log(sprintf(jobFormat, 'Percentage', job.JobPercentage));
 									console.log(sprintf(jobFormat, 'Creator', (job.JobCreatorFullName || job.JobCreatorLoginName)));
 									console.log(sprintf(jobFormat, 'CreateDate', job.JobCreateDate));
+									console.log(sprintf(jobFormat, 'CompleteDate', job.JobCompleteDate));
+									var duration = job.JobCompleteDate ? serverUtils.timeUsed(new Date(job.JobCreateDate), new Date(job.JobCompleteDate)) :
+										job.JobStatus === 'PROCESSING' ? serverUtils.timeUsed(new Date(job.JobCreateDate), new Date()) : '';
+									console.log(sprintf(jobFormat, 'Time', duration));
+
 									if (job.ItemID) {
 										var label = serverUtils.capitalizeFirstChar(job.JobType);
 										console.log(sprintf(jobFormat, label + ' Id', job.ItemID));
@@ -1013,6 +1018,26 @@ module.exports.describeBackgroundJob = function (argv, done) {
 										}
 									}
 									console.log('');
+
+									var publishingJobPromises = [];
+									if (job.JobAction === 'publish' && job.JobType === 'site' && job.JobStatus !== 'COMPLETE') {
+										publishingJobPromises.push(_getPublishingSiteJobProgress(server, job.JobID));
+									}
+
+									return Promise.all(publishingJobPromises);
+
+								})
+								.then(function (results) {
+									if (job.JobAction === 'publish' && job.JobType === 'site' && job.JobStatus !== 'COMPLETE') {
+										var result = results && results[0] || {};
+										var publishingStatus = 'total: ' + result.total + '  completed: ' + result.completed + '  failed: ' + result.failed + '  queued: ' + result.queued;
+										console.log(sprintf(jobFormat, 'Publishing tasks', publishingStatus));
+										if (result.failures && result.failures.length > 0) {
+											console.log(result.failures);
+										}
+
+										console.log('');
+									}
 
 									done(true);
 									return;
@@ -1090,6 +1115,54 @@ module.exports.describeBackgroundJob = function (argv, done) {
 				}
 				done();
 			});
+	});
+};
+
+var _getPublishingSiteJobProgress = function (server, jobId) {
+	return new Promise(function (resolve, reject) {
+		var url = '/documents/integration?IdcService=SCS_DOWNLOAD_SITE_ITEM_JOB_LOG&IsJson=1&jobID=' + jobId;
+		serverRest.executeGet({
+			server: server,
+			endpoint: url,
+			noMsg: true
+		}).then(function (result) {
+			var data;
+			try {
+				data = JSON.parse(result);
+			} catch (e) {
+				data = result;
+			}
+			var info = {};
+			if (data && data.jobId) {
+				var tasks = data.tasks || [];
+				var pagesCompleted = 0;
+				var pagesQueued = 0;
+				var completed = 0;
+				var queued = 0;
+				var failed = 0;
+				var failures = [];
+				var queuedTasks = [];
+				tasks.forEach(function (task) {
+					if (task.taskStatus === 'FAILED') {
+						failed += 1;
+						failures.push(task);
+					} else if (task.taskStatus === 'COMPLETE') {
+						completed += 1;
+					} else {
+						queued += 1;
+					}
+				});
+				info = {
+					total: tasks.length,
+					completed: completed,
+					failed: failed,
+					queued: queued,
+					failures: failures
+				};
+			}
+
+			return resolve(info);
+		});
 	});
 };
 

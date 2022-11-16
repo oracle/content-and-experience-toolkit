@@ -102,86 +102,6 @@ app.use(function (req, res, next) {
 	return next();
 });
 
-// login if the session is timeout
-app.use(function (req, res, next) {
-	var needLogin = false,
-		reqpath = req.path,
-		remote = reqpath.indexOf('/documents') === 0 ||
-			reqpath.indexOf('/osn') === 0 ||
-			reqpath.indexOf('/content') === 0 ||
-			reqpath.indexOf('/_sitescloud/renderer/app/apps/js/ojL10n.js') === 0 ||
-			reqpath.indexOf('/_sitescloud/renderer/app/dist') === 0 ||
-			reqpath.indexOf('/_sitescloud/renderer/libs') === 0 ||
-			reqpath.indexOf('/renderer/app/sdk/images') === 0 ||
-			reqpath.indexOf('/renderer/app/sdk/css/app-settings.css') === 0 ||
-			reqpath.indexOf('/renderer/app/apps') === 0 ||
-			reqpath.indexOf('/renderer/app/js') === 0 ||
-			reqpath.indexOf('/getvbcsconnection') === 0 ||
-			reqpath.indexOf('/getcontentlayoutmappings') === 0;
-
-	if (app.locals.serverURL && remote) {
-		// check if the session still authenticated
-		// console.log('*** check if authenticated... path=' + reqpath);
-		request('http://localhost:' + port + '/isAuthenticated', {
-			isJson: true
-		}, function (err, response, body) {
-			if (response && response.statusCode === 200) {
-				var data = JSON.parse(body),
-					authenticated = data && data.isAuthenticated;
-				if (!authenticated) {
-					authenticateUser(
-						server.env, {
-						username: server.username,
-						password: server.password,
-						onsuccess: function () {
-							// make sure user session is established
-							console.info('Establishing user session');
-							var total = 0;
-							var inter = setInterval(function () {
-								// console.log(' - getting login user: ' + total);
-								var url = 'http://localhost:' + port + '/documents/web?IdcService=SCS_GET_TENANT_CONFIG';
-								request.get(url, function (err, response, body) {
-									var data = JSON.parse(body);
-									var dUser = data && data.LocalData && data.LocalData.dUser;
-									var idcToken = data && data.LocalData && data.LocalData.idcToken;
-									if (dUser && dUser !== 'anonymous' && idcToken) {
-										// console.log(' - dUser: ' + dUser + ' idcToken: ' + idcToken);
-										clearInterval(inter);
-										app.locals.connectToServer = true;
-										console.info('!!! the server is reconnected');
-										next();
-									}
-									total += 1;
-									if (total >= 10) {
-										clearInterval(inter);
-										console.info('Disconnected from the server');
-										next();
-									}
-								});
-							}, 6000);
-						},
-						onfailure: function (error, resp) {
-							console.error('Login to server failed - unexpected response from server');
-							next();
-						}
-					});
-				} else {
-					// session already authenticated
-					// console.log(' - the session is already authenticated');
-					next();
-				}
-			} else {
-				console.error('status=' + response.statusCode + ' err=' + err);
-				// continure without login
-				next();
-			}
-		});
-	} else {
-		// no need server
-		next();
-	}
-});
-
 app.use('/', express.static(testDir));
 app.use('/libs', express.static(libsDir));
 app.use('*require.js', express.static(libsDir + '/requirejs/require.js'));
@@ -760,6 +680,16 @@ if (!app.locals.serverURL) {
 }
 
 function authenticateUser(env, params) {
+	// Use this API to use cached token
+	serverUtils.loginToServer(app.locals.server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			params.onfailure.call(null, result.statusMessage);
+		} else {
+			params.onsuccess.apply();
+		}
+	});
+	/*
 	if (app.locals.server.env === 'dev_osso' && app.locals.server.oauthtoken) {
 		console.info('The OAuth token exists');
 		params.onsuccess.apply();
@@ -778,6 +708,7 @@ function authenticateUser(env, params) {
 			console.error('Unknown env type: ' + env);
 		}
 	}
+	*/
 }
 
 

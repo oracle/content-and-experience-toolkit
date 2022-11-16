@@ -5489,7 +5489,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 				return Promise.reject();
 			}
 
-			var expandStr = action === 'CONTENTITEM_TRANSLATIONADDED' ? 'channels,variations' : '';
+			var expandStr = action === 'CONTENTITEM_TRANSLATIONADDED' || action === 'DIGITALASSET_TRANSLATIONADDED' ? 'channels,variations' : '';
 			// Verify item
 			serverRest.getItem({
 				server: srcServer,
@@ -5503,7 +5503,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 					item = result;
 					console.info(' - validate item on source server: name: ' + item.name + ' (type: ' + item.type + ' id: ' + item.id + ' language: ' + item.language + ')');
 
-					if (action === 'CONTENTITEM_TRANSLATIONADDED') {
+					if (action === 'CONTENTITEM_TRANSLATIONADDED' || action === 'DIGITALASSET_TRANSLATIONADDED') {
 						masterItemId = item.variations && item.variations.data && item.variations.data[0] && item.variations.data[0].masterItem;
 						if (!masterItemId) {
 							console.log('ERROR: failed to find the master item');
@@ -5555,7 +5555,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 					console.info(' - validate repository on destination server: ' + destRepository.name + ' (id: ' + destRepository.id + ')');
 
 					var channelPromises = [];
-					if (action === 'CONTENTITEM_TRANSLATIONADDED' && srcChannelIds.length > 0) {
+					if ((action === 'CONTENTITEM_TRANSLATIONADDED' || action === 'DIGITALASSET_TRANSLATIONADDED') && srcChannelIds.length > 0) {
 						srcChannelIds.forEach(function (channelId) {
 							channelPromises.push(serverRest.getChannel({ server: srcServer, id: channelId }));
 						});
@@ -5567,7 +5567,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 				.then(function (results) {
 
 					var destChannelPromises = [];
-					if (action === 'CONTENTITEM_TRANSLATIONADDED' && srcChannelIds.length > 0) {
+					if ((action === 'CONTENTITEM_TRANSLATIONADDED' || action === 'DIGITALASSET_TRANSLATIONADDED') && srcChannelIds.length > 0) {
 						for (var i = 0; i < results.length; i++) {
 							if (results[i] && results[i].id && results[i].name) {
 								var channel = results[i];
@@ -5582,7 +5582,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 				})
 				.then(function (results) {
 
-					if (action === 'CONTENTITEM_TRANSLATIONADDED' && srcChannelIds.length > 0) {
+					if ((action === 'CONTENTITEM_TRANSLATIONADDED' || action === 'DIGITALASSET_TRANSLATIONADDED') && srcChannelIds.length > 0) {
 						for (var i = 0; i < results.length; i++) {
 							if (results[i] && results[i].data && results[i].data.id && results[i].data.name) {
 								var channel = results[i].data;
@@ -5592,7 +5592,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 						}
 					}
 
-					var itemId = action === 'CONTENTITEM_TRANSLATIONADDED' ? masterItemId : id;
+					var itemId = action === 'CONTENTITEM_TRANSLATIONADDED' || action === 'DIGITALASSET_TRANSLATIONADDED' ? masterItemId : id;
 
 					return _syncExportItemFromSource(srcServer, itemId, item.name, filePath);
 				})
@@ -5621,7 +5621,7 @@ module.exports.syncCreateUpdateItem = function (argv, done) {
 						fileId: fileId,
 						repositoryId: destRepository.id
 					};
-					if (action === 'CONTENTITEM_TRANSLATIONADDED') {
+					if (action === 'CONTENTITEM_TRANSLATIONADDED' || action === 'DIGITALASSET_TRANSLATIONADDED') {
 						importArgs.reuse = true;
 						importArgs.channelIds = destChannelIds;
 					} else {

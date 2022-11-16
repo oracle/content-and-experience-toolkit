@@ -1020,7 +1020,7 @@ var _createPageIndexItem = function (server, repositoryId, contenttype, dataInde
 				}
 			});
 		} else {
-			console.error('ERROR: invalid parameters to create content item' + ' (ecid: ' + response.ecid + ')');
+			console.error('ERROR: invalid parameters to create content item');
 			return resolve({
 				err: 'err'
 			});
@@ -1031,7 +1031,7 @@ var _createPageIndexItem = function (server, repositoryId, contenttype, dataInde
 
 
 var _itemPublishInfo = function (server, itemId, pageName) {
-	infoPromise = new Promise(function (resolve, reject) {
+	var infoPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/content/management/api/v1.1/items/' + itemId + '/publishInfo';
 		var options = {
 			method: 'GET',
@@ -1056,7 +1056,9 @@ var _itemPublishInfo = function (server, itemId, pageName) {
 			var data;
 			try {
 				data = JSON.parse(body);
-			} catch (error) { }
+			} catch (error) {
+				// handle invalid json
+			}
 
 			if (response && (response.statusCode === 200 || response.statusCode === 201)) {
 				resolve({
@@ -1101,7 +1103,7 @@ var _unpublishPageIndexItems = function (server, itemIds, pageNames, locale, isM
 
 			var unpublishRequestPromise = [];
 			if (publishedItemIds.length > 0) {
-				for (var i = 0; i < publishedItemIds.length; i++) {
+				for (let i = 0; i < publishedItemIds.length; i++) {
 					var idx = itemIds.indexOf(publishedItemIds[i]);
 					publisedPageNames[i] = idx >= 0 && idx < pageNames.length ? pageNames[idx] : '';
 				}
@@ -1185,7 +1187,7 @@ var _updatePageIndexItem = function (server, dataIndex, locale, isMaster) {
 			};
 
 			serverUtils.showRequestOptions(postData);
-			
+
 			var request = require('../test/server/requestUtils.js').request;
 			request.post(postData, function (err, response, body) {
 				if (err) {
@@ -1327,11 +1329,11 @@ var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contentty
 
 			_pageIndexToUpdate = [];
 			_pageIndexToDelete = [];
-			for (var j = 0; j < existingPageIndex.length; j++) {
-				var found = false;
-				var item = existingPageIndex[j];
-				var fields = item.fields;
-				for (var i = 0; i < pageIndex.length; i++) {
+			for (let j = 0; j < existingPageIndex.length; j++) {
+				let found = false;
+				let item = existingPageIndex[j];
+				let fields = item.fields;
+				for (let i = 0; i < pageIndex.length; i++) {
 					if (fields && pageIndex[i].site === fields.site && pageIndex[i].pageid === fields.pageid) {
 						found = true;
 						break;
@@ -1360,7 +1362,7 @@ var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contentty
 
 			var deleteItemIds = [];
 			var deleteItemPageNames = [];
-			for (var i = 0; i < _pageIndexToDelete.length; i++) {
+			for (let i = 0; i < _pageIndexToDelete.length; i++) {
 				var itemId = _pageIndexToDelete[i].id;
 				var pageName = _pageIndexToDelete[i].fields.pagename;
 				deleteItemIds.push(itemId);
@@ -1371,7 +1373,7 @@ var _indexSiteOnServer = function (server, siteInfo, siteChannelToken, contentty
 			var itemIds = [];
 
 			var createNewPageIndexPromises = [];
-			for (var i = 0; i < _pageIndexToCreate.length; i++) {
+			for (let i = 0; i < _pageIndexToCreate.length; i++) {
 				createNewPageIndexPromises.push(
 					_createPageIndexItem(server, siteInfo.repositoryId, contenttype, i, locale, isMaster)
 				);
@@ -1770,7 +1772,7 @@ var _prepareData = function (server, site, contenttype, publish, done) {
 				var contentTypeNames = [];
 				var contentTypesPromise = [];
 				if (contentTypes.length > 0) {
-					for (var i = 0; i < contentTypes.length; i++) {
+					for (let i = 0; i < contentTypes.length; i++) {
 						if (contentTypes[i] !== contenttype) {
 							contentTypeNames.push(contentTypes[i]);
 							contentTypesPromise.push(serverRest.getContentType({
@@ -1856,7 +1858,7 @@ var _indexSiteWithLocale = function (server, site, contenttype, locale, isMaster
 
 				var promises = [];
 				// Content list queries
-				for (var i = 0; i < pageContentListQueries.length; i++) {
+				for (let i = 0; i < pageContentListQueries.length; i++) {
 					promises.push(_getPageContent(server, _siteChannelToken, pageContentListQueries[i].queryString, pageContentListQueries[i].pageId, 'list'));
 				}
 
@@ -1892,7 +1894,7 @@ var _indexSiteWithLocale = function (server, site, contenttype, locale, isMaster
 							var pageContent = _assignPageContent(pageData, _pageContentIds, items);
 							// console.log(pageContent);
 
-							pageIndex = _generatePageIndex(site, pages, pageData, pageContent, _contentTextFields);
+							let pageIndex = _generatePageIndex(site, pages, pageData, pageContent, _contentTextFields);
 							// console.log(pageIndex);
 							var indexSiteOnServerPromise = _indexSiteOnServer(server, _SiteInfo, _siteChannelToken, contenttype, pageIndex, locale, isMaster);
 							indexSiteOnServerPromise.then(function (values) {
@@ -1903,7 +1905,7 @@ var _indexSiteWithLocale = function (server, site, contenttype, locale, isMaster
 					} else {
 						// No content on the pages
 						console.info(' - no content on the pages');
-						pageIndex = _generatePageIndex(site, pages, pageData, []);
+						let pageIndex = _generatePageIndex(site, pages, pageData, []);
 						var indexSiteOnServerPromise = _indexSiteOnServer(server, _SiteInfo, _siteChannelToken, contenttype, pageIndex, locale, isMaster);
 						indexSiteOnServerPromise.then(function (values) {
 							return resolve(values);
@@ -1943,7 +1945,7 @@ var _indexSite = function (server, site, contenttype, publish, done) {
 					locales.push(_requiredLangs[i]);
 				}
 			}
-			for (var i = 0; i < _optionalLangs.length; i++) {
+			for (let i = 0; i < _optionalLangs.length; i++) {
 				if (_optionalLangs[i] !== _SiteInfo.defaultLanguage) {
 					locales.push(_optionalLangs[i]);
 				}
@@ -1953,7 +1955,7 @@ var _indexSite = function (server, site, contenttype, publish, done) {
 				// verify the site has the translation
 				//
 				var siteinfoPromises = [];
-				for (var i = 0; i < locales.length; i++) {
+				for (let i = 0; i < locales.length; i++) {
 					siteinfoPromises[i] = _getSiteInfoFile(server, locales[i], false);
 				}
 				var validLocales = [];
@@ -1978,7 +1980,7 @@ var _indexSite = function (server, site, contenttype, publish, done) {
 							});
 						} else {
 							var taskParams = [];
-							for (var i = 1; i < validLocales.length; i++) {
+							for (let i = 1; i < validLocales.length; i++) {
 								taskParams.push({
 									server: server,
 									site: site,
