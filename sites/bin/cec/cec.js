@@ -1795,6 +1795,7 @@ const createSiteMap = {
 				'Optionally specify -p to upload the site map to OCM server after creation. ' +
 				'Optionally specify -c <changefreq> to define how frequently the page is likely to change. ' +
 				'Optionally specify -t <toppagepriority> as the priority for the top level pages. ' +
+				'Optionally specify -m to generate multiple sitemaps, one for each locale. ' +
 				'Also optionally specify <file> as the file name for the site map.' + os.EOL + os.EOL +
 				'The valid values for <format> are:' + os.EOL + os.EOL;
 			desc = getSiteMapFormats().reduce((acc, item) => acc + '  ' + item + '\n', desc) + os.EOL + os.EOL;
@@ -1815,6 +1816,7 @@ const createSiteMap = {
 		['cec create-site-map Site1 -u http://www.example.com/site1 -c weekly -p'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT', 'Generate URLs in default locale, de-DE and it-IT'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT -b', 'Generate URLs in de-DE and it-IT only'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -m', 'Generate multiple sitemaps, one for each locale'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -q "page1:querystring1,page2:querystring2"', 'Append query string querystring1 to page page1 and querystring2 to page page2'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -q "allquerystring,page1:querystring1"', 'Append query string querystring1 to page page1 and allquerystring to all other pages'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -q "allquerystring,page1:"', 'Append query string querystring all pages except page page1']
@@ -2366,6 +2368,21 @@ const updateType = {
 	]
 };
 
+const describeType = {
+	command: 'describe-type <name>',
+	alias: 'dstp',
+	name: 'describe-type',
+	usage: {
+		'short': 'Lists the properties of an asset type.',
+		'long': (function () {
+			let desc = 'Lists the properties of an asset type on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-type BlogType -s SampleServer1']
+	]
+};
 /** 
  * 2021-08-20 removed
 const createWordTemplate = {
@@ -3797,6 +3814,7 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(uploadType) + os.EOL +
 	_getCmdHelp(copyType) + os.EOL +
 	_getCmdHelp(updateType) + os.EOL +
+	_getCmdHelp(describeType) + os.EOL +
 	_getCmdHelp(describeWorkflow) + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
 	_getCmdHelp(addContentLayoutMapping) + os.EOL +
@@ -6140,6 +6158,10 @@ const argv = yargs.usage(_usage)
 					alias: 'q',
 					description: 'The comma separated list of query strings for page urls in format of <page name>:<query string>'
 				})
+				.option('multiple', {
+					alias: 'm',
+					description: 'Generate multiple sitemaps, one for each locale'
+				})
 				.check((argv) => {
 					if (!argv.url) {
 						throw new Error('Please specify site URL');
@@ -6169,6 +6191,7 @@ const argv = yargs.usage(_usage)
 				.example(...createSiteMap.example[11])
 				.example(...createSiteMap.example[12])
 				.example(...createSiteMap.example[13])
+				.example(...createSiteMap.example[14])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createSiteMap.command}\n\n${createSiteMap.usage.long}`);
@@ -7090,6 +7113,17 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadType.command}\n\n${uploadType.usage.long}`);
+		})
+	.command([describeType.command, describeType.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...describeType.example[0])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeType.command}\n\n${describeType.usage.long}`);
 		})
 	.command([describeWorkflow.command, describeWorkflow.alias], false,
 		(yargs) => {
@@ -10668,6 +10702,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createSiteMapArgs.push(...['--server', argv.server]);
 	}
+	if (argv.multiple) {
+		createSiteMapArgs.push(...['--multiple', argv.multiple]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createSiteMapArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -11253,6 +11290,21 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		updateTypeArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, updateTypeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeType.name || argv._[0] === describeType.alias) {
+	let describeTypeArgs = ['run', '-s', describeType.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeTypeArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, describeTypeArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

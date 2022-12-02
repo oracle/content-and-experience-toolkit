@@ -528,7 +528,7 @@ app.get('/getvbcsconnection', function (req, res) {
 		return;
 	}
 	var location = app.locals.serverURL + '/documents/web?IdcService=AF_GET_APP_INFO_SIMPLE&dAppName=VBCS';
-	console.info('Remote traffic:', location);
+	console.info('Remote traffic: ' + location);
 	var options = {
 		isJson: true,
 		timeout: 1000

@@ -18,7 +18,7 @@ var express = require('express'),
 	path = require('path'),
 	readline = require('readline'),
 	puppeteer = require('puppeteer'),
-	semver = require('semver'),
+	sprintf = require('sprintf-js').sprintf,
 	url = require('url'),
 	_ = require('underscore'),
 	fileUtils = require('./fileUtils.js'),
@@ -691,6 +691,45 @@ var _clearOAuthToken = function (server) {
 			console.info(' - token cleared for server ' + serverName);
 		}
 	}
+};
+
+module.exports.displayContentLayoutMapping = function (mappings) {
+	// console.log(mappings);
+	console.log('');
+	var format = '   %-36s  %-40s  %-s';
+	console.log(sprintf(format, 'Layout Styles', 'Desktop Content Layout', 'Mobile Content Layout'));
+
+	var _displayOne = function (style) {
+		var desktopLayout = 'Default';
+		var mobileLayout = 'Same as Desktop';
+
+		for (var i = 0; i < mappings.length; i++) {
+			var mapping = mappings[i];
+			if (mapping.label === style) {
+				desktopLayout = mapping.formats && mapping.formats.desktop || desktopLayout;
+				mobileLayout = mapping.formats && mapping.formats.mobile || mobileLayout;
+			}
+		}
+		console.log(sprintf(format, style, desktopLayout, mobileLayout));
+	};
+
+	_displayOne('Default');
+	_displayOne('Content List Default');
+	_displayOne('Empty Content List Default');
+	_displayOne('Content Placeholder Default');
+
+	var ootbStyles = ['Default', 'Default|mobile',
+		'Content List Default', 'Content List Default|mobile',
+		'Empty Content List Default', 'Empty Content List Default|mobile',
+		'Content Placeholder Default', 'Content Placeholder Default|mobile'
+	];
+	for (var i = 0; i < mappings.length; i++) {
+		var style = mappings[i].label;
+		if (!ootbStyles.includes(style)) {
+			_displayOne(style);
+		}
+	}
+	console.log('');
 };
 
 /**

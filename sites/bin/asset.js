@@ -3,6 +3,8 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
+const e = require('express');
+
 
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
@@ -2288,6 +2290,119 @@ module.exports.copyType = function (argv, done) {
 	});
 };
 
+module.exports.describeType = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var name = argv.name;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		serverRest.getContentType({
+			server: server,
+			name: name,
+			expand: 'all'
+		})
+			.then(function (result) {
+				if (!result || result.err || !result.id) {
+					return Promise.reject();
+				}
+
+				var type = result;
+				// console.log(JSON.stringify(type, null, 4));
+
+				var allowSlug = type.properties.caas && type.properties.caas.slug && type.properties.caas.slug.enabled;
+				var allowForwardSlash = type.properties.caas && type.properties.caas.slug && type.properties.caas.slug['allow-forward-slash'];
+
+				var format1 = '%-38s  %-s';
+				console.log('');
+				console.log(sprintf(format1, 'Id', type.id));
+				console.log(sprintf(format1, 'Name', type.name));
+				console.log(sprintf(format1, 'Description', type.description || ''));
+				console.log(sprintf(format1, 'Category', type.typeCategory));
+				console.log(sprintf(format1, 'Created', type.createdDate.value + ' by ' + type.createdBy));
+				console.log(sprintf(format1, 'Updated', type.updatedDate.value + ' by ' + type.updatedBy));
+				console.log(sprintf(format1, 'Enable friendly item name for URL', allowSlug ? '√' : ''));
+				if (allowSlug) {
+					console.log(sprintf(format1, 'Allow forwad slash', allowForwardSlash ? '√' : ''));
+				}
+				if (allowSlug) {
+					console.log(sprintf(format1, 'Slug pattern', type.properties.caas.slug.pattern));
+				}
+
+				// fileds
+				console.log(sprintf(format1, 'Definition', ''));
+				var groups = type.properties.groups || [
+					{
+						title: 'Content Item Data Fields',
+						collapse: false
+					}
+				];
+				for (let i = 0; i < groups.length; i++) {
+					var group = groups[i];
+					var groupAttr = group.hidden ? 'Hidden' : (group.collapse ? 'Collapsed by default' : 'Expanded by default');
+					console.log(sprintf('  %-s', group.title + ' (' + groupAttr + ')'));
+
+					var fieldFormat = '    %-20s  %-40s  %-8s %-8s %-9s %-11s  %-s';
+					console.log(sprintf(fieldFormat, 'Type', 'Name', 'Required', 'Multiple', 'Do not', 'Inherit', 'Reference types'));
+					console.log(sprintf(fieldFormat, '', '', '', '', 'translate', 'from master', ''));
+					type.fields.forEach(function (field) {
+						if (field.settings && (!field.settings.hasOwnProperty('groupIndex') || field.settings.groupIndex === i)) {
+							let required = field.required ? '   √' : '';
+							let multiple = field.valuecount === 'list' ? '   √' : '';
+							let translation = field.properties && field.properties['caas-translation'] || {};
+							let notranslate = translation.hasOwnProperty('translate') && !translation.translate ? '   √' : '';
+							let inheritFromMaster = translation.hasOwnProperty('inheritFromMaster') && translation.inheritFromMaster ? '   √' : '';
+							let refTypes = field.hasOwnProperty('referenceType') ? (field.referenceType.type ? field.referenceType.types : 'DigitalAsset') : '';
+							console.log(sprintf(fieldFormat, field.datatype, field.name, required, multiple, notranslate, inheritFromMaster, refTypes));
+						}
+					});
+					console.log('');
+				}
+
+				// content layout mappings
+				console.log(sprintf(format1, 'Content Layout', ''));
+				serverUtils.displayContentLayoutMapping(type.layoutMapping.data);
+
+				console.log(sprintf(format1, 'Default preview layout', type.properties.previewLayout ? type.properties.previewLayout.layout : 'Content Form View'));
+				console.log(sprintf(format1, 'Content item editor', type.properties.customForms && type.properties.customForms.length > 0 ? type.properties.customForms : 'System Form'));
+
+				if (type.inplacePreview && type.inplacePreview.data && type.inplacePreview.data.length > 0) {
+					var previewFormat = '%-38s  %-30s  %-s';
+					console.log(sprintf(previewFormat, 'In-place content preview', 'Site', 'Page'));
+					type.inplacePreview.data.forEach(function (preview) {
+						console.log(sprintf(previewFormat, '', preview.siteName, preview.pageName));
+					});
+				}
+
+				console.log('');
+				done(true);
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
 
 module.exports.createCollection = function (argv, done) {
 	'use strict';
@@ -6288,6 +6403,32 @@ module.exports.describeAsset = function (argv, done) {
 					referencedByItems.forEach(function (refItem) {
 						console.log(sprintf(itemFormat, refItem.id, refItem.type, refItem.name));
 					});
+				}
+
+				if (item.taxonomies && item.taxonomies.data && item.taxonomies.data.length > 0) {
+					let catFormat = '  %-s';
+					console.log(sprintf(format1, 'Categories', ''));
+					let taxonomies = item.taxonomies.data;
+					// console.log(JSON.stringify(taxonomies, null, 4));
+					for (let i = 0; i < taxonomies.length; i++) {
+						let tax = taxonomies[i];
+						if (tax.categories && tax.categories.length > 0) {
+							for (let j = 0; j < tax.categories.length; j++) {
+								let cat = tax.categories[j];
+								console.log(sprintf(catFormat, tax.shortName + ' | ' + cat.name + ' (' + cat.apiName + ')', ''));
+
+								var nodeStr = '';
+								cat.nodes.forEach(function (node) {
+									if (nodeStr) {
+										nodeStr += ' > ';
+									}
+									nodeStr += node.name;
+								})
+								console.log(sprintf(catFormat, nodeStr));
+							}
+						}
+
+					}
 				}
 
 				console.log(sprintf(format1, 'Activity', ''));

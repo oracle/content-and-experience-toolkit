@@ -15,6 +15,25 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.11.2
+
+**Added**
+
+- `cec describe-type` - lists the properties of an asset type on an OCM server
+
+**Updated**
+
+- `cec create-site-map` - added option to create multiple sitemaps, one for each locale
+- `cec describe-asset` - now includes category info
+- `cec execute-post/execute-put/execute-delete` - now all support `/system` REST APIs
+- local server now has option to use local template resources for component requests
+
+**Fixed**
+
+- `cec create-site-map` - will now correctly handle fallback languages and locale aliases if defined
+
+
+
 # New in Release 22.11.1
 
 **Added**

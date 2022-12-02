@@ -888,7 +888,7 @@ router.post('/*', (req, res) => {
 	}
 
 	// all POST requests are proxied to the remote server
-	console.info('Remote traffic: POST ' + requestUrl);
+	console.info('Content Remote traffic: POST ' + requestUrl);
 
 	var server = app.locals.server;
 	var url = server.url + requestUrl;

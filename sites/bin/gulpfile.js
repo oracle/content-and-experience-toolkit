@@ -1700,7 +1700,7 @@ gulp.task('update-site', function (done) {
 /**
  * export site
  */
- gulp.task('export-site', function (done) {
+gulp.task('export-site', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.exportSite(argv, function (success) {
@@ -2051,6 +2051,19 @@ gulp.task('update-type', function (done) {
 		done();
 	}
 });
+
+/**
+ * Describe an asset type
+ */
+gulp.task('describe-type', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.describeType(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
 
 /**
  * Describe a workflow

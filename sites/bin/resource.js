@@ -3,6 +3,8 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
+const { end } = require('cheerio/lib/api/traversing.js');
+
 var serverUtils = require('../test/server/serverUtils.js'),
 	serverRest = require('../test/server/serverRest.js'),
 	sitesRest = require('../test/server/sitesRest.js'),
@@ -1699,38 +1701,44 @@ module.exports.executePost = function (argv, done) {
 	var endpoint = argv.endpoint;
 	var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
 	var isSites = endpoint.indexOf('/sites/management/api/') === 0;
+	var getToken = endpoint === '/system/api/v1/security/token';
 
 	var async = typeof argv.async === 'string' && argv.async.toLowerCase() === 'true';
 
-	serverUtils.loginToServer(server).then(function (result) {
-		if (!result.status) {
-			console.error(result.statusMessage);
-			done();
-			return;
-		}
+	var loginPromises = [];
+	if (!getToken) {
+		loginPromises.push(serverUtils.loginToServer(server));
+	}
 
-		serverRest.executePost({
-			server: server,
-			endpoint: endpoint,
-			body: body,
-			async: async
-		})
-			.then(function (result) {
-				if (result && result.err) {
-					done();
-				} else {
-					if (result) {
-						console.log('Result:');
-						console.log(JSON.stringify(result, null, 4));
-						if (output) {
-							fs.writeFileSync(output, JSON.stringify(result, null, 4));
-							console.log(' - result saved to ' + output);
+	Promise.all(loginPromises)
+		.then(function (results) {
+			if (!getToken && (!results || !results[0].status)) {
+				console.error(results[0].statusMessage);
+				done();
+				return;
+			}
+			serverRest.executePost({
+				server: server,
+				endpoint: endpoint,
+				body: body,
+				async: async
+			})
+				.then(function (result) {
+					if (result && result.err) {
+						done();
+					} else {
+						if (result) {
+							console.log('Result:');
+							console.log(JSON.stringify(result, null, 4));
+							if (output) {
+								fs.writeFileSync(output, JSON.stringify(result, null, 4));
+								console.log(' - result saved to ' + output);
+							}
 						}
+						done(true);
 					}
-					done(true);
-				}
-			});
-	});
+				});
+		});
 };
 
 module.exports.executePut = function (argv, done) {

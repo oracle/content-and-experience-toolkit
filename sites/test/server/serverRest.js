@@ -8386,8 +8386,6 @@ var _executeGetStream = function (server, endpoint, writer, noMsg) {
 			console.log(' - executing endpoint: ' + endpoint);
 		}
 
-		serverUtils.showRequestOptions(options);
-
 		var request = require('./requestUtils.js').request;
 		request.getStream(options, function (err, response, body) {
 			if (err) {
@@ -8445,6 +8443,7 @@ var _executePost = function (args) {
 		var showDetail = args.noMsg ? false : true;
 		var endpoint = args.endpoint;
 		var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
+		var isSystem = endpoint.indexOf('/system/api/') === 0;
 
 		var server = args.server;
 		var url = server.url + args.endpoint;
@@ -8456,6 +8455,8 @@ var _executePost = function (args) {
 		var caasTokenPromises = [];
 		if (isCAAS) {
 			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
+		} else if (isSystem) {
+			caasTokenPromises.push(serverUtils.getSystemCSRFToken(server));
 		}
 
 		Promise.all(caasTokenPromises)
@@ -8586,6 +8587,7 @@ module.exports.executePut = function (args) {
 	return new Promise(function (resolve, reject) {
 		var endpoint = args.endpoint;
 		var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
+		var isSystem = endpoint.indexOf('/system/api/') === 0;
 
 		var server = args.server;
 		var url = server.url + args.endpoint;
@@ -8594,6 +8596,8 @@ module.exports.executePut = function (args) {
 		var caasTokenPromises = [];
 		if (isCAAS) {
 			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
+		} else if (isSystem) {
+			caasTokenPromises.push(serverUtils.getSystemCSRFToken(server));
 		}
 
 		Promise.all(caasTokenPromises)

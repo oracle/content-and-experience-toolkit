@@ -232,7 +232,21 @@
 								});
 							}
 						} else {
-							// return the error response object to be handled by calling function
+							// body will contain the error message JSON
+							var error = body; 
+							try {
+								error = JSON.parse(body);
+							} catch (e) {}
+
+							// add to the response object for backwards compatibilty
+							response.debugError = {
+								'error': error,
+								'url': targetURL,
+								'status': responseStatus,
+								'message': response.statusMessage
+							};
+
+							// return the response object to be handled by calling function
 							reject(response);
 						}
 					});

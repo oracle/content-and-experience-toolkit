@@ -70,18 +70,26 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 		</div>
 	</div>
 	<div class="component-option">
-		<div class="contentoptions">
-		_devcs_local_content
-		_devcs_server_content
-		</div>
+		<div class="component-local-option">
+			<div class="themedesign">
+				<span>Templates</span>
+				_devcs_local_templates
+			</div>
+			
+			_devcs_local_content
 
-		<div class="themedesign">
-			<span>Theme Design</span>
-			_devcs_theme_designs
+			<div class="themedesign">
+				<span>Theme Design</span>
+				_devcs_theme_designs
+			</div>
+
+			<div class="class="themedesign"">
+				<span>Theme Resources</span>
+				_devcs_theme_resources
+			</div>
 		</div>
-		<div class="themeresources">
-			<span>Theme Resources</span>
-			_devcs_theme_resources
+		<div>
+			_devcs_server_content
 		</div>
 	</div>
 	<table border="1" width="100%">
@@ -493,13 +501,27 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 
 		_devcs_component_click_settings_func
 
+		var selectTemplate = function () {
+			// redirect to the selected theme
+			var template = document.getElementById("localtemplate").value;
+			console.log('select template: ' + template);
+
+			var newURL = window.location.href.replace(/\?.*/, '');
+			window.location.href = newURL + (template === 'none' ? '' : '?template=' + template);
+		};
 		var selectThemeResource = function () {
 			// redirect to the selected theme
 			var theme = document.getElementById("themeresource").value;
-			console.log('select theme: ' + theme);
+			var tempName = document.getElementById("localcontent").value;
+			console.log('select theme: ' + theme + ' current content: ' + tempName);
 
 			var newURL = window.location.href.replace(/\?.*/, '');
-			window.location.href = newURL + (theme === 'none' ? '' : '?theme=' + theme);
+			var sep = theme === 'none' ? '?' : '&';
+			newURL = newURL + (theme === 'none' ? '' : '?theme=' + theme);
+			if (tempName && tempName !== 'none') {
+				newURL += sep + 'content=' + tempName;
+			}
+			window.location.href = newURL;
 		};
 		var selectTheme = function () {
 			var theme = document.getElementById("themedesign").value;
@@ -547,9 +569,15 @@ Licensed under the Universal Permissive License v 1.0 as shown at http://oss.ora
 		};
 		var selectLocalContent = function () {
 			var tempName = document.getElementById("localcontent").value;
-			console.log('select template: ' + tempName);
+			var theme = document.getElementById("themeresource").value;
+			console.log('select content template: ' + tempName + ' current theme: ' + theme);
 			var newURL = window.location.href.replace(/\?.*/, '');
-			window.location.href = newURL + (tempName === 'none' ? '' : '?template=' + tempName);
+			var sep = tempName === 'none' ? '?' : '&';
+			newURL = newURL + (tempName === 'none' ? '' : '?content=' + tempName);
+			if (theme && theme !== 'none') {
+				newURL += sep + 'theme=' + theme;
+			}
+			window.location.href = newURL;
 			
 		};
 		var selectServerContent = function () {

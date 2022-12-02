@@ -1316,7 +1316,8 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 								process.stdout.write(os.EOL);
 							}
 							return resolve({
-								name: name
+								name: name,
+								id: jobId
 							});
 						} else {
 							if (console.showInfo()) {
