@@ -839,6 +839,20 @@ module.exports.downloadFileSave = function (args) {
 
 };
 
+/**
+ * Download file from server by URL and save to local
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.fFileGUID The DOCS GUID for the file to update
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+ module.exports.downloadByURLSave = function (args) {
+	var url = args.url;
+	var noMsg = true;
+	var writer = fs.createWriteStream(args.saveTo);
+	return _executeGetStream(args.server, url, writer, noMsg);
+};
+
 // Delete file from server
 var _deleteFile = function (server, fFileGUID, filePath) {
 	return new Promise(function (resolve, reject) {
@@ -6540,6 +6554,7 @@ var _getContentJobStatus = function (server, jobId, hideError, type) {
 				}
 				return resolve({
 					status: 'success',
+					type: type ? type : 'exportjobs',
 					data: data
 				});
 			} else {
@@ -6560,7 +6575,7 @@ var _getContentJobStatus = function (server, jobId, hideError, type) {
  * @returns {Promise.<object>} The data object returned by the server.
  */
 module.exports.getContentJobStatus = function (args) {
-	return _getContentJobStatus(args.server, args.jobId, args.hideError);
+	return _getContentJobStatus(args.server, args.jobId, args.hideError, args.type);
 };
 
 /**

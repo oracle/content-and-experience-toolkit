@@ -15,6 +15,16 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.12.1
+
+**Updated**
+
+- `cec create-site-map` - added option to include default locale in urls
+- `cec create-site-map` - added option to uses '/' for the root page path instead of any pageUrl value
+- `cec describe-site` - now also displays components/assets/types used on site pages
+- `cec describe-background-job` - add option to wait for job to finish if it is in process
+
+
 # New in Release 22.11.2
 
 **Added**

@@ -965,6 +965,8 @@ module.exports.describeBackgroundJob = function (argv, done) {
 
 	var jobId = argv.id.toString();
 
+	var wait = typeof argv.wait === 'string' && argv.wait.toLowerCase() === 'true';
+
 	serverUtils.loginToServer(server).then(function (result) {
 		if (!result.status) {
 			console.error(result.statusMessage);
@@ -974,7 +976,7 @@ module.exports.describeBackgroundJob = function (argv, done) {
 
 		var jobFormat = '  %-20s  %-s';
 		var job;
-		var jobData;
+
 		serverUtils.getBackgroundServiceJobStatus(server, '', jobId)
 			.then(function (result) {
 
@@ -983,101 +985,269 @@ module.exports.describeBackgroundJob = function (argv, done) {
 					job = result;
 					// console.log(job);
 
-					// get job data
-					serverUtils.getBackgroundServiceJobData(server, '', jobId)
-						.then(function (result) {
-							jobData = result;
-							// console.log(JSON.stringify(jobData, null, 4));
+					var jobData;
+					var item;
+					var publishJobData;
 
-							sitesRest.resourceExist({ server: server, type: job.JobType + 's', id: job.ItemID, showInfo: false })
-								.then(function (result) {
-									var item = result;
+					var sitePromises = [];
+					sitePromises.push(serverUtils.getBackgroundServiceJobData(server, '', jobId));
+					sitePromises.push(sitesRest.resourceExist({ server: server, type: job.JobType + 's', id: job.ItemID, showInfo: false }));
+					sitePromises.push(_getPublishingSiteJobProgress(server, job.JobID));
+
+					Promise.all(sitePromises)
+						.then(function (results) {
+							jobData = results && results[0];
+							item = results && results[1];
+							publishJobData = results && results[2] || {};
+
+							if ((job.JobStatus === 'PROCESSING' || job.JobStatus === 'QUEUED') && wait) {
+								console.log('');
+								console.log(sprintf(jobFormat, 'Id', job.JobID));
+								console.log(sprintf(jobFormat, 'Type', job.JobType));
+								if (job.ItemID) {
+									let label = serverUtils.capitalizeFirstChar(job.JobType);
+									console.log(sprintf(jobFormat, label + ' Id', job.ItemID));
+									if (item && item.id && item.name) {
+										console.log(sprintf(jobFormat, label + ' Name', item.name));
+									}
+								}
+								console.log(sprintf(jobFormat, 'Action', job.JobAction));
+
+								var inter = setInterval(function () {
+									process.stdout.write(sprintf(jobFormat, 'Processing ', job.JobPercentage + ' [' + serverUtils.timeUsed(new Date(job.JobCreateDate), new Date()) + '] ...'));
+									if (job.JobAction === 'publish' && job.JobType === 'site' && publishJobData) {
+										let publishingStatus = ' (tasks total: ' + publishJobData.total + '  completed: ' + publishJobData.completed + '  failed: ' + publishJobData.failed + '  queued: ' + publishJobData.queued + ')';
+										process.stdout.write(publishingStatus);
+									}
+									readline.cursorTo(process.stdout, 0);
+
+									sitePromises = [];
+									sitePromises.push(serverUtils.getBackgroundServiceJobStatus(server, '', jobId));
+									sitePromises.push(serverUtils.getBackgroundServiceJobData(server, '', jobId));
+									sitePromises.push(_getPublishingSiteJobProgress(server, job.JobID));
+									Promise.all(sitePromises)
+										.then(function (results) {
+											job = results && results[0];
+											jobData = results && results[1];
+											publishJobData = results && results[2] || {};
+
+											if (job.JobStatus === 'PROCESSING' || job.JobStatus === 'QUEUED') {
+												process.stdout.write(sprintf(jobFormat, 'Processing ', job.JobPercentage + ' [' + serverUtils.timeUsed(new Date(job.JobCreateDate), new Date()) + '] ...'));
+												if (job.JobAction === 'publish' && job.JobType === 'site' && publishJobData) {
+													let publishingStatus = ' (tasks total: ' + publishJobData.total + '  completed: ' + publishJobData.completed + '  failed: ' + publishJobData.failed + '  queued: ' + publishJobData.queued + ')';
+													process.stdout.write(publishingStatus);
+												}
+												readline.cursorTo(process.stdout, 0);
+											} else {
+												clearInterval(inter);
+												process.stdout.write(sprintf('%-100s', ' '));
+												readline.cursorTo(process.stdout, 0);
+												console.log(sprintf(jobFormat, 'Status', job.JobStatus));
+												console.log(sprintf(jobFormat, 'Percentage', job.JobPercentage));
+												console.log(sprintf(jobFormat, 'Creator', (job.JobCreatorFullName || job.JobCreatorLoginName)));
+												console.log(sprintf(jobFormat, 'CreateDate', job.JobCreateDate));
+												console.log(sprintf(jobFormat, 'CompleteDate', job.JobCompleteDate));
+												var duration = job.JobCompleteDate ? serverUtils.timeUsed(new Date(job.JobCreateDate), new Date(job.JobCompleteDate)) :
+													job.JobStatus === 'PROCESSING' ? serverUtils.timeUsed(new Date(job.JobCreateDate), new Date()) : '';
+												console.log(sprintf(jobFormat, 'Time', duration));
+
+												console.log(sprintf(jobFormat, 'Message', job.JobMessage));
+												if (jobData && jobData.LocalData) {
+													if (jobData.LocalData.compileServiceJobErrorMsg) {
+														console.log(sprintf(jobFormat, 'CompileServiceError', jobData.LocalData.compileServiceJobErrorMsg));
+													}
+												}
+												console.log('');
+
+												if (job.JobAction === 'publish' && job.JobType === 'site' && job.JobStatus !== 'COMPLETE' && publishJobData) {
+													var publishingStatus = 'total: ' + publishJobData.total + '  completed: ' + publishJobData.completed + '  failed: ' + publishJobData.failed + '  queued: ' + publishJobData.queued;
+													console.log(sprintf(jobFormat, 'Publishing tasks', publishingStatus));
+													if (publishJobData.failures && publishJobData.failures.length > 0) {
+														console.log(publishJobData.failures);
+													}
+
+													console.log('');
+												}
+											}
+
+										});
+
+								}, 6000);
+
+							} else {
+								console.log('');
+								console.log(sprintf(jobFormat, 'Id', job.JobID));
+								console.log(sprintf(jobFormat, 'Type', job.JobType));
+								if (job.ItemID) {
+									let label = serverUtils.capitalizeFirstChar(job.JobType);
+									console.log(sprintf(jobFormat, label + ' Id', job.ItemID));
+									if (item && item.id && item.name) {
+										console.log(sprintf(jobFormat, label + ' Name', item.name));
+									}
+								}
+								console.log(sprintf(jobFormat, 'Action', job.JobAction));
+								console.log(sprintf(jobFormat, 'Status', job.JobStatus));
+								console.log(sprintf(jobFormat, 'Percentage', job.JobPercentage));
+								console.log(sprintf(jobFormat, 'Creator', (job.JobCreatorFullName || job.JobCreatorLoginName)));
+								console.log(sprintf(jobFormat, 'CreateDate', job.JobCreateDate));
+								console.log(sprintf(jobFormat, 'CompleteDate', job.JobCompleteDate));
+								var duration = job.JobCompleteDate ? serverUtils.timeUsed(new Date(job.JobCreateDate), new Date(job.JobCompleteDate)) :
+									job.JobStatus === 'PROCESSING' ? serverUtils.timeUsed(new Date(job.JobCreateDate), new Date()) : '';
+								console.log(sprintf(jobFormat, 'Time', duration));
+
+								console.log(sprintf(jobFormat, 'Message', job.JobMessage));
+								if (jobData && jobData.LocalData) {
+									if (jobData.LocalData.compileServiceJobErrorMsg) {
+										console.log(sprintf(jobFormat, 'CompileServiceError', jobData.LocalData.compileServiceJobErrorMsg));
+									}
+								}
+								console.log('');
+
+								if (job.JobAction === 'publish' && job.JobType === 'site' && job.JobStatus !== 'COMPLETE' && publishJobData) {
+									var publishingStatus = 'total: ' + publishJobData.total + '  completed: ' + publishJobData.completed + '  failed: ' + publishJobData.failed + '  queued: ' + publishJobData.queued;
+									console.log(sprintf(jobFormat, 'Publishing tasks', publishingStatus));
+									if (publishJobData.failures && publishJobData.failures.length > 0) {
+										console.log(publishJobData.failures);
+									}
 
 									console.log('');
-									console.log(sprintf(jobFormat, 'Id', job.JobID));
-									console.log(sprintf(jobFormat, 'Type', job.JobType));
-									console.log(sprintf(jobFormat, 'Action', job.JobAction));
-									console.log(sprintf(jobFormat, 'Status', job.JobStatus));
-									console.log(sprintf(jobFormat, 'Percentage', job.JobPercentage));
-									console.log(sprintf(jobFormat, 'Creator', (job.JobCreatorFullName || job.JobCreatorLoginName)));
-									console.log(sprintf(jobFormat, 'CreateDate', job.JobCreateDate));
-									console.log(sprintf(jobFormat, 'CompleteDate', job.JobCompleteDate));
-									var duration = job.JobCompleteDate ? serverUtils.timeUsed(new Date(job.JobCreateDate), new Date(job.JobCompleteDate)) :
-										job.JobStatus === 'PROCESSING' ? serverUtils.timeUsed(new Date(job.JobCreateDate), new Date()) : '';
-									console.log(sprintf(jobFormat, 'Time', duration));
-
-									if (job.ItemID) {
-										var label = serverUtils.capitalizeFirstChar(job.JobType);
-										console.log(sprintf(jobFormat, label + ' Id', job.ItemID));
-										if (item && item.id && item.name) {
-											console.log(sprintf(jobFormat, label + ' Name', item.name));
-										}
-									}
-									console.log(sprintf(jobFormat, 'Message', job.JobMessage));
-									if (jobData && jobData.LocalData) {
-										if (jobData.LocalData.compileServiceJobErrorMsg) {
-											console.log(sprintf(jobFormat, 'CompileServiceError', jobData.LocalData.compileServiceJobErrorMsg));
-										}
-									}
-									console.log('');
-
-									var publishingJobPromises = [];
-									if (job.JobAction === 'publish' && job.JobType === 'site' && job.JobStatus !== 'COMPLETE') {
-										publishingJobPromises.push(_getPublishingSiteJobProgress(server, job.JobID));
-									}
-
-									return Promise.all(publishingJobPromises);
-
-								})
-								.then(function (results) {
-									if (job.JobAction === 'publish' && job.JobType === 'site' && job.JobStatus !== 'COMPLETE') {
-										var result = results && results[0] || {};
-										var publishingStatus = 'total: ' + result.total + '  completed: ' + result.completed + '  failed: ' + result.failed + '  queued: ' + result.queued;
-										console.log(sprintf(jobFormat, 'Publishing tasks', publishingStatus));
-										if (result.failures && result.failures.length > 0) {
-											console.log(result.failures);
-										}
-
-										console.log('');
-									}
-
-									done(true);
-									return;
-								});
+								}
+							}
+							done(true);
+							return;
 						});
 
+
 				} else {
-
+					//
 					// continue to check if it is content job
+					//
+					var jobPromises = [];
+					jobPromises.push(serverRest.getContentJobStatus({ server: server, jobId: jobId, hideError: true, type: 'importjobs' }));
+					jobPromises.push(serverRest.getContentJobStatus({ server: server, jobId: jobId, hideError: true, type: 'exportjobs' }));
+					jobPromises.push(serverRest.getContentImportJobResult({ server: server, jobId: jobId }));
 
-					serverRest.getContentJobStatus({ server: server, jobId: jobId, hideError: true })
-						.then(function (result) {
-							if (result && result.data && result.data.jobId === jobId) {
-								// console.log(JSON.stringify(result, null, 4));
-								// content import/export job
-								job = result.data;
+					Promise.all(jobPromises)
+						.then(function (results) {
+							var importJob = results && results[0] && results[0].data;
+							var exportJob = results && results[1] && results[1].data;
+							var importResults = results && results[2];
+							var jobAction = importResults && importResults.length > 0 ? 'import' : 'export';
+							var job = jobAction === 'import' ? importJob : exportJob;
 
-								var downloadLink = job.downloadLink && job.downloadLink[0] && job.downloadLink[0].href;
-								var jobAction = 'import/export';
-								console.log('');
-								console.log(sprintf(jobFormat, 'Id', job.jobId));
-								console.log(sprintf(jobFormat, 'Type', 'content'));
-								console.log(sprintf(jobFormat, 'Action', jobAction));
-								console.log(sprintf(jobFormat, 'Status', job.status));
-								if (downloadLink) {
-									console.log(sprintf(jobFormat, 'content file', downloadLink));
+							if (job && job.jobId === jobId) {
+								if (job.status === 'INPROGRESS' && wait) {
+									console.log('');
+									console.log(sprintf(jobFormat, 'Id', job.jobId));
+									console.log(sprintf(jobFormat, 'Type', 'content'));
+									console.log(sprintf(jobFormat, 'Action', jobAction));
+									var inter = setInterval(function () {
+										var percentage = jobAction === 'import' && importJob && importJob.hasOwnProperty('statusPercent') ? (importJob.statusPercent + ' ') : '';
+										process.stdout.write(sprintf(jobFormat, 'Processing ', percentage + ' [' + serverUtils.timeUsed(new Date(job.startedDate.value), new Date()) + '] ...'));
+										readline.cursorTo(process.stdout, 0);
+										// query again
+										jobPromises = [];
+										jobPromises.push(serverRest.getContentJobStatus({ server: server, jobId: jobId, hideError: true, type: 'importjobs' }));
+										jobPromises.push(serverRest.getContentJobStatus({ server: server, jobId: jobId, hideError: true, type: 'exportjobs' }));
+										jobPromises.push(serverRest.getContentImportJobResult({ server: server, jobId: jobId }));
+										Promise.all(jobPromises)
+											.then(function (results) {
+												importJob = results && results[0] && results[0].data;
+												exportJob = results && results[1] && results[1].data;
+												importResults = results && results[2];
+												job = jobAction === 'import' ? importJob : exportJob;
+												if (job.status === 'INPROGRESS') {
+													percentage = jobAction === 'import' && importJob && importJob.hasOwnProperty('statusPercent') ? (importJob.statusPercent + ' ') : '';
+													process.stdout.write(sprintf(jobFormat, 'Processing ', percentage + '[' + serverUtils.timeUsed(new Date(job.startedDate.value), new Date()) + '] ...'));
+													readline.cursorTo(process.stdout, 0);
+												} else {
+													clearInterval(inter);
+													console.log(sprintf(jobFormat, 'Status', job.status + '        '));
+
+													if (jobAction === 'import' && importJob && importJob.hasOwnProperty('statusPercent')) {
+														console.log(sprintf(jobFormat, 'Percentage', importJob.statusPercent));
+													}
+													console.log(sprintf(jobFormat, 'Creator', job.startedBy));
+													console.log(sprintf(jobFormat, 'CreateDate', job.startedDate && job.startedDate.value));
+													if (jobAction === 'export' && exportJob && exportJob.summary) {
+														if (exportJob.summary.contentItems) {
+															console.log(sprintf(jobFormat, 'Exported items', exportJob.summary.contentItems.length));
+														}
+													}
+													if (importResults && importResults.length > 0) {
+														var importedItems = [];
+														importResults.forEach(function (entry) {
+															if (entry.status === 'SUCCESS') {
+																var rows = entry.rows || [];
+																for (var i = 0; i < rows.length; i++) {
+																	if (rows[i].type === 'Item' && rows[i].copyId && !importedItems.includes(rows[i].copyId)) {
+																		importedItems.push(rows[i].copyId);
+																	}
+																}
+															}
+														});
+														console.log(sprintf(jobFormat, 'Imported items', importedItems.length));
+													}
+													let downloadLink = exportJob && exportJob.downloadLink && exportJob.downloadLink[0] && exportJob.downloadLink[0].href;
+													if (downloadLink) {
+														console.log(sprintf(jobFormat, 'content file', downloadLink));
+													}
+													if (job.errorDescription) {
+														console.log(sprintf(jobFormat, 'Message', job.errorDescription));
+													}
+
+													console.log('');
+												}
+											});
+									}, 6000);
+
+								} else {
+									console.log('');
+									console.log(sprintf(jobFormat, 'Id', job.jobId));
+									console.log(sprintf(jobFormat, 'Type', 'content'));
+									console.log(sprintf(jobFormat, 'Action', jobAction));
+									console.log(sprintf(jobFormat, 'Status', job.status));
+
+									if (jobAction === 'import' && importJob && importJob.hasOwnProperty('statusPercent')) {
+										console.log(sprintf(jobFormat, 'Percentage', importJob.statusPercent));
+									}
+									console.log(sprintf(jobFormat, 'Creator', job.startedBy));
+									console.log(sprintf(jobFormat, 'CreateDate', job.startedDate && job.startedDate.value));
+									if (jobAction === 'export' && exportJob && exportJob.summary) {
+										if (exportJob.summary.contentItems) {
+											console.log(sprintf(jobFormat, 'Exported items', exportJob.summary.contentItems.length));
+										}
+									}
+									if (importResults && importResults.length > 0) {
+										var importedItems = [];
+										importResults.forEach(function (entry) {
+											if (entry.status === 'SUCCESS') {
+												var rows = entry.rows || [];
+												for (var i = 0; i < rows.length; i++) {
+													if (rows[i].type === 'Item' && rows[i].copyId && !importedItems.includes(rows[i].copyId)) {
+														importedItems.push(rows[i].copyId);
+													}
+												}
+											}
+										});
+										console.log(sprintf(jobFormat, 'Imported items', importedItems.length));
+									}
+									let downloadLink = exportJob && exportJob.downloadLink && exportJob.downloadLink[0] && exportJob.downloadLink[0].href;
+									if (downloadLink) {
+										console.log(sprintf(jobFormat, 'content file', downloadLink));
+									}
+									if (job.errorDescription) {
+										console.log(sprintf(jobFormat, 'Message', job.errorDescription));
+									}
+
+									console.log('');
 								}
-								// console.log(sprintf(jobFormat, 'Percentage', job.JobPercentage));
-								console.log(sprintf(jobFormat, 'Creator', job.startedBy));
-								console.log(sprintf(jobFormat, 'CreateDate', job.startedDate && job.startedDate.value));
-								if (job.errorDescription) {
-									console.log(sprintf(jobFormat, 'Message', job.errorDescription));
-								}
-								console.log('');
 								done(true);
 
 							} else {
+								//
 								// content async bulk op
+								//
 								serverRest.getItemOperationStatus({ server: server, statusId: jobId, hideError: true })
 									.then(function (result) {
 										if (result && result.id === jobId) {
@@ -1086,22 +1256,63 @@ module.exports.describeBackgroundJob = function (argv, done) {
 											var operations = job.result && job.result.body && job.result.body.operations;
 											var jobAction = operations ? Object.keys(operations) : '';
 
-											console.log('');
-											console.log(sprintf(jobFormat, 'Id', job.id));
-											console.log(sprintf(jobFormat, 'Type', 'bulk items operation'));
-											console.log(sprintf(jobFormat, 'Operation', jobAction));
-											console.log(sprintf(jobFormat, 'Status', job.progress));
-											console.log(sprintf(jobFormat, 'Percentage', job.completedPercentage));
-											console.log(sprintf(jobFormat, 'StartTime', job.startTime && job.startTime.value));
-											console.log(sprintf(jobFormat, 'EndTime', job.endTime && job.endTime.value || ''));
-											console.log(sprintf(jobFormat, 'Message', job.message));
-											if (job.error && job.error.detail) {
-												console.log(sprintf(jobFormat, 'Error', job.error.detail));
+											if (job.progress === 'processing' && wait) {
+												console.log('');
+												console.log(sprintf(jobFormat, 'Id', job.id));
+												console.log(sprintf(jobFormat, 'Type', 'bulk items operation'));
+												var inter = setInterval(function () {
+													process.stdout.write(sprintf(jobFormat, 'Processing ', job.completedPercentage + ' [' + serverUtils.timeUsed(new Date(job.startTime.value), new Date()) + '] ...'));
+													readline.cursorTo(process.stdout, 0);
+													serverRest.getItemOperationStatus({ server: server, statusId: jobId, hideError: true })
+														.then(function (result) {
+															let job = result;
+															if (job.progress === 'processing') {
+																process.stdout.write(sprintf(jobFormat, 'Processing ', job.completedPercentage + ' [' + serverUtils.timeUsed(new Date(job.startTime.value), new Date()) + '] ...'));
+																readline.cursorTo(process.stdout, 0);
+															} else {
+																clearInterval(inter);
+																operations = job.result && job.result.body && job.result.body.operations;
+																jobAction = operations ? Object.keys(operations) : '';
+																console.log(sprintf(jobFormat, 'Operation', jobAction + '             '));
+																console.log(sprintf(jobFormat, 'Status', job.progress));
+																console.log(sprintf(jobFormat, 'Percentage', job.completedPercentage));
+																console.log(sprintf(jobFormat, 'StartTime', job.startTime && job.startTime.value));
+																console.log(sprintf(jobFormat, 'EndTime', job.endTime && job.endTime.value || ''));
+																let duration = job.endTime && job.endTime.value ? serverUtils.timeUsed(new Date(job.startTime.value), new Date(job.endTime.value)) :
+																	job.startTime && job.startTime.value ? serverUtils.timeUsed(new Date(job.startTime.value), new Date()) : '';
+																console.log(sprintf(jobFormat, 'Time', duration));
+																console.log(sprintf(jobFormat, 'Message', job.message));
+																if (job.error && job.error.detail) {
+																	console.log(sprintf(jobFormat, 'Error', job.error.detail));
+																}
+																console.log('');
+															}
+														})
+												}, 6000);
+											} else {
+												console.log('');
+												console.log(sprintf(jobFormat, 'Id', job.id));
+												console.log(sprintf(jobFormat, 'Type', 'bulk items operation'));
+												console.log(sprintf(jobFormat, 'Operation', jobAction));
+												console.log(sprintf(jobFormat, 'Status', job.progress));
+												console.log(sprintf(jobFormat, 'Percentage', job.completedPercentage));
+												console.log(sprintf(jobFormat, 'StartTime', job.startTime && job.startTime.value));
+												console.log(sprintf(jobFormat, 'EndTime', job.endTime && job.endTime.value || ''));
+												let duration = job.endTime && job.endTime.value ? serverUtils.timeUsed(new Date(job.startTime.value), new Date(job.endTime.value)) :
+													job.startTime && job.startTime.value ? serverUtils.timeUsed(new Date(job.startTime.value), new Date()) : '';
+												console.log(sprintf(jobFormat, 'Time', duration));
+												console.log(sprintf(jobFormat, 'Message', job.message));
+												if (job.error && job.error.detail) {
+													console.log(sprintf(jobFormat, 'Error', job.error.detail));
+												}
+												console.log('');
 											}
-											console.log('');
 
 											done(true);
 										} else {
+											//
+											// invalid job id
+											//
 											console.error('ERROR: job not found');
 											done();
 										}

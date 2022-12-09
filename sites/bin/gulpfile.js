@@ -1710,6 +1710,18 @@ gulp.task('export-site', function (done) {
 });
 
 /**
+ * import site
+ */
+ gulp.task('import-site', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.importSite(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
  * Validate site
  */
 gulp.task('validate-site', function (done) {

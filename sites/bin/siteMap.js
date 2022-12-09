@@ -749,6 +749,7 @@ var _getQueryString = function (querystrings, name) {
 	return queryString;
 };
 
+
 /**
  * Generate site map XML file
  * 
@@ -756,7 +757,7 @@ var _getQueryString = function (querystrings, name) {
  * @param {*} pages 
  */
 var _generateSiteMapURLs = function (server, data, siteUrl, pages, pageFiles, items, typeItems, changefreq, toppagepriority,
-	newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale) {
+	newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale, defaultLocale, useDefaultSiteUrl) {
 
 	var prefix = siteUrl;
 	if (prefix.substring(prefix.length - 1) === '/') {
@@ -769,12 +770,21 @@ var _generateSiteMapURLs = function (server, data, siteUrl, pages, pageFiles, it
 	var urls = [];
 	var locales = [];
 	var months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+
+	var rootPageId;
+	for (let i = 0; i < pages.length; i++) {
+		if (pages[i].id && !pages[i].parentId) {
+			rootPageId = pages[i].id;
+			break;
+		}
+	}
+
 	//
 	// page urls
 	//
 	var pagePriority = [];
 	var addedPageUrls = [];
-	for (var i = 0; i < pages.length; i++) {
+	for (let i = 0; i < pages.length; i++) {
 		// console.log(pages[i]);
 		var pageId = pages[i].id;
 		var masterPageData = _getMasterPageData(data, pageId);
@@ -783,7 +793,7 @@ var _generateSiteMapURLs = function (server, data, siteUrl, pages, pageFiles, it
 		var isExternalLink = pages[i].linkUrl && pages[i].linkUrl.indexOf(server.url) < 0;
 		if (pages[i].pageUrl && !pages[i].isDetailPage && !noIndex && !isExternalLink) {
 
-			var includeLocale = pages[i].locale && pages[i].locale !== data.SiteInfo.defaultLanguage;
+			var includeLocale = pages[i].locale && (pages[i].locale !== data.SiteInfo.defaultLanguage || defaultLocale);
 
 			// find out last modified date
 			// var fileName = (includeLocale ? (pages[i].locale + '_') : '') + pages[i].id.toString() + '.json';
@@ -816,7 +826,8 @@ var _generateSiteMapURLs = function (server, data, siteUrl, pages, pageFiles, it
 			}
 
 			// console.log('page: ' + pages[i].id + ' parent: ' + pages[i].parentId + ' url: ' + pages[i].pageUrl + ' priority: ' + priority + ' lastmod: ' + lastmod);
-			var loc = pages[i].linkUrl || (prefix + '/' + (includeLocale ? (pages[i].locale + '/') : '') + pages[i].pageUrl);
+			let pageurl = pageId === rootPageId && useDefaultSiteUrl ? '' : pages[i].pageUrl;
+			var loc = pages[i].linkUrl || (prefix + '/' + (includeLocale ? (pages[i].locale + '/') : '') + pageurl);
 
 			// check query strings
 			queryString = _getQueryString(querystrings, pages[i].name);
@@ -844,7 +855,7 @@ var _generateSiteMapURLs = function (server, data, siteUrl, pages, pageFiles, it
 					}
 
 					// Add fallbacks if there are
-					if (pages[i].locale && pages[i].locale !== data.SiteInfo.defaultLanguage && data.SiteInfo.localeFallbacks) {
+					if (pages[i].locale && data.SiteInfo.localeFallbacks) {
 						Object.keys(data.SiteInfo.localeFallbacks).forEach(function (otherLocale) {
 							if (pages[i].locale === data.SiteInfo.localeFallbacks[otherLocale]) {
 								let otherLoc = serverUtils.replaceAll(loc, '/' + pages[i].locale + '/', '/' + otherLocale + '/');
@@ -918,7 +929,7 @@ var _generateSiteMapURLs = function (server, data, siteUrl, pages, pageFiles, it
 						if (detailPageAllowed && detailPageUrl) {
 							var detailPagePrefix = detailPageUrl.replace('.html', '');
 							var itemlanguage = item.language || items[i].locale;
-							var locale = itemlanguage && itemlanguage !== data.SiteInfo.defaultLanguage ? (itemlanguage + '/') : '';
+							var locale = itemlanguage && (itemlanguage !== data.SiteInfo.defaultLanguage || defaultLocale) ? (itemlanguage + '/') : '';
 							// trailing / is required
 							var url;
 							if (newlink) {
@@ -999,7 +1010,7 @@ var _generateSiteMapURLs = function (server, data, siteUrl, pages, pageFiles, it
 					var item = typeItem.items[i];
 					var detailPagePrefix = detailPageUrl.replace('.html', '');
 					var itemlanguage = typeItem.locale;
-					var locale = itemlanguage && itemlanguage !== data.SiteInfo.defaultLanguage ? (itemlanguage + '/') : '';
+					var locale = itemlanguage && (itemlanguage !== data.SiteInfo.defaultLanguage || defaultLocale) ? (itemlanguage + '/') : '';
 					// trailing / is required
 					var url;
 					if (newlink) {
@@ -1160,16 +1171,15 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 				data.siteId = result.id;
 
 				// get all site top level files
-				return serverRest.getChildItems({
+				return serverRest.getAllChildItems({
 					server: server,
-					parentID: data.siteId,
-					limit: 9999
+					parentID: data.siteId
 				});
 
 			})
 			.then(function (result) {
 
-				var siteTopItems = result && result.items || [];
+				var siteTopItems = result || [];
 				data.siteTopItems = siteTopItems;
 				console.log(' - site top level items: ' + siteTopItems.length);
 
@@ -1590,7 +1600,7 @@ var _setLocalAliases = function (aliases, urls) {
  */
 var _createSiteMap = function (server, serverName, site, siteUrl, format, changefreq,
 	publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink,
-	allTypes, wantedTypes, querystrings, noDefaultLocale, multiple, done) {
+	allTypes, wantedTypes, querystrings, noDefaultLocale, defaultLocale, multiple, useDefaultSiteUrl, done) {
 
 	//
 	// get site info and other metadata
@@ -1697,7 +1707,8 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 			//
 			// create site map
 			//
-			var siteMapData = _generateSiteMapURLs(server, data, siteUrl, allPages, allPageFiles, allItems, allTypeItems, changefreq, toppagepriority, newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale);
+			var siteMapData = _generateSiteMapURLs(server, data, siteUrl, allPages, allPageFiles, allItems, allTypeItems,
+				changefreq, toppagepriority, newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale, defaultLocale, useDefaultSiteUrl);
 
 			var urls = siteMapData.urls;
 			var locales = siteMapData.locales;
@@ -2014,6 +2025,8 @@ module.exports.createSiteMap = function (argv, done) {
 
 	var noDefaultLocale = typeof argv.nodefaultlocale === 'string' && argv.nodefaultlocale.toLowerCase() === 'true';
 
+	var defaultLocale = typeof argv.defaultlocale === 'string' && argv.defaultlocale.toLowerCase() === 'true';
+
 	var noDefaultDetailPageLink = typeof argv.noDefaultDetailPageLink === 'string' && argv.noDefaultDetailPageLink.toLowerCase() === 'true';
 
 	var languages = argv.languages ? argv.languages.split(',') : [];
@@ -2023,6 +2036,8 @@ module.exports.createSiteMap = function (argv, done) {
 	var querystrings = argv.querystrings ? argv.querystrings.split(',') : [];
 
 	var multiple = typeof argv.multiple === 'string' && argv.multiple.toLowerCase() === 'true';
+
+	var useDefaultSiteUrl = typeof argv.usedefaultsiteurl === 'string' && argv.usedefaultsiteurl.toLowerCase() === 'true';
 
 	var loginPromise = serverUtils.loginToServer(server);
 	loginPromise.then(function (result) {
@@ -2034,7 +2049,7 @@ module.exports.createSiteMap = function (argv, done) {
 
 		_createSiteMap(server, serverName, site, siteUrl, format, changefreq,
 			publish, siteMapFile, languages, toppagepriority, newlink, noDefaultDetailPageLink,
-			allTypes, wantedTypes, querystrings, noDefaultLocale, multiple, done);
+			allTypes, wantedTypes, querystrings, noDefaultLocale, defaultLocale, multiple, useDefaultSiteUrl, done);
 
 	}); // login
 };

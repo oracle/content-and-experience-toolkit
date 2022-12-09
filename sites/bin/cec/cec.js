@@ -1465,6 +1465,7 @@ const describeBackgroundJob = {
 	},
 	example: [
 		['cec describe-background-job 1481789277262'],
+		['cec describe-background-job 1481789277262 -w'],
 		['cec describe-background-job 2FB9BA33E626D2A20B4C2D07BD1D819C1657137578159 -s SampleServer1']
 	]
 };
@@ -1744,7 +1745,7 @@ const exportSite = {
 	usage: {
 		'short': 'Export Enterprise Site <name>.',
 		'long': (function () {
-			let desc = 'Export Enterprise Site on OCM server to a folder. Specify the server with -r <server> or use the one specified in cec.properties file. '
+			let desc = 'Export Enterprise Site on OCM server to a folder. Specify the server with -s <server> or use the one specified in cec.properties file. '
 			desc = desc + 'Specify the folder with -f <folder> and specify the export name with -n <export-name>. '
 			desc = desc + 'NOTE: This command is not available for production use.';
 			return desc;
@@ -1753,7 +1754,29 @@ const exportSite = {
 	example: [
 		['cec export-site Site1', 'Export Site1 as Site1 to home folder on the OCM server'],
 		['cec export-site Site1 -f Export -e Site1Export -i', 'Export Site1 and include unpublished assets as Site1Export to Export folder on the OCM server'],
-		['cec export-site Site1 -d', 'Export Site1 as Site1 to home folder on the OCM server and download the export folder to src/siteExport']
+		['cec export-site Site1 -d', 'Export Site1 as Site1 to home folder on the OCM server and download the export folder to src/siteExport/Site1'],
+		['cec export-site Site1 -d -p /dev/folder', 'Export Site1 as Site1 to home folder on the OCM server and download the export folder to /dev/folder']
+	]
+};
+
+const importSite = {
+	command: 'import-site <name>',
+	alias: 'ips',
+	name: 'import-site',
+	usage: {
+		'short': 'Import Enterprise Site <name>.',
+		'long': (function () {
+			let desc = 'Import site to OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. '
+			desc = desc + 'NOTE: This command is not available for production use.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec import-site Site1 -r repository', 'Import site in src/siteExport/Site1 to the OCM server'],
+		['cec import-site Site1 -r repository -p /dev/folder', 'Import site in /dev/folder to the OCM server'],
+		['cec import-site Site1 -e ImportName -r repository', 'Import src/siteExport/Site1 to the OCM server with ImportName as name'],
+		['cec import-site Site1 -a createOrUpdate -r repository', 'Import src/siteExport/Site1 to the OCM server with createOrUpdate assets policy'],
+		['cec import-site Site1 -t createOrUpdate -r repository', 'Import src/siteExport/Site1 to the OCM server with createOrUpdate theme custom components policy'],
 	]
 };
 
@@ -1816,7 +1839,9 @@ const createSiteMap = {
 		['cec create-site-map Site1 -u http://www.example.com/site1 -c weekly -p'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT', 'Generate URLs in default locale, de-DE and it-IT'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT -b', 'Generate URLs in de-DE and it-IT only'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -d', 'Include the default locale in the URLs'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -m', 'Generate multiple sitemaps, one for each locale'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -e', 'Uses \'/\' for the root page path instead of any pageUrl value'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -q "page1:querystring1,page2:querystring2"', 'Append query string querystring1 to page page1 and querystring2 to page page2'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -q "allquerystring,page1:querystring1"', 'Append query string querystring1 to page page1 and allquerystring to all other pages'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -q "allquerystring,page1:"', 'Append query string querystring all pages except page page1']
@@ -3753,6 +3778,7 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(copySite) + os.EOL +
 	_getCmdHelp(updateSite) + os.EOL +
 	// _getCmdHelp(exportSite) + os.EOL +
+	// _getCmdHelp(importSite) + os.EOL +
 	_getCmdHelp(transferSite) + os.EOL +
 	_getCmdHelp(transferSiteContent) + os.EOL +
 	_getCmdHelp(validateSite) + os.EOL +
@@ -5514,12 +5540,17 @@ const argv = yargs.usage(_usage)
 		})
 	.command([describeBackgroundJob.command, describeBackgroundJob.alias], false,
 		(yargs) => {
-			yargs.option('server', {
-				alias: 's',
-				description: 'The registered OCM server'
+			yargs.option('wait', {
+				alias: 'w',
+				description: 'Wait for the job to finish if the job is still in progress'
 			})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
 				.example(...describeBackgroundJob.example[0])
 				.example(...describeBackgroundJob.example[1])
+				.example(...describeBackgroundJob.example[2])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${describeBackgroundJob.command}\n\n${describeBackgroundJob.usage.long}`);
@@ -6020,6 +6051,10 @@ const argv = yargs.usage(_usage)
 					alias: 'd',
 					description: 'flag to indicate to download files of the exported site to local folder'
 				})
+				.option('path', {
+					alias: 'p',
+					description: 'path of the local folder for download'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -6027,9 +6062,52 @@ const argv = yargs.usage(_usage)
 				.example(...exportSite.example[0])
 				.example(...exportSite.example[1])
 				.example(...exportSite.example[2])
+				.example(...exportSite.example[3])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${exportSite.command}\n\n${exportSite.usage.long}`);
+		})
+	.command([importSite.command, importSite.alias], false,
+		(yargs) => {
+			yargs.option('repository', {
+					alias: 'r',
+					description: 'Repository name',
+					demandOption: true
+				})
+				.option('importname', {
+					alias: 'e',
+					description: 'name of the import',
+				})
+				.option('path', {
+					alias: 'p',
+					description: 'path of the local folder for upload'
+				})
+				.option('assetspolicy', {
+					alias: 'a',
+					description: 'assets policy: createOrUpdate (default), createOrUpdateIfOutdated, duplicate'
+				})
+				.option('themecustomcomponentspolicy', {
+					alias: 't',
+					description: 'theme custom components policy: createOrUpdate (default), duplicate'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered OCM server'
+				})
+				.check((argv) => {
+					if (!argv.repository) {
+						throw new Error('Please specify repository');
+					}
+					return true;
+				})
+				.example(...importSite.example[0])
+				.example(...importSite.example[1])
+				.example(...importSite.example[2])
+				.example(...importSite.example[3])
+				.example(...importSite.example[4])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${importSite.command}\n\n${importSite.usage.long}`);
 		})
 	.command([updateSite.command, updateSite.alias], false,
 		(yargs) => {
@@ -6107,7 +6185,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('url', {
 				alias: 'u',
-				description: '<url> Site URL',
+				description: 'Site URL',
 				demandOption: true
 			})
 				.option('format', {
@@ -6138,10 +6216,6 @@ const argv = yargs.usage(_usage)
 					alias: 't',
 					description: 'Priority for the top level pages, a decimal number between 0 and 1'
 				})
-				.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
 				.option('newlink', {
 					alias: 'n',
 					description: 'Generate new 19.3.3 detail page link'
@@ -6161,6 +6235,18 @@ const argv = yargs.usage(_usage)
 				.option('multiple', {
 					alias: 'm',
 					description: 'Generate multiple sitemaps, one for each locale'
+				})
+				.option('defaultlocale', {
+					alias: 'd',
+					description: 'Include default locale in the URLs'
+				})
+				.option('usedefaultsiteurl', {
+					alias: 'e',
+					description: 'Uses \'/\' for the root page path instead of any pageUrl value'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.url) {
@@ -6192,6 +6278,8 @@ const argv = yargs.usage(_usage)
 				.example(...createSiteMap.example[12])
 				.example(...createSiteMap.example[13])
 				.example(...createSiteMap.example[14])
+				.example(...createSiteMap.example[15])
+				.example(...createSiteMap.example[16])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createSiteMap.command}\n\n${createSiteMap.usage.long}`);
@@ -10167,6 +10255,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--id', argv.id
 	];
 
+	if (argv.wait) {
+		describeBackgroundJobArgsArgs.push(...['--wait', argv.wait]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeBackgroundJobArgsArgs.push(...['--server', argv.server]);
 	}
@@ -10621,7 +10712,39 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.download) {
 		exportSiteArgs.push(...['--download', argv.download]);
 	}
+	if (argv.path && typeof argv.path !== 'boolean') {
+		exportSiteArgs.push(...['--path', argv.path]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, exportSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === importSite.name || argv._[0] === importSite.alias) {
+	let importSiteArgs = ['run', '-s', importSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		importSiteArgs.push(...['--server', argv.server]);
+	}
+	if (argv.importname && typeof argv.importname !== 'boolean') {
+		importSiteArgs.push(...['--importname', argv.importname]);
+	}
+	if (argv.repository && typeof argv.repository !== 'boolean') {
+		importSiteArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.path && typeof argv.path !== 'boolean') {
+		importSiteArgs.push(...['--path', argv.path]);
+	}
+	if (argv.assetspolicy && argv.assetspolicy !== 'boolean') {
+		importSiteArgs.push(...['--assetspolicy', argv.assetspolicy]);
+	}
+	if (argv.themecustomcomponentspolicy && argv.themecustomcomponentspolicy !== 'boolean') {
+		importSiteArgs.push(...['--themecustomcomponentspolicy', argv.themecustomcomponentspolicy]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, importSiteArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -10704,6 +10827,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.multiple) {
 		createSiteMapArgs.push(...['--multiple', argv.multiple]);
+	}
+	if (argv.defaultlocale) {
+		createSiteMapArgs.push(...['--defaultlocale', argv.defaultlocale]);
+	}
+	if (argv.usedefaultsiteurl) {
+		createSiteMapArgs.push(...['--usedefaultsiteurl', argv.usedefaultsiteurl]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createSiteMapArgs, {
 		cwd,
