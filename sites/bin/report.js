@@ -817,7 +817,6 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 			.then(function (result) {
 				console.info(' - query items');
 				pageItems = result || [];
-
 				for (var i = 0; i < structurePages.length; i++) {
 					var page = structurePages[i];
 					if (page.contentitems) {
@@ -1364,11 +1363,11 @@ var _getSitePages = function (server, siteId) {
 		var pagesFolderId;
 		var structureFileId;
 		console.info(' - query site pages');
-		serverRest.getChildItems({
+		serverRest.getAllChildItems({
 			server: server,
 			parentID: siteId
 		}).then(function (result) {
-			var items = result && result.items || [];
+			var items = result || [];
 			for (var i = 0; i < items.length; i++) {
 				if (items[i].name === 'pages' && items[i].type === 'folder') {
 					pagesFolderId = items[i].id;

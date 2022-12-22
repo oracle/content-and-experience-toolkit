@@ -180,6 +180,7 @@ var getRepositoryActions = function () {
 	const actions = ['add-type', 'remove-type', 'add-channel', 'remove-channel', 'add-taxonomy', 'remove-taxonomy', 'add-language', 'remove-language',
 		'add-translation-connector', 'remove-translation-connector',
 		'add-role', 'remove-role',
+		'enable-not-ready', 'disable-not-ready'
 	];
 	return actions;
 };
@@ -1300,12 +1301,13 @@ const describeTaxonomy = {
 	usage: {
 		'short': 'Lists the properties of a taxonomy on OCM server.',
 		'long': (function () {
-			let desc = 'Lists the properties of a taxonomy on OCM server. Optionally specify -f <file> to save the properties to a JSON file. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Lists the properties of a taxonomy on OCM server. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. Optionally specify -f <file> to save the properties to a JSON file. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
 	example: [
 		['cec describe-taxonomy Taxonomy1 -s SampleServer1'],
+		['cec download-taxonomy Taxonomy1 -i 6A6DC736572C468B90F2A1C17B7CE5E4 -s SampleServer1'],
 		['cec describe-taxonomy Taxonomy1 -f ~/Docs/Taxonomy1.json -s SampleServer1']
 	]
 };
@@ -1978,6 +1980,23 @@ const migrateSite = {
 	]
 };
 
+const createSitePlan = {
+	command: 'create-site-plan <name>',
+	alias: 'csp',
+	name: 'create-site-plan',
+	usage: {
+		'short': 'Creates a site plan from a sitemap.',
+		'long': (function () {
+			let desc = 'Creates a site plan from a sitemap. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-site-plan Site1Plan -f Site1SiteMap.xml -r Repo1', 'Create a site plan based on the local sitemap file Site1SiteMap.xml'],
+		['cec create-site-plan Site1Plan -u http://www.example.com -r Repo1', 'Create a site plan based on http://www.example.com/sitemap.xml']
+	]
+};
+
 const migrateContent = {
 	command: 'migrate-content <name>',
 	alias: 'mc',
@@ -2063,7 +2082,8 @@ const controlRepository = {
 		['cec control-repository add-translation-connector -r Repo1 -n "Lingotek,My Lingotek Connector"'],
 		['cec control-repository remove-translation-connector -r Repo1 -n "Lingotek,My Lingotek Connector"'],
 		['cec control-repository add-role -r Repo1 -e EditorialRole1,EditorialRole2'],
-		['cec control-repository remove-role -r Repo1 -e EditorialRole1,EditorialRole2']
+		['cec control-repository remove-role -r Repo1 -e EditorialRole1,EditorialRole2'],
+		['cec control-repository enable-not-ready -r Repo1', 'Allow assets for which required fields contain defaults or missing values to be created in and added to this repository']
 	]
 };
 
@@ -3389,7 +3409,7 @@ const setOAuthToken = {
 	alias: 'sot',
 	name: 'set-oauth-token',
 	usage: {
-		'short': 'Set OAuth token for server.',
+		'short': 'Sets OAuth token for server.',
 		'long': (function () {
 			let desc = 'Set OAuth token for a registered server or the one specified in cec.properties file.';
 			return desc;
@@ -3398,6 +3418,23 @@ const setOAuthToken = {
 	example: [
 		['cec set-oauth-token token1 -s SampleServer1', 'Set OAuth token for server SampleServer1, all CLI commands using SampleServer1 will be headless'],
 		['cec set-oauth-token token1', 'Set OAuth token for the server specified in cec.properties file']
+	]
+};
+
+const refreshOAuthToken = {
+	command: 'refresh-oauth-token',
+	alias: 'rot',
+	name: 'refresh-oauth-token',
+	usage: {
+		'short': 'Gets a refresh OAuth token from server.',
+		'long': (function () {
+			let desc = ' Gets a fresh token from OCM server and save for a registered server or the one specified in cec.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec refresh-oauth-token  -s SampleServer1', 'Get a fresh OAuth token for server SampleServer1, all CLI commands using SampleServer1 will be headless'],
+		['cec refresh-oauth-token', 'Get a fresh OAuth token for the server specified in cec.properties file']
 	]
 };
 
@@ -3900,6 +3937,7 @@ _usage = _usage + os.EOL + 'Environment' + os.EOL +
 	_getCmdHelp(createEncryptionKey) + os.EOL +
 	_getCmdHelp(registerServer) + os.EOL +
 	_getCmdHelp(setOAuthToken) + os.EOL +
+	_getCmdHelp(refreshOAuthToken) + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
 	_getCmdHelp(executeGet) + os.EOL +
 	_getCmdHelp(executePost) + os.EOL +
@@ -5361,16 +5399,21 @@ const argv = yargs.usage(_usage)
 		})
 	.command([describeTaxonomy.command, describeTaxonomy.alias], false,
 		(yargs) => {
-			yargs.option('file', {
-				alias: 'f',
-				description: 'The JSON file to save the properties'
+			yargs.option('id', {
+				alias: 'i',
+				description: 'Taxonomy Id'
 			})
+				.option('file', {
+					alias: 'f',
+					description: 'The JSON file to save the properties'
+				})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
 				})
 				.example(...describeTaxonomy.example[0])
 				.example(...describeTaxonomy.example[1])
+				.example(...describeTaxonomy.example[2])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${describeTaxonomy.command}\n\n${describeTaxonomy.usage.long}`);
@@ -6070,10 +6113,10 @@ const argv = yargs.usage(_usage)
 	.command([importSite.command, importSite.alias], false,
 		(yargs) => {
 			yargs.option('repository', {
-					alias: 'r',
-					description: 'Repository name',
-					demandOption: true
-				})
+				alias: 'r',
+				description: 'Repository name',
+				demandOption: true
+			})
 				.option('importname', {
 					alias: 'e',
 					description: 'name of the import',
@@ -6348,13 +6391,6 @@ const argv = yargs.usage(_usage)
 				.check((argv) => {
 					if (!Number.isInteger(argv.limit) || argv.limit <= 0) {
 						throw new Error('Value for limit should be an integer greater than 0');
-					} else if (argv.orderby) {
-						var orderbyarr = argv.orderby.split(':');
-						if ((orderbyarr.length !== 2 || (orderbyarr[1] !== 'asc' && orderbyarr[1] !== 'desc'))) {
-							throw new Error('Value for orderby should be as <field>:<asc|desc>');
-						} else {
-							return true;
-						}
 					} else if (argv.ttl && (!Number.isInteger(argv.ttl) || argv.ttl <= 0)) {
 						throw new Error('Value for ttl should be an integer greater than 0');
 					} else {
@@ -6460,6 +6496,42 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${refreshPrerenderCache.command}\n\n${refreshPrerenderCache.usage.long}`);
+		})
+	.command([createSitePlan.command, createSitePlan.alias], false,
+		(yargs) => {
+			yargs.option('file', {
+				alias: 'f',
+				description: 'The local sitemap file'
+			})
+				.option('url', {
+					alias: 'u',
+					description: 'The website url'
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'The repository',
+					demandOption: true
+				})
+				.option('excludelocale', {
+					alias: 'x',
+					description: 'Exclude locale from URLs'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (!argv.file && !argv.url) {
+						throw new Error(os.EOL + 'Please specify either local sitemap file or website url');
+					}
+					return true;
+
+				})
+				.example(...createSitePlan.example[0])
+				.example(...createSitePlan.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${createSitePlan.command}\n\n${createSitePlan.usage.long}`);
 		})
 	.command([migrateSite.command, migrateSite.alias], false,
 		(yargs) => {
@@ -6733,6 +6805,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlRepository.example[11])
 				.example(...controlRepository.example[12])
 				.example(...controlRepository.example[13])
+				.example(...controlRepository.example[14])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlRepository.command}\n\n${controlRepository.usage.long}`);
@@ -8594,6 +8667,19 @@ const argv = yargs.usage(_usage)
 				.version(false)
 				.usage(`Usage: cec ${setOAuthToken.command}\n\n${setOAuthToken.usage.long}`);
 		})
+	.command([refreshOAuthToken.command, refreshOAuthToken.alias], false,
+		(yargs) => {
+			yargs
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...refreshOAuthToken.example[0])
+				.example(...refreshOAuthToken.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${refreshOAuthToken.command}\n\n${refreshOAuthToken.usage.long}`);
+		})
 	.command([executeGet.command, executeGet.alias], false,
 		(yargs) => {
 			yargs.option('file', {
@@ -10084,6 +10170,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--name', argv.name
 	];
+	if (argv.id) {
+		describeTaxonomyArgs.push(...['--id', argv.id]);
+	}
 	if (argv.file) {
 		describeTaxonomyArgs.push(...['--file', argv.file]);
 	}
@@ -10969,6 +11058,30 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		refreshPrerenderCacheArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, refreshPrerenderCacheArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createSitePlan.name || argv._[0] === createSitePlan.alias) {
+	let createSitePlanArgs = ['run', '-s', createSitePlan.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--repository', argv.repository
+	];
+	if (argv.file) {
+		createSitePlanArgs.push(...['--file', argv.file]);
+	}
+	if (argv.url) {
+		createSitePlanArgs.push(...['--url', argv.url]);
+	}
+	if (argv.excludelocale) {
+		createSitePlanArgs.push(...['--excludelocale', argv.excludelocale]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createSitePlanArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createSitePlanArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -12326,6 +12439,21 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, setOAuthTokenArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === refreshOAuthToken.name || argv._[0] === refreshOAuthToken.alias) {
+	let refreshOAuthTokenArgs = ['run', '-s', refreshOAuthToken.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		refreshOAuthTokenArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, refreshOAuthTokenArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

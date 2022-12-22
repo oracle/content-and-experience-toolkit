@@ -386,6 +386,9 @@ var _uuid = function () {
 	// console.log(' - uuid: ' + id);
 	return id;
 };
+module.exports.createUUID = function () {
+	return _uuid();
+};
 
 /**
  * Create a 44 char GUID
@@ -646,6 +649,8 @@ var _getRegisteredServer = function (projectDir, name) {
 				}
 			}
 		}
+	} else {
+		console.error('ERROR: file ' + serverpath + ' does not exist');
 	}
 	// console.log(server);
 	return server;
@@ -1499,7 +1504,8 @@ module.exports.getCaasCSRFToken = function (server) {
 	return csrfTokenPromise;
 };
 
-module.exports.getSystemCSRFToken = function (server) {
+module.exports.getSystemCSRFToken = function (server, noError) {
+	var showError = noError ? false : true;
 	var csrfTokenPromise = new Promise(function (resolve, reject) {
 		var url = server.url + '/system/api/v1/csrfToken';
 		var options = {
@@ -1516,8 +1522,10 @@ module.exports.getSystemCSRFToken = function (server) {
 		var request = require('./requestUtils.js').request;
 		request.get(options, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: failed to get system CSRF token');
-				console.error(error);
+				if (showError) {
+					console.error('ERROR: failed to get system CSRF token');
+					console.error(error);
+				}
 				return resolve({
 					err: 'err'
 				});
@@ -1532,7 +1540,9 @@ module.exports.getSystemCSRFToken = function (server) {
 				return resolve(data);
 			} else {
 				var msg = data && (data.title || data.errorMessage) ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
-				console.error('ERROR: failed to get system CSRF token ' + msg);
+				if (showError) {
+					console.error('ERROR: failed to get system CSRF token ' + msg);
+				}
 				return resolve({
 					err: 'err'
 				});

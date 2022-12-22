@@ -3,13 +3,14 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at http://oss.oracle.com/licenses/upl.
  */
 
+/* eslint-env jquery */
 $.getJSON('/getsrcfolder', function (data) {
 	'use strict';
 
 	var srcfolder = data.srcfolder;
 	var libfolder = data.libsfolder;
 
-	requirejs.config({
+	require.config({
 		'baseUrl': '.',
 
 		paths: {
@@ -24,7 +25,7 @@ $.getJSON('/getsrcfolder', function (data) {
 		config: {}
 	});
 
-	requirejs(['Sample-To-Do-Test'], function () {
+	require(['Sample-To-Do-Test'], function () {
 		mocha.checkLeaks();
 		mocha.globals(['jQuery']);
 		mocha.run();

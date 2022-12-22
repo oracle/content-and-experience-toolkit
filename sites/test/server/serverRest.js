@@ -846,7 +846,7 @@ module.exports.downloadFileSave = function (args) {
  * @param {string} args.fFileGUID The DOCS GUID for the file to update
  * @returns {Promise.<object>} The data object returned by the server.
  */
- module.exports.downloadByURLSave = function (args) {
+module.exports.downloadByURLSave = function (args) {
 	var url = args.url;
 	var noMsg = true;
 	var writer = fs.createWriteStream(args.saveTo);
@@ -1828,6 +1828,58 @@ var _getAllItemIds = function (server, repositoryId, channelId, publishedassets)
  */
 module.exports.getAllItemIds = function (args) {
 	return _getAllItemIds(args.server, args.repositoryId, args.channelId, args.publishedassets);
+};
+
+var _itemNativeFileExist = function (server, item) {
+	return new Promise(function (resolve, reject) {
+		var url = server.url + '/content/management/api/v1.1/assets/' + item.id + '/native';
+		var options = {
+			url: url,
+			encoding: null,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		if (server.cookies) {
+			options.headers.Cookie = server.cookies;
+		}
+		serverUtils.showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.getStream(options, function (err, response, body) {
+			if (err) {
+				console.log(err);
+				return resolve({
+					item: item,
+					nativeFileExist: false
+				});
+			}
+
+			if (response && response.statusCode === 200) {
+
+				return resolve({
+					item: item,
+					nativeFileExist: true
+				});
+
+			} else {
+				return resolve({
+					item: item,
+					nativeFileExist: false
+				});
+			}
+		});
+	});
+};
+/**
+ * Check if the native file exists for a digital asset
+ * @param {object} args JavaScript object containing parameters.
+ * @param {string} args.server the server object
+ * @param {string} args.item the item
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.itemNativeFileExist = function (args) {
+	return _itemNativeFileExist(args.server, args.item);
 };
 
 // Create item on server
@@ -3818,7 +3870,7 @@ module.exports.getLocalizationPolicies = function (args) {
 };
 
 /**
- * Get a channel with name on server
+ * Get a localization policy with name on server
  * @param {object} args JavaScript object containing parameters.
  * @param {object} args.server the server object
  * @param {string} args.name The name of the channel to query.
@@ -4548,6 +4600,72 @@ module.exports.getTaxonomyWithName = function (args) {
 	});
 };
 
+/**
+ * Get a taxonomy with name on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the taxonomy to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getTaxonomiesWithName = function (args) {
+	return new Promise(function (resolve, reject) {
+		if (!args.name) {
+			return resolve({});
+		}
+		var taxonomyName = args.name;
+		var server = args.server;
+
+		var url = server.url + '/content/management/api/v1.1/taxonomies';
+		url = url + '?q=(name mt "' + encodeURIComponent(taxonomyName) + '" AND status eq "all")';
+		if (args.fields) {
+			url = url + '&fields=' + args.fields;
+		}
+
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		serverUtils.showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: failed to get taxonomy matching name ' + taxonomyName);
+				console.error(error);
+				return resolve({
+					err: 'err'
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 200) {
+				var taxonomies = data && data.items || [];
+				var results = [];
+				for (var i = 0; i < taxonomies.length; i++) {
+					if (taxonomies[i].name && taxonomies[i].name === taxonomyName) {
+						results.push(taxonomies[i]);
+					}
+				}
+				return resolve(results);
+			} else {
+				var msg = data ? (data.title || data.errorMessage) : (response.statusMessage || response.statusCode);
+				console.error('ERROR: failed to get taxonomy matching name ' + taxonomyName + '  : ' + msg);
+				return resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
 
 /**
  * Get all categories of a taxonomy on server
@@ -4932,7 +5050,7 @@ var _updateRepository = function (server, repository, contentTypes, channels,
 						console.error('ERROR: Failed to update repository ' + repository.name + ' - ' + msg + ' (ecid: ' + response.ecid + ')');
 						// console.log(data);
 						if (data && data['o:errorDetails'] && data['o:errorDetails'].length > 0) {
-							console.error(data['o:errorDetails']);
+							console.error(JSON.stringify(data['o:errorDetails'], null, 4));
 						}
 						resolve({
 							err: 'err'
@@ -7535,7 +7653,56 @@ module.exports.publishLaterChannelItems = function (args) {
 	return _publishLaterChannelItems(args.server, args.name, args.itemIds, args.channelId, args.repositoryId, args.schedule);
 };
 
+/**
+ * Get a site plan with name on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the site plan to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.getSitePlansWithName = function (args) {
+	return new Promise(function (resolve, reject) {
+		if (!args.name) {
+			return resolve({});
+		}
 
+		var endpoint = '/content/management/api/v1.1/sitePlans';
+		endpoint = endpoint + '?q=(name co "' + encodeURIComponent(args.name) + '")';
+
+		_getAllResources(args.server, endpoint, 'sitePlans', args.fields)
+			.then(function (result) {
+				return resolve(result);
+			});
+	});
+};
+
+/**
+ * create a site plan on server
+ * @param {object} args JavaScript object containing parameters.
+ * @param {object} args.server the server object
+ * @param {string} args.name The name of the site plan to query.
+ * @returns {Promise.<object>} The data object returned by the server.
+ */
+module.exports.createSitePlan = function (args) {
+	var url = '/content/management/api/v1.1/sitePlans';
+	var body = {
+		name: args.name,
+		displayName: args.displayName,
+		repositoryId: args.repositoryId,
+		type: 'SeededSitePlanType'
+	};
+	if (args.description) {
+		body.description = args.description;
+	}
+
+	var param = {
+		server: args.server,
+		endpoint: url,
+		body: body,
+		noMsg: true
+	};
+	return _executePost(param);
+};
 
 /////////////////////////////////////////////////////////
 //  Social APIs
@@ -8372,12 +8539,13 @@ var _executeGet = function (server, endpoint, noMsg) {
 };
 
 module.exports.executeGetStream = function (args) {
-	return _executeGetStream(args.server, args.endpoint, args.writer, args.noMsg);
+	return _executeGetStream(args.server, args.endpoint, args.writer, args.noMsg, args.noError);
 };
 
-var _executeGetStream = function (server, endpoint, writer, noMsg) {
+var _executeGetStream = function (server, endpoint, writer, noMsg, noError) {
 	return new Promise(function (resolve, reject) {
 		var showDetail = noMsg ? false : true;
+		var showError = noError ? false : true;
 		var url;
 		if (endpoint.startsWith('http')) {
 			url = endpoint;
@@ -8404,8 +8572,10 @@ var _executeGetStream = function (server, endpoint, writer, noMsg) {
 		var request = require('./requestUtils.js').request;
 		request.getStream(options, function (err, response, body) {
 			if (err) {
-				console.error('ERROR: Failed to execute' + ' (ecid: ' + response.ecid + ')');
-				console.error(err);
+				if (showError) {
+					console.error('ERROR: Failed to execute' + ' (ecid: ' + response.ecid + ')');
+					console.error(err);
+				}
 				return resolve({
 					err: 'err'
 				});
@@ -8423,7 +8593,9 @@ var _executeGetStream = function (server, endpoint, writer, noMsg) {
 					return resolve({});
 				});
 			} else {
-				console.error('ERROR: Failed to execute ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
+				if (showError) {
+					console.error('ERROR: Failed to execute ' + (response.statusMessage || response.statusCode) + ' (ecid: ' + response.ecid + ')');
+				}
 				var data;
 				try {
 					data = JSON.parse(body);
@@ -8456,6 +8628,7 @@ module.exports.executePost = function (args) {
 var _executePost = function (args) {
 	return new Promise(function (resolve, reject) {
 		var showDetail = args.noMsg ? false : true;
+		var showError = args.noError ? false : true;
 		var endpoint = args.endpoint;
 		var isCAAS = endpoint.indexOf('/content/management/api/') === 0;
 		var isSystem = endpoint.indexOf('/system/api/') === 0;
@@ -8471,7 +8644,7 @@ var _executePost = function (args) {
 		if (isCAAS) {
 			caasTokenPromises.push(serverUtils.getCaasCSRFToken(server));
 		} else if (isSystem) {
-			caasTokenPromises.push(serverUtils.getSystemCSRFToken(server));
+			caasTokenPromises.push(serverUtils.getSystemCSRFToken(server, args.noError));
 		}
 
 		Promise.all(caasTokenPromises)
@@ -8504,6 +8677,7 @@ var _executePost = function (args) {
 						postData.body = JSON.stringify(body);
 					}
 				}
+
 				serverUtils.showRequestOptions(postData);
 
 				if (showDetail) {
@@ -8512,8 +8686,10 @@ var _executePost = function (args) {
 				var request = require('./requestUtils.js').request;
 				request.post(postData, function (error, response, body) {
 					if (error) {
-						console.error('ERROR: Failed to post ' + endpoint + ' (ecid: ' + response.ecid + ')');
-						console.error(error);
+						if (showError) {
+							console.error('ERROR: Failed to post ' + endpoint + ' (ecid: ' + response.ecid + ')');
+							console.error(error);
+						}
 						return resolve({
 							err: 'err'
 						});
@@ -8552,18 +8728,22 @@ var _executePost = function (args) {
 											}
 											var msg = data && data.error ? (data.error.detail || data.error.title) : '';
 											console.error('ERROR: request failed: ' + msg + ' (ecid: ' + response.ecid + ')');
+											console.log(data);
 											return resolve({
 												err: 'err'
 											});
 										} else if (data.completed && data.progress === 'succeeded') {
 											clearInterval(inter);
 											if (data.completedPercentage) {
+												needNewLine = true;
 												process.stdout.write(' - request in process percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 											}
-											process.stdout.write(os.EOL);
+											if (needNewLine) {
+												process.stdout.write(os.EOL);
+											}
 											console.log(' - request finished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 											// console.log(data);
-											return resolve();
+											return resolve(data);
 										} else {
 											process.stdout.write(' - request in process' + (data.completedPercentage !== undefined ? ' percentage ' + data.completedPercentage : '') + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 											readline.cursorTo(process.stdout, 0);

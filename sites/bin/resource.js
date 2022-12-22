@@ -266,6 +266,107 @@ module.exports.setOAuthToken = function (argv, done) {
 	}
 };
 
+module.exports.refreshOAuthToken = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server;
+
+	if (serverName) {
+		server = serverUtils.getRegisteredServer(projectDir, serverName);
+		if (!server || !server.fileexist) {
+			done();
+			return;
+		}
+
+		var serverPath = path.join(serversSrcDir, serverName, "server.json");
+
+	} else {
+		server = serverUtils.getConfiguredServer(projectDir);
+		if (!server || !server.fileexist) {
+			done();
+			return;
+		}
+
+	}
+
+	if (server.env === 'dev_ec') {
+		console.log(' - OAuth token is not supported on server ' + server.url);
+		done();
+		return;
+	}
+
+	var url = '/system/api/v1/security/token';
+	var newToken;
+	var expiresInMillis;
+	var now;
+	serverRest.executePost({ server: server, endpoint: url, noMsg: true, noError: true })
+		.then(function (result) {
+			if (result && result.accessToken) {
+				newToken = result.accessToken;
+				expiresInMillis = result.expiresInMillis;
+				console.info(' - get new token');
+				now = new Date();
+			}
+
+			var tokenPromises = [];
+			if (!newToken && server.oauthtoken) {
+				// seems the previous token expired, now use basic auth to get again
+				server.oauthtoken = '';
+				tokenPromises.push(serverRest.executePost({ server: server, endpoint: url, noMsg: true, noError: true }));
+			}
+
+			Promise.all(tokenPromises)
+				.then(function (results) {
+					if (results && results[0] && results[0].accessToken) {
+						newToken = results[0].accessToken;
+						expiresInMillis = results[0].expiresInMillis;
+						console.info(' - get new token with basic auth');
+						now = new Date();
+					}
+
+					if (newToken) {
+						if (serverName) {
+							var serverPath = path.join(serversSrcDir, serverName, "server.json");
+							var serverstr = fs.readFileSync(serverPath).toString(),
+								serverjson = JSON.parse(serverstr);
+							serverjson.oauthtoken = newToken;
+
+							fs.writeFileSync(serverPath, JSON.stringify(serverjson));
+							console.log(' - fresh token saved to server ' + serverName);
+							if (expiresInMillis) {
+								console.log(' - token will expire on ' + new Date(now.getTime() + expiresInMillis));
+							}
+
+						} else {
+							serverUtils.setTokenToConfiguredServer(server, newToken);
+							console.log(' - fresh token saved to file ' + server.fileloc);
+							if (expiresInMillis) {
+								console.log(' - token will expire on ' + new Date(now.getTime() + expiresInMillis));
+							}
+						}
+						done(true);
+					} else {
+						// final try: use browser
+						var loginPromise = serverUtils.loginToServer(server);
+						loginPromise.then(function (result) {
+							if (!result.status) {
+								console.error(result.statusMessage);
+								done();
+							} else {
+								done(true);
+							}
+						});
+					}
+				});
+		});
+};
+
 module.exports.listLocalResources = function (argv, done) {
 	'use strict';
 

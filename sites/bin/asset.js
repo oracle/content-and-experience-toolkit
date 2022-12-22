@@ -14,6 +14,8 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	gulp = require('gulp'),
+	os = require('os'),
+	readline = require('readline'),
 	sprintf = require('sprintf-js').sprintf,
 	path = require('path'),
 	zip = require('gulp-zip');
@@ -614,7 +616,16 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 							finalEditorialRoles.splice(idx, 1);
 						}
 					}
-				} else {
+				} else if (action === 'enable-not-ready') {
+
+					repository.notReadyEnabled = true;
+
+				} else if (action === 'disable-not-ready') {
+
+					repository.notReadyEnabled = false;
+
+				}
+				else {
 					console.error('ERROR: invalid action ' + action);
 				}
 
@@ -657,7 +668,12 @@ var _controlRepositories = function (server, repositories, action, types, typeNa
 							console.log(' - added editorial role ' + roleNames + ' to repository ' + name);
 						} else if (action === 'remove-role') {
 							console.log(' - removed editorial-role ' + roleNames + ' from repository ' + name);
+						} else if (action === 'enable-not-ready') {
+							console.log(' - enable not ready for use assets in repository ' + name);
+						} else if (action === 'disable-not-ready') {
+							console.log(' - disable not ready for use assets in repository ' + name);
 						}
+
 					}
 				});
 
@@ -6023,6 +6039,22 @@ module.exports.listAssets = function (argv, done) {
 				if (total > 0) {
 					_displayAssets(server, repository, collection, channel, channelToken, items, showURLS, rankingApiName);
 					console.log(' - items: ' + total + ' of ' + limit + ' [' + timeSpent + ']');
+
+					var itemsWithForwardSlashSlug = [];
+					items.forEach(function (item) {
+						if (item.slug && item.slug.indexOf('/') >= 0) {
+							itemsWithForwardSlashSlug.push(item);
+						}
+					});
+					if (itemsWithForwardSlashSlug.length > 0) {
+						console.log(' - items with forward slash in slug:');
+						let format = '   %-38s %-38s %-10s %-38s %-s';
+						console.log(sprintf(format, 'Type', 'Id', 'Language', 'Name', 'Slug'));
+						itemsWithForwardSlashSlug.forEach(function (item) {
+							console.log(sprintf(format, item.type, item.id, item.language, item.name, item.slug));
+						});
+					}
+
 				}
 
 				var validatePromises = [];
@@ -6031,7 +6063,7 @@ module.exports.listAssets = function (argv, done) {
 					items.forEach(function (item) {
 						ids.push(item.id);
 					});
-					validatePromises.push(contentUtils.queryItemsWithIds(server, '', ids));
+					validatePromises.push(contentUtils.queryItemsWithIds(server, '', ids, 'typeCategory,language,name'));
 				}
 
 				return Promise.all(validatePromises);
@@ -6063,9 +6095,30 @@ module.exports.listAssets = function (argv, done) {
 							console.log(sprintf(format, item.type, item.id, item.name));
 						});
 						console.log(JSON.stringify(notFound, null, 4));
-					} else {
-						console.log(' - validation finished');
 					}
+					var digitalAssets = [];
+					validatedItems.forEach(function (item) {
+						if (item.typeCategory === 'DigitalAssetType') {
+							digitalAssets.push(item);
+						}
+
+					});
+
+					console.log(' - digital items: ' + digitalAssets.length);
+					_validateDigitalAssetNativeFile(server, digitalAssets)
+						.then(function (result) {
+							var noNativeFileItems = result || [];
+							if (noNativeFileItems.length > 0) {
+								console.log(' - items without native file:');
+								let format = '   %-38s %-38s %-10s %-s';
+								console.log(sprintf(format, 'Type', 'Id', 'Language', 'Name'));
+								noNativeFileItems.forEach(function (item) {
+									console.log(sprintf(format, item.type, item.id, item.language, item.name));
+								});
+							}
+							console.log(' - validation finished');
+						});
+
 				}
 
 				done(true);
@@ -6076,6 +6129,66 @@ module.exports.listAssets = function (argv, done) {
 				}
 				done();
 			});
+	});
+};
+
+var _validateDigitalAssetNativeFile = function (server, items) {
+	return new Promise(function (resolve, reject) {
+		var total = items.length;
+		var groups = [];
+		var limit = 10;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+		var badItems = [];
+		var needNewLine = false;
+		var startTime = new Date();
+
+		var doValidateAsset = groups.reduce(function (assetPromise, param) {
+			return assetPromise.then(function (result) {
+				var assetPromises = [];
+				for (let i = param.start; i <= param.end; i++) {
+					assetPromises.push(serverRest.itemNativeFileExist({ server: server, item: items[i] }));
+				}
+				return Promise.all(assetPromises)
+					.then(function (results) {
+						if (console.showInfo()) {
+							process.stdout.write(' - validating digital item native files [' + param.start + ', ' + param.end + '] [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+							readline.cursorTo(process.stdout, 0);
+							needNewLine = true;
+						}
+						for (let i = 0; i < results.length; i++) {
+							if (results[i].item && !results[i].nativeFileExist) {
+								badItems.push(results[i].item);
+							}
+						}
+					})
+			});
+		},
+			Promise.resolve({})
+		);
+
+		doValidateAsset.then(function (result) {
+			if (needNewLine) {
+				process.stdout.write(os.EOL);
+			}
+			resolve(badItems);
+		});
 	});
 };
 

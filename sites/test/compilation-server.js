@@ -147,13 +147,13 @@ if (keyPath && fs.existsSync(keyPath) && certPath && fs.existsSync(certPath)) {
 		rejectUnauthorized: false
 	};
 	// TODO: Need to default to 443. Will update when a way to test the 443 port is found.
-	var localhost = 'https://localhost:' + port;
+	const localhost = 'https://localhost:' + port;
 	https.createServer(httpsOptions, server).listen(port, function () {
 		console.log('Server starts: ' + localhost);
 		startCompilationService.bind(self)();
 	});
 } else {
-	var localhost = 'http://localhost:' + port;
+	const localhost = 'http://localhost:' + port;
 	var localServer = server.listen(port, function () {
 		console.log('Server starts: ' + localhost + ' (WARNING: Not Secure)');
 		startCompilationService.bind(self)();

@@ -15,6 +15,21 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 22.12.2
+
+**Added**
+
+- `cec refresh-oauth-token` - refreshes the OAuth token in the registered OCM server
+
+**Updated**
+
+- `cec control-repository` -  new options: `enable-not-ready | disable-not-ready` to update the control property which defines whether required fields with defaults or missing values can be created in the repository
+- `cec list-assets` - validation option now also validates digital asset media files
+
+**Fixed**
+
+- `cec describe-txonomy` - disambiguate between two taxonomies with the same name 
+
 # New in Release 22.12.1
 
 **Updated**

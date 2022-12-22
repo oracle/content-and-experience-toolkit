@@ -268,10 +268,11 @@
 
 					// setup the JSON body
 					var bodyString = JSON.stringify(restArgs.postData);
+					var bodyStringLengthAsUTF8 = (new TextEncoder().encode(bodyString)).length;
 					options.headers = {
 						'Content-Type': 'application/json',
 						'X-Requested-With': 'XMLHttpRequest',
-						'Content-Length': bodyString.length
+						'Content-Length': bodyStringLengthAsUTF8
 					};
 
 					// do http or https get writing the bodyString
@@ -1445,7 +1446,7 @@
 	 *     console.log(response);
 	 * });
 	 */
-	 ContentDeliveryClientImpl.prototype.graphql = function (params) {
+	ContentDeliveryClientImpl.prototype.graphql = function (params) {
 		var self = this,
 			args = params || {},
 			restCallArgs = this.resolveRESTArgs('POST', args);

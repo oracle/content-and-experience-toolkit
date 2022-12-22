@@ -93,7 +93,7 @@ JobManager.prototype.compileJob = function (jobConfig) {
 
 		var logPublishSiteStdout = function (data) {
 				var out = `${data}`,
-					found = out.trim().match(/publish \(JobID\: (?<id>.*)\)$/);
+					found = out.trim().match(/publish \(JobID: (?<id>.*)\)$/);
 
 				if (found && found.groups && found.groups.id) {
 					jobConfig.publishSiteBackgroundJobId = found.groups.id;
@@ -103,7 +103,7 @@ JobManager.prototype.compileJob = function (jobConfig) {
 			},
 			logPublishStaticStdout = function (data) {
 				var out = `${data}`,
-					found = out.trim().match(/publish \(JobID\: (?<id>.*)\)$/);
+					found = out.trim().match(/publish \(JobID: (?<id>.*)\)$/);
 
 				if (found && found.groups && found.groups.id) {
 					jobConfig.publishStaticBackgroundJobId = found.groups.id;
@@ -135,7 +135,7 @@ JobManager.prototype.compileJob = function (jobConfig) {
 				console.log(jobConfig.id, step, 'duration', Math.floor((Date.now() - startTime) / 1000), 'seconds');
 				logStream.write(message);
 			};
-		logCommand = function (commandArgs) {
+		var logCommand = function (commandArgs) {
 				var line = '================================================================================';
 				var message = '[' + new Date().toLocaleString() + '] Execute: ' + cecCmd;
 				commandArgs.forEach(function (a) {

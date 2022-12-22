@@ -2615,7 +2615,9 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 								}
 								var msg = data && data.message ? data.message : (data && data.error ? (data.error.detail || data.error.title) : '');
 								console.error('ERROR: create site failed: ' + msg + ' (ecid: ' + response.ecid + ')');
-								// console.log(data);
+								if (data) {
+									console.error(JSON.stringify(data, null, 4));
+								}
 								return resolve({
 									err: 'err'
 								});
@@ -2654,7 +2656,9 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 								}
 								msg = data && data.message ? data.message : (data && data.error ? (data.error.detail || data.error.title) : '');
 								console.error('ERROR: create site failed: ' + msg + ' (ecid: ' + response.ecid + ')');
-								// console.log(data);
+								if (data) {
+									console.error(JSON.stringify(data, null, 4));
+								}
 								return resolve({
 									err: 'err'
 								});
