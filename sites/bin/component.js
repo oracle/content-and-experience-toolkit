@@ -13,6 +13,8 @@ var serverUtils = require('../test/server/serverUtils.js'),
 	fs = require('fs'),
 	fse = require('fs-extra'),
 	path = require('path'),
+	os = require('os'),
+	readline = require('readline'),
 	sprintf = require('sprintf-js').sprintf,
 	zip = require('gulp-zip');
 
@@ -1644,6 +1646,124 @@ module.exports.unshareComponent = function (argv, done) {
 	}
 };
 
+var _getSitesUsedComponents = function (server, sites) {
+	return new Promise(function (resolve, reject) {
+		var total = sites.length;
+		var groups = [];
+		var limit = 10;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+		var sitesData = [];
+		var needNewLine = false;
+		var startTime = new Date();
+		var doGetSiteData = groups.reduce(function (sitePromise, param) {
+			return sitePromise.then(function (result) {
+				var sitePromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					sitePromises.push(serverUtils.getSiteUsedData(server, sites[i].id));
+				}
+
+				if (console.showInfo()) {
+					process.stdout.write(' - querying component in sites [' + param.start + ', ' + param.end + '] [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+					readline.cursorTo(process.stdout, 0);
+					needNewLine = true;
+				}
+				return Promise.all(sitePromises).then(function (results) {
+					sitesData = sitesData.concat(results);
+				});
+
+			});
+		},
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve({}));
+
+		doGetSiteData.then(function (result) {
+			if (needNewLine) {
+				process.stdout.write(os.EOL);
+			}
+
+			resolve(sitesData);
+		});
+	});
+};
+
+var _getTypesUsedComponents = function (server, types) {
+	return new Promise(function (resolve, reject) {
+		var total = types.length;
+		var groups = [];
+		var limit = 10;
+		var start, end;
+		for (var i = 0; i < total / limit; i++) {
+			start = i * limit;
+			end = start + limit - 1;
+			if (end >= total) {
+				end = total - 1;
+			}
+			groups.push({
+				start: start,
+				end: end
+			});
+		}
+		if (end < total - 1) {
+			groups.push({
+				start: end + 1,
+				end: total - 1
+			});
+		}
+		var typesData = [];
+		var needNewLine = false;
+		var startTime = new Date();
+		var doGetTypeData = groups.reduce(function (typePromise, param) {
+			return typePromise.then(function (result) {
+				var typePromises = [];
+				for (var i = param.start; i <= param.end; i++) {
+					typePromises.push(serverRest.getContentType({
+						server: server,
+						name: types[i].name,
+						expand: 'layoutMapping'
+					}));
+				}
+
+				if (console.showInfo()) {
+					process.stdout.write(' - querying component in types [' + param.start + ', ' + param.end + '] [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+					readline.cursorTo(process.stdout, 0);
+					needNewLine = true;
+				}
+				return Promise.all(typePromises).then(function (results) {
+					typesData = typesData.concat(results);
+				});
+
+			});
+		},
+			// Start with a previousPromise value that is a resolved promise
+			Promise.resolve({}));
+
+		doGetTypeData.then(function (result) {
+			if (needNewLine) {
+				process.stdout.write(os.EOL);
+			}
+
+			resolve(typesData);
+		});
+	});
+};
+
 /**
  * describe component
  */
@@ -1696,6 +1816,10 @@ module.exports.describeComponent = function (argv, done) {
 
 		var comp;
 		var compMetadata;
+		var sites = [];
+		var sitesData = [];
+		var types = [];
+		var typesData = [];
 
 		sitesRest.getComponent({
 			server: server,
@@ -1719,6 +1843,47 @@ module.exports.describeComponent = function (argv, done) {
 			.then(function (result) {
 
 				compMetadata = result && result.metadata;
+
+				// get the sites that use the component
+				var sitePromises = [];
+				if (comp.type !== 'contentLayout' && comp.type !== 'contentForm' && comp.type !== 'fieldEditor') {
+					sitePromises.push(sitesRest.getSites({ server: server }));
+				}
+
+				return Promise.all(sitePromises);
+			})
+			.then(function (results) {
+				sites = results && results[0] || [];
+				if (sites.length > 0) {
+					console.info(' - total sites: ' + sites.length);
+				}
+
+				return _getSitesUsedComponents(server, sites);
+
+			})
+			.then(function (result) {
+				sitesData = result || [];
+
+				var typePromises = [];
+				if (comp.type === 'contentLayout' || comp.type === 'contentForm' || comp.type === 'fieldEditor') {
+					typePromises.push(serverRest.getContentTypes({ server: server }));
+				}
+
+				return Promise.all(typePromises);
+
+			})
+			.then(function (results) {
+				types = results && results[0] || [];
+				if (types.length > 0) {
+					console.info(' - total types: ' + types.length);
+				}
+
+				return _getTypesUsedComponents(server, types);
+
+			})
+			.then(function (result) {
+				typesData = result || [];
+				// console.log(typesData);
 
 				var managers = [];
 				var contributors = [];
@@ -1764,6 +1929,62 @@ module.exports.describeComponent = function (argv, done) {
 				console.log(sprintf(format1, 'Hide on custom palette in the site editor', comp.isHidden));
 				console.log(sprintf(format1, 'itemGUID', (compMetadata && compMetadata.scsItemGUID || '')));
 
+				console.log(sprintf(format1, 'Used in Sites', ''));
+
+				var format2 = '  %-38s  %-s';
+
+				var titleShown = false;
+				sitesData.forEach(function (siteData) {
+					let siteName;
+					for (let i = 0; i < sites.length; i++) {
+						if (siteData.siteId === sites[i].id) {
+							siteName = sites[i].name;
+							break;
+						}
+					}
+
+					var pages = [];
+					if (siteData.componentsUsed && siteData.componentsUsed.length > 0) {
+						for (let i = 0; i < siteData.componentsUsed.length; i++) {
+							if (name === siteData.componentsUsed[i].scsComponentName) {
+								pages.push(siteData.componentsUsed[i].scsPageID);
+							}
+						}
+					}
+					if (siteName && pages.length > 0) {
+						if (!titleShown) {
+							console.log(sprintf(format2, 'Site', 'Pages'));
+							titleShown = true;
+						}
+						console.log(sprintf(format2, siteName, pages));
+					}
+				});
+
+				var typeNames = [];
+				typesData.forEach(function (typeObj) {
+					let properties = typeObj.properties;
+					if (properties) {
+						if (properties.customEditors && properties.customEditors.includes(name) && !typeNames.includes(name)) {
+							typeNames.push(typeObj.name);
+						}
+						if (properties.customForms && properties.customForms.includes(name) && !typeNames.includes(name)) {
+							typeNames.push(typeObj.name);
+						}
+					}
+					let mapping = typeObj.layoutMapping;
+					if (mapping && mapping.data && mapping.data.length > 0) {
+						var typeMappings = mapping.data;
+						for (let j = 0; j < typeMappings.length; j++) {
+							if (typeMappings[j].formats && typeMappings[j].formats.desktop && typeMappings[j].formats.desktop === name && !typeNames.includes(name)) {
+								typeNames.push(typeObj.name);
+							}
+							if (typeMappings[j].formats && typeMappings[j].formats.mobile && typeMappings[j].formats.mobile === name && !typeNames.includes(name)) {
+								typeNames.push(typeObj.name);
+							}
+						}
+					}
+				});
+				console.log(sprintf(format1, 'Used in Types', typeNames));
 				console.log('');
 
 				done(true);

@@ -3859,6 +3859,7 @@ module.exports.getSiteUsedData = function (server, siteId) {
 				}
 			}
 			resolve({
+				siteId: siteId,
 				componentsUsed: componentsUsed,
 				contentItemsUsed: contentItemsUsed,
 				contentTypesUsed: contentTypesUsed

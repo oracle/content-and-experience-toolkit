@@ -15,6 +15,17 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 23.1.1
+
+**Updated**
+
+- `cec describe-component` - now lists sites/types the component is used in
+
+**Fixed**
+
+- local server now uses the channel token from the siteinfo.json when testing a template
+
+
 # New in Release 22.12.2
 
 **Added**
@@ -29,6 +40,7 @@ Templates and resources for development platforms.
 **Fixed**
 
 - `cec describe-txonomy` - disambiguate between two taxonomies with the same name 
+
 
 # New in Release 22.12.1
 

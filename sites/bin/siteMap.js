@@ -1793,10 +1793,10 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 
 			} else {
 				// single sitemap file
-				topFile = siteMapFile;
-				let buf = _generateSiteMapXML(format, urls, siteMapFile);
-				// also write to src/sitemap
-				fs.writeFileSync(path.join(sitemapSrcDir, site, siteMapFileName), buf);
+				topFile = path.join(sitemapSrcDir, site, siteMapFileName);
+				let buf = _generateSiteMapXML(format, urls, topFile);
+				// continue to save to the cec source folder
+				fs.writeFileSync(siteMapFile, buf);
 				generatedFiles.push(siteMapFile);
 			}
 
