@@ -113,7 +113,7 @@ ContentList.prototype.compile = function (args) {
 			}).catch(function (e) {
 				var reportingOptions = {
 					message: 'ContentList: failed to execute query during compile - check the server is up and that the channelToken and query are correct',
-					error: (e && e.statusCode) ? 'Response - ' + e.statusCode + ':' + e.statusMessage : e
+					error: e && (e.debugError || ('Response - ' + e.statusCode + ':' + e.statusMessage))
 				};
 				compilationReporter.error(reportingOptions);
 				return resolve({
@@ -264,11 +264,11 @@ ContentList.prototype.compileContentItems = function (args, results) {
 
 	// execute the promises sequentially
 	var doCompileItems = compilePromises.reduce(function (previousPromise, nextPromise) {
-			return previousPromise.then(function (compiledItem) {
-				// wait for the previous promise to complete and then call the function to start executing the next promise
-				return nextPromise();
-			});
-		},
+		return previousPromise.then(function (compiledItem) {
+			// wait for the previous promise to complete and then call the function to start executing the next promise
+			return nextPromise();
+		});
+	},
 		// Start with a previousPromise value that is a resolved promise 
 		Promise.resolve());
 
@@ -347,11 +347,13 @@ ContentList.prototype.scimQueryString = function (viewModel) {
 	} else {
 		if (viewModel.compType === 'scs-dynamiclist') {
 			var sqr = viewModel.searchQueryString.trim();
+			sqr = sqr.replace(/\n/g,' '); // Server doesn't like newline char
 			// ToDo: Support macro expansions
 			queryString = "(" + sqr + ")"; // group (in paren) the multi-type search query as it'll be "AND" with site language
 		}
-		// Add contentType
-		var contentType = viewModel.contentTypes && viewModel.contentTypes.length > 0 ? viewModel.contentTypes[0] : undefined;
+
+		// Add contentType (if not dynamic list)
+		var contentType = (viewModel.compType !== 'scs-dynamiclist') && viewModel.contentTypes && viewModel.contentTypes.length > 0 ? viewModel.contentTypes[0] : undefined;
 		if (contentType) {
 			queryString = '(type eq "' + contentType + '")';
 		}
@@ -426,7 +428,7 @@ ContentList.prototype.computeSortOrder = function (viewModel) {
 	// ToDo: support macro replacement
 	if (viewModel.compType === 'scs-dynamiclist') {
 		return viewModel.orderByString;
-	} 
+	}
 
 	//var sortOrder = viewModel.sortOrder && viewModel.replaceMacros(viewModel.sortOrder);
 	var sortOrder = viewModel.sortOrder;

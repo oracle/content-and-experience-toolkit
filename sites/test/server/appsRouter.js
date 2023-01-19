@@ -81,7 +81,7 @@ router.post('/*', (req, res) => {
 	}
 
 	// all POST requests are proxied to the remote server
-	console.info('Apps Remote traffic: POST ', requestUrl);
+	console.info('Apps Remote traffic: POST ' + requestUrl);
 	var body = '';
 
 	req.on('error', function (err) {

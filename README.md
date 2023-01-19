@@ -15,6 +15,62 @@ Templates and resources for development platforms.
 [react-starter-sites](react-starter-sites/) – A quick way to get started with React site development.
 
 
+# New in Release 23.1.1
+
+**Updated**
+
+- `cec describe-component` - now lists sites/types the component is used in
+
+**Fixed**
+
+- local server now uses the channel token from the siteinfo.json when testing a template
+
+
+# New in Release 22.12.2
+
+**Added**
+
+- `cec refresh-oauth-token` - refreshes the OAuth token in the registered OCM server
+
+**Updated**
+
+- `cec control-repository` -  new options: `enable-not-ready | disable-not-ready` to update the control property which defines whether required fields with defaults or missing values can be created in the repository
+- `cec list-assets` - validation option now also validates digital asset media files
+
+**Fixed**
+
+- `cec describe-txonomy` - disambiguate between two taxonomies with the same name 
+
+
+# New in Release 22.12.1
+
+**Updated**
+
+- `cec create-site-map` - added option to include default locale in urls
+- `cec create-site-map` - added option to uses '/' for the root page path instead of any pageUrl value
+- `cec describe-site` - now also displays components/assets/types used on site pages
+- `cec describe-background-job` - add option to wait for job to finish if it is in process
+
+
+# New in Release 22.11.2
+
+**Added**
+
+- `cec describe-type` - lists the properties of an asset type on an OCM server
+
+**Updated**
+
+- `cec create-site-map` - added option to create multiple sitemaps, one for each locale
+- `cec describe-asset` - now includes category info
+- `cec execute-post/execute-put/execute-delete` - now all support `/system` REST APIs
+- local server now has option to use local template resources for component requests
+
+**Fixed**
+
+- `cec create-site-map` - will now correctly handle fallback languages and locale aliases if defined
+
+
+
 # New in Release 22.11.1
 
 **Added**

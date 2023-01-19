@@ -180,6 +180,7 @@ var getRepositoryActions = function () {
 	const actions = ['add-type', 'remove-type', 'add-channel', 'remove-channel', 'add-taxonomy', 'remove-taxonomy', 'add-language', 'remove-language',
 		'add-translation-connector', 'remove-translation-connector',
 		'add-role', 'remove-role',
+		'enable-not-ready', 'disable-not-ready'
 	];
 	return actions;
 };
@@ -1300,12 +1301,13 @@ const describeTaxonomy = {
 	usage: {
 		'short': 'Lists the properties of a taxonomy on OCM server.',
 		'long': (function () {
-			let desc = 'Lists the properties of a taxonomy on OCM server. Optionally specify -f <file> to save the properties to a JSON file. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			let desc = 'Lists the properties of a taxonomy on OCM server. Optionally specify the taxonomy id with -i <id> if another taxonomy has the same name. Optionally specify -f <file> to save the properties to a JSON file. Specify the server with -s <server> or use the one specified in cec.properties file. ';
 			return desc;
 		})()
 	},
 	example: [
 		['cec describe-taxonomy Taxonomy1 -s SampleServer1'],
+		['cec download-taxonomy Taxonomy1 -i 6A6DC736572C468B90F2A1C17B7CE5E4 -s SampleServer1'],
 		['cec describe-taxonomy Taxonomy1 -f ~/Docs/Taxonomy1.json -s SampleServer1']
 	]
 };
@@ -1465,6 +1467,7 @@ const describeBackgroundJob = {
 	},
 	example: [
 		['cec describe-background-job 1481789277262'],
+		['cec describe-background-job 1481789277262 -w'],
 		['cec describe-background-job 2FB9BA33E626D2A20B4C2D07BD1D819C1657137578159 -s SampleServer1']
 	]
 };
@@ -1744,7 +1747,7 @@ const exportSite = {
 	usage: {
 		'short': 'Export Enterprise Site <name>.',
 		'long': (function () {
-			let desc = 'Export Enterprise Site on OCM server to a folder. Specify the server with -r <server> or use the one specified in cec.properties file. '
+			let desc = 'Export Enterprise Site on OCM server to a folder. Specify the server with -s <server> or use the one specified in cec.properties file. '
 			desc = desc + 'Specify the folder with -f <folder> and specify the export name with -n <export-name>. '
 			desc = desc + 'NOTE: This command is not available for production use.';
 			return desc;
@@ -1753,7 +1756,29 @@ const exportSite = {
 	example: [
 		['cec export-site Site1', 'Export Site1 as Site1 to home folder on the OCM server'],
 		['cec export-site Site1 -f Export -e Site1Export -i', 'Export Site1 and include unpublished assets as Site1Export to Export folder on the OCM server'],
-		['cec export-site Site1 -d', 'Export Site1 as Site1 to home folder on the OCM server and download the export folder to src/siteExport']
+		['cec export-site Site1 -d', 'Export Site1 as Site1 to home folder on the OCM server and download the export folder to src/siteExport/Site1'],
+		['cec export-site Site1 -d -p /dev/folder', 'Export Site1 as Site1 to home folder on the OCM server and download the export folder to /dev/folder']
+	]
+};
+
+const importSite = {
+	command: 'import-site <name>',
+	alias: 'ips',
+	name: 'import-site',
+	usage: {
+		'short': 'Import Enterprise Site <name>.',
+		'long': (function () {
+			let desc = 'Import site to OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. '
+			desc = desc + 'NOTE: This command is not available for production use.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec import-site Site1 -r repository', 'Import site in src/siteExport/Site1 to the OCM server'],
+		['cec import-site Site1 -r repository -p /dev/folder', 'Import site in /dev/folder to the OCM server'],
+		['cec import-site Site1 -e ImportName -r repository', 'Import src/siteExport/Site1 to the OCM server with ImportName as name'],
+		['cec import-site Site1 -a createOrUpdate -r repository', 'Import src/siteExport/Site1 to the OCM server with createOrUpdate assets policy'],
+		['cec import-site Site1 -t createOrUpdate -r repository', 'Import src/siteExport/Site1 to the OCM server with createOrUpdate theme custom components policy'],
 	]
 };
 
@@ -1795,6 +1820,7 @@ const createSiteMap = {
 				'Optionally specify -p to upload the site map to OCM server after creation. ' +
 				'Optionally specify -c <changefreq> to define how frequently the page is likely to change. ' +
 				'Optionally specify -t <toppagepriority> as the priority for the top level pages. ' +
+				'Optionally specify -m to generate multiple sitemaps, one for each locale. ' +
 				'Also optionally specify <file> as the file name for the site map.' + os.EOL + os.EOL +
 				'The valid values for <format> are:' + os.EOL + os.EOL;
 			desc = getSiteMapFormats().reduce((acc, item) => acc + '  ' + item + '\n', desc) + os.EOL + os.EOL;
@@ -1815,6 +1841,9 @@ const createSiteMap = {
 		['cec create-site-map Site1 -u http://www.example.com/site1 -c weekly -p'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT', 'Generate URLs in default locale, de-DE and it-IT'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -l de-DE,it-IT -b', 'Generate URLs in de-DE and it-IT only'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -d', 'Include the default locale in the URLs'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -m', 'Generate multiple sitemaps, one for each locale'],
+		['cec create-site-map Site1 -u http://www.example.com/site1 -e', 'Uses \'/\' for the root page path instead of any pageUrl value'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -q "page1:querystring1,page2:querystring2"', 'Append query string querystring1 to page page1 and querystring2 to page page2'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -q "allquerystring,page1:querystring1"', 'Append query string querystring1 to page page1 and allquerystring to all other pages'],
 		['cec create-site-map Site1 -u http://www.example.com/site1 -q "allquerystring,page1:"', 'Append query string querystring all pages except page page1']
@@ -1951,6 +1980,23 @@ const migrateSite = {
 	]
 };
 
+const createSitePlan = {
+	command: 'create-site-plan <name>',
+	alias: 'csp',
+	name: 'create-site-plan',
+	usage: {
+		'short': 'Creates a site plan from a sitemap.',
+		'long': (function () {
+			let desc = 'Creates a site plan from a sitemap. Specify the server with -s <server> or use the one specified in cec.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec create-site-plan Site1Plan -f Site1SiteMap.xml -r Repo1', 'Create a site plan based on the local sitemap file Site1SiteMap.xml'],
+		['cec create-site-plan Site1Plan -u http://www.example.com -r Repo1', 'Create a site plan based on http://www.example.com/sitemap.xml']
+	]
+};
+
 const migrateContent = {
 	command: 'migrate-content <name>',
 	alias: 'mc',
@@ -2036,7 +2082,8 @@ const controlRepository = {
 		['cec control-repository add-translation-connector -r Repo1 -n "Lingotek,My Lingotek Connector"'],
 		['cec control-repository remove-translation-connector -r Repo1 -n "Lingotek,My Lingotek Connector"'],
 		['cec control-repository add-role -r Repo1 -e EditorialRole1,EditorialRole2'],
-		['cec control-repository remove-role -r Repo1 -e EditorialRole1,EditorialRole2']
+		['cec control-repository remove-role -r Repo1 -e EditorialRole1,EditorialRole2'],
+		['cec control-repository enable-not-ready -r Repo1', 'Allow assets for which required fields contain defaults or missing values to be created in and added to this repository']
 	]
 };
 
@@ -2366,6 +2413,21 @@ const updateType = {
 	]
 };
 
+const describeType = {
+	command: 'describe-type <name>',
+	alias: 'dstp',
+	name: 'describe-type',
+	usage: {
+		'short': 'Lists the properties of an asset type.',
+		'long': (function () {
+			let desc = 'Lists the properties of an asset type on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-type BlogType -s SampleServer1']
+	]
+};
 /** 
  * 2021-08-20 removed
 const createWordTemplate = {
@@ -3347,7 +3409,7 @@ const setOAuthToken = {
 	alias: 'sot',
 	name: 'set-oauth-token',
 	usage: {
-		'short': 'Set OAuth token for server.',
+		'short': 'Sets OAuth token for server.',
 		'long': (function () {
 			let desc = 'Set OAuth token for a registered server or the one specified in cec.properties file.';
 			return desc;
@@ -3356,6 +3418,23 @@ const setOAuthToken = {
 	example: [
 		['cec set-oauth-token token1 -s SampleServer1', 'Set OAuth token for server SampleServer1, all CLI commands using SampleServer1 will be headless'],
 		['cec set-oauth-token token1', 'Set OAuth token for the server specified in cec.properties file']
+	]
+};
+
+const refreshOAuthToken = {
+	command: 'refresh-oauth-token',
+	alias: 'rot',
+	name: 'refresh-oauth-token',
+	usage: {
+		'short': 'Gets a refresh OAuth token from server.',
+		'long': (function () {
+			let desc = ' Gets a fresh token from OCM server and save for a registered server or the one specified in cec.properties file.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec refresh-oauth-token  -s SampleServer1', 'Get a fresh OAuth token for server SampleServer1, all CLI commands using SampleServer1 will be headless'],
+		['cec refresh-oauth-token', 'Get a fresh OAuth token for the server specified in cec.properties file']
 	]
 };
 
@@ -3736,6 +3815,7 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(copySite) + os.EOL +
 	_getCmdHelp(updateSite) + os.EOL +
 	// _getCmdHelp(exportSite) + os.EOL +
+	// _getCmdHelp(importSite) + os.EOL +
 	_getCmdHelp(transferSite) + os.EOL +
 	_getCmdHelp(transferSiteContent) + os.EOL +
 	_getCmdHelp(validateSite) + os.EOL +
@@ -3797,6 +3877,7 @@ _usage = _usage + os.EOL + 'Content' + os.EOL +
 	_getCmdHelp(uploadType) + os.EOL +
 	_getCmdHelp(copyType) + os.EOL +
 	_getCmdHelp(updateType) + os.EOL +
+	_getCmdHelp(describeType) + os.EOL +
 	_getCmdHelp(describeWorkflow) + os.EOL +
 	_getCmdHelp(createContentLayout) + os.EOL +
 	_getCmdHelp(addContentLayoutMapping) + os.EOL +
@@ -3856,6 +3937,7 @@ _usage = _usage + os.EOL + 'Environment' + os.EOL +
 	_getCmdHelp(createEncryptionKey) + os.EOL +
 	_getCmdHelp(registerServer) + os.EOL +
 	_getCmdHelp(setOAuthToken) + os.EOL +
+	_getCmdHelp(refreshOAuthToken) + os.EOL +
 	_getCmdHelp(listResources) + os.EOL +
 	_getCmdHelp(executeGet) + os.EOL +
 	_getCmdHelp(executePost) + os.EOL +
@@ -5317,16 +5399,21 @@ const argv = yargs.usage(_usage)
 		})
 	.command([describeTaxonomy.command, describeTaxonomy.alias], false,
 		(yargs) => {
-			yargs.option('file', {
-				alias: 'f',
-				description: 'The JSON file to save the properties'
+			yargs.option('id', {
+				alias: 'i',
+				description: 'Taxonomy Id'
 			})
+				.option('file', {
+					alias: 'f',
+					description: 'The JSON file to save the properties'
+				})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
 				})
 				.example(...describeTaxonomy.example[0])
 				.example(...describeTaxonomy.example[1])
+				.example(...describeTaxonomy.example[2])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${describeTaxonomy.command}\n\n${describeTaxonomy.usage.long}`);
@@ -5496,12 +5583,17 @@ const argv = yargs.usage(_usage)
 		})
 	.command([describeBackgroundJob.command, describeBackgroundJob.alias], false,
 		(yargs) => {
-			yargs.option('server', {
-				alias: 's',
-				description: 'The registered OCM server'
+			yargs.option('wait', {
+				alias: 'w',
+				description: 'Wait for the job to finish if the job is still in progress'
 			})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
 				.example(...describeBackgroundJob.example[0])
 				.example(...describeBackgroundJob.example[1])
+				.example(...describeBackgroundJob.example[2])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${describeBackgroundJob.command}\n\n${describeBackgroundJob.usage.long}`);
@@ -6002,6 +6094,10 @@ const argv = yargs.usage(_usage)
 					alias: 'd',
 					description: 'flag to indicate to download files of the exported site to local folder'
 				})
+				.option('path', {
+					alias: 'p',
+					description: 'path of the local folder for download'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
@@ -6009,9 +6105,52 @@ const argv = yargs.usage(_usage)
 				.example(...exportSite.example[0])
 				.example(...exportSite.example[1])
 				.example(...exportSite.example[2])
+				.example(...exportSite.example[3])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${exportSite.command}\n\n${exportSite.usage.long}`);
+		})
+	.command([importSite.command, importSite.alias], false,
+		(yargs) => {
+			yargs.option('repository', {
+				alias: 'r',
+				description: 'Repository name',
+				demandOption: true
+			})
+				.option('importname', {
+					alias: 'e',
+					description: 'name of the import',
+				})
+				.option('path', {
+					alias: 'p',
+					description: 'path of the local folder for upload'
+				})
+				.option('assetspolicy', {
+					alias: 'a',
+					description: 'assets policy: createOrUpdate (default), createOrUpdateIfOutdated, duplicate'
+				})
+				.option('themecustomcomponentspolicy', {
+					alias: 't',
+					description: 'theme custom components policy: createOrUpdate (default), duplicate'
+				})
+				.option('server', {
+					alias: 's',
+					description: '<server> The registered OCM server'
+				})
+				.check((argv) => {
+					if (!argv.repository) {
+						throw new Error('Please specify repository');
+					}
+					return true;
+				})
+				.example(...importSite.example[0])
+				.example(...importSite.example[1])
+				.example(...importSite.example[2])
+				.example(...importSite.example[3])
+				.example(...importSite.example[4])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${importSite.command}\n\n${importSite.usage.long}`);
 		})
 	.command([updateSite.command, updateSite.alias], false,
 		(yargs) => {
@@ -6089,7 +6228,7 @@ const argv = yargs.usage(_usage)
 		(yargs) => {
 			yargs.option('url', {
 				alias: 'u',
-				description: '<url> Site URL',
+				description: 'Site URL',
 				demandOption: true
 			})
 				.option('format', {
@@ -6120,10 +6259,6 @@ const argv = yargs.usage(_usage)
 					alias: 't',
 					description: 'Priority for the top level pages, a decimal number between 0 and 1'
 				})
-				.option('server', {
-					alias: 's',
-					description: 'The registered OCM server'
-				})
 				.option('newlink', {
 					alias: 'n',
 					description: 'Generate new 19.3.3 detail page link'
@@ -6139,6 +6274,22 @@ const argv = yargs.usage(_usage)
 				.option('querystrings', {
 					alias: 'q',
 					description: 'The comma separated list of query strings for page urls in format of <page name>:<query string>'
+				})
+				.option('multiple', {
+					alias: 'm',
+					description: 'Generate multiple sitemaps, one for each locale'
+				})
+				.option('defaultlocale', {
+					alias: 'd',
+					description: 'Include default locale in the URLs'
+				})
+				.option('usedefaultsiteurl', {
+					alias: 'e',
+					description: 'Uses \'/\' for the root page path instead of any pageUrl value'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
 				})
 				.check((argv) => {
 					if (!argv.url) {
@@ -6169,6 +6320,9 @@ const argv = yargs.usage(_usage)
 				.example(...createSiteMap.example[11])
 				.example(...createSiteMap.example[12])
 				.example(...createSiteMap.example[13])
+				.example(...createSiteMap.example[14])
+				.example(...createSiteMap.example[15])
+				.example(...createSiteMap.example[16])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createSiteMap.command}\n\n${createSiteMap.usage.long}`);
@@ -6237,13 +6391,6 @@ const argv = yargs.usage(_usage)
 				.check((argv) => {
 					if (!Number.isInteger(argv.limit) || argv.limit <= 0) {
 						throw new Error('Value for limit should be an integer greater than 0');
-					} else if (argv.orderby) {
-						var orderbyarr = argv.orderby.split(':');
-						if ((orderbyarr.length !== 2 || (orderbyarr[1] !== 'asc' && orderbyarr[1] !== 'desc'))) {
-							throw new Error('Value for orderby should be as <field>:<asc|desc>');
-						} else {
-							return true;
-						}
 					} else if (argv.ttl && (!Number.isInteger(argv.ttl) || argv.ttl <= 0)) {
 						throw new Error('Value for ttl should be an integer greater than 0');
 					} else {
@@ -6349,6 +6496,42 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${refreshPrerenderCache.command}\n\n${refreshPrerenderCache.usage.long}`);
+		})
+	.command([createSitePlan.command, createSitePlan.alias], false,
+		(yargs) => {
+			yargs.option('file', {
+				alias: 'f',
+				description: 'The local sitemap file'
+			})
+				.option('url', {
+					alias: 'u',
+					description: 'The website url'
+				})
+				.option('repository', {
+					alias: 'r',
+					description: 'The repository',
+					demandOption: true
+				})
+				.option('excludelocale', {
+					alias: 'x',
+					description: 'Exclude locale from URLs'
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.check((argv) => {
+					if (!argv.file && !argv.url) {
+						throw new Error(os.EOL + 'Please specify either local sitemap file or website url');
+					}
+					return true;
+
+				})
+				.example(...createSitePlan.example[0])
+				.example(...createSitePlan.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${createSitePlan.command}\n\n${createSitePlan.usage.long}`);
 		})
 	.command([migrateSite.command, migrateSite.alias], false,
 		(yargs) => {
@@ -6622,6 +6805,7 @@ const argv = yargs.usage(_usage)
 				.example(...controlRepository.example[11])
 				.example(...controlRepository.example[12])
 				.example(...controlRepository.example[13])
+				.example(...controlRepository.example[14])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${controlRepository.command}\n\n${controlRepository.usage.long}`);
@@ -7090,6 +7274,17 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${uploadType.command}\n\n${uploadType.usage.long}`);
+		})
+	.command([describeType.command, describeType.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...describeType.example[0])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeType.command}\n\n${describeType.usage.long}`);
 		})
 	.command([describeWorkflow.command, describeWorkflow.alias], false,
 		(yargs) => {
@@ -8471,6 +8666,19 @@ const argv = yargs.usage(_usage)
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${setOAuthToken.command}\n\n${setOAuthToken.usage.long}`);
+		})
+	.command([refreshOAuthToken.command, refreshOAuthToken.alias], false,
+		(yargs) => {
+			yargs
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
+				.example(...refreshOAuthToken.example[0])
+				.example(...refreshOAuthToken.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${refreshOAuthToken.command}\n\n${refreshOAuthToken.usage.long}`);
 		})
 	.command([executeGet.command, executeGet.alias], false,
 		(yargs) => {
@@ -9962,6 +10170,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--name', argv.name
 	];
+	if (argv.id) {
+		describeTaxonomyArgs.push(...['--id', argv.id]);
+	}
 	if (argv.file) {
 		describeTaxonomyArgs.push(...['--file', argv.file]);
 	}
@@ -10133,6 +10344,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--id', argv.id
 	];
 
+	if (argv.wait) {
+		describeBackgroundJobArgsArgs.push(...['--wait', argv.wait]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeBackgroundJobArgsArgs.push(...['--server', argv.server]);
 	}
@@ -10587,7 +10801,39 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.download) {
 		exportSiteArgs.push(...['--download', argv.download]);
 	}
+	if (argv.path && typeof argv.path !== 'boolean') {
+		exportSiteArgs.push(...['--path', argv.path]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, exportSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === importSite.name || argv._[0] === importSite.alias) {
+	let importSiteArgs = ['run', '-s', importSite.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		importSiteArgs.push(...['--server', argv.server]);
+	}
+	if (argv.importname && typeof argv.importname !== 'boolean') {
+		importSiteArgs.push(...['--importname', argv.importname]);
+	}
+	if (argv.repository && typeof argv.repository !== 'boolean') {
+		importSiteArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.path && typeof argv.path !== 'boolean') {
+		importSiteArgs.push(...['--path', argv.path]);
+	}
+	if (argv.assetspolicy && argv.assetspolicy !== 'boolean') {
+		importSiteArgs.push(...['--assetspolicy', argv.assetspolicy]);
+	}
+	if (argv.themecustomcomponentspolicy && argv.themecustomcomponentspolicy !== 'boolean') {
+		importSiteArgs.push(...['--themecustomcomponentspolicy', argv.themecustomcomponentspolicy]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, importSiteArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -10667,6 +10913,15 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createSiteMapArgs.push(...['--server', argv.server]);
+	}
+	if (argv.multiple) {
+		createSiteMapArgs.push(...['--multiple', argv.multiple]);
+	}
+	if (argv.defaultlocale) {
+		createSiteMapArgs.push(...['--defaultlocale', argv.defaultlocale]);
+	}
+	if (argv.usedefaultsiteurl) {
+		createSiteMapArgs.push(...['--usedefaultsiteurl', argv.usedefaultsiteurl]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, createSiteMapArgs, {
 		cwd,
@@ -10803,6 +11058,30 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		refreshPrerenderCacheArgs.push(...['--server', argv.server]);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, refreshPrerenderCacheArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === createSitePlan.name || argv._[0] === createSitePlan.alias) {
+	let createSitePlanArgs = ['run', '-s', createSitePlan.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name,
+		'--repository', argv.repository
+	];
+	if (argv.file) {
+		createSitePlanArgs.push(...['--file', argv.file]);
+	}
+	if (argv.url) {
+		createSitePlanArgs.push(...['--url', argv.url]);
+	}
+	if (argv.excludelocale) {
+		createSitePlanArgs.push(...['--excludelocale', argv.excludelocale]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		createSitePlanArgs.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, createSitePlanArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -11253,6 +11532,21 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		updateTypeArgs.push(...['--server'], serverVal);
 	}
 	spawnCmd = childProcess.spawnSync(npmCmd, updateTypeArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeType.name || argv._[0] === describeType.alias) {
+	let describeTypeArgs = ['run', '-s', describeType.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--name', argv.name
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeTypeArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, describeTypeArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -12145,6 +12439,21 @@ else if (argv._[0] === uploadType.name || argv._[0] === uploadType.alias) {
 	}
 
 	spawnCmd = childProcess.spawnSync(npmCmd, setOAuthTokenArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === refreshOAuthToken.name || argv._[0] === refreshOAuthToken.alias) {
+	let refreshOAuthTokenArgs = ['run', '-s', refreshOAuthToken.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+
+	if (argv.server && typeof argv.server !== 'boolean') {
+		refreshOAuthTokenArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, refreshOAuthTokenArgs, {
 		cwd,
 		stdio: 'inherit'
 	});

@@ -20,6 +20,7 @@ var gulp = require('gulp'),
 	siteUpdateLib = require('./siteUpdate.js'),
 	siteIndexlib = require('./siteIndex.js'),
 	siteMaplib = require('./siteMap.js'),
+	sitePlanlib = require('./sitePlan.js'),
 	taxonomylib = require('./taxonomy.js'),
 	themelib = require('./theme.js'),
 	translationlib = require('./translation.js'),
@@ -1700,10 +1701,22 @@ gulp.task('update-site', function (done) {
 /**
  * export site
  */
- gulp.task('export-site', function (done) {
+gulp.task('export-site', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.exportSite(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * import site
+ */
+gulp.task('import-site', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.importSite(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -1820,6 +1833,18 @@ gulp.task('delete-static-site-files', function (done) {
 	});
 });
 
+
+/**
+ * Create site plan
+ */
+gulp.task('create-site-plan', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitePlanlib.createSitePlan(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
 
 /**
  * Create a repository
@@ -2051,6 +2076,19 @@ gulp.task('update-type', function (done) {
 		done();
 	}
 });
+
+/**
+ * Describe an asset type
+ */
+gulp.task('describe-type', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	assetlib.describeType(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
 
 /**
  * Describe a workflow
@@ -2657,6 +2695,18 @@ gulp.task('set-oauth-token', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	resourcelib.setOAuthToken(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Refresh OAuth token
+ */
+gulp.task('refresh-oauth-token', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	resourcelib.refreshOAuthToken(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});

@@ -281,11 +281,13 @@ router.get('/*', (req, res) => {
 						siteinfojson = JSON.parse(siteinfobuf);
 
 					if (siteinfojson.properties && siteinfojson.properties.channelId) {
-						siteinfojson.properties['channelAccessTokens'] = [{
-							"name": "defaultToken",
-							"value": "02a11b744a9828b6c08c832cc4efeaa4",
-							"expirationDate": "01/01/2099"
-						}];
+						if (!siteinfojson.properties.channelAccessTokens || siteinfojson.properties.channelAccessTokens.length === 0) {
+							siteinfojson.properties['channelAccessTokens'] = [{
+								"name": "defaultToken",
+								"value": "02a11b744a9828b6c08c832cc4efeaa4",
+								"expirationDate": "01/01/2099"
+							}];
+						}
 					}
 
 					if (siteinfojson.properties && structurejson.pages) {

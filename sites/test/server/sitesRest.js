@@ -40,7 +40,7 @@ var _getResources = function (server, type, expand, offset) {
 			var result = {};
 
 			if (error) {
-				console.error('ERROR: failed to get ' + type + ':');
+				console.error('ERROR: failed to get ' + type + ' (ecid: ' + response.ecid + ')');
 				console.error(error);
 				resolve({
 					err: error
@@ -51,7 +51,7 @@ var _getResources = function (server, type, expand, offset) {
 				var items = data && data.items || [];
 				resolve(data);
 			} else {
-				console.error('ERROR: failed to get ' + type + ' : ' + (response ? (response.statusMessage + ' ' + response.statusCode) : ''));
+				console.error('ERROR: failed to get ' + type + ' : ' + (response ? (response.statusMessage + ' ' + response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: (response ? (response.statusMessage || response.statusCode) : 'err')
 				});
@@ -173,7 +173,7 @@ var _getResource = function (server, type, id, name, expand, showError, includeD
 
 			if (error) {
 				if (showError) {
-					console.error('ERROR: failed to get ' + type.substring(0, type.length - 1) + ' ' + (id || name) + ' : ');
+					console.error('ERROR: failed to get ' + type.substring(0, type.length - 1) + ' ' + (id || name) + ' (ecid: ' + response.ecid + ')');
 					console.error(error);
 				}
 				resolve({
@@ -192,7 +192,7 @@ var _getResource = function (server, type, id, name, expand, showError, includeD
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				if (showError) {
-					console.error('ERROR: failed to get ' + type.substring(0, type.length - 1) + ' ' + (id || name) + ' : ' + msg);
+					console.error('ERROR: failed to get ' + type.substring(0, type.length - 1) + ' ' + (id || name) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				}
 				resolve({
 					err: msg || 'err'
@@ -303,7 +303,7 @@ var _getSiteContentTypes = function (server, id, name) {
 			var result = {};
 
 			if (error) {
-				console.error('ERROR: failed to get site content types ' + (name || id) + ' : ');
+				console.error('ERROR: failed to get site content types ' + (name || id) + ' (ecid: ' + response.ecid + ')');
 				console.error(error);
 				resolve({
 					err: error
@@ -330,7 +330,7 @@ var _getSiteContentTypes = function (server, id, name) {
 				});
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.error('ERROR: failed to get site content types ' + (name || id) + ' : ' + msg);
+				console.error('ERROR: failed to get site content types ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -380,7 +380,7 @@ var _getSiteAccess = function (server, id, name) {
 			var result = {};
 
 			if (error) {
-				console.error('ERROR: failed to get site access ' + (id || name) + ' : ');
+				console.error('ERROR: failed to get site access ' + (id || name) + ' (ecid: ' + response.ecid + ')');
 				console.error(error);
 				resolve({
 					err: error
@@ -396,7 +396,7 @@ var _getSiteAccess = function (server, id, name) {
 				resolve(data && data.items || []);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.error('ERROR: failed to get site access ' + (id || name) + ' : ' + msg);
+				console.error('ERROR: failed to get site access ' + (id || name) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -444,7 +444,7 @@ var _removeSiteAccess = function (server, id, name, member) {
 		request.delete(options, function (error, response, body) {
 
 			if (error) {
-				console.error('ERROR: failed to remove ' + member + ' from accessing site ' + (id || name) + ' : ');
+				console.error('ERROR: failed to remove ' + member + ' from accessing site ' + (id || name) + ' (ecid: ' + response.ecid + ')');
 				console.error(error);
 				resolve({
 					err: error
@@ -460,7 +460,7 @@ var _removeSiteAccess = function (server, id, name, member) {
 				resolve(data);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.error('ERROR: failed to remove ' + member + ' from accessing site ' + (name || id) + ' : ' + msg);
+				console.error('ERROR: failed to remove ' + member + ' from accessing site ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -585,7 +585,7 @@ var _setSiteRuntimeAccess = function (server, id, name, accessList) {
 		var request = require('./requestUtils.js').request;
 		request.patch(options, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: failed to set runtime access for site ' + (id || name) + ' : ');
+				console.error('ERROR: failed to set runtime access for site ' + (id || name) + ' (ecid: ' + response.ecid + ')');
 				console.error(error);
 				resolve({
 					err: error
@@ -602,7 +602,7 @@ var _setSiteRuntimeAccess = function (server, id, name, accessList) {
 				resolve(data);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.error('ERROR: failed to set runtime access for site ' + (name || id) + ' : ' + msg);
+				console.error('ERROR: failed to set runtime access for site ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -656,7 +656,7 @@ var _setSiteStaticDeliveryOptions = function (server, id, name, staticDeliveryOp
 		var request = require('./requestUtils.js').request;
 		request.patch(options, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: failed to set staticDeliveryOptions for site ' + (name || id) + ' : ');
+				console.error('ERROR: failed to set staticDeliveryOptions for site ' + (name || id) + ' (ecid: ' + response.ecid + ')');
 				console.error(error);
 				resolve({
 					err: error
@@ -673,7 +673,7 @@ var _setSiteStaticDeliveryOptions = function (server, id, name, staticDeliveryOp
 				resolve(data);
 			} else {
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
-				console.error('ERROR: failed to set staticDeliveryOptions for site ' + (name || id) + ' : ' + msg);
+				console.error('ERROR: failed to set staticDeliveryOptions for site ' + (name || id) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
 					err: msg || 'err'
 				});
@@ -723,7 +723,7 @@ var _updateSite = function (server, id, name, body) {
 		var request = require('./requestUtils.js').request;
 		request.patch(options, function (error, response, body) {
 			if (error) {
-				console.error('ERROR: failed to update site ' + (name || id) + ' : ');
+				console.error('ERROR: failed to update site ' + (name || id) + ' (ecid: ' + response.ecid + ')');
 				console.error(error);
 				resolve({
 					err: error
@@ -1316,7 +1316,8 @@ var _publishResourceAsync = function (server, type, id, name, usedContentOnly, c
 								process.stdout.write(os.EOL);
 							}
 							return resolve({
-								name: name
+								name: name,
+								id: jobId
 							});
 						} else {
 							if (console.showInfo()) {
@@ -1586,9 +1587,9 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 
 			var statusUrl = response.location;
 			if (statusUrl) {
-				console.log(' - submit background job');
+				console.info(' - submit background job');
 				statusUrl += '?fields=id,name,description,progress,completed,message,completedPercentage,sources,target';
-				console.log(' - job status: ' + statusUrl);
+				console.info(' - job status: ' + statusUrl);
 				var startTime = new Date();
 				var needNewLine = false;
 				var inter = setInterval(function () {
@@ -1596,7 +1597,7 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 						.then(function (data) {
 							if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
 								clearInterval(inter);
-								if (needNewLine) {
+								if (needNewLine && console.showInfo()) {
 									process.stdout.write(os.EOL);
 								}
 								var msg = data && data.error ? (data.error.detail || data.error.title) : '';
@@ -1606,15 +1607,18 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 								});
 							} else if (data.completed && data.progress === 'succeeded') {
 								clearInterval(inter);
-								if (data.completedPercentage) {
-									process.stdout.write(' - request in process percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								if (console.showInfo()) {
+									if (data.completedPercentage) {
+										process.stdout.write(' - request in process percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+									}
+									process.stdout.write(os.EOL);
 								}
-								process.stdout.write(os.EOL);
-								console.log(' - request finished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-								// console.log(data);
+								console.info(' - request finished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 								return resolve(data);
 							} else {
-								process.stdout.write(' - request in process' + (data.completedPercentage !== undefined ? ' percentage ' + data.completedPercentage : '') + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								if (console.showInfo()) {
+									process.stdout.write(' - request in process' + (data.completedPercentage !== undefined ? ' percentage ' + data.completedPercentage : '') + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								}
 								readline.cursorTo(process.stdout, 0);
 								needNewLine = true;
 							}
@@ -1644,6 +1648,252 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 module.exports.exportSite = function (args) {
 	var server = args.server;
 	return _exportSite(server, args.name, args.siteName, args.siteId, args.folderId, args.includeunpublishedassets);
+};
+
+var _createArchive = function (server, folderId) {
+	return new Promise(function (resolve, reject) {
+
+		var url = '/system/export/api/v1/archives';
+
+		var payload = {
+			provider: "docs",
+			docs: {
+				folderId: folderId
+			}
+		};
+
+		var options = {
+			method: 'POST',
+			url: server.url + url,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(payload),
+			json: true
+		};
+
+		// Note: Export service on dev instances requires additional header
+		if (server.env === 'dev_ec') {
+			options.headers.IDCS_REMOTE_USER = server.username;
+		}
+
+		serverUtils.showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: failed to create site archive ' + (folderId) + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
+				resolve({
+					err: error
+				});
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			var statusUrl = response.location;
+			if (statusUrl) {
+				console.info(' - submit background job for create archive');
+				statusUrl += '?fields=id,entries,provider,docs,entries.site.id,entries.site.name,entries.site.defaultLanguage,entries.site.channel,entries.site.channel,entries.site.channel.localizationPolicy';
+				console.info(' - job status: ' + statusUrl);
+				var startTime = new Date();
+				var inter = setInterval(function () {
+					_getBackgroundJobStatus(server, statusUrl)
+						.then(function (data) {
+							if (!data || data.error) {
+								clearInterval(inter);
+								var msg = data && data.error ? (data.error.detail || data.error.title) : '';
+								console.error('_createArchive ERROR: request failed: ' + msg + ' (ecid: ' + response.ecid + ')');
+								return resolve({
+									err: 'err'
+								});
+							} else {
+								clearInterval(inter);
+								console.info(' - request finished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								return resolve(data);
+							}
+						});
+				}, 5000);
+			} else {
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.error('ERROR: failed to create archive ' + (folderId) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+
+/**
+ * Create archive
+ * @param {object} args
+ * @returns
+ */
+module.exports.createArchive = function (args) {
+	var server = args.server;
+	return _createArchive(server, args.folderId);
+};
+
+var _importSite = function (server, name, archiveId, siteId, repositoryId, assetspolicy, themecustomcomponentspolicy) {
+	return new Promise(function (resolve, reject) {
+
+		var url = '/system/export/api/v1/imports';
+
+		var payload = {
+			name: name,
+			description: "",
+			source: {
+				"provider": "archive",
+				"archive": {
+					"id": archiveId
+				}
+			},
+			targets: [
+				{
+					select: {
+						type: "site",
+						site: {
+							id: siteId
+						}
+					},
+					apply: {
+						policies: "createSite",
+						createSite: {
+							"assetsPolicy": assetspolicy,
+							"themeCustomComponentsPolicy": themecustomcomponentspolicy,
+							"site": {
+								"repository": {
+									"id": repositoryId
+								}
+							}
+						}
+					}
+				}
+			],
+			"policies": {
+				"ignoreAllValidationWarnings": true
+			}
+		};
+
+		var options = {
+			method: 'POST',
+			url: server.url + url,
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: serverUtils.getRequestAuthorization(server)
+			},
+			body: JSON.stringify(payload),
+			json: true
+		};
+
+		// Note: Export service on dev instances requires additional header
+		if (server.env === 'dev_ec') {
+			options.headers.IDCS_REMOTE_USER = server.username;
+		}
+
+		serverUtils.showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.post(options, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: failed to import site ' + (archiveId) + ' (ecid: ' + response.ecid + ')');
+				console.error(error);
+				resolve({
+					err: error
+				});
+				return;
+			}
+
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			var statusUrl = response.location;
+			if (statusUrl) {
+				console.info(' - submit background job for import site');
+				statusUrl += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,currentState,completed,targets,reports';
+				console.info(' - job status: ' + statusUrl);
+				var startTime = new Date();
+				var needNewLine = false;
+				var inter = setInterval(function () {
+					_getBackgroundJobStatus(server, statusUrl)
+						.then(function (data) {
+							var reportURL;
+							if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+								clearInterval(inter);
+								if (needNewLine && console.showInfo()) {
+									process.stdout.write(os.EOL);
+								}
+								var msg = data && data.error ? (data.error.detail || data.error.title) : (data.progress || '');
+								console.error('_importSite ERROR: request failed: ' + msg + ' (ecid: ' + response.ecid + ')');
+								console.error('_importSite id ' + data.id + ' reports.count ' + data.reports.count + ' ' + data.reports.items[0].id);
+								if (data && data.reports.count > 0) {
+									// TODO: Handle multiple reports
+									reportURL = response.location + '/reports/' + data.reports.items[0].id + '/package';
+								}
+								return resolve({
+									err: 'error',
+									job: data,
+									reports: reportURL
+								});
+							} else if (data.completed && data.progress === 'succeeded') {
+								clearInterval(inter);
+								if (console.showInfo()) {
+									if (data.completedPercentage) {
+										process.stdout.write(' - request in process percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+									}
+									process.stdout.write(os.EOL);
+								}
+								console.info(' - request finished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								if (data && data.reports.count > 0) {
+									// TODO: Handle multiple reports
+									reportURL = response.location + '/reports/' + data.reports.items[0].id + '/package';
+								}
+								return resolve({
+									job: data,
+									reports: reportURL
+								});
+							} else {
+								if (console.showInfo()) {
+									process.stdout.write(' - request in process' + (data.completedPercentage !== undefined ? ' percentage ' + data.completedPercentage : '') + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								}
+								readline.cursorTo(process.stdout, 0);
+								needNewLine = true;
+							}
+						});
+				}, 5000);
+			} else {
+				console.info(' - job status: No statusUrl');
+				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
+				console.error('ERROR: failed to import site ' + (name) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
+				resolve({
+					err: msg || 'err'
+				});
+			}
+
+		});
+	});
+};
+
+/**
+ * Import a site to server
+ * @param {object} args
+ * @returns
+ */
+ module.exports.importSite = function (args) {
+	var server = args.server;
+	return _importSite(server, args.name, args.archiveId, args.siteId, args.repositoryId, args.assetspolicy, args.themecustomcomponentspolicy);
 };
 
 var _validateSite = function (server, id, name) {
@@ -2365,7 +2615,9 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 								}
 								var msg = data && data.message ? data.message : (data && data.error ? (data.error.detail || data.error.title) : '');
 								console.error('ERROR: create site failed: ' + msg + ' (ecid: ' + response.ecid + ')');
-								// console.log(data);
+								if (data) {
+									console.error(JSON.stringify(data, null, 4));
+								}
 								return resolve({
 									err: 'err'
 								});
@@ -2404,7 +2656,9 @@ var _createSite = function (server, name, description, sitePrefix, templateName,
 								}
 								msg = data && data.message ? data.message : (data && data.error ? (data.error.detail || data.error.title) : '');
 								console.error('ERROR: create site failed: ' + msg + ' (ecid: ' + response.ecid + ')');
-								// console.log(data);
+								if (data) {
+									console.error(JSON.stringify(data, null, 4));
+								}
 								return resolve({
 									err: 'err'
 								});

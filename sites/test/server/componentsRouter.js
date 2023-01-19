@@ -31,6 +31,7 @@ var templatesDir,
 	themesDir,
 	componentsDir,
 	contentDir,
+	localContent = '',
 	customTemplate = '',
 	customChannelToken = '',
 	customThemeName = '';
@@ -45,9 +46,22 @@ var _setupSourceDir = function (req, compName) {
 
 	// if the request is for the components page, then setup the custom theme if passed in as well
 	if (req.path === '/components/' + compName + '/') {
-		customThemeName = req.query.theme;
 		customTemplate = req.query.template;
-		customChannelToken = req.query.token;
+		if (customTemplate) {
+			// get the site template's theme
+			let tempsiteinfoPath = path.join(templatesDir, customTemplate, 'siteinfo.json');
+			if (fs.existsSync(tempsiteinfoPath)) {
+				let siteinfo = JSON.parse(fs.readFileSync(tempsiteinfoPath));
+				if (siteinfo && siteinfo.properties && siteinfo.properties.themeName) {
+					customThemeName = siteinfo.properties.themeName;
+				}
+			}
+			localContent = customTemplate;
+		} else {
+			customThemeName = req.query.theme;
+			customChannelToken = req.query.token;
+			localContent = req.query.content;
+		}
 	}
 };
 
@@ -67,8 +81,8 @@ router.get('/*', (req, res) => {
 
 	app.locals.localTemplate = '';
 	app.locals.channelToken = '';
-	if (customTemplate) {
-		app.locals.localTemplate = customTemplate;
+	if (customTemplate || localContent) {
+		app.locals.localTemplate = customTemplate || localContent;
 	} else if (customChannelToken) {
 		app.locals.channelToken = customChannelToken;
 	}
@@ -84,6 +98,7 @@ router.get('/*', (req, res) => {
 	app.locals.currentComponent = compName;
 
 	console.info('### Component: ' + req.url);
+	console.info('   template: ' + customTemplate + ' content: ' + localContent + ' theme: ' + customThemeName + ' server channel token: ' + app.locals.channelToken);
 
 	if (req.path.indexOf('/_compdelivery/') === 0) {
 		// 
@@ -606,9 +621,30 @@ router.get('/*', (req, res) => {
 			}
 			buf = buf.replace('_devcs_component_fieldeditor_type', fieldEditorType);
 
+			// local templates
+			var templates = fs.readdirSync(templatesDir),
+				templateshtml = '<select id="localtemplate" class="themedesign-select" onchange="selectTemplate()"><option value="none">None</option>';
+			for (let i = 0; i < templates.length; i++) {
+				if (fs.existsSync(path.join(templatesDir, templates[i], '_folder.json'))) {
+					templateshtml += '<option value="' + templates[i] + '"';
+					if (templates[i] === customTemplate) {
+						templateshtml += ' selected="selected"';
+					}
+					templateshtml += '>' + templates[i] + '</option>';
+				} else {
+					console.warn(' - ' + templates[i] + ' is not a template');
+				}
+			}
+			templateshtml = templateshtml + '</select>';
+			buf = buf.replace('_devcs_local_templates', templateshtml);
+
 			// Theme designs
 			var themes = fs.readdirSync(themesDir),
-				themedesigns = '<select id="themedesign" class="themedesign-select" onchange="selectTheme()"><option value="none">None</option>';
+				themedesigns = '<select id="themedesign" class="themedesign-select" onchange="selectTheme()"';
+			if (customTemplate) {
+				themedesigns += ' disabled';
+			}
+			themedesigns += '><option value="none">None</option>';
 			for (let i = 0; i < themes.length; i++) {
 				if (fs.existsSync(path.join(themesDir, themes[i], '_folder.json'))) {
 					themedesigns += '<option value="' + themes[i] + '"';
@@ -688,10 +724,13 @@ router.get('/*', (req, res) => {
 				buf = buf.replace('_devcs_contentlayout_settings_title_div', contentlayoutSettingsTitleSrc);
 				buf = buf.replace('_devcs_component_click_settings_func', clickSettingsSrc);
 
-				var localContentHtml = '<div class="themedesign"><span>Local Content</span>' +
-					'<select id="localcontent" class="themedesign-select" onchange="selectLocalContent()">' +
-					'<option value="none">None</option>';
-				var templates = fs.readdirSync(templatesDir);
+				var localContentHtml = '<div class="themedesign"><span>Content</span>' +
+					'<select id="localcontent" class="themedesign-select" onchange="selectLocalContent()"';
+				if (customTemplate) {
+					localContentHtml += ' disabled';
+				}
+				localContentHtml += '><option value="none">None</option>';
+				let templates = fs.readdirSync(templatesDir);
 				console.info('    site templates: ' + templates);
 				templates.forEach(function (tempName) {
 					if (fs.existsSync(path.join(templatesDir, tempName, 'assets', 'contenttemplate', 'Content Template of ' + tempName))) {
@@ -779,35 +818,53 @@ router.get('/*', (req, res) => {
 			res.write(buf);
 			res.end();
 		} else if (filePath.indexOf('structure.json') > 0) {
-			// add connections
-			var vbcsconn = '';
-			var options = {
-				method: 'GET',
-				url: 'http://localhost:' + app.locals.port + '/getvbcsconnection'
-			};
-			request.get(options, function (err, response, body) {
-				if (response && response.statusCode === 200) {
-					var data = JSON.parse(body);
-					vbcsconn = data ? data.VBCSConnection : '';
-				} else {
-					console.error('status=' + response.statusCode + ' err=' + err);
-				}
-
-				var structurebuf = fs.readFileSync(filePath).toString();
-
-				if (customThemeName) {
-					structurebuf = structurebuf.replace('CompTheme', customThemeName);
-				}
-
-				var structurejson = JSON.parse(structurebuf);
-
-				structurejson.siteInfo.base.properties.siteConnections = {
-					VBCSConnection: vbcsconn
+			// selected template
+			if (customTemplate && fs.existsSync(path.join(templatesDir, customTemplate, 'structure.json'))) {
+				let structurejson = JSON.parse(fs.readFileSync(path.join(templatesDir, customTemplate, 'structure.json')));
+				let siteinfojson = fs.existsSync(path.join(templatesDir, customTemplate, 'siteinfo.json')) ?
+					JSON.parse(fs.readFileSync(path.join(templatesDir, customTemplate, 'siteinfo.json'))) : {};
+				let result = {
+					siteInfo: {
+						base: siteinfojson
+					},
+					base: structurejson
 				};
-
-				res.write(JSON.stringify(structurejson));
+				console.log(result);
+				res.write(JSON.stringify(result));
 				res.end();
-			});
+
+			} else {
+				// default to CompSite
+				// add connections
+				var vbcsconn = '';
+				var options = {
+					method: 'GET',
+					url: 'http://localhost:' + app.locals.port + '/getvbcsconnection'
+				};
+				request.get(options, function (err, response, body) {
+					if (response && response.statusCode === 200) {
+						var data = JSON.parse(body);
+						vbcsconn = data ? data.VBCSConnection : '';
+					} else {
+						console.error('status=' + response.statusCode + ' err=' + err);
+					}
+
+					var structurebuf = fs.readFileSync(filePath).toString();
+
+					if (customThemeName) {
+						structurebuf = structurebuf.replace('CompTheme', customThemeName);
+					}
+
+					var structurejson = JSON.parse(structurebuf);
+
+					structurejson.siteInfo.base.properties.siteConnections = {
+						VBCSConnection: vbcsconn
+					};
+
+					res.write(JSON.stringify(structurejson));
+					res.end();
+				});
+			}
 		} else {
 			// original file
 			res.sendFile(filePath);

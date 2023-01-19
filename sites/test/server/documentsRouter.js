@@ -62,7 +62,7 @@ router.get('/*', (req, res) => {
 			}
 		}
 
-		console.info('Remote traffic: ' + location);
+		console.info('Document Remote traffic: ' + location);
 		options.url = location;
 
 		// console.log(options);
@@ -86,7 +86,7 @@ router.post('/*', (req, res) => {
 	console.info('^^^ Document: ' + req.url);
 
 	// all POST requests are proxied to the remote server
-	console.info('Remote traffic: POST ' + requestUrl);
+	console.info('Document Remote traffic: POST ' + requestUrl);
 	var body = '';
 
 	req.on('error', function (err) {

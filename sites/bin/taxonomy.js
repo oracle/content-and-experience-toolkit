@@ -668,6 +668,7 @@ module.exports.describeTaxonomy = function (argv, done) {
 		return;
 	}
 
+	var id = argv.id;
 	var output = argv.file;
 
 	if (output) {
@@ -702,13 +703,13 @@ module.exports.describeTaxonomy = function (argv, done) {
 
 		var tax;
 
-		serverRest.getTaxonomyWithName({
+		serverRest.getTaxonomiesWithName({
 			server: server,
 			name: name,
 			fields: 'availableStates,publishedChannels'
 		})
 			.then(function (result) {
-				if (!result || result.err || !result.data || !result.data.id) {
+				if (!result || result.err || result.length === 0) {
 					console.error('ERROR: taxonomy ' + name + ' does not exist');
 					return Promise.reject();
 				}
@@ -717,7 +718,40 @@ module.exports.describeTaxonomy = function (argv, done) {
 					console.log(' - taxonomy properties saved to ' + output);
 				}
 
-				tax = result.data;
+				var taxonomies = result || [];
+				var nameMatched = [];
+				var idMatched;
+				for (var i = 0; i < taxonomies.length; i++) {
+					if (name && taxonomies[i].name === name) {
+						nameMatched.push(taxonomies[i]);
+					}
+					if (id && taxonomies[i].id === id) {
+						idMatched = taxonomies[i];
+					}
+				}
+
+				if (!idMatched && nameMatched.length === 0) {
+					console.error('ERROR: taxonomy ' + name + ' does not exist');
+					return Promise.reject();
+				}
+				if (!idMatched && nameMatched.length > 1) {
+					console.error('There are ' + nameMatched.length + ' taxonomies with name ' + name + ':');
+					var format = '   %-32s  %-12s  %-24s  %-12s %-s';
+					console.log(sprintf(format, 'Id', 'Abbreviation', 'Creation Date', 'Publishable', 'Status'));
+					nameMatched.forEach(function (tax) {
+						var availableStates = tax.availableStates;
+						var status = [];
+						for (var i = 0; i < availableStates.length; i++) {
+							status.push(availableStates[i].status + (availableStates[i].published ? '(published)' : ''));
+						}
+						console.log(sprintf(format, tax.id, tax.shortName, tax.createdDate && tax.createdDate.value,
+							(tax.isPublishable ? '    √' : ''), status.join(', ')));
+					});
+					console.log('Please try again with the taxonomy Id');
+					return Promise.reject();
+				}
+
+				tax = idMatched || nameMatched[0];
 
 				var promotedVersion;
 				var publishedVersion;

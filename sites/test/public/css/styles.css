@@ -168,6 +168,12 @@ margin-right: 0px;*/
 }
 
 .component-option {
+	padding-left: 10px;;
+	padding-bottom: 10px;
+	padding-right: 10px;
+}
+
+.component-local-option {
 	display: flex;
 	padding-bottom: 10px;
 }
@@ -456,7 +462,7 @@ margin-right: 0px;*/
 }
 
 .themedesign {
-	margin-left: auto;
+	margin-right: auto;
 }
 
 .themedesign-select {

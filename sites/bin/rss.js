@@ -237,7 +237,7 @@ var _generateRSSFile = function (siteUrl, items, language, detailPage, tempPath,
 	for (var i = 0; i < items.length; i++) {
 		var item = items[i];
 
-		var fields = item.fields;
+		var fields = item.fields || [];
 		Object.keys(fields).forEach(function (key) {
 			var field = fields[key];
 			if (field && field.timezone && field.value) {

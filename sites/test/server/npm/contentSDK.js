@@ -232,7 +232,21 @@
 								});
 							}
 						} else {
-							// return the error response object to be handled by calling function
+							// body will contain the error message JSON
+							var error = body; 
+							try {
+								error = JSON.parse(body);
+							} catch (e) {}
+
+							// add to the response object for backwards compatibilty
+							response.debugError = {
+								'error': error,
+								'url': targetURL,
+								'status': responseStatus,
+								'message': response.statusMessage
+							};
+
+							// return the response object to be handled by calling function
 							reject(response);
 						}
 					});
@@ -254,10 +268,11 @@
 
 					// setup the JSON body
 					var bodyString = JSON.stringify(restArgs.postData);
+					var bodyStringLengthAsUTF8 = (new TextEncoder().encode(bodyString)).length;
 					options.headers = {
 						'Content-Type': 'application/json',
 						'X-Requested-With': 'XMLHttpRequest',
-						'Content-Length': bodyString.length
+						'Content-Length': bodyStringLengthAsUTF8
 					};
 
 					// do http or https get writing the bodyString
@@ -1431,7 +1446,7 @@
 	 *     console.log(response);
 	 * });
 	 */
-	 ContentDeliveryClientImpl.prototype.graphql = function (params) {
+	ContentDeliveryClientImpl.prototype.graphql = function (params) {
 		var self = this,
 			args = params || {},
 			restCallArgs = this.resolveRESTArgs('POST', args);

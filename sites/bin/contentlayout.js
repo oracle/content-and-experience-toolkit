@@ -1632,7 +1632,7 @@ module.exports.addContentLayoutMappingServer = function (argv, done) {
 
 				console.log(' - content layout mapping ' + layoutStyle + ':' + contentLayoutName + ' added for type ' + contentType);
 				if (result.layoutMapping && result.layoutMapping.data) {
-					_displayContentLayoutMapping(result.layoutMapping.data);
+					serverUtils.displayContentLayoutMapping(result.layoutMapping.data);
 				}
 				done(true);
 			})
@@ -1728,7 +1728,7 @@ module.exports.removeContentLayoutMappingServer = function (argv, done) {
 
 				console.log(' - content layout mapping ' + layoutStyle + ':' + contentLayoutName + ' removed for type ' + contentType);
 				if (result.layoutMapping && result.layoutMapping.data) {
-					_displayContentLayoutMapping(result.layoutMapping.data);
+					serverUtils.displayContentLayoutMapping(result.layoutMapping.data);
 				}
 				done(true);
 			})
@@ -1742,42 +1742,3 @@ module.exports.removeContentLayoutMappingServer = function (argv, done) {
 
 };
 
-var _displayContentLayoutMapping = function (mappings) {
-	// console.log(mappings);
-	console.log('');
-	var format = '   %-30s  %-30s  %-s';
-	console.log(sprintf(format, 'Layout Styles', 'Desktop Content Layout', 'Mobile Content Layout'));
-
-	var _displayOne = function (style) {
-		var desktopLayout = 'Default';
-		var mobileLayout = 'Same as Desktop';
-
-		for (var i = 0; i < mappings.length; i++) {
-			var mapping = mappings[i];
-			if (mapping.label === style) {
-				desktopLayout = mapping.formats && mapping.formats.desktop || desktopLayout;
-				mobileLayout = mapping.formats && mapping.formats.mobile || mobileLayout;
-			}
-		}
-		console.log(sprintf(format, style, desktopLayout, mobileLayout));
-	};
-
-	_displayOne('Default');
-	_displayOne('Content List Default');
-	_displayOne('Empty Content List Default');
-	_displayOne('Content Placeholder Default');
-
-	var ootbStyles = ['Default', 'Default|mobile',
-		'Content List Default', 'Content List Default|mobile',
-		'Empty Content List Default', 'Empty Content List Default|mobile',
-		'Content Placeholder Default', 'Content Placeholder Default|mobile'
-	];
-	for (var i = 0; i < mappings.length; i++) {
-		var style = mappings[i].label;
-		if (!ootbStyles.includes(style)) {
-			_displayOne(style);
-		}
-	}
-	console.log('');
-
-};

@@ -3508,6 +3508,7 @@ module.exports.exportSite = function (argv, done) {
 		var siteName = argv.name;
 		var exportname = argv.exportname || argv.name;
 		var includeunpublishedassets = argv.includeunpublishedassets;
+		var downloadPath = argv.path || '';
 
 		// folder path on the server
 		var folder = argv.folder && argv.folder.toString();
@@ -3528,7 +3529,6 @@ module.exports.exportSite = function (argv, done) {
 			}
 
 			var promises = [];
-			var parseFolderResult = false;
 			promises.push(sitesRest.getSite({
 				server: server,
 				name: siteName
@@ -3597,7 +3597,9 @@ module.exports.exportSite = function (argv, done) {
 						if (argv.download) {
 
 							// Download option
-							var targetPath = path.join(projectDir, 'src', 'siteExport', exportFolderName);
+							// If no download path is specified, then save to src/siteExport/<siteName>
+							// If download path is specified, then save to the specified path.
+							var targetPath = downloadPath ? downloadPath : path.join(projectDir, 'src', 'siteExport', siteName);
 
 							// Remove target path if exists.
 							if (fs.existsSync(targetPath)) {
@@ -3615,7 +3617,7 @@ module.exports.exportSite = function (argv, done) {
 								folder: targetPath
 							};
 							documentUtils.downloadFolder(downloadArgv, server, true, true).then(function () {
-								console.log('Downloaded export site files to ' + targetPath);
+								console.info('Downloaded export site files to ' + targetPath);
 								done(true);
 							});
 						}
@@ -3637,6 +3639,198 @@ module.exports.exportSite = function (argv, done) {
 	}
 };
 
+/**
+ * import site
+ */
+ module.exports.importSite = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	try {
+		var serverName = argv.server;
+		var server = serverUtils.verifyServer(serverName, projectDir);
+		if (!server || !server.valid) {
+			done();
+			return;
+		}
+
+		var siteName = argv.name,
+			uploadPath = argv.path || path.join(projectDir, 'src', 'siteExport', siteName),
+			folderName = uploadPath.split(path.sep).pop(),
+			importName = argv.importname || siteName,
+			repository = argv.repository,
+			assetspolicy = (['createOrUpdate', 'createOrUpdateIfOutdated', 'duplicate'].indexOf(argv.assetspolicy) !== -1) ? argv.assetspolicy : 'createOrUpdate',
+			themecustomcomponentspolicy = (['createOrUpdate', 'duplicate'].indexOf(argv.assetspolicy) !== -1) ? argv.themecustomcomponentspolicy : 'createOrUpdate';
+
+		var loginPromise = serverUtils.loginToServer(server);
+		loginPromise.then(function (result) {
+			if (!result.status) {
+				console.error(result.statusMessage);
+				done();
+				return;
+			}
+
+			var repo;
+			serverRest.getRepositoryWithName({
+				server: server,
+				name: repository,
+				fields: 'id'
+			}).then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+
+				repo = result.data;
+				if (!repo || !repo.id) {
+					console.error('ERROR: repository ' + name + ' does not exist');
+					return Promise.reject();
+				}
+
+				var deleteExistingFolder = function() {
+						return new Promise(function (resolve, reject) {
+							var deleteArgv = {
+								path: folderName,
+								permanent: 'true'
+							};
+
+							documentUtils.deleteFolder(deleteArgv, server).then(function(result) {
+								console.info('importSite deleteFolder ' + folderName);
+								resolve();
+							}).catch((error) => {
+								resolve();
+							})
+						});
+					}
+
+				var downloadReports = function(url) {
+						return new Promise(function (resolve, reject) {
+							console.info('importSite download reports from ' + url);
+							var targetPath = path.join(projectDir, 'src', 'siteImport', siteName);
+							// Create target path
+							fs.mkdirSync(targetPath, {
+								recursive: true
+							});
+
+							targetPath = path.join(targetPath, 'Import_' + siteName + '_Report.zip');
+							console.info('importSite save reports to ' + targetPath);
+							var downloadArgs = {
+								server: server,
+								url: url,
+								saveTo: targetPath
+							}
+							serverRest.downloadByURLSave(downloadArgs).then(function() {
+								resolve();
+							}).catch((error) => {
+								console.error('importSite failed to download reports');
+								resolve();
+							});
+						});
+					}
+
+				deleteExistingFolder().then(function() {
+
+					var uploadArgv = {
+						path: uploadPath
+					};
+					documentUtils.uploadFolder(uploadArgv, server).then(function(result) {
+						console.info('ImportSite uploadFolder result ' + result);
+
+						serverRest.findFolderHierarchy({
+							server: server,
+							parentID: 'self',
+							folderPath: folderName
+						}).then(function(folder) {
+							console.info('ImportSite uploadFolder id ' + folder.id);
+
+							sitesRest.createArchive({
+								server: server,
+								folderId: folder.id
+							}).then(function(archivedata) {
+								console.info('ImportSite create archive id ' + archivedata.id);
+
+								if (!archivedata.id) {
+									done();
+									return;
+								}
+
+								archivedata.entries.items.forEach((entry) => {
+									var siteId = entry.site.id;
+
+									console.info('ImportSite site name ' + entry.site.name);
+									console.info('ImportSite site default language ' + entry.site.defaultLanguage);
+
+									// TODO: Irrelevant in multiple sites case
+									if (entry.site.name !== siteName) {
+										console.warn('WARNING: Given site name is not the same as the is site name in the site folder');
+										console.warn('         site name in command: ' + siteName);
+										console.warn('         site name in folder ' + entry.site.name);
+									}
+									sitesRest.importSite({
+										server: server,
+										name: importName,
+										archiveId: archivedata.id,
+										siteId: siteId,
+										repositoryId: repo.id,
+										assetspolicy: assetspolicy,
+										themecustomcomponentspolicy: themecustomcomponentspolicy
+									}).then(function(data) {
+										if (data && data.err) {
+											downloadReports(data.reports).then(function() {
+												done();
+											});
+										} else {
+											console.info('ImportSite data.job ' + (data.job.reports.count > 0) ? data.job.reports.items[0].id : '');
+											downloadReports(data.reports).then(function() {
+												done(true);
+											});
+										}
+									}).catch((error) => {
+										if (error) {
+											console.error('ERROR: Failed to import site ' + error);
+										}
+										done();
+									});
+								});
+							}).catch((error) => {
+								if (error) {
+									console.error('ERROR: Failed to create archive ' + error);
+								}
+								done();
+							});
+						}).catch((error) => {
+							if (error) {
+								console.error('ERROR: Failed to find folder ' + error);
+							}
+							done();
+						});
+					}).catch((error) => {
+						if (error) {
+							console.error('ERROR: Failed to upload site folder ' + error);
+						}
+						done();
+					});
+				}).catch((error) => {
+					if (error) {
+						console.error('ERROR: Failed to delete folder before upload ' + error);
+					}
+					done();
+				});
+			}).catch((error) => {
+				if (error) {
+					console.error('ERROR: Failed to get repository ' + error);
+				}
+				done();
+			});
+		});
+	} catch (e) {
+		console.error(e);
+		done();
+	}
+};
 
 /**
  * validate site
@@ -4123,6 +4317,7 @@ module.exports.describeSite = function (argv, done) {
 		var siteMetadata;
 		var siteInfo;
 		var siteinfoJson;
+		var componentsUsed, contentItemsUsed, contentTypesUsed;
 		var totalItems = 0;
 		var totalMasterItems = 0;
 		var pageTranslations = 0;
@@ -4199,6 +4394,15 @@ module.exports.describeSite = function (argv, done) {
 				siteInfo = result && result.siteinfo;
 
 				// console.log(siteMetadata);
+
+				return serverUtils.getSiteUsedData(server, site.id);
+
+			})
+			.then(function (result) {
+
+				componentsUsed = result && result.componentsUsed || [];
+				contentItemsUsed = result && result.contentItemsUsed || [];
+				contentTypesUsed = result && result.contentTypesUsed || [];
 
 				var accValues = site.security && site.security.access || [];
 				var signin = accValues.length === 0 || accValues.includes('everyone') ? 'no' : 'yes';
@@ -4377,7 +4581,73 @@ module.exports.describeSite = function (argv, done) {
 					console.log(sprintf(format1, 'Job message', siteInfo.JobMessage));
 				}
 
+				var format2 = '  %-12s  %-s';
+
+				console.log(sprintf(format1, 'Components used', ''));
+				if (componentsUsed.length > 0) {
+					console.log(sprintf(format2, 'Page Id', 'Components'));
+					let componentsUsedPageIds = [];
+					componentsUsed.forEach(function (comp) {
+						if (comp.scsPageID && !componentsUsedPageIds.includes(comp.scsPageID)) {
+							componentsUsedPageIds.push(comp.scsPageID);
+						}
+					});
+
+					for (let i = 0; i < componentsUsedPageIds.length; i++) {
+						let comps = [];
+						componentsUsed.forEach(function (comp) {
+							if (comp.scsPageID && comp.scsPageID === componentsUsedPageIds[i] && !comps.includes(comp.scsComponentName)) {
+								comps.push(comp.scsComponentName);
+							}
+						});
+						console.log(sprintf(format2, componentsUsedPageIds[i], comps.join(', ')));
+					}
+				}
+
+				console.log(sprintf(format1, 'Content items used', ''));
+				if (contentItemsUsed.length > 0) {
+					console.log(sprintf(format2, 'Page Id', 'Content items'));
+					let assetsUsedPageIds = [];
+					contentItemsUsed.forEach(function (item) {
+						if (item.scsPageID && !assetsUsedPageIds.includes(item.scsPageID)) {
+							assetsUsedPageIds.push(item.scsPageID);
+						}
+					});
+
+					for (let i = 0; i < assetsUsedPageIds.length; i++) {
+						let items = [];
+						contentItemsUsed.forEach(function (item) {
+							if (item.scsPageID && item.scsPageID === assetsUsedPageIds[i] && !items.includes(item.scsContentItemID)) {
+								items.push(item.scsContentItemID);
+							}
+						});
+						console.log(sprintf(format2, assetsUsedPageIds[i], items.join(', ')));
+					}
+				}
+
+				console.log(sprintf(format1, 'Content types used', ''));
+				if (contentTypesUsed.length > 0) {
+					console.log(sprintf(format2, 'Page Id', 'Content types'));
+					let typesUsedPageIds = [];
+					contentTypesUsed.forEach(function (type) {
+						if (type.scsPageID && !typesUsedPageIds.includes(type.scsPageID)) {
+							typesUsedPageIds.push(type.scsPageID);
+						}
+					});
+
+					for (let i = 0; i < typesUsedPageIds.length; i++) {
+						let types = [];
+						contentTypesUsed.forEach(function (type) {
+							if (type.scsPageID && type.scsPageID === typesUsedPageIds[i] && !types.includes(type.scsTypeName)) {
+								types.push(type.scsTypeName);
+							}
+						});
+						console.log(sprintf(format2, typesUsedPageIds[i], types.join(', ')));
+					}
+				}
+
 				console.log('');
+
 				done(true);
 			}).catch((error) => {
 				if (error) {

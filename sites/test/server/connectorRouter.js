@@ -55,7 +55,7 @@ router.get('/*', (req, res) => {
 		connector = connectionstr ? JSON.parse(connectionstr) : undefined;
 	}
 	if (!connector) {
-		console.error(' - connection ' + connection + ' does not exist');
+		console.error(' - connection ' + connectionName + ' does not exist');
 		res.writeHead(404, {});
 		res.end();
 		return;
@@ -184,7 +184,7 @@ router.post('/*', (req, res) => {
 		connector = connectionstr ? JSON.parse(connectionstr) : undefined;
 	}
 	if (!connector) {
-		console.error(' - connection ' + connection + ' does not exist');
+		console.error(' - connection ' + connectionName + ' does not exist');
 		res.writeHead(404, {});
 		res.end();
 		return;
@@ -285,7 +285,7 @@ router.delete('/*', (req, res) => {
 		connector = connectionstr ? JSON.parse(connectionstr) : undefined;
 	}
 	if (!connector) {
-		console.error(' - connection ' + connection + ' does not exist');
+		console.error(' - connection ' + connectionName + ' does not exist');
 		res.writeHead(404, {});
 		res.end();
 		return;

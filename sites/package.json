@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "22.11.1",
+	"version": "23.1.1",
 	"license": "UPL-1.0",
 	"description": "Oracle Content Management Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content Management.",
 	"main": "index.js",
@@ -103,6 +103,7 @@
 		"set-site-security": "gulp -LL --gulpfile bin/gulpfile.js set-site-security ",
 		"update-site": "gulp -LL --gulpfile bin/gulpfile.js update-site ",
 		"export-site": "gulp -LL --gulpfile bin/gulpfile.js export-site ",
+		"import-site": "gulp -LL --gulpfile bin/gulpfile.js import-site ",
 		"validate-site": "gulp -LL --gulpfile bin/gulpfile.js validate-site ",
 		"index-site": "gulp  -LL --gulpfile bin/gulpfile.js index-site ",
 		"create-site-map": "gulp -LL --gulpfile bin/gulpfile.js create-site-map ",
@@ -112,6 +113,7 @@
 		"download-static-site-files": "gulp -LL --gulpfile bin/gulpfile.js download-static-site-files ",
 		"delete-static-site-files": "gulp -LL --gulpfile bin/gulpfile.js delete-static-site-files ",
 		"refresh-prerender-cache": "gulp -LL --gulpfile bin/gulpfile.js refresh-prerender-cache ",
+		"create-site-plan": "gulp -LL --gulpfile bin/gulpfile.js create-site-plan ",
 		"migrate-site": "gulp -LL --gulpfile bin/gulpfile.js migrate-site ",
 		"migrate-content": "gulp -LL --gulpfile bin/gulpfile.js migrate-content ",
 		"debug-update-site-from-template": "node --inspect-brk ./node_modules/gulp/bin/gulp.js -LL --gulpfile bin/gulpfile.js update-site",
@@ -132,6 +134,7 @@
 		"upload-type": "gulp -LL --gulpfile bin/gulpfile.js upload-type ",
 		"copy-type": "gulp -LL --gulpfile bin/gulpfile.js copy-type ",
 		"update-type": "gulp -LL --gulpfile bin/gulpfile.js update-type ",
+		"describe-type": "gulp -LL --gulpfile bin/gulpfile.js describe-type ",
 		"describe-workflow": "gulp -LL --gulpfile bin/gulpfile.js describe-workflow ",
 		"create-collection": "gulp -LL --gulpfile bin/gulpfile.js create-collection ",
 		"control-collection": "gulp -LL --gulpfile bin/gulpfile.js control-collection ",
@@ -173,6 +176,7 @@
 		"create-encryption-key": "gulp -LL --gulpfile bin/gulpfile.js create-encryption-key ",
 		"register-server": "gulp -LL --gulpfile bin/gulpfile.js register-server ",
 		"set-oauth-token": "gulp -LL --gulpfile bin/gulpfile.js set-oauth-token ",
+		"refresh-oauth-token": "gulp -LL --gulpfile bin/gulpfile.js refresh-oauth-token ",
 		"execute-get": "gulp -LL --gulpfile bin/gulpfile.js execute-get ",
 		"execute-post": "gulp -LL --gulpfile bin/gulpfile.js execute-post ",
 		"execute-put": "gulp -LL --gulpfile bin/gulpfile.js execute-put ",
@@ -207,6 +211,7 @@
 		"deepmerge": "4.2.2",
 		"express": "4.17.3",
 		"extract-zip": "2.0.1",
+		"fast-xml-parser": "4.0.12",
 		"form-data": "4.0.0",
 		"fs-extra": "10.0.0",
 		"gulp": "4.0.2",
@@ -227,5 +232,8 @@
 		"uglify-js": "3.13.5",
 		"underscore": "1.13.1",
 		"yargs": "17.0.1"
+	},
+	"overrides": {
+		"es5-ext": "0.10.53"
 	}
 }
