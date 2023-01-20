@@ -1,6 +1,6 @@
 {
 	"name": "cec-sites-toolkit",
-	"version": "23.1.1",
+	"version": "23.1.2",
 	"license": "UPL-1.0",
 	"description": "Oracle Content Management Toolkit helps you develop site templates, themes, custom components, and content layouts for Oracle Content Management.",
 	"main": "index.js",
@@ -104,6 +104,14 @@
 		"update-site": "gulp -LL --gulpfile bin/gulpfile.js update-site ",
 		"export-site": "gulp -LL --gulpfile bin/gulpfile.js export-site ",
 		"import-site": "gulp -LL --gulpfile bin/gulpfile.js import-site ",
+		"cancel-export-job": "gulp -LL --gulpfile bin/gulpfile.js cancel-export-job ",
+		"cancel-import-job": "gulp -LL --gulpfile bin/gulpfile.js cancel-import-job ",
+		"delete-export-job": "gulp -LL --gulpfile bin/gulpfile.js delete-export-job ",
+		"delete-import-job": "gulp -LL --gulpfile bin/gulpfile.js delete-import-job ",
+		"list-export-jobs": "gulp -LL --gulpfile bin/gulpfile.js list-export-jobs ",
+		"describe-export-job": "gulp -LL --gulpfile bin/gulpfile.js describe-export-job ",
+		"list-import-jobs": "gulp -LL --gulpfile bin/gulpfile.js list-import-jobs ",
+		"describe-import-job": "gulp -LL --gulpfile bin/gulpfile.js describe-import-job ",
 		"validate-site": "gulp -LL --gulpfile bin/gulpfile.js validate-site ",
 		"index-site": "gulp  -LL --gulpfile bin/gulpfile.js index-site ",
 		"create-site-map": "gulp -LL --gulpfile bin/gulpfile.js create-site-map ",
@@ -203,7 +211,7 @@
 		"node": ">=14.0.0"
 	},
 	"dependencies": {
-		"@oracle/oraclejet": "10.0.0",
+		"@oracle/oraclejet": "13.1.0",
 		"body-parser": "1.19.2",
 		"chai": "4.3.4",
 		"cheerio": "1.0.0-rc.9",
@@ -233,6 +241,7 @@
 		"yargs": "17.0.1"
 	},
 	"overrides": {
-		"es5-ext": "0.10.53"
+		"es5-ext": "0.10.53",
+		"decode-uri-component": "0.2.2"
 	}
 }

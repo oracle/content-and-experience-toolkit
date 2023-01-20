@@ -2694,7 +2694,9 @@ var _getServerVersion = function (server) {
 		request.get(options, function (error, response, body) {
 			if (error || !response || response.statusCode !== 200) {
 				// console.error('ERROR: failed to query  version: ' + (response && response.statusMessage));
-				return resolve({ err: 'err' });
+				return resolve({
+					err: 'err'
+				});
 			}
 
 			var data;
@@ -2907,10 +2909,10 @@ var _getSiteInfo = function (server, site) {
 		'use strict';
 
 		sitesRest.getSite({
-			server: server,
-			name: site,
-			expand: 'channel,repository,defaultCollection'
-		})
+				server: server,
+				name: site,
+				expand: 'channel,repository,defaultCollection'
+			})
 			.then(function (result) {
 				if (!result || result.err) {
 					return resolve({
@@ -4004,6 +4006,106 @@ module.exports.setSiteMetadata = function (server, idcToken, siteId, values) {
 				});
 			} else {
 				return resolve({});
+			}
+		});
+	});
+
+};
+
+/**
+ * Set metadata for a site using IdcService
+ */
+module.exports.setSiteCompilationJob = function (server, idcToken, siteId, values) {
+	return new Promise(function (resolve, reject) {
+
+		var url = server.url + '/documents/integration?IdcService=SCS_UPDATE_SITE_COMPILATION_JOB&IsJson=1';
+
+		var formData = {
+			'idcToken': idcToken,
+			'LocalData': {
+				'IdcService': 'SCS_UPDATE_SITE_COMPILATION_JOB',
+				item: 'fFolderGUID:' + siteId
+			}
+		};
+		// parentJobID, childJobID, compilationLogID, compileStatus
+		if (values) {
+			Object.keys(values).forEach(function (key) {
+				formData.LocalData[key] = values[key];
+			});
+		}
+
+		var postData = {
+			method: 'POST',
+			url: url,
+			headers: {
+				'Content-Type': 'application/json',
+				'X-REQUESTED-WITH': 'XMLHttpRequest',
+				Authorization: _getRequestAuthorization(server)
+			},
+			body: JSON.stringify(formData),
+			json: true
+		};
+		_showRequestOptions(postData);
+
+		var request = require('./requestUtils.js').request;
+		request.post(postData, function (err, response, body) {
+			if (response && response.statusCode !== 200) {
+				console.error('ERROR: Failed to set site compilation job response status: ' + response.statusCode + ' (ecid: ' + response.ecid + ')');
+			}
+			if (err) {
+				console.error('ERROR: Failed to set site compilation job' + ' (ecid: ' + response.ecid + ')');
+				console.error('error - ' + err);
+				return resolve({
+					err: err
+				});
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				if (typeof body === 'object') {
+					data = body;
+				}
+			}
+			// console.log(JSON.stringify(data, null, 4));
+
+			if (!data || !data.LocalData || data.LocalData.StatusCode !== '0') {
+				// console.error('ERROR: failed to set site metadata ' + (data && data.LocalData ? '- ' + data.LocalData.StatusMessage : ''));
+				let errorMsg = data && data.LocalData ? '- ' + data.LocalData.StatusMessage : "failed to set site compilation job";
+				return resolve({
+					err: errorMsg
+				});
+			} else {
+				var fields = data.ResultSets && data.ResultSets.ActionStatus && data.ResultSets.ActionStatus.fields || [];
+				var rows = data.ResultSets && data.ResultSets.ActionStatus && data.ResultSets.ActionStatus.rows || [];
+				var actionStatus = [];
+				rows.forEach(function (row) {
+					actionStatus.push({});
+				});
+				for (var i = 0; i < fields.length; i++) {
+					var attr = fields[i].name;
+					for (var j = 0; j < rows.length; j++) {
+						actionStatus[j][attr] = rows[j][i];
+					}
+				}
+				let errorMsg = '';
+				actionStatus.forEach(function (status) {
+					if (!status.isSuccessful || status.statusCode !== '0') {
+						if (errorMsg) {
+							errorMsg += ' ';
+						}
+						errorMsg += status.statusMessage;
+					}
+				});
+
+				if (errorMsg) {
+					return resolve({
+						err: errorMsg
+					});
+				}
+				else {
+					return resolve({});
+				}
 			}
 		});
 	});

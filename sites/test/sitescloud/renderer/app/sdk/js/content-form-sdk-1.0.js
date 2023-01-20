@@ -869,10 +869,23 @@
             }, this.openLinkDialog = function(t) {
                 var r = g;
                 if (r !== i.LARGETEXT) throw new Error("Opening link dialog is not supported for field with data type " + r);
-                return t = t || {}, e.sendAndWait("openLinkDialog", {
+                return t = t || {}, "tinymce" === t.fieldEditor ? (d.debug("Opening tinymce link dialog"), 
+                e.sendAndWait("openLinkDialog", {
+                    options: t,
+                    fieldName: h,
+                    fieldEditor: t.fieldEditor
+                })) : (d.debug("Opening ckeditor link dialog"), e.sendAndWait("openLinkDialog", {
+                    options: t,
+                    fieldName: h
+                }));
+            }, this.openImageDialog = function(t) {
+                var r = g;
+                if (r !== i.LARGETEXT) throw new Error("Opening image dialog is not supported for field with data type " + r);
+                if (t = t || {}, "tinymce" === t.fieldEditor) return e.sendAndWait("openImageDialog", {
                     options: t,
                     fieldName: h
                 });
+                throw new Error("openImageDialog() method is not supported");
             };
         };
     }), define("sdk/Type", [ "sdk/logger" ], function(e) {
@@ -916,9 +929,9 @@
                 c = e.id, f = e.type, p = e.name, h = e.description, g = e.slug, m = e.language, 
                 v = e.translatable, w = e.languageIsMaster, b = e.version, y = e.isPublished, E = e.scheduled, 
                 x = e.status, k = e.createdDate, I = e.createdBy, T = e.updatedDate, S = e.updatedBy, 
-                A = e.repositoryId, F = e.latestVersion, O = e.currentVersion, q = e.mimeType, N = e.fileGroup, 
-                C = e.varSetId, D = e.fileExtension, M = e.versionInfo, R = e.publishInfo, P = e.tags, 
-                j = e.collections, B = e.channels, z = e.publishedChannels, V = e.taxonomies, L = e.isNew;
+                A = e.repositoryId, F = e.latestVersion, O = e.currentVersion, q = e.mimeType, D = e.fileGroup, 
+                N = e.varSetId, C = e.fileExtension, M = e.versionInfo, R = e.publishInfo, P = e.tags, 
+                j = e.collections, B = e.channels, z = e.publishedChannels, L = e.taxonomies, V = e.isNew;
             }
             function d() {
                 return {
@@ -942,9 +955,9 @@
                     currentVersion: O,
                     latestVersion: F,
                     mimeType: q,
-                    fileGroup: N,
-                    varSetId: C,
-                    fileExtension: D
+                    fileGroup: D,
+                    varSetId: N,
+                    fileExtension: C
                 };
             }
             function u(e) {
@@ -967,8 +980,8 @@
             }
             if (!t.contentType) throw s.error("Type must be  provided"), new Error("Type must be  provided");
             r.on("update", u);
-            var c, f, p, h, g, m, v, w, b, y, E, x, k, I, T, S, A, F, O, q, N, C, D, M, R, P, j, B, z, V, L, U = t.contentType, W = U.getSlug(), Q = (W && W.enabled, 
-            {}), _ = t.itemData, G = _.fieldData, K = t.formOptions, $ = _.languageOptions, X = _.nativeFileOptions;
+            var c, f, p, h, g, m, v, w, b, y, E, x, k, I, T, S, A, F, O, q, D, N, C, M, R, P, j, B, z, L, V, W = t.contentType, U = W.getSlug(), Q = (U && U.enabled, 
+            {}), _ = t.itemData, G = _.fieldData, K = t.formOptions, X = _.languageOptions, $ = _.nativeFileOptions;
             i(_);
             var J = G.map(function(t) {
                 return new e(t);
@@ -980,9 +993,9 @@
             }, this.on = function(e, t) {
                 Q[e] = t;
             }, this.isNew = function() {
-                return L;
+                return V;
             }, this.getLanguageOptions = function() {
-                return $;
+                return X;
             }, this.getFields = function() {
                 return J;
             }, this.getFieldByName = function(e) {
@@ -1031,7 +1044,7 @@
             }, this.setLanguage = function(e, t) {
                 if (K && !K.supportsSetLanguage) throw new Error("Form does not support changing language.");
                 if (t = t || {}, y || E) throw new Error("Form does not support changing language as the asset is either published or scheduled for publish.");
-                if (!o($, e)) throw new Error('Invalid Language "' + e + '" passed');
+                if (!o(X, e)) throw new Error('Invalid Language "' + e + '" passed');
                 m = e, n({
                     nodeName: "language",
                     value: m,
@@ -1063,7 +1076,7 @@
             }, this.getPublishedChannels = function() {
                 return Promise.resolve(z);
             }, this.getTaxonomies = function() {
-                return Promise.resolve(V);
+                return Promise.resolve(L);
             }, this.addChannels = function(e, t) {
                 if (K && !K.supportsSetMetaData) throw new Error("Form does not support adding channels.");
                 if (!Array.isArray(e)) throw new Error("Channels must be an array");
@@ -1159,12 +1172,12 @@
                     options: r
                 });
             }, this.getNativeFileOptions = function() {
-                return X;
+                return $;
             }, this.setNativeFile = function(e, t) {
                 if (K && !K.supportsSetNativeFile) throw new Error("Form does not support setting native file");
                 if (e && !(e instanceof File)) throw new Error('Unable to setNativeFile - invalid  parameter: "file" should be an instance of File');
                 var r = e.name ? e.name.split(".").pop() : "";
-                if (!a(r, U.allowedFileTypes)) throw new Error(r + " file type is not supported");
+                if (!a(r, W.allowedFileTypes)) throw new Error(r + " file type is not supported");
                 t = t || {}, n({
                     nodeName: "nativefile",
                     value: e,
@@ -1199,7 +1212,7 @@
                 if (K && !K.supportsSetNativeFile) throw new Error("Form does not support setting document");
                 if (!e || !e.id) throw new Error("Unable to setDocument - invalid  parameter: document object not passed");
                 var r = e.name ? e.name.split(".").pop() : "";
-                if (!a(r, U.allowedFileTypes)) throw new Error(r + " file type is not supported");
+                if (!a(r, W.allowedFileTypes)) throw new Error(r + " file type is not supported");
                 t = t || {}, n({
                     nodeName: "document",
                     value: e,

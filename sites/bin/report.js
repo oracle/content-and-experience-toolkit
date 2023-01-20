@@ -83,7 +83,9 @@ module.exports.createAssetReport = function (argv, done) {
 		}
 	}
 
-	_createAssetReport(server, serverName, argv.site, output, done);
+	var pages = argv.pages ? (Number.isInteger(argv.pages) ? [argv.pages] : argv.pages.split(',')) : [];
+
+	_createAssetReport(server, serverName, argv.site, pages, output, done);
 };
 
 var _getMemberStr = function (val) {
@@ -141,7 +143,7 @@ var _displayObject = function (format, obj) {
 	});
 };
 
-var _createAssetReport = function (server, serverName, siteName, output, done) {
+var _createAssetReport = function (server, serverName, siteName, pageIds, output, done) {
 
 	var site, siteInfo;
 	var isEnterprise;
@@ -508,7 +510,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 					channelpolicyjson.optionalLanguages = result.optionalValues;
 				}
 
-				return _getSitePages(server, sitejson.id);
+				return _getSitePages(server, sitejson.id, pageIds);
 			})
 			.then(function (result) {
 				structurePages = result.structurePages || [];
@@ -626,7 +628,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 						}
 					}
 
-					if (!foundPage) {
+					if (!foundPage && page.toReport) {
 						issues.push('Page ' + page.name + ' does not have page JSON file ' + page.id + '.json');
 					}
 
@@ -1037,7 +1039,7 @@ var _createAssetReport = function (server, serverName, siteName, output, done) {
 
 				for (let i = 0; i < structurePages.length; i++) {
 					let page = structurePages[i];
-					if (page) {
+					if (page && page.toReport) {
 						pagesOutput.push({
 							id: page.id,
 							name: page.name,
@@ -1356,12 +1358,13 @@ var _examPageSource = function (slots, componentInstances, links, triggerActions
 	};
 };
 
-var _getSitePages = function (server, siteId) {
+var _getSitePages = function (server, siteId, pageIds) {
 	return new Promise(function (resolve, reject) {
 		var pages = [];
 		var structurePages = [];
 		var pagesFolderId;
 		var structureFileId;
+		var validPageIds = [];
 		console.info(' - query site pages');
 		serverRest.getAllChildItems({
 			server: server,
@@ -1391,6 +1394,35 @@ var _getSitePages = function (server, siteId) {
 				var structureFileContent = typeof fileContent === 'string' ? JSON.parse(fileContent) : fileContent;
 				structurePages = structureFileContent && structureFileContent.pages || [];
 
+				if (pageIds && pageIds.length > 0) {
+					// validate input pages
+					pageIds.forEach(function (id) {
+						var found = false;
+						for (let i = 0; i < structurePages.length; i++) {
+							if (structurePages[i].id && structurePages[i].id.toString() === id.toString()) {
+								found = true;
+								break;
+							}
+						}
+						if (!found) {
+							console.warn('WARNING: page id ' + id + ' is invalid');
+						} else {
+							if (!validPageIds.includes(id)) {
+								validPageIds.push(id.toString());
+							}
+						}
+					});
+				}
+
+				// mark pages for reporting
+				structurePages.forEach(function (page) {
+					var toReport = true;
+					if (pageIds && pageIds.length > 0) {
+						toReport = validPageIds.includes(page.id.toString());
+					}
+					page.toReport = toReport;
+				});
+
 				return serverRest.findFolderItems({
 					server: server,
 					parentID: pagesFolderId
@@ -1399,19 +1431,34 @@ var _getSitePages = function (server, siteId) {
 			.then(function (result) {
 				var items = result || [];
 				console.info(' - site total pages: ' + items.length);
+				var masterPages = 0;
 				for (var i = 0; i < items.length; i++) {
 					// console.log('page ' + i + ' : ' + items[i].id + ' ' + items[i].name);
 					// do not include translations                                                                                                                             
 					if (items[i].name && items[i].name.indexOf('_') < 0) {
-						pages.push({
-							id: items[i].id,
-							name: items[i].name,
-							version: items[i].version,
-							fileContent: {}
-						});
+						masterPages += 1;
+						if (pageIds && pageIds.length > 0) {
+							let pageId = items[i].name.substring(0, items[i].name.indexOf('.'));
+							if (validPageIds.includes(pageId)) {
+								pages.push({
+									id: items[i].id,
+									name: items[i].name,
+									version: items[i].version,
+									fileContent: {}
+								});
+							}
+						} else {
+							pages.push({
+								id: items[i].id,
+								name: items[i].name,
+								version: items[i].version,
+								fileContent: {}
+							});
+						}
 					}
 				}
-				console.info(' - site total master pages: ' + pages.length);
+				console.info(' - site total master pages: ' + masterPages);
+				console.info(' - total pages in report: ' + pages.length);
 
 				return _getPageFiles(server, pages);
 			})

@@ -56,6 +56,307 @@ var verifyRun = function (argv) {
 	return true;
 };
 
+var _getRefTypes = function (server, name, refTypes, queriedNames) {
+	return new Promise(function (resolve, reject) {
+		serverRest.getContentType({ server: server, name: name })
+			.then(function (result) {
+				var refTypePromises = [];
+				if (result && result.id) {
+					if (!queriedNames.includes(result.name)) {
+						queriedNames.push(result.name);
+					}
+					var fields = result.fields;
+					var types = [];
+					var typesToQuery = [];
+					for (let i = 0; i < fields.length; i++) {
+						if (fields[i].referenceType && fields[i].referenceType.types && fields[i].referenceType.types.length > 0) {
+							for (let j = 0; j < fields[i].referenceType.types.length; j++) {
+								let refTypeName = fields[i].referenceType.types[j];
+								if (!types.includes(refTypeName)) {
+									types.push(refTypeName);
+								}
+								if (!queriedNames.includes(refTypeName)) {
+									queriedNames.push(refTypeName);
+									typesToQuery.push(refTypeName);
+								}
+							}
+						}
+					}
+					refTypes.push({ name: name, refs: types });
+					typesToQuery.forEach(function (type) {
+						refTypePromises.push(_getRefTypes(server, type, refTypes, queriedNames));
+					});
+				}
+				Promise.all(refTypePromises)
+					.then(function (result) {
+						return resolve({});
+					})
+			});
+
+	});
+};
+
+
+var _getAllTypes = function (server, types) {
+	return new Promise(function (resolve, reject) {
+		var refTypes = [];
+		var queriedNames = [];
+		var doQueryType = types.reduce(function (typePromise, type) {
+			return typePromise.then(function (result) {
+				if (!queriedNames.includes(type.name)) {
+					return _getRefTypes(server, type.name, refTypes, queriedNames)
+						.then(function (result) {
+							// continue till down
+						});
+				}
+			});
+		},
+			// Start with a previousPromise value that is a resolved promise 
+			Promise.resolve({}));
+
+		doQueryType.then(function (result) {
+			resolve(refTypes);
+		});
+
+	});
+};
+
+var _getTypesWithName = function (server, names) {
+	return new Promise(function (resolve, reject) {
+		var typePromises = [];
+		names.forEach(function (name) {
+			typePromises.push(serverRest.getContentType({ server: server, name: name }));
+		});
+		Promise.all(typePromises)
+			.then(function (results) {
+				return resolve(results);
+			});
+	});
+};
+
+/**
+ * List all content types on the server
+ */
+module.exports.listServerContentTypes = function (argv, done) {
+	'use strict';
+
+	if (!verifyRun(argv)) {
+		done();
+		return;
+	}
+
+	var serverName = argv.server;
+	var server = serverUtils.verifyServer(serverName, projectDir);
+	if (!server || !server.valid) {
+		done();
+		return;
+	}
+
+	var output = argv.file;
+
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+		if (!fs.existsSync(outputFolder)) {
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(outputFolder).isDirectory()) {
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
+			done();
+			return;
+		}
+	}
+
+	var names = argv.names ? argv.names.split(',') : [];
+	var repoName = argv.repository;
+
+	var showRef = typeof argv.expand === 'string' && argv.expand.toLowerCase() === 'true';
+
+	var types = [];
+	var repo;
+
+	serverUtils.loginToServer(server).then(function (result) {
+		if (!result.status) {
+			console.error(result.statusMessage);
+			done();
+			return;
+		}
+
+		var repoPromises = [];
+		if (repoName) {
+			repoPromises.push(serverRest.getRepositoryWithName({ server: server, name: repoName, fields: 'contentTypes' }));
+		}
+		Promise.all(repoPromises)
+			.then(function (results) {
+				var repoTypeNames = [];
+				if (repoName) {
+					if (!results || !results[0] || results[0].err) {
+						return Promise.reject();
+					}
+					repo = results[0].data;
+					if (!repo || !repo.id) {
+						console.error('ERROR: repository ' + repoName + ' does not exist');
+						return Promise.reject();
+					}
+					let repoTypes = repo.contentTypes || [];
+					repoTypes.forEach(function (type) {
+						repoTypeNames.push(type.name);
+					});
+				}
+				var typePromise;
+				if (repoName) {
+					typePromise = typePromise = _getTypesWithName(server, repoTypeNames);
+				} else if (names.length > 0) {
+					typePromise = _getTypesWithName(server, names);
+				} else {
+					typePromise = serverRest.getContentTypes({
+						server: server
+					});
+				}
+
+				return typePromise;
+			})
+			.then(function (result) {
+				if (!result || result.err) {
+					return Promise.reject();
+				}
+				types = [];
+				if (repoName) {
+					for (let i = 0; i < result.length; i++) {
+						if (result[i].id) {
+							types.push(result[i]);
+						}
+					}
+				}
+				if (names.length > 0) {
+					if (repo) {
+						var repoTypes = [];
+						names.forEach(function (name) {
+							let type;
+							for (let i = 0; i < types.length; i++) {
+								if (name === types[i].name) {
+									type = types[i];
+									break;
+								}
+							}
+							if (!type) {
+								console.error('ERROR: type ' + name + ' is not in repository ' + repoName);
+							} else {
+								repoTypes.push(type);
+							}
+						});
+						if (repoTypes.length === 0) {
+							return Promise.reject();
+						}
+						types = repoTypes;
+
+					} else {
+						for (let i = 0; i < result.length; i++) {
+							if (result[i].id) {
+								types.push(result[i]);
+							}
+						}
+					}
+
+				} else if (!repoName) {
+					// all types
+					types = result;
+				}
+
+				var typeFound = false;
+				if (types && types.length > 0) {
+					var byName = types.slice(0);
+					byName.sort(function (a, b) {
+						var x = a.name;
+						var y = b.name;
+						return (x < y ? -1 : x > y ? 1 : 0);
+					});
+					types = byName;
+					var format = '   %-40s  %-20s';
+					var labelShown = false;
+					var count = 0;
+					for (var i = 0; i < types.length; i++) {
+						if (types[i].name !== 'DigitalAsset') {
+							if (!labelShown) {
+								console.log(sprintf(format, 'Name', 'Type Category'));
+								labelShown = true;
+							}
+							console.log(sprintf(format, types[i].name, types[i].typeCategory));
+							typeFound = true;
+							count += 1;
+						}
+					}
+					if (count > 0) {
+						console.log('Total: ' + count);
+					}
+				}
+				if (!typeFound) {
+					if (repo) {
+						console.log(' - no content type in repository ' + repoName);
+					} else {
+						console.log(' - no content type on the server');
+					}
+				}
+
+				var _saveTypesToFile = function (output, types, dependencies) {
+					if (output) {
+						var toSave = {
+							types: types,
+							typeDependency: dependencies || []
+						};
+						fs.writeFileSync(output, JSON.stringify(toSave, null, 4));
+						console.log('');
+						console.log(' - type properties saved to ' + output);
+					}
+				};
+
+				if (showRef) {
+					_getAllTypes(server, types)
+						.then(function (result) {
+							var dependencies = result || [];
+							var hasDep = false;
+							for (let i = 0; i < dependencies.length; i++) {
+								if (dependencies[i].name && dependencies[i].refs.length > 0) {
+									hasDep = true;
+									break;
+								}
+							}
+							if (hasDep) {
+								console.log('');
+								console.log('Type dependency hierarchy')
+								let format = '   %-40s  %-s';
+								console.log(sprintf(format, 'Name', 'Reference Types'));
+								dependencies.forEach(function (dep) {
+									console.log(sprintf(format, dep.name, dep.refs));
+								});
+							}
+
+							_saveTypesToFile(output, types, dependencies);
+							done(true);
+						});
+				} else {
+					_saveTypesToFile(output, types);
+					done(true);
+				}
+			})
+			.catch((error) => {
+				if (error) {
+					console.log(error);
+				}
+				done();
+			});
+	});
+};
+
+
 module.exports.createRepository = function (argv, done) {
 	'use strict';
 
@@ -2322,6 +2623,30 @@ module.exports.describeType = function (argv, done) {
 		return;
 	}
 
+	var output = argv.file;
+
+	if (output) {
+		if (!path.isAbsolute(output)) {
+			output = path.join(projectDir, output);
+		}
+		output = path.resolve(output);
+
+		var outputFolder = output.substring(output, output.lastIndexOf(path.sep));
+		// console.log(' - result file: ' + output + ' folder: ' + outputFolder);
+		if (!fs.existsSync(outputFolder)) {
+			console.error('ERROR: folder ' + outputFolder + ' does not exist');
+			done();
+			return;
+		}
+
+		if (!fs.statSync(outputFolder).isDirectory()) {
+			console.error('ERROR: ' + outputFolder + ' is not a folder');
+			done();
+			return;
+		}
+	}
+
+	var showRef = typeof argv.expand === 'string' && argv.expand.toLowerCase() === 'true';
 	var name = argv.name;
 
 	serverUtils.loginToServer(server).then(function (result) {
@@ -2409,7 +2734,47 @@ module.exports.describeType = function (argv, done) {
 				}
 
 				console.log('');
-				done(true);
+
+				var _saveTypeToFile = function (output, type, dependencies) {
+					if (output) {
+						var toSave = {
+							properties: type,
+							typeDependency: dependencies || []
+						};
+						fs.writeFileSync(output, JSON.stringify(toSave, null, 4));
+						console.log('');
+						console.log(' - type properties saved to ' + output);
+					}
+				};
+				if (showRef) {
+					let types = [type];
+					_getAllTypes(server, types)
+						.then(function (result) {
+							var dependencies = result || [];
+							var hasDep = false;
+							for (let i = 0; i < dependencies.length; i++) {
+								if (dependencies[i].name && dependencies[i].refs.length > 0) {
+									hasDep = true;
+									break;
+								}
+							}
+							if (hasDep) {
+								console.log('Type dependency hierarchy')
+								let format = '   %-40s  %-s';
+								console.log(sprintf(format, 'Name', 'Reference Types'));
+								dependencies.forEach(function (dep) {
+									console.log(sprintf(format, dep.name, dep.refs));
+								});
+							}
+
+							_saveTypeToFile(output, type, dependencies);
+							done(true);
+						});
+				} else {
+					_saveTypeToFile(output, type);
+					done(true);
+				}
+
 			})
 			.catch((error) => {
 				if (error) {

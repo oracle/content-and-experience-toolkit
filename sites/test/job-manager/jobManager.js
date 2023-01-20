@@ -40,6 +40,7 @@ JobManager.prototype.compileJob = function (jobConfig) {
 		doForceActivate = jobConfig.doForceActivate,
 		DEFAULT_SERVER_NAME = 'serverForCompilation',
 		serverName = jobConfig.serverName || DEFAULT_SERVER_NAME,
+		parentJobId = jobConfig.parentJobId || '',
 		serverEndpoint = jobConfig.serverEndpoint,
 		serverUser = jobConfig.serverUser,
 		serverPass = jobConfig.serverPass,
@@ -285,7 +286,11 @@ JobManager.prototype.compileJob = function (jobConfig) {
 				return new Promise(function (resolveStep, rejectStep) {
 					var startTime = Date.now();
 
-					var compileCommand = exec('cec-compile-site -s ' + siteName + ' -r ' + serverName + ' -f ' + projectDir);
+					var compileCommandString = 'cec-compile-site -s ' + siteName + ' -r ' + serverName + ' -f ' + projectDir;
+					if (parentJobId) {
+						compileCommandString += ' -j ' + parentJobId;
+					}
+					var compileCommand = exec(compileCommandString);
 
 					compileCommand.stdout.on('data', logStdout);
 					compileCommand.stderr.on('data', logStderr);

@@ -552,7 +552,7 @@ app.get('/getvbcsconnection', function (req, res) {
 				}
 			}
 		} else {
-			console.error('status=' + JSON.stringify(response) + ' err=' + err);
+			// console.error('status=' + JSON.stringify(response) + ' err=' + err);
 		}
 		console.info(' - vbcs connection: ' + vbcsconn);
 		var result = {

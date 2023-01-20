@@ -756,7 +756,7 @@ var _getQueryString = function (querystrings, name) {
  * @param {*} siteInfo 
  * @param {*} pages 
  */
-var _generateSiteMapURLs = function (server, data, siteUrl, pages, pageFiles, items, typeItems, changefreq, toppagepriority,
+var _generateSiteMapURLs = function (server, languages, data, siteUrl, pages, pageFiles, items, typeItems, changefreq, toppagepriority,
 	newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale, defaultLocale, useDefaultSiteUrl) {
 
 	var prefix = siteUrl;
@@ -778,6 +778,17 @@ var _generateSiteMapURLs = function (server, data, siteUrl, pages, pageFiles, it
 			break;
 		}
 	}
+
+	if (!noDefaultLocale) {
+		if (languages.length > 0 && !languages.includes(data.SiteInfo.defaultLanguage)) {
+			languages.push(data.SiteInfo.defaultLanguage);
+		}
+	} else {
+		if (languages.length > 0 && languages.includes(data.SiteInfo.defaultLanguage)) {
+			languages.splice(languages.indexOf(data.SiteInfo.defaultLanguage), 1);
+		}
+	}
+	// console.log(languages);
 
 	//
 	// page urls
@@ -842,16 +853,18 @@ var _generateSiteMapURLs = function (server, data, siteUrl, pages, pageFiles, it
 
 			if (!addedPageUrls.includes(loc)) {
 				if (!noDefaultLocale || includeLocale) {
-					urls.push({
-						loc: loc,
-						lastmod: lastmod,
-						priority: priority,
-						changefreq: pageChangefreq,
-						locale: pages[i].locale
-					});
-					addedPageUrls.push(loc);
-					if (!locales.includes(pages[i].locale)) {
-						locales.push(pages[i].locale);
+					if (languages.length === 0 || languages.includes(pages[i].locale)) {
+						urls.push({
+							loc: loc,
+							lastmod: lastmod,
+							priority: priority,
+							changefreq: pageChangefreq,
+							locale: pages[i].locale
+						});
+						addedPageUrls.push(loc);
+						if (!locales.includes(pages[i].locale)) {
+							locales.push(pages[i].locale);
+						}
 					}
 
 					// Add fallbacks if there are
@@ -859,17 +872,19 @@ var _generateSiteMapURLs = function (server, data, siteUrl, pages, pageFiles, it
 						Object.keys(data.SiteInfo.localeFallbacks).forEach(function (otherLocale) {
 							if (pages[i].locale === data.SiteInfo.localeFallbacks[otherLocale]) {
 								let otherLoc = serverUtils.replaceAll(loc, '/' + pages[i].locale + '/', '/' + otherLocale + '/');
-								if (!addedPageUrls.includes(otherLoc)) {
-									urls.push({
-										loc: otherLoc,
-										lastmod: lastmod,
-										priority: priority,
-										changefreq: pageChangefreq,
-										locale: otherLocale
-									});
-									addedPageUrls.push(otherLoc);
-									if (!locales.includes(otherLocale)) {
-										locales.push(otherLocale);
+								if (languages.length === 0 || languages.includes(otherLocale)) {
+									if (!addedPageUrls.includes(otherLoc)) {
+										urls.push({
+											loc: otherLoc,
+											lastmod: lastmod,
+											priority: priority,
+											changefreq: pageChangefreq,
+											locale: otherLocale
+										});
+										addedPageUrls.push(otherLoc);
+										if (!locales.includes(otherLocale)) {
+											locales.push(otherLocale);
+										}
 									}
 								}
 							}
@@ -953,31 +968,35 @@ var _generateSiteMapURLs = function (server, data, siteUrl, pages, pageFiles, it
 							if (!addedUrls.includes(url)) {
 								// console.log('item: ' + item.name + ' page: ' + pageId + ' priority: ' + itemPriority + ' lastmod: ' + lastmod);
 								if (!noDefaultLocale || locale) {
-									urls.push({
-										loc: url,
-										lastmod: lastmod,
-										priority: itemPriority,
-										changefreq: itemChangefreq,
-										locale: itemlanguage
-									});
+									if (languages.length === 0 || languages.includes(itemlanguage)) {
+										urls.push({
+											loc: url,
+											lastmod: lastmod,
+											priority: itemPriority,
+											changefreq: itemChangefreq,
+											locale: itemlanguage
+										});
 
-									addedUrls.push(url);
+										addedUrls.push(url);
+									}
 
 									// Add fallbacks if there are
 									if (locale && data.SiteInfo.localeFallbacks) {
 										Object.keys(data.SiteInfo.localeFallbacks).forEach(function (otherLocale) {
 											if (locale === data.SiteInfo.localeFallbacks[otherLocale] + '/') {
 												let otherUrl = serverUtils.replaceAll(url, '/' + locale, '/' + otherLocale + '/');
-												if (!addedUrls.includes(otherUrl)) {
-													urls.push({
-														loc: otherUrl,
-														lastmod: lastmod,
-														priority: itemPriority,
-														changefreq: itemChangefreq,
-														locale: otherLocale
-													});
+												if (languages.length === 0 || languages.includes(otherLocale)) {
+													if (!addedUrls.includes(otherUrl)) {
+														urls.push({
+															loc: otherUrl,
+															lastmod: lastmod,
+															priority: itemPriority,
+															changefreq: itemChangefreq,
+															locale: otherLocale
+														});
 
-													addedUrls.push(otherUrl);
+														addedUrls.push(otherUrl);
+													}
 												}
 											}
 										});
@@ -1034,30 +1053,34 @@ var _generateSiteMapURLs = function (server, data, siteUrl, pages, pageFiles, it
 					if (!addedUrls.includes(url)) {
 						// console.log('item: ' + item.name + ' page: ' + pageId + ' priority: ' + itemPriority + ' lastmod: ' + lastmod);
 						if (!noDefaultLocale || locale) {
-							urls.push({
-								loc: url,
-								lastmod: lastmod,
-								priority: itemPriority,
-								changefreq: itemChangefreq,
-								locale: itemlanguage
-							});
+							if (languages.length === 0 || languages.includes(itemlanguage)) {
+								urls.push({
+									loc: url,
+									lastmod: lastmod,
+									priority: itemPriority,
+									changefreq: itemChangefreq,
+									locale: itemlanguage
+								});
 
-							addedUrls.push(url);
+								addedUrls.push(url);
+							}
 
 							if (locale && data.SiteInfo.localeFallbacks) {
 								Object.keys(data.SiteInfo.localeFallbacks).forEach(function (otherLocale) {
 									if (locale === data.SiteInfo.localeFallbacks[otherLocale] + '/') {
 										let otherUrl = serverUtils.replaceAll(url, '/' + locale, '/' + otherLocale + '/');
-										if (!addedUrls.includes(otherUrl)) {
-											urls.push({
-												loc: otherUrl,
-												lastmod: lastmod,
-												priority: itemPriority,
-												changefreq: itemChangefreq,
-												locale: otherLocale
-											});
+										if (languages.length === 0 || languages.includes(otherLocale)) {
+											if (!addedUrls.includes(otherUrl)) {
+												urls.push({
+													loc: otherUrl,
+													lastmod: lastmod,
+													priority: itemPriority,
+													changefreq: itemChangefreq,
+													locale: otherLocale
+												});
 
-											addedUrls.push(otherUrl);
+												addedUrls.push(otherUrl);
+											}
 										}
 									}
 								});
@@ -1287,21 +1310,39 @@ var _prepareData = function (server, site, languages, allTypes, wantedTypes, don
 				//
 				// validate languages parameter
 				//
+				var fallbackLocales = [];
+				if (data.SiteInfo.localeFallbacks) {
+					Object.keys(data.SiteInfo.localeFallbacks).forEach(function (key) {
+						fallbackLocales.push(key);
+					});
+				}
+
+				var languages2 = [];
 				for (let i = 0; i < languages.length; i++) {
-					if (languages[i] !== data.SiteInfo.defaultLanguage && !data.validLocales.includes(languages[i])) {
+					if (languages[i] !== data.SiteInfo.defaultLanguage && !data.validLocales.includes(languages[i]) && !fallbackLocales.includes(languages[i])) {
 						console.error('ERROR: site does not have translation for ' + languages[i]);
 						return Promise.reject();
 					}
+
+					languages2.push(languages[i]);
+					if (fallbackLocales.includes(languages[i])) {
+						let fallbackTo = data.SiteInfo.localeFallbacks[languages[i]];
+						// get the fallback to query
+						if (fallbackTo !== data.SiteInfo.defaultLanguage && !languages2.includes(fallbackTo)) {
+							languages2.push(fallbackTo);
+						}
+					}
 				}
-				if (languages.length > 0) {
+				if (languages2.length > 0) {
 					// use this param
-					data.languages = languages;
+					data.languages = languages2;
 				} else {
 					data.languages = data.validLocales;
 				}
 				if (data.languages.length > 0) {
 					console.info(' - site translation: ' + data.languages);
 				}
+
 
 				return serverRest.getRepository({
 					server: server,
@@ -1707,7 +1748,7 @@ var _createSiteMap = function (server, serverName, site, siteUrl, format, change
 			//
 			// create site map
 			//
-			var siteMapData = _generateSiteMapURLs(server, data, siteUrl, allPages, allPageFiles, allItems, allTypeItems,
+			var siteMapData = _generateSiteMapURLs(server, languages, data, siteUrl, allPages, allPageFiles, allItems, allTypeItems,
 				changefreq, toppagepriority, newlink, noDefaultDetailPageLink, querystrings, noDefaultLocale, defaultLocale, useDefaultSiteUrl);
 
 			var urls = siteMapData.urls;

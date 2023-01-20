@@ -1848,7 +1848,7 @@ var _downloadFolder = function (argv, server, showError, showDetail, excludeFold
 			}
 
 			Promise.all(resourcePromises).then(function (results) {
-				var rootParentId = 'self';
+				var rootParentId = argv.parentId || 'self';
 				if (resourceFolder) {
 					var resourceGUID;
 					if (results.length > 0 && results[0]) {

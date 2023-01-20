@@ -937,7 +937,13 @@ const listServerContentTypes = {
 	},
 	example: [
 		['cec list-server-content-types'],
-		['cec list-server-content-types -s SampleServer1'],
+		['cec list-server-content-types -s SampleServer1']
+		/*
+		['cec list-server-content-types -r Repo1', 'List content types in repository Repo1'],
+		['cec list-server-content-types -n BlogType', 'List content type BlogType'],
+		['cec list-server-content-types -n BlogType -e', 'List content type BlogType and its type dependency hierarchy'],
+		['cec list-server-content-types -n BlogType -e -f ~/Docs/BlogType_info.json', 'List content type BlogType and its type dependency hierarchy and also save to the local file'],
+		*/
 	]
 };
 
@@ -1736,7 +1742,8 @@ const updateSite = {
 	example: [
 		['cec update-site Site1 -t Template1', 'Updates site Site1 using the content from template Template1'],
 		['cec update-site Site1 -t Template1 -x', 'Updates site Site1 using the content from template Template1 excluding the "Content Template"'],
-		['cec update-site Site1 -m metadata', 'Updates site Site1 metadata using the JSON provided']
+		['cec update-site Site1 -m metadata', 'Updates site Site1 metadata using the JSON provided'],
+		['cec update-site Site1 -c \'{"parentJobID": "12", "childJobID": "123", "compilationLogID": "1234"}\'', 'Updates site Site1 compilation job data using the JSON provided']
 	]
 };
 
@@ -1777,8 +1784,148 @@ const importSite = {
 		['cec import-site Site1 -r repository', 'Import site in src/siteExport/Site1 to the OCM server'],
 		['cec import-site Site1 -r repository -p /dev/folder', 'Import site in /dev/folder to the OCM server'],
 		['cec import-site Site1 -e ImportName -r repository', 'Import src/siteExport/Site1 to the OCM server with ImportName as name'],
+		['cec import-site Site1 -i duplicateSite -n Site2 -r repository', 'Import site in /dev/folder to the OCM server as Site2'],
 		['cec import-site Site1 -a createOrUpdate -r repository', 'Import src/siteExport/Site1 to the OCM server with createOrUpdate assets policy'],
 		['cec import-site Site1 -t createOrUpdate -r repository', 'Import src/siteExport/Site1 to the OCM server with createOrUpdate theme custom components policy'],
+		['cec import-site Site1 -f Site1_72D365DB55C94BF1BB023299B4AB64B0 -r repository', 'Import from the given folder on the OCM server']
+	]
+};
+
+const cancelExportJob = {
+	command: 'cancel-export-job <id>',
+	alias: 'cej',
+	name: 'cancel-export-job',
+	usage: {
+		'short': 'Cancels an export job.',
+		'long': (function () {
+			let desc = 'Cancel of an export job on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec cancel-export-job 9F88FB74733E42889BF61CFCDA6D7E39', 'Cancel the specified export job on the server specified in cec.properties file'],
+		['cec cancel-export-job 9F88FB74733E42889BF61CFCDA6D7E39 -s SampleServer1', 'Cancel the specified export job on the registered server SampleServer1']
+	]
+};
+
+const cancelImportJob = {
+	command: 'cancel-import-job <id>',
+	alias: 'cij',
+	name: 'cancel-import-job',
+	usage: {
+		'short': 'Cancels an import job.',
+		'long': (function () {
+			let desc = 'Cancel an import job on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec cancel-import-job 9F88FB74733E42889BF61CFCDA6D7E39', 'Cancel the specified import job on the server specified in cec.properties file'],
+		['cec cancel-import-job 9F88FB74733E42889BF61CFCDA6D7E39 -s SampleServer1', 'Cancel the specified import job on the registered server SampleServer1']
+	]
+};
+
+const deleteExportJob = {
+	command: 'delete-export-job <id>',
+	alias: '',
+	name: 'delete-export-job',
+	usage: {
+		'short': 'Deletes an export job.',
+		'long': (function () {
+			let desc = 'Delete of an export job on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec delete-export-job 9F88FB74733E42889BF61CFCDA6D7E39', 'Delete the specified export job on the server specified in cec.properties file'],
+		['cec delete-export-job 9F88FB74733E42889BF61CFCDA6D7E39 -s SampleServer1', 'Delete the specified export job on the registered server SampleServer1']
+	]
+};
+
+const deleteImportJob = {
+	command: 'delete-import-job <id>',
+	alias: '',
+	name: 'delete-import-job',
+	usage: {
+		'short': 'Deletes an import job.',
+		'long': (function () {
+			let desc = 'Delete an import job on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec delete-import-job 9F88FB74733E42889BF61CFCDA6D7E39', 'Delete the specified import job on the server specified in cec.properties file'],
+		['cec delete-import-job 9F88FB74733E42889BF61CFCDA6D7E39 -s SampleServer1', 'Delete the specified import job on the registered server SampleServer1']
+	]
+};
+
+const listExportJobs = {
+	command: 'list-export-jobs',
+	alias: 'lej',
+	name: 'list-export-jobs',
+	usage: {
+		'short': 'Lists export jobs.',
+		'long': (function () {
+			let desc = 'Lists export jobs from OCM server.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec list-export-jobs -s', 'List export jobs on the server specified in cec.properties file'],
+		['cec list-export-jobs -s SampleServer1', 'Lists export jobs on the registered server SampleServer1']
+	]
+};
+
+const describeExportJob = {
+	command: 'describe-export-job <id>',
+	alias: 'dsej',
+	name: 'describe-export-job',
+	usage: {
+		'short': 'Lists the properties of an export job.',
+		'long': (function () {
+			let desc = 'Lists the properties of an export job on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-export-job 9F88FB74733E42889BF61CFCDA6D7E39', 'Describe the specified export job on the server specified in cec.properties file'],
+		['cec describe-export-job 9F88FB74733E42889BF61CFCDA6D7E39 -s SampleServer1', 'Describe the specified export job on the registered server SampleServer1'],
+		['cec describe-export-job 9F88FB74733E42889BF61CFCDA6D7E39 -d -s SampleServer1', 'Describe the specified export job on the registered server SampleServer1 and download the export folder.']
+	]
+};
+
+const listImportJobs = {
+	command: 'list-import-jobs',
+	alias: 'lij',
+	name: 'list-import-jobs',
+	usage: {
+		'short': 'Lists import jobs.',
+		'long': (function () {
+			let desc = 'Lists import jobs from OCM server.';
+			return desc;
+		})()
+	},
+	example: [
+		['cec list-import-jobs -s', 'Lists import jobs on the server specified in cec.properties file'],
+		['cec list-import-jobs -s SampleServer1', 'Lists import jobs on the registered server SampleServer1']
+	]
+};
+
+const describeImportJob = {
+	command: 'describe-import-job <id>',
+	alias: 'dsij',
+	name: 'describe-import-job',
+	usage: {
+		'short': 'Lists the properties of an import job.',
+		'long': (function () {
+			let desc = 'Lists the properties of an import job on OCM server. Specify the server with -s <server> or use the one specified in cec.properties file. ';
+			return desc;
+		})()
+	},
+	example: [
+		['cec describe-import-job AC7139BB9EE84592AC36746E934B3319', 'Describe the specified import job on the server specified in cec.properties file'],
+		['cec describe-import-job AC7139BB9EE84592AC36746E934B3319 -s SampleServer1', 'Describe the specified import job on the registered server SampleServer1'],
+		['cec describe-import-job AC7139BB9EE84592AC36746E934B3319 -d -s SampleServer1', 'Describe the specified import job on the registered server SampleServer1 and download the import report.']
 	]
 };
 
@@ -1883,6 +2030,7 @@ const createAssetReport = {
 	example: [
 		['cec create-asset-report Site1'],
 		['cec create-asset-report Site1 -s SampleServer1'],
+		['cec create-asset-report Site1 -p 100,200,300', 'The resport for pages only include page 100, 200 and 300'],
 		['cec create-asset-report Site1 -o', 'The report will be saved to Site1AssetUsage.json at the current local location'],
 		['cec create-asset-report Site1 -o ~/Documents', 'The report will be saved to ~/Documents/Site1AssetUsage.json'],
 		['cec create-asset-report Site1 -o ~/Documents/Site1Report.json', 'The report will be saved to ~/Documents/Site1Report.json']
@@ -2426,6 +2574,10 @@ const describeType = {
 	},
 	example: [
 		['cec describe-type BlogType -s SampleServer1']
+		/*
+		['cec describe-type BlogType -e', 'List properties of content type BlogType and its type dependency hierarchy'],
+		['cec describe-type BlogType -e -f ~/Docs/BlogType_info.json', 'List properties of type BlogType and its type dependency hierarchy and also save to the local file']
+		*/
 	]
 };
 /** 
@@ -3814,8 +3966,6 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(createSite) + os.EOL +
 	_getCmdHelp(copySite) + os.EOL +
 	_getCmdHelp(updateSite) + os.EOL +
-	// _getCmdHelp(exportSite) + os.EOL +
-	// _getCmdHelp(importSite) + os.EOL +
 	_getCmdHelp(transferSite) + os.EOL +
 	_getCmdHelp(transferSiteContent) + os.EOL +
 	_getCmdHelp(validateSite) + os.EOL +
@@ -3836,7 +3986,19 @@ _usage = _usage + os.EOL + 'Sites' + os.EOL +
 	_getCmdHelp(deleteStaticSite) + os.EOL +
 	_getCmdHelp(refreshPrerenderCache) + os.EOL +
 	_getCmdHelp(migrateSite) + os.EOL;
-
+/*
+_usage = _usage + os.EOL + 'Site Export and Import' + os.EOL +
+	_getCmdHelp(exportSite) + os.EOL +
+	_getCmdHelp(importSite) + os.EOL +
+	_getCmdHelp(cancelExportJob) + os.EOL +
+	_getCmdHelp(cancelImportJob) + os.EOL +
+	_getCmdHelp(deleteExportJob) + os.EOL +
+	_getCmdHelp(deleteImportJob) + os.EOL +
+	_getCmdHelp(listExportJobs) + os.EOL +
+	_getCmdHelp(describeExportJob) + os.EOL +
+	_getCmdHelp(listImportJobs) + os.EOL +
+	_getCmdHelp(describeImportJob) + os.EOL;
+*/
 _usage = _usage + os.EOL + 'Assets' + os.EOL +
 	_getCmdHelp(downloadContent) + os.EOL +
 	_getCmdHelp(uploadContent) + os.EOL +
@@ -4685,12 +4847,38 @@ const argv = yargs.usage(_usage)
 		})
 	.command([listServerContentTypes.command, listServerContentTypes.alias], false,
 		(yargs) => {
-			yargs.option('server', {
-				alias: 's',
-				description: '<server> The registered OCM server'
+			yargs.option('repository', {
+				alias: 'r',
+				description: 'The repository',
+				hidden: true
 			})
+				.option('names', {
+					alias: 'n',
+					description: 'The names of a content types',
+					hidden: true
+				})
+				.option('expand', {
+					alias: 'e',
+					description: 'Show type dependency hierarchy',
+					hidden: true
+				})
+				.option('file', {
+					alias: 'f',
+					description: 'The JSON file to save the properties of types',
+					hidden: true
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
 				.example(...listServerContentTypes.example[0])
 				.example(...listServerContentTypes.example[1])
+				/*
+				.example(...listServerContentTypes.example[2])
+				.example(...listServerContentTypes.example[3])
+				.example(...listServerContentTypes.example[4])
+				.example(...listServerContentTypes.example[5])
+				*/
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${listServerContentTypes.command}\n\n${listServerContentTypes.usage.long}`);
@@ -6125,6 +6313,10 @@ const argv = yargs.usage(_usage)
 					alias: 'p',
 					description: 'path of the local folder for upload'
 				})
+				.option('policies', {
+					alias: 'i',
+					description: 'policies: createSite (default), updateSite, duplicateSite'
+				})
 				.option('assetspolicy', {
 					alias: 'a',
 					description: 'assets policy: createOrUpdate (default), createOrUpdateIfOutdated, duplicate'
@@ -6133,13 +6325,26 @@ const argv = yargs.usage(_usage)
 					alias: 't',
 					description: 'theme custom components policy: createOrUpdate (default), duplicate'
 				})
+				.option('newsite', {
+					alias: 'n',
+					description: 'New site name to use when using duplicateSite as policies'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
 				})
+				.option('folder', {
+					alias: 'f',
+					description: '<folder> Folder to import the site from'
+				})
 				.check((argv) => {
 					if (!argv.repository) {
 						throw new Error('Please specify repository');
+					}
+					if (argv.policies === 'duplicateSite') {
+						if (!argv.newsite) {
+							throw new Error('Pleaee specific newsite for duplicateSite policies');
+						}
 					}
 					return true;
 				})
@@ -6148,10 +6353,127 @@ const argv = yargs.usage(_usage)
 				.example(...importSite.example[2])
 				.example(...importSite.example[3])
 				.example(...importSite.example[4])
+				.example(...importSite.example[5])
+				.example(...importSite.example[6])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${importSite.command}\n\n${importSite.usage.long}`);
 		})
+
+	.command([cancelExportJob.command, cancelExportJob.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...cancelExportJob.example[0])
+				.example(...cancelExportJob.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${cancelExportJob.command}\n\n${cancelExportJob.usage.long}`);
+		})
+
+	.command([cancelImportJob.command, cancelImportJob.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...cancelImportJob.example[0])
+				.example(...cancelImportJob.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${cancelImportJob.command}\n\n${cancelImportJob.usage.long}`);
+		})
+
+	.command([deleteExportJob.command], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...deleteExportJob.example[0])
+				.example(...deleteExportJob.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${deleteExportJob.command}\n\n${deleteExportJob.usage.long}`);
+		})
+
+	.command([deleteImportJob.command], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...deleteImportJob.example[0])
+				.example(...deleteImportJob.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${deleteImportJob.command}\n\n${deleteImportJob.usage.long}`);
+		})
+
+	.command([listExportJobs.command, listExportJobs.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...listExportJobs.example[0])
+				.example(...listExportJobs.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${listExportJobs.command}\n\n${listExportJobs.usage.long}`);
+		})
+
+	.command([describeExportJob.command, describeExportJob.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+			.option('download', {
+				alias: 'd',
+				description: 'flag to indicate to download files of the exported site to local folder'
+			})
+				.example(...describeExportJob.example[0])
+				.example(...describeExportJob.example[1])
+				.example(...describeExportJob.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeExportJob.command}\n\n${describeExportJob.usage.long}`);
+		})
+
+	.command([listImportJobs.command, listImportJobs.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+				.example(...listImportJobs.example[0])
+				.example(...listImportJobs.example[1])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${listImportJobs.command}\n\n${listImportJobs.usage.long}`);
+		})
+
+	.command([describeImportJob.command, describeImportJob.alias], false,
+		(yargs) => {
+			yargs.option('server', {
+				alias: 's',
+				description: 'The registered OCM server'
+			})
+			.option('download', {
+				alias: 'd',
+				description: 'flag to indicate to download the import report to local folder'
+			})
+				.example(...describeImportJob.example[0])
+				.example(...describeImportJob.example[1])
+				.example(...describeImportJob.example[2])
+				.help(false)
+				.version(false)
+				.usage(`Usage: cec ${describeImportJob.command}\n\n${describeImportJob.usage.long}`);
+		})
+
 	.command([updateSite.command, updateSite.alias], false,
 		(yargs) => {
 			yargs.option('template', {
@@ -6166,20 +6488,31 @@ const argv = yargs.usage(_usage)
 					alias: 'm',
 					description: 'JSON metadata properties to update within the site'
 				})
+				.option('compilationjob', {
+					alias: 'c',
+					description: 'JSON compilation job properties to update within the site'
+				})
 				.option('server', {
 					alias: 's',
 					description: '<server> The registered OCM server'
 				})
 				.check((argv) => {
-					if (!argv.template && !argv.metadata) {
-						throw new Error('Please provide <template> or <metadata> arguments');
-					} else {
-						return true;
+					if (!argv.template && !argv.metadata && !argv.compilationjob) {
+						throw new Error(os.EOL + 'Please provide <template>, <metadata> or <compilationjob> arguments');
 					}
+					if (typeof argv.metadata === 'boolean') {
+						throw new Error(os.EOL + 'Please provide valid <metadata>');
+					}
+					if (typeof argv.compilationjob === 'boolean') {
+						throw new Error(os.EOL + 'Please provide valid <compilationjob>');
+					}
+					return true;
+
 				})
 				.example(...updateSite.example[0])
 				.example(...updateSite.example[1])
 				.example(...updateSite.example[2])
+				.example(...updateSite.example[3])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${updateSite.command}\n\n${updateSite.usage.long}`);
@@ -6410,6 +6743,10 @@ const argv = yargs.usage(_usage)
 				alias: 'o',
 				description: 'Output the report to a JSON file'
 			})
+				.option('pages', {
+					alias: 'p',
+					description: 'The pages to include in the report'
+				})
 				.option('server', {
 					alias: 's',
 					description: 'The registered OCM server'
@@ -6419,6 +6756,7 @@ const argv = yargs.usage(_usage)
 				.example(...createAssetReport.example[2])
 				.example(...createAssetReport.example[3])
 				.example(...createAssetReport.example[4])
+				.example(...createAssetReport.example[5])
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${createAssetReport.command}\n\n${createAssetReport.usage.long}`);
@@ -7277,11 +7615,25 @@ const argv = yargs.usage(_usage)
 		})
 	.command([describeType.command, describeType.alias], false,
 		(yargs) => {
-			yargs.option('server', {
-				alias: 's',
-				description: 'The registered OCM server'
+			yargs.option('expand', {
+				alias: 'e',
+				description: 'Show type dependency hierarchy',
+				hidden: true
 			})
+				.option('file', {
+					alias: 'f',
+					description: 'The JSON file to save the properties of the type',
+					hidden: true
+				})
+				.option('server', {
+					alias: 's',
+					description: 'The registered OCM server'
+				})
 				.example(...describeType.example[0])
+				/*
+				.example(...describeType.example[1])
+				.example(...describeType.example[2])
+				*/
 				.help(false)
 				.version(false)
 				.usage(`Usage: cec ${describeType.command}\n\n${describeType.usage.long}`);
@@ -10312,6 +10664,18 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd
 	];
 
+	if (argv.repository) {
+		listServerContentTypesArgs.push(...['--repository', argv.repository]);
+	}
+	if (argv.names) {
+		listServerContentTypesArgs.push(...['--names', argv.names]);
+	}
+	if (argv.expand) {
+		listServerContentTypesArgs.push(...['--expand', argv.expand]);
+	}
+	if (argv.file && typeof argv.file !== 'boolean') {
+		listServerContentTypesArgs.push(...['--file', argv.file]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		listServerContentTypesArgs.push(...['--server', argv.server]);
 	}
@@ -10775,6 +11139,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.metadata && typeof argv.metadata !== 'boolean') {
 		updateSiteArgs.push(...['--metadata', argv.metadata]);
 	}
+	if (argv.compilationjob && typeof argv.compilationjob !== 'boolean') {
+		updateSiteArgs.push(...['--compilationjob', argv.compilationjob]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, updateSiteArgs, {
 		cwd,
 		stdio: 'inherit'
@@ -10827,13 +11194,144 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.path && typeof argv.path !== 'boolean') {
 		importSiteArgs.push(...['--path', argv.path]);
 	}
+	if (argv.policies && typeof argv.policies !== 'boolean') {
+		importSiteArgs.push(...['--policies', argv.policies]);
+	}
 	if (argv.assetspolicy && argv.assetspolicy !== 'boolean') {
 		importSiteArgs.push(...['--assetspolicy', argv.assetspolicy]);
 	}
 	if (argv.themecustomcomponentspolicy && argv.themecustomcomponentspolicy !== 'boolean') {
 		importSiteArgs.push(...['--themecustomcomponentspolicy', argv.themecustomcomponentspolicy]);
 	}
+	if (argv.newsite && typeof argv.newsite !== 'boolean') {
+		importSiteArgs.push(...['--newsite', argv.newsite]);
+	}
+	if (argv.folder && typeof argv.folder !== 'boolean') {
+		importSiteArgs.push(...['--folder', argv.folder]);
+	}
 	spawnCmd = childProcess.spawnSync(npmCmd, importSiteArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === cancelExportJob.name || argv._[0] === cancelExportJob.alias) {
+	let cancelExportJobArgs = ['run', '-s', cancelExportJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--id', argv.id
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		cancelExportJobArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, cancelExportJobArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === cancelImportJob.name || argv._[0] === cancelImportJob.alias) {
+	let cancelImportJobArgs = ['run', '-s', cancelImportJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--id', argv.id
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		cancelImportJobArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, cancelImportJobArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === deleteExportJob.name || argv._[0] === deleteExportJob.alias) {
+	let deleteExportJobArgs = ['run', '-s', deleteExportJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--id', argv.id
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		deleteExportJobArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, deleteExportJobArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === deleteImportJob.name || argv._[0] === deleteImportJob.alias) {
+	let deleteImportJobArgs = ['run', '-s', deleteImportJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--id', argv.id
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		deleteImportJobArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, deleteImportJobArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === listExportJobs.name || argv._[0] === listExportJobs.alias) {
+	let listExportJobsArg = ['run', '-s', listExportJobs.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		listExportJobsArg.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, listExportJobsArg, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeExportJob.name || argv._[0] === describeExportJob.alias) {
+	let describeExportJobArgs = ['run', '-s', describeExportJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--id', argv.id
+	];
+	if (argv.download) {
+		describeExportJobArgs.push(...['--download', argv.download]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeExportJobArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, describeExportJobArgs, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === listImportJobs.name || argv._[0] === listImportJobs.alias) {
+	let listImportJobsArg = ['run', '-s', listImportJobs.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd
+	];
+	if (argv.server && typeof argv.server !== 'boolean') {
+		listImportJobsArg.push(...['--server', argv.server]);
+	}
+	spawnCmd = childProcess.spawnSync(npmCmd, listImportJobsArg, {
+		cwd,
+		stdio: 'inherit'
+	});
+
+} else if (argv._[0] === describeImportJob.name || argv._[0] === describeImportJob.alias) {
+	let describeImportJobArgs = ['run', '-s', describeImportJob.name, '--prefix', appRoot,
+		'--',
+		'--projectDir', cwd,
+		'--id', argv.id
+	];
+	if (argv.download) {
+		describeImportJobArgs.push(...['--download', argv.download]);
+	}
+	if (argv.server && typeof argv.server !== 'boolean') {
+		describeImportJobArgs.push(...['--server', argv.server]);
+	}
+
+	spawnCmd = childProcess.spawnSync(npmCmd, describeImportJobArgs, {
 		cwd,
 		stdio: 'inherit'
 	});
@@ -10984,6 +11482,9 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 	if (argv.output) {
 		outputVal = typeof argv.output === 'boolean' ? './' : argv.output;
 		createAssetReportArgs.push(...['--output', outputVal]);
+	}
+	if (argv.pages) {
+		createAssetReportArgs.push(...['--pages', argv.pages]);
 	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		createAssetReportArgs.push(...['--server', argv.server]);
@@ -11542,6 +12043,12 @@ if (argv._[0] === createComponent.name || argv._[0] == createComponent.alias) {
 		'--projectDir', cwd,
 		'--name', argv.name
 	];
+	if (argv.expand) {
+		describeTypeArgs.push(...['--expand', argv.expand]);
+	}
+	if (argv.file && typeof argv.file !== 'boolean') {
+		describeTypeArgs.push(...['--file', argv.file]);
+	}
 	if (argv.server && typeof argv.server !== 'boolean') {
 		describeTypeArgs.push(...['--server', argv.server]);
 	}

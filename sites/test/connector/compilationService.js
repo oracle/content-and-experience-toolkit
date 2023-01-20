@@ -240,6 +240,7 @@ CompilationService.prototype.createJob = function (req, res) {
     }).then(function (args) {
         var name = args.data.name,
             siteName = args.data.siteName,
+            parentJobId = args.data.jobId,
             publishingJobId = args.data.publishJobId,
             renditionJobId = args.data.renditionJobId,
             contentType = args.data.contentType,
@@ -262,6 +263,7 @@ CompilationService.prototype.createJob = function (req, res) {
             serverEndpoint: serverEndpoint,
             serverUser: serverUser,
             serverPass: serverPass,
+            parentJobId: parentJobId,
             publishingJobId: publishingJobId,
             renditionJobId: renditionJobId,
             contentType: contentType,

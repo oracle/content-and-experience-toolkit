@@ -772,7 +772,7 @@ gulp.task('describe-component', function (done) {
 gulp.task('list-server-content-types', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
-	contentlayoutlib.listServerContentTypes(argv, function (success) {
+	assetlib.listServerContentTypes(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});
@@ -1717,6 +1717,102 @@ gulp.task('import-site', function (done) {
 	'use strict';
 	_readLoggerLevel(argv.projectDir);
 	sitelib.importSite(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Cancel export job
+ */
+ gulp.task('cancel-export-job', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.cancelExportJob(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Cancel import job
+ */
+ gulp.task('cancel-import-job', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.cancelImportJob(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Delete export job
+ */
+ gulp.task('delete-export-job', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.deleteExportJob(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Delete import job
+ */
+ gulp.task('delete-import-job', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.deleteImportJob(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * List export jobs
+ */
+ gulp.task('list-export-jobs', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.listExportJobs(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Describe export job
+ */
+ gulp.task('describe-export-job', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.describeExportJob(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * List export jobs
+ */
+ gulp.task('list-import-jobs', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.listImportJobs(argv, function (success) {
+		process.exitCode = _getExitCode(success);
+		done();
+	});
+});
+
+/**
+ * Describe import job
+ */
+ gulp.task('describe-import-job', function (done) {
+	'use strict';
+	_readLoggerLevel(argv.projectDir);
+	sitelib.describeImportJob(argv, function (success) {
 		process.exitCode = _getExitCode(success);
 		done();
 	});

@@ -646,6 +646,39 @@ SiteUpdate.prototype.updateMetadata = function (server, siteResults, metadata) {
 	});
 };
 
+SiteUpdate.prototype.updateCompilationJob = function (server, siteResults, compilationJob) {
+	if (!compilationJob) {
+		return Promise.resolve();
+	}
+
+	var jobValues,
+		siteId = siteResults.siteId;
+
+	try {
+		jobValues = JSON.parse(compilationJob);
+	} catch (e) {
+		console.error('Error: failed to update site with compilation job: ' + compilationJob);
+		return Promise.reject();
+	}
+
+	console.info('updating site compilation job with: ' + compilationJob);
+
+	return serverUtils.getIdcToken(server).then(function (idcToken) {
+		return serverUtils.setSiteCompilationJob(server, idcToken, siteId, jobValues, {}).then(function (result) {
+			if (!result || result.err) {
+				console.error('Error: failed to update site compilation job');
+				if (result.err) {
+					console.error(result.err);
+				}
+				return Promise.reject();
+			} else {
+				console.info('successfully updated site compilation job');
+				return Promise.resolve();
+			}
+		});
+	});
+};
+
 SiteUpdate.prototype.updateSite = function (argv, done) {
 	try {
 		var self = this,
@@ -680,111 +713,116 @@ SiteUpdate.prototype.updateSite = function (argv, done) {
 			serverInfoPromise.then(function (siteResult) {
 				// handle metadat updates
 				self.updateMetadata(server, siteResult, argv.metadata).then(function () {
-					// handle template updates
-					if (!argv.template) {
-						// no template, we're done
-						done();
-						return;
-					} else {
-						// console.log(siteResult);
-						var siteEntry = {
-							siteGUID: siteResult.siteId
-						},
-							siteInfo = siteResult.siteInfo;
-						// console.log(siteInfo);
 
-						// if can't locate the site, return
-						if (!(siteEntry && siteEntry.siteGUID)) {
-							console.error('Error: failed to locate site: ' + siteName);
-							done();
+					self.updateCompilationJob(server, siteResult, argv.compilationjob).then(function () {
+
+						// handle template updates
+						if (!argv.template) {
+							// no template, we're done
+							done(true);
 							return;
-						}
+						} else {
+							// console.log(siteResult);
+							var siteEntry = {
+								siteGUID: siteResult.siteId
+							},
+								siteInfo = siteResult.siteInfo;
+							// console.log(siteInfo);
 
-						// add in the site name
-						siteEntry.site = siteName;
-
-						//
-						// Include all the steps to update the site
-						// Note: Running steps serially to avoid overloading the server.  Could be run in parallel depending on performance/load impact.
-						// 
-						updateSitePromises.push(function () {
-							return self.updatePages(argv, siteEntry);
-						});
-						updateSitePromises.push(function () {
-							return self.updateStaticFiles(argv, siteEntry);
-						});
-						updateSitePromises.push(function () {
-							return self.updateContent(argv, siteEntry);
-						});
-						updateSitePromises.push(function () {
-							return self.updateSystemFiles(argv, siteEntry);
-						});
-						updateSitePromises.push(function () {
-							return self.updateSettingsFiles(argv, siteEntry);
-						});
-						if (!excludeContentTemplate) {
-							updateSitePromises.push(function () {
-								return self.updateSiteContent(argv, siteInfo);
-							});
-						}
-
-						// run through the update steps
-						var doUpdateSteps = updateSitePromises.reduce(function (previousPromise, nextPromise) {
-							return previousPromise.then(function (result) {
-								// store the result of this step
-								if (result) {
-									results.push(result);
-								}
-
-								// wait for the previous promise to complete and then return a new promise for the next 
-								return nextPromise();
-							});
-						},
-							// Start with a previousPromise value that is a resolved promise 
-							Promise.resolve());
-
-						// once all files are downloaded, can continue
-						doUpdateSteps.then(function (finalResult) {
-							// add in the final result
-							results.push(finalResult);
-
-							// output the results
-							console.log('Update Site Results:');
-							var totalErr = 0;
-							results.forEach(function (result) {
-								if (result) {
-									totalErr = totalErr + result.errors;
-									console.log(' - ' + result.name.padEnd(20) + ': completed with ' + result.errors + ' errors.');
-								}
-							});
-							if (totalErr === 0) {
-								// mark the site as updated
-								sitesRest.siteUpdated({
-									server: server,
-									name: siteName
-								})
-									.then(function (result) {
-										if (result.err) {
-											done();
-										} else {
-											console.info(' - update site timestamp');
-											done(true);
-										}
-									});
-							} else {
+							// if can't locate the site, return
+							if (!(siteEntry && siteEntry.siteGUID)) {
+								console.error('Error: failed to locate site: ' + siteName);
 								done();
+								return;
 							}
-						}).catch(function (err) {
-							console.error('Error: failed to update site: ');
-							console.error(err);
-						});
-					}
+
+							// add in the site name
+							siteEntry.site = siteName;
+
+							//
+							// Include all the steps to update the site
+							// Note: Running steps serially to avoid overloading the server.  Could be run in parallel depending on performance/load impact.
+							// 
+							updateSitePromises.push(function () {
+								return self.updatePages(argv, siteEntry);
+							});
+							updateSitePromises.push(function () {
+								return self.updateStaticFiles(argv, siteEntry);
+							});
+							updateSitePromises.push(function () {
+								return self.updateContent(argv, siteEntry);
+							});
+							updateSitePromises.push(function () {
+								return self.updateSystemFiles(argv, siteEntry);
+							});
+							updateSitePromises.push(function () {
+								return self.updateSettingsFiles(argv, siteEntry);
+							});
+							if (!excludeContentTemplate) {
+								updateSitePromises.push(function () {
+									return self.updateSiteContent(argv, siteInfo);
+								});
+							}
+
+							// run through the update steps
+							var doUpdateSteps = updateSitePromises.reduce(function (previousPromise, nextPromise) {
+								return previousPromise.then(function (result) {
+									// store the result of this step
+									if (result) {
+										results.push(result);
+									}
+
+									// wait for the previous promise to complete and then return a new promise for the next 
+									return nextPromise();
+								});
+							},
+								// Start with a previousPromise value that is a resolved promise 
+								Promise.resolve());
+
+							// once all files are downloaded, can continue
+							doUpdateSteps.then(function (finalResult) {
+								// add in the final result
+								results.push(finalResult);
+
+								// output the results
+								console.log('Update Site Results:');
+								var totalErr = 0;
+								results.forEach(function (result) {
+									if (result) {
+										totalErr = totalErr + result.errors;
+										console.log(' - ' + result.name.padEnd(20) + ': completed with ' + result.errors + ' errors.');
+									}
+								});
+								if (totalErr === 0) {
+									// mark the site as updated
+									sitesRest.siteUpdated({
+										server: server,
+										name: siteName
+									})
+										.then(function (result) {
+											if (result.err) {
+												done();
+											} else {
+												console.info(' - update site timestamp');
+												done(true);
+											}
+										});
+								} else {
+									done();
+								}
+							}).catch(function (err) {
+								console.error('Error: failed to update site: ');
+								console.error(err);
+							});
+						}
+					}).catch(function (err) {
+						done();
+					});
 				}).catch(function (err) {
 					console.error('Error: failed to update site metadata');
 					done();
 				});
 			});
-
 		});
 	} catch (e) {
 		console.error('Error: cec update-site failed');

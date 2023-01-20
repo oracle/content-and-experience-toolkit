@@ -73,15 +73,15 @@ var _getAllResources = function (server, type, expand) {
 		var resources = [];
 
 		var doGetResources = groups.reduce(function (resPromise, offset) {
-			return resPromise.then(function (result) {
-				if (result && result.items && result.items.length > 0) {
-					resources = resources.concat(result.items);
-				}
-				if (result && result.hasMore) {
-					return _getResources(server, type, expand, offset);
-				}
-			});
-		},
+				return resPromise.then(function (result) {
+					if (result && result.items && result.items.length > 0) {
+						resources = resources.concat(result.items);
+					}
+					if (result && result.hasMore) {
+						return _getResources(server, type, expand, offset);
+					}
+				});
+			},
 			// Start with a previousPromise value that is a resolved promise
 			_getResources(server, type, expand));
 
@@ -213,7 +213,7 @@ var _getResource = function (server, type, id, name, expand, showError, includeD
  */
 module.exports.getSite = function (args) {
 	var server = args.server;
-	return _getResource(server, 'sites', args.id, args.name, args.expand, true, args.includeDeleted);
+	return _getResource(server, 'sites', args.id, args.name, args.expand, true, args.includeDeleted, args.showInfo);
 };
 
 /**
@@ -899,7 +899,9 @@ var _setSiteTheme = function (server, site, themeName, showMsg) {
 					var siteinfo = result;
 					siteinfo.properties.themeName = themeName;
 
-					const { Readable } = require('stream');
+					const {
+						Readable
+					} = require('stream');
 					const newSiteInfo = Readable.from(JSON.stringify(siteinfo));
 					return serverRest.createFile({
 						server: server,
@@ -1505,6 +1507,14 @@ module.exports.activateSite = function (args) {
 	return _setSiteOnlineStatus(server, args.id, args.name, 'online');
 };
 
+var _getReports = function (location, job) {
+	var urls = [];
+	((job.reports && job.reports.items) || []).forEach(function (report) {
+		urls.push(location + '/reports/' + report.id + '/package');
+	});
+	return urls;
+}
+
 /**
  * Deactivate a site on server
  * @param {object} args JavaScript object containing parameters.
@@ -1532,22 +1542,20 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 					folderId: folderId
 				}
 			},
-			sources: [
-				{
-					select: {
-						type: "site",
-						site: {
-							id: siteId
-						}
-					},
-					apply: {
-						policies: "exportSite",
-						exportSite: {
-							includeUnpublishedAssets: includeUnpublishedAssets
-						}
+			sources: [{
+				select: {
+					type: "site",
+					site: {
+						id: siteId
+					}
+				},
+				apply: {
+					policies: "exportSite",
+					exportSite: {
+						includeUnpublishedAssets: includeUnpublishedAssets
 					}
 				}
-			]
+			}]
 		};
 
 		var options = {
@@ -1588,7 +1596,7 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 			var statusUrl = response.location;
 			if (statusUrl) {
 				console.info(' - submit background job');
-				statusUrl += '?fields=id,name,description,progress,completed,message,completedPercentage,sources,target';
+				statusUrl += '?fields=id,name,description,progress,completed,message,completedPercentage,sources,target,reports';
 				console.info(' - job status: ' + statusUrl);
 				var startTime = new Date();
 				var needNewLine = false;
@@ -1600,24 +1608,27 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 								if (needNewLine && console.showInfo()) {
 									process.stdout.write(os.EOL);
 								}
-								var msg = data && data.error ? (data.error.detail || data.error.title) : '';
-								console.error('_exportSite ERROR: request failed: ' + msg + ' (ecid: ' + response.ecid + ')');
+								console.error('ExportSite job ' + data.id + ' ' + data.progress + ' (ecid: ' + response.ecid + ')');
 								return resolve({
-									err: 'err'
+									err: 'err',
+									reports: _getReports(response.location, data)
 								});
 							} else if (data.completed && data.progress === 'succeeded') {
 								clearInterval(inter);
 								if (console.showInfo()) {
 									if (data.completedPercentage) {
-										process.stdout.write(' - request in process percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+										process.stdout.write('   ExportSite job in process percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 									}
 									process.stdout.write(os.EOL);
 								}
-								console.info(' - request finished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-								return resolve(data);
+								console.info('  ExportSite job ' + data.id + ' completed [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								return resolve({
+									job: data,
+									reports: _getReports(response.location, data)
+								});
 							} else {
 								if (console.showInfo()) {
-									process.stdout.write(' - request in process' + (data.completedPercentage !== undefined ? ' percentage ' + data.completedPercentage : '') + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+									process.stdout.write('   ExportSite job in process' + (data.completedPercentage !== undefined ? ' percentage ' + data.completedPercentage : '') + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 								}
 								readline.cursorTo(process.stdout, 0);
 								needNewLine = true;
@@ -1635,6 +1646,7 @@ var _exportSite = function (server, name, siteName, siteId, folderId, includeUnp
 		});
 	});
 };
+
 /**
  * Export a site on server
  * @param {object} args JavaScript object containing parameters.
@@ -1709,13 +1721,13 @@ var _createArchive = function (server, folderId) {
 							if (!data || data.error) {
 								clearInterval(inter);
 								var msg = data && data.error ? (data.error.detail || data.error.title) : '';
-								console.error('_createArchive ERROR: request failed: ' + msg + ' (ecid: ' + response.ecid + ')');
+								console.error('   CreateArchive failed: ' + msg + ' (ecid: ' + response.ecid + ')');
 								return resolve({
 									err: 'err'
 								});
 							} else {
 								clearInterval(inter);
-								console.info(' - request finished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+								console.info('   CreateArchive finished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 								return resolve(data);
 							}
 						});
@@ -1742,7 +1754,24 @@ module.exports.createArchive = function (args) {
 	return _createArchive(server, args.folderId);
 };
 
-var _importSite = function (server, name, archiveId, siteId, repositoryId, assetspolicy, themecustomcomponentspolicy) {
+var _showValidationResults = function (source, job) {
+	var results = job.validationResults;
+
+	if (!results) {
+		return;
+	}
+
+	results.items.forEach(function (entry) {
+		entry.messages.items.forEach(function (message) {
+			console.info(source + ' validation ' + message.level + ' - key ' + message.key + ' parameters:');
+			Object.keys(message.parameters).forEach(function (k) {
+				console.info('   ' + k + ' : ' + message.parameters[k]);
+			})
+		});
+	});
+};
+
+var _importSite = function (server, name, archiveId, siteId, repositoryId, policies, assetspolicy, themecustomcomponentspolicy, newsite, usingExportedFolderAsSource) {
 	return new Promise(function (resolve, reject) {
 
 		var url = '/system/export/api/v1/imports';
@@ -1756,32 +1785,64 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, asset
 					"id": archiveId
 				}
 			},
-			targets: [
-				{
-					select: {
-						type: "site",
-						site: {
-							id: siteId
-						}
-					},
-					apply: {
-						policies: "createSite",
-						createSite: {
-							"assetsPolicy": assetspolicy,
-							"themeCustomComponentsPolicy": themecustomcomponentspolicy,
-							"site": {
-								"repository": {
-									"id": repositoryId
-								}
-							}
+			targets: [{
+				select: {
+					type: "site",
+					site: {
+						id: siteId
+					}
+				},
+				apply: {
+					policies: policies
+				}
+			}],
+			"policies": {
+				"ignoreAllValidationWarnings": true
+			},
+			"ignoreFailures": true
+		};
+
+		switch (policies) {
+			case 'createSite':
+				payload.targets[0].apply.createSite = {
+					"assetsPolicy": assetspolicy,
+					"themeCustomComponentsPolicy": themecustomcomponentspolicy,
+					"site": {
+						"repository": {
+							"id": repositoryId
 						}
 					}
 				}
-			],
-			"policies": {
-				"ignoreAllValidationWarnings": true
-			}
-		};
+				break;
+			case 'updateSite':
+				payload.targets[0].apply.updateSite = {
+					"assetsPolicy": assetspolicy,
+					"themeCustomComponentsPolicy": themecustomcomponentspolicy,
+					"site": {
+						"repository": {
+							"id": repositoryId
+						}
+					}
+				}
+				break;
+			case 'duplicateSite':
+				payload.targets[0].apply.duplicateSite = {
+					"assetsPolicy": assetspolicy,
+					"themeCustomComponentsPolicy": themecustomcomponentspolicy,
+					"site": {
+						"name": newsite,
+						"sitePrefix": newsite.toLowerCase(),
+						"repository": {
+							"id": repositoryId
+						}
+					}
+				}
+				break;
+			default:
+		}
+
+		// TODO: Temporary
+		console.info('importSite payload ' + JSON.stringify(payload));
 
 		var options = {
 			method: 'POST',
@@ -1823,6 +1884,8 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, asset
 			if (statusUrl) {
 				console.info(' - submit background job for import site');
 				statusUrl += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,currentState,completed,targets,reports';
+				statusUrl += ',validationSummary.messagesByEntityTypes.entityType,validationSummary.messagesByEntityTypes.countsByLevel.warning,validationSummary.messagesByEntityTypes.countsByLevel.error,validationSummary.messagesByEntityTypes.countsByLevel.info';
+				statusUrl += ',validationResults.assetType,validationResults.assetType.source,validationResults.assetType.target,validationResults.messages';
 				console.info(' - job status: ' + statusUrl);
 				var startTime = new Date();
 				var needNewLine = false;
@@ -1830,51 +1893,42 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, asset
 					_getBackgroundJobStatus(server, statusUrl)
 						.then(function (data) {
 							var reportURL;
-							if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'aborted') {
+							if (!data || data.error || !data.progress || data.progress === 'failed' || data.progress === 'blocked' || data.progress === 'aborted') {
 								clearInterval(inter);
 								if (needNewLine && console.showInfo()) {
 									process.stdout.write(os.EOL);
 								}
-								var msg = data && data.error ? (data.error.detail || data.error.title) : (data.progress || '');
-								console.error('_importSite ERROR: request failed: ' + msg + ' (ecid: ' + response.ecid + ')');
-								console.error('_importSite id ' + data.id + ' reports.count ' + data.reports.count + ' ' + data.reports.items[0].id);
-								if (data && data.reports.count > 0) {
-									// TODO: Handle multiple reports
-									reportURL = response.location + '/reports/' + data.reports.items[0].id + '/package';
-								}
+								console.error('ImportSite job ' + data.id + ' ' + data.progress + ' (ecid: ' + response.ecid + ')');
+								_showValidationResults('ImportSite', data);
 								return resolve({
 									err: 'error',
 									job: data,
-									reports: reportURL
+									reports: _getReports(response.location, data)
 								});
 							} else if (data.completed && data.progress === 'succeeded') {
 								clearInterval(inter);
 								if (console.showInfo()) {
 									if (data.completedPercentage) {
-										process.stdout.write(' - request in process percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+										process.stdout.write('   ImportSite job in process percentage ' + data.completedPercentage + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 									}
 									process.stdout.write(os.EOL);
 								}
-								console.info(' - request finished [' + serverUtils.timeUsed(startTime, new Date()) + ']');
-								if (data && data.reports.count > 0) {
-									// TODO: Handle multiple reports
-									reportURL = response.location + '/reports/' + data.reports.items[0].id + '/package';
-								}
+								console.info('  ImportSite job ' + data.id + ' completed [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 								return resolve({
 									job: data,
-									reports: reportURL
+									reports: _getReports(response.location, data)
 								});
 							} else {
 								if (console.showInfo()) {
-									process.stdout.write(' - request in process' + (data.completedPercentage !== undefined ? ' percentage ' + data.completedPercentage : '') + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
+									process.stdout.write('   ImportSite job in process' + (data.completedPercentage !== undefined ? ' percentage ' + data.completedPercentage : '') + ' [' + serverUtils.timeUsed(startTime, new Date()) + ']');
 								}
 								readline.cursorTo(process.stdout, 0);
 								needNewLine = true;
 							}
 						});
-				}, 5000);
+				}, 10000);
 			} else {
-				console.info(' - job status: No statusUrl');
+				console.info('   ImportSite job status: No statusUrl');
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.error('ERROR: failed to import site ' + (name) + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
@@ -1891,9 +1945,131 @@ var _importSite = function (server, name, archiveId, siteId, repositoryId, asset
  * @param {object} args
  * @returns
  */
- module.exports.importSite = function (args) {
+module.exports.importSite = function (args) {
 	var server = args.server;
-	return _importSite(server, args.name, args.archiveId, args.siteId, args.repositoryId, args.assetspolicy, args.themecustomcomponentspolicy);
+	return _importSite(server, args.name, args.archiveId, args.siteId, args.repositoryId, args.policies, args.assetspolicy, args.themecustomcomponentspolicy, args.newsite, args.usingExportedFolderAsSource);
+};
+
+var _describeExportJob = function (server, id) {
+	return new Promise(function (resolve, reject) {
+
+		var stem = server.url + '/system/export/api/v1/exports/' + id;
+		var url = stem;
+
+		url += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,completed,currentState,completedPercentage,target.provider,target.docs,sources.select.type,sources.select.site.id,sources.apply.exportSite.includeUnpublishedAssets,reports.id';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		serverUtils.showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: failed to get export job (ecid: ' + response.ecid + ')');
+				console.error(error);
+				resolve({
+					err: 'err'
+				});
+				return;
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+			if (response && response.statusCode === 200) {
+				resolve({
+					job: data,
+					reports: _getReports(stem, data)
+				});
+			} else {
+				console.error('ERROR: failed to get export job ' + id + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Describe export job
+ * @param {object} args
+ * @returns
+ */
+module.exports.describeExportJob = function (args) {
+	var server = args.server;
+	return _describeExportJob(server, args.id);
+};
+
+var _describeImportJob = function (server, id) {
+	return new Promise(function (resolve, reject) {
+
+		var stem = server.url + '/system/export/api/v1/imports/' + id;
+		var url = stem;
+
+		url += '?fields=id,name,description,createdBy,createdAt,completedAt,progress,currentState,completed,reports';
+		url += ',source,source.archive,targets.select.type,targets.select.site,id,targets.select.site.name';
+		url += ',targets.select.site.channel.name,targets.select.site.channel.localizationPolicy.name,targets.select.site.defaultLanguage,targets.apply.policies';
+		url += ',targets.apply.createSite.site.repository,targets.apply.createSite.assetsPolicy,targets.apply.createSite.themeCustomComponentsPolicy';
+		url += ',targets.apply.updateSite.site.repository,targets.apply.updateSite.assetsPolicy,targets.apply.updateSite.themeCustomComponentsPolicy';
+		url += ',targets.apply.duplicateSite.site.repository,targets.apply.duplicateSite.assetsPolicy,targets.apply.duplicateSite.themeCustomComponentsPolicy';
+		url += ',validationSummary.messagesByEntityTypes.entityType,validationSummary.messagesByEntityTypes.countsByLevel.warning,validationSummary.messagesByEntityTypes.countsByLevel.error,validationSummary.messagesByEntityTypes.countsByLevel.info';
+		url += ',validationResults.assetType,validationResults.assetType.source,validationResults.assetType.target,validationResults.messages';
+		var options = {
+			method: 'GET',
+			url: url,
+			headers: {
+				Authorization: serverUtils.getRequestAuthorization(server)
+			}
+		};
+		serverUtils.showRequestOptions(options);
+
+		var request = require('./requestUtils.js').request;
+		request.get(options, function (error, response, body) {
+			if (error) {
+				console.error('ERROR: failed to get import job (ecid: ' + response.ecid + ')');
+				console.error(error);
+				resolve({
+					err: 'err'
+				});
+				return;
+			}
+			var data;
+			try {
+				data = JSON.parse(body);
+			} catch (e) {
+				data = body;
+			}
+
+			if (response && response.statusCode === 200) {
+				resolve({
+					job: data,
+					reports: _getReports(stem, data)
+				});
+			} else {
+				console.error('ERROR: failed to get import job ' + id + ' : ' + (response ? (response.statusMessage || response.statusCode) : '') + ' (ecid: ' + response.ecid + ')');
+				resolve({
+					err: 'err'
+				});
+			}
+		});
+	});
+};
+
+/**
+ * Describe export job
+ * @param {object} args
+ * @returns
+ */
+module.exports.describeImportJob = function (args) {
+	var server = args.server;
+	return _describeImportJob(server, args.id);
 };
 
 var _validateSite = function (server, id, name) {
@@ -2257,6 +2433,7 @@ var _getBackgroundJobStatus = function (server, url) {
 		request.get(options, function (error, response, body) {
 
 			if (error) {
+				console.info('_getBackgroundJobStatus error fetching from options.url ' + options.url);
 				console.error('ERROR: failed to get status from ' + endpoint + ' (ecid: ' + response.ecid + ')');
 				console.error(error);
 				resolve({
@@ -2275,6 +2452,7 @@ var _getBackgroundJobStatus = function (server, url) {
 			if (response && response.statusCode === 200) {
 				resolve(data);
 			} else {
+				console.info('_getBackgroundJobStatus  error in response fetching from options.url ' + options.url);
 				var msg = (data && (data.detail || data.title)) ? (data.detail || data.title) : (response ? (response.statusMessage || response.statusCode) : '');
 				console.error('ERROR: failed to get status from ' + endpoint + ' : ' + msg + ' (ecid: ' + response.ecid + ')');
 				resolve({
@@ -3269,7 +3447,7 @@ module.exports.getExportJobsEndpoint = function (server) {
 };
 
 var _sendExportJobRequest = function (server, method, url, payload, requestUtils) {
-	return new Promise(function (resolve /*, reject*/) {
+	return new Promise(function (resolve /*, reject*/ ) {
 		var postData = {
 			method: method,
 			url,
@@ -3323,7 +3501,7 @@ module.exports.sendExportJobRequest = function (args) {
 	return _sendExportJobRequest(args.server, args.method, args.url, args.payload, args.requestUtils);
 }
 var _getExportJobRequest = function (server, method, url, requestUtils) {
-	return new Promise(function (resolve /*, reject*/) {
+	return new Promise(function (resolve /*, reject*/ ) {
 		var postData = {
 			method: method,
 			url,

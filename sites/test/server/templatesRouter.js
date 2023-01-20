@@ -216,8 +216,9 @@ router.get('/*', (req, res) => {
 					res.write("(function(){})()");
 					res.end();
 					return;
-				} else {
+				} else if (filePath.indexOf('structure.json') < 0) {
 					// can't find it, return the controller
+					// structure.json will be handled later
 					filePath = path.resolve(templatesDir + '/' + tempName + '/controller.html');
 				}
 			}
@@ -231,7 +232,7 @@ router.get('/*', (req, res) => {
 
 	console.info(' - filePath=' + filePath);
 
-	if (existsAndIsFile(filePath)) {
+	if (existsAndIsFile(filePath) || filePath.indexOf('structure.json') > 0) {
 		if (filePath.indexOf('controller.html') > 0) {
 			//
 			// insert SCS 
@@ -266,58 +267,122 @@ router.get('/*', (req, res) => {
 					var data = JSON.parse(body);
 					vbcsconn = data ? data.VBCSConnection : '';
 				} else {
-					console.error('status=' + response.statusCode + ' err=' + err);
+					// console.error('status=' + response.statusCode + ' err=' + err);
 				}
 
 				//
 				// combine siteinfo and structure the controller.js
 				//
-				var siteinfoPath = filePath.replace('structure.json', 'siteinfo.json'),
-					newstructurestr = '';
-				if (existsAndIsFile(siteinfoPath)) {
-					var structurebuf = fs.readFileSync(filePath).toString(),
-						structurejson = JSON.parse(structurebuf),
-						siteinfobuf = fs.readFileSync(siteinfoPath).toString(),
-						siteinfojson = JSON.parse(siteinfobuf);
+				var structurePath = filePath;
+				var siteinfoPath = filePath.replace('structure.json', 'siteinfo.json');
+				var newstructurestr = '';
 
-					if (siteinfojson.properties && siteinfojson.properties.channelId) {
-						if (!siteinfojson.properties.channelAccessTokens || siteinfojson.properties.channelAccessTokens.length === 0) {
-							siteinfojson.properties['channelAccessTokens'] = [{
-								"name": "defaultToken",
-								"value": "02a11b744a9828b6c08c832cc4efeaa4",
-								"expirationDate": "01/01/2099"
-							}];
+				let filename = siteinfoPath.substring(siteinfoPath.lastIndexOf(path.sep) + 1);
+				let baseStructurePath;
+				let isLocale = false;
+				let localeName;
+				if (filename.indexOf('_') > 0) {
+					isLocale = true;
+					siteinfoPath = path.join(filePath.substring(0, filePath.lastIndexOf(path.sep)), 'siteinfo.json');
+					baseStructurePath = path.join(filePath.substring(0, filePath.lastIndexOf(path.sep)), 'structure.json');
+					localeName = filename.substring(0, filename.indexOf('_'));
+				}
+				if (existsAndIsFile(structurePath) || existsAndIsFile(baseStructurePath)) {
+					if (existsAndIsFile(siteinfoPath)) {
+						// always use base siteinfo
+						var siteinfobuf = fs.readFileSync(siteinfoPath).toString(),
+							siteinfojson = JSON.parse(siteinfobuf);
+
+						if (siteinfojson.properties && localeName && localeName === siteinfojson.properties.defaultLanguage) {
+							structurePath = baseStructurePath;
+						}
+						var structurebuf;
+						var structurejson = { pages: [] };
+						if (existsAndIsFile(structurePath)) {
+							structurebuf = fs.readFileSync(structurePath).toString();
+							structurejson = JSON.parse(structurebuf);
+						}
+
+						// set site channel tokem
+						if (siteinfojson.properties && siteinfojson.properties.channelId) {
+							if (!siteinfojson.properties.channelAccessTokens || siteinfojson.properties.channelAccessTokens.length === 0) {
+								siteinfojson.properties['channelAccessTokens'] = [{
+									"name": "defaultToken",
+									"value": "02a11b744a9828b6c08c832cc4efeaa4",
+									"expirationDate": "01/01/2099"
+								}];
+							}
+						}
+
+						// set availableLanguages
+						let items = fs.readdirSync(filePath.substring(0, filePath.lastIndexOf(path.sep)));
+						let availableLanguages = [];
+						if (siteinfojson.properties && siteinfojson.properties.defaultLanguage) {
+							availableLanguages.push(siteinfojson.properties.defaultLanguage);
+						}
+						if (items && items.length > 0) {
+							items.forEach(function (item) {
+								if (item.indexOf('_structure.json') > 0) {
+									let localeName = item.substring(0, item.indexOf('_'));
+									if (!availableLanguages.includes(localeName)) {
+										availableLanguages.push(localeName);
+									}
+								}
+							});
+						}
+
+						if (siteinfojson.properties && structurejson.pages) {
+							siteinfojson.properties.siteConnections = {
+								VBCSConnection: vbcsconn
+							};
+
+							siteinfojson.properties.availableLanguages = availableLanguages;
+
+							let pages = structurejson.pages;
+							if (isLocale) {
+								let baseStructureJson = JSON.parse(fs.readFileSync(baseStructurePath).toString());
+								let basePages = baseStructureJson.pages;
+								basePages.forEach(function (page) {
+									for (let i = 0; i < structurejson.pages.length; i++) {
+										if (page.id === structurejson.pages[i].id) {
+											page.name = structurejson.pages[i].name;
+											break;
+										}
+									}
+								});
+								pages = basePages;
+							}
+
+							var newstructurejson = {
+								"siteInfo": {
+									"base": {
+										"properties": siteinfojson.properties
+									}
+								},
+								"base": {
+									"pages": pages
+								}
+							};
+
+							newstructurestr = JSON.stringify(newstructurejson);
+							// console.log(JSON.stringify(newstructurejson, null, 4));
 						}
 					}
 
-					if (siteinfojson.properties && structurejson.pages) {
-						siteinfojson.properties.siteConnections = {
-							VBCSConnection: vbcsconn
-						};
-						var newstructurejson = {
-							"siteInfo": {
-								"base": {
-									"properties": siteinfojson.properties
-								}
-							},
-							"base": {
-								"pages": structurejson.pages
-							}
-						};
-
-						newstructurestr = JSON.stringify(newstructurejson);
+					if (newstructurestr) {
+						// send the new structure
+						res.write(newstructurestr);
+						res.end();
+					} else {
+						// use the original structure.json
+						console.log(' - use original structure.json');
+						res.sendFile(filePath);
 					}
-				}
-
-				if (newstructurestr) {
-					// send the new structure
-					res.write(newstructurestr);
-					res.end();
 				} else {
-					// use the original structure.json
+					console.log(' - file not exist: ' + filePath);
+					filePath = path.resolve(templatesDir + '/' + tempName + '/controller.html');
 					res.sendFile(filePath);
 				}
-
 			});
 		} else if (filePath.indexOf('pages') > 0 && filePath.indexOf('.json') > 0) {
 			//

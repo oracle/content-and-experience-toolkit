@@ -75,6 +75,7 @@ var defaultLocale; // set if required by command line parameter
 var outputAlternateHierarchy = true; // Emit to /folder/_files/<filename> structure
 var pagesToCompile; // list of pages that will be compiled
 var installedNodePackages = [];
+var useCrossSiteLinks = false;
 
 // entries for cross site links
 var crossSitePromises = {};
@@ -554,8 +555,12 @@ async function compileThemeLayout(themeName, layoutName, pageData, pageInfo) {
 	}
 }
 
-function resolveLinks(pageModel, context, sitePrefix) {
+function resolveLinks(pageModel, context, sitePrefix, fromContentClient) {
 	trace('resolveLinks: pageModel=' + pageModel + ', sitePrefix=' + sitePrefix);
+
+	// Note: Expand page macros unless called from content client and using cross-site links
+	//       These page macros will instead be expanded when the page is written out
+	var expandPages = !(fromContentClient && useCrossSiteLinks);
 
 	var tempVar = pageModel;
 	if (typeof pageModel === 'object') {
@@ -646,15 +651,22 @@ function resolveLinks(pageModel, context, sitePrefix) {
 
 	// Also fix up [!--$SCS_PAGE--]42[/!--$SCS_PAGE--] links that might appear in inline component data
 	// Also handle params [!--$SCS_PAGE--]42|param1=firstParam&amp;param2=secondParam[/!--$SCS_PAGE--] 
-	tempVar = tempVar.replace(regPageLink, function (match, pageId) {
-		var replacement;
-		var linkData = getPageLinkData(pageId, sitePrefix, context.navMap, context.pageLocale, context.localeAlias);
-		if (linkData && (typeof linkData.href === 'string')) {
-			replacement = linkData.href;
-		}
+	if (expandPages) {
+		// use the pageLocal if it exists. 
+		// if the pageLocale doesn't exist, then the page is rendering in  the defaultLocale so use that
+		// if the defaultLocale doesn't exist, then the default locale is not included in the URL so don't use any locale value
+		var ctxPageLocale = context.pageLocale || defaultLocale || '';
 
-		return replacement;
-	});
+		tempVar = tempVar.replace(regPageLink, function (match, pageId) {
+			var replacement;
+			var linkData = getPageLinkData(pageId, sitePrefix, context.navMap, ctxPageLocale, context.localeAlias);
+			if (linkData && (typeof linkData.href === 'string')) {
+				replacement = linkData.href;
+			}
+
+			return replacement;
+		});
+	}
 
 	var generateDigitalAssetLink = function (parameters) {
 		// Account for rendition parameters, if present
@@ -990,7 +1002,7 @@ class ComponentCrossSiteLinks {
 		// ToDo: Formalize how to get this value - default to current customer value stored against the site property
 		this.vanityURLPropertyName = 'SITE_VANITY_DOMAIN'; 
 		this.crossSiteLinksPropertyName = 'USE_CROSS_SITE_LINKS'; 
-		this.useCrossSiteLinks = (rootSiteInfo && rootSiteInfo.properties['customProperties'] || {})[this.crossSiteLinksPropertyName] === 'true';
+		useCrossSiteLinks = (rootSiteInfo && rootSiteInfo.properties['customProperties'] || {})[this.crossSiteLinksPropertyName] === 'true';
 	}
 
 	getRemoteSiteVanityURL (remoteSiteEntry) {
@@ -1008,6 +1020,14 @@ class ComponentCrossSiteLinks {
 		var remoteSiteStructure = remoteSite.siteStructure || {
 			pageMap: {}
 		}; 
+		var remoteSiteProps = (remoteSite.siteInfo || {}).properties || {};
+
+		// see if the remote site has the locale as this page
+		// also get the default locale from the remote site
+		var remoteSiteHasLocale = (remoteSiteProps.availableLanguages || []).indexOf(this.SCSCompileAPI.pageLocale) !== -1;
+		var remoteSiteDefaultLanguage = remoteSiteProps.defaultLanguage || '';
+		var remoteSiteLocaleAliases = remoteSiteProps.localeAliases || {};
+		var remoteSiteDefaultLocale = remoteSiteLocaleAliases[remoteSiteDefaultLanguage] || remoteSiteDefaultLanguage;
 
 		// find the page we're looking for
 		var pageEntry = remoteSiteStructure.pageMap[pageId];
@@ -1022,7 +1042,13 @@ class ComponentCrossSiteLinks {
 		var remoteLocale = '';
 		var defaultLanguage = rootSiteInfo && rootSiteInfo.properties && rootSiteInfo.properties.defaultLanguage;
 		if ((this.SCSCompileAPI.pageLocale !== defaultLanguage) || includeLocale) {
-			remoteLocale = this.SCSCompileAPI.localeAlias || this.SCSCompileAPI.pageLocale || '';
+			// if the current locale language doesn't exist in the remote site, then we use the 
+			// default locale of the remote site. 
+			if (remoteSiteHasLocale) {
+				remoteLocale = this.SCSCompileAPI.localeAlias || this.SCSCompileAPI.pageLocale || '';
+			} else {
+				remoteLocale = remoteSiteDefaultLocale;
+			}
 		}
 
 		// construct the URL to the remote page
@@ -1171,7 +1197,7 @@ class ComponentCrossSiteLinks {
 	parseCrossSiteLinks (compiledComp) {
 		var $ = cheerio.load('<div>');
 
-		if (this.useCrossSiteLinks) {
+		if (useCrossSiteLinks) {
 			return new Promise ((resolve, reject) => {
 				if (compiledComp && compiledComp.content) {
 					// parse the component content and find any cross site links
@@ -1415,7 +1441,7 @@ var compiler = {
 						// override the expand macros function to use the compiler tokens expansion
 						// this is because the relative page URLs are only known to the compiler 
 						self.contentClients[type || 'default'].expandMacros = function (value) {
-							return resolveLinks(value, self.context, self.sitePrefix);
+							return resolveLinks(value, self.context, self.sitePrefix, true);
 						};
 					}
 

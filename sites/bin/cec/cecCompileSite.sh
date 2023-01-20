@@ -26,6 +26,7 @@ then
   echo " -s --siteName siteName"
   echo " -r --server registered server"
   echo " -f --folder cec install folder"
+  echo " -j --jobId jobId"
   echo " -h --timeout"
   echo " "
   echo "example: "
@@ -53,6 +54,11 @@ case $key in
     ;;
     -f|--folder)
     CEC_INSTALL_FOLDER="$2"
+    shift # past argument
+    shift # past value
+    ;;
+    -j|--jobId)
+    JOB_ID="$2"
     shift # past argument
     shift # past value
     ;;
@@ -183,6 +189,31 @@ cat ${COMPILE_LOG_FILE} | tee -a ${LOG_FILE}
 echo "Elapsed time: ${SECONDS}s" | tee -a ${LOG_FILE}
 FINISH_TIME=`date -u +"%Y-%m-%dT%H:%M:%SZ"`
 
+uploadJobFile () {
+  echo "Upload the log file to the server"
+  # Note: This expects the `cec upload-file` command output to contain a line in the format of: 
+  #  - file ${LOG_FILE} uploaded to folder site:${SITE_NAME} (Id: D47883C8A128A2770CBC947CA1B974BCDE24E503FDCA version:3 size: 2312) [0s]
+  LOG_FILE_DETAILS=`cec upload-file ${LOG_FILE} -f site:${SITE_NAME} -s ${REGISTERED_SERVER} | grep "uploaded to folder" | awk -F'[)(]' '{print $2}'`
+
+  # check if the jobId was passed on the command line
+  if [[ $JOB_ID == job* ]]
+  then
+     echo "No jobId on the command line, log file is not associated with any compilation job"
+  else
+    echo "extract the GUID and version from the upload message"
+    LOG_FILE_GUID=`echo ${LOG_FILE_DETAILS} | awk '{print $2}'`
+    LOG_FILE_VERSION=`echo ${LOG_FILE_DETAILS} | awk '{print $3}' | cut -d ':' -f 2`
+
+    if [ -z "${LOG_FILE_GUID}" ]
+    then
+      echo "No compilation log file guid, log file is not associated with any compilation job"
+    else
+      echo "Associating log file '${LOG_FILE_GUID}:${LOG_FILE_VERSION}' with compilation job '${JOB_ID}'"
+      cec update-site ${SITE_NAME} -s ${REGISTERED_SERVER} -c '{"parentJobID": "'${JOB_ID}'", "compilationLogID": "'${LOG_FILE_GUID}':'${LOG_FILE_VERSION}'"}'
+    fi
+  fi
+}
+
 # Check the exit result 
 # - successful finish is 0
 # - failure will have a non-zero code
@@ -190,7 +221,7 @@ FINISH_TIME=`date -u +"%Y-%m-%dT%H:%M:%SZ"`
 if [ "${FINISH_RESULT}" -eq "0" ]
 then
   echo "Upload the log file"
-  cec upload-file ${LOG_FILE} -f site:${SITE_NAME}/ -s ${REGISTERED_SERVER}
+  uploadJobFile
 
   echo "Updating metadata to make sure job is marked as complete"
   cec update-site ${SITE_NAME} -s ${REGISTERED_SERVER} -m '{"scsCompileStatus": {"jobId":"'${JOB_ID}'","status":"COMPILED","progress":"100%","compiledAt":"'${FINISH_TIME}'"}}'
@@ -205,7 +236,7 @@ else
   fi
 
   echo "Upload the log file"
-  cec upload-file ${LOG_FILE} -f site:${SITE_NAME}/ -s ${REGISTERED_SERVER}
+  uploadJobFile
 
   # note that the compilation completed with errors
   echo "Updating metadata to make sure job is marked as complete, regardless of how the process exited"
